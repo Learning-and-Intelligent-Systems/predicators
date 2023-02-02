@@ -1,7 +1,8 @@
 """Base class for an environment."""
 
 import abc
-from typing import Callable, List, Optional, Set
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,7 +12,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, DefaultTask, \
-    ParameterizedOption, Predicate, State, Task, Type, Video
+    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
+    Video
 
 
 class BaseEnv(abc.ABC):
@@ -169,8 +171,38 @@ class BaseEnv(abc.ABC):
     def get_test_tasks(self) -> List[Task]:
         """Return the ordered list of tasks for testing / evaluation."""
         if not self._test_tasks:
-            self._test_tasks = self._generate_test_tasks()
+            if CFG.test_task_json_dir is not None:
+                files = list(Path(CFG.test_task_json_dir).glob("*.json"))
+                assert len(files) >= CFG.num_test_tasks
+                self._test_tasks = [
+                    self._load_task_from_json(f)
+                    for f in files[:CFG.num_test_tasks]
+                ]
+            else:
+                self._test_tasks = self._generate_test_tasks()
         return self._test_tasks
+
+    def _load_task_from_json(self, json_file: Path) -> Task:
+        """Create a task from a JSON file.
+
+        Not all environments support this.
+        """
+        raise NotImplementedError("This environment did not implement an "
+                                  "interface for loading JSON tasks!")
+
+    def _parse_goal_from_json(self, spec: Dict[str, List[List[str]]],
+                              id_to_obj: Dict[str, Object]) -> Set[GroundAtom]:
+        """Helper for parsing goals from JSON task specifications."""
+        goal_pred_names = {p.name for p in self.goal_predicates}
+        assert set(spec.keys()).issubset(goal_pred_names)
+        pred_to_args = {p: spec.get(p.name, []) for p in self.goal_predicates}
+        goal: Set[GroundAtom] = set()
+        for pred, args in pred_to_args.items():
+            for id_args in args:
+                obj_args = [id_to_obj[a] for a in id_args]
+                goal_atom = GroundAtom(pred, obj_args)
+                goal.add(goal_atom)
+        return goal
 
     def get_task(self, train_or_test: str, task_idx: int) -> Task:
         """Return the train or test task at the given index."""

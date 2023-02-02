@@ -118,6 +118,9 @@ def test_cover(env_name):
     with pytest.raises(NotImplementedError) as e:
         env.get_event_to_action_fn()
     assert "did not implement an interface for human demonstrations" in str(e)
+    with pytest.raises(NotImplementedError) as e:
+        env._load_task_from_json("")  # pylint:disable=protected-access
+    assert "did not implement an interface for loading JSON tasks" in str(e)
 
 
 def test_cover_typed_options():

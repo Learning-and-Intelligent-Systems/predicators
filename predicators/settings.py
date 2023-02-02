@@ -32,6 +32,8 @@ class GlobalSettings:
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
     test_env_seed_offset = 10000
+    # Optionally define test tasks in JSON format
+    test_task_json_dir = None
     # The method to use for segmentation. By default, segment using options.
     # If you are learning options, you should change this via the command line.
     segmenter = "option_changes"
@@ -64,7 +66,6 @@ class GlobalSettings:
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
-    blocks_test_task_json_dir = None
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
 
