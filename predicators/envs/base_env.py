@@ -194,7 +194,7 @@ class BaseEnv(abc.ABC):
     def _get_language_goal_prompt_prefix(self) -> str:
         """Create a prompt to prepend to a language model query for parsing
         language-based goals into goal atoms.
-        
+
         Since the language model isqueried with "#" as the stop token,
         and since the goal atoms are processed with _parse_goal_from_json(),
         the following format is highly recommended:
