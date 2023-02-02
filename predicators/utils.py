@@ -2899,3 +2899,21 @@ def find_all_balanced_expressions(s: str) -> List[str]:
     assert balance == 0
     exprs.append(s[start_index:index + 1])
     return exprs
+
+
+def f_range_intersection(lb1: float, ub1: float, lb2: float,
+                         ub2: float) -> bool:
+    """Given upper and lower bounds for two feature ranges, returns True iff
+    the ranges intersect."""
+    return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
+
+
+def roundrobin(iterables: Sequence[Iterator]) -> Iterator:
+    """roundrobin(['ABC...', 'D...', 'EF...']) --> A D E B F C..."""
+    # Recipe credited to George Sakkis, code adapted slightly from
+    # from https://docs.python.org/3/library/itertools.html
+    num_active = len(iterables)
+    nexts = itertools.cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        for nxt in nexts:
+            yield nxt()
