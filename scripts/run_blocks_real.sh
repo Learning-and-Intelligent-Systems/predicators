@@ -36,7 +36,7 @@ python scripts/run_blocks_perception.py \
 echo "Running planning with oracle models."
 python predicators/main.py --env pybullet_blocks --approach oracle \
     --seed $SEED --num_test_tasks 1 \
-    --blocks_test_task_json_dir $TASK_DIR \
+    --test_task_json_dir $TASK_DIR \
     --pybullet_robot panda \
     --option_model_use_gui $VIZ_PLANNING \
     --option_model_name oracle --option_model_terminate_on_repeat False \
