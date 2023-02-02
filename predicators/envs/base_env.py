@@ -186,7 +186,8 @@ class BaseEnv(abc.ABC):
 
         Not all environments support this.
         """
-        raise NotImplementedError("Override me!")
+        raise NotImplementedError("This environment did not implement an "
+                                  "interface for loading JSON tasks!")
 
     def get_task(self, train_or_test: str, task_idx: int) -> Task:
         """Return the train or test task at the given index."""
