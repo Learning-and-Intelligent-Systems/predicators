@@ -121,6 +121,9 @@ def test_cover(env_name):
     with pytest.raises(NotImplementedError) as e:
         env._load_task_from_json("")  # pylint:disable=protected-access
     assert "did not implement an interface for loading JSON tasks" in str(e)
+    with pytest.raises(NotImplementedError) as e:
+        env._get_language_goal_prompt_prefix()  # pylint:disable=protected-access
+    assert "did not implement an interface for language-based goals" in str(e)
 
 
 def test_cover_typed_options():
