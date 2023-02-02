@@ -41,12 +41,13 @@ from predicators import utils
 from predicators.approaches import create_approach
 from predicators.approaches.refinement_estimation_approach import \
     RefinementEstimationApproach
+from predicators.args import create_arg_parser
 from predicators.envs import BaseEnv, create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase, create_option_model
-from predicators.planning import PlanningFailure, PlanningTimeout, \
-    _MaxSkeletonsFailure, _skeleton_generator, _SkeletonSearchTimeout, \
-    run_low_level_search
+from predicators.planning import PlanningTimeout, _MaxSkeletonsFailure, \
+    _skeleton_generator, _SkeletonSearchTimeout, filter_nsrts, \
+    run_low_level_search, sesame_ground_nsrts
 from predicators.settings import CFG
 from predicators.structs import NSRT, Metrics, ParameterizedOption, \
     Predicate, RefinementDatapoint, Task, Type
@@ -59,11 +60,11 @@ def train_refinement_estimation_approach() -> None:
     script_start = time.perf_counter()
 
     # Parse & validate args
-    parser = utils.create_arg_parser()
+    parser = create_arg_parser()
     # Add script-specific flags to the parser
-    parser.add_argument("--refinement_data_file_name", default="", type=str)
-    parser.add_argument("--skip_refinement_estimator_training",
-                        action="store_true")
+    # parser.add_argument("--refinement_data_file_name", default="", type=str)
+    # parser.add_argument("--skip_refinement_estimator_training",
+    #                     action="store_true")
     args = utils.parse_args_with_parser(parser)
     utils.update_config(args)
     str_args = " ".join(sys.argv)
@@ -196,41 +197,14 @@ def _collect_refinement_data_for_task(task: Task,
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     ground_nsrt_start_time = time.perf_counter()
-    if CFG.sesame_grounder == "naive":
-        ground_nsrts = []
-        for nsrt in sorted(nsrts):
-            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-                ground_nsrts.append(ground_nsrt)
-                if time.perf_counter() - ground_nsrt_start_time > \
-                        ground_nsrt_timeout:
-                    raise PlanningTimeout("Planning timed out in grounding!")
-    elif CFG.sesame_grounder == "fd_translator":
-        # WARNING: there is no easy way to check the timeout within this call,
-        # since Fast Downward's translator is a third-party function. We'll
-        # just check the timeout afterward.
-        ground_nsrts = list(
-            utils.all_ground_nsrts_fd_translator(nsrts, objects, predicates,
-                                                 types, init_atoms, task.goal))
-        if time.perf_counter() - ground_nsrt_start_time > ground_nsrt_timeout:
-            raise PlanningTimeout("Planning timed out in grounding!")
-    else:
-        raise ValueError(
-            f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+    ground_nsrts = sesame_ground_nsrts(task, init_atoms, nsrts, objects,
+                                       predicates, types,
+                                       ground_nsrt_start_time,
+                                       ground_nsrt_timeout)
     metrics: Metrics = defaultdict(float)
     # Optionally exclude NSRTs with empty effects, because they can slow
     # the search significantly, so we may want to exclude them.
-    nonempty_ground_nsrts = [
-        nsrt for nsrt in ground_nsrts
-        if (nsrt.add_effects | nsrt.delete_effects)
-    ]
-    all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
-                                                    init_atoms)
-    if not task.goal.issubset(all_reachable_atoms):
-        raise PlanningFailure(f"Goal {task.goal} not dr-reachable")
-    reachable_nsrts = [
-        nsrt for nsrt in nonempty_ground_nsrts
-        if nsrt.preconditions.issubset(all_reachable_atoms)
-    ]
+    reachable_nsrts = filter_nsrts(task, init_atoms, ground_nsrts)
     heuristic = utils.create_task_planning_heuristic(
         CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
         reachable_nsrts, predicates, objects)

@@ -2680,7 +2680,9 @@ def parse_args(env_required: bool = True,
 def parse_args_with_parser(parser: ArgumentParser) -> Dict[str, Any]:
     """Helper function for parse_args that accepts a parser argument."""
     args, overrides = parser.parse_known_args()
+    logging.info(args)
     arg_dict = vars(args)
+    logging.info(arg_dict)
     if len(overrides) == 0:
         return arg_dict
     # Update initial settings to make sure we're overriding
