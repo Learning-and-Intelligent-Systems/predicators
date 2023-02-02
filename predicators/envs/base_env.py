@@ -196,9 +196,9 @@ class BaseEnv(abc.ABC):
         """Create a prompt to prepend to a language model query for parsing
         language-based goals into goal atoms.
 
-        Since the language model isqueried with "#" as the stop token,
+        Since the language model is queried with "#" as the stop token,
         and since the goal atoms are processed with _parse_goal_from_json(),
-        the following format is highly recommended:
+        the following format of hashtags and JSON dicts is necessary:
 
         # Build a tower of block 1, block 2, and block 3, with block 1 on top
         {"On": [["block1", "block2"], ["block2", "block3"]]}
