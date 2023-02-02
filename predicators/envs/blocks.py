@@ -204,11 +204,6 @@ class BlocksEnv(BaseEnv):
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
-        if CFG.blocks_test_task_json_dir is not None:
-            files = list(Path(CFG.blocks_test_task_json_dir).glob("*.json"))
-            assert len(files) >= CFG.num_test_tasks
-            return [self._load_task_from_json(f) for f in files]
-
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self._num_blocks_test,
                                rng=self._test_rng)

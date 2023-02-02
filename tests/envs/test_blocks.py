@@ -181,7 +181,7 @@ def test_blocks_load_task_from_json():
         utils.reset_config({
             "env": "blocks",
             "num_test_tasks": 1,
-            "blocks_test_task_json_dir": json_dir
+            "test_task_json_dir": json_dir
         })
 
         env = BlocksEnv()
@@ -239,7 +239,7 @@ robby              1.35      0.75       0.7          1
             utils.reset_config({
                 "env": "blocks",
                 "num_test_tasks": 1,
-                "blocks_test_task_json_dir": json_dir
+                "test_task_json_dir": json_dir
             })
 
             env = BlocksEnv()
