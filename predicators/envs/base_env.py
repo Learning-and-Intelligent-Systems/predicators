@@ -10,6 +10,7 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.llm_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, DefaultTask, \
     GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
@@ -190,6 +191,24 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("This environment did not implement an "
                                   "interface for loading JSON tasks!")
 
+    def _get_language_goal_prompt_prefix(self) -> str:
+        """Create a prompt to prepend to a language model query for parsing
+        language-based goals into goal atoms.
+        
+        Since the language model isqueried with "#" as the stop token,
+        and since the goal atoms are processed with _parse_goal_from_json(),
+        the following format is highly recommended:
+
+        # Build a tower of block 1, block 2, and block 3, with block 1 on top
+        {"On": [["block1", "block2"], ["block2", "block3"]]}
+
+        # Put block 4 on block 3 and block 2 on block 1 and block 1 on table
+        {"On": [["block4", "block3"], ["block2", "block1"]],
+         "OnTable": [["block1"]]}
+        """
+        raise NotImplementedError("This environment did not implement an "
+                                  "interface for language-based goals!")
+
     def _parse_goal_from_json(self, spec: Dict[str, List[List[str]]],
                               id_to_obj: Dict[str, Object]) -> Set[GroundAtom]:
         """Helper for parsing goals from JSON task specifications."""
@@ -203,6 +222,20 @@ class BaseEnv(abc.ABC):
                 goal_atom = GroundAtom(pred, obj_args)
                 goal.add(goal_atom)
         return goal
+
+    def _parse_language_goal_from_json(
+            self, language_goal: str,
+            id_to_obj: Dict[str, Object]) -> Set[GroundAtom]:
+        """Helper for parsing language-based goals from JSON task specs."""
+        prompt_prefix = self._get_language_goal_prompt_prefix()
+        prompt = prompt_prefix + f"\n# {language_goal}"
+        llm = OpenAILLM(CFG.llm_model_name)
+        responses = llm.sample_completions(prompt,
+                                           temperature=0.0,
+                                           seed=CFG.seed,
+                                           stop_token="#")
+        response = responses[0]
+        import ipdb; ipdb.set_trace()
 
     def get_task(self, train_or_test: str, task_idx: int) -> Task:
         """Return the train or test task at the given index."""
