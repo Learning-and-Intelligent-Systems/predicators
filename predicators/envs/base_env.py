@@ -8,6 +8,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
+import json
 
 from predicators import utils
 from predicators.llm_interface import OpenAILLM
@@ -235,7 +236,11 @@ class BaseEnv(abc.ABC):
                                            seed=CFG.seed,
                                            stop_token="#")
         response = responses[0]
-        import ipdb; ipdb.set_trace()
+        # Currently assumes that the LLM is perfect. In the future, will need
+        # to handle various errors and perhaps query the LLM for multiple
+        # responses until we find one that can be parsed.
+        goal_spec = json.loads(response)
+        return self._parse_goal_from_json(goal_spec, id_to_obj)
 
     def get_task(self, train_or_test: str, task_idx: int) -> Task:
         """Return the train or test task at the given index."""
