@@ -1,6 +1,7 @@
 """Base class for an environment."""
 
 import abc
+import json
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set
 
@@ -8,7 +9,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
-import json
 
 from predicators import utils
 from predicators.llm_interface import OpenAILLM
