@@ -52,8 +52,9 @@ def test_llm_open_loop_approach():
                                 prompt,
                                 temperature,
                                 seed,
+                                stop_token=None,
                                 num_completions=1):
-            del prompt, temperature, seed, num_completions  # unused
+            del prompt, temperature, seed, stop_token, num_completions
             return [self.response]
 
     llm = _MockLLM()

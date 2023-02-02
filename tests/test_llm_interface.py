@@ -18,11 +18,12 @@ class _DummyLLM(LargeLanguageModel):
                             prompt,
                             temperature,
                             seed,
+                            stop_token=None,
                             num_completions=1):
         completions = []
         for _ in range(num_completions):
-            completion = (f"Prompt was: {prompt}. Seed: {seed}. "
-                          f"Temp: {temperature:.1f}.")
+            completion = (f"Prompt: {prompt}. Seed: {seed}. "
+                          f"Temp: {temperature:.1f}. Stop: {stop_token}.")
             completions.append(completion)
         return completions
 
@@ -36,22 +37,33 @@ def test_large_language_model():
     # Query a dummy LLM.
     llm = _DummyLLM()
     assert llm.get_id() == "dummy"
-    completions = llm.sample_completions("Hello world!", 0.5, 123, 3)
-    expected_completion = "Prompt was: Hello world!. Seed: 123. Temp: 0.5."
+    completions = llm.sample_completions("Hello!",
+                                         0.5,
+                                         123,
+                                         stop_token="#stop",
+                                         num_completions=3)
+    expected_completion = "Prompt: Hello!. Seed: 123. Temp: 0.5. Stop: #stop."
     assert completions == [expected_completion] * 3
     # Query it again, covering the case where we load from disk.
-    completions = llm.sample_completions("Hello world!", 0.5, 123, 3)
+    completions = llm.sample_completions("Hello!",
+                                         0.5,
+                                         123,
+                                         stop_token="#stop",
+                                         num_completions=3)
     assert completions == [expected_completion] * 3
     # Query with temperature 0.
-    completions = llm.sample_completions("Hello world!", 0.0, 123, 3)
-    expected_completion = "Prompt was: Hello world!. Seed: 123. Temp: 0.0."
+    completions = llm.sample_completions("Hello!", 0.0, 123, num_completions=3)
+    expected_completion = "Prompt: Hello!. Seed: 123. Temp: 0.0. Stop: None."
     assert completions == [expected_completion] * 3
     # Clean up the cache dir.
     shutil.rmtree(cache_dir)
     # Test llm_use_cache_only.
     utils.update_config({"llm_use_cache_only": True})
     with pytest.raises(ValueError) as e:
-        completions = llm.sample_completions("Hello world!", 0.5, 123, 3)
+        completions = llm.sample_completions("Hello!",
+                                             0.5,
+                                             123,
+                                             num_completions=3)
     assert "No cached response found for LLM prompt." in str(e)
 
 
@@ -66,8 +78,8 @@ def test_openai_llm():
     assert llm.get_id() == "openai-text-curie-001"
     # Uncomment this to test manually, but do NOT uncomment in master, because
     # each query costs money.
-    # completions = llm.sample_completions("Hello", 0.5, 123, 2)
+    # completions = llm.sample_completions("Hi", 0.5, 123, num_completions=2)
     # assert len(completions) == 2
-    # completions2 = llm.sample_completions("Hello", 0.5, 123, 2)
+    # completions2 = llm.sample_completions("Hi", 0.5, 123, num_completions=2)
     # assert completions == completions2
     # shutil.rmtree(cache_dir)

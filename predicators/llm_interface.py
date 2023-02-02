@@ -3,7 +3,7 @@
 import abc
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 import openai
 
@@ -34,6 +34,7 @@ class LargeLanguageModel(abc.ABC):
                             prompt: str,
                             temperature: float,
                             seed: int,
+                            stop_token: Optional[str] = None,
                             num_completions: int = 1) -> List[str]:
         """This is the main method that subclasses must implement.
 
@@ -46,6 +47,7 @@ class LargeLanguageModel(abc.ABC):
                            prompt: str,
                            temperature: float,
                            seed: int,
+                           stop_token: Optional[str] = None,
                            num_completions: int = 1) -> List[str]:
         """Sample one or more completions from a prompt.
 
@@ -64,9 +66,9 @@ class LargeLanguageModel(abc.ABC):
         prompt_id = hash(prompt)
         # If the temperature is 0, the seed does not matter.
         if temperature == 0.0:
-            config_id = f"most_likely_{num_completions}"
+            config_id = f"most_likely_{num_completions}_{stop_token}"
         else:
-            config_id = f"{temperature}_{seed}_{num_completions}"
+            config_id = f"{temperature}_{seed}_{num_completions}_{stop_token}"
         cache_filename = f"{llm_id}_{config_id}_{prompt_id}.txt"
         cache_filepath = os.path.join(CFG.llm_prompt_cache_dir, cache_filename)
         if not os.path.exists(cache_filepath):
@@ -75,7 +77,7 @@ class LargeLanguageModel(abc.ABC):
             logging.debug(f"Querying LLM {llm_id} with new prompt.")
             # Query the LLM.
             completions = self._sample_completions(prompt, temperature, seed,
-                                                   num_completions)
+                                                   stop_token, num_completions)
             # Cache the completion.
             cache_str = prompt + _CACHE_SEP + _CACHE_SEP.join(completions)
             with open(cache_filepath, 'w', encoding='utf-8') as f:
@@ -118,6 +120,7 @@ class OpenAILLM(LargeLanguageModel):
             prompt: str,
             temperature: float,
             seed: int,
+            stop_token: Optional[str] = None,
             num_completions: int = 1) -> List[str]:  # pragma: no cover
         del seed  # unused
         response = openai.Completion.create(
@@ -125,6 +128,7 @@ class OpenAILLM(LargeLanguageModel):
             prompt=prompt,
             temperature=temperature,
             max_tokens=self._max_tokens,
+            stop=stop_token,
             n=num_completions)
         assert len(response["choices"]) == num_completions
         text_responses = [
