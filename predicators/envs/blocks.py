@@ -598,8 +598,8 @@ class BlocksEnv(BaseEnv):
         return task
 
     def _get_language_goal_prompt_prefix(self) -> str:
-        return """
-# Build a tower of block 1, block 2, and block 3, with block 1 on top
+        # pylint:disable=line-too-long
+        return """# Build a tower of block 1, block 2, and block 3, with block 1 on top
 {"On": [["block1", "block2"], ["block2", "block3"]]}
 
 # Put block 4 on block 3 and block 2 on block 1 and block 1 on table
