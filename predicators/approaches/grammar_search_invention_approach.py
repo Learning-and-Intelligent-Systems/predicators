@@ -169,7 +169,8 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _AttributeDiffCompareClassifier(_BinaryClassifier):
-    """Compare a single feature value with a constant value."""
+    """Compare the difference between two feature values with a constant
+    value."""
     object1_index: int
     object1_type: Type
     attribute1_name: str
@@ -504,10 +505,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
 @dataclass(frozen=True, eq=False, repr=False)
 class _FeatureDiffInequalitiesPredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
-    """Generates features of the form "|0.feature - 1.feature| >= c" or
-    "|0.feature - 1.feature| <= c". This is also capable of
-    generating single-feature inequalities if 0 and 1 are the
-    same type."""
+    """Generates features of the form "|0.feature - 1.feature| <= c"."""
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
@@ -522,22 +520,28 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                     sorted(self.types), 2):
                 for f1 in t1.feature_names:
                     for f2 in t2.feature_names:
-                        # If the types and features are the same, then
-                        # skip.
-                        if t1 == t2 and f1 == f2:
-                            continue
-                        # In this case, we actually need a binary attribute
-                        # comparison classifier.
+                        # To create our classifier, we need to leverage the
+                        # upper and lower bounds of its features.
+                        # First, we extract these and move on if these
+                        # bounds are relatively close together.
                         lb1, ub1 = feature_ranges[t1][f1]
                         if abs(lb1 - ub1) < 1e-6:
                             continue
                         lb2, ub2 = feature_ranges[t2][f2]
                         if abs(lb2 - ub2) < 1e-6:
                             continue
-                        if self.f_range_intersection(lb1, ub1, lb2, ub2):
+                        # Now, we must compute the upper and lower bounds of
+                        # the expression |t1.f1 - t2.f2|. If the intervals
+                        # [lb1, ub1] and [lb2, ub2] overlap, then the lower
+                        # bound of the expression is just 0. Otherwise, if
+                        # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
+                        # ub2 < lb1, the lower bound is |lb1 - ub2|.
+                        if utils.f_range_intersection(lb1, ub1, lb2, ub2):
                             lb = 0.0
                         else:
                             lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+                        # The upper bound for the expression can be
+                        # computed in a similar fashion.
                         ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
 
                         # Scale the constant by the correct range.
@@ -553,12 +557,6 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                         assert pred.arity == 2
                         yield (pred, 2 + cost
                                )  # cost = arity + cost from constant
-
-    def f_range_intersection(self, lb1: float, ub1: float, lb2: float,
-                             ub2: float) -> bool:
-        """Given upper and lower bounds for two feature ranges, returns True
-        iff the ranges intersect."""
-        return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -577,22 +575,11 @@ class _ChainPredicateGrammar(_PredicateGrammar):
     base_grammars: Sequence[_PredicateGrammar]
     alternate: bool = False
 
-    @staticmethod
-    def _roundrobin(iterables: Sequence[Iterator]) -> Iterator:
-        """roundrobin(['ABC...', 'D...', 'EF...']) --> A D E B F C..."""
-        # Recipe credited to George Sakkis, code adapted slightly from
-        # from https://docs.python.org/3/library/itertools.html
-        num_active = len(iterables)
-        nexts = itertools.cycle(iter(it).__next__ for it in iterables)
-        while num_active:
-            for nxt in nexts:
-                yield nxt()
-
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         if not self.alternate:
             return itertools.chain.from_iterable(g.enumerate()
                                                  for g in self.base_grammars)
-        return self._roundrobin([g.enumerate() for g in self.base_grammars])
+        return utils.roundrobin([g.enumerate() for g in self.base_grammars])
 
 
 @dataclass(frozen=True, eq=False, repr=False)
