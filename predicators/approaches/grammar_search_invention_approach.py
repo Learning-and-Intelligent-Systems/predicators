@@ -32,11 +32,13 @@ from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
 def _create_grammar(dataset: Dataset,
                     given_predicates: Set[Predicate]) -> _PredicateGrammar:
     # We start with considering various ways to split either single or
-    # double feature values across our dataset.
+    # two feature values across our dataset.
     grammar: _PredicateGrammar = _SingleFeatureInequalitiesPredicateGrammar(
         dataset)
-    if CFG.grammar_search_grammar_use_double_features:
-        grammar = _DoubleFeatureInequalitiesPredicateGrammar(dataset)
+    if CFG.grammar_search_grammar_use_diff_features:
+        diff_grammar = _FeatureDiffInequalitiesPredicateGrammar(dataset)
+        grammar = _ChainPredicateGrammar([grammar, diff_grammar],
+                                         alternate=True)
     # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.
@@ -123,11 +125,12 @@ class _UnaryClassifier(_ProgrammaticClassifier):
 
 
 class _BinaryClassifier(_ProgrammaticClassifier):
-    """A classifier on two object."""
+    """A classifier on two objects."""
 
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
         assert len(o) == 2
-        return self._classify_object(s, o[0], o[1])
+        o0, o1 = o
+        return self._classify_object(s, o0, o1)
 
     @abc.abstractmethod
     def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
@@ -165,7 +168,7 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _DoubleAttributeCompareClassifier(_BinaryClassifier):
+class _AttributeDiffCompareClassifier(_BinaryClassifier):
     """Compare a single feature value with a constant value."""
     object1_index: int
     object1_type: Type
@@ -499,7 +502,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _DoubleFeatureInequalitiesPredicateGrammar(
+class _FeatureDiffInequalitiesPredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
     """Generates features of the form "|0.feature - 1.feature| >= c" or
     "|0.feature - 1.feature| <= c". This is also capable of
@@ -519,32 +522,10 @@ class _DoubleFeatureInequalitiesPredicateGrammar(
                     sorted(self.types), 2):
                 for f1 in t1.feature_names:
                     for f2 in t2.feature_names:
+                        # If the types and features are the same, then
+                        # skip.
                         if t1 == t2 and f1 == f2:
-                            # Return a single-arity predicate.
-                            lb, ub = feature_ranges[t1][f1]
-                            # Optimization: if lb == ub, there is no variation
-                            # among this feature, so there's no point in trying
-                            # to learn a classifier with it. So, skip the
-                            # feature.
-                            if abs(lb - ub) < 1e-6:
-                                continue
-                            # Scale the constant by the feature range.
-                            k = constant * (ub - lb) + lb
-                            # Only need one of (ge, le) because we can use
-                            # negations to get the other (modulo equality,
-                            # which we shouldn't rely on anyway because of
-                            # precision issues).
-                            comp, comp_str = le, "<="
-                            single_classifier = \
-                                _SingleAttributeCompareClassifier(
-                                0, t1, f1, k, constant_idx, comp, comp_str)
-                            name = str(single_classifier)
-                            types = [t1]
-                            pred = Predicate(name, types, single_classifier)
-                            assert pred.arity == 1
-                            yield (pred, 1 + cost
-                                   )  # cost = arity + cost from constant
-
+                            continue
                         # In this case, we actually need a binary attribute
                         # comparison classifier.
                         lb1, ub1 = feature_ranges[t1][f1]
@@ -563,12 +544,12 @@ class _DoubleFeatureInequalitiesPredicateGrammar(
                         k = constant * (ub - lb) + lb
                         # Create classifier.
                         comp, comp_str = le, "<="
-                        double_classifier = _DoubleAttributeCompareClassifier(
+                        diff_classifier = _AttributeDiffCompareClassifier(
                             0, t1, f1, 1, t2, f2, k, constant_idx, comp,
                             comp_str)
-                        name = str(double_classifier)
+                        name = str(diff_classifier)
                         types = [t1, t2]
-                        pred = Predicate(name, types, double_classifier)
+                        pred = Predicate(name, types, diff_classifier)
                         assert pred.arity == 2
                         yield (pred, 2 + cost
                                )  # cost = arity + cost from constant
@@ -594,10 +575,24 @@ class _GivenPredicateGrammar(_PredicateGrammar):
 class _ChainPredicateGrammar(_PredicateGrammar):
     """Chains together multiple predicate grammars in sequence."""
     base_grammars: Sequence[_PredicateGrammar]
+    alternate: bool = False
+
+    @staticmethod
+    def _roundrobin(iterables: Sequence[Iterator]) -> Iterator:
+        """roundrobin(['ABC...', 'D...', 'EF...']) --> A D E B F C..."""
+        # Recipe credited to George Sakkis, code adapted slightly from
+        # from https://docs.python.org/3/library/itertools.html
+        num_active = len(iterables)
+        nexts = itertools.cycle(iter(it).__next__ for it in iterables)
+        while num_active:
+            for nxt in nexts:
+                yield nxt()
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
-        return itertools.chain.from_iterable(g.enumerate()
-                                             for g in self.base_grammars)
+        if not self.alternate:
+            return itertools.chain.from_iterable(g.enumerate()
+                                                 for g in self.base_grammars)
+        return self._roundrobin([g.enumerate() for g in self.base_grammars])
 
 
 @dataclass(frozen=True, eq=False, repr=False)
