@@ -156,7 +156,8 @@ def test_cluttered_table_pg3_approach():
     utils.reset_config({
         "env": env_name,
         "approach": "pg3",
-        "num_train_tasks": 5,
+        # Needs to be large to see example of dumping.
+        "num_train_tasks": 20,
         "num_test_tasks": 10,
         "strips_learner": "oracle",
         "sampler_learner": "oracle",

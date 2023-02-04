@@ -31,10 +31,14 @@ from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
 
 def _create_grammar(dataset: Dataset,
                     given_predicates: Set[Predicate]) -> _PredicateGrammar:
-    # We start with considering various ways to split single feature values
-    # across our dataset.
+    # We start with considering various ways to split either single or
+    # two feature values across our dataset.
     grammar: _PredicateGrammar = _SingleFeatureInequalitiesPredicateGrammar(
         dataset)
+    if CFG.grammar_search_grammar_use_diff_features:
+        diff_grammar = _FeatureDiffInequalitiesPredicateGrammar(dataset)
+        grammar = _ChainPredicateGrammar([grammar, diff_grammar],
+                                         alternate=True)
     # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.
@@ -120,6 +124,19 @@ class _UnaryClassifier(_ProgrammaticClassifier):
         raise NotImplementedError("Override me!")
 
 
+class _BinaryClassifier(_ProgrammaticClassifier):
+    """A classifier on two objects."""
+
+    def __call__(self, s: State, o: Sequence[Object]) -> bool:
+        assert len(o) == 2
+        o0, o1 = o
+        return self._classify_object(s, o0, o1)
+
+    @abc.abstractmethod
+    def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
+        raise NotImplementedError("Override me!")
+
+
 @dataclass(frozen=True, eq=False, repr=False)
 class _SingleAttributeCompareClassifier(_UnaryClassifier):
     """Compare a single feature value with a constant value."""
@@ -146,6 +163,49 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
             self.object_index]
         vars_str = f"{name}:{self.object_type.name}"
         body_str = (f"({name}.{self.attribute_name} "
+                    f"{self.compare_str} {self.constant:.3})")
+        return vars_str, body_str
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _AttributeDiffCompareClassifier(_BinaryClassifier):
+    """Compare the difference between two feature values with a constant
+    value."""
+    object1_index: int
+    object1_type: Type
+    attribute1_name: str
+    object2_index: int
+    object2_type: Type
+    attribute2_name: str
+    constant: float
+    constant_idx: int
+    compare: Callable[[float, float], bool]
+    compare_str: str
+
+    def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
+        assert obj1.type == self.object1_type
+        assert obj2.type == self.object2_type
+        return self.compare(
+            abs(
+                s.get(obj1, self.attribute1_name) -
+                s.get(obj2, self.attribute2_name)), self.constant)
+
+    def __str__(self) -> str:
+        return (f"(|({self.object1_index}:{self.object1_type.name})."
+                f"{self.attribute1_name} - ({self.object2_index}:"
+                f"{self.object2_type.name}).{self.attribute2_name}|"
+                f"{self.compare_str}[idx {self.constant_idx}]"
+                f"{self.constant:.3})")
+
+    def pretty_str(self) -> Tuple[str, str]:
+        name1 = CFG.grammar_search_classifier_pretty_str_names[
+            self.object1_index]
+        name2 = CFG.grammar_search_classifier_pretty_str_names[
+            self.object2_index]
+        vars_str = (f"{name1}:{self.object1_type.name}, "
+                    f"{name2}:{self.object2_type.name}")
+        body_str = (f"(|{name1}.{self.attribute1_name} - "
+                    f"{name2}.{self.attribute2_name}| "
                     f"{self.compare_str} {self.constant:.3})")
         return vars_str, body_str
 
@@ -443,6 +503,63 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
+class _FeatureDiffInequalitiesPredicateGrammar(
+        _SingleFeatureInequalitiesPredicateGrammar):
+    """Generates features of the form "|0.feature - 1.feature| <= c"."""
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        # Get ranges of feature values from data.
+        feature_ranges = self._get_feature_ranges()
+        # Edge case: if there are no features at all, return immediately.
+        if not any(r for r in feature_ranges.values()):
+            return
+        # 0.5, 0.25, 0.75, 0.125, 0.375, ...
+        constant_generator = _halving_constant_generator(0.0, 1.0)
+        for constant_idx, (constant, cost) in enumerate(constant_generator):
+            for (t1, t2) in itertools.combinations_with_replacement(
+                    sorted(self.types), 2):
+                for f1 in t1.feature_names:
+                    for f2 in t2.feature_names:
+                        # To create our classifier, we need to leverage the
+                        # upper and lower bounds of its features.
+                        # First, we extract these and move on if these
+                        # bounds are relatively close together.
+                        lb1, ub1 = feature_ranges[t1][f1]
+                        if abs(lb1 - ub1) < 1e-6:
+                            continue
+                        lb2, ub2 = feature_ranges[t2][f2]
+                        if abs(lb2 - ub2) < 1e-6:
+                            continue
+                        # Now, we must compute the upper and lower bounds of
+                        # the expression |t1.f1 - t2.f2|. If the intervals
+                        # [lb1, ub1] and [lb2, ub2] overlap, then the lower
+                        # bound of the expression is just 0. Otherwise, if
+                        # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
+                        # ub2 < lb1, the lower bound is |lb1 - ub2|.
+                        if utils.f_range_intersection(lb1, ub1, lb2, ub2):
+                            lb = 0.0
+                        else:
+                            lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+                        # The upper bound for the expression can be
+                        # computed in a similar fashion.
+                        ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
+
+                        # Scale the constant by the correct range.
+                        k = constant * (ub - lb) + lb
+                        # Create classifier.
+                        comp, comp_str = le, "<="
+                        diff_classifier = _AttributeDiffCompareClassifier(
+                            0, t1, f1, 1, t2, f2, k, constant_idx, comp,
+                            comp_str)
+                        name = str(diff_classifier)
+                        types = [t1, t2]
+                        pred = Predicate(name, types, diff_classifier)
+                        assert pred.arity == 2
+                        yield (pred, 2 + cost
+                               )  # cost = arity + cost from constant
+
+
+@dataclass(frozen=True, eq=False, repr=False)
 class _GivenPredicateGrammar(_PredicateGrammar):
     """Enumerates a given set of predicates."""
     given_predicates: Set[Predicate]
@@ -456,10 +573,13 @@ class _GivenPredicateGrammar(_PredicateGrammar):
 class _ChainPredicateGrammar(_PredicateGrammar):
     """Chains together multiple predicate grammars in sequence."""
     base_grammars: Sequence[_PredicateGrammar]
+    alternate: bool = False
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
-        return itertools.chain.from_iterable(g.enumerate()
-                                             for g in self.base_grammars)
+        if not self.alternate:
+            return itertools.chain.from_iterable(g.enumerate()
+                                                 for g in self.base_grammars)
+        return utils.roundrobin([g.enumerate() for g in self.base_grammars])
 
 
 @dataclass(frozen=True, eq=False, repr=False)

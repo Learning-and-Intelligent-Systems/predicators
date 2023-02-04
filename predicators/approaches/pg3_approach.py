@@ -47,11 +47,17 @@ class PG3Approach(NSRTLearningApproach):
         return "pg3"
 
     def _predict_ground_nsrt(self, atoms: Set[GroundAtom],
-                             objects: Set[Object],
-                             goal: Set[GroundAtom]) -> _GroundNSRT:
+                             objects: Set[Object], goal: Set[GroundAtom],
+                             static_predicates: Set[Predicate],
+                             init_atoms: Set[GroundAtom]) -> _GroundNSRT:
         """Predicts next GroundNSRT to be deployed based on the PG3 generated
         policy."""
-        ground_nsrt = utils.query_ldl(self._current_ldl, atoms, objects, goal)
+        ground_nsrt = utils.query_ldl(self._current_ldl,
+                                      atoms,
+                                      objects,
+                                      goal,
+                                      static_predicates=static_predicates,
+                                      init_atoms=init_atoms)
         if ground_nsrt is None:
             raise ApproachFailure("PG3 policy was not applicable!")
         return ground_nsrt
@@ -61,16 +67,22 @@ class PG3Approach(NSRTLearningApproach):
         policy."""
         skeleton = []
         atoms_sequence = []
-        atoms = utils.abstract(task.init, self._initial_predicates)
+        init_atoms = utils.abstract(task.init, self._initial_predicates)
+        atoms = init_atoms
         atoms_sequence.append(atoms)
         current_objects = set(task.init)
+        # Compute static predicates on-the-fly in case the NSRTs change.
+        static_predicates = utils.get_static_preds(
+            self._get_current_nsrts(), self._get_current_predicates())
         start_time = time.perf_counter()
 
         while not task.goal.issubset(atoms):
             if (time.perf_counter() - start_time) >= timeout:
                 raise ApproachFailure("Timeout exceeded")
             ground_nsrt = self._predict_ground_nsrt(atoms, current_objects,
-                                                    task.goal)
+                                                    task.goal,
+                                                    static_predicates,
+                                                    init_atoms)
             atoms = utils.apply_operator(ground_nsrt, atoms)
             skeleton.append(ground_nsrt)
             atoms_sequence.append(atoms)
@@ -361,6 +373,7 @@ class _PG3Heuristic(abc.ABC):
     ) -> None:
         self._predicates = predicates
         self._nsrts = nsrts
+        self._static_predicates = utils.get_static_preds(nsrts, predicates)
         # Convert each train task into (object set, init atoms, goal).
         self._abstract_train_tasks = [(set(task.init),
                                        utils.abstract(task.init,
@@ -389,18 +402,26 @@ class _PolicyEvaluationPG3Heuristic(_PG3Heuristic):
     def _get_score_for_task(self, ldl: LiftedDecisionList,
                             task_idx: int) -> float:
         objects, atoms, goal = self._abstract_train_tasks[task_idx]
-        if self._ldl_solves_abstract_task(ldl, atoms, objects, goal):
+        if self._ldl_solves_abstract_task(ldl, atoms, objects, goal,
+                                          self._static_predicates):
             return 0.0
         return 1.0
 
     @staticmethod
     def _ldl_solves_abstract_task(ldl: LiftedDecisionList,
-                                  atoms: Set[GroundAtom], objects: Set[Object],
-                                  goal: Set[GroundAtom]) -> bool:
+                                  init_atoms: Set[GroundAtom],
+                                  objects: Set[Object], goal: Set[GroundAtom],
+                                  static_predicates: Set[Predicate]) -> bool:
+        atoms = init_atoms
         for _ in range(CFG.horizon):
             if goal.issubset(atoms):
                 return True
-            ground_nsrt = utils.query_ldl(ldl, atoms, objects, goal)
+            ground_nsrt = utils.query_ldl(ldl,
+                                          atoms,
+                                          objects,
+                                          goal,
+                                          static_predicates=static_predicates,
+                                          init_atoms=init_atoms)
             if ground_nsrt is None:
                 return False
             atoms = utils.apply_operator(ground_nsrt, atoms)
@@ -438,7 +459,8 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
         # Note: we need the goal because it's an input to the LDL policy.
         objects, _, goal = self._abstract_train_tasks[task_idx]
         assert goal.issubset(atom_plan[-1])
-        return self._count_missed_steps(ldl, atom_plan, objects, goal)
+        return self._count_missed_steps(ldl, atom_plan, objects, goal,
+                                        self._static_predicates)
 
     @abc.abstractmethod
     def _get_atom_plan_for_task(self, ldl: LiftedDecisionList,
@@ -452,11 +474,17 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
     @staticmethod
     def _count_missed_steps(ldl: LiftedDecisionList,
                             atoms_seq: Sequence[Set[GroundAtom]],
-                            objects: Set[Object],
-                            goal: Set[GroundAtom]) -> float:
+                            objects: Set[Object], goal: Set[GroundAtom],
+                            static_predicates: Set[Predicate]) -> float:
         missed_steps = 0.0
+        init_atoms = atoms_seq[0]
         for t in range(len(atoms_seq) - 1):
-            ground_nsrt = utils.query_ldl(ldl, atoms_seq[t], objects, goal)
+            ground_nsrt = utils.query_ldl(ldl,
+                                          atoms_seq[t],
+                                          objects,
+                                          goal,
+                                          static_predicates=static_predicates,
+                                          init_atoms=init_atoms)
             if ground_nsrt is None:
                 missed_steps += CFG.pg3_plan_compare_inapplicable_cost
             else:
@@ -552,7 +580,12 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
         )
 
         def policy(atoms: _S) -> Optional[_A]:
-            return utils.query_ldl(ldl, set(atoms), objects, goal)
+            return utils.query_ldl(ldl,
+                                   set(atoms),
+                                   objects,
+                                   goal,
+                                   static_predicates=self._static_predicates,
+                                   init_atoms=init)
 
         planned_frozen_atoms_seq, _ = utils.run_policy_guided_astar(
             initial_state=frozenset(init),
