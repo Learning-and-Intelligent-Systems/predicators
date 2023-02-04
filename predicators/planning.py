@@ -194,12 +194,15 @@ def _sesame_plan_with_astar(
                     sorted(proposed_skeletons,
                            key=lambda s: estimator.get_cost(*s)))
             for skeleton, atoms_sequence in gen:
-                necessary_atoms_seq = utils.compute_necessary_atoms_seq(
-                    skeleton, atoms_sequence, task.goal)
+                if CFG.sesame_use_necessary_atoms:
+                    atoms_seq = utils.compute_necessary_atoms_seq(
+                        skeleton, atoms_sequence, task.goal)
+                else:
+                    atoms_seq = atoms_sequence
                 plan, suc = run_low_level_search(
-                    task, option_model, skeleton, necessary_atoms_seq,
-                    new_seed, timeout - (time.perf_counter() - start_time),
-                    metrics, max_horizon)
+                    task, option_model, skeleton, atoms_seq, new_seed,
+                    timeout - (time.perf_counter() - start_time), metrics,
+                    max_horizon)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
