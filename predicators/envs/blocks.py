@@ -204,11 +204,6 @@ class BlocksEnv(BaseEnv):
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
-        if CFG.blocks_test_task_json_dir is not None:
-            files = list(Path(CFG.blocks_test_task_json_dir).glob("*.json"))
-            assert len(files) >= CFG.num_test_tasks
-            return [self._load_task_from_json(f) for f in files]
-
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self._num_blocks_test,
                                rng=self._test_rng)
@@ -591,20 +586,25 @@ class BlocksEnv(BaseEnv):
         }
         init_state = utils.create_state_from_dict(state_dict)
         # Create the goal from the task spec.
-        goal_spec = task_spec["goal"]
-        assert set(goal_spec.keys()).issubset({"On", "OnTable"})
-        on_args = goal_spec.get("On", [])
-        on_table_args = goal_spec.get("OnTable", [])
-        pred_to_args = {self._On: on_args, self._OnTable: on_table_args}
-        goal: Set[GroundAtom] = set()
-        for pred, args in pred_to_args.items():
-            for id_args in args:
-                obj_args = [id_to_obj[a] for a in id_args]
-                goal_atom = GroundAtom(pred, obj_args)
-                goal.add(goal_atom)
+        if "goal" in task_spec:
+            goal = self._parse_goal_from_json(task_spec["goal"], id_to_obj)
+        elif "language_goal" in task_spec:
+            goal = self._parse_language_goal_from_json(
+                task_spec["language_goal"], id_to_obj)
+        else:
+            raise ValueError("JSON task spec must include 'goal'.")
         task = Task(init_state, goal)
         assert not task.goal_holds(init_state)
         return task
+
+    def _get_language_goal_prompt_prefix(self) -> str:
+        # pylint:disable=line-too-long
+        return """# Build a tower of block 1, block 2, and block 3, with block 1 on top
+{"On": [["block1", "block2"], ["block2", "block3"]]}
+
+# Put block 4 on block 3 and block 2 on block 1 and block 1 on table
+{"On": [["block4", "block3"], ["block2", "block1"]], "OnTable": [["block1"]]}
+"""
 
 
 class BlocksEnvClear(BlocksEnv):

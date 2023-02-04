@@ -32,6 +32,8 @@ class GlobalSettings:
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
     test_env_seed_offset = 10000
+    # Optionally define test tasks in JSON format
+    test_task_json_dir = None
     # The method to use for segmentation. By default, segment using options.
     # If you are learning options, you should change this via the command line.
     segmenter = "option_changes"
@@ -64,7 +66,6 @@ class GlobalSettings:
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
-    blocks_test_task_json_dir = None
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
 
@@ -330,6 +331,7 @@ class GlobalSettings:
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
     sesame_check_expected_atoms = True
+    sesame_use_necessary_atoms = True
     sesame_use_visited_state_set = False
     # The algorithm used for grounding the planning problem. Choices are
     # "naive" or "fd_translator". The former does a type-aware cross product
@@ -459,6 +461,7 @@ class GlobalSettings:
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
+    grammar_search_grammar_use_diff_features = False
     grammar_search_use_handcoded_debug_grammar = False
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1

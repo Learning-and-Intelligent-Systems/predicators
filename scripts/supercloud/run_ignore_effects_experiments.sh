@@ -9,7 +9,6 @@ FILE="scripts/supercloud/submit_supercloud_job.py"
 RUN_LOAD_EXPERIMENTS=false
 ALL_ENVS=(
     "repeated_nextto_single_option"
-    "repeated_nextto_ambiguous"
     "repeated_nextto_painting"
     "screws"
     "painting"
@@ -26,7 +25,7 @@ NUM_DEMOS=(
 for ENV in ${ALL_ENVS[@]}; do
     COMMON_ARGS="--env $ENV"
     # Oracle.
-    python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle --approach oracle --num_train_tasks 0
+    # python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle --approach oracle --num_train_tasks 0
 
     for DEMOS in ${NUM_DEMOS[@]}; do
         if [ "$RUN_LOAD_EXPERIMENTS" = true ]; then
@@ -41,8 +40,10 @@ for ENV in ${ALL_ENVS[@]}; do
             # preserve harmlessness, we disable the check because it takes a long
             # time (since the operators have high arity).
             python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_intersect_${DEMOS}demo --approach nsrt_learning --strips_learner cluster_and_intersect --num_train_tasks ${DEMOS} --disable_harmlessness_check True
-            # LOFT baseline. Same note on harmlessness as for cluster-and-intersect.
+            # LOFT baseline without random replays. Same note on harmlessness as for cluster-and-intersect.
             python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_search_${DEMOS}demo --approach nsrt_learning --strips_learner cluster_and_search --num_train_tasks ${DEMOS} --disable_harmlessness_check True
+            # LOFT baseline with random replays. Same note on harmlessness as for cluster-and-intersect.
+            python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_search_random_replays_${DEMOS}demo --approach nsrt_learning --strips_learner cluster_and_search --num_train_tasks ${DEMOS} --disable_harmlessness_check True --offline_data_method demo+replay --sesame_allow_noops False --offline_data_num_replays 2500
             # Prediction error baseline that optimizes via hill climbing. Not
             # guaranteed to preserve harmlessness.
             python $FILE $COMMON_ARGS --experiment_id ${ENV}_pred_error_${DEMOS}demo --approach nsrt_learning --strips_learner cluster_and_intersect_sideline_prederror --num_train_tasks ${DEMOS} --disable_harmlessness_check True

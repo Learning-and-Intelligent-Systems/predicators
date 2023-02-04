@@ -25,16 +25,20 @@ from predicators.structs import NSRT, Action, ParameterizedOption, Predicate, \
 
 
 @pytest.mark.parametrize(
-    "sesame_check_expected_atoms,sesame_grounder,expectation",
-    [(True, "naive", does_not_raise()), (False, "naive", does_not_raise()),
-     (True, "fd_translator", does_not_raise()),
-     (True, "not a real grounder", pytest.raises(ValueError))])
-def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
-                     expectation):
+    "sesame_check_expected_atoms,sesame_grounder,expectation,"
+    "sesame_use_necessary_atoms",
+    [(True, "naive", does_not_raise(), True),
+     (True, "naive", does_not_raise(), False),
+     (False, "naive", does_not_raise(), True),
+     (True, "fd_translator", does_not_raise(), True),
+     (True, "not a real grounder", pytest.raises(ValueError), True)])
+def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder, expectation,
+                     sesame_use_necessary_atoms):
     """Tests for sesame_plan() with A*."""
     utils.reset_config({
         "env": "cover",
         "sesame_check_expected_atoms": sesame_check_expected_atoms,
+        "sesame_use_necessary_atoms": sesame_use_necessary_atoms,
         "sesame_grounder": sesame_grounder,
         "num_test_tasks": 1,
         "sesame_task_planner": "astar",

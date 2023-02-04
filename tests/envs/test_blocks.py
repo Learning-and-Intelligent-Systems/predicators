@@ -6,12 +6,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 import predicators.envs.blocks
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv, BlocksEnvClear
 
-_MODULE_PATH = predicators.envs.blocks.__name__
+_ENV_MODULE_PATH = predicators.envs.blocks.__name__
+_LLM_MODULE_PATH = predicators.llm_interface.__name__
 
 
 def test_blocks():
@@ -181,7 +183,7 @@ def test_blocks_load_task_from_json():
         utils.reset_config({
             "env": "blocks",
             "num_test_tasks": 1,
-            "blocks_test_task_json_dir": json_dir
+            "test_task_json_dir": json_dir
         })
 
         env = BlocksEnv()
@@ -208,6 +210,42 @@ robby              1.35      0.75       0.7          1
         sorted(task.goal)
     ) == "[On(green_block:block, blue_block:block), On(red_block:block, green_block:block), OnTable(blue_block:block)]"
 
+    # Test that an error is raised if we try to parse a task with no goal.
+    task_spec = {
+        "problem_name": "blocks_test_problem2",
+        "blocks": {
+            "red_block": {
+                "position": [1.36409716, 1.0389289, 0.2225],
+                "color": [1, 0, 0]
+            },
+            "green_block": {
+                "position": [1.36409716, 1.0389289, 0.2675],
+                "color": [0, 1, 0]
+            },
+            "blue_block": {
+                "position": [1.35479861, 0.91064759, 0.2225],
+                "color": [0, 0, 1]
+            }
+        },
+        "block_size": 0.045,
+    }
+
+    with tempfile.TemporaryDirectory() as json_dir:
+        json_file = Path(json_dir) / "example_task2.json"
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(task_spec, f)
+
+        utils.reset_config({
+            "env": "blocks",
+            "num_test_tasks": 1,
+            "test_task_json_dir": json_dir
+        })
+
+        env = BlocksEnv()
+        with pytest.raises(ValueError) as e:
+            env.get_test_tasks()
+        assert "JSON task spec must include 'goal'" in str(e)
+
     # Test that a warning is raised if we try to load from a state where the
     # blocks are not in the workspace.
     task_spec = {
@@ -229,7 +267,7 @@ robby              1.35      0.75       0.7          1
         }
     }
 
-    with patch(f"{_MODULE_PATH}.logging") as mock_logging:
+    with patch(f"{_ENV_MODULE_PATH}.logging") as mock_logging:
 
         with tempfile.TemporaryDirectory() as json_dir:
             json_file = Path(json_dir) / "example_task2.json"
@@ -239,7 +277,7 @@ robby              1.35      0.75       0.7          1
             utils.reset_config({
                 "env": "blocks",
                 "num_test_tasks": 1,
-                "blocks_test_task_json_dir": json_dir
+                "test_task_json_dir": json_dir
             })
 
             env = BlocksEnv()
@@ -247,3 +285,56 @@ robby              1.35      0.75       0.7          1
 
     mock_logging.warning.assert_called_once_with(
         "Block out of bounds in initial state!")
+
+    # Test language-based goal specification.
+    task_spec = {
+        "problem_name":
+        "blocks_test_problem3",
+        "blocks": {
+            "red_block": {
+                "position": [1.36409716, 1.0389289, 0.2225],
+                "color": [1, 0, 0]
+            },
+            "green_block": {
+                "position": [1.36409716, 1.0389289, 0.2675],
+                "color": [0, 1, 0]
+            },
+            "blue_block": {
+                "position": [1.35479861, 0.91064759, 0.2225],
+                "color": [0, 0, 1]
+            }
+        },
+        "block_size":
+        0.045,
+        "language_goal":
+        "Make a tower with the red block on the green block "
+        "on the blue block."
+    }
+
+    with tempfile.TemporaryDirectory() as json_dir:
+        json_file = Path(json_dir) / "example_task3.json"
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(task_spec, f)
+
+        utils.reset_config({
+            "env": "blocks",
+            "num_test_tasks": 1,
+            "test_task_json_dir": json_dir
+        })
+
+        env = BlocksEnv()
+
+        with patch(f"{_LLM_MODULE_PATH}.OpenAILLM.sample_completions") as \
+            mock_sample_completions:
+            mock_sample_completions.return_value = [
+                """
+{"On": [["red_block", "green_block"], ["green_block", "blue_block"]],
+ "OnTable": [["blue_block"]]}"""
+            ]
+            test_tasks = env.get_test_tasks()
+
+    assert len(test_tasks) == 1
+    task = test_tasks[0]
+    assert str(
+        sorted(task.goal)
+    ) == "[On(green_block:block, blue_block:block), On(red_block:block, green_block:block), OnTable(blue_block:block)]"
