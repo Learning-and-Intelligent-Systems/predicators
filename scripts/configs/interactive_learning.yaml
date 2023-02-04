@@ -67,11 +67,11 @@ ENVS:
     FLAGS:
       excluded_predicates: "Covers,Holding,HandEmpty"
       max_num_steps_interaction_request: 3
-  blocks:
-    NAME: "blocks_clear"
-    FLAGS:
-      excluded_predicates: "On,OnTable,GripperOpen,Holding,Clear"
-      max_num_steps_interaction_request: 20
+  # blocks:
+  #   NAME: "blocks_clear"
+  #   FLAGS:
+  #     excluded_predicates: "On,OnTable,GripperOpen,Holding,Clear"
+  #     max_num_steps_interaction_request: 20
 ARGS: {}
 FLAGS:  # common args
   num_online_learning_cycles: 100  # way too many cycles
