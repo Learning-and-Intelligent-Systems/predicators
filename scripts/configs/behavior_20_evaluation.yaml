@@ -1,0 +1,160 @@
+# A configuration file for 20 BEHAVIOR tasks.
+---
+APPROACHES:
+  my-oracle:
+    NAME: "oracle"
+    FLAGS:
+      plan_only_eval: True
+      sesame_task_planner: fdopt
+ENVS:
+  boxing_books_up_for_storage-Benevolence_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Benevolence_1_int
+      behavior_test_scene_name: Benevolence_1_int
+      behavior_task_list: "[boxing_books_up_for_storage]"
+      behavior_option_model_eval: True
+  collect_misplaced_items-Merom_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Merom_1_int
+      behavior_test_scene_name: Merom_1_int
+      behavior_task_list: "[collect_misplaced_items]"
+      behavior_option_model_eval: True
+  collecting_aluminum_cans-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Benevolence_2_int
+      behavior_test_scene_name: Benevolence_2_int
+      behavior_task_list: "[collecting_aluminum_cans]"
+      behavior_option_model_eval: True
+  installing_a_fax_machine-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_0_int
+      behavior_test_scene_name: Pomaria_0_int
+      behavior_task_list: "[installing_a_fax_machine]"
+      behavior_option_model_eval: True
+  installing_a_modem-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_0_int
+      behavior_test_scene_name: Pomaria_0_int
+      behavior_task_list: "[installing_a_modem]"
+      behavior_option_model_eval: True
+  installing_a_printer-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_0_int
+      behavior_test_scene_name: Pomaria_0_int
+      behavior_task_list: "[installing_a_printer]"
+      behavior_option_model_eval: True
+  installing_a_scanner-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_0_int
+      behavior_test_scene_name: Pomaria_0_int
+      behavior_task_list: "[installing_a_scanner]"
+      behavior_option_model_eval: True
+  locking_every_door-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_0_int
+      behavior_test_scene_name: Pomaria_0_int
+      behavior_task_list: "[locking_every_door]"
+      behavior_option_model_eval: True
+  locking_every_window-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Rs_int
+      behavior_test_scene_name: Rs_int
+      behavior_task_list: "[locking_every_window]"
+      behavior_option_model_eval: True
+  opening_packages-Pomaria_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_2_int
+      behavior_test_scene_name: Pomaria_2_int
+      behavior_task_list: "[opening_packages]"
+      behavior_option_model_eval: True
+  opening_presents-Pomaria_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_2_int
+      behavior_test_scene_name: Pomaria_2_int
+      behavior_task_list: "[opening_presents]"
+      behavior_option_model_eval: True
+  organizing_file_cabinet-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_0_int
+      behavior_test_scene_name: Pomaria_0_int
+      behavior_task_list: "[organizing_file_cabinet]"
+      behavior_option_model_eval: True
+  picking_up_trash-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Wainscott_0_int
+      behavior_test_scene_name: Wainscott_0_int
+      behavior_task_list: "[picking_up_trash]"
+      behavior_option_model_eval: True
+  polishing_furniture-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Rs_int
+      behavior_test_scene_name: Rs_int
+      behavior_task_list: "[polishing_furniture]"
+      behavior_option_model_eval: True
+  polishing_silver-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Wainscott_0_int
+      behavior_test_scene_name: Wainscott_0_int
+      behavior_task_list: "[polishing_silver]"
+      behavior_option_model_eval: True
+  putting_leftovers_away-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Ihlen_1_int
+      behavior_test_scene_name: Ihlen_1_int
+      behavior_task_list: "[putting_leftovers_away]"
+      behavior_option_model_eval: True
+  re-shelving_library_books-Pomaria_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_1_int
+      behavior_test_scene_name: Pomaria_1_int
+      behavior_task_list: "[re-shelving_library_books]"
+      behavior_option_model_eval: True
+  sorting_books-Pomaria_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Pomaria_1_int
+      behavior_test_scene_name: Pomaria_1_int
+      behavior_task_list: "[sorting_books]"
+      behavior_option_model_eval: True
+  throwing_away_leftovers-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Ihlen_1_int
+      behavior_test_scene_name: Ihlen_1_int
+      behavior_task_list: "[throwing_away_leftovers]"
+      behavior_option_model_eval: True
+  unpacking_suitcase-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_train_scene_name: Ihlen_1_int
+      behavior_test_scene_name: Ihlen_1_int
+      behavior_task_list: "[unpacking_suitcase]"
+      behavior_option_model_eval: True
+ARGS: {}
+FLAGS:  # general flags
+  offline_data_planning_timeout: 1000.0
+  timeout: 1000.0
+  horizon: 1000
+  behavior_override_learned_samplers: True
+  num_train_tasks: 0
+  num_test_tasks: 5
+START_SEED: 0
+NUM_SEEDS: 1
+USE_GPU: True
