@@ -14,8 +14,8 @@ from matplotlib import patches
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type, RGBA
+from predicators.structs import RGBA, Action, Array, GroundAtom, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 from predicators.utils import _Geom2D
 
 
@@ -35,6 +35,14 @@ class SandwichEnv(BaseEnv):
     holder_y_lb: ClassVar[float] = y_lb + holder_length / 2
     holder_y_ub: ClassVar[float] = holder_y_lb + (y_ub - y_lb) * 0.2
     holder_color: ClassVar[RGBA] = (0.5, 0.5, 0.5, 1.0)
+    board_width: ClassVar[float] = (x_ub - x_lb) * 0.8
+    board_length: ClassVar[float] = (y_ub - y_lb) * 0.2
+    board_x_lb: ClassVar[float] = x_lb + board_width / 2
+    board_x_ub: ClassVar[float] = x_ub - board_width / 2
+    board_y_lb: ClassVar[
+        float] = holder_y_lb + holder_length + board_length / 2
+    board_y_ub: ClassVar[float] = board_y_lb + (y_ub - y_lb) * 0.2
+    board_color: ClassVar[RGBA] = (0.1, 0.1, 0.5, 0.8)
     held_tol: ClassVar[float] = 0.5
     on_tol: ClassVar[float] = 0.01
 
@@ -48,10 +56,10 @@ class SandwichEnv(BaseEnv):
         ])
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "pose_z", "fingers"])
-        self._holder_type = Type(
-            "holder", ["pose_x", "pose_y", "length", "width"])
-        self._board_type = Type(
-            "board", ["pose_x", "pose_y", "length", "width"])
+        self._holder_type = Type("holder",
+                                 ["pose_x", "pose_y", "length", "width"])
+        self._board_type = Type("board",
+                                ["pose_x", "pose_y", "length", "width"])
         # Predicates
         self._InHolder = Predicate("InHolder",
                                    [self._ingredient_type, self._holder_type],
@@ -174,7 +182,7 @@ class SandwichEnv(BaseEnv):
                    figscale * (self.y_ub - self.y_lb))
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         ax = plt.gca()
-        
+
         # Draw workspace.
         ws_width = (self.x_ub - self.x_lb)
         ws_length = (self.y_ub - self.y_lb)
@@ -224,12 +232,16 @@ class SandwichEnv(BaseEnv):
             "length": self.holder_length,
             "width": self.holder_width,
         }
-        # Finalize state.
-        state_dict = {
-            self._holder: holder_state
+        # Sampler board state.
+        board_state = {
+            "pose_x": rng.uniform(self.board_x_lb, self.board_x_ub),
+            "pose_y": rng.uniform(self.board_y_lb, self.board_y_ub),
+            "length": self.board_length,
+            "width": self.board_width,
         }
+        # Finalize state.
+        state_dict = {self._holder: holder_state, self._board: board_state}
         return utils.create_state_from_dict(state_dict)
-
 
     def _sample_goal(self, ingredient_to_num: Dict[str, int],
                      rng: np.random.Generator) -> Set[GroundAtom]:
@@ -330,17 +342,22 @@ class SandwichEnv(BaseEnv):
         # TODO
         arr = np.add(self.action_space.low, self.action_space.high) / 2.
         return Action(arr)
-    
+
     def _obj_to_geom2d(self, obj: Object, state: State) -> _Geom2D:
-        if obj.is_instance(self._holder_type):
+        rect_types = [self._holder_type, self._board_type]
+        if any(obj.is_instance(t) for t in rect_types):
             width = state.get(obj, "width")
             length = state.get(obj, "length")
             x = state.get(obj, "pose_x") - width / 2.
             y = state.get(obj, "pose_y") - length / 2.
             return utils.Rectangle(x, y, width, length, 0.0)
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
     def _obj_to_color(self, obj: Object, state: State) -> RGBA:
         if obj.is_instance(self._holder_type):
             return self.holder_color
-        import ipdb; ipdb.set_trace()
+        if obj.is_instance(self._board_type):
+            return self.board_color
+        import ipdb
+        ipdb.set_trace()
