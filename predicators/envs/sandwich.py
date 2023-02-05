@@ -142,13 +142,11 @@ class SandwichEnv(BaseEnv):
         # Options
         self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
-            # params: []
             "Pick",
             self._Pick_policy,
             types=[self._robot_type, self._ingredient_type])
         self._Stack: ParameterizedOption = utils.SingletonParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
-            # params: []
             "Stack",
             self._Stack_policy,
             types=[self._robot_type, self._ingredient_type])
@@ -218,7 +216,7 @@ class SandwichEnv(BaseEnv):
         next_state.set(ing, "pose_x", x)
         next_state.set(ing, "pose_y", y)
         next_state.set(ing, "pose_z", pose_z)
-        next_state.set(ing, "rot", 0)
+        next_state.set(ing, "rot", 0.0)
         next_state.set(ing, "held", 0.0)
         next_state.set(self._robot, "fingers", 1.0)  # open fingers
         return next_state
@@ -226,6 +224,31 @@ class SandwichEnv(BaseEnv):
     def _transition_stack(self, state: State, x: float, y: float,
                           z: float) -> State:
         next_state = state.copy()
+        # Can only stack if fingers are closed
+        if self._GripperOpen_holds(state, [self._robot]):
+            return next_state
+        # Check that both objects exist
+        ing = self._get_held_object(state)
+        assert ing is not None
+        other_ing = self._get_highest_object_below(state, x, y, z)
+        if other_ing is None:  # no object to stack onto
+            return next_state
+        # Can't stack onto yourself!
+        if ing == other_ing:
+            return next_state
+        # Need object we're stacking onto to be clear
+        if not self._object_is_clear(state, other_ing):
+            return next_state
+        # Execute stack by snapping into place
+        cur_x = state.get(other_ing, "pose_x")
+        cur_y = state.get(other_ing, "pose_y")
+        cur_z = state.get(other_ing, "pose_z")
+        next_state.set(ing, "pose_x", cur_x)
+        next_state.set(ing, "pose_y", cur_y)
+        next_state.set(ing, "pose_z", cur_z + self.ingredient_thickness)
+        next_state.set(ing, "rot", 0.0)
+        next_state.set(ing, "held", 0.0)
+        next_state.set(self._robot, "fingers", 1.0)  # open fingers
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -551,8 +574,8 @@ class SandwichEnv(BaseEnv):
         return self._get_held_object(state) == obj
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._object_is_clear(state, obj)
 
     def _IsBread_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
@@ -604,8 +627,19 @@ class SandwichEnv(BaseEnv):
     def _Stack_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del memory, params  # unused
-        # TODO
-        arr = np.add(self.action_space.low, self.action_space.high) / 2.
+        _, ing = objects
+        pose = np.array([
+            state.get(ing, "pose_x"),
+            state.get(ing, "pose_y"),
+            state.get(ing, "pose_z")
+        ])
+        relative_grasp = np.array([
+            0.,
+            0.,
+            self.ingredient_thickness,
+        ])
+        arr = np.r_[pose + relative_grasp, 1.0].astype(np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _PutOnBoard_policy(self, state: State, memory: Dict,
@@ -768,3 +802,28 @@ class SandwichEnv(BaseEnv):
             if state.get(obj, "held") >= self.held_tol:
                 return obj
         return None
+
+    def _get_highest_object_below(self, state: State, x: float, y: float,
+                                 z: float) -> Optional[Object]:
+        objs_here = []
+        for obj in state.get_objects(self._ingredient_type):
+            pose = np.array(
+                [state.get(obj, "pose_x"),
+                 state.get(obj, "pose_y")])
+            obj_z = state.get(obj, "pose_z")
+            if np.allclose([x, y], pose, atol=self.pick_tol) and \
+               obj_z < z - self.pick_tol:
+                objs_here.append((obj, obj_z))
+        if not objs_here:
+            return None
+        return max(objs_here, key=lambda x: x[1])[0]  # highest z
+
+    def _object_is_clear(self, state: State, obj: Object) -> bool:
+        if self._Holding_holds(state, [obj, self._robot]):
+            return False
+        if not self._OnBoard_holds(state, [obj, self._board]):
+            return False
+        for other_obj in state.get_objects(self._ingredient_type):
+            if self._On_holds(state, [other_obj, obj]):
+                return False
+        return True
