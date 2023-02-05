@@ -102,6 +102,28 @@ class GlobalSettings:
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
 
+    # sandwich env parameters
+    sandwich_ingredients_train = {
+        "bread": [2],
+        "burger": [1],
+        "ham": [1],
+        "egg": [1],
+        "cheese": [1],
+        "lettuce": [1],
+        "tomato": [1],
+        "green_pepper": [1],
+    }
+    sandwich_ingredients_test = {
+        "bread": [2],
+        "burger": [1],
+        "ham": [1],
+        "egg": [1],
+        "cheese": [1],
+        "lettuce": [1],
+        "tomato": [1],
+        "green_pepper": [1],
+    }
+
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
