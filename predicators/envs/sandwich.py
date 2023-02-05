@@ -1,8 +1,8 @@
 """Sandwich making domain."""
 
+import itertools
 import json
 import logging
-import itertools
 from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -284,21 +284,24 @@ class SandwichEnv(BaseEnv):
         }
         state_dict = {self._holder: holder_state, self._board: board_state}
         # Sample ingredients.
-        ing_count = itertools.count()
         ing_spacing = self.ingredient_thickness
         # Add padding.
         tot_num_ings = sum(ingredient_to_num.values())
         tot_thickness = tot_num_ings * self.ingredient_thickness
         ing_spacing += (self.holder_length - tot_thickness) / (tot_num_ings -
                                                                1)
+        # Randomly order the ingredients.
+        order_indices = list(range(tot_num_ings))
         for ing, num in ingredient_to_num.items():
             ing_static_features = self._ingredient_to_static_features(ing)
             radius = ing_static_features["radius"]
             for ing_i in range(num):
                 obj_name = f"{ing}{ing_i}"
                 obj = Object(obj_name, self._ingredient_type)
+                order_idx = rng.choice(order_indices)
+                order_indices.remove(order_idx)
                 pose_y = (holder_y - self.holder_length / 2) + \
-                         next(ing_count) * ing_spacing + \
+                         order_idx * ing_spacing + \
                          self.ingredient_thickness / 2.
                 state_dict[obj] = {
                     "pose_x": holder_x,
