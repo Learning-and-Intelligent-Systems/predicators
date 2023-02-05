@@ -15,22 +15,26 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+    ParameterizedOption, Predicate, State, Task, Type, RGBA
+from predicators.utils import _Geom2D
 
 
 class SandwichEnv(BaseEnv):
     """Sandwich making domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
-    # Make it narrow enough that blocks can be only horizontally arranged.
-    # Note that these boundaries are for the block positions, and that a
-    # block's origin is its center, so the block itself may extend beyond
-    # the boundaries while the origin remains in bounds.
-    x_lb: ClassVar[float] = 1.325
-    x_ub: ClassVar[float] = 1.375
+    x_lb: ClassVar[float] = 1.2
+    x_ub: ClassVar[float] = 1.5
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
+    holder_width: ClassVar[float] = (x_ub - x_lb) * 0.8
+    holder_length: ClassVar[float] = (y_ub - y_lb) * 0.4
+    holder_x_lb: ClassVar[float] = x_lb + holder_width / 2
+    holder_x_ub: ClassVar[float] = x_ub - holder_width / 2
+    holder_y_lb: ClassVar[float] = y_lb + holder_length / 2
+    holder_y_ub: ClassVar[float] = holder_y_lb + (y_ub - y_lb) * 0.2
+    holder_color: ClassVar[RGBA] = (0.5, 0.5, 0.5, 1.0)
     held_tol: ClassVar[float] = 0.5
     on_tol: ClassVar[float] = 0.01
 
@@ -45,9 +49,9 @@ class SandwichEnv(BaseEnv):
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "pose_z", "fingers"])
         self._holder_type = Type(
-            "holder", ["pose_x", "pose_y", "pose_z", "width", "height"])
+            "holder", ["pose_x", "pose_y", "length", "width"])
         self._board_type = Type(
-            "board", ["pose_x", "pose_y", "pose_z", "width", "height"])
+            "board", ["pose_x", "pose_y", "length", "width"])
         # Predicates
         self._InHolder = Predicate("InHolder",
                                    [self._ingredient_type, self._holder_type],
@@ -103,6 +107,8 @@ class SandwichEnv(BaseEnv):
             types=[self._robot_type])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        self._holder = Object("holder", self._holder_type)
+        self._board = Object("board", self._board_type)
         self._num_ingredients_train = CFG.sandwich_ingredients_train
         self._num_ingredients_test = CFG.sandwich_ingredients_test
 
@@ -163,11 +169,34 @@ class SandwichEnv(BaseEnv):
             task: Task,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
-        fig = plt.figure()
+        figscale = 10.0
+        figsize = (figscale * (self.x_ub - self.x_lb),
+                   figscale * (self.y_ub - self.y_lb))
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        ax = plt.gca()
+        
+        # Draw workspace.
+        ws_width = (self.x_ub - self.x_lb)
+        ws_length = (self.y_ub - self.y_lb)
+        ws_x = self.x_lb
+        ws_y = self.y_lb
+        workspace_rect = utils.Rectangle(ws_x, ws_y, ws_width, ws_length, 0.0)
+        workspace_rect.plot(ax, facecolor="white", edgecolor="black")
+
+        # Draw objects.
+        for obj in state:
+            geom = self._obj_to_geom2d(obj, state)
+            color = self._obj_to_color(obj, state)
+            geom.plot(ax, facecolor=color, edgecolor="black")
+
         title = ""
         if caption is not None:
             title += f"; {caption}"
         plt.suptitle(title, fontsize=24, wrap=True)
+
+        ax.set_xlim(self.x_lb, self.x_ub)
+        ax.set_ylim(self.y_lb, self.y_ub)
+        ax.axis("off")
         plt.tight_layout()
         return fig
 
@@ -181,18 +210,31 @@ class SandwichEnv(BaseEnv):
                 ing_to_num[ing_name] = num_ing
             init_state = self._sample_initial_state(ing_to_num, rng)
             goal = self._sample_goal(ing_to_num, rng)
-            goal_holds = all(goal_atom.holds(init_state) for goal_atom in goal)
-            assert not goal_holds
+            # goal_holds = all(goal_atom.holds(init_state) for goal_atom in goal)
+            # assert not goal_holds
             tasks.append(Task(init_state, goal))
         return tasks
 
     def _sample_initial_state(self, ingredient_to_num: Dict[str, int],
                               rng: np.random.Generator) -> State:
-        import ipdb; ipdb.set_trace()
+        # Sample holder state.
+        holder_state = {
+            "pose_x": rng.uniform(self.holder_x_lb, self.holder_x_ub),
+            "pose_y": rng.uniform(self.holder_y_lb, self.holder_y_ub),
+            "length": self.holder_length,
+            "width": self.holder_width,
+        }
+        # Finalize state.
+        state_dict = {
+            self._holder: holder_state
+        }
+        return utils.create_state_from_dict(state_dict)
+
 
     def _sample_goal(self, ingredient_to_num: Dict[str, int],
                      rng: np.random.Generator) -> Set[GroundAtom]:
-        import ipdb; ipdb.set_trace()
+        # TODO
+        return set()
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj1, obj2 = objects
@@ -288,3 +330,17 @@ class SandwichEnv(BaseEnv):
         # TODO
         arr = np.add(self.action_space.low, self.action_space.high) / 2.
         return Action(arr)
+    
+    def _obj_to_geom2d(self, obj: Object, state: State) -> _Geom2D:
+        if obj.is_instance(self._holder_type):
+            width = state.get(obj, "width")
+            length = state.get(obj, "length")
+            x = state.get(obj, "pose_x") - width / 2.
+            y = state.get(obj, "pose_y") - length / 2.
+            return utils.Rectangle(x, y, width, length, 0.0)
+        import ipdb; ipdb.set_trace()
+
+    def _obj_to_color(self, obj: Object, state: State) -> RGBA:
+        if obj.is_instance(self._holder_type):
+            return self.holder_color
+        import ipdb; ipdb.set_trace()
