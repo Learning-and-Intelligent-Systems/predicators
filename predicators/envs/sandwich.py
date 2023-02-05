@@ -122,6 +122,8 @@ class SandwichEnv(BaseEnv):
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._ingredient_type],
                                 self._Clear_holds)
+        self._BoardClear = Predicate("BoardClear", [self._board_type],
+                                     self._BoardClear_holds)
         self._IsBread = Predicate("IsBread", [self._ingredient_type],
                                   self._IsBread_holds)
         self._IsBurger = Predicate("IsBurger", [self._ingredient_type],
@@ -207,8 +209,7 @@ class SandwichEnv(BaseEnv):
         ing = self._get_held_object(state)
         assert ing is not None
         # Check that nothing is on the board.
-        ings = state.get_objects(self._ingredient_type)
-        if any(self._OnBoard_holds(state, [o, self._board]) for o in ings):
+        if not self._BoardClear_holds(state, [self._board]):
             return next_state
         # Execute putonboard. Rotate object.
         thickness = self.ingredient_thickness / 2 + self.board_thickness
@@ -265,9 +266,9 @@ class SandwichEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._On, self._OnBoard, self._GripperOpen, self._Holding,
-            self._Clear, self._InHolder, self._IsBread, self._IsBurger,
-            self._IsHam, self._IsEgg, self._IsCheese, self._IsLettuce,
-            self._IsTomato, self._IsGreenPepper
+            self._Clear, self._InHolder, self._BoardClear, self._IsBread,
+            self._IsBurger, self._IsHam, self._IsEgg, self._IsCheese,
+            self._IsLettuce, self._IsTomato, self._IsGreenPepper
         }
 
     @property
@@ -280,7 +281,10 @@ class SandwichEnv(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._ingredient_type, self._robot_type}
+        return {
+            self._ingredient_type, self._robot_type, self._board_type,
+            self._holder_type
+        }
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -577,6 +581,12 @@ class SandwichEnv(BaseEnv):
         obj, = objects
         return self._object_is_clear(state, obj)
 
+    def _BoardClear_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        board, = objects
+        ings = state.get_objects(self._ingredient_type)
+        return not any(self._OnBoard_holds(state, [o, board]) for o in ings)
+
     def _IsBread_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         return self._is_ingredient(obj, "bread", state)
@@ -769,7 +779,7 @@ class SandwichEnv(BaseEnv):
             n: np.sum(np.subtract(c, obj_color)**2)
             for n, c in self.ingredient_colors.items()
         }
-        closest = min(affinities, key=affinities.get)
+        closest = min(affinities, key=lambda o: affinities[o])
         return closest
 
     def _state_to_ingredient_groups(self,
