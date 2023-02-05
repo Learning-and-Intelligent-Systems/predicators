@@ -30,21 +30,25 @@ class SandwichEnv(BaseEnv):
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
+    z_lb: ClassVar[float] = table_height - 0.02
+    z_ub: ClassVar[float] = z_lb + 0.25
     holder_width: ClassVar[float] = (x_ub - x_lb) * 0.8
-    holder_length: ClassVar[float] = (y_ub - y_lb) * 0.4
+    holder_length: ClassVar[float] = (y_ub - y_lb) * 0.6
     holder_x_lb: ClassVar[float] = x_lb + holder_width / 2
     holder_x_ub: ClassVar[float] = x_ub - holder_width / 2
     holder_y_lb: ClassVar[float] = y_lb + holder_length / 2
-    holder_y_ub: ClassVar[float] = holder_y_lb + (y_ub - y_lb) * 0.2
+    holder_y_ub: ClassVar[float] = holder_y_lb + (y_ub - y_lb) * 0.1
     holder_color: ClassVar[RGBA] = (0.5, 0.5, 0.5, 1.0)
+    holder_thickness: ClassVar[float] = 0.01
     board_width: ClassVar[float] = (x_ub - x_lb) * 0.8
     board_length: ClassVar[float] = (y_ub - y_lb) * 0.2
     board_x_lb: ClassVar[float] = x_lb + board_width / 2
     board_x_ub: ClassVar[float] = x_ub - board_width / 2
     board_y_lb: ClassVar[
-        float] = holder_y_lb + holder_length + board_length / 2
-    board_y_ub: ClassVar[float] = board_y_lb + (y_ub - y_lb) * 0.2
+        float] = holder_y_lb + holder_length / 2 + board_length
+    board_y_ub: ClassVar[float] = board_y_lb + (y_ub - y_lb) * 0.05
     board_color: ClassVar[RGBA] = (0.1, 0.1, 0.5, 0.8)
+    board_thickness: ClassVar[float] = 0.01
     ingredient_thickness: ClassVar[float] = 0.02
     ingredient_colors: ClassVar[Dict[str, Tuple[float, float, float]]] = {
         "bread": (0.58, 0.29, 0.0),
@@ -57,14 +61,14 @@ class SandwichEnv(BaseEnv):
         "green_pepper": (0.156, 0.541, 0.160),
     }
     ingredient_radii: ClassVar[Dict[str, float]] = {
-        "bread": board_width / 2.5,
-        "burger": board_width / 3,
-        "ham": board_width / 2.75,
-        "egg": board_width / 3.25,
-        "cheese": board_width / 2.75,
-        "lettuce": board_width / 3,
-        "tomato": board_width / 3,
-        "green_pepper": board_width / 3.5,
+        "bread": board_length / 2.5,
+        "burger": board_length / 3,
+        "ham": board_length / 2.75,
+        "egg": board_length / 3.25,
+        "cheese": board_length / 2.75,
+        "lettuce": board_length / 3,
+        "tomato": board_length / 3,
+        "green_pepper": board_length / 3.5,
     }
     # 0 is cuboid, 1 is cylinder
     ingredient_shapes: ClassVar[Dict[str, float]] = {
@@ -90,10 +94,10 @@ class SandwichEnv(BaseEnv):
         ])
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "pose_z", "fingers"])
-        self._holder_type = Type("holder",
-                                 ["pose_x", "pose_y", "length", "width"])
-        self._board_type = Type("board",
-                                ["pose_x", "pose_y", "length", "width"])
+        self._holder_type = Type(
+            "holder", ["pose_x", "pose_y", "length", "width", "thickness"])
+        self._board_type = Type(
+            "board", ["pose_x", "pose_y", "length", "width", "thickness"])
         # Predicates
         self._InHolder = Predicate("InHolder",
                                    [self._ingredient_type, self._holder_type],
@@ -211,11 +215,22 @@ class SandwichEnv(BaseEnv):
             task: Task,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
+
+        # Set up whole figure.
         figscale = 10.0
-        figsize = (figscale * (self.x_ub - self.x_lb),
-                   figscale * (self.y_ub - self.y_lb))
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
-        ax = plt.gca()
+        x_len = (self.x_ub - self.x_lb)
+        y_len = (self.y_ub - self.y_lb)
+        z_len = (self.z_ub - self.z_lb)
+        figsize = (figscale * (x_len + y_len), figscale * (y_len + z_len))
+
+        width_ratio = x_len / y_len
+        fig, (yz_ax, xy_ax) = plt.subplots(
+            1,
+            2,
+            figsize=figsize,
+            gridspec_kw={'width_ratios': [1, width_ratio]})
+
+        # Draw on xy axis.
 
         # Draw workspace.
         ws_width = (self.x_ub - self.x_lb)
@@ -223,7 +238,7 @@ class SandwichEnv(BaseEnv):
         ws_x = self.x_lb
         ws_y = self.y_lb
         workspace_rect = utils.Rectangle(ws_x, ws_y, ws_width, ws_length, 0.0)
-        workspace_rect.plot(ax, facecolor="white", edgecolor="black")
+        workspace_rect.plot(xy_ax, facecolor="white", edgecolor="black")
 
         # Draw robot base (roughly) for reference.
         rob_base_x_pad = 0.75 * ws_width
@@ -231,17 +246,16 @@ class SandwichEnv(BaseEnv):
         rob_base_y = ws_y + ws_length / 2
         rob_base_radius = min(ws_width, ws_length) * 0.2
         robot_circ = utils.Circle(rob_base_x, rob_base_y, rob_base_radius)
-        robot_circ.plot(ax, facecolor="gray", edgecolor="black")
-        ax.text(rob_base_x,
-                rob_base_y,
-                "robot",
-                fontsize="x-small",
-                ha="center",
-                va="center",
-                bbox=dict(facecolor="white", edgecolor="black", alpha=0.5))
+        robot_circ.plot(xy_ax, facecolor="gray", edgecolor="black")
+        xy_ax.text(rob_base_x,
+                   rob_base_y,
+                   "robot",
+                   fontsize="x-small",
+                   ha="center",
+                   va="center",
+                   bbox=dict(facecolor="white", edgecolor="black", alpha=0.5))
 
         # Draw objects, sorted in z order.
-
         def _get_z(obj: Object) -> float:
             if obj.is_instance(self._holder_type) or \
                obj.is_instance(self._board_type):
@@ -251,30 +265,53 @@ class SandwichEnv(BaseEnv):
         for obj in sorted(state, key=_get_z):
             geom = self._obj_to_geom2d(obj, state, "topdown")
             color = self._obj_to_color(obj, state)
-            geom.plot(ax, facecolor=color, edgecolor="black")
+            geom.plot(xy_ax, facecolor=color, edgecolor="black")
             # Add text box.
             if obj.is_instance(self._ingredient_type):
                 x = state.get(obj, "pose_x")
                 y = state.get(obj, "pose_y")
                 s = obj.name
-                ax.text(x,
-                        y,
-                        s,
-                        fontsize="x-small",
-                        ha="center",
-                        va="center",
-                        bbox=dict(facecolor="white",
-                                  edgecolor="black",
-                                  alpha=0.5))
+                xy_ax.text(x,
+                           y,
+                           s,
+                           fontsize="x-small",
+                           ha="center",
+                           va="center",
+                           bbox=dict(facecolor="white",
+                                     edgecolor="black",
+                                     alpha=0.5))
+        xy_ax.set_xlim(self.x_lb, rob_base_x + rob_base_radius)
+        xy_ax.set_ylim(self.y_lb, self.y_ub)
+        xy_ax.set_aspect("equal", adjustable="box")
+        xy_ax.axis("off")
 
+        # Draw on yz axis.
+
+        # Draw workspace.
+        ws_length = (self.y_ub - self.y_lb)
+        ws_height = self.ingredient_thickness  # just some small value
+        ws_y = self.y_lb
+        ws_z = self.table_height - ws_height
+        workspace_rect = utils.Rectangle(ws_y, ws_z, ws_length, ws_height, 0.0)
+        workspace_rect.plot(yz_ax, facecolor="white", edgecolor="black")
+
+        # Draw objects. Order doesn't matter because there should be no
+        # overlaps in these dimensions.
+        for obj in state:
+            geom = self._obj_to_geom2d(obj, state, "side")
+            color = self._obj_to_color(obj, state)
+            geom.plot(yz_ax, facecolor=color, edgecolor="black")
+
+        yz_ax.set_xlim(self.y_lb - self.ingredient_thickness, self.y_ub)
+        yz_ax.set_ylim(self.z_lb, self.z_ub)
+        yz_ax.set_aspect("equal", adjustable="box")
+        yz_ax.axis("off")
+
+        # Finalize figure.
         title = ""
         if caption is not None:
             title += f"; {caption}"
         plt.suptitle(title, fontsize=24, wrap=True)
-
-        ax.set_xlim(self.x_lb, rob_base_x + rob_base_radius)
-        ax.set_ylim(self.y_lb, self.y_ub)
-        ax.axis("off")
         plt.tight_layout()
         return fig
 
@@ -303,6 +340,7 @@ class SandwichEnv(BaseEnv):
             "pose_y": holder_y,
             "width": self.holder_width,
             "length": self.holder_length,
+            "thickness": self.holder_thickness,
         }
         # Sampler board state.
         board_state = {
@@ -310,6 +348,7 @@ class SandwichEnv(BaseEnv):
             "pose_y": rng.uniform(self.board_y_lb, self.board_y_ub),
             "width": self.board_width,
             "length": self.board_length,
+            "thickness": self.board_thickness,
         }
         state_dict = {self._holder: holder_state, self._board: board_state}
         # Sample ingredients.
@@ -332,10 +371,11 @@ class SandwichEnv(BaseEnv):
                 pose_y = (holder_y - self.holder_length / 2) + \
                          order_idx * ing_spacing + \
                          self.ingredient_thickness / 2.
+                pose_z = self.table_height + self.holder_thickness + radius
                 state_dict[obj] = {
                     "pose_x": holder_x,
                     "pose_y": pose_y,
-                    "pose_z": self.table_height + radius,
+                    "pose_z": pose_z,
                     "rot": np.pi / 2.,
                     "held": 0.0,
                     **ing_static_features
@@ -443,17 +483,30 @@ class SandwichEnv(BaseEnv):
         return Action(arr)
 
     def _obj_to_geom2d(self, obj: Object, state: State, view: str) -> _Geom2D:
-        assert view == "topdown", "TODO"
-        rect_types = [self._holder_type, self._board_type]
-        if any(obj.is_instance(t) for t in rect_types):
-            width = state.get(obj, "width")
-            length = state.get(obj, "length")
-            x = state.get(obj, "pose_x") - width / 2.
-            y = state.get(obj, "pose_y") - length / 2.
-            return utils.Rectangle(x, y, width, length, 0.0)
-        assert obj.is_instance(self._ingredient_type)
-        # Cuboid.
-        if abs(state.get(obj, "shape") - 0.0) < 1e-3:
+        if view == "topdown":
+            rect_types = [self._holder_type, self._board_type]
+            if any(obj.is_instance(t) for t in rect_types):
+                width = state.get(obj, "width")
+                length = state.get(obj, "length")
+                x = state.get(obj, "pose_x") - width / 2.
+                y = state.get(obj, "pose_y") - length / 2.
+                return utils.Rectangle(x, y, width, length, 0.0)
+            assert obj.is_instance(self._ingredient_type)
+            # Cuboid.
+            if abs(state.get(obj, "shape") - 0.0) < 1e-3:
+                width = 2 * state.get(obj, "radius")
+                thickness = state.get(obj, "thickness")
+                # Oriented facing up, i.e., in the holder.
+                if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
+                    x = state.get(obj, "pose_x") - width / 2.
+                    y = state.get(obj, "pose_y") - thickness / 2.
+                    return utils.Rectangle(x, y, width, thickness, 0.0)
+                # Oriented facing down, i.e., on the board.
+                assert abs(state.get(obj, "rot") - 0.0) < 1e-3
+                import ipdb
+                ipdb.set_trace()
+            # Cylinder.
+            assert abs(state.get(obj, "shape") - 1.0) < 1e-3
             width = 2 * state.get(obj, "radius")
             thickness = state.get(obj, "thickness")
             # Oriented facing up, i.e., in the holder.
@@ -465,15 +518,37 @@ class SandwichEnv(BaseEnv):
             assert abs(state.get(obj, "rot") - 0.0) < 1e-3
             import ipdb
             ipdb.set_trace()
+        assert view == "side"
+        rect_types = [self._holder_type, self._board_type]
+        if any(obj.is_instance(t) for t in rect_types):
+            length = state.get(obj, "length")
+            thickness = state.get(obj, "thickness")
+            y = state.get(obj, "pose_y") - length / 2.
+            z = self.table_height
+            return utils.Rectangle(y, z, length, thickness, 0.0)
+        assert obj.is_instance(self._ingredient_type)
+        # Cuboid.
+        if abs(state.get(obj, "shape") - 0.0) < 1e-3:
+            thickness = state.get(obj, "thickness")
+            length = 2 * state.get(obj, "radius")
+            # Oriented facing up, i.e., in the holder.
+            if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
+                y = state.get(obj, "pose_y") - thickness / 2.
+                z = state.get(obj, "pose_z") - length / 2.
+                return utils.Rectangle(y, z, thickness, length, 0.0)
+            # Oriented facing down, i.e., on the board.
+            assert abs(state.get(obj, "rot") - 0.0) < 1e-3
+            import ipdb
+            ipdb.set_trace()
         # Cylinder.
         assert abs(state.get(obj, "shape") - 1.0) < 1e-3
-        width = 2 * state.get(obj, "radius")
         thickness = state.get(obj, "thickness")
+        length = 2 * state.get(obj, "radius")
         # Oriented facing up, i.e., in the holder.
         if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
-            x = state.get(obj, "pose_x") - width / 2.
             y = state.get(obj, "pose_y") - thickness / 2.
-            return utils.Rectangle(x, y, width, thickness, 0.0)
+            z = state.get(obj, "pose_z") - length / 2.
+            return utils.Rectangle(y, z, thickness, length, 0.0)
         # Oriented facing down, i.e., on the board.
         assert abs(state.get(obj, "rot") - 0.0) < 1e-3
         import ipdb
