@@ -33,7 +33,11 @@ class SandwichEnv(BaseEnv):
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
     z_lb: ClassVar[float] = table_height - 0.02
-    z_ub: ClassVar[float] = z_lb + 0.25
+    z_ub: ClassVar[float] = z_lb + 0.25  # for rendering only
+    pick_z: ClassVar[float] = 0.7
+    robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
+    robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
+    robot_init_z: ClassVar[float] = pick_z
     holder_width: ClassVar[float] = (x_ub - x_lb) * 0.8
     holder_length: ClassVar[float] = (y_ub - y_lb) * 0.6
     holder_x_lb: ClassVar[float] = x_lb + holder_width / 2
@@ -265,6 +269,8 @@ class SandwichEnv(BaseEnv):
             return state.get(obj, "pose_z")
 
         for obj in sorted(state, key=_get_z):
+            if obj.is_instance(self._robot_type):
+                continue
             geom = self._obj_to_geom2d(obj, state, "topdown")
             color = self._obj_to_color(obj, state)
             geom.plot(xy_ax, facecolor=color, edgecolor="black")
@@ -300,6 +306,8 @@ class SandwichEnv(BaseEnv):
         # Draw objects. Order doesn't matter because there should be no
         # overlaps in these dimensions.
         for obj in state:
+            if obj.is_instance(self._robot_type):
+                continue
             geom = self._obj_to_geom2d(obj, state, "side")
             color = self._obj_to_color(obj, state)
             geom.plot(yz_ax, facecolor=color, edgecolor="black")
@@ -334,6 +342,15 @@ class SandwichEnv(BaseEnv):
 
     def _sample_initial_state(self, ingredient_to_num: Dict[str, int],
                               rng: np.random.Generator) -> State:
+        # Create robot initial state.
+        # Note: the robot poses are not used in this environment (they are
+        # constant), but they change and get used in the PyBullet subclass.
+        robot_state = {
+            "pose_x": self.robot_init_x,
+            "pose_y": self.robot_init_y,
+            "pose_z": self.robot_init_z,
+            "fingers": 1.0  # fingers start out open
+        }
         # Sample holder state.
         holder_x = rng.uniform(self.holder_x_lb, self.holder_x_ub)
         holder_y = rng.uniform(self.holder_y_lb, self.holder_y_ub)
@@ -344,7 +361,7 @@ class SandwichEnv(BaseEnv):
             "length": self.holder_length,
             "thickness": self.holder_thickness,
         }
-        # Sampler board state.
+        # Sample board state.
         board_state = {
             "pose_x": rng.uniform(self.board_x_lb, self.board_x_ub),
             "pose_y": rng.uniform(self.board_y_lb, self.board_y_ub),
@@ -352,7 +369,11 @@ class SandwichEnv(BaseEnv):
             "length": self.board_length,
             "thickness": self.board_thickness,
         }
-        state_dict = {self._holder: holder_state, self._board: board_state}
+        state_dict = {
+            self._holder: holder_state,
+            self._board: board_state,
+            self._robot: robot_state
+        }
         # Sample ingredients.
         ing_spacing = self.ingredient_thickness
         # Add padding.
