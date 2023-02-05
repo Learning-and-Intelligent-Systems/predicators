@@ -154,10 +154,10 @@ class SandwichEnv(BaseEnv):
             types=[self._robot_type, self._ingredient_type])
         self._PutOnBoard: ParameterizedOption = \
             utils.SingletonParameterizedOption(
-            # variables: [robot]
+            # variables: [robot, board]
             "PutOnBoard",
             self._PutOnBoard_policy,
-            types=[self._robot_type])
+            types=[self._robot_type, self._board_type])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._holder = Object("holder", self._holder_type)
@@ -173,10 +173,11 @@ class SandwichEnv(BaseEnv):
         assert self.action_space.contains(action.arr)
         x, y, z, fingers = action.arr
         # Infer which transition function to follow
-        if fingers < 0.5:
+        if fingers < self.held_tol:
             return self._transition_pick(state, x, y, z)
-        if z < self.table_height + self.ingredient_thickness:
-            return self._transition_putontable(state, x, y, z)
+        thickness = self.ingredient_thickness + self.board_thickness
+        if z < self.table_height + thickness:
+            return self._transition_putonboard(state, x, y, z)
         return self._transition_stack(state, x, y, z)
 
     def _transition_pick(self, state: State, x: float, y: float,
@@ -199,9 +200,27 @@ class SandwichEnv(BaseEnv):
         next_state.set(self._robot, "fingers", 0.0)  # close fingers
         return next_state
 
-    def _transition_putontable(self, state: State, x: float, y: float,
+    def _transition_putonboard(self, state: State, x: float, y: float,
                                z: float) -> State:
         next_state = state.copy()
+        # Can only putonboard if fingers are closed.
+        if self._GripperOpen_holds(state, [self._robot]):
+            return next_state
+        ing = self._get_held_object(state)
+        assert ing is not None
+        # Check that nothing is on the board.
+        ings = state.get_objects(self._ingredient_type)
+        if any(self._OnBoard_holds(state, [o, self._board]) for o in ings):
+            return next_state
+        # Execute putonboard. Rotate object.
+        thickness = self.ingredient_thickness / 2 + self.board_thickness
+        pose_z = self.table_height + thickness
+        next_state.set(ing, "pose_x", x)
+        next_state.set(ing, "pose_y", y)
+        next_state.set(ing, "pose_z", pose_z)
+        next_state.set(ing, "rot", 0)
+        next_state.set(ing, "held", 0.0)
+        next_state.set(self._robot, "fingers", 1.0)  # open fingers
         return next_state
 
     def _transition_stack(self, state: State, x: float, y: float,
@@ -313,7 +332,8 @@ class SandwichEnv(BaseEnv):
             color = self._obj_to_color(obj, state)
             geom.plot(xy_ax, facecolor=color, edgecolor="black")
             # Add text box.
-            if obj.is_instance(self._ingredient_type):
+            if obj.is_instance(self._ingredient_type) and \
+                self._InHolder_holds(state, [obj, self._holder]):
                 x = state.get(obj, "pose_x")
                 y = state.get(obj, "pose_y")
                 s = obj.name
@@ -512,8 +532,12 @@ class SandwichEnv(BaseEnv):
         return holder_lb - 1e-5 <= obj_y <= holder_ub + 1e-5
 
     def _OnBoard_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, board = objects
+        obj_y = state.get(obj, "pose_y")
+        board_y = state.get(board, "pose_y")
+        board_lb = board_y - self.board_length / 2.
+        board_ub = board_y + self.board_length / 2.
+        return board_lb - 1e-5 <= obj_y <= board_ub + 1e-5
 
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -586,9 +610,13 @@ class SandwichEnv(BaseEnv):
 
     def _PutOnBoard_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        # TODO
-        arr = np.add(self.action_space.low, self.action_space.high) / 2.
+        del memory  # unused
+        _, board = objects
+        x = state.get(board, "pose_x")
+        y = state.get(board, "pose_y")
+        z = self.table_height + self.board_thickness
+        arr = np.array([x, y, z, 1.0], dtype=np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _obj_to_geom2d(self, obj: Object, state: State, view: str) -> _Geom2D:
@@ -605,6 +633,7 @@ class SandwichEnv(BaseEnv):
             if abs(state.get(obj, "shape") - 0.0) < 1e-3:
                 width = 2 * state.get(obj, "radius")
                 thickness = state.get(obj, "thickness")
+                length = width
                 # Oriented facing up, i.e., in the holder.
                 if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
                     x = state.get(obj, "pose_x") - width / 2.
@@ -612,11 +641,13 @@ class SandwichEnv(BaseEnv):
                     return utils.Rectangle(x, y, width, thickness, 0.0)
                 # Oriented facing down, i.e., on the board.
                 assert abs(state.get(obj, "rot") - 0.0) < 1e-3
-                import ipdb
-                ipdb.set_trace()
+                x = state.get(obj, "pose_x") - width / 2.
+                y = state.get(obj, "pose_y") - length / 2.
+                return utils.Rectangle(x, y, width, length, 0.0)
             # Cylinder.
             assert abs(state.get(obj, "shape") - 1.0) < 1e-3
-            width = 2 * state.get(obj, "radius")
+            radius = state.get(obj, "radius")
+            width = 2 * radius
             thickness = state.get(obj, "thickness")
             # Oriented facing up, i.e., in the holder.
             if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
@@ -625,8 +656,9 @@ class SandwichEnv(BaseEnv):
                 return utils.Rectangle(x, y, width, thickness, 0.0)
             # Oriented facing down, i.e., on the board.
             assert abs(state.get(obj, "rot") - 0.0) < 1e-3
-            import ipdb
-            ipdb.set_trace()
+            x = state.get(obj, "pose_x")
+            y = state.get(obj, "pose_y")
+            return utils.Circle(x, y, radius)
         assert view == "side"
         rect_types = [self._holder_type, self._board_type]
         if any(obj.is_instance(t) for t in rect_types):
@@ -640,6 +672,7 @@ class SandwichEnv(BaseEnv):
         if abs(state.get(obj, "shape") - 0.0) < 1e-3:
             thickness = state.get(obj, "thickness")
             length = 2 * state.get(obj, "radius")
+            width = length
             # Oriented facing up, i.e., in the holder.
             if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
                 y = state.get(obj, "pose_y") - thickness / 2.
@@ -647,12 +680,14 @@ class SandwichEnv(BaseEnv):
                 return utils.Rectangle(y, z, thickness, length, 0.0)
             # Oriented facing down, i.e., on the board.
             assert abs(state.get(obj, "rot") - 0.0) < 1e-3
-            import ipdb
-            ipdb.set_trace()
+            y = state.get(obj, "pose_y") - length / 2.
+            z = state.get(obj, "pose_z") - thickness / 2.
+            return utils.Rectangle(y, z, length, thickness, 0.0)
         # Cylinder.
         assert abs(state.get(obj, "shape") - 1.0) < 1e-3
         thickness = state.get(obj, "thickness")
-        length = 2 * state.get(obj, "radius")
+        radius = state.get(obj, "radius")
+        length = 2 * radius
         # Oriented facing up, i.e., in the holder.
         if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
             y = state.get(obj, "pose_y") - thickness / 2.
@@ -660,8 +695,9 @@ class SandwichEnv(BaseEnv):
             return utils.Rectangle(y, z, thickness, length, 0.0)
         # Oriented facing down, i.e., on the board.
         assert abs(state.get(obj, "rot") - 0.0) < 1e-3
-        import ipdb
-        ipdb.set_trace()
+        y = state.get(obj, "pose_y") - length / 2.
+        z = state.get(obj, "pose_z") - thickness / 2.
+        return utils.Rectangle(y, z, length, thickness, 0.0)
 
     def _obj_to_color(self, obj: Object, state: State) -> RGBA:
         if obj.is_instance(self._holder_type):
