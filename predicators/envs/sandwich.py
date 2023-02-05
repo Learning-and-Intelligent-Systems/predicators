@@ -89,6 +89,7 @@ class SandwichEnv(BaseEnv):
     }
     held_tol: ClassVar[float] = 0.5
     on_tol: ClassVar[float] = 0.01
+    pick_tol: ClassVar[float] = 0.0001
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -170,8 +171,43 @@ class SandwichEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        # TODO
-        return state.copy()
+        x, y, z, fingers = action.arr
+        # Infer which transition function to follow
+        if fingers < 0.5:
+            return self._transition_pick(state, x, y, z)
+        if z < self.table_height + self.ingredient_thickness:
+            return self._transition_putontable(state, x, y, z)
+        return self._transition_stack(state, x, y, z)
+
+    def _transition_pick(self, state: State, x: float, y: float,
+                         z: float) -> State:
+        next_state = state.copy()
+        # Can only pick if fingers are open
+        if not self._GripperOpen_holds(state, [self._robot]):
+            return next_state
+        ing = self._get_ingredient_at_xyz(state, x, y, z)
+        if ing is None:  # no ingredient at this pose
+            return next_state
+        # Can only pick if ingredient is in the holder
+        if not self._InHolder_holds(state, [ing, self._holder]):
+            return next_state
+        # Execute pick
+        next_state.set(ing, "pose_x", x)
+        next_state.set(ing, "pose_y", y)
+        next_state.set(ing, "pose_z", self.pick_z)
+        next_state.set(ing, "held", 1.0)
+        next_state.set(self._robot, "fingers", 0.0)  # close fingers
+        return next_state
+
+    def _transition_putontable(self, state: State, x: float, y: float,
+                               z: float) -> State:
+        next_state = state.copy()
+        return next_state
+
+    def _transition_stack(self, state: State, x: float, y: float,
+                          z: float) -> State:
+        next_state = state.copy()
+        return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
@@ -271,6 +307,8 @@ class SandwichEnv(BaseEnv):
         for obj in sorted(state, key=_get_z):
             if obj.is_instance(self._robot_type):
                 continue
+            if self._Holding_holds(state, [obj, self._robot]):
+                continue
             geom = self._obj_to_geom2d(obj, state, "topdown")
             color = self._obj_to_color(obj, state)
             geom.plot(xy_ax, facecolor=color, edgecolor="black")
@@ -307,6 +345,8 @@ class SandwichEnv(BaseEnv):
         # overlaps in these dimensions.
         for obj in state:
             if obj.is_instance(self._robot_type):
+                continue
+            if self._Holding_holds(state, [obj, self._robot]):
                 continue
             geom = self._obj_to_geom2d(obj, state, "side")
             color = self._obj_to_color(obj, state)
@@ -464,8 +504,12 @@ class SandwichEnv(BaseEnv):
                            atol=self.on_tol)
 
     def _InHolder_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, holder = objects
+        obj_y = state.get(obj, "pose_y")
+        holder_y = state.get(holder, "pose_y")
+        holder_lb = holder_y - self.holder_length / 2.
+        holder_ub = holder_y + self.holder_length / 2.
+        return holder_lb - 1e-5 <= obj_y <= holder_ub + 1e-5
 
     def _OnBoard_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # TODO
@@ -479,8 +523,8 @@ class SandwichEnv(BaseEnv):
         return rf == 1.0
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, _ = objects
+        return self._get_held_object(state) == obj
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # TODO
@@ -523,9 +567,14 @@ class SandwichEnv(BaseEnv):
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
         del memory, params  # unused
-        import ipdb
-        ipdb.set_trace()
-        arr = np.add(self.action_space.low, self.action_space.high) / 2.
+        _, ing = objects
+        pose = np.array([
+            state.get(ing, "pose_x"),
+            state.get(ing, "pose_y"),
+            state.get(ing, "pose_z")
+        ])
+        arr = np.r_[pose, 0.0].astype(np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _Stack_policy(self, state: State, memory: Dict,
@@ -661,3 +710,25 @@ class SandwichEnv(BaseEnv):
             ing_name = self._obj_to_ingredient(obj, state)
             ing_groups[ing_name].add(obj)
         return dict(ing_groups)
+
+    def _get_ingredient_at_xyz(self, state: State, x: float, y: float,
+                               z: float) -> Optional[Object]:
+        close_ingredients = []
+        for ing in state.get_objects(self._ingredient_type):
+            ing_pose = np.array([
+                state.get(ing, "pose_x"),
+                state.get(ing, "pose_y"),
+                state.get(ing, "pose_z")
+            ])
+            if np.allclose([x, y, z], ing_pose, atol=self.pick_tol):
+                dist = np.linalg.norm(np.array([x, y, z]) - ing_pose)
+                close_ingredients.append((ing, float(dist)))
+        if not close_ingredients:
+            return None
+        return min(close_ingredients, key=lambda x: x[1])[0]  # min distance
+
+    def _get_held_object(self, state: State) -> Optional[Object]:
+        for obj in state.get_objects(self._ingredient_type):
+            if state.get(obj, "held") >= self.held_tol:
+                return obj
+        return None
