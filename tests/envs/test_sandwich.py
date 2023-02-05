@@ -1,8 +1,10 @@
 """Test cases for the sandwich env."""
 
+import numpy as np
+
 from predicators import utils
 from predicators.envs.sandwich import SandwichEnv
-from predicators.structs import GroundAtom
+from predicators.structs import Action, GroundAtom
 
 
 def test_sandwich_properties():
@@ -71,6 +73,7 @@ def test_sandwich_options():
     # Select one cuboid and one cylinder to cover the different rendering cases
     ing0 = obj_name_to_obj["bread0"]
     ing1 = obj_name_to_obj["tomato0"]
+    ing2 = obj_name_to_obj["bread1"]
     robot, = state.get_objects(robot_type)
     board, = state.get_objects(board_type)
     holder, = state.get_objects(holder_type)
@@ -98,21 +101,91 @@ def test_sandwich_options():
     assert len(video) == 5  # each option just takes 1 step
     # outfile = "hardcoded_options_sandwich.mp4"
     # utils.save_video(outfile, video)
-    init_state = traj.states[0]
-    final_state = traj.states[-1]
+    state0, state1, state2, state3, state4 = traj.states
 
-    assert GroundAtom(BoardClear, [board]).holds(init_state)
-    assert not GroundAtom(BoardClear, [board]).holds(final_state)
-    assert GroundAtom(GripperOpen, [robot]).holds(init_state)
-    assert GroundAtom(GripperOpen, [robot]).holds(final_state)
-    assert GroundAtom(InHolder, [ing0, holder]).holds(init_state)
-    assert not GroundAtom(InHolder, [ing0, holder]).holds(final_state)
-    assert GroundAtom(InHolder, [ing1, holder]).holds(init_state)
-    assert not GroundAtom(InHolder, [ing1, holder]).holds(final_state)
-    assert not GroundAtom(On, [ing1, ing0]).holds(init_state)
-    assert GroundAtom(On, [ing1, ing0]).holds(final_state)
-    assert not GroundAtom(OnBoard, [ing0, board]).holds(init_state)
-    assert GroundAtom(OnBoard, [ing0, board]).holds(final_state)
-    assert not GroundAtom(Clear, [ing1]).holds(init_state)
-    assert GroundAtom(Clear, [ing1]).holds(final_state)
-    assert not GroundAtom(Clear, [ing0]).holds(final_state)
+    assert GroundAtom(BoardClear, [board]).holds(state0)
+    assert not GroundAtom(BoardClear, [board]).holds(state4)
+    assert GroundAtom(GripperOpen, [robot]).holds(state0)
+    assert GroundAtom(GripperOpen, [robot]).holds(state4)
+    assert GroundAtom(InHolder, [ing0, holder]).holds(state0)
+    assert not GroundAtom(InHolder, [ing0, holder]).holds(state4)
+    assert GroundAtom(InHolder, [ing1, holder]).holds(state0)
+    assert not GroundAtom(InHolder, [ing1, holder]).holds(state4)
+    assert not GroundAtom(On, [ing1, ing0]).holds(state0)
+    assert GroundAtom(On, [ing1, ing0]).holds(state4)
+    assert not GroundAtom(OnBoard, [ing0, board]).holds(state0)
+    assert GroundAtom(OnBoard, [ing0, board]).holds(state4)
+    assert not GroundAtom(Clear, [ing1]).holds(state0)
+    assert GroundAtom(Clear, [ing1]).holds(state4)
+    assert not GroundAtom(Clear, [ing0]).holds(state4)
+
+    # Cover option failure cases.
+
+    # Can only pick if fingers are open.
+    state = state1
+    option = Pick.ground([robot, ing1], [])
+    action = option.policy(state)
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # No ingredient at this pose.
+    state = state0
+    x, y, z = env.x_ub, env.y_ub, env.z_lb
+    action = Action(np.array([x, y, z, 1.0], dtype=np.float32))
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # Can only pick if ingredient is in the holder.
+    state = state2
+    option = Pick.ground([robot, ing0], [])
+    action = option.policy(state)
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # Can only putonboard if fingers are closed.
+    state = state0
+    option = PutOnBoard.ground([robot, board], [])
+    action = option.policy(state)
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # Can only putonboard if nothing is on the board.
+    state = state3
+    option = PutOnBoard.ground([robot, board], [])
+    action = option.policy(state)
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # Can only stack if fingers are closed.
+    state = state0
+    x, y, z = env.x_ub, env.y_ub, env.z_ub
+    action = Action(np.array([x, y, z, 1.0], dtype=np.float32))
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # No object to stack onto.
+    state = state1
+    x, y, z = env.x_ub, env.y_ub, env.z_ub
+    action = Action(np.array([x, y, z, 1.0], dtype=np.float32))
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # Can't stack onto yourself!
+    state = state3
+    option = Stack.ground([robot, ing1], [])
+    action = option.policy(state)
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # Need object we're stacking onto to be clear.
+    state = state4
+    option = Pick.ground([robot, ing2], [])
+    action = option.policy(state)
+    state = env.simulate(state, action)
+    option = Stack.ground([robot, ing0], [])
+    action = option.policy(state)
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
+
+    # Rendering with caption.
+    env.render(state, caption="Test caption")
