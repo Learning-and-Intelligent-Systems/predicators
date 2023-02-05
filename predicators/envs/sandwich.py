@@ -2,6 +2,7 @@
 
 import json
 import logging
+import itertools
 from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -22,6 +23,7 @@ from predicators.utils import _Geom2D
 class SandwichEnv(BaseEnv):
     """Sandwich making domain."""
     # Parameters that aren't important enough to need to clog up settings.py
+    table_height: ClassVar[float] = 0.2
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     x_lb: ClassVar[float] = 1.2
     x_ub: ClassVar[float] = 1.5
@@ -43,6 +45,38 @@ class SandwichEnv(BaseEnv):
         float] = holder_y_lb + holder_length + board_length / 2
     board_y_ub: ClassVar[float] = board_y_lb + (y_ub - y_lb) * 0.2
     board_color: ClassVar[RGBA] = (0.1, 0.1, 0.5, 0.8)
+    ingredient_thickness: ClassVar[float] = 0.02
+    ingredient_colors: ClassVar[Dict[str, Tuple[float, float, float]]] = {
+        "bread": (0.58, 0.29, 0.0),
+        "burger": (0.32, 0.15, 0.0),
+        "ham": (0.937, 0.384, 0.576),
+        "egg": (0.937, 0.898, 0.384),
+        "cheese": (0.937, 0.737, 0.203),
+        "lettuce": (0.203, 0.937, 0.431),
+        "tomato": (0.917, 0.180, 0.043),
+        "green_pepper": (0.156, 0.541, 0.160),
+    }
+    ingredient_radii: ClassVar[Dict[str, float]] = {
+        "bread": board_width / 2.5,
+        "burger": board_width / 3,
+        "ham": board_width / 2.75,
+        "egg": board_width / 3.25,
+        "cheese": board_width / 2.75,
+        "lettuce": board_width / 3,
+        "tomato": board_width / 3,
+        "green_pepper": board_width / 3.5,
+    }
+    # 0 is cuboid, 1 is cylinder
+    ingredient_shapes: ClassVar[Dict[str, float]] = {
+        "bread": 0,
+        "burger": 1,
+        "ham": 0,
+        "egg": 1,
+        "cheese": 0,
+        "lettuce": 1,
+        "tomato": 1,
+        "green_pepper": 1,
+    }
     held_tol: ClassVar[float] = 0.5
     on_tol: ClassVar[float] = 0.01
 
@@ -51,7 +85,7 @@ class SandwichEnv(BaseEnv):
 
         # Types
         self._ingredient_type = Type("ingredient", [
-            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
+            "pose_x", "pose_y", "pose_z", "rot", "held", "color_r", "color_g",
             "color_b", "thickness", "radius", "shape"
         ])
         self._robot_type = Type("robot",
@@ -191,9 +225,16 @@ class SandwichEnv(BaseEnv):
         workspace_rect = utils.Rectangle(ws_x, ws_y, ws_width, ws_length, 0.0)
         workspace_rect.plot(ax, facecolor="white", edgecolor="black")
 
-        # Draw objects.
-        for obj in state:
-            geom = self._obj_to_geom2d(obj, state)
+        # Draw objects, sorted in z order.
+
+        def _get_z(obj: Object) -> float:
+            if obj.is_instance(self._holder_type) or \
+               obj.is_instance(self._board_type):
+                return -float("inf")
+            return state.get(obj, "pose_z")
+
+        for obj in sorted(state, key=_get_z):
+            geom = self._obj_to_geom2d(obj, state, "topdown")
             color = self._obj_to_color(obj, state)
             geom.plot(ax, facecolor=color, edgecolor="black")
 
@@ -204,7 +245,7 @@ class SandwichEnv(BaseEnv):
 
         ax.set_xlim(self.x_lb, self.x_ub)
         ax.set_ylim(self.y_lb, self.y_ub)
-        ax.axis("off")
+        # ax.axis("off")
         plt.tight_layout()
         return fig
 
@@ -226,21 +267,47 @@ class SandwichEnv(BaseEnv):
     def _sample_initial_state(self, ingredient_to_num: Dict[str, int],
                               rng: np.random.Generator) -> State:
         # Sample holder state.
+        holder_x = rng.uniform(self.holder_x_lb, self.holder_x_ub)
+        holder_y = rng.uniform(self.holder_y_lb, self.holder_y_ub)
         holder_state = {
-            "pose_x": rng.uniform(self.holder_x_lb, self.holder_x_ub),
-            "pose_y": rng.uniform(self.holder_y_lb, self.holder_y_ub),
-            "length": self.holder_length,
+            "pose_x": holder_x,
+            "pose_y": holder_y,
             "width": self.holder_width,
+            "length": self.holder_length,
         }
         # Sampler board state.
         board_state = {
             "pose_x": rng.uniform(self.board_x_lb, self.board_x_ub),
             "pose_y": rng.uniform(self.board_y_lb, self.board_y_ub),
-            "length": self.board_length,
             "width": self.board_width,
+            "length": self.board_length,
         }
-        # Finalize state.
         state_dict = {self._holder: holder_state, self._board: board_state}
+        # Sample ingredients.
+        ing_count = itertools.count()
+        ing_spacing = self.ingredient_thickness
+        # Add padding.
+        tot_num_ings = sum(ingredient_to_num.values())
+        tot_thickness = tot_num_ings * self.ingredient_thickness
+        ing_spacing += (self.holder_length - tot_thickness) / (tot_num_ings -
+                                                               1)
+        for ing, num in ingredient_to_num.items():
+            ing_static_features = self._ingredient_to_static_features(ing)
+            radius = ing_static_features["radius"]
+            for ing_i in range(num):
+                obj_name = f"{ing}{ing_i}"
+                obj = Object(obj_name, self._ingredient_type)
+                pose_y = (holder_y - self.holder_length / 2) + \
+                         next(ing_count) * ing_spacing + \
+                         self.ingredient_thickness / 2.
+                state_dict[obj] = {
+                    "pose_x": holder_x,
+                    "pose_y": pose_y,
+                    "pose_z": self.table_height + radius,
+                    "rot": np.pi / 2.,
+                    "held": 0.0,
+                    **ing_static_features
+                }
         return utils.create_state_from_dict(state_dict)
 
     def _sample_goal(self, ingredient_to_num: Dict[str, int],
@@ -343,7 +410,8 @@ class SandwichEnv(BaseEnv):
         arr = np.add(self.action_space.low, self.action_space.high) / 2.
         return Action(arr)
 
-    def _obj_to_geom2d(self, obj: Object, state: State) -> _Geom2D:
+    def _obj_to_geom2d(self, obj: Object, state: State, view: str) -> _Geom2D:
+        assert view == "topdown", "TODO"
         rect_types = [self._holder_type, self._board_type]
         if any(obj.is_instance(t) for t in rect_types):
             width = state.get(obj, "width")
@@ -351,6 +419,31 @@ class SandwichEnv(BaseEnv):
             x = state.get(obj, "pose_x") - width / 2.
             y = state.get(obj, "pose_y") - length / 2.
             return utils.Rectangle(x, y, width, length, 0.0)
+        assert obj.is_instance(self._ingredient_type)
+        # Cuboid.
+        if abs(state.get(obj, "shape") - 0.0) < 1e-3:
+            width = 2 * state.get(obj, "radius")
+            thickness = state.get(obj, "thickness")
+            # Oriented facing up, i.e., in the holder.
+            if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
+                x = state.get(obj, "pose_x") - width / 2.
+                y = state.get(obj, "pose_y") - thickness / 2.
+                return utils.Rectangle(x, y, width, thickness, 0.0)
+            # Oriented facing down, i.e., on the board.
+            assert abs(state.get(obj, "rot") - 0.0) < 1e-3
+            import ipdb
+            ipdb.set_trace()
+        # Cylinder.
+        assert abs(state.get(obj, "shape") - 1.0) < 1e-3
+        width = 2 * state.get(obj, "radius")
+        thickness = state.get(obj, "thickness")
+        # Oriented facing up, i.e., in the holder.
+        if abs(state.get(obj, "rot") - np.pi / 2.) < 1e-3:
+            x = state.get(obj, "pose_x") - width / 2.
+            y = state.get(obj, "pose_y") - thickness / 2.
+            return utils.Rectangle(x, y, width, thickness, 0.0)
+        # Oriented facing down, i.e., on the board.
+        assert abs(state.get(obj, "rot") - 0.0) < 1e-3
         import ipdb
         ipdb.set_trace()
 
@@ -359,5 +452,23 @@ class SandwichEnv(BaseEnv):
             return self.holder_color
         if obj.is_instance(self._board_type):
             return self.board_color
-        import ipdb
-        ipdb.set_trace()
+        assert obj.is_instance(self._ingredient_type)
+        r = state.get(obj, "color_r")
+        g = state.get(obj, "color_g")
+        b = state.get(obj, "color_b")
+        a = 1.0
+        return (r, g, b, a)
+
+    def _ingredient_to_static_features(self,
+                                       ing_name: str) -> Dict[str, float]:
+        color_r, color_b, color_g = self.ingredient_colors[ing_name]
+        radius = self.ingredient_radii[ing_name]
+        shape = self.ingredient_shapes[ing_name]
+        return {
+            "color_r": color_r,
+            "color_g": color_g,
+            "color_b": color_b,
+            "thickness": self.ingredient_thickness,
+            "radius": radius,
+            "shape": shape
+        }
