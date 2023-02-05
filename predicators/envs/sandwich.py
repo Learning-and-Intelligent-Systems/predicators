@@ -804,7 +804,7 @@ class SandwichEnv(BaseEnv):
         return None
 
     def _get_highest_object_below(self, state: State, x: float, y: float,
-                                 z: float) -> Optional[Object]:
+                                  z: float) -> Optional[Object]:
         objs_here = []
         for obj in state.get_objects(self._ingredient_type):
             pose = np.array(
