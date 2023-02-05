@@ -3,8 +3,10 @@
 import itertools
 import json
 import logging
+from collections import defaultdict
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, DefaultDict, Dict, List, Optional, Sequence, \
+    Set, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -324,9 +326,9 @@ class SandwichEnv(BaseEnv):
                 num_ing = rng.choice(possible_ing_nums)
                 ing_to_num[ing_name] = num_ing
             init_state = self._sample_initial_state(ing_to_num, rng)
-            goal = self._sample_goal(ing_to_num, rng)
-            # goal_holds = all(goal_atom.holds(init_state) for goal_atom in goal)
-            # assert not goal_holds
+            goal = self._sample_goal(init_state, rng)
+            goal_holds = all(goal_atom.holds(init_state) for goal_atom in goal)
+            assert not goal_holds
             tasks.append(Task(init_state, goal))
         return tasks
 
@@ -382,10 +384,46 @@ class SandwichEnv(BaseEnv):
                 }
         return utils.create_state_from_dict(state_dict)
 
-    def _sample_goal(self, ingredient_to_num: Dict[str, int],
+    def _sample_goal(self, state: State,
                      rng: np.random.Generator) -> Set[GroundAtom]:
-        # TODO
-        return set()
+        # Some possible sandwiches. Bottom to top.
+        sandwiches = [
+            ["bread", "cheese", "burger", "bread"],
+            ["bread", "cheese", "burger", "egg", "bread"],
+            ["bread", "cheese", "burger", "lettuce", "bread"],
+            ["bread", "burger", "lettuce", "tomato", "bread"],
+            ["bread", "cheese", "burger", "lettuce", "tomato", "bread"],
+            [
+                "bread", "cheese", "burger", "lettuce", "tomato",
+                "green_pepper", "bread"
+            ],
+            ["bread", "cheese", "ham", "bread"],
+            ["bread", "cheese", "ham", "tomato", "bread"],
+            ["bread", "cheese", "egg", "bread"],
+            ["bread", "cheese", "egg", "tomato", "bread"],
+            ["bread", "cheese", "egg", "tomato", "green_pepper", "bread"],
+        ]
+        # For now, assume all sandwiches are feasible.
+        ing_to_objs = self._state_to_ingredient_groups(state)
+        # Randomize order.
+        ing_to_remaining_objs = {
+            n: sorted(objs, key=lambda _: rng.uniform())
+            for n, objs in ing_to_objs.items()
+        }
+        sandwich = sandwiches[rng.choice(len(sandwiches))]
+        sandwich_objs = []
+        for ing in sandwich:
+            obj = ing_to_remaining_objs[ing].pop()
+            sandwich_objs.append(obj)
+        # Create goal atoms.
+        goal_atoms: Set[GroundAtom] = set()
+        bottom = sandwich_objs[0]
+        on_board_atom = GroundAtom(self._OnBoard, [bottom, self._board])
+        goal_atoms.add(on_board_atom)
+        for top, bot in zip(sandwich_objs[1:], sandwich_objs[:-1]):
+            on_atom = GroundAtom(self._On, [top, bot])
+            goal_atoms.add(on_atom)
+        return goal_atoms
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj1, obj2 = objects
@@ -428,43 +466,44 @@ class SandwichEnv(BaseEnv):
         return False
 
     def _IsBread_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._is_ingredient(obj, "bread", state)
 
     def _IsBurger_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._is_ingredient(obj, "burger", state)
 
     def _IsHam_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._is_ingredient(obj, "ham", state)
 
     def _IsEgg_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._is_ingredient(obj, "egg", state)
 
     def _IsLettuce_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._is_ingredient(obj, "lettuce", state)
 
     def _IsTomato_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._is_ingredient(obj, "tomato", state)
 
     def _IsCheese_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._is_ingredient(obj, "cheese", state)
 
     def _IsGreenPepper_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, = objects
+        return self._is_ingredient(obj, "green_pepper", state)
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
         del memory, params  # unused
-        # TODO
+        import ipdb
+        ipdb.set_trace()
         arr = np.add(self.action_space.low, self.action_space.high) / 2.
         return Action(arr)
 
@@ -579,3 +618,25 @@ class SandwichEnv(BaseEnv):
             "radius": radius,
             "shape": shape
         }
+
+    def _is_ingredient(self, obj: Object, ing_name: str, state: State) -> bool:
+        return self._obj_to_ingredient(obj, state) == ing_name
+
+    def _obj_to_ingredient(self, obj: Object, state: State) -> str:
+        obj_color = (state.get(obj, "color_r"), state.get(obj, "color_g"),
+                     state.get(obj, "color_b"))
+        affinities = {
+            n: np.sum(np.subtract(c, obj_color)**2)
+            for n, c in self.ingredient_colors.items()
+        }
+        closest = min(affinities, key=affinities.get)
+        return closest
+
+    def _state_to_ingredient_groups(self,
+                                    state: State) -> Dict[str, Set[Object]]:
+        ings = set(self.ingredient_colors)
+        ing_groups: Dict[str, Set[Object]] = {n: set() for n in ings}
+        for obj in state.get_objects(self._ingredient_type):
+            ing_name = self._obj_to_ingredient(obj, state)
+            ing_groups[ing_name].add(obj)
+        return dict(ing_groups)
