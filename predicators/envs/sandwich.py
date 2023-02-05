@@ -225,6 +225,21 @@ class SandwichEnv(BaseEnv):
         workspace_rect = utils.Rectangle(ws_x, ws_y, ws_width, ws_length, 0.0)
         workspace_rect.plot(ax, facecolor="white", edgecolor="black")
 
+        # Draw robot base (roughly) for reference.
+        rob_base_x_pad = 0.75 * ws_width
+        rob_base_x = ws_x + ws_width / 2 + rob_base_x_pad
+        rob_base_y = ws_y + ws_length / 2
+        rob_base_radius = min(ws_width, ws_length) * 0.2
+        robot_circ = utils.Circle(rob_base_x, rob_base_y, rob_base_radius)
+        robot_circ.plot(ax, facecolor="gray", edgecolor="black")
+        ax.text(rob_base_x,
+                rob_base_y,
+                "robot",
+                fontsize="x-small",
+                ha="center",
+                va="center",
+                bbox=dict(facecolor="white", edgecolor="black", alpha=0.5))
+
         # Draw objects, sorted in z order.
 
         def _get_z(obj: Object) -> float:
@@ -237,15 +252,29 @@ class SandwichEnv(BaseEnv):
             geom = self._obj_to_geom2d(obj, state, "topdown")
             color = self._obj_to_color(obj, state)
             geom.plot(ax, facecolor=color, edgecolor="black")
+            # Add text box.
+            if obj.is_instance(self._ingredient_type):
+                x = state.get(obj, "pose_x")
+                y = state.get(obj, "pose_y")
+                s = obj.name
+                ax.text(x,
+                        y,
+                        s,
+                        fontsize="x-small",
+                        ha="center",
+                        va="center",
+                        bbox=dict(facecolor="white",
+                                  edgecolor="black",
+                                  alpha=0.5))
 
         title = ""
         if caption is not None:
             title += f"; {caption}"
         plt.suptitle(title, fontsize=24, wrap=True)
 
-        ax.set_xlim(self.x_lb, self.x_ub)
+        ax.set_xlim(self.x_lb, rob_base_x + rob_base_radius)
         ax.set_ylim(self.y_lb, self.y_ub)
-        # ax.axis("off")
+        ax.axis("off")
         plt.tight_layout()
         return fig
 
@@ -464,7 +493,7 @@ class SandwichEnv(BaseEnv):
 
     def _ingredient_to_static_features(self,
                                        ing_name: str) -> Dict[str, float]:
-        color_r, color_b, color_g = self.ingredient_colors[ing_name]
+        color_r, color_g, color_b = self.ingredient_colors[ing_name]
         radius = self.ingredient_radii[ing_name]
         shape = self.ingredient_shapes[ing_name]
         return {
