@@ -1,18 +1,11 @@
 """Sandwich making domain."""
 
-import itertools
-import json
-import logging
-from collections import defaultdict
-from pathlib import Path
-from typing import ClassVar, DefaultDict, Dict, List, Optional, Sequence, \
-    Set, Tuple
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
-from matplotlib import patches
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -177,7 +170,7 @@ class SandwichEnv(BaseEnv):
             return self._transition_pick(state, x, y, z)
         thickness = self.ingredient_thickness + self.board_thickness
         if z < self.table_height + thickness:
-            return self._transition_putonboard(state, x, y, z)
+            return self._transition_putonboard(state, x, y)
         return self._transition_stack(state, x, y, z)
 
     def _transition_pick(self, state: State, x: float, y: float,
@@ -200,8 +193,8 @@ class SandwichEnv(BaseEnv):
         next_state.set(self._robot, "fingers", 0.0)  # close fingers
         return next_state
 
-    def _transition_putonboard(self, state: State, x: float, y: float,
-                               z: float) -> State:
+    def _transition_putonboard(self, state: State, x: float,
+                               y: float) -> State:
         next_state = state.copy()
         # Can only putonboard if fingers are closed.
         if self._GripperOpen_holds(state, [self._robot]):
@@ -654,7 +647,7 @@ class SandwichEnv(BaseEnv):
 
     def _PutOnBoard_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
+        del memory, params  # unused
         _, board = objects
         x = state.get(board, "pose_x")
         y = state.get(board, "pose_y")
