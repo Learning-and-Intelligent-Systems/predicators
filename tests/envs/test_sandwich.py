@@ -116,10 +116,11 @@ def test_sandwich_options():
     assert not GroundAtom(OnBoard, [ing0, board]).holds(state0)
     assert GroundAtom(OnBoard, [ing0, board]).holds(state4)
     assert not GroundAtom(Clear, [ing1]).holds(state0)
+    assert not GroundAtom(Clear, [ing0]).holds(state1)
     assert GroundAtom(Clear, [ing1]).holds(state4)
     assert not GroundAtom(Clear, [ing0]).holds(state4)
 
-    # Cover option failure cases.
+    # Cover simulate "failure" cases.
 
     # Can only pick if fingers are open.
     state = state1
@@ -129,9 +130,11 @@ def test_sandwich_options():
     assert state.allclose(next_state)
 
     # No ingredient at this pose.
-    state = state0
-    x, y, z = env.x_ub, env.y_ub, env.z_lb
-    action = Action(np.array([x, y, z, 1.0], dtype=np.float32))
+    state = state2
+    x = state0.get(ing0, "pose_x")
+    y = state0.get(ing0, "pose_y")
+    z = state0.get(ing0, "pose_z")
+    action = Action(np.array([x, y, z, 0.0], dtype=np.float32))
     next_state = env.simulate(state, action)
     assert state.allclose(next_state)
 
