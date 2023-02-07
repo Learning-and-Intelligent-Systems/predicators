@@ -56,24 +56,35 @@ class GreedyLookaheadExplorer(BaseExplorer):
             trajectory_length = 0
             total_score = 0.0
             while trajectory_length < CFG.greedy_lookahead_max_traj_length:
-                # Sample an NSRT that has preconditions satisfied in the
-                # current state.
+                # Check that sampling for an NSRT is feasible.
                 ground_nsrt = self._sample_applicable_ground_nsrt(
                     state, ground_nsrts)
                 if ground_nsrt is None:  # No applicable NSRTs
                     break
-                assert all(a.holds for a in ground_nsrt.preconditions)
-                # Sample an option. Note that goal is assumed not used.
-                assert not CFG.sampler_learning_use_goals
-                option = ground_nsrt.sample_option(state,
-                                                   goal=set(),
-                                                   rng=self._rng)
-                # Assume for now that options will be initiable when the
-                # preconditions of the NSRT are satisfied.
-                assert option.initiable(state)
+                for _ in range(CFG.greedy_lookahead_max_num_resamples):
+                    # Sample an NSRT that has preconditions satisfied in the
+                    # current state.
+                    ground_nsrt = self._sample_applicable_ground_nsrt(
+                        state, ground_nsrts)
+                    assert ground_nsrt
+                    assert all(a.holds for a in ground_nsrt.preconditions)
+                    # Sample an option. Note that goal is assumed not used.
+                    assert not CFG.sampler_learning_use_goals
+                    option = ground_nsrt.sample_option(state,
+                                                       goal=set(),
+                                                       rng=self._rng)
+                    # Option may not be initiable despite preconditions being
+                    # satisfied because predicates may be learned incorrectly.
+                    # In this case, we resample the NSRT.
+                    if option.initiable(state):
+                        break
+                else:
+                    # We were not able to sample an applicable NSRT, so we end
+                    # this trajectory.
+                    break
                 state, num_actions = \
                     self._option_model.get_next_state_and_num_actions(state,
-                                                                      option)
+                                                                    option)
                 # Special case: if the num actions is 0, something went wrong,
                 # and we don't want to use this option after all. To prevent
                 # possible infinite loops, just break immediately in this case.

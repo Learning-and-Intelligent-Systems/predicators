@@ -29,7 +29,7 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts(env_name)
     elif env_name == "cluttered_table_place":
         nsrts = _get_cluttered_table_gt_nsrts(env_name, with_place=True)
-    elif env_name in ("blocks", "pybullet_blocks"):
+    elif env_name in ("blocks", "pybullet_blocks", "blocks_clear"):
         nsrts = _get_blocks_gt_nsrts(env_name)
     elif env_name in ("painting", "repeated_nextto_painting"):
         nsrts = _get_painting_gt_nsrts(env_name)
@@ -57,6 +57,8 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts(env_name)
+    elif env_name == "sandwich":
+        nsrts = _get_sandwich_gt_nsrts(env_name)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -947,12 +949,14 @@ def _get_painting_gt_nsrts(env_name: str) -> Set[NSRT]:
             robot_y = state.get(objs[1], "pose_y")
             table_lb = RepeatedNextToPaintingEnv.table_lb
             table_ub = RepeatedNextToPaintingEnv.table_ub
-            assert table_lb < robot_y < table_ub
-            nextto_thresh = RepeatedNextToPaintingEnv.nextto_thresh
-            y_sample_lb = max(table_lb, robot_y - nextto_thresh)
-            y_sample_ub = min(table_ub, robot_y + nextto_thresh)
-            y = rng.uniform(y_sample_lb, y_sample_ub)
-            z = RepeatedNextToPaintingEnv.obj_z
+            y = state.get(objs[0], "pose_y")
+            z = state.get(objs[0], "pose_z")
+            if table_lb < robot_y < table_ub:
+                nextto_thresh = RepeatedNextToPaintingEnv.nextto_thresh
+                y_sample_lb = max(table_lb, robot_y - nextto_thresh)
+                y_sample_ub = min(table_ub, robot_y + nextto_thresh)
+                y = rng.uniform(y_sample_lb, y_sample_ub)
+                z = RepeatedNextToPaintingEnv.obj_z
         return np.array([x, y, z], dtype=np.float32)
 
     placeontable_nsrt = NSRT("PlaceOnTable", parameters, preconditions,
@@ -2856,5 +2860,96 @@ def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
             sampler=null_sampler,
         )
         nsrts.add(nsrt)
+
+    return nsrts
+
+
+def _get_sandwich_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for SandwichEnv."""
+    robot_type, ingredient_type, board_type, holder_type = _get_types_by_names(
+        env_name, ["robot", "ingredient", "board", "holder"])
+
+    On, OnBoard, InHolder, GripperOpen, Holding, Clear, BoardClear = \
+        _get_predicates_by_names(env_name, ["On", "OnBoard", "InHolder",
+                                            "GripperOpen", "Holding", "Clear",
+                                            "BoardClear"])
+
+    Pick, Stack, PutOnBoard = _get_options_by_names(
+        env_name, ["Pick", "Stack", "PutOnBoard"])
+
+    nsrts = set()
+
+    # PickFromHolder
+    ing = Variable("?ing", ingredient_type)
+    robot = Variable("?robot", robot_type)
+    holder = Variable("?holder", holder_type)
+    parameters = [ing, robot, holder]
+    option_vars = [robot, ing]
+    option = Pick
+    preconditions = {
+        LiftedAtom(InHolder, [ing, holder]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [ing, robot])}
+    delete_effects = {
+        LiftedAtom(InHolder, [ing, holder]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+
+    pickfromholder_nsrt = NSRT("PickFromHolder", parameters, preconditions,
+                               add_effects, delete_effects, set(), option,
+                               option_vars, null_sampler)
+    nsrts.add(pickfromholder_nsrt)
+
+    # Stack
+    ing = Variable("?ing", ingredient_type)
+    othering = Variable("?othering", ingredient_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [ing, othering, robot]
+    option_vars = [robot, othering]
+    option = Stack
+    preconditions = {
+        LiftedAtom(Holding, [ing, robot]),
+        LiftedAtom(Clear, [othering])
+    }
+    add_effects = {
+        LiftedAtom(On, [ing, othering]),
+        LiftedAtom(Clear, [ing]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    delete_effects = {
+        LiftedAtom(Holding, [ing, robot]),
+        LiftedAtom(Clear, [othering])
+    }
+
+    stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
+                      delete_effects, set(), option, option_vars, null_sampler)
+    nsrts.add(stack_nsrt)
+
+    # PutOnBoard
+    ing = Variable("?ing", ingredient_type)
+    robot = Variable("?robot", robot_type)
+    board = Variable("?board", board_type)
+    parameters = [ing, robot, board]
+    option_vars = [robot, board]
+    option = PutOnBoard
+    preconditions = {
+        LiftedAtom(Holding, [ing, robot]),
+        LiftedAtom(BoardClear, [board]),
+    }
+    add_effects = {
+        LiftedAtom(OnBoard, [ing, board]),
+        LiftedAtom(Clear, [ing]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    delete_effects = {
+        LiftedAtom(Holding, [ing, robot]),
+        LiftedAtom(BoardClear, [board]),
+    }
+
+    putonboard_nsrt = NSRT("PutOnBoard", parameters, preconditions,
+                           add_effects, delete_effects, set(), option,
+                           option_vars, null_sampler)
+    nsrts.add(putonboard_nsrt)
 
     return nsrts

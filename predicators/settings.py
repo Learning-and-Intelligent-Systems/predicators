@@ -32,6 +32,8 @@ class GlobalSettings:
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
     test_env_seed_offset = 10000
+    # Optionally define test tasks in JSON format
+    test_task_json_dir = None
     # The method to use for segmentation. By default, segment using options.
     # If you are learning options, you should change this via the command line.
     segmenter = "option_changes"
@@ -64,7 +66,6 @@ class GlobalSettings:
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
-    blocks_test_task_json_dir = None
     blocks_holding_goals = False
     blocks_block_size = 0.045  # use 0.0505 for real with panda
 
@@ -100,6 +101,28 @@ class GlobalSettings:
     tools_num_items_test = [2, 3]
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
+
+    # sandwich env parameters
+    sandwich_ingredients_train = {
+        "bread": [2],
+        "patty": [1],
+        "ham": [1],
+        "egg": [1],
+        "cheese": [1],
+        "lettuce": [1],
+        "tomato": [1],
+        "green_pepper": [1],
+    }
+    sandwich_ingredients_test = {
+        "bread": [2],
+        "patty": [1],
+        "ham": [1],
+        "egg": [1],
+        "cheese": [1],
+        "lettuce": [1],
+        "tomato": [1],
+        "green_pepper": [1],
+    }
 
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
@@ -330,6 +353,7 @@ class GlobalSettings:
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
     sesame_check_expected_atoms = True
+    sesame_use_necessary_atoms = True
     sesame_use_visited_state_set = False
     # The algorithm used for grounding the planning problem. Choices are
     # "naive" or "fd_translator". The former does a type-aware cross product
@@ -440,6 +464,7 @@ class GlobalSettings:
 
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
+    online_learning_max_novelty_count = 0
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -453,10 +478,12 @@ class GlobalSettings:
     # greedy lookahead explorer parameters
     greedy_lookahead_max_num_trajectories = 100
     greedy_lookahead_max_traj_length = 2
+    greedy_lookahead_max_num_resamples = 10
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
+    grammar_search_grammar_use_diff_features = False
     grammar_search_use_handcoded_debug_grammar = False
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1

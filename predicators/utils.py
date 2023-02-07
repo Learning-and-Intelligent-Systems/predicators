@@ -1105,7 +1105,8 @@ def get_object_combinations(objects: Collection[Object],
 def get_variable_combinations(
         variables: Collection[Variable],
         types: Sequence[Type]) -> Iterator[List[Variable]]:
-    """Get all combinations of objects satisfying the given types sequence."""
+    """Get all combinations of variables satisfying the given types
+    sequence."""
     return _get_entity_combinations(variables, types)
 
 
@@ -1407,7 +1408,8 @@ def run_hill_climbing(
         heuristic: Callable[[_S], float],
         early_termination_heuristic_thresh: Optional[float] = None,
         enforced_depth: int = 0,
-        parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
+        parallelize: bool = False,
+        verbose: bool = True) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -1425,8 +1427,9 @@ def run_hill_climbing(
     last_heuristic = heuristic(cur_node.state)
     heuristics = [last_heuristic]
     visited = {initial_state}
-    logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
-                 f"with heuristic {last_heuristic}")
+    if verbose:
+        logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
+                     f"with heuristic {last_heuristic}")
     while True:
 
         # Stops when heuristic reaches specified value.
@@ -1435,14 +1438,16 @@ def run_hill_climbing(
             break
 
         if check_goal(cur_node.state):
-            logging.info("\nTerminating hill climbing, achieved goal")
+            if verbose:
+                logging.info("\nTerminating hill climbing, achieved goal")
             break
         best_heuristic = float("inf")
         best_child_node = None
         current_depth_nodes = [cur_node]
         all_best_heuristics = []
         for depth in range(0, enforced_depth + 1):
-            logging.info(f"Searching for an improvement at depth {depth}")
+            if verbose:
+                logging.info(f"Searching for an improvement at depth {depth}")
             # This is a list to ensure determinism. Note that duplicates are
             # filtered out in the `child_state in visited` check.
             successors_at_depth = []
@@ -1478,23 +1483,28 @@ def run_hill_climbing(
             all_best_heuristics.append(best_heuristic)
             if last_heuristic > best_heuristic:
                 # Some improvement found.
-                logging.info(f"Found an improvement at depth {depth}")
+                if verbose:
+                    logging.info(f"Found an improvement at depth {depth}")
                 break
             # Continue on to the next depth.
             current_depth_nodes = successors_at_depth
-            logging.info(f"No improvement found at depth {depth}")
+            if verbose:
+                logging.info(f"No improvement found at depth {depth}")
         if best_child_node is None:
-            logging.info("\nTerminating hill climbing, no more successors")
+            if verbose:
+                logging.info("\nTerminating hill climbing, no more successors")
             break
         if last_heuristic <= best_heuristic:
-            logging.info(
-                "\nTerminating hill climbing, could not improve score")
+            if verbose:
+                logging.info(
+                    "\nTerminating hill climbing, could not improve score")
             break
         heuristics.extend(all_best_heuristics)
         cur_node = best_child_node
         last_heuristic = best_heuristic
-        logging.info(f"\nHill climbing reached new state {cur_node.state} "
-                     f"with heuristic {last_heuristic}")
+        if verbose:
+            logging.info(f"\nHill climbing reached new state {cur_node.state} "
+                         f"with heuristic {last_heuristic}")
     states, actions = _finish_plan(cur_node)
     assert len(states) == len(heuristics)
     return states, actions, heuristics
@@ -1812,21 +1822,83 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
-def all_ground_ldl_rules(rule: LDLRule,
-                         objects: Collection[Object]) -> List[_GroundLDLRule]:
-    """Get all possible groundings of the given rule with the given objects."""
-    return _cached_all_ground_ldl_rules(rule, frozenset(objects))
+def all_ground_ldl_rules(
+    rule: LDLRule,
+    objects: Collection[Object],
+    static_predicates: Optional[Collection[Predicate]] = None,
+    init_atoms: Optional[Collection[GroundAtom]] = None
+) -> List[_GroundLDLRule]:
+    """Get all possible groundings of the given rule with the given objects.
+
+    If provided, use the static predicates and init_atoms to avoid
+    grounding rules that will never have satisfied preconditions in any
+    state.
+    """
+    if static_predicates is None:
+        static_predicates = set()
+    if init_atoms is None:
+        init_atoms = set()
+    return _cached_all_ground_ldl_rules(rule, frozenset(objects),
+                                        frozenset(static_predicates),
+                                        frozenset(init_atoms))
 
 
 @functools.lru_cache(maxsize=None)
 def _cached_all_ground_ldl_rules(
-        rule: LDLRule,
-        frozen_objects: FrozenSet[Object]) -> List[_GroundLDLRule]:
+        rule: LDLRule, objects: FrozenSet[Object],
+        static_predicates: FrozenSet[Predicate],
+        init_atoms: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
     """Helper for all_ground_ldl_rules() that caches the outputs."""
     ground_rules = []
-    types = [p.type for p in rule.parameters]
-    for choice in get_object_combinations(frozen_objects, types):
-        ground_rule = rule.ground(tuple(choice))
+    # Use static preconds to reduce the map of parameters to possible objects.
+    # For example, if IsBall(?x) is a positive state precondition, then only
+    # the objects that appear in init_atoms with IsBall could bind to ?x.
+    # For now, we just check unary static predicates, since that covers the
+    # common case where such predicates are used in place of types.
+    # Create map from each param to unary static predicates.
+    param_to_pos_preds: Dict[Variable, Set[Predicate]] = {
+        p: set()
+        for p in rule.parameters
+    }
+    param_to_neg_preds: Dict[Variable, Set[Predicate]] = {
+        p: set()
+        for p in rule.parameters
+    }
+    for (preconditions, param_to_preds) in [
+        (rule.pos_state_preconditions, param_to_pos_preds),
+        (rule.neg_state_preconditions, param_to_neg_preds),
+    ]:
+        for atom in preconditions:
+            pred = atom.predicate
+            if pred in static_predicates and pred.arity == 1:
+                param = atom.variables[0]
+                param_to_preds[param].add(pred)
+    # Create the param choices, filtering based on the unary static atoms.
+    param_choices = []  # list of lists of possible objects for each param
+    # Preprocess the atom sets for faster lookups.
+    init_atom_tups = {(a.predicate, tuple(a.objects)) for a in init_atoms}
+    for param in rule.parameters:
+        choices = []
+        for obj in objects:
+            # Types must match, as usual.
+            if obj.type != param.type:
+                continue
+            # Check the static conditions.
+            binding_valid = True
+            for pred in param_to_pos_preds[param]:
+                if (pred, (obj, )) not in init_atom_tups:
+                    binding_valid = False
+                    break
+            for pred in param_to_neg_preds[param]:
+                if (pred, (obj, )) in init_atom_tups:
+                    binding_valid = False
+                    break
+            if binding_valid:
+                choices.append(obj)
+        # Must be sorted for consistency with other grounding code.
+        param_choices.append(sorted(choices))
+    for choice in itertools.product(*param_choices):
+        ground_rule = rule.ground(choice)
         ground_rules.append(ground_rule)
     return ground_rules
 
@@ -2753,18 +2825,30 @@ def nostdout() -> Generator[None, None, None]:
     sys.stdout = save_stdout
 
 
-def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
-              objects: Set[Object],
-              goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
+def query_ldl(
+    ldl: LiftedDecisionList,
+    atoms: Set[GroundAtom],
+    objects: Set[Object],
+    goal: Set[GroundAtom],
+    static_predicates: Optional[Set[Predicate]] = None,
+    init_atoms: Optional[Collection[GroundAtom]] = None
+) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
     Given an abstract state and goal, the rules are grounded in order. The
     first applicable ground rule is used to return a ground NSRT.
 
+    If static_predicates is provided, it is used to avoid grounding rules with
+    nonsense preconditions like IsBall(robot).
+
     If no rule is applicable, returns None.
     """
     for rule in ldl.rules:
-        for ground_rule in all_ground_ldl_rules(rule, objects):
+        for ground_rule in all_ground_ldl_rules(
+                rule,
+                objects,
+                static_predicates=static_predicates,
+                init_atoms=init_atoms):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
                not ground_rule.neg_state_preconditions & atoms and \
                ground_rule.goal_preconditions.issubset(goal):
@@ -2824,3 +2908,21 @@ def find_all_balanced_expressions(s: str) -> List[str]:
     assert balance == 0
     exprs.append(s[start_index:index + 1])
     return exprs
+
+
+def f_range_intersection(lb1: float, ub1: float, lb2: float,
+                         ub2: float) -> bool:
+    """Given upper and lower bounds for two feature ranges, returns True iff
+    the ranges intersect."""
+    return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
+
+
+def roundrobin(iterables: Sequence[Iterator]) -> Iterator:
+    """roundrobin(['ABC...', 'D...', 'EF...']) --> A D E B F C..."""
+    # Recipe credited to George Sakkis, code adapted slightly from
+    # from https://docs.python.org/3/library/itertools.html
+    num_active = len(iterables)
+    nexts = itertools.cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        for nxt in nexts:
+            yield nxt()
