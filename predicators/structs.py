@@ -1556,3 +1556,4 @@ MaxTrainIters = Union[int, Callable[[int], int]]
 ExplorationStrategy = Tuple[Callable[[State], Action], Callable[[State], bool]]
 AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
+RGBA = Tuple[float, float, float, float]
