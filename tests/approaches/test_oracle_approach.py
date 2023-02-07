@@ -24,6 +24,7 @@ from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
     RepeatedNextToEnv, RepeatedNextToSingleOptionEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
+from predicators.envs.sandwich import SandwichEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
 from predicators.envs.stick_button import StickButtonEnv
@@ -42,7 +43,7 @@ ENV_NAME_AND_CLS = [
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
     ("narrow_passage", NarrowPassageEnv), ("painting", PaintingEnv),
-    ("tools", ToolsEnv), ("playroom", PlayroomEnv),
+    ("sandwich", SandwichEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
