@@ -31,6 +31,7 @@ import logging
 import os
 import sys
 import time
+from argparse import ArgumentParser
 from collections import defaultdict
 from pathlib import Path
 from typing import List, Set, cast
@@ -41,7 +42,6 @@ from predicators import utils
 from predicators.approaches import create_approach
 from predicators.approaches.refinement_estimation_approach import \
     RefinementEstimationApproach
-from predicators.args import create_arg_parser
 from predicators.envs import BaseEnv, create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase, create_option_model
@@ -60,11 +60,7 @@ def train_refinement_estimation_approach() -> None:
     script_start = time.perf_counter()
 
     # Parse & validate args
-    parser = create_arg_parser()
-    # Add script-specific flags to the parser
-    # parser.add_argument("--refinement_data_file_name", default="", type=str)
-    # parser.add_argument("--skip_refinement_estimator_training",
-    #                     action="store_true")
+    parser = get_refinement_estimation_parser()
     args = utils.parse_args_with_parser(parser)
     utils.update_config(args)
     str_args = " ".join(sys.argv)
@@ -144,6 +140,17 @@ def train_refinement_estimation_approach() -> None:
 
     script_time = time.perf_counter() - script_start
     logging.info(f"\n\nScript terminated in {script_time:.5f} seconds")
+
+
+def get_refinement_estimation_parser() -> ArgumentParser:
+    """Get default parser and add script-specific flags for refinement
+    estimation data collection and training."""
+    parser = utils.create_arg_parser()
+    # Add script-specific flags to the parser
+    parser.add_argument("--refinement_data_file_name", default="", type=str)
+    parser.add_argument("--skip_refinement_estimator_training",
+                        action="store_true")
+    return parser
 
 
 def _generate_refinement_data(

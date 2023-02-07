@@ -2618,6 +2618,15 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     This utility is meant for use in testing only.
     """
     parser = create_arg_parser()
+    reset_config_with_parser(parser, args, default_seed,
+                             default_render_state_dpi)
+
+
+def reset_config_with_parser(parser: ArgumentParser,
+                             args: Optional[Dict[str, Any]] = None,
+                             default_seed: int = 123,
+                             default_render_state_dpi: int = 10) -> None:
+    """Helper function for reset_config that accepts a parser argument."""
     default_args = parser.parse_args([
         "--env",
         "default env placeholder",

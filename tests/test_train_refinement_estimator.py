@@ -12,16 +12,19 @@ from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.option_model import create_option_model
 from predicators.planning import PlanningFailure
 from predicators.train_refinement_estimator import \
-    _collect_refinement_data_for_task, train_refinement_estimation_approach
+    _collect_refinement_data_for_task, get_refinement_estimation_parser, \
+    train_refinement_estimation_approach
 
 
 def test_train_refinement_estimator():
     """Tests for train_refinement_estimator.py."""
-    utils.reset_config({
-        "env": "narrow_passage",
-        "narrow_passage_passage_width_padding": 0.02,
-        "num_train_tasks": 1,
-    })
+    parser = get_refinement_estimation_parser()
+    utils.reset_config_with_parser(
+        parser, {
+            "env": "narrow_passage",
+            "narrow_passage_passage_width_padding": 0.02,
+            "num_train_tasks": 1,
+        })
     sys.argv = [
         "dummy", "--env", "narrow_passage", "--approach", "oracle", "--seed",
         "123", "--num_train_tasks", "3"
@@ -106,7 +109,7 @@ def test_train_refinement_estimator():
     sample_env = NarrowPassageEnv()
     sample_task = sample_env.get_train_tasks()[0]
     sample_option_model = create_option_model("oracle")
-    utils.reset_config()
+    utils.reset_config_with_parser(parser)
     with pytest.raises(PlanningFailure):
         _collect_refinement_data_for_task(sample_task, sample_option_model,
                                           set(), set(), set(), 0, [])
