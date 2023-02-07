@@ -18,8 +18,8 @@ def test_sandwich_properties():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 15
-    BoardClear, Clear, GripperOpen, Holding, InHolder, IsBread, IsBurger, \
-        IsCheese, IsEgg, IsGreenPepper, IsHam, IsLettuce, IsTomato, On, \
+    BoardClear, Clear, GripperOpen, Holding, InHolder, IsBread, IsCheese, \
+        IsEgg, IsGreenPepper, IsHam, IsLettuce, IsPatty, IsTomato, On, \
         OnBoard = sorted(env.predicates)
     assert BoardClear.name == "BoardClear"
     assert Clear.name == "Clear"
@@ -27,7 +27,7 @@ def test_sandwich_properties():
     assert Holding.name == "Holding"
     assert InHolder.name == "InHolder"
     assert IsBread.name == "IsBread"
-    assert IsBurger.name == "IsBurger"
+    assert IsPatty.name == "IsPatty"
     assert IsCheese.name == "IsCheese"
     assert IsEgg.name == "IsEgg"
     assert IsGreenPepper.name == "IsGreenPepper"
@@ -37,7 +37,7 @@ def test_sandwich_properties():
     assert On.name == "On"
     assert OnBoard.name == "OnBoard"
     assert env.goal_predicates == {
-        IsBread, IsBurger, IsCheese, IsEgg, IsGreenPepper, IsHam, IsLettuce,
+        IsBread, IsPatty, IsCheese, IsEgg, IsGreenPepper, IsHam, IsLettuce,
         IsTomato, On, OnBoard
     }
     assert len(env.options) == 3

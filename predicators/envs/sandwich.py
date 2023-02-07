@@ -51,7 +51,7 @@ class SandwichEnv(BaseEnv):
     ingredient_thickness: ClassVar[float] = 0.02
     ingredient_colors: ClassVar[Dict[str, Tuple[float, float, float]]] = {
         "bread": (0.58, 0.29, 0.0),
-        "burger": (0.32, 0.15, 0.0),
+        "patty": (0.32, 0.15, 0.0),
         "ham": (0.937, 0.384, 0.576),
         "egg": (0.937, 0.898, 0.384),
         "cheese": (0.937, 0.737, 0.203),
@@ -61,7 +61,7 @@ class SandwichEnv(BaseEnv):
     }
     ingredient_radii: ClassVar[Dict[str, float]] = {
         "bread": board_length / 2.5,
-        "burger": board_length / 3,
+        "patty": board_length / 3,
         "ham": board_length / 2.75,
         "egg": board_length / 3.25,
         "cheese": board_length / 2.75,
@@ -72,7 +72,7 @@ class SandwichEnv(BaseEnv):
     # 0 is cuboid, 1 is cylinder
     ingredient_shapes: ClassVar[Dict[str, float]] = {
         "bread": 0,
-        "burger": 1,
+        "patty": 1,
         "ham": 0,
         "egg": 1,
         "cheese": 0,
@@ -119,8 +119,8 @@ class SandwichEnv(BaseEnv):
                                      self._BoardClear_holds)
         self._IsBread = Predicate("IsBread", [self._ingredient_type],
                                   self._IsBread_holds)
-        self._IsBurger = Predicate("IsBurger", [self._ingredient_type],
-                                   self._IsBurger_holds)
+        self._IsPatty = Predicate("IsPatty", [self._ingredient_type],
+                                  self._IsPatty_holds)
         self._IsHam = Predicate("IsHam", [self._ingredient_type],
                                 self._IsHam_holds)
         self._IsEgg = Predicate("IsEgg", [self._ingredient_type],
@@ -165,12 +165,16 @@ class SandwichEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         x, y, z, fingers = action.arr
-        # Infer which transition function to follow
+        # Infer which transition function to follow.
+        # If we are not holding anything, the only possible action is pick.
         if fingers < self.held_tol:
             return self._transition_pick(state, x, y, z)
+        # If the action is targetting a position that is on the surface of
+        # the board, then the only possible action is putonboard.
         thickness = self.ingredient_thickness + self.board_thickness
         if z < self.table_height + thickness:
             return self._transition_putonboard(state, x, y)
+        # The only remaining possible action is stack.
         return self._transition_stack(state, x, y, z)
 
     def _transition_pick(self, state: State, x: float, y: float,
@@ -260,16 +264,16 @@ class SandwichEnv(BaseEnv):
         return {
             self._On, self._OnBoard, self._GripperOpen, self._Holding,
             self._Clear, self._InHolder, self._BoardClear, self._IsBread,
-            self._IsBurger, self._IsHam, self._IsEgg, self._IsCheese,
+            self._IsPatty, self._IsHam, self._IsEgg, self._IsCheese,
             self._IsLettuce, self._IsTomato, self._IsGreenPepper
         }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return {
-            self._On, self._OnBoard, self._IsBread, self._IsBurger,
-            self._IsHam, self._IsEgg, self._IsCheese, self._IsLettuce,
-            self._IsTomato, self._IsGreenPepper
+            self._On, self._OnBoard, self._IsBread, self._IsPatty, self._IsHam,
+            self._IsEgg, self._IsCheese, self._IsLettuce, self._IsTomato,
+            self._IsGreenPepper
         }
 
     @property
@@ -489,13 +493,13 @@ class SandwichEnv(BaseEnv):
                      rng: np.random.Generator) -> Set[GroundAtom]:
         # Some possible sandwiches. Bottom to top.
         sandwiches = [
-            ["bread", "cheese", "burger", "bread"],
-            ["bread", "cheese", "burger", "egg", "bread"],
-            ["bread", "cheese", "burger", "lettuce", "bread"],
-            ["bread", "burger", "lettuce", "tomato", "bread"],
-            ["bread", "cheese", "burger", "lettuce", "tomato", "bread"],
+            ["bread", "cheese", "patty", "bread"],
+            ["bread", "cheese", "patty", "egg", "bread"],
+            ["bread", "cheese", "patty", "lettuce", "bread"],
+            ["bread", "patty", "lettuce", "tomato", "bread"],
+            ["bread", "cheese", "patty", "lettuce", "tomato", "bread"],
             [
-                "bread", "cheese", "burger", "lettuce", "tomato",
+                "bread", "cheese", "patty", "lettuce", "tomato",
                 "green_pepper", "bread"
             ],
             ["bread", "cheese", "ham", "bread"],
@@ -545,19 +549,15 @@ class SandwichEnv(BaseEnv):
 
     def _InHolder_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, holder = objects
-        obj_y = state.get(obj, "pose_y")
-        holder_y = state.get(holder, "pose_y")
-        holder_lb = holder_y - self.holder_length / 2.
-        holder_ub = holder_y + self.holder_length / 2.
-        return holder_lb - 1e-5 <= obj_y <= holder_ub + 1e-5
+        ds = ["x", "y"]
+        sizes = [self.holder_width, self.holder_length]
+        return self._object_contained_in_object(obj, holder, state, ds, sizes)
 
     def _OnBoard_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, board = objects
-        obj_y = state.get(obj, "pose_y")
-        board_y = state.get(board, "pose_y")
-        board_lb = board_y - self.board_length / 2.
-        board_ub = board_y + self.board_length / 2.
-        return board_lb - 1e-5 <= obj_y <= board_ub + 1e-5
+        ds = ["x", "y"]
+        sizes = [self.board_width, self.board_length]
+        return self._object_contained_in_object(obj, board, state, ds, sizes)
 
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -584,9 +584,9 @@ class SandwichEnv(BaseEnv):
         obj, = objects
         return self._is_ingredient(obj, "bread", state)
 
-    def _IsBurger_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _IsPatty_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
-        return self._is_ingredient(obj, "burger", state)
+        return self._is_ingredient(obj, "patty", state)
 
     def _IsHam_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
@@ -766,6 +766,16 @@ class SandwichEnv(BaseEnv):
         return self._obj_to_ingredient(obj, state) == ing_name
 
     def _obj_to_ingredient(self, obj: Object, state: State) -> str:
+        # We use the color of the object to determine what type of ingredient
+        # it is. This is a simple version of the realistic version where the
+        # type of ingredient is a function of its visual properties (color,
+        # texture, detailed shape, etc). Setting it up this way means that
+        # we could try to learn the predicates, i.e., do color classification.
+        # Also, we don't want to use subtypes of the ingredient type because
+        # our learning algorithms don't properly support hierarchical typing.
+        # Finally, we wouldn't want to use the object names to determine their
+        # ingredient type because all predicates must be a function of the
+        # object states, and the object names are not part of the states.
         obj_color = (state.get(obj, "color_r"), state.get(obj, "color_g"),
                      state.get(obj, "color_b"))
         affinities = {
@@ -828,5 +838,18 @@ class SandwichEnv(BaseEnv):
             return False
         for other_obj in state.get_objects(self._ingredient_type):
             if self._On_holds(state, [other_obj, obj]):
+                return False
+        return True
+
+    def _object_contained_in_object(self, obj: Object, container: Object,
+                                    state: State, dims: List[str],
+                                    sizes: List[float]) -> bool:
+        assert len(dims) == len(sizes)
+        for dim, size in zip(dims, sizes):
+            obj_pose = state.get(obj, f"pose_{dim}")
+            container_pose = state.get(container, f"pose_{dim}")
+            container_lb = container_pose - size / 2.
+            container_ub = container_pose + size / 2.
+            if not container_lb - 1e-5 <= obj_pose <= container_ub + 1e-5:
                 return False
         return True
