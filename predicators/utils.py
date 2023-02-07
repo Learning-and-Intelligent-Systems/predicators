@@ -1917,12 +1917,16 @@ class _LDLParser:
     def __init__(self, types: Collection[Type],
                  predicates: Collection[Predicate],
                  nsrts: Collection[NSRT]) -> None:
-        self._nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
-        self._type_name_to_type = {t.name: t for t in types}
-        self._predicate_name_to_predicate = {p.name: p for p in predicates}
+        self._nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+        self._type_name_to_type = {t.name.lower(): t for t in types}
+        self._predicate_name_to_predicate = {
+            p.name.lower(): p
+            for p in predicates
+        }
 
     def parse(self, ldl_str: str) -> LiftedDecisionList:
         """Run parsing."""
+        ldl_str = ldl_str.lower()  # ignore case during parsing
         rules = []
         rule_matches = re.finditer(r"\(:rule", ldl_str)
         for start in rule_matches:
