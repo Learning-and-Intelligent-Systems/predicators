@@ -39,6 +39,7 @@ class SandwichEnv(BaseEnv):
     holder_y_ub: ClassVar[float] = holder_y_lb + (y_ub - y_lb) * 0.1
     holder_color: ClassVar[RGBA] = (0.5, 0.5, 0.5, 1.0)
     holder_thickness: ClassVar[float] = 0.01
+    holder_height: ClassVar[float] = 0.02
     board_width: ClassVar[float] = (x_ub - x_lb) * 0.8
     board_length: ClassVar[float] = (y_ub - y_lb) * 0.2
     board_x_lb: ClassVar[float] = x_lb + board_width / 2
@@ -48,7 +49,7 @@ class SandwichEnv(BaseEnv):
     board_y_ub: ClassVar[float] = board_y_lb + (y_ub - y_lb) * 0.05
     board_color: ClassVar[RGBA] = (0.1, 0.1, 0.5, 0.8)
     board_thickness: ClassVar[float] = 0.01
-    ingredient_thickness: ClassVar[float] = 0.02
+    ingredient_thickness: ClassVar[float] = 0.01
     ingredient_colors: ClassVar[Dict[str, Tuple[float, float, float]]] = {
         "bread": (0.58, 0.29, 0.0),
         "patty": (0.32, 0.15, 0.0),
@@ -60,14 +61,14 @@ class SandwichEnv(BaseEnv):
         "green_pepper": (0.156, 0.541, 0.160),
     }
     ingredient_radii: ClassVar[Dict[str, float]] = {
-        "bread": board_length / 2.5,
-        "patty": board_length / 3,
-        "ham": board_length / 2.75,
-        "egg": board_length / 3.25,
-        "cheese": board_length / 2.75,
-        "lettuce": board_length / 3,
-        "tomato": board_length / 3,
-        "green_pepper": board_length / 3.5,
+        "bread": board_length / 5,
+        "patty": board_length / 6,
+        "ham": board_length / 5.5,
+        "egg": board_length / 6.5,
+        "cheese": board_length / 5.5,
+        "lettuce": board_length / 6,
+        "tomato": board_length / 6,
+        "green_pepper": board_length / 7,
     }
     # 0 is cuboid, 1 is cylinder
     ingredient_shapes: ClassVar[Dict[str, float]] = {

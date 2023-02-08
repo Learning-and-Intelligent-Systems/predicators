@@ -182,33 +182,81 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
             physicsClientId=self._physics_client_id)
 
         # Create holder.
-        pose = ((self.holder_x_lb + self.holder_x_ub) / 2,
-                (self.holder_y_lb + self.holder_y_ub) / 2,
-                self.table_height + self.holder_thickness / 2)
+        color = self.holder_color
+        orientation = self._default_orn
+        base_pose = ((self.holder_x_lb + self.holder_x_ub) / 2,
+                     (self.holder_y_lb + self.holder_y_ub) / 2,
+                     self.table_height + self.holder_thickness / 2)
+        # Holder base.
         # Create the collision shape.
-        half_extents = [
+        base_half_extents = [
             self.holder_width / 2, self.holder_length / 2,
             self.holder_thickness / 2
         ]
-        color = self.holder_color
-        orientation = self._default_orn
-        collision_id = p.createCollisionShape(
+        base_collision_id = p.createCollisionShape(
             p.GEOM_BOX,
-            halfExtents=half_extents,
+            halfExtents=base_half_extents,
             physicsClientId=self._physics_client_id)
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(
+        # Create the visual shape.
+        base_visual_id = p.createVisualShape(
             p.GEOM_BOX,
-            halfExtents=half_extents,
+            halfExtents=base_half_extents,
             rgbaColor=color,
             physicsClientId=self._physics_client_id)
-        # Create the body.
+        link_positions = []
+        link_collision_shape_indices = []
+        link_visual_shape_indices = []
+        # Create links to prevent movement in the x direction.
+        link_thickness = self.holder_thickness
+        max_ingredient_radius = max(self.ingredient_radii.values())
+        for x_offset in [
+                max_ingredient_radius + link_thickness,
+                -(max_ingredient_radius + link_thickness)
+        ]:
+            pose = (x_offset, 0,
+                    self.holder_thickness / 2 + self.holder_height / 2)
+            link_positions.append(pose)
+            half_extents = [
+                link_thickness / 2, self.holder_length / 2,
+                self.holder_height / 2
+            ]
+            collision_id = p.createCollisionShape(
+                p.GEOM_BOX,
+                halfExtents=half_extents,
+                physicsClientId=self._physics_client_id)
+            link_collision_shape_indices.append(collision_id)
+            visual_id = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=half_extents,
+                rgbaColor=color,
+                physicsClientId=self._physics_client_id)
+            link_visual_shape_indices.append(visual_id)
+        # Create the whole body.
+        num_links = len(link_positions)
+        assert len(link_collision_shape_indices) == num_links
+        assert len(link_visual_shape_indices) == num_links
+        link_masses = [0.1 for _ in range(num_links)]
+        link_orientations = [orientation for _ in range(num_links)]
+        link_intertial_frame_positions = [[0, 0, 0] for _ in range(num_links)]
+        link_intertial_frame_orns = [[0, 0, 0, 1] for _ in range(num_links)]
+        link_parent_indices = [0 for _ in range(num_links)]
+        link_joint_types = [p.JOINT_FIXED for _ in range(num_links)]
+        link_joint_axis = [[0, 0, 0] for _ in range(num_links)]
         self._holder_id = p.createMultiBody(
-            baseMass=-1,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=visual_id,
-            basePosition=pose,
+            baseCollisionShapeIndex=base_collision_id,
+            baseVisualShapeIndex=base_visual_id,
+            basePosition=base_pose,
             baseOrientation=orientation,
+            linkMasses=link_masses,
+            linkCollisionShapeIndices=link_collision_shape_indices,
+            linkVisualShapeIndices=link_visual_shape_indices,
+            linkPositions=link_positions,
+            linkOrientations=link_orientations,
+            linkInertialFramePositions=link_intertial_frame_positions,
+            linkInertialFrameOrientations=link_intertial_frame_orns,
+            linkParentIndices=link_parent_indices,
+            linkJointTypes=link_joint_types,
+            linkJointAxis=link_joint_axis,
             physicsClientId=self._physics_client_id)
 
         # Create ingredients.  Note that we create the maximum number once, and
@@ -241,11 +289,6 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
 
                 self._ingredient_ids[ingredient].append(pid)
 
-        import time
-        while True:
-            p.stepSimulation(self._physics_client_id)
-            time.sleep(0.001)
-
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
@@ -253,8 +296,14 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
                                                 physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
-        import ipdb
-        ipdb.set_trace()
+        # TODO: we're probably going to need orientation here as well
+        return np.array([
+            state.get(self._robot, "pose_x"),
+            state.get(self._robot, "pose_y"),
+            state.get(self._robot, "pose_z"),
+            self._fingers_state_to_joint(state.get(self._robot, "fingers")),
+        ],
+                        dtype=np.float32)
 
     @classmethod
     def get_name(cls) -> str:
@@ -263,8 +312,33 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle sandwich-specific resetting."""
         super()._reset_state(state)
-        import ipdb
-        ipdb.set_trace()
+
+        # Reset ingredients based on the state.
+        ing_objs = state.get_objects(self._ingredient_type)
+        self._id_to_object = {}
+        unused_ids = {k: list(v) for k, v in self._ingredient_ids.items()}
+        for ing_obj in ing_objs:
+            ing_type = self._obj_to_ingredient(ing_obj, state)
+            ing_id = unused_ids[ing_type].pop()
+            self._id_to_object[ing_id] = ing_obj
+            x = state.get(ing_obj, "pose_x")
+            y = state.get(ing_obj, "pose_y")
+            z = state.get(ing_obj, "pose_z")
+            rot = state.get(ing_obj, "rot")
+            if abs(rot - np.pi / 2) < 1e-3:
+                orn = p.getQuaternionFromEuler([np.pi / 2, 0.0, 0.0])
+            else:
+                assert abs(rot - 0) < 1e-3
+                orn = self._default_orn
+            p.resetBasePositionAndOrientation(
+                ing_id, [x, y, z],
+                orn,
+                physicsClientId=self._physics_client_id)
+
+        import time
+        while True:
+            p.stepSimulation(self._physics_client_id)
+            time.sleep(0.001)
 
     def _get_state(self) -> State:
         """Create a State based on the current PyBullet state."""

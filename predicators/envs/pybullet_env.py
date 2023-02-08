@@ -428,7 +428,7 @@ def create_pybullet_block(color: Tuple[float, float, float, float],
                                           halfExtents=half_extents,
                                           physicsClientId=physics_client_id)
 
-    # Create the visual_shape.
+    # Create the visual shape.
     visual_id = p.createVisualShape(p.GEOM_BOX,
                                     halfExtents=half_extents,
                                     rgbaColor=color,
@@ -469,7 +469,7 @@ def create_pybullet_cylinder(color: Tuple[float, float, float, float],
                                           height=height,
                                           physicsClientId=physics_client_id)
 
-    # Create the visual_shape.
+    # Create the visual shape.
     visual_id = p.createVisualShape(p.GEOM_CYLINDER,
                                     radius=radius,
                                     length=height,
