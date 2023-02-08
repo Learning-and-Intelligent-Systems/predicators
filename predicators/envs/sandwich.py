@@ -460,14 +460,10 @@ class SandwichEnv(BaseEnv):
             self._robot: robot_state
         }
         # Sample ingredients.
-        ing_spacing = self.ingredient_thickness
-        # Add padding.
         tot_num_ings = sum(ingredient_to_num.values())
-        tot_thickness = tot_num_ings * self.ingredient_thickness
-        ing_spacing += (self.holder_length - tot_thickness) / (tot_num_ings -
-                                                               1)
         # Randomly order the ingredients.
         order_indices = list(range(tot_num_ings))
+        ingredient_ys = self._get_ingredient_y_positions(holder_y, tot_num_ings)
         for ing, num in ingredient_to_num.items():
             ing_static_features = self._ingredient_to_static_features(ing)
             radius = ing_static_features["radius"]
@@ -476,9 +472,7 @@ class SandwichEnv(BaseEnv):
                 obj = Object(obj_name, self._ingredient_type)
                 order_idx = rng.choice(order_indices)
                 order_indices.remove(order_idx)
-                pose_y = (holder_y - self.holder_length / 2) + \
-                         order_idx * ing_spacing + \
-                         self.ingredient_thickness / 2.
+                pose_y = ingredient_ys[order_idx]
                 pose_z = self.table_height + self.holder_thickness + radius
                 state_dict[obj] = {
                     "pose_x": holder_x,
@@ -854,3 +848,15 @@ class SandwichEnv(BaseEnv):
             if not container_lb - 1e-5 <= obj_pose <= container_ub + 1e-5:
                 return False
         return True
+    
+    def _get_ingredient_y_positions(self, holder_y: float, tot_num_ings: float) -> List[float]:
+        spacing = self.ingredient_thickness
+        tot_thickness = tot_num_ings * self.ingredient_thickness
+        spacing += (self.holder_length - tot_thickness) / (tot_num_ings - 1)
+        ys = []
+        for order_idx in range(tot_num_ings):
+            y = (holder_y - self.holder_length / 2) + \
+                 order_idx * spacing + \
+                 self.ingredient_thickness / 2.
+            ys.append(y)
+        return ys

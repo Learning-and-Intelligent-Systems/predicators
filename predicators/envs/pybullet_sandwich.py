@@ -231,6 +231,9 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
                 rgbaColor=color,
                 physicsClientId=self._physics_client_id)
             link_visual_shape_indices.append(visual_id)
+        # Create links to prevent movement in the y direction.
+        link_thickness = self.ingredient_thickness / 4
+        
         # Create the whole body.
         num_links = len(link_positions)
         assert len(link_collision_shape_indices) == num_links
@@ -312,6 +315,9 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle sandwich-specific resetting."""
         super()._reset_state(state)
+
+        # Reset the holder and board.
+        # TODO
 
         # Reset ingredients based on the state.
         ing_objs = state.get_objects(self._ingredient_type)
