@@ -34,6 +34,18 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
     # Robot parameters.
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
+    # Ingredient parameters.
+    _ingredient_textures: ClassVar[Dict[str, str]] = {
+        "bread": "urdf/ingredient_textures/bread.jpg",
+        "patty": "urdf/ingredient_textures/patty.jpg",
+        "cheese": "urdf/ingredient_textures/cheese.png",
+        "egg": "urdf/ingredient_textures/egg.png",
+        "ham": "urdf/ingredient_textures/ham.png",
+        "lettuce": "urdf/ingredient_textures/lettuce.png",
+        "green_pepper": "urdf/ingredient_textures/green_pepper.png",
+        "tomato": "urdf/ingredient_textures/tomato.png",
+    }
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -247,7 +259,8 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
             pose = (0, y, self.holder_thickness / 2 + self.holder_height / 2)
             link_positions.append(pose)
             half_extents = [
-                base_half_extents[0], link_thickness / 2, self.holder_height / 2
+                base_half_extents[0], link_thickness / 2,
+                self.holder_height / 2
             ]
             collision_id = p.createCollisionShape(
                 p.GEOM_BOX,
@@ -297,25 +310,36 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
             num_ing = max(max(CFG.sandwich_ingredients_train[ingredient]),
                           max(CFG.sandwich_ingredients_test[ingredient]))
             color = tuple(self.ingredient_colors[ingredient]) + (1.0, )
+            if ingredient in self._ingredient_textures:
+                path = self._ingredient_textures[ingredient]
+                texture_path = utils.get_env_asset_path(path)
+                texture = p.loadTexture(
+                    texture_path, physicsClientId=self._physics_client_id)
+            else:
+                texture = None
             shape = self.ingredient_shapes[ingredient]
             radius = self.ingredient_radii[ingredient]
             half_extents = (radius, radius, self.ingredient_thickness)
             self._ingredient_ids[ingredient] = []
             for _ in range(num_ing):
                 if shape == 0:
-                    pid = create_pybullet_block(color, half_extents,
+                    pid = create_pybullet_block(color,
+                                                half_extents,
                                                 self._obj_mass,
                                                 self._obj_friction,
                                                 self._default_orn,
-                                                self._physics_client_id)
+                                                self._physics_client_id,
+                                                texture=texture)
                 else:
                     assert shape == 1
-                    pid = create_pybullet_cylinder(color, radius,
+                    pid = create_pybullet_cylinder(color,
+                                                   radius,
                                                    self.ingredient_thickness,
                                                    self._obj_mass,
                                                    self._obj_friction,
                                                    self._default_orn,
-                                                   self._physics_client_id)
+                                                   self._physics_client_id,
+                                                   texture=texture)
 
                 self._ingredient_ids[ingredient].append(pid)
 

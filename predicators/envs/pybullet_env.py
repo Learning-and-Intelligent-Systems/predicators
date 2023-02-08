@@ -411,10 +411,12 @@ class PyBulletEnv(BaseEnv):
 
 
 def create_pybullet_block(color: Tuple[float, float, float, float],
-                          half_extents: Tuple[float, float,
-                                              float], mass: float,
-                          friction: float, orientation: Sequence[float],
-                          physics_client_id: int) -> int:
+                          half_extents: Tuple[float, float, float],
+                          mass: float,
+                          friction: float,
+                          orientation: Sequence[float],
+                          physics_client_id: int,
+                          texture: Optional[int] = None) -> int:
     """A generic utility for creating a new block.
 
     Returns the PyBullet ID of the newly created block.
@@ -429,10 +431,15 @@ def create_pybullet_block(color: Tuple[float, float, float, float],
                                           physicsClientId=physics_client_id)
 
     # Create the visual shape.
-    visual_id = p.createVisualShape(p.GEOM_BOX,
-                                    halfExtents=half_extents,
-                                    rgbaColor=color,
-                                    physicsClientId=physics_client_id)
+    if texture is None:
+        visual_id = p.createVisualShape(p.GEOM_BOX,
+                                        halfExtents=half_extents,
+                                        rgbaColor=color,
+                                        physicsClientId=physics_client_id)
+    else:
+        visual_id = p.createVisualShape(p.GEOM_BOX,
+                                        halfExtents=half_extents,
+                                        physicsClientId=physics_client_id)
 
     # Create the body.
     block_id = p.createMultiBody(baseMass=mass,
@@ -441,6 +448,12 @@ def create_pybullet_block(color: Tuple[float, float, float, float],
                                  basePosition=pose,
                                  baseOrientation=orientation,
                                  physicsClientId=physics_client_id)
+    if texture is not None:
+        p.changeVisualShape(block_id,
+                            -1,
+                            textureUniqueId=texture,
+                            physicsClientId=physics_client_id)
+
     p.changeDynamics(
         block_id,
         linkIndex=-1,  # -1 for the base
@@ -451,13 +464,19 @@ def create_pybullet_block(color: Tuple[float, float, float, float],
 
 
 def create_pybullet_cylinder(color: Tuple[float, float, float, float],
-                             radius: float, height: float, mass: float,
-                             friction: float, orientation: Sequence[float],
-                             physics_client_id: int) -> int:
+                             radius: float,
+                             height: float,
+                             mass: float,
+                             friction: float,
+                             orientation: Sequence[float],
+                             physics_client_id: int,
+                             texture: Optional[int] = None) -> int:
     """A generic utility for creating a new cylinder.
 
     Returns the PyBullet ID of the newly created cylinder.
     """
+
+    # TODO factor out common code
 
     # The poses here are not important because they are overwritten by
     # the state values when a task is reset.
@@ -470,11 +489,17 @@ def create_pybullet_cylinder(color: Tuple[float, float, float, float],
                                           physicsClientId=physics_client_id)
 
     # Create the visual shape.
-    visual_id = p.createVisualShape(p.GEOM_CYLINDER,
-                                    radius=radius,
-                                    length=height,
-                                    rgbaColor=color,
-                                    physicsClientId=physics_client_id)
+    if texture is None:
+        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+                                        radius=radius,
+                                        length=height,
+                                        rgbaColor=color,
+                                        physicsClientId=physics_client_id)
+    else:
+        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+                                        radius=radius,
+                                        length=height,
+                                        physicsClientId=physics_client_id)
 
     # Create the body.
     cylinder_id = p.createMultiBody(baseMass=mass,
@@ -483,6 +508,13 @@ def create_pybullet_cylinder(color: Tuple[float, float, float, float],
                                     basePosition=pose,
                                     baseOrientation=orientation,
                                     physicsClientId=physics_client_id)
+
+    if texture is not None:
+        p.changeVisualShape(cylinder_id,
+                            -1,
+                            textureUniqueId=texture,
+                            physicsClientId=physics_client_id)
+
     p.changeDynamics(
         cylinder_id,
         linkIndex=-1,  # -1 for the base
