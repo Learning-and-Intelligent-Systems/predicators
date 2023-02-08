@@ -2589,10 +2589,16 @@ def get_third_party_path() -> str:
 
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
+    parser = create_arg_parser()
+    update_config_with_parser(parser, args)
+
+
+def update_config_with_parser(parser: ArgumentParser, args: Dict[str,
+                                                                 Any]) -> None:
+    """Helper function for update_config() that accepts a parser argument."""
     arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
     # Only override attributes, don't create new ones.
     allowed_args = set(CFG.__dict__) | set(arg_specific_settings)
-    parser = create_arg_parser()
     # Unfortunately, can't figure out any other way to do this.
     for parser_action in parser._actions:  # pylint: disable=protected-access
         allowed_args.add(parser_action.dest)
@@ -2646,7 +2652,7 @@ def reset_config_with_parser(parser: ArgumentParser,
         # By default, use a small value for the rendering DPI, to avoid
         # expensive rendering during testing.
         arg_dict["render_state_dpi"] = default_render_state_dpi
-    update_config(arg_dict)
+    update_config_with_parser(parser, arg_dict)
 
 
 def get_config_path_str(experiment_id: Optional[str] = None) -> str:
@@ -2696,7 +2702,7 @@ def parse_args_with_parser(parser: ArgumentParser) -> Dict[str, Any]:
         return arg_dict
     # Update initial settings to make sure we're overriding
     # existing flags only
-    update_config(arg_dict)
+    update_config_with_parser(parser, arg_dict)
     # Override global settings
     assert len(overrides) >= 2
     assert len(overrides) % 2 == 0

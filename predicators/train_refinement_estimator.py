@@ -62,7 +62,7 @@ def train_refinement_estimation_approach() -> None:
     # Parse & validate args
     parser = get_refinement_estimation_parser()
     args = utils.parse_args_with_parser(parser)
-    utils.update_config(args)
+    utils.update_config_with_parser(parser, args)
     str_args = " ".join(sys.argv)
 
     # Log to stderr.
