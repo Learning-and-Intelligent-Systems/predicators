@@ -42,7 +42,7 @@ class SandwichEnv(BaseEnv):
     holder_height: ClassVar[float] = 0.02
     holder_well_height: ClassVar[float] = 0.001  # wells to prevent rolling
     holder_well_width_frac: ClassVar[float] = 0.8
-    board_width: ClassVar[float] = (x_ub - x_lb) * 0.8
+    board_width: ClassVar[float] = (x_ub - x_lb) * 0.4
     board_length: ClassVar[float] = (y_ub - y_lb) * 0.2
     board_x_lb: ClassVar[float] = x_lb + board_width / 2
     board_x_ub: ClassVar[float] = x_ub - board_width / 2
