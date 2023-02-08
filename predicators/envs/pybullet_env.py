@@ -448,3 +448,45 @@ def create_pybullet_block(color: Tuple[float, float, float, float],
         physicsClientId=physics_client_id)
 
     return block_id
+
+
+def create_pybullet_cylinder(color: Tuple[float, float, float, float],
+                             radius: float, height: float, mass: float,
+                             friction: float, orientation: Sequence[float],
+                             physics_client_id: int) -> int:
+    """A generic utility for creating a new cylinder.
+
+    Returns the PyBullet ID of the newly created cylinder.
+    """
+
+    # The poses here are not important because they are overwritten by
+    # the state values when a task is reset.
+    pose = (0, 0, 0)
+
+    # Create the collision shape.
+    collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
+                                          radius=radius,
+                                          height=height,
+                                          physicsClientId=physics_client_id)
+
+    # Create the visual_shape.
+    visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+                                    radius=radius,
+                                    length=height,
+                                    rgbaColor=color,
+                                    physicsClientId=physics_client_id)
+
+    # Create the body.
+    cylinder_id = p.createMultiBody(baseMass=mass,
+                                    baseCollisionShapeIndex=collision_id,
+                                    baseVisualShapeIndex=visual_id,
+                                    basePosition=pose,
+                                    baseOrientation=orientation,
+                                    physicsClientId=physics_client_id)
+    p.changeDynamics(
+        cylinder_id,
+        linkIndex=-1,  # -1 for the base
+        lateralFriction=friction,
+        physicsClientId=physics_client_id)
+
+    return cylinder_id

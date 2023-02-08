@@ -9,7 +9,8 @@ import pybullet as p
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
+from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block, \
+    create_pybullet_cylinder
 from predicators.envs.sandwich import SandwichEnv
 from predicators.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option
@@ -79,6 +80,10 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
                     "OpenFingers", types, params_space, open_fingers_func,
                     self._max_vel_norm, self._grasp_tol),
             ])
+
+        # We track the correspondence between PyBullet object IDs and Object
+        # instances. This correspondence changes with the task.
+        self._id_to_object: Dict[int, Object] = {}
 
     def _initialize_pybullet(self) -> None:
         """Run super(), then handle sandwich-specific initialization."""
@@ -175,6 +180,66 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
             basePosition=pose,
             baseOrientation=orientation,
             physicsClientId=self._physics_client_id)
+
+        # Create holder.
+        pose = ((self.holder_x_lb + self.holder_x_ub) / 2,
+                (self.holder_y_lb + self.holder_y_ub) / 2,
+                self.table_height + self.holder_thickness / 2)
+        # Create the collision shape.
+        half_extents = [
+            self.holder_width / 2, self.holder_length / 2,
+            self.holder_thickness / 2
+        ]
+        color = self.holder_color
+        orientation = self._default_orn
+        collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            physicsClientId=self._physics_client_id)
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            rgbaColor=color,
+            physicsClientId=self._physics_client_id)
+        # Create the body.
+        self._holder_id = p.createMultiBody(
+            baseMass=-1,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=pose,
+            baseOrientation=orientation,
+            physicsClientId=self._physics_client_id)
+
+        # Create ingredients.  Note that we create the maximum number once, and
+        # then later on, in reset_state(), we will remove ingredients from the
+        # workspace (teleporting them far away) based on the state.
+        self._ingredient_ids = {}  # ingredient type to ids
+        for ingredient in CFG.sandwich_ingredients_test:
+            num_ing = max(max(CFG.sandwich_ingredients_train[ingredient]),
+                          max(CFG.sandwich_ingredients_test[ingredient]))
+            color = tuple(self.ingredient_colors[ingredient]) + (1.0, )
+            shape = self.ingredient_shapes[ingredient]
+            radius = self.ingredient_radii[ingredient]
+            half_extents = (radius, radius, self.ingredient_thickness)
+            self._ingredient_ids[ingredient] = []
+            for _ in range(num_ing):
+                if shape == 0:
+                    pid = create_pybullet_block(color, half_extents,
+                                                self._obj_mass,
+                                                self._obj_friction,
+                                                self._default_orn,
+                                                self._physics_client_id)
+                else:
+                    assert shape == 1
+                    pid = create_pybullet_cylinder(color, radius,
+                                                   self.ingredient_thickness,
+                                                   self._obj_mass,
+                                                   self._obj_friction,
+                                                   self._default_orn,
+                                                   self._physics_client_id)
+
+                self._ingredient_ids[ingredient].append(pid)
 
         import time
         while True:
