@@ -247,7 +247,7 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
             pose = (0, y, self.holder_thickness / 2 + self.holder_height / 2)
             link_positions.append(pose)
             half_extents = [
-                base_half_extents[0], link_thickness, self.holder_height / 2
+                base_half_extents[0], link_thickness / 2, self.holder_height / 2
             ]
             collision_id = p.createCollisionShape(
                 p.GEOM_BOX,
