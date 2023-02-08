@@ -367,8 +367,24 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         """Run super(), then handle sandwich-specific resetting."""
         super()._reset_state(state)
 
-        # Reset the holder and board.
-        # TODO
+        # Reset the board and holder.
+        board_obj, = state.get_objects(self._board_type)
+        x = state.get(board_obj, "pose_x")
+        y = state.get(board_obj, "pose_y")
+        z = self.table_height + self.board_thickness / 2
+        p.resetBasePositionAndOrientation(
+            self._board_id, [x, y, z],
+            self._default_orn,
+            physicsClientId=self._physics_client_id)
+
+        holder_obj, = state.get_objects(self._holder_type)
+        x = state.get(holder_obj, "pose_x")
+        y = state.get(holder_obj, "pose_y")
+        z = self.table_height + self.holder_thickness / 2
+        p.resetBasePositionAndOrientation(
+            self._holder_id, [x, y, z],
+            self._default_orn,
+            physicsClientId=self._physics_client_id)        
 
         # Reset ingredients based on the state.
         ing_objs = state.get_objects(self._ingredient_type)
