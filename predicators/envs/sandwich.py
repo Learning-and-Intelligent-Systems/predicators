@@ -31,7 +31,7 @@ class SandwichEnv(BaseEnv):
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
     robot_init_z: ClassVar[float] = pick_z
-    holder_width: ClassVar[float] = (x_ub - x_lb) * 0.8
+    holder_width: ClassVar[float] = (x_ub - x_lb) * 0.4
     holder_length: ClassVar[float] = (y_ub - y_lb) * 0.6
     holder_x_lb: ClassVar[float] = x_lb + holder_width / 2
     holder_x_ub: ClassVar[float] = x_ub - holder_width / 2
@@ -40,6 +40,8 @@ class SandwichEnv(BaseEnv):
     holder_color: ClassVar[RGBA] = (0.5, 0.5, 0.5, 1.0)
     holder_thickness: ClassVar[float] = 0.01
     holder_height: ClassVar[float] = 0.02
+    holder_well_height: ClassVar[float] = 0.001  # wells to prevent rolling
+    holder_well_width_frac: ClassVar[float] = 0.8
     board_width: ClassVar[float] = (x_ub - x_lb) * 0.8
     board_length: ClassVar[float] = (y_ub - y_lb) * 0.2
     board_x_lb: ClassVar[float] = x_lb + board_width / 2
@@ -854,11 +856,12 @@ class SandwichEnv(BaseEnv):
                                     tot_num_ings: float) -> List[float]:
         spacing = self.ingredient_thickness
         tot_thickness = tot_num_ings * self.ingredient_thickness
-        spacing += (self.holder_length - tot_thickness) / (tot_num_ings - 1)
+        spacing += (self.holder_length - tot_thickness) / tot_num_ings
+        end_pad = spacing / 2
         ys = []
         for order_idx in range(tot_num_ings):
             y = (holder_y - self.holder_length / 2) + \
-                 order_idx * spacing + \
+                 order_idx * spacing + end_pad + \
                  self.ingredient_thickness / 2.
             ys.append(y)
         return ys

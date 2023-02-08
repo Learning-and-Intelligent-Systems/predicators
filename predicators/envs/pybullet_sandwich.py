@@ -207,18 +207,18 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         link_collision_shape_indices = []
         link_visual_shape_indices = []
         # Create links to prevent movement in the x direction.
-        link_thickness = self.holder_thickness
         max_ingredient_radius = max(self.ingredient_radii.values())
+        link_width = max_ingredient_radius * self.holder_well_width_frac
         for x_offset in [
-                max_ingredient_radius + link_thickness,
-                -(max_ingredient_radius + link_thickness)
+                -max_ingredient_radius + link_width / 2,
+                max_ingredient_radius - link_width / 2,
         ]:
             pose = (x_offset, 0,
-                    self.holder_thickness / 2 + self.holder_height / 2)
+                    self.holder_thickness / 2 + self.holder_well_height / 2)
             link_positions.append(pose)
             half_extents = [
-                link_thickness / 2, base_half_extents[1],
-                self.holder_height / 2
+                link_width / 2, base_half_extents[1],
+                self.holder_well_height / 2
             ]
             collision_id = p.createCollisionShape(
                 p.GEOM_BOX,
