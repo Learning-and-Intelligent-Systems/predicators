@@ -463,7 +463,8 @@ class SandwichEnv(BaseEnv):
         tot_num_ings = sum(ingredient_to_num.values())
         # Randomly order the ingredients.
         order_indices = list(range(tot_num_ings))
-        ingredient_ys = self._get_ingredient_y_positions(holder_y, tot_num_ings)
+        ingredient_ys = self._get_ingredient_y_positions(
+            holder_y, tot_num_ings)
         for ing, num in ingredient_to_num.items():
             ing_static_features = self._ingredient_to_static_features(ing)
             radius = ing_static_features["radius"]
@@ -848,8 +849,9 @@ class SandwichEnv(BaseEnv):
             if not container_lb - 1e-5 <= obj_pose <= container_ub + 1e-5:
                 return False
         return True
-    
-    def _get_ingredient_y_positions(self, holder_y: float, tot_num_ings: float) -> List[float]:
+
+    def _get_ingredient_y_positions(self, holder_y: float,
+                                    tot_num_ings: float) -> List[float]:
         spacing = self.ingredient_thickness
         tot_thickness = tot_num_ings * self.ingredient_thickness
         spacing += (self.holder_length - tot_thickness) / (tot_num_ings - 1)

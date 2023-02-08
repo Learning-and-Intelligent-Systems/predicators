@@ -217,7 +217,7 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
                     self.holder_thickness / 2 + self.holder_height / 2)
             link_positions.append(pose)
             half_extents = [
-                link_thickness / 2, self.holder_length / 2,
+                link_thickness / 2, base_half_extents[1],
                 self.holder_height / 2
             ]
             collision_id = p.createCollisionShape(
@@ -233,7 +233,34 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
             link_visual_shape_indices.append(visual_id)
         # Create links to prevent movement in the y direction.
         link_thickness = self.ingredient_thickness / 4
-        
+        tot_num_ings = max(
+            sum(sum(v) for v in CFG.sandwich_ingredients_train.values()),
+            sum(sum(v) for v in CFG.sandwich_ingredients_test.values()))
+        tot_num_links = tot_num_ings + 1
+        spacing = link_thickness
+        tot_thickness = tot_num_links * link_thickness
+        spacing += (self.holder_length - tot_thickness) / (tot_num_links - 1)
+        for i in range(tot_num_links):
+            y = (0 - self.holder_length / 2) + \
+                 i * spacing + \
+                 link_thickness / 2.
+            pose = (0, y, self.holder_thickness / 2 + self.holder_height / 2)
+            link_positions.append(pose)
+            half_extents = [
+                base_half_extents[0], link_thickness, self.holder_height / 2
+            ]
+            collision_id = p.createCollisionShape(
+                p.GEOM_BOX,
+                halfExtents=half_extents,
+                physicsClientId=self._physics_client_id)
+            link_collision_shape_indices.append(collision_id)
+            visual_id = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=half_extents,
+                rgbaColor=color,
+                physicsClientId=self._physics_client_id)
+            link_visual_shape_indices.append(visual_id)
+
         # Create the whole body.
         num_links = len(link_positions)
         assert len(link_collision_shape_indices) == num_links
