@@ -384,7 +384,7 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         p.resetBasePositionAndOrientation(
             self._holder_id, [x, y, z],
             self._default_orn,
-            physicsClientId=self._physics_client_id)        
+            physicsClientId=self._physics_client_id)
 
         # Reset ingredients based on the state.
         ing_objs = state.get_objects(self._ingredient_type)
