@@ -835,6 +835,8 @@ class SandwichEnv(BaseEnv):
         if not self._OnBoard_holds(state, [obj, self._board]):
             return False
         for other_obj in state.get_objects(self._ingredient_type):
+            if obj == other_obj:
+                continue
             if self._On_holds(state, [other_obj, obj]):
                 return False
         return True
