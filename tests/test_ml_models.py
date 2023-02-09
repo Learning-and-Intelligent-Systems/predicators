@@ -9,7 +9,7 @@ from predicators import utils
 from predicators.ml_models import BinaryClassifierEnsemble, \
     DegenerateMLPDistributionRegressor, ImplicitMLPRegressor, \
     KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
-    MLPRegressor, NeuralGaussianRegressor
+    MLPRegressor, CNNRegressor, NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -90,6 +90,38 @@ def test_implicit_mlp_regressor():
     model._inference_method = "not a real inference method"  # pylint: disable=protected-access
     with pytest.raises(NotImplementedError):
         model.predict(x)
+
+
+def test_basic_cnn_regressor():
+    """Tests for CNNRegressor."""
+    utils.reset_config()
+    input_size = (3, 5, 3)
+    output_size = 2
+    num_samples = 5
+    model = CNNRegressor(seed=123,
+                         conv_channel_nums=[1],
+                         conv_kernel_sizes=[3],
+                         linear_hid_sizes=[32, 32],
+                         max_train_iters=100,
+                         clip_gradients=True,
+                         clip_value=5,
+                         learning_rate=1e-3)
+    X = np.ones((num_samples, *input_size))
+    Y = np.zeros((num_samples, output_size))
+    model.fit(X, Y)
+    x = np.ones(input_size)
+    predicted_y = model.predict(x)
+    expected_y = np.zeros(output_size)
+    assert predicted_y.shape == expected_y.shape
+    assert np.allclose(predicted_y, expected_y, atol=1e-2)
+    # Test with nonzero outputs.
+    Y = 75 * np.ones((num_samples, output_size))
+    model.fit(X, Y)
+    x = np.ones(input_size)
+    predicted_y = model.predict(x)
+    expected_y = 75 * np.ones(output_size)
+    assert predicted_y.shape == expected_y.shape
+    assert np.allclose(predicted_y, expected_y, atol=1e-2)
 
 
 def test_neural_gaussian_regressor():

@@ -89,7 +89,14 @@ class _NormalizingRegressor(Regressor):
         self._output_scale = np.zeros(1, dtype=np.float32)
 
     def fit(self, X: Array, Y: Array) -> None:
-        num_data, self._x_dim = X.shape
+        if len(X.shape) == 2:
+            # Inputs are vectors
+            num_data, self._x_dim = X.shape
+        else:
+            # Inputs are arrays with at least 2 dimensions
+            # Set self._x_dim to a tuple
+            num_data = X.shape[0]
+            self._x_dim = tuple(X.shape[1:])
         _, self._y_dim = Y.shape
         assert Y.shape[0] == num_data
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
@@ -99,8 +106,8 @@ class _NormalizingRegressor(Regressor):
         self._fit(X, Y)
 
     def predict(self, x: Array) -> Array:
-        assert self._x_dim > -1, "Fit must be called before predict."
-        assert x.shape == (self._x_dim, )
+        assert self._x_dim != -1, "Fit must be called before predict."
+        assert x.shape == (self._x_dim, ) or x.shape == self._x_dim
         # Normalize.
         x = (x - self._input_shift) / self._input_scale
         # Make prediction.
@@ -732,6 +739,76 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return candidate_ys[sample_idx]
+
+
+class CNNRegressor(PyTorchRegressor):
+    """A basic CNN regressor operating on 2D images with multiple channels."""
+
+    def __init__(self, seed: int, conv_channel_nums: List[int],
+                 conv_kernel_sizes: List[int], linear_hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters, clip_gradients: bool,
+                 clip_value: float, learning_rate: float) -> None:
+        """Create a CNNRegressor.
+
+        conv_channel_nums and conv_kernel_sizes define the sizes of the
+        output channels and square kernels for the Conv2d layers.
+        linear_hid_sizes is the same as hid_sizes for MLPRegressor.
+        """
+        super().__init__(seed, max_train_iters, clip_gradients, clip_value,
+                         learning_rate)
+        assert len(conv_channel_nums) == len(conv_kernel_sizes)
+        self._conv_channel_nums = conv_channel_nums
+        self._conv_kernel_sizes = conv_kernel_sizes
+        self._linear_hid_sizes = linear_hid_sizes
+
+        self._max_pool = nn.MaxPool2d(2, 2)
+        # Set in fit().
+        self._convs = nn.ModuleList()
+        self._linears = nn.ModuleList()
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        for _, conv in enumerate(self._convs[:-1]):
+            tensor_X = self._max_pool(conv(tensor_X))
+        tensor_X = self._convs[-1](tensor_X)
+        tensor_X = torch.flatten(tensor_X, 1)
+        for _, linear in enumerate(self._linears[:-1]):
+            tensor_X = F.relu(linear(tensor_X))
+        tensor_X = self._linears[-1](tensor_X)
+        return tensor_X
+
+    def _initialize_net(self) -> None:
+        self._convs = nn.ModuleList()
+
+        # We need to calculate the size of the tensor outputted from the Conv2d
+        # layers to use as the input dim for the linear layers post-flatten.
+        assert len(self._x_dim) == 3  # expect (C, H, W)
+        c_dim, h_dim, w_dim = self._x_dim
+        for i in range(len(self._conv_channel_nums)):
+            kernel_size = self._conv_kernel_sizes[i]
+            self._convs.append(
+                nn.Conv2d(c_dim, self._conv_channel_nums[i], kernel_size))
+            # Calculate size after Conv2d
+            c_dim = self._conv_channel_nums[i]
+            h_dim = h_dim - kernel_size + 1
+            w_dim = w_dim - kernel_size + 1
+            if i < len(self._conv_channel_nums) - 1:
+                # Calculate size after MaxPool2d
+                h_dim = (h_dim + 1) // 2
+                w_dim = (w_dim + 1) // 2
+
+        flattened_size = c_dim * h_dim * w_dim
+        self._linears = nn.ModuleList()
+        self._linears.append(
+            nn.Linear(flattened_size, self._linear_hid_sizes[0]))
+        for i in range(len(self._linear_hid_sizes) - 1):
+            self._linears.append(
+                nn.Linear(self._linear_hid_sizes[i],
+                          self._linear_hid_sizes[i + 1]))
+        self._linears.append(nn.Linear(self._linear_hid_sizes[-1],
+                                       self._y_dim))
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        return nn.MSELoss()
 
 
 class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
