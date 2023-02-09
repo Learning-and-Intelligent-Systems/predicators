@@ -86,6 +86,50 @@ class PyBulletShelfEnv(PyBulletEnv):
         self._OnTable = Predicate("OnTable", [self._block_type],
                                   self._OnTable_holds)
 
+        # Override options, keeping the types and parameter spaces the same.
+        open_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
+            s.get(self._robot, "fingers")), self._pybullet_robot.open_fingers)
+        close_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
+            s.get(self._robot, "fingers")), self._pybullet_robot.closed_fingers
+                                                )
+
+        ## PickPlace option
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
+        self._PickPlace: ParameterizedOption = utils.LinearChainParameterizedOption(
+            "PickPlace",
+            [
+                # Move to far above the object that we will grasp.
+                self._create_move_to_above_object_option(
+                    name="MoveEndEffectorToPreGrasp",
+                    z_func=lambda _: self._pick_z,
+                    finger_status="open",
+                    object_type=self._block_type),
+                # Open fingers.
+                create_change_fingers_option(
+                    self._pybullet_robot_sim, "OpenFingers", types,
+                    params_space, open_fingers_func, self._max_vel_norm,
+                    self._grasp_tol),
+                # Move down to grasp.
+                self._create_move_to_above_object_option(
+                    name="MoveEndEffectorToGrasp",
+                    z_func=lambda ing_z: (ing_z + self._offset_z),
+                    finger_status="open",
+                    object_type=self._block_type),
+                # Close fingers.
+                create_change_fingers_option(
+                    self._pybullet_robot_sim, "CloseFingers", types,
+                    params_space, close_fingers_func, self._max_vel_norm,
+                    self._grasp_tol),
+                # Move back up.
+                self._create_move_to_above_object_option(
+                    name="MoveEndEffectorBackUp",
+                    z_func=lambda _: self._pick_z,
+                    finger_status="closed",
+                    object_type=self._block_type),
+                # TODO: implement placing in shelf with rotating wrist
+            ])
+
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._shelf = Object("shelfy", self._shelf_type)
@@ -113,7 +157,7 @@ class PyBulletShelfEnv(PyBulletEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return set()
+        return {self._PickPlace}
 
     def _initialize_pybullet(self) -> None:
         """Run super(), then handle blocks-specific initialization."""
@@ -442,3 +486,33 @@ class PyBulletShelfEnv(PyBulletEnv):
             if not container_lb - 1e-5 <= obj_pose <= container_ub + 1e-5:
                 return False
         return True
+
+    def _create_move_to_above_object_option(
+            self, name: str, z_func: Callable[[float], float],
+            finger_status: str, object_type: Type) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a pose above that of the
+        argument.
+
+        The parameter z_func maps the object's z position to the
+        target z position.
+        """
+        types = [self._robot_type, object_type]
+        params_space = Box(0, 1, (0, ))
+
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose3D, Pose3D, str]:
+            assert not params
+            robot, obj = objects
+            current_pose = (state.get(robot,
+                                      "pose_x"), state.get(robot, "pose_y"),
+                            state.get(robot, "pose_z"))
+            target_pose = (state.get(obj, "pose_x"), state.get(obj, "pose_y"),
+                           z_func(state.get(obj, "pose_z")))
+            return current_pose, target_pose, finger_status
+
+        return create_move_end_effector_to_pose_option(
+            self._pybullet_robot_sim, name, types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            self._move_to_pose_tol, self._max_vel_norm,
+            self._finger_action_nudge_magnitude)
