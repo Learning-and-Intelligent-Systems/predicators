@@ -51,7 +51,7 @@ class NarrowPassageEnv(BaseEnv):
         self._robot_type = Type("robot", ["x", "y"])
         self._target_type = Type("target", ["x", "y"])
         self._wall_type = Type("wall", ["x", "width"])
-        self._door_type = Type("door", ["x", "open"])
+        self._door_type = Type("door", ["x", "width", "open"])
         # Type for the region within which the robot must be located
         # in order for the door-opening action to work.
         self._door_sensor_type = Type("door_sensor", ["x"])
@@ -205,10 +205,18 @@ class NarrowPassageEnv(BaseEnv):
         # the dot should be below the walls (y coordinate)
         y_mid = (self.y_ub - self.y_lb) / 2 + self.y_lb
         margin = self.wall_thickness_half + self.init_pos_margin
-        door_width = (self.robot_radius +
-                      CFG.narrow_passage_door_width_padding) * 2
-        passage_width = (self.robot_radius +
-                         CFG.narrow_passage_passage_width_padding) * 2
+        # Door width is generated randomly
+        door_width_padding = rng.uniform(
+            CFG.narrow_passage_door_width_padding_lb,
+            CFG.narrow_passage_door_width_padding_ub,
+        )
+        door_width = (self.robot_radius + door_width_padding) * 2
+        # Passage width is generated randomly
+        passage_width_padding = rng.uniform(
+            CFG.narrow_passage_passage_width_padding_lb,
+            CFG.narrow_passage_passage_width_padding_ub,
+        )
+        passage_width = (self.robot_radius + passage_width_padding) * 2
 
         tasks: List[Task] = []
         while len(tasks) < num:
@@ -244,6 +252,7 @@ class NarrowPassageEnv(BaseEnv):
                 },
                 self._door: {
                     "x": self.door_x_pos,
+                    "width": door_width,
                     "open": 0,  # door starts closed
                 },
                 self._door_sensor: {
@@ -462,8 +471,7 @@ class NarrowPassageEnv(BaseEnv):
                     y = self.y_lb + (
                         self.y_ub - self.y_lb
                     ) / 2 - self.wall_thickness_half + self.doorway_depth
-                    width = (self.robot_radius +
-                             CFG.narrow_passage_door_width_padding) * 2
+                    width = state.get(obj, "width")
                     height = (self.wall_thickness_half -
                               self.doorway_depth) * 2
                 self._static_geom_cache[obj] = utils.Rectangle(x=x,

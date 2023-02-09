@@ -22,6 +22,10 @@ def test_refinement_estimation_approach():
     args = {
         "env": "narrow_passage",
         "refinement_estimator": "oracle",
+        "narrow_passage_door_width_padding_lb": 0.05,
+        "narrow_passage_door_width_padding_ub": 0.05,
+        "narrow_passage_passage_width_padding_lb": 0.05,
+        "narrow_passage_passage_width_padding_ub": 0.05,
     }
     # Default to 2 train and test tasks, but allow them to be specified in
     # the extra args too.
