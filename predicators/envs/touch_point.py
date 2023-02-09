@@ -256,13 +256,5 @@ class TouchPointEnvParam(TouchPointEnv):
     @staticmethod
     def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> Action:
-        # Move in the direction of the target.
-        del memory, params  # unused
-        robot, target = objects
-        rx = state.get(robot, "x")
-        ry = state.get(robot, "y")
-        tx = state.get(target, "x")
-        ty = state.get(target, "y")
-        dx = tx - rx
-        dy = ty - ry
-        return Action(np.array([dx, dy], dtype=np.float32))
+        del state, memory, objects  # unused
+        return Action(params)
