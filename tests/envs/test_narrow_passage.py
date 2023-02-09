@@ -41,7 +41,11 @@ def test_narrow_passage_properties():
 def test_narrow_passage_actions():
     """Test to check that basic actions and rendering works, especially door
     opening."""
-    utils.reset_config({"env": "narrow_passage"})
+    utils.reset_config({
+        "env": "narrow_passage",
+        "narrow_passage_door_width_padding_lb": 0.075,
+        "narrow_passage_door_width_padding_ub": 0.075,
+    })
     env = NarrowPassageEnv()
     DoorIsClosed, DoorIsOpen, TouchedGoal = sorted(env.predicates)
     door_type, _, robot_type, target_type, _ = sorted(env.types)
@@ -116,7 +120,11 @@ def test_narrow_passage_actions():
 def test_narrow_passage_collisions():
     """Test that the robot can't go through walls or closed door."""
     # Set up environment
-    utils.reset_config({"env": "narrow_passage"})
+    utils.reset_config({
+        "env": "narrow_passage",
+        "narrow_passage_door_width_padding_lb": 0.075,
+        "narrow_passage_door_width_padding_ub": 0.075,
+    })
     env = NarrowPassageEnv()
     door_type, _, robot_type, _, _ = sorted(env.types)
 
