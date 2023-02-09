@@ -245,7 +245,7 @@ def filter_nsrts(
     allow_noops: bool = False,
 ) -> List[_GroundNSRT]:
     """Helper function for _sesame_plan_with_astar(); optionally filter out
-    NSRTs with empty artifacts and/or those that are unreachable."""
+    NSRTs with empty effectws and/or those that are unreachable."""
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts
         if allow_noops or (nsrt.add_effects | nsrt.delete_effects)

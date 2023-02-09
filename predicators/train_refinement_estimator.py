@@ -34,12 +34,11 @@ import time
 from argparse import ArgumentParser
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Set, cast
+from typing import List, Set
 
 import dill as pkl
 
 from predicators import utils
-from predicators.approaches import create_approach
 from predicators.approaches.refinement_estimation_approach import \
     RefinementEstimationApproach
 from predicators.envs import BaseEnv, create_new_env
@@ -53,14 +52,14 @@ from predicators.structs import NSRT, Metrics, ParameterizedOption, \
     Predicate, RefinementDatapoint, Task, Type
 
 
-def train_refinement_estimation_approach() -> None:
+def _train_refinement_estimation_approach() -> None:
     """Main function, setting up env/approach and then performing data
     collection and/or training as required."""
     # Following is copied/adapted from predicators/main.py
     script_start = time.perf_counter()
 
     # Parse & validate args
-    parser = get_refinement_estimation_parser()
+    parser = _get_refinement_estimation_parser()
     args = utils.parse_args_with_parser(parser)
     utils.update_config_with_parser(parser, args)
     str_args = " ".join(sys.argv)
@@ -90,6 +89,7 @@ def train_refinement_estimation_approach() -> None:
     train_tasks = env.get_train_tasks()
     # Assume we're not doing option learning, pass in all the environment's
     # oracle options.
+    assert CFG.option_learner == "no_learning"
     options = env.options
 
     # Get dataset to train on
@@ -116,10 +116,8 @@ def train_refinement_estimation_approach() -> None:
     # Create approach
     assert CFG.approach == "refinement_estimation", \
         "Approach (--approach) must be set to refinement_estimation"
-    approach = cast(
-        RefinementEstimationApproach,
-        create_approach(CFG.approach, preds, options, env.types,
-                        env.action_space, train_tasks))
+    approach = RefinementEstimationApproach(preds, options, env.types,
+                                            env.action_space, train_tasks)
     refinement_estimator = approach.refinement_estimator
     assert refinement_estimator.is_learning_based, \
         "Refinement estimator (--refinement_estimator) must be learning-based"
@@ -142,7 +140,7 @@ def train_refinement_estimation_approach() -> None:
     logging.info(f"\n\nScript terminated in {script_time:.5f} seconds")
 
 
-def get_refinement_estimation_parser() -> ArgumentParser:
+def _get_refinement_estimation_parser() -> ArgumentParser:
     """Get default parser and add script-specific flags for refinement
     estimation data collection and training."""
     parser = utils.create_arg_parser()
@@ -256,7 +254,7 @@ def _get_data_file_path() -> Path:
 if __name__ == "__main__":  # pragma: no cover
     # Write out the exception to the log file.
     try:
-        train_refinement_estimation_approach()
+        _train_refinement_estimation_approach()
     except Exception as _err:  # pylint: disable=broad-except
         logging.exception("train_refinement_estimator.py crashed")
         raise _err

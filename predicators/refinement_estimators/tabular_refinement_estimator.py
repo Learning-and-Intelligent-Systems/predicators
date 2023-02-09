@@ -39,10 +39,8 @@ class TabularRefinementEstimator(BaseRefinementEstimator):
 
     def get_cost(self, initial_state: State, skeleton: List[_GroundNSRT],
                  atoms_sequence: List[Set[GroundAtom]]) -> float:
-        del initial_state  # unused
         assert self._cost_dict is not None, "Need to train"
-        key = TabularRefinementEstimator._immutable_cost_dict_key(
-            skeleton, atoms_sequence)
+        key = self._immutable_cost_dict_key(skeleton, atoms_sequence)
         # Try to find key in dictionary, otherwise return infinity
         cost = self._cost_dict.get(key, float('inf'))
         return cost
@@ -54,8 +52,7 @@ class TabularRefinementEstimator(BaseRefinementEstimator):
         # Go through data and group them by skeleton
         for _, skeleton, atoms_sequence, succeeded, refinement_time in data:
             # Convert skeleton and atoms_sequence into an immutable dict key
-            key = TabularRefinementEstimator._immutable_cost_dict_key(
-                skeleton, atoms_sequence)
+            key = self._immutable_cost_dict_key(skeleton, atoms_sequence)
             value = refinement_time
             # Add failed refinement penalty to the value if failure occurred
             if not succeeded:

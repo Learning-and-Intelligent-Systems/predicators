@@ -21,7 +21,6 @@ class OracleRefinementEstimator(BaseRefinementEstimator):
 
     def get_cost(self, initial_state: State, skeleton: List[_GroundNSRT],
                  atoms_sequence: List[Set[GroundAtom]]) -> float:
-        del initial_state  # unused
         env_name = CFG.env
         if env_name == "narrow_passage":
             return narrow_passage_oracle_estimator(skeleton, atoms_sequence)

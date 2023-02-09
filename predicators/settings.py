@@ -474,7 +474,7 @@ class GlobalSettings:
     refinement_data_num_skeletons = 3
     refinement_data_skeleton_generator_timeout = 20
     refinement_data_low_level_search_timeout = 5  # timeout for refinement try
-    refinement_data_failed_refinement_penalty = 5  # added time on failure (s)
+    refinement_data_failed_refinement_penalty = 5  # added time on failure
 
     # glib explorer parameters
     glib_min_goal_size = 1
