@@ -203,7 +203,7 @@ class TouchPointEnv(BaseEnv):
 class TouchPointEnvParam(TouchPointEnv):
     """TouchPointEnv with a parameterized option and a 2D action space."""
 
-    action_limits: ClassVar[List[float]] = [-1.0, 1.0]
+    action_limits: ClassVar[List[float]] = [-2.0, 2.0]
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -253,7 +253,8 @@ class TouchPointEnvParam(TouchPointEnv):
         next_state.set(self._robot, "y", new_y)
         return next_state
 
-    def _MoveTo_policy(self, state: State, memory: Dict, objects: Sequence[Object],
+    @staticmethod
+    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> Action:
         # Move in the direction of the target.
         del memory, params  # unused
@@ -262,7 +263,6 @@ class TouchPointEnvParam(TouchPointEnv):
         ry = state.get(robot, "y")
         tx = state.get(target, "x")
         ty = state.get(target, "y")
-        lb, ub = self.action_limits
-        dx = np.clip(tx - rx, lb, ub)
-        dy = np.clip(ty - ry, lb, ub)
+        dx = tx - rx
+        dy = ty - ry
         return Action(np.array([dx, dy], dtype=np.float32))

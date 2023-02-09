@@ -53,10 +53,12 @@ ENV_NAME_AND_CLS = [
     ("pddl_blocks_fixed_tasks", FixedTasksBlocksPDDLEnv),
     ("pddl_blocks_procedural_tasks", ProceduralTasksBlocksPDDLEnv),
     ("pddl_delivery_procedural_tasks", ProceduralTasksDeliveryPDDLEnv),
-    ("pddl_easy_delivery_procedural_tasks",ProceduralTasksEasyDeliveryPDDLEnv), 
-    ("touch_point", TouchPointEnv), ("touch_point_param", TouchPointEnvParam),
-    ("stick_button", StickButtonEnv), ("doors", DoorsEnv),
-    ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv)
+    ("pddl_easy_delivery_procedural_tasks",
+     ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
+    ("touch_point_param", TouchPointEnvParam), ("stick_button",
+                                                StickButtonEnv),
+    ("doors", DoorsEnv), ("coffee", CoffeeEnv),
+    ("pybullet_blocks", PyBulletBlocksEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
