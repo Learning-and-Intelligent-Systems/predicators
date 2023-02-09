@@ -552,14 +552,25 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         return self._add_pybullet_state_to_tasks([task])[0]
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        import ipdb
-        ipdb.set_trace()
+        return sorted(
+            [i for ings in self._ingredient_ids.values() for i in ings])
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        import time
-        while True:
-            p.stepSimulation(self._physics_client_id)
-            time.sleep(0.001)
+        if CFG.pybullet_robot == "panda":
+            # gripper rotated 90deg so parallel to x-axis
+            normal = np.array([1., 0., 0.], dtype=np.float32)
+        elif CFG.pybullet_robot == "fetch":
+            # TODO
+            import ipdb
+            ipdb.set_trace()
+        else:  # pragma: no cover
+            # Shouldn't happen unless we introduce a new robot.
+            raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
+
+        return {
+            self._pybullet_robot.left_finger_id: normal,
+            self._pybullet_robot.right_finger_id: -1 * normal,
+        }
 
     def _fingers_state_to_joint(self, fingers_state: float) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.

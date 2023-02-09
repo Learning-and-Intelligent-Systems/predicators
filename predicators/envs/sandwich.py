@@ -27,7 +27,7 @@ class SandwichEnv(BaseEnv):
     y_ub: ClassVar[float] = 1.1
     z_lb: ClassVar[float] = table_height - 0.02
     z_ub: ClassVar[float] = z_lb + 0.25  # for rendering only
-    pick_z: ClassVar[float] = 0.7
+    pick_z: ClassVar[float] = 0.5
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
     robot_init_z: ClassVar[float] = pick_z
