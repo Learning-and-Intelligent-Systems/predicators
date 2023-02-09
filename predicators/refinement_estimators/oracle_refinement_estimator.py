@@ -4,7 +4,7 @@ from typing import List, Set
 
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, _GroundNSRT
+from predicators.structs import GroundAtom, State, _GroundNSRT
 
 
 class OracleRefinementEstimator(BaseRefinementEstimator):
@@ -15,7 +15,11 @@ class OracleRefinementEstimator(BaseRefinementEstimator):
     def get_name(cls) -> str:
         return "oracle"
 
-    def get_cost(self, skeleton: List[_GroundNSRT],
+    @property
+    def is_learning_based(self) -> bool:
+        return False
+
+    def get_cost(self, initial_state: State, skeleton: List[_GroundNSRT],
                  atoms_sequence: List[Set[GroundAtom]]) -> float:
         env_name = CFG.env
         if env_name == "narrow_passage":
