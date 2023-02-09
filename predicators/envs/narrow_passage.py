@@ -198,25 +198,26 @@ class NarrowPassageEnv(BaseEnv):
         goal = {goal_atom}
 
         # The initial positions of the robot and target vary, while wall and
-        # door positions are fixed. The robot should be above the walls, while
+        # door y positions are fixed. The robot should be above the walls, while
         # the dot should be below the walls (y coordinate)
         y_mid = (self.y_ub - self.y_lb) / 2 + self.y_lb
         margin = self.wall_thickness_half + self.init_pos_margin
-        # Door width is generated randomly
-        door_width_padding = rng.uniform(
-            CFG.narrow_passage_door_width_padding_lb,
-            CFG.narrow_passage_door_width_padding_ub,
-        )
-        door_width = (self.robot_radius + door_width_padding) * 2
-        # Passage width is generated randomly
-        passage_width_padding = rng.uniform(
-            CFG.narrow_passage_passage_width_padding_lb,
-            CFG.narrow_passage_passage_width_padding_ub,
-        )
-        passage_width = (self.robot_radius + passage_width_padding) * 2
 
         tasks: List[Task] = []
         while len(tasks) < num:
+            # Door width is generated randomly per task
+            door_width_padding = rng.uniform(
+                CFG.narrow_passage_door_width_padding_lb,
+                CFG.narrow_passage_door_width_padding_ub,
+            )
+            door_width = (self.robot_radius + door_width_padding) * 2
+            # Passage width is generated randomly per task
+            passage_width_padding = rng.uniform(
+                CFG.narrow_passage_passage_width_padding_lb,
+                CFG.narrow_passage_passage_width_padding_ub,
+            )
+            passage_width = (self.robot_radius + passage_width_padding) * 2
+
             state = utils.create_state_from_dict({
                 self._robot: {
                     "x":
