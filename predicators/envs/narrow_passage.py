@@ -87,9 +87,6 @@ class NarrowPassageEnv(BaseEnv):
         self._door = Object("door", self._door_type)
         self._door_sensor = Object("door_sensor", self._door_sensor_type)
 
-        # Cache for _Geom2D objects
-        self._static_geom_cache: Dict[Object, _Geom2D] = {}
-
     @classmethod
     def get_name(cls) -> str:
         return "narrow_passage"
@@ -454,29 +451,20 @@ class NarrowPassageEnv(BaseEnv):
                 or obj.is_instance(self._target_type)):
             y = state.get(obj, "y")
             return utils.Circle(x, y, self.robot_radius)
-        # Cache static objects such as door and walls
-        if obj not in self._static_geom_cache:
-            if obj.is_instance(self._door_sensor_type):
-                y = self.y_lb + (self.y_ub - self.y_lb) / 2
-                self._static_geom_cache[obj] = utils.Circle(
-                    x, y, self.door_sensor_radius)
-            else:
-                if obj.is_instance(self._wall_type):
-                    y = self.y_lb + (self.y_ub -
-                                     self.y_lb) / 2 - self.wall_thickness_half
-                    width = state.get(obj, "width")
-                    height = self.wall_thickness_half * 2
-                else:
-                    assert obj.is_instance(self._door_type)
-                    y = self.y_lb + (
-                        self.y_ub - self.y_lb
-                    ) / 2 - self.wall_thickness_half + self.doorway_depth
-                    width = state.get(obj, "width")
-                    height = (self.wall_thickness_half -
-                              self.doorway_depth) * 2
-                self._static_geom_cache[obj] = utils.Rectangle(x=x,
-                                                               y=y,
-                                                               width=width,
-                                                               height=height,
-                                                               theta=0)
-        return self._static_geom_cache[obj]
+        if obj.is_instance(self._door_sensor_type):
+            y = self.y_lb + (self.y_ub - self.y_lb) / 2
+            return utils.Circle(x, y, self.door_sensor_radius)
+        if obj.is_instance(self._wall_type):
+            y = self.y_lb + (self.y_ub -
+                             self.y_lb) / 2 - self.wall_thickness_half
+            width = state.get(obj, "width")
+            height = self.wall_thickness_half * 2
+        else:
+            assert obj.is_instance(self._door_type)
+            y = self.y_lb + (
+                self.y_ub - self.y_lb
+            ) / 2 - self.wall_thickness_half + self.doorway_depth
+            width = state.get(obj, "width")
+            height = (self.wall_thickness_half -
+                      self.doorway_depth) * 2
+        return utils.Rectangle(x=x, y=y, width=width, height=height, theta=0)
