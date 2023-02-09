@@ -26,6 +26,7 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # Option parameters.
+    _offset_z: ClassVar[float] = 0.01
 
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
@@ -62,11 +63,31 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         self._Pick: ParameterizedOption = utils.LinearChainParameterizedOption(
             "Pick",
             [
+                # Move to far above the ingredient which we will grasp.
+                self._create_move_to_above_ingredient_option(
+                    name="MoveEndEffectorToPreGrasp",
+                    z_func=lambda _: self.pick_z,
+                    finger_status="open"),
+                # Open fingers.
+                create_change_fingers_option(
+                    self._pybullet_robot_sim, "OpenFingers", types,
+                    params_space, open_fingers_func, self._max_vel_norm,
+                    self._grasp_tol),
+                # Move down to grasp.
+                self._create_move_to_above_ingredient_option(
+                    name="MoveEndEffectorToGrasp",
+                    z_func=lambda ing_z: (ing_z + self._offset_z),
+                    finger_status="open"),
                 # Close fingers.
                 create_change_fingers_option(
                     self._pybullet_robot_sim, "CloseFingers", types,
                     params_space, close_fingers_func, self._max_vel_norm,
                     self._grasp_tol),
+                # Move back up.
+                self._create_move_to_above_ingredient_option(
+                    name="MoveEndEffectorBackUp",
+                    z_func=lambda _: self.pick_z,
+                    finger_status="closed"),
             ])
 
         ## Stack option
@@ -535,8 +556,10 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         ipdb.set_trace()
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        import ipdb
-        ipdb.set_trace()
+        import time
+        while True:
+            p.stepSimulation(self._physics_client_id)
+            time.sleep(0.001)
 
     def _fingers_state_to_joint(self, fingers_state: float) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.
@@ -560,3 +583,33 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         closed_f = self._pybullet_robot.closed_fingers
         # Fingers in the State should be either 0 or 1.
         return int(fingers_joint > (open_f + closed_f) / 2)
+
+    def _create_move_to_above_ingredient_option(
+            self, name: str, z_func: Callable[[float], float],
+            finger_status: str) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a pose above that of the
+        ingredient argument.
+
+        The parameter z_func maps the ingredient's z position to the
+        target z position.
+        """
+        types = [self._robot_type, self._ingredient_type]
+        params_space = Box(0, 1, (0, ))
+
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose3D, Pose3D, str]:
+            assert not params
+            robot, ing = objects
+            current_pose = (state.get(robot,
+                                      "pose_x"), state.get(robot, "pose_y"),
+                            state.get(robot, "pose_z"))
+            target_pose = (state.get(ing, "pose_x"), state.get(ing, "pose_y"),
+                           z_func(state.get(ing, "pose_z")))
+            return current_pose, target_pose, finger_status
+
+        return create_move_end_effector_to_pose_option(
+            self._pybullet_robot_sim, name, types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            self._move_to_pose_tol, self._max_vel_norm,
+            self._finger_action_nudge_magnitude)
