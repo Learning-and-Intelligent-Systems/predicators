@@ -408,15 +408,118 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
                 orn,
                 physicsClientId=self._physics_client_id)
 
-        import time
-        while True:
-            p.stepSimulation(self._physics_client_id)
-            time.sleep(0.001)
+        # import time
+        # while True:
+        #     p.stepSimulation(self._physics_client_id)
+        #     time.sleep(0.001)
+
+        # TODO: For any ingredients not involved, put them out of view.
+
+        # Assert that the state was properly reconstructed.
+        reconstructed_state = self._get_state()
+
+        if not reconstructed_state.allclose(state):
+            logging.debug("Desired state:")
+            logging.debug(state.pretty_str())
+            logging.debug("Reconstructed state:")
+            logging.debug(reconstructed_state.pretty_str())
+            raise ValueError("Could not reconstruct state.")
 
     def _get_state(self) -> State:
         """Create a State based on the current PyBullet state."""
-        import ipdb
-        ipdb.set_trace()
+        state_dict = {}
+
+        # Get robot state.
+        rx, ry, rz, rf = self._pybullet_robot.get_state()
+        fingers = self._fingers_joint_to_state(rf)
+        state_dict[self._robot] = {
+            "pose_x": rx,
+            "pose_y": ry,
+            "pose_z": rz,
+            "fingers": fingers,
+        }
+        joint_positions = self._pybullet_robot.get_joints()
+
+        # Get board state.
+        (bx, by, _), _ = p.getBasePositionAndOrientation(
+            self._board_id, physicsClientId=self._physics_client_id)
+        shape_data = p.getVisualShapeData(
+            self._board_id, physicsClientId=self._physics_client_id)[0]
+        board_width, board_length, board_thickness = shape_data[3]
+        state_dict[self._board] = {
+            "pose_x": bx,
+            "pose_y": by,
+            "width": board_width,
+            "length": board_length,
+            "thickness": board_thickness
+        }
+
+        # Get holder state.
+        (hx, hy, _), _ = p.getBasePositionAndOrientation(
+            self._holder_id, physicsClientId=self._physics_client_id)
+        shape_data = p.getVisualShapeData(
+            self._holder_id, physicsClientId=self._physics_client_id)[0]
+        holder_width, holder_length, holder_thickness = shape_data[3]
+        state_dict[self._holder] = {
+            "pose_x": hx,
+            "pose_y": hy,
+            "width": holder_width,
+            "length": holder_length,
+            "thickness": holder_thickness
+        }
+
+        # Get ingredient states.
+
+        for ing_id, ing_obj in self._id_to_object.items():
+            (x, y, z), orn = p.getBasePositionAndOrientation(
+                ing_id, physicsClientId=self._physics_client_id)
+            rot, _, _ = p.getEulerFromQuaternion(
+                orn, physicsClientId=self._physics_client_id)
+            held = (ing_id == self._held_obj_id)
+            shape_data = p.getVisualShapeData(
+                ing_id, physicsClientId=self._physics_client_id)[0]
+            geom_type = shape_data[2]
+            if geom_type == p.GEOM_BOX:
+                shape = 0
+                extent_x, _, extent_z = shape_data[3]
+                radius = extent_x / 2
+                thickness = extent_z / 2
+            else:
+                assert geom_type == p.GEOM_CYLINDER
+                shape = 1
+                assert shape_data[3][2] == 0.0
+                thickness, radius, _ = shape_data[3]
+            # The colors are overwritten by textures in PyBullet. Unfortunately
+            # I can't figure out any better way to do this.
+            match_colors = [
+                c for i, c in self.ingredient_colors.items()
+                if ing_obj.name.startswith(i)
+            ]
+            assert len(match_colors) == 1
+            r, g, b = match_colors[0]
+            state_dict[ing_obj] = {
+                "pose_x": x,
+                "pose_y": y,
+                "pose_z": z,
+                "rot": rot,
+                "held": held,
+                "color_r": r,
+                "color_g": g,
+                "color_b": b,
+                "thickness": thickness,
+                "radius": radius,
+                "shape": shape
+            }
+
+        state_without_sim = utils.create_state_from_dict(state_dict)
+        state = utils.PyBulletState(state_without_sim.data,
+                                    simulator_state=joint_positions)
+
+        assert set(state) == set(self._current_state), \
+            (f"Reconstructed state has objects {set(state)}, but "
+             f"self._current_state has objects {set(self._current_state)}.")
+
+        return state
 
     def _get_tasks(self, num_tasks: int, num_ingredients: Dict[str, List[int]],
                    rng: np.random.Generator) -> List[Task]:
