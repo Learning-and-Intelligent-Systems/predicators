@@ -272,8 +272,29 @@ class PyBulletShelfEnv(PyBulletEnv):
     def _reset_state(self, state: State) -> None:
         super()._reset_state(state)
 
-        import ipdb
-        ipdb.set_trace()
+        # Reset the block based on the state.
+        x = state.get(self._block, "pose_x")
+        y = state.get(self._block, "pose_y")
+        z = state.get(self._block, "pose_z")
+        p.resetBasePositionAndOrientation(
+            self._block_id, [x, y, z],
+            self._default_orn,
+            physicsClientId=self._physics_client_id)
+
+        import time
+        while True:
+            p.stepSimulation(self._physics_client_id)
+            time.sleep(0.001)
+
+        # Assert that the state was properly reconstructed.
+        reconstructed_state = self._get_state()
+
+        if not reconstructed_state.allclose(state):
+            logging.debug("Desired state:")
+            logging.debug(state.pretty_str())
+            logging.debug("Reconstructed state:")
+            logging.debug(reconstructed_state.pretty_str())
+            raise ValueError("Could not reconstruct state.")
 
     def _get_state(self) -> State:
         """Create a State based on the current PyBullet state.
@@ -294,7 +315,7 @@ class PyBulletShelfEnv(PyBulletEnv):
             # The only variation is in the position of the block.
             x = rng.uniform(self._block_x_lb, self._block_x_ub)
             y = rng.uniform(self._block_y_lb, self._block_y_ub)
-            z = self._block_size / 2
+            z = self._table_height + self._block_size / 2
             held = 0.0
             state_dict[self._block] = {
                 "pose_x": x,
