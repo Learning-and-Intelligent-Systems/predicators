@@ -470,6 +470,12 @@ class GlobalSettings:
     refinement_estimator = "oracle"  # default refinement cost estimator
     refinement_estimation_num_skeletons_generated = 3
 
+    # refinement data collection parameters
+    refinement_data_num_skeletons = 3
+    refinement_data_skeleton_generator_timeout = 20
+    refinement_data_low_level_search_timeout = 5  # timeout for refinement try
+    refinement_data_failed_refinement_penalty = 5  # added time on failure
+
     # glib explorer parameters
     glib_min_goal_size = 1
     glib_max_goal_size = 1
