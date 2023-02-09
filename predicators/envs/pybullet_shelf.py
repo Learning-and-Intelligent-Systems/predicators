@@ -113,12 +113,6 @@ class PyBulletShelfEnv(PyBulletEnv):
     def options(self) -> Set[ParameterizedOption]:
         return set()
 
-    @property
-    def action_space(self) -> Box:
-        lowers = np.array([self.x_lb, self.y_lb, 0.0, 0.0], dtype=np.float32)
-        uppers = np.array([self.x_ub, self.y_ub, 10.0, 1.0], dtype=np.float32)
-        return Box(lowers, uppers)
-
     def _initialize_pybullet(self) -> None:
         """Run super(), then handle blocks-specific initialization."""
         super()._initialize_pybullet()
@@ -281,10 +275,10 @@ class PyBulletShelfEnv(PyBulletEnv):
             self._default_orn,
             physicsClientId=self._physics_client_id)
 
-        import time
-        while True:
-            p.stepSimulation(self._physics_client_id)
-            time.sleep(0.001)
+        # import time
+        # while True:
+        #     p.stepSimulation(self._physics_client_id)
+        #     time.sleep(0.001)
 
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
@@ -304,8 +298,45 @@ class PyBulletShelfEnv(PyBulletEnv):
         the PyBullet internal state is only modified through reset() and
         step(), these all should remain in sync.
         """
-        import ipdb
-        ipdb.set_trace()
+        state_dict = {}
+
+        # Get robot state.
+        rx, ry, rz, rf = self._pybullet_robot.get_state()
+        fingers = self._fingers_joint_to_state(rf)
+        state_dict[self._robot] = {
+            "pose_x": rx,
+            "pose_y": ry,
+            "pose_z": rz,
+            "fingers": fingers,
+        }
+        joint_positions = self._pybullet_robot.get_joints()
+
+        # Get the shelf state.
+        state_dict[self._shelf] = {
+            "pose_x": self.shelf_x,
+            "pose_y": self.shelf_y,
+        }
+
+        # Get block state.
+        (bx, by, bz), _ = p.getBasePositionAndOrientation(
+            self._block_id, physicsClientId=self._physics_client_id)
+        held = (self._block_id == self._held_obj_id)
+        state_dict[self._block] = {
+            "pose_x": bx,
+            "pose_y": by,
+            "pose_z": bz,
+            "held": held,
+        }
+
+        state_without_sim = utils.create_state_from_dict(state_dict)
+        state = utils.PyBulletState(state_without_sim.data,
+                                    simulator_state=joint_positions)
+
+        assert set(state) == set(self._current_state), \
+            (f"Reconstructed state has objects {set(state)}, but "
+             f"self._current_state has objects {set(self._current_state)}.")
+
+        return state
 
     def _get_tasks(self, num_tasks: int,
                    rng: np.random.Generator) -> List[Task]:
