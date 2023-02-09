@@ -18,7 +18,8 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, Object, ParameterizedOption, State, Task
+from predicators.structs import Array, Object, ParameterizedOption, State, \
+    Task, Type
 
 
 class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
@@ -64,30 +65,33 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
             "Pick",
             [
                 # Move to far above the ingredient which we will grasp.
-                self._create_move_to_above_ingredient_option(
+                self._create_move_to_above_object_option(
                     name="MoveEndEffectorToPreGrasp",
                     z_func=lambda _: self.pick_z,
-                    finger_status="open"),
+                    finger_status="open",
+                    object_type=self._ingredient_type),
                 # Open fingers.
                 create_change_fingers_option(
                     self._pybullet_robot_sim, "OpenFingers", types,
                     params_space, open_fingers_func, self._max_vel_norm,
                     self._grasp_tol),
                 # Move down to grasp.
-                self._create_move_to_above_ingredient_option(
+                self._create_move_to_above_object_option(
                     name="MoveEndEffectorToGrasp",
                     z_func=lambda ing_z: (ing_z + self._offset_z),
-                    finger_status="open"),
+                    finger_status="open",
+                    object_type=self._ingredient_type),
                 # Close fingers.
                 create_change_fingers_option(
                     self._pybullet_robot_sim, "CloseFingers", types,
                     params_space, close_fingers_func, self._max_vel_norm,
                     self._grasp_tol),
                 # Move back up.
-                self._create_move_to_above_ingredient_option(
+                self._create_move_to_above_object_option(
                     name="MoveEndEffectorBackUp",
                     z_func=lambda _: self.pick_z,
-                    finger_status="closed"),
+                    finger_status="closed",
+                    object_type=self._ingredient_type),
             ])
 
         ## Stack option
@@ -108,10 +112,28 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         self._PutOnBoard: ParameterizedOption = \
             utils.LinearChainParameterizedOption("PutOnBoard",
             [
+                # Move to above the board at the (x, y) where we will place.
+                self._create_move_to_above_object_option(
+                    name="MoveEndEffectorToPrePutOnBoard",
+                    z_func=lambda _: self.pick_z,
+                    finger_status="closed",
+                    object_type=self._board_type),
+                # Move down to place.
+                self._create_move_to_above_object_option(
+                    name="MoveEndEffectorToPutOnBoard",
+                    z_func=lambda board_z: (board_z + self._offset_z),
+                    finger_status="closed",
+                    object_type=self._board_type),
                 # Open fingers.
                 create_change_fingers_option(self._pybullet_robot_sim,
                     "OpenFingers", types, params_space, open_fingers_func,
                     self._max_vel_norm, self._grasp_tol),
+                # Move back up.
+                self._create_move_to_above_object_option(
+                    name="MoveEndEffectorBackUp",
+                    z_func=lambda _: self.pick_z,
+                    finger_status="open",
+                    object_type=self._board_type),
             ])
 
         # We track the correspondence between PyBullet object IDs and Object
@@ -462,7 +484,7 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         joint_positions = self._pybullet_robot.get_joints()
 
         # Get board state.
-        (bx, by, _), _ = p.getBasePositionAndOrientation(
+        (bx, by, bz), _ = p.getBasePositionAndOrientation(
             self._board_id, physicsClientId=self._physics_client_id)
         shape_data = p.getVisualShapeData(
             self._board_id, physicsClientId=self._physics_client_id)[0]
@@ -470,13 +492,14 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         state_dict[self._board] = {
             "pose_x": bx,
             "pose_y": by,
+            "pose_z": bz,
             "width": board_width,
             "length": board_length,
             "thickness": board_thickness
         }
 
         # Get holder state.
-        (hx, hy, _), _ = p.getBasePositionAndOrientation(
+        (hx, hy, hz), _ = p.getBasePositionAndOrientation(
             self._holder_id, physicsClientId=self._physics_client_id)
         shape_data = p.getVisualShapeData(
             self._holder_id, physicsClientId=self._physics_client_id)[0]
@@ -484,6 +507,7 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         state_dict[self._holder] = {
             "pose_x": hx,
             "pose_y": hy,
+            "pose_z": hz,
             "width": holder_width,
             "length": holder_length,
             "thickness": holder_thickness
@@ -595,28 +619,28 @@ class PyBulletSandwichEnv(PyBulletEnv, SandwichEnv):
         # Fingers in the State should be either 0 or 1.
         return int(fingers_joint > (open_f + closed_f) / 2)
 
-    def _create_move_to_above_ingredient_option(
+    def _create_move_to_above_object_option(
             self, name: str, z_func: Callable[[float], float],
-            finger_status: str) -> ParameterizedOption:
+            finger_status: str, object_type: Type) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
-        ingredient argument.
+        argument.
 
-        The parameter z_func maps the ingredient's z position to the
-        target z position.
+        The parameter z_func maps the object's z position to the target
+        z position.
         """
-        types = [self._robot_type, self._ingredient_type]
+        types = [self._robot_type, object_type]
         params_space = Box(0, 1, (0, ))
 
         def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose3D, Pose3D, str]:
             assert not params
-            robot, ing = objects
+            robot, obj = objects
             current_pose = (state.get(robot,
                                       "pose_x"), state.get(robot, "pose_y"),
                             state.get(robot, "pose_z"))
-            target_pose = (state.get(ing, "pose_x"), state.get(ing, "pose_y"),
-                           z_func(state.get(ing, "pose_z")))
+            target_pose = (state.get(obj, "pose_x"), state.get(obj, "pose_y"),
+                           z_func(state.get(obj, "pose_z")))
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(

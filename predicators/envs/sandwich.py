@@ -98,9 +98,11 @@ class SandwichEnv(BaseEnv):
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "pose_z", "fingers"])
         self._holder_type = Type(
-            "holder", ["pose_x", "pose_y", "length", "width", "thickness"])
+            "holder",
+            ["pose_x", "pose_y", "pose_z", "length", "width", "thickness"])
         self._board_type = Type(
-            "board", ["pose_x", "pose_y", "length", "width", "thickness"])
+            "board",
+            ["pose_x", "pose_y", "pose_z", "length", "width", "thickness"])
         # Predicates
         self._InHolder = Predicate("InHolder",
                                    [self._ingredient_type, self._holder_type],
@@ -444,6 +446,7 @@ class SandwichEnv(BaseEnv):
         holder_state = {
             "pose_x": holder_x,
             "pose_y": holder_y,
+            "pose_z": self.table_height + self.holder_thickness / 2.,
             "width": self.holder_width,
             "length": self.holder_length,
             "thickness": self.holder_thickness,
@@ -452,6 +455,7 @@ class SandwichEnv(BaseEnv):
         board_state = {
             "pose_x": rng.uniform(self.board_x_lb, self.board_x_ub),
             "pose_y": rng.uniform(self.board_y_lb, self.board_y_ub),
+            "pose_z": self.table_height + self.board_thickness / 2.,
             "width": self.board_width,
             "length": self.board_length,
             "thickness": self.board_thickness,
