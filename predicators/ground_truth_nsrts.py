@@ -45,7 +45,7 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_screws_gt_nsrts(env_name)
     elif env_name.startswith("pddl_"):
         nsrts = _get_pddl_env_gt_nsrts(env_name)
-    elif env_name == "touch_point":
+    elif env_name in ("touch_point", "touch_point_param"):
         nsrts = _get_touch_point_gt_nsrts(env_name)
     elif env_name == "stick_button":
         nsrts = _get_stick_button_gt_nsrts(env_name)
@@ -2066,9 +2066,30 @@ def _get_touch_point_gt_nsrts(env_name: str) -> Set[NSRT]:
     add_effects = {LiftedAtom(Touched, [robot, target])}
     delete_effects: Set[LiftedAtom] = set()
     ignore_effects: Set[Predicate] = set()
+
+    if CFG.env == "touch_point_param":
+
+        def moveto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+            del rng, goal  # unused
+            robot, target, = objs
+            assert robot.is_instance(robot_type)
+            assert target.is_instance(target_type)
+            rx = state.get(robot, "x")
+            ry = state.get(robot, "y")
+            tx = state.get(target, "x")
+            ty = state.get(target, "y")
+            dx = tx - rx
+            dy = ty - ry
+            return np.array([dx, dy], dtype=np.float32)
+
+    elif CFG.env == "touch_point":
+        moveto_sampler = null_sampler
+
     move_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
                      delete_effects, ignore_effects, option, option_vars,
-                     null_sampler)
+                     moveto_sampler)
     nsrts.add(move_nsrt)
 
     return nsrts

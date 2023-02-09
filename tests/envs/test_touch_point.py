@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.envs.touch_point import TouchPointEnv
+from predicators.envs.touch_point import TouchPointEnv, TouchPointEnvParam
 from predicators.structs import Action
 
 
@@ -72,3 +72,35 @@ def test_touch_point():
     event.ydata = event.y
     assert isinstance(event_to_action(state, event), Action)
     plt.close()
+
+
+def test_touch_point_param():
+    """Tests for TouchPointEnvParam class."""
+    utils.reset_config({"env": "touch_point_param"})
+    env = TouchPointEnvParam()
+    task = env.get_train_tasks()[0]
+    state = task.init
+    env.render_state(state, task, caption="caption")
+    robot, target = sorted(state, key=lambda o: o.name)
+    state = utils.create_state_from_dict({
+        robot: {
+            "x": 0.5,
+            "y": 0.1,
+        },
+        target: {
+            "x": 0.7,
+            "y": 0.5,
+        }
+    })
+    goal_atom = list(task.goal)[0]
+    assert not goal_atom.holds(state)
+    action = Action(np.array([1, 1], dtype=np.float32))  # move diagonally
+    state = env.simulate(state, action)
+    act_mag = TouchPointEnv.action_magnitude
+    assert abs(state.get(robot, "x") - (0.5 + act_mag * 1)) <= 1e-7
+    assert abs(state.get(robot, "y") - (0.1 + act_mag * 1)) <= 1e-7
+    state = env.simulate(state, action)
+    action = Action(np.array([0, 1], dtype=np.float32))  # move up
+    state = env.simulate(state, action)
+    state = env.simulate(state, action)
+    assert goal_atom.holds(state)

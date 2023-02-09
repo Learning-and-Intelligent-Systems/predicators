@@ -198,3 +198,71 @@ class TouchPointEnv(BaseEnv):
             return Action(np.array([rot], dtype=np.float32))
 
         return _event_to_action
+
+
+class TouchPointEnvParam(TouchPointEnv):
+    """TouchPointEnv with a parameterized option and a 2D action space."""
+
+    action_limits: ClassVar[List[float]] = [-1.0, 1.0]
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Types
+        self._robot_type = Type("robot", ["x", "y"])
+        self._target_type = Type("target", ["x", "y"])
+        # Predicates
+        self._Touched = Predicate("Touched",
+                                  [self._robot_type, self._target_type],
+                                  self._Touched_holds)
+        # Options
+        self._MoveTo = ParameterizedOption(
+            "MoveTo",
+            types=[self._robot_type, self._target_type],
+            params_space=Box(self.action_limits[0], self.action_limits[1],
+                             (2, )),
+            policy=self._MoveTo_policy,
+            initiable=lambda s, m, o, p: True,
+            terminal=self._MoveTo_terminal)
+        # Static objects (always exist no matter the settings).
+        self._robot = Object("robby", self._robot_type)
+        self._target = Object("target", self._target_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "touch_point_param"
+
+    @property
+    def action_space(self) -> Box:
+        # The action space is (dx, dy).
+        lb, ub = self.action_limits
+        return Box(np.array([lb, lb], dtype=np.float32),
+                   np.array([ub, ub], dtype=np.float32))
+
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        dx, dy, = action.arr
+        x = state.get(self._robot, "x")
+        y = state.get(self._robot, "y")
+        new_x = x + (dx * self.action_magnitude)
+        new_y = y + (dy * self.action_magnitude)
+        new_x = np.clip(new_x, self.x_lb, self.x_ub)
+        new_y = np.clip(new_y, self.y_lb, self.y_ub)
+        next_state = state.copy()
+        next_state.set(self._robot, "x", new_x)
+        next_state.set(self._robot, "y", new_y)
+        return next_state
+
+    @staticmethod
+    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
+                       params: Array) -> Action:
+        # Move in the direction of the target.
+        del memory, params  # unused
+        robot, target = objects
+        rx = state.get(robot, "x")
+        ry = state.get(robot, "y")
+        tx = state.get(target, "x")
+        ty = state.get(target, "y")
+        dx = tx - rx
+        dy = ty - ry
+        return Action(np.array([dx, dy], dtype=np.float32))
