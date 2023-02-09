@@ -57,7 +57,7 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts(env_name)
-    elif env_name == "sandwich":
+    elif env_name in ("sandwich", "pybullet_sandwich"):
         nsrts = _get_sandwich_gt_nsrts(env_name)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
