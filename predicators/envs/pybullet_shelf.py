@@ -83,6 +83,8 @@ class PyBulletShelfEnv(PyBulletEnv):
         self._InShelf = Predicate("InShelf",
                                   [self._block_type, self._shelf_type],
                                   self._InShelf_holds)
+        self._OnTable = Predicate("OnTable", [self._block_type],
+                                  self._OnTable_holds)
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -99,15 +101,15 @@ class PyBulletShelfEnv(PyBulletEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return set()
+        return {self._InShelf, self._OnTable}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return set()
+        return {self._InShelf}
 
     @property
     def types(self) -> Set[Type]:
-        return set()
+        return {self._robot_type, self._block_type, self._shelf_type}
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -375,8 +377,21 @@ class PyBulletShelfEnv(PyBulletEnv):
         return {self._block_id}
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        import ipdb
-        ipdb.set_trace()
+        if CFG.pybullet_robot == "panda":
+            # gripper rotated 90deg so parallel to x-axis
+            normal = np.array([1., 0., 0.], dtype=np.float32)
+        elif CFG.pybullet_robot == "fetch":
+            # TODO
+            import ipdb
+            ipdb.set_trace()
+        else:  # pragma: no cover
+            # Shouldn't happen unless we introduce a new robot.
+            raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
+
+        return {
+            self._pybullet_robot.left_finger_id: normal,
+            self._pybullet_robot.right_finger_id: -1 * normal,
+        }
 
     def _fingers_state_to_joint(self, fingers_state: float) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.
@@ -407,6 +422,13 @@ class PyBulletShelfEnv(PyBulletEnv):
         sizes = [self.shelf_width, self.shelf_length]
         # TODO factor out
         return self._object_contained_in_object(block, shelf, state, ds, sizes)
+
+    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        block, = objects
+        x = state.get(block, "pose_x")
+        y = state.get(block, "pose_y")
+        return self._block_x_lb <= x <= self._block_x_ub and \
+               self._block_y_lb <= y <= self._block_y_ub
 
     def _object_contained_in_object(self, obj: Object, container: Object,
                                     state: State, dims: List[str],
