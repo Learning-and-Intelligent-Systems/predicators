@@ -253,8 +253,7 @@ class TouchPointEnvParam(TouchPointEnv):
         next_state.set(self._robot, "y", new_y)
         return next_state
 
-    @staticmethod
-    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
+    def _MoveTo_policy(self, state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> Action:
         # Move in the direction of the target.
         del memory, params  # unused
@@ -263,6 +262,7 @@ class TouchPointEnvParam(TouchPointEnv):
         ry = state.get(robot, "y")
         tx = state.get(target, "x")
         ty = state.get(target, "y")
-        dx = tx - rx
-        dy = ty - ry
+        lb, ub = self.action_limits
+        dx = np.clip(tx - rx, lb, ub)
+        dy = np.clip(ty - ry, lb, ub)
         return Action(np.array([dx, dy], dtype=np.float32))

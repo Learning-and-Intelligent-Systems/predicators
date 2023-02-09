@@ -29,7 +29,7 @@ from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
 from predicators.envs.stick_button import StickButtonEnv
 from predicators.envs.tools import ToolsEnv
-from predicators.envs.touch_point import TouchPointEnv
+from predicators.envs.touch_point import TouchPointEnv, TouchPointEnvParam
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OracleOptionModel
 from predicators.settings import CFG
@@ -53,8 +53,8 @@ ENV_NAME_AND_CLS = [
     ("pddl_blocks_fixed_tasks", FixedTasksBlocksPDDLEnv),
     ("pddl_blocks_procedural_tasks", ProceduralTasksBlocksPDDLEnv),
     ("pddl_delivery_procedural_tasks", ProceduralTasksDeliveryPDDLEnv),
-    ("pddl_easy_delivery_procedural_tasks",
-     ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
+    ("pddl_easy_delivery_procedural_tasks",ProceduralTasksEasyDeliveryPDDLEnv), 
+    ("touch_point", TouchPointEnv), ("touch_point_param", TouchPointEnvParam),
     ("stick_button", StickButtonEnv), ("doors", DoorsEnv),
     ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv)
 ]
