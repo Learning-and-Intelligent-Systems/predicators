@@ -462,9 +462,8 @@ class NarrowPassageEnv(BaseEnv):
         else:
             assert obj.is_instance(self._door_type)
             y = self.y_lb + (
-                self.y_ub - self.y_lb
-            ) / 2 - self.wall_thickness_half + self.doorway_depth
+                self.y_ub -
+                self.y_lb) / 2 - self.wall_thickness_half + self.doorway_depth
             width = state.get(obj, "width")
-            height = (self.wall_thickness_half -
-                      self.doorway_depth) * 2
+            height = (self.wall_thickness_half - self.doorway_depth) * 2
         return utils.Rectangle(x=x, y=y, width=width, height=height, theta=0)
