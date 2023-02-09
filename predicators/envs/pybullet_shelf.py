@@ -7,7 +7,7 @@ involve changing the end-effector orientation.
 
 import logging
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, List, Sequence, Set, Tuple, Type
+from typing import Callable, ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 import pybullet as p
@@ -21,12 +21,14 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import RGBA, Array, Object, ParameterizedOption, \
-    Predicate, State, Task
+from predicators.structs import RGBA, Array, GroundAtom, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class PyBulletShelfEnv(PyBulletEnv):
     """PyBullet shelf domain."""
+    # TODO be consistent about public vs private
+
     # Parameters that aren't important enough to need to clog up settings.py
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     x_lb: ClassVar[float] = 1.2
@@ -50,10 +52,6 @@ class PyBulletShelfEnv(PyBulletEnv):
     robot_init_z: ClassVar[float] = _pick_z
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
-    # Block parameters.
-    _block_color: ClassVar[RGBA] = (1.0, 0.0, 0.0, 1.0)
-    _block_size: ClassVar[float] = 0.04
-
     # Shelf parameters.
     shelf_width: ClassVar[float] = (x_ub - x_lb) * 0.4
     shelf_length: ClassVar[float] = (y_ub - y_lb) * 0.2
@@ -65,8 +63,31 @@ class PyBulletShelfEnv(PyBulletEnv):
     shelf_x: ClassVar[float] = x_ub - shelf_width / 2
     shelf_y: ClassVar[float] = y_ub - shelf_length
 
+    # Block parameters.
+    _block_color: ClassVar[RGBA] = (1.0, 0.0, 0.0, 1.0)
+    _block_size: ClassVar[float] = 0.04
+    _block_x_lb: ClassVar[float] = x_lb + _block_size
+    _block_x_ub: ClassVar[float] = x_ub - _block_size
+    _block_y_lb: ClassVar[float] = y_lb + _block_size
+    _block_y_ub: ClassVar[float] = shelf_y - 3 * _block_size
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        self._robot_type = Type("robot",
+                                ["pose_x", "pose_y", "pose_z", "fingers"])
+        self._shelf_type = Type("shelf", ["pose_x", "pose_y"])
+        self._block_type = Type("block",
+                                ["pose_x", "pose_y", "pose_z", "held"])
+
+        self._InShelf = Predicate("InShelf",
+                                  [self._block_type, self._shelf_type],
+                                  self._InShelf_holds)
+
+        # Static objects (always exist no matter the settings).
+        self._robot = Object("robby", self._robot_type)
+        self._shelf = Object("shelfy", self._shelf_type)
+        self._block = Object("blocky", self._block_type)
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
@@ -229,11 +250,6 @@ class PyBulletShelfEnv(PyBulletEnv):
                                                self._default_orn,
                                                self._physics_client_id)
 
-        import time
-        while True:
-            p.stepSimulation(physicsClientId=self._physics_client_id)
-            time.sleep(0.001)
-
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
@@ -254,7 +270,6 @@ class PyBulletShelfEnv(PyBulletEnv):
         return "pybullet_shelf"
 
     def _reset_state(self, state: State) -> None:
-        """Run super(), then handle blocks-specific resetting."""
         super()._reset_state(state)
 
         import ipdb
@@ -273,103 +288,43 @@ class PyBulletShelfEnv(PyBulletEnv):
 
     def _get_tasks(self, num_tasks: int,
                    rng: np.random.Generator) -> List[Task]:
-        import ipdb
-        ipdb.set_trace()
+        tasks = []
+        for _ in range(num_tasks):
+            state_dict = {}
+            # The only variation is in the position of the block.
+            x = rng.uniform(self._block_x_lb, self._block_x_ub)
+            y = rng.uniform(self._block_y_lb, self._block_y_ub)
+            z = self._block_size / 2
+            held = 0.0
+            state_dict[self._block] = {
+                "pose_x": x,
+                "pose_y": y,
+                "pose_z": z,
+                "held": held,
+            }
+            state_dict[self._shelf] = {
+                "pose_x": self.shelf_x,
+                "pose_y": self.shelf_y
+            }
+            state_dict[self._robot] = {
+                "pose_x": self.robot_init_x,
+                "pose_y": self.robot_init_y,
+                "pose_z": self.robot_init_z,
+                "fingers": 1.0  # fingers start out open
+            }
+            state = utils.create_state_from_dict(state_dict)
+            goal = {GroundAtom(self._InShelf, [self._block, self._shelf])}
+            task = Task(state, goal)
+            tasks.append(task)
 
-    def _load_task_from_json(self, json_file: Path) -> Task:
-        task = super()._load_task_from_json(json_file)
-        return self._add_pybullet_state_to_tasks([task])[0]
+        return self._add_pybullet_state_to_tasks(tasks)
 
     def _get_object_ids_for_held_check(self) -> List[int]:
-        return sorted(self._block_id_to_block)
+        return {self._block_id}
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
-        if CFG.pybullet_robot == "panda":
-            # gripper rotated 90deg so parallel to x-axis
-            normal = np.array([1., 0., 0.], dtype=np.float32)
-        elif CFG.pybullet_robot == "fetch":
-            # gripper parallel to y-axis
-            normal = np.array([0., 1., 0.], dtype=np.float32)
-        else:  # pragma: no cover
-            # Shouldn't happen unless we introduce a new robot.
-            raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
-
-        return {
-            self._pybullet_robot.left_finger_id: normal,
-            self._pybullet_robot.right_finger_id: -1 * normal,
-        }
-
-    def _force_grasp_object(self, block: Object) -> None:
-        block_to_block_id = {b: i for i, b in self._block_id_to_block.items()}
-        block_id = block_to_block_id[block]
-        # The block should already be held. Otherwise, the position of the
-        # block was wrong in the state.
-        held_obj_id = self._detect_held_object()
-        assert block_id == held_obj_id
-        # Create the grasp constraint.
-        self._held_obj_id = block_id
-        self._create_grasp_constraint()
-
-    def _create_blocks_move_to_above_block_option(
-            self, name: str, z_func: Callable[[float], float],
-            finger_status: str) -> ParameterizedOption:
-        """Creates a ParameterizedOption for moving to a pose above that of the
-        block argument.
-
-        The parameter z_func maps the block's z position to the target z
-        position.
-        """
-        types = [self._robot_type, self._block_type]
-        params_space = Box(0, 1, (0, ))
-
-        def _get_current_and_target_pose_and_finger_status(
-                state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D, str]:
-            assert not params
-            robot, block = objects
-            current_pose = (state.get(robot,
-                                      "pose_x"), state.get(robot, "pose_y"),
-                            state.get(robot, "pose_z"))
-            target_pose = (state.get(block,
-                                     "pose_x"), state.get(block, "pose_y"),
-                           z_func(state.get(block, "pose_z")))
-            return current_pose, target_pose, finger_status
-
-        return create_move_end_effector_to_pose_option(
-            self._pybullet_robot_sim, name, types, params_space,
-            _get_current_and_target_pose_and_finger_status,
-            self._move_to_pose_tol, self._max_vel_norm,
-            self._finger_action_nudge_magnitude)
-
-    def _create_blocks_move_to_above_table_option(
-            self, name: str, z: float,
-            finger_status: str) -> ParameterizedOption:
-        """Creates a ParameterizedOption for moving to a pose above that of the
-        table.
-
-        The z position of the target pose must be provided.
-        """
-        types = [self._robot_type]
-        params_space = Box(0, 1, (2, ))
-
-        def _get_current_and_target_pose_and_finger_status(
-                state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D, str]:
-            robot, = objects
-            current_pose = (state.get(robot,
-                                      "pose_x"), state.get(robot, "pose_y"),
-                            state.get(robot, "pose_z"))
-            # De-normalize parameters to actual table coordinates.
-            x_norm, y_norm = params
-            target_pose = (self.x_lb + (self.x_ub - self.x_lb) * x_norm,
-                           self.y_lb + (self.y_ub - self.y_lb) * y_norm, z)
-            return current_pose, target_pose, finger_status
-
-        return create_move_end_effector_to_pose_option(
-            self._pybullet_robot_sim, name, types, params_space,
-            _get_current_and_target_pose_and_finger_status,
-            self._move_to_pose_tol, self._max_vel_norm,
-            self._finger_action_nudge_magnitude)
+        import ipdb
+        ipdb.set_trace()
 
     def _fingers_state_to_joint(self, fingers_state: float) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.
@@ -393,3 +348,23 @@ class PyBulletShelfEnv(PyBulletEnv):
         closed_f = self._pybullet_robot.closed_fingers
         # Fingers in the State should be either 0 or 1.
         return int(fingers_joint > (open_f + closed_f) / 2)
+
+    def _InShelf_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        block, shelf = objects
+        ds = ["x", "y"]
+        sizes = [self.shelf_width, self.shelf_length]
+        # TODO factor out
+        return self._object_contained_in_object(block, shelf, state, ds, sizes)
+
+    def _object_contained_in_object(self, obj: Object, container: Object,
+                                    state: State, dims: List[str],
+                                    sizes: List[float]) -> bool:
+        assert len(dims) == len(sizes)
+        for dim, size in zip(dims, sizes):
+            obj_pose = state.get(obj, f"pose_{dim}")
+            container_pose = state.get(container, f"pose_{dim}")
+            container_lb = container_pose - size / 2.
+            container_ub = container_pose + size / 2.
+            if not container_lb - 1e-5 <= obj_pose <= container_ub + 1e-5:
+                return False
+        return True
