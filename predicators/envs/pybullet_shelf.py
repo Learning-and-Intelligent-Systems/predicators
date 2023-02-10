@@ -63,6 +63,11 @@ class PyBulletShelfEnv(PyBulletEnv):
     shelf_x: ClassVar[float] = x_ub - shelf_width / 2
     shelf_y: ClassVar[float] = y_ub - shelf_length
 
+    # Wall parameters.
+    wall_thickness: ClassVar[float] = 0.01
+    wall_height: ClassVar[float] = 0.1
+    wall_x: ClassVar[float] = 1.12
+
     # Block parameters.
     _block_color: ClassVar[RGBA] = (1.0, 0.0, 0.0, 1.0)
     _block_size: ClassVar[float] = 0.04
@@ -280,6 +285,33 @@ class PyBulletShelfEnv(PyBulletEnv):
             linkJointAxis=link_joint_axis,
             physicsClientId=self._physics_client_id)
 
+        # Create a wall in front of the block to force a top grasp.
+        color = self.shelf_color
+        orientation = self._default_orn
+        pose = (self.wall_x, (self.y_lb + self.y_ub) / 2,
+                self._table_height + self.wall_height / 2)
+        # Create the collision shape.
+        half_extents = [
+            self.wall_thickness / 2, (self.y_ub - self.y_lb) / 2,
+            self.wall_height / 2
+        ]
+        collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            physicsClientId=self._physics_client_id)
+        # Create the visual shape.
+        visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            rgbaColor=color,
+            physicsClientId=self._physics_client_id)
+        self._wall_id = p.createMultiBody(
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=pose,
+            baseOrientation=orientation,
+            physicsClientId=self._physics_client_id)
+
         # Create block.
         color = self._block_color
         half_extents = (self._block_size / 2.0, self._block_size / 2.0,
@@ -493,8 +525,8 @@ class PyBulletShelfEnv(PyBulletEnv):
         """Creates a ParameterizedOption for moving to a pose above that of the
         argument.
 
-        The parameter z_func maps the object's z position to the
-        target z position.
+        The parameter z_func maps the object's z position to the target
+        z position.
         """
         types = [self._robot_type, object_type]
         params_space = Box(0, 1, (0, ))
