@@ -398,10 +398,16 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            self._pybullet_robot_sim, name, types, params_space,
+            self._pybullet_robot_sim,
+            name,
+            types,
+            params_space,
             _get_current_and_target_pose_and_finger_status,
-            self._move_to_pose_tol, self._max_vel_norm,
-            self._finger_action_nudge_magnitude)
+            self._move_to_pose_tol,
+            self._max_vel_norm,
+            self._finger_action_nudge_magnitude,
+            mode="motion_planning",
+            get_collision_bodies=lambda _1, _2: set())
 
     def _create_blocks_move_to_above_table_option(
             self, name: str, z: float,
