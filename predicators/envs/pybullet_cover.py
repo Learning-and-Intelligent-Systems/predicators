@@ -11,7 +11,7 @@ from predicators.envs.cover import CoverEnv
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option
-from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
@@ -140,7 +140,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
-        ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
+        ee_home = Pose(
+            (self._workspace_x, self._robot_init_y, self._workspace_z),
+            self._default_orn)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                 physics_client_id, ee_home)
 

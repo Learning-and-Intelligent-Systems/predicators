@@ -5,7 +5,7 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.pybullet_helpers.geometry import Pose3D
+from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.inverse_kinematics import \
     InverseKinematicsError
 from predicators.pybullet_helpers.robots.single_arm import \
@@ -22,7 +22,7 @@ def create_move_end_effector_to_pose_option(
     types: Sequence[Type],
     params_space: Box,
     get_current_and_target_pose_and_finger_status: Callable[
-        [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D, str]],
+        [State, Sequence[Object], Array], Tuple[Pose, Pose, str]],
     move_to_pose_tol: float,
     max_vel_norm: float,
     finger_action_nudge_magnitude: float,
@@ -41,16 +41,22 @@ def create_move_end_effector_to_pose_option(
                 params: Array) -> Action:
         del memory  # unused
         # First handle the main arm joints.
-        current, target, finger_status = \
+        current_pose, target_pose, finger_status = \
             get_current_and_target_pose_and_finger_status(
             state, objects, params)
+        # This option currently assumes a fixed end effector orientation.
+        assert np.allclose(current_pose.orientation, target_pose.orientation)
+        orn = current_pose.orientation
+        current = current_pose.position
+        target = target_pose.position
         # Run IK to determine the target joint positions.
         ee_delta = np.subtract(target, current)
         # Reduce the target to conform to the max velocity constraint.
         ee_norm = np.linalg.norm(ee_delta)
         if ee_norm > max_vel_norm:
             ee_delta = ee_delta * max_vel_norm / ee_norm
-        ee_action = np.add(current, ee_delta)
+        ee_position_action = np.add(current, ee_delta)
+        ee_action = Pose(ee_position_action, orn)
         # Keep validate as False because validate=True would update the
         # state of the robot during simulation, which overrides physics.
         try:
@@ -59,10 +65,9 @@ def create_move_end_effector_to_pose_option(
             # find good solutions on subsequent calls if we are already near
             # a solution from the previous call. The fetch robot does not
             # use IKFast, and in fact gets screwed up if we set joints here.
-            joint_positions = robot.inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]),
-                validate=False,
-                set_joints=True)
+            joint_positions = robot.inverse_kinematics(ee_action,
+                                                       validate=False,
+                                                       set_joints=True)
         except InverseKinematicsError:
             raise utils.OptionExecutionFailure("Inverse kinematics failed.")
         # Handle the fingers. Fingers drift if left alone.
@@ -92,9 +97,13 @@ def create_move_end_effector_to_pose_option(
     def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
         del memory  # unused
-        current, target, _ = \
+        current_pose, target_pose, _ = \
             get_current_and_target_pose_and_finger_status(
                 state, objects, params)
+        # This option currently assumes a fixed end effector orientation.
+        assert np.allclose(current_pose.orientation, target_pose.orientation)
+        current = current_pose.position
+        target = target_pose.position
         squared_dist = np.sum(np.square(np.subtract(current, target)))
         return squared_dist < move_to_pose_tol
 

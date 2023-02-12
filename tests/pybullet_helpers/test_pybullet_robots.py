@@ -164,10 +164,10 @@ def test_pybullet_inverse_kinematics(scene_attributes):
 
 def test_fetch_pybullet_robot(physics_client_id):
     """Tests for FetchPyBulletRobot()."""
-    ee_home_pose = (1.35, 0.75, 0.75)
+    ee_home_position = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     base_pose = Pose((0.75, 0.7441, 0.0))
-    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id,
+    robot = FetchPyBulletRobot(ee_home_position, ee_orn, physics_client_id,
                                base_pose)
     assert robot.get_name() == "fetch"
     assert robot.arm_joint_names == [
@@ -181,7 +181,7 @@ def test_fetch_pybullet_robot(physics_client_id):
     assert robot.left_finger_joint_idx == 7
     assert robot.right_finger_joint_idx == 8
 
-    robot_state = np.array(ee_home_pose + (robot.open_fingers, ),
+    robot_state = np.array(ee_home_position + (robot.open_fingers, ),
                            dtype=np.float32)
     robot.reset_state(robot_state)
     recovered_state = robot.get_state()
@@ -191,7 +191,7 @@ def test_fetch_pybullet_robot(physics_client_id):
                        atol=1e-2)
 
     ee_delta = (-0.01, 0.0, 0.01)
-    ee_target = np.add(ee_home_pose, ee_delta)
+    ee_target = np.add(ee_home_position, ee_delta)
     joint_target = robot.inverse_kinematics(ee_target, validate=False)
     f_value = 0.03
     joint_target[robot.left_finger_joint_idx] = f_value
@@ -249,11 +249,11 @@ def test_create_single_arm_pybullet_robot(physics_client_id):
 
 def test_run_motion_planning(physics_client_id):
     """Tests for run_motion_planning()."""
-    ee_home_pose = (1.35, 0.75, 0.75)
+    ee_home_position = (1.35, 0.75, 0.75)
     seed = 123
     robot = create_single_arm_pybullet_robot("fetch", physics_client_id,
-                                             ee_home_pose)
-    robot_init_state = tuple(ee_home_pose) + (robot.open_fingers, )
+                                             ee_home_position)
+    robot_init_state = tuple(ee_home_position) + (robot.open_fingers, )
     robot.reset_state(robot_init_state)
     joint_initial = robot.get_joints()
     # Should succeed with a path of length 2.
@@ -268,7 +268,7 @@ def test_run_motion_planning(physics_client_id):
     assert np.allclose(path[0], joint_initial)
     assert np.allclose(path[-1], joint_target)
     # Should succeed, no collisions.
-    ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.05))
+    ee_target = np.add(ee_home_position, (0.0, 0.0, -0.05))
     joint_target = robot.inverse_kinematics(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
@@ -288,7 +288,7 @@ def test_run_motion_planning(physics_client_id):
                                       table_pose,
                                       table_orientation,
                                       physicsClientId=physics_client_id)
-    ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.6))
+    ee_target = np.add(ee_home_position, (0.0, 0.0, -0.6))
     joint_target = robot.inverse_kinematics(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
