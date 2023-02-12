@@ -16,7 +16,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.controllers import \
-    create_change_fingers_option, create_move_end_effector_to_pose_option
+    create_change_fingers_option, create_move_end_effector_to_pose_option, \
+    create_move_end_effector_to_pose_motion_planning_option
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
@@ -132,7 +133,8 @@ class PyBulletShelfEnv(PyBulletEnv):
                     z_func=lambda _: self._pick_z,
                     finger_status="closed",
                     object_type=self._block_type),
-                # TODO: implement placing in shelf with rotating wrist
+                # Use motion planning to move to shelf pre-place pose.
+                self._create_move_to_shelf_place_option()
             ])
 
         # Static objects (always exist no matter the settings).
@@ -544,6 +546,33 @@ class PyBulletShelfEnv(PyBulletEnv):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
+            self._pybullet_robot_sim, name, types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            self._move_to_pose_tol, self._max_vel_norm,
+            self._finger_action_nudge_magnitude)
+
+    def _create_move_to_shelf_place_option(self):
+        name = "MoveToShelfPrePlace"
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
+        finger_status = "closed"
+
+        tx = self.shelf_x - self.shelf_width - self._block_size
+        ty = self.shelf_y
+        tz = self._table_height + self.shelf_ceiling_height + self._block_size
+
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose3D, Pose3D, str]:
+            assert not params
+            robot, _ = objects
+            current_pose = (state.get(robot,
+                                      "pose_x"), state.get(robot, "pose_y"),
+                            state.get(robot, "pose_z"))
+            target_pose = (tx, ty, tz)
+            return current_pose, target_pose, finger_status
+
+        return create_move_end_effector_to_pose_motion_planning_option(
             self._pybullet_robot_sim, name, types, params_space,
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
