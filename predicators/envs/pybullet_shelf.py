@@ -18,7 +18,7 @@ from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option, \
     create_move_end_effector_to_pose_motion_planning_option
-from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose3D, Quaternion, Pose
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
@@ -81,7 +81,9 @@ class PyBulletShelfEnv(PyBulletEnv):
         super().__init__(use_gui)
 
         self._robot_type = Type("robot",
-                                ["pose_x", "pose_y", "pose_z", "fingers"])
+                                ["pose_x", "pose_y", "pose_z", "pose_q0",
+                                 "pose_q1", "pose_q2", "pose_q3",
+                                 "fingers"])
         self._shelf_type = Type("shelf", ["pose_x", "pose_y"])
         self._block_type = Type("block",
                                 ["pose_x", "pose_y", "pose_z", "held"])
@@ -335,6 +337,10 @@ class PyBulletShelfEnv(PyBulletEnv):
             state.get(self._robot, "pose_x"),
             state.get(self._robot, "pose_y"),
             state.get(self._robot, "pose_z"),
+            state.get(self._robot, "pose_q0"),
+            state.get(self._robot, "pose_q1"),
+            state.get(self._robot, "pose_q2"),
+            state.get(self._robot, "pose_q3"),
             self._fingers_state_to_joint(state.get(self._robot, "fingers")),
         ],
                         dtype=np.float32)
@@ -381,12 +387,16 @@ class PyBulletShelfEnv(PyBulletEnv):
         state_dict = {}
 
         # Get robot state.
-        rx, ry, rz, rf = self._pybullet_robot.get_state()
+        rx, ry, rz, q0, q1, q2, q3, rf = self._pybullet_robot.get_state()
         fingers = self._fingers_joint_to_state(rf)
         state_dict[self._robot] = {
             "pose_x": rx,
             "pose_y": ry,
             "pose_z": rz,
+            "pose_q0": q0,
+            "pose_q1": q1,
+            "pose_q2": q2,
+            "pose_q3": q3,
             "fingers": fingers,
         }
         joint_positions = self._pybullet_robot.get_joints()
@@ -442,6 +452,10 @@ class PyBulletShelfEnv(PyBulletEnv):
                 "pose_x": self.robot_init_x,
                 "pose_y": self.robot_init_y,
                 "pose_z": self.robot_init_z,
+                "pose_q0": self._default_orn[0],
+                "pose_q1": self._default_orn[1],
+                "pose_q2": self._default_orn[2],
+                "pose_q3": self._default_orn[3],
                 "fingers": 1.0  # fingers start out open
             }
             state = utils.create_state_from_dict(state_dict)
@@ -560,16 +574,26 @@ class PyBulletShelfEnv(PyBulletEnv):
         tx = self.shelf_x - self.shelf_width - self._block_size
         ty = self.shelf_y
         tz = self._table_height + self.shelf_ceiling_height + self._block_size
+        tr = 0.0
+        tp = 0.0
+        tyaw = 0.0
+        tquat = p.getQuaternionFromEuler([tr, tp, tyaw])
+        target_pose = Pose((tx, ty, tz), (tquat))
 
         def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose3D, Pose3D, str]:
             assert not params
             robot, _ = objects
-            current_pose = (state.get(robot,
-                                      "pose_x"), state.get(robot, "pose_y"),
-                            state.get(robot, "pose_z"))
-            target_pose = (tx, ty, tz)
+            current_pose = (
+                state.get(robot, "pose_x"),
+                state.get(robot, "pose_y"),
+                state.get(robot, "pose_z"),
+                state.get(robot, "pose_q0"),
+                state.get(robot, "pose_q1"),
+                state.get(robot, "pose_q2"),
+                state.get(robot, "pose_q3"),
+            )
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_motion_planning_option(
