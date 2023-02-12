@@ -16,8 +16,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.controllers import \
-    create_change_fingers_option, create_move_end_effector_to_pose_option, \
-    create_move_end_effector_to_pose_motion_planning_option
+    create_change_fingers_option, create_move_end_effector_to_pose_option
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion, Pose
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
@@ -195,7 +194,7 @@ class PyBulletShelfEnv(PyBulletEnv):
         color = self.shelf_color
         orientation = self._default_orn
         base_pose = (self.shelf_x, self.shelf_y, self.shelf_base_height / 2)
-        # Holder base.
+        # Shelf base.
         # Create the collision shape.
         base_half_extents = [
             self.shelf_width / 2, self.shelf_length / 2,
@@ -272,7 +271,7 @@ class PyBulletShelfEnv(PyBulletEnv):
         link_parent_indices = [0 for _ in range(num_links)]
         link_joint_types = [p.JOINT_FIXED for _ in range(num_links)]
         link_joint_axis = [[0, 0, 0] for _ in range(num_links)]
-        self._holder_id = p.createMultiBody(
+        self._shelf_id = p.createMultiBody(
             baseCollisionShapeIndex=base_collision_id,
             baseVisualShapeIndex=base_visual_id,
             basePosition=base_pose,
@@ -328,9 +327,26 @@ class PyBulletShelfEnv(PyBulletEnv):
 
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
-        ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
+        ee_home = Pose(
+            (self.robot_init_x, self.robot_init_y, self.robot_init_z),
+            self._robot_ee_home_orn
+            # FETCH
+            # p.getQuaternionFromEuler([0.0, np.pi, -np.pi])
+            # PANDA
+            # p.getQuaternionFromEuler([3.0, -1.0, 0.0])
+        )
+        robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                 physics_client_id, ee_home)
+        # import time
+        # while True:
+        #     p.stepSimulation(self._physics_client_id)
+        #     rx, ry, rz, q0, q1, q2, q3, rf = robot.get_state()
+        #     print(p.getEulerFromQuaternion([q0, q1, q2, q3]))
+        #     time.sleep(0.001)
+
+        return robot
+
+
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
@@ -360,11 +376,6 @@ class PyBulletShelfEnv(PyBulletEnv):
             self._block_id, [x, y, z],
             self._default_orn,
             physicsClientId=self._physics_client_id)
-
-        # import time
-        # while True:
-        #     p.stepSimulation(self._physics_client_id)
-        #     time.sleep(0.001)
 
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
@@ -452,10 +463,10 @@ class PyBulletShelfEnv(PyBulletEnv):
                 "pose_x": self.robot_init_x,
                 "pose_y": self.robot_init_y,
                 "pose_z": self.robot_init_z,
-                "pose_q0": self._default_orn[0],
-                "pose_q1": self._default_orn[1],
-                "pose_q2": self._default_orn[2],
-                "pose_q3": self._default_orn[3],
+                "pose_q0": self._robot_ee_home_orn[0],
+                "pose_q1": self._robot_ee_home_orn[1],
+                "pose_q2": self._robot_ee_home_orn[2],
+                "pose_q3": self._robot_ee_home_orn[3],
                 "fingers": 1.0  # fingers start out open
             }
             state = utils.create_state_from_dict(state_dict)
@@ -552,11 +563,20 @@ class PyBulletShelfEnv(PyBulletEnv):
                 params: Array) -> Tuple[Pose3D, Pose3D, str]:
             assert not params
             robot, obj = objects
-            current_pose = (state.get(robot,
+            current_position = (state.get(robot,
                                       "pose_x"), state.get(robot, "pose_y"),
                             state.get(robot, "pose_z"))
-            target_pose = (state.get(obj, "pose_x"), state.get(obj, "pose_y"),
+            current_orn = (
+                state.get(robot, "pose_q0"),
+                state.get(robot, "pose_q1"),
+                state.get(robot, "pose_q2"),
+                state.get(robot, "pose_q3"),
+            )
+            current_pose = Pose(current_position, current_orn)
+            target_position = (state.get(obj, "pose_x"), state.get(obj, "pose_y"),
                            z_func(state.get(obj, "pose_z")))
+            target_orn = self._robot_ee_home_orn
+            target_pose = Pose(target_position, target_orn)
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
@@ -574,8 +594,8 @@ class PyBulletShelfEnv(PyBulletEnv):
         tx = self.shelf_x - self.shelf_width - self._block_size
         ty = self.shelf_y
         tz = self._table_height + self.shelf_ceiling_height + self._block_size
-        tr = 0.0
-        tp = 0.0
+        tr = 3.0
+        tp = -1.0
         tyaw = 0.0
         tquat = p.getQuaternionFromEuler([tr, tp, tyaw])
         target_pose = Pose((tx, ty, tz), (tquat))
@@ -585,19 +605,21 @@ class PyBulletShelfEnv(PyBulletEnv):
                 params: Array) -> Tuple[Pose3D, Pose3D, str]:
             assert not params
             robot, _ = objects
-            current_pose = (
-                state.get(robot, "pose_x"),
+            current_pose = Pose(
+                (state.get(robot, "pose_x"),
                 state.get(robot, "pose_y"),
-                state.get(robot, "pose_z"),
-                state.get(robot, "pose_q0"),
+                state.get(robot, "pose_z")),
+                (state.get(robot, "pose_q0"),
                 state.get(robot, "pose_q1"),
                 state.get(robot, "pose_q2"),
-                state.get(robot, "pose_q3"),
+                state.get(robot, "pose_q3")),
             )
             return current_pose, target_pose, finger_status
 
-        return create_move_end_effector_to_pose_motion_planning_option(
+        return create_move_end_effector_to_pose_option(
             self._pybullet_robot_sim, name, types, params_space,
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
-            self._finger_action_nudge_magnitude)
+            self._finger_action_nudge_magnitude,
+            mode="motion_planning",
+            get_collision_bodies=lambda _1, _2: {self._shelf_id})
