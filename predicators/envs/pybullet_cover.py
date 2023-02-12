@@ -253,7 +253,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # method shouldn't be run on the client that is doing simulation.
         joint_positions = action.arr.tolist()
         _, ry, rz = self._pybullet_robot_sim.forward_kinematics(
-            joint_positions)
+            joint_positions).position
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         hand_regions = self._get_hand_regions(self._current_state)
         # If we're going down to grasp, we need to be in a hand region.

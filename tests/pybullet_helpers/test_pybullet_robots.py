@@ -222,7 +222,7 @@ def test_fetch_pybullet_robot(physics_client_id):
     assert np.allclose(ee_target_position, recovered_ee_pos, atol=1e-2)
     # Test forward kinematics.
     fk_result = robot.forward_kinematics(action_arr)
-    assert np.allclose(fk_result, ee_target_position, atol=1e-2)
+    assert np.allclose(fk_result.position, ee_target_position, atol=1e-2)
 
     # Check link_from_name
     assert robot.link_from_name("gripper_link")

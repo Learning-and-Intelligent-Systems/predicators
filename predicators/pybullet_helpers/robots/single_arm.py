@@ -334,8 +334,8 @@ class SingleArmPyBulletRobot(abc.ABC):
         """Move the robot to its home end-effector pose."""
         self.set_motors(self.initial_joint_positions)
 
-    def forward_kinematics(self, joint_positions: JointPositions) -> Pose3D:
-        """Compute the end effector position that would result if the robot arm
+    def forward_kinematics(self, joint_positions: JointPositions) -> Pose:
+        """Compute the end effector pose that would result if the robot arm
         joint positions was equal to the input joint_positions.
 
         WARNING: This method will make use of resetJointState(), and so it
@@ -347,7 +347,8 @@ class SingleArmPyBulletRobot(abc.ABC):
             self.end_effector_id,
             physics_client_id=self.physics_client_id)
         position = ee_link_state.worldLinkFramePosition
-        return position
+        orientation = ee_link_state.worldLinkFrameOrientation
+        return Pose(position, orientation)
 
     def _validate_joints_state(self, joint_positions: JointPositions,
                                target_pose: Pose) -> None:

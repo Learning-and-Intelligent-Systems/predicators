@@ -120,6 +120,5 @@ def test_panda_pybullet_robot_inverse_kinematics(panda):
     pose = Pose((0.25, 0.25, 0.25), (0.7071, 0.7071, 0.0, 0.0))
     joint_positions = panda.inverse_kinematics(end_effector_pose=pose,
                                                validate=True)
-    # TODO: update forward kinematics as well?
-    assert np.allclose(panda.forward_kinematics(joint_positions),
-                       pose.position)
+    recovered_pose = panda.forward_kinematics(joint_positions)
+    assert np.allclose(recovered_pose.position, pose.position)

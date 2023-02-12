@@ -311,7 +311,8 @@ class _KinematicActionConverter(_ActionConverter):
     def env_to_reduced(self, env_action_arr: Array) -> Array:
         # Forward kinematics.
         assert env_action_arr.shape == (9, )
-        x, y, z = self._robot.forward_kinematics(env_action_arr.tolist())
+        pose = self._robot.forward_kinematics(env_action_arr.tolist())
+        x, y, z = pose.position
         # Average the two fingers.
         left_finger = env_action_arr[self._robot.left_finger_joint_idx]
         right_finger = env_action_arr[self._robot.right_finger_joint_idx]

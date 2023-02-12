@@ -48,8 +48,10 @@ def run_motion_planning(
         return False
 
     def _distance_fn(from_pt: JointPositions, to_pt: JointPositions) -> float:
-        from_ee = robot.forward_kinematics(from_pt)
-        to_ee = robot.forward_kinematics(to_pt)
+        # NOTE: only using positions to calculate distance. Should use
+        # orientations as well in the near future.
+        from_ee = robot.forward_kinematics(from_pt).position
+        to_ee = robot.forward_kinematics(to_pt).position
         return sum(np.subtract(from_ee, to_ee)**2)
 
     birrt = utils.BiRRT(_sample_fn,
