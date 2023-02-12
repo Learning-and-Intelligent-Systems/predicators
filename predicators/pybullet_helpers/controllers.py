@@ -55,8 +55,8 @@ def create_move_end_effector_to_pose_option(
         ee_norm = np.linalg.norm(ee_delta)
         if ee_norm > max_vel_norm:
             ee_delta = ee_delta * max_vel_norm / ee_norm
-        ee_position_action = np.add(current, ee_delta)
-        ee_action = Pose(ee_position_action, orn)
+        dx, dy, dz = np.add(current, ee_delta)
+        ee_action = Pose((dx, dy, dz), orn)
         # Keep validate as False because validate=True would update the
         # state of the robot during simulation, which overrides physics.
         try:

@@ -14,6 +14,7 @@ from gym.spaces import Box
 from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
+from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.inverse_kinematics import \
     InverseKinematicsError
 from predicators.pybullet_helpers.robots import \
@@ -298,6 +299,9 @@ class _KinematicActionConverter(_ActionConverter):
         # Create the robot.
         self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                        self._physics_client_id)
+        # The rotation is assumed to be fixed, so record it once.
+        q0, q1, q2, q3 = self._robot.get_state()[3:7]
+        self._ee_orn = (q0, q1, q2, q3)
 
     def __setstate__(self, state: Dict) -> None:
         # Recreate the object to avoid issues with the PyBullet client.
@@ -332,7 +336,8 @@ class _KinematicActionConverter(_ActionConverter):
         else:
             fingers = self._robot.open_fingers
         try:
-            joints = self._robot.inverse_kinematics((x, y, z), validate=True)
+            pose = Pose((x, y, z), self._ee_orn)
+            joints = self._robot.inverse_kinematics(pose, validate=True)
         except InverseKinematicsError:
             raise OptionExecutionFailure("IK failure in action conversion.")
         joints[self._robot.left_finger_joint_idx] = fingers
