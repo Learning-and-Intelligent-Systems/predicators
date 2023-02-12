@@ -190,103 +190,9 @@ class PyBulletShelfEnv(PyBulletEnv):
             self._table_orientation,
             physicsClientId=self._physics_client_id2)
 
-        # Create shelf.
-        color = self.shelf_color
-        orientation = self._default_orn
-        base_pose = (self.shelf_x, self.shelf_y, self.shelf_base_height / 2)
-        # Shelf base.
-        # Create the collision shape.
-        base_half_extents = [
-            self.shelf_width / 2, self.shelf_length / 2,
-            self.shelf_base_height / 2
-        ]
-        base_collision_id = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=base_half_extents,
-            physicsClientId=self._physics_client_id)
-        # Create the visual shape.
-        base_visual_id = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=base_half_extents,
-            rgbaColor=color,
-            physicsClientId=self._physics_client_id)
-        # Create the ceiling.
-        link_positions = []
-        link_collision_shape_indices = []
-        link_visual_shape_indices = []
-        pose = (
-            0, 0,
-            self.shelf_base_height / 2 + self.shelf_ceiling_height - \
-                self.shelf_ceiling_thickness / 2
-        )
-        link_positions.append(pose)
-        half_extents = [
-            self.shelf_width / 2, self.shelf_length / 2,
-            self.shelf_ceiling_thickness / 2
-        ]
-        collision_id = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            physicsClientId=self._physics_client_id)
-        link_collision_shape_indices.append(collision_id)
-        visual_id = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            rgbaColor=color,
-            physicsClientId=self._physics_client_id)
-        link_visual_shape_indices.append(visual_id)
-        # Create poles connecting the base to the ceiling.
-        for x_sign in [-1, 1]:
-            for y_sign in [-1, 1]:
-                pose = (x_sign * (self.shelf_width - self.shelf_pole_girth) /
-                        2, y_sign *
-                        (self.shelf_length - self.shelf_pole_girth) / 2,
-                        self.shelf_base_height / 2 +
-                        self.shelf_ceiling_height / 2)
-                link_positions.append(pose)
-                half_extents = [
-                    self.shelf_pole_girth / 2, self.shelf_pole_girth / 2,
-                    self.shelf_ceiling_height / 2
-                ]
-                collision_id = p.createCollisionShape(
-                    p.GEOM_BOX,
-                    halfExtents=half_extents,
-                    physicsClientId=self._physics_client_id)
-                link_collision_shape_indices.append(collision_id)
-                visual_id = p.createVisualShape(
-                    p.GEOM_BOX,
-                    halfExtents=half_extents,
-                    rgbaColor=color,
-                    physicsClientId=self._physics_client_id)
-                link_visual_shape_indices.append(visual_id)
-
-        # Create the whole body.
-        num_links = len(link_positions)
-        assert len(link_collision_shape_indices) == num_links
-        assert len(link_visual_shape_indices) == num_links
-        link_masses = [0.1 for _ in range(num_links)]
-        link_orientations = [orientation for _ in range(num_links)]
-        link_intertial_frame_positions = [[0, 0, 0] for _ in range(num_links)]
-        link_intertial_frame_orns = [[0, 0, 0, 1] for _ in range(num_links)]
-        link_parent_indices = [0 for _ in range(num_links)]
-        link_joint_types = [p.JOINT_FIXED for _ in range(num_links)]
-        link_joint_axis = [[0, 0, 0] for _ in range(num_links)]
-        self._shelf_id = p.createMultiBody(
-            baseCollisionShapeIndex=base_collision_id,
-            baseVisualShapeIndex=base_visual_id,
-            basePosition=base_pose,
-            baseOrientation=orientation,
-            linkMasses=link_masses,
-            linkCollisionShapeIndices=link_collision_shape_indices,
-            linkVisualShapeIndices=link_visual_shape_indices,
-            linkPositions=link_positions,
-            linkOrientations=link_orientations,
-            linkInertialFramePositions=link_intertial_frame_positions,
-            linkInertialFrameOrientations=link_intertial_frame_orns,
-            linkParentIndices=link_parent_indices,
-            linkJointTypes=link_joint_types,
-            linkJointAxis=link_joint_axis,
-            physicsClientId=self._physics_client_id)
+        # Create shelf (in real and in sim).
+        self._shelf_id = self._create_shelf(self._physics_client_id)
+        self._sim_shelf_id = self._create_shelf(self._physics_client_id2)
 
         # Create a wall in front of the block to force a top grasp.
         color = self.shelf_color
@@ -437,6 +343,10 @@ class PyBulletShelfEnv(PyBulletEnv):
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
 
+        import time    
+        for _ in range(50):
+            time.sleep(0.001)
+
         return state
 
     def _get_tasks(self, num_tasks: int,
@@ -524,7 +434,12 @@ class PyBulletShelfEnv(PyBulletEnv):
         ds = ["x", "y"]
         sizes = [self.shelf_width, self.shelf_length]
         # TODO factor out
-        return self._object_contained_in_object(block, shelf, state, ds, sizes)
+        if not self._object_contained_in_object(block, shelf, state, ds, sizes):
+            return False
+        # Check height
+        z = state.get(block, "pose_z")
+        ceiling_z = self.shelf_base_height + self.shelf_ceiling_height
+        return self.shelf_base_height < z < ceiling_z
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
@@ -545,6 +460,104 @@ class PyBulletShelfEnv(PyBulletEnv):
             if not container_lb - 1e-5 <= obj_pose <= container_ub + 1e-5:
                 return False
         return True
+    
+    def _create_shelf(self, physics_client_id: int) -> int:
+        color = self.shelf_color
+        orientation = self._default_orn
+        base_pose = (self.shelf_x, self.shelf_y, self.shelf_base_height / 2)
+        # Shelf base.
+        # Create the collision shape.
+        base_half_extents = [
+            self.shelf_width / 2, self.shelf_length / 2,
+            self.shelf_base_height / 2
+        ]
+        base_collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=base_half_extents,
+            physicsClientId=physics_client_id)
+        # Create the visual shape.
+        base_visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=base_half_extents,
+            rgbaColor=color,
+            physicsClientId=physics_client_id)
+        # Create the ceiling.
+        link_positions = []
+        link_collision_shape_indices = []
+        link_visual_shape_indices = []
+        pose = (
+            0, 0,
+            self.shelf_base_height / 2 + self.shelf_ceiling_height - \
+                self.shelf_ceiling_thickness / 2
+        )
+        link_positions.append(pose)
+        half_extents = [
+            self.shelf_width / 2, self.shelf_length / 2,
+            self.shelf_ceiling_thickness / 2
+        ]
+        collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            physicsClientId=physics_client_id)
+        link_collision_shape_indices.append(collision_id)
+        visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            rgbaColor=color,
+            physicsClientId=physics_client_id)
+        link_visual_shape_indices.append(visual_id)
+        # Create poles connecting the base to the ceiling.
+        for x_sign in [-1, 1]:
+            for y_sign in [-1, 1]:
+                pose = (x_sign * (self.shelf_width - self.shelf_pole_girth) /
+                        2, y_sign *
+                        (self.shelf_length - self.shelf_pole_girth) / 2,
+                        self.shelf_base_height / 2 +
+                        self.shelf_ceiling_height / 2)
+                link_positions.append(pose)
+                half_extents = [
+                    self.shelf_pole_girth / 2, self.shelf_pole_girth / 2,
+                    self.shelf_ceiling_height / 2
+                ]
+                collision_id = p.createCollisionShape(
+                    p.GEOM_BOX,
+                    halfExtents=half_extents,
+                    physicsClientId=physics_client_id)
+                link_collision_shape_indices.append(collision_id)
+                visual_id = p.createVisualShape(
+                    p.GEOM_BOX,
+                    halfExtents=half_extents,
+                    rgbaColor=color,
+                    physicsClientId=physics_client_id)
+                link_visual_shape_indices.append(visual_id)
+
+        # Create the whole body.
+        num_links = len(link_positions)
+        assert len(link_collision_shape_indices) == num_links
+        assert len(link_visual_shape_indices) == num_links
+        link_masses = [0.1 for _ in range(num_links)]
+        link_orientations = [orientation for _ in range(num_links)]
+        link_intertial_frame_positions = [[0, 0, 0] for _ in range(num_links)]
+        link_intertial_frame_orns = [[0, 0, 0, 1] for _ in range(num_links)]
+        link_parent_indices = [0 for _ in range(num_links)]
+        link_joint_types = [p.JOINT_FIXED for _ in range(num_links)]
+        link_joint_axis = [[0, 0, 0] for _ in range(num_links)]
+        return p.createMultiBody(
+            baseCollisionShapeIndex=base_collision_id,
+            baseVisualShapeIndex=base_visual_id,
+            basePosition=base_pose,
+            baseOrientation=orientation,
+            linkMasses=link_masses,
+            linkCollisionShapeIndices=link_collision_shape_indices,
+            linkVisualShapeIndices=link_visual_shape_indices,
+            linkPositions=link_positions,
+            linkOrientations=link_orientations,
+            linkInertialFramePositions=link_intertial_frame_positions,
+            linkInertialFrameOrientations=link_intertial_frame_orns,
+            linkParentIndices=link_parent_indices,
+            linkJointTypes=link_joint_types,
+            linkJointAxis=link_joint_axis,
+            physicsClientId=physics_client_id)
 
     def _create_move_to_above_object_option(
             self, name: str, z_func: Callable[[float], float],
@@ -622,4 +635,5 @@ class PyBulletShelfEnv(PyBulletEnv):
             self._move_to_pose_tol, self._max_vel_norm,
             self._finger_action_nudge_magnitude,
             mode="motion_planning",
-            get_collision_bodies=lambda _1, _2: {self._shelf_id})
+            get_collision_bodies=lambda _1, _2: {self._sim_shelf_id})
+

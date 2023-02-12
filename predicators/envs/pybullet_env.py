@@ -95,7 +95,25 @@ class PyBulletEnv(BaseEnv):
         else:
             self._physics_client_id = p.connect(p.DIRECT)
         # This second connection can be useful for stateless operations.
-        self._physics_client_id2 = p.connect(p.DIRECT)
+        self._physics_client_id2 = p.connect(p.GUI)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI,
+                                    False,
+                                    physicsClientId=self._physics_client_id2)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+                                    False,
+                                    physicsClientId=self._physics_client_id2)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+                                    False,
+                                    physicsClientId=self._physics_client_id2)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+                                    False,
+                                    physicsClientId=self._physics_client_id2)
+        p.resetDebugVisualizerCamera(
+            self._camera_distance,
+            self._camera_yaw,
+            self._camera_pitch,
+            self._camera_target,
+            physicsClientId=self._physics_client_id2)
 
         p.resetSimulation(physicsClientId=self._physics_client_id)
         p.resetSimulation(physicsClientId=self._physics_client_id2)
