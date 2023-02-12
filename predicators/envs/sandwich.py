@@ -194,6 +194,8 @@ class SandwichEnv(BaseEnv):
         next_state.set(ing, "pose_y", y)
         next_state.set(ing, "pose_z", self.pick_z)
         next_state.set(ing, "held", 1.0)
+        if "clear" in self._board_type.feature_names:
+            next_state.set(ing, "clear", 0.0)
         next_state.set(self._robot, "fingers", 0.0)  # close fingers
         return next_state
 
@@ -217,6 +219,9 @@ class SandwichEnv(BaseEnv):
         next_state.set(ing, "rot", 0.0)
         next_state.set(ing, "held", 0.0)
         next_state.set(self._robot, "fingers", 1.0)  # open fingers
+        if "clear" in self._board_type.feature_names:
+            next_state.set(ing, "clear", 1.0)
+            next_state.set(self._board, "clear", 0.0)
         return next_state
 
     def _transition_stack(self, state: State, x: float, y: float,
@@ -247,6 +252,9 @@ class SandwichEnv(BaseEnv):
         next_state.set(ing, "rot", 0.0)
         next_state.set(ing, "held", 0.0)
         next_state.set(self._robot, "fingers", 1.0)  # open fingers
+        if "clear" in self._board_type.feature_names:
+            next_state.set(other_ing, "clear", 0.0)
+            next_state.set(ing, "clear", 1.0)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -453,6 +461,8 @@ class SandwichEnv(BaseEnv):
             "length": self.board_length,
             "thickness": self.board_thickness,
         }
+        if "clear" in self._board_type.feature_names:
+            board_state["clear"] = 1.0
         state_dict = {
             self._holder: holder_state,
             self._board: board_state,
@@ -487,6 +497,10 @@ class SandwichEnv(BaseEnv):
                     "held": 0.0,
                     **ing_static_features
                 }
+                if "clear" in self._board_type.feature_names:
+                    # All ingredients start not clear as they are not on the
+                    # board
+                    state_dict[obj]["clear"] = 0.0
         return utils.create_state_from_dict(state_dict)
 
     def _sample_goal(self, state: State,
@@ -853,3 +867,95 @@ class SandwichEnv(BaseEnv):
             if not container_lb - 1e-5 <= obj_pose <= container_ub + 1e-5:
                 return False
         return True
+
+
+class SandwichEnvClear(SandwichEnv):
+    """Sandwich making domain where (1) each ingredient has a feature
+    indicating whether it is clear, and (2) the board has a feature indicating
+    whether it is clear.
+
+    This allows us to learn all the predicates with the assumption that the
+    predicates are a function of only their argument's states.
+    """
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Add attribute.
+        self._ingredient_type = Type("ingredient", [
+            "pose_x", "pose_y", "pose_z", "rot", "held", "color_r", "color_g",
+            "color_b", "thickness", "radius", "shape", "clear"
+        ])
+        self._board_type = Type(
+            "board",
+            ["pose_x", "pose_y", "length", "width", "thickness", "clear"])
+        # Override predicates with board and ingredient arguments.
+        self._InHolder = Predicate("InHolder",
+                                   [self._ingredient_type, self._holder_type],
+                                   self._InHolder_holds)
+        self._On = Predicate("On",
+                             [self._ingredient_type, self._ingredient_type],
+                             self._On_holds)
+        self._OnBoard = Predicate("OnBoard",
+                                  [self._ingredient_type, self._board_type],
+                                  self._OnBoard_holds)
+        self._Holding = Predicate("Holding",
+                                  [self._ingredient_type, self._robot_type],
+                                  self._Holding_holds)
+        self._Clear = Predicate("Clear", [self._ingredient_type],
+                                self._Clear_holds)
+        self._BoardClear = Predicate("BoardClear", [self._board_type],
+                                     self._BoardClear_holds)
+        self._IsBread = Predicate("IsBread", [self._ingredient_type],
+                                  self._IsBread_holds)
+        self._IsPatty = Predicate("IsPatty", [self._ingredient_type],
+                                  self._IsPatty_holds)
+        self._IsHam = Predicate("IsHam", [self._ingredient_type],
+                                self._IsHam_holds)
+        self._IsEgg = Predicate("IsEgg", [self._ingredient_type],
+                                self._IsEgg_holds)
+        self._IsCheese = Predicate("IsCheese", [self._ingredient_type],
+                                   self._IsCheese_holds)
+        self._IsLettuce = Predicate("IsLettuce", [self._ingredient_type],
+                                    self._IsLettuce_holds)
+        self._IsTomato = Predicate("IsTomato", [self._ingredient_type],
+                                   self._IsTomato_holds)
+        self._IsGreenPepper = Predicate("IsGreenPepper",
+                                        [self._ingredient_type],
+                                        self._IsGreenPepper_holds)
+        # Override options.
+        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
+            # variables: [robot, object to pick]
+            "Pick",
+            self._Pick_policy,
+            types=[self._robot_type, self._ingredient_type])
+        self._Stack: ParameterizedOption = utils.SingletonParameterizedOption(
+            # variables: [robot, object on which to stack currently-held-object]
+            "Stack",
+            self._Stack_policy,
+            types=[self._robot_type, self._ingredient_type])
+        self._PutOnBoard: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
+            # variables: [robot, board]
+            "PutOnBoard",
+            self._PutOnBoard_policy,
+            types=[self._robot_type, self._board_type])
+        # Override board object.
+        self._board = Object("board", self._board_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "sandwich_clear"
+
+    # TODO: need this?
+    # def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    #     obj, = objects
+    #     return self._object_is_clear(state, obj)
+
+    def _BoardClear_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        board, = objects
+        return state.get(board, "clear") == 1
+
+    def _object_is_clear(self, state: State, obj: Object) -> bool:
+        return state.get(obj, "clear") == 1
