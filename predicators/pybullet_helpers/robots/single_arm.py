@@ -8,7 +8,7 @@ import numpy as np
 import pybullet as p
 from gym.spaces import Box
 
-from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose, Pose3D
 from predicators.pybullet_helpers.ikfast import IKFastInfo
 from predicators.pybullet_helpers.ikfast.utils import \
     ikfast_closest_inverse_kinematics
