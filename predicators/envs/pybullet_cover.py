@@ -140,9 +140,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
+        robot_ee_orn = self._robot_ee_home_orn
         ee_home = Pose(
             (self._workspace_x, self._robot_init_y, self._workspace_z),
-            self._default_orn)
+            robot_ee_orn)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                 physics_client_id, ee_home)
 
@@ -156,7 +157,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         ry = self._y_lb + (self._y_ub - self._y_lb) * y_norm
         rx = state.get(self._robot, "pose_x")
         rz = state.get(self._robot, "pose_z")
-        return np.array([rx, ry, rz, fingers], dtype=np.float32)
+        # The orientation is fixed in this environment.
+        q0, q1, q2, q3 = self._robot_ee_home_orn
+        return np.array([rx, ry, rz, q0, q1, q2, q3, fingers],
+                        dtype=np.float32)
 
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle cover-specific resetting."""
@@ -270,7 +274,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                         max(CFG.cover_target_widths))
 
         # Get robot state.
-        rx, ry, rz, _ = self._pybullet_robot.get_state()
+        rx, ry, rz, _, _, _, _, _ = self._pybullet_robot.get_state()
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         state_dict[self._robot] = np.array([hand, rx, rz], dtype=np.float32)
         joint_positions = self._pybullet_robot.get_joints()
@@ -335,17 +339,19 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
         def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D, str]:
+                params: Array) -> Tuple[Pose, Pose, str]:
             assert not objects
             hand = state.get(self._robot, "hand")
             # De-normalize hand feature to actual table coordinates.
             current_y = self._y_lb + (self._y_ub - self._y_lb) * hand
-            current_pose = (state.get(self._robot, "pose_x"), current_y,
-                            state.get(self._robot, "pose_z"))
+            current_position = (state.get(self._robot, "pose_x"), current_y,
+                                state.get(self._robot, "pose_z"))
+            current_pose = Pose(current_position, self._robot_ee_home_orn)
             y_norm, = params
             # De-normalize parameter to actual table coordinates.
             target_y = self._y_lb + (self._y_ub - self._y_lb) * y_norm
-            target_pose = (self._workspace_x, target_y, target_z)
+            target_position = (self._workspace_x, target_y, target_z)
+            target_pose = Pose(target_position, self._robot_ee_home_orn)
             if self._HandEmpty_holds(state, []):
                 finger_status = "open"
             else:
