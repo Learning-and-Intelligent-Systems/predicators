@@ -10,9 +10,10 @@ from predicators.envs.playroom import PlayroomEnv, PlayroomHardEnv, \
 from predicators.structs import Action
 
 
-@pytest.mark.parametrize("env_name", ["playroom_simple", "playroom"])
+@pytest.mark.parametrize(
+    "env_name", ["playroom_simple", "playroom", "playroom_simple_clear"])
 def test_playroom(env_name):
-    """Tests for PlayroomSimpleEnv and PlayroomEnv class properties."""
+    """Tests class properties of PlayroomEnv and variants."""
     utils.reset_config({"env": env_name})
     env = create_new_env(env_name)
     for task in env.get_train_tasks():
@@ -21,7 +22,7 @@ def test_playroom(env_name):
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    if env_name == "playroom_simple":
+    if env_name in ("playroom_simple", "playroom_simple_clear"):
         assert len(env.predicates) == 9
         assert len(env.options) == 6
         assert len(env.types) == 3
@@ -40,6 +41,8 @@ def test_playroom(env_name):
     assert abs(env.action_space.high[2] - 10) < 1e-3
     assert abs(env.action_space.low[3] + 1) < 1e-3
     assert abs(env.action_space.high[3] - 1) < 1e-3
+    if env_name == "playroom_simple_clear":
+        assert "clear" in env._block_type.feature_names  # pylint: disable=protected-access
 
 
 @pytest.mark.parametrize("env_name", ["playroom_simple", "playroom"])
