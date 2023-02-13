@@ -75,7 +75,7 @@ ENVS:
   sandwich:
     NAME: "sandwich_clear"
     FLAGS:
-      excluded_predicates: "all"
+      excluded_predicates: "On,OnBoard,GripperOpen,Holding,Clear,InHolder,BoardClear,IsBread,IsPatty,IsHam,IsEgg,IsCheese,IsLettuce,IsTomato,IsGreenPepper"
       max_num_steps_interaction_request: 14
 ARGS: {}
 FLAGS:  # common args
