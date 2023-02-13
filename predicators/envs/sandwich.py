@@ -874,8 +874,8 @@ class SandwichEnvClear(SandwichEnv):
     indicating whether it is clear, and (2) the board has a feature indicating
     whether it is clear.
 
-    This allows us to learn all the predicates with the assumption that the
-    predicates are a function of only their argument's states.
+    This allows us to learn all the predicates with the assumption that
+    the predicates are a function of only their argument's states.
     """
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -946,11 +946,6 @@ class SandwichEnvClear(SandwichEnv):
     @classmethod
     def get_name(cls) -> str:
         return "sandwich_clear"
-
-    # TODO: need this?
-    # def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
-    #     obj, = objects
-    #     return self._object_is_clear(state, obj)
 
     def _BoardClear_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
