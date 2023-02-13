@@ -36,7 +36,8 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_painting_gt_nsrts(env_name)
     elif env_name == "tools":
         nsrts = _get_tools_gt_nsrts(env_name)
-    elif env_name in ("playroom", "playroom_simple", "playroom_hard"):
+    elif env_name in ("playroom", "playroom_simple", "playroom_hard",
+                      "playroom_simple_clear"):
         nsrts = _get_playroom_gt_nsrts(env_name)
     elif env_name in ("repeated_nextto", "repeated_nextto_ambiguous"):
         nsrts = _get_repeated_nextto_gt_nsrts(env_name)
@@ -1397,8 +1398,8 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         _get_options_by_names(env_name,
         ["Pick", "Stack", "PutOnTable", "TurnOnDial", "TurnOffDial"])
 
-    if env_name == "playroom_simple":
-        MoveTableToDial, = _get_options_by_names("playroom_simple",
+    if env_name in ("playroom_simple", "playroom_simple_clear"):
+        MoveTableToDial, = _get_options_by_names(env_name,
                                                  ["MoveTableToDial"])
     else:  # playroom or playroom_hard
         door_type, region_type = _get_types_by_names(env_name,
@@ -1620,7 +1621,7 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
                             option_vars, toggledial_sampler)
     nsrts.add(turnoffdial_nsrt)
 
-    if env_name == "playroom_simple":
+    if env_name in ("playroom_simple", "playroom_simple_clear"):
         # MoveTableToDial
         robot = Variable("?robot", robot_type)
         dial = Variable("?dial", dial_type)
