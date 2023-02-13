@@ -1399,8 +1399,7 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         ["Pick", "Stack", "PutOnTable", "TurnOnDial", "TurnOffDial"])
 
     if env_name in ("playroom_simple", "playroom_simple_clear"):
-        MoveTableToDial, = _get_options_by_names(env_name,
-                                                 ["MoveTableToDial"])
+        MoveTableToDial, = _get_options_by_names(env_name, ["MoveTableToDial"])
     else:  # playroom or playroom_hard
         door_type, region_type = _get_types_by_names(env_name,
                                                      ["door", "region"])

@@ -630,12 +630,9 @@ class PlayroomSimpleEnvClear(PlayroomSimpleEnv, BlocksEnvClear):
     """Simple version of the boring room vs playroom domain where each block
     has a feature indicating whether it is clear or not.
 
-    This allows us to learn all the predicates with the assumption that the
-    predicates are a function of only their argument's states.
+    This allows us to learn all the predicates with the assumption that
+    the predicates are a function of only their argument's states.
     """
-
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
 
     @classmethod
     def get_name(cls) -> str:
