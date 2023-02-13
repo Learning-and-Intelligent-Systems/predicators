@@ -507,20 +507,22 @@ class SandwichEnv(BaseEnv):
                      rng: np.random.Generator) -> Set[GroundAtom]:
         # Some possible sandwiches. Bottom to top.
         sandwiches = [
-            ["bread", "cheese", "patty", "bread"],
-            ["bread", "cheese", "patty", "egg", "bread"],
-            ["bread", "cheese", "patty", "lettuce", "bread"],
-            ["bread", "patty", "lettuce", "tomato", "bread"],
-            ["bread", "cheese", "patty", "lettuce", "tomato", "bread"],
-            [
-                "bread", "cheese", "patty", "lettuce", "tomato",
-                "green_pepper", "bread"
-            ],
-            ["bread", "cheese", "ham", "bread"],
-            ["bread", "cheese", "ham", "tomato", "bread"],
-            ["bread", "cheese", "egg", "bread"],
-            ["bread", "cheese", "egg", "tomato", "bread"],
-            ["bread", "cheese", "egg", "tomato", "green_pepper", "bread"],
+            ["bread", "bread"],
+            ["bread", "cheese", "bread"],
+            # ["bread", "cheese", "patty", "bread"],
+            # ["bread", "cheese", "patty", "egg", "bread"],
+            # ["bread", "cheese", "patty", "lettuce", "bread"],
+            # ["bread", "patty", "lettuce", "tomato", "bread"],
+            # ["bread", "cheese", "patty", "lettuce", "tomato", "bread"],
+            # [
+            #     "bread", "cheese", "patty", "lettuce", "tomato",
+            #     "green_pepper", "bread"
+            # ],
+            # ["bread", "cheese", "ham", "bread"],
+            # ["bread", "cheese", "ham", "tomato", "bread"],
+            # ["bread", "cheese", "egg", "bread"],
+            # ["bread", "cheese", "egg", "tomato", "bread"],
+            # ["bread", "cheese", "egg", "tomato", "green_pepper", "bread"],
         ]
         # For now, assume all sandwiches are feasible.
         ing_to_objs = self._state_to_ingredient_groups(state)

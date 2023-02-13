@@ -105,23 +105,23 @@ class GlobalSettings:
     # sandwich env parameters
     sandwich_ingredients_train = {
         "bread": [2],
-        "patty": [1],
-        "ham": [1],
-        "egg": [1],
+        # "patty": [1],
+        # "ham": [1],
+        # "egg": [1],
         "cheese": [1],
-        "lettuce": [1],
-        "tomato": [1],
-        "green_pepper": [1],
+        # "lettuce": [1],
+        # "tomato": [1],
+        # "green_pepper": [1],
     }
     sandwich_ingredients_test = {
         "bread": [2],
-        "patty": [1],
-        "ham": [1],
-        "egg": [1],
+        # "patty": [1],
+        # "ham": [1],
+        # "egg": [1],
         "cheese": [1],
-        "lettuce": [1],
-        "tomato": [1],
-        "green_pepper": [1],
+        # "lettuce": [1],
+        # "tomato": [1],
+        # "green_pepper": [1],
     }
 
     # general pybullet parameters
