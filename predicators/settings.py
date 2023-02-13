@@ -276,10 +276,10 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
-    narrow_passage_door_width_padding_lb = 1e-3
-    narrow_passage_door_width_padding_ub = 1e-2
-    narrow_passage_passage_width_padding_lb = 2e-4
-    narrow_passage_passage_width_padding_ub = 2e-3
+    narrow_passage_door_width_padding_lb = 1e-4
+    narrow_passage_door_width_padding_ub = 5e-3
+    narrow_passage_passage_width_padding_lb = 5e-4
+    narrow_passage_passage_width_padding_ub = 2e-2
     narrow_passage_birrt_num_attempts = 10
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50

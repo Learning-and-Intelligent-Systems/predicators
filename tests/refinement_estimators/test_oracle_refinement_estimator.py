@@ -23,7 +23,13 @@ def test_oracle_refinement_estimator():
 
 def test_narrow_passage_oracle_refinement_estimator():
     """Test oracle refinement cost estimator for narrow_passage env."""
-    utils.reset_config({"env": "narrow_passage"})
+    utils.reset_config({
+        "env": "narrow_passage",
+        "narrow_passage_door_width_padding_lb": 0.02,
+        "narrow_passage_door_width_padding_ub": 0.03,
+        "narrow_passage_passage_width_padding_lb": 0.02,
+        "narrow_passage_passage_width_padding_ub": 0.03,
+    })
     estimator = OracleRefinementEstimator()
 
     # Get env objects and NSRTs
@@ -35,16 +41,20 @@ def test_narrow_passage_oracle_refinement_estimator():
     target, = sample_state.get_objects(target_type)
     gt_nsrts = get_gt_nsrts(CFG.env, env.predicates, env.options)
     move_and_open_door_nsrt, move_to_target_nsrt = sorted(gt_nsrts)
+    robot_radius = env.robot_radius
 
     # Ground NSRTs using objects
     ground_move_and_open_door = move_and_open_door_nsrt.ground([robot, door])
     ground_move_to_target = move_to_target_nsrt.ground([robot, target])
 
+    # 1. Try state where door width > passage width
+    sample_state.set(door, "width", (0.1 + robot_radius) * 2)
+
     # Test direct MoveToTarget skeleton
     move_direct_skeleton = [ground_move_to_target]
     move_direct_cost = estimator.get_cost(sample_state, move_direct_skeleton,
                                           [])
-    assert move_direct_cost == 3
+    assert move_direct_cost == 1
 
     # Test open door then move skeleton
     move_through_door_skeleton = [
@@ -53,21 +63,25 @@ def test_narrow_passage_oracle_refinement_estimator():
     ]
     move_through_door_cost = estimator.get_cost(sample_state,
                                                 move_through_door_skeleton, [])
-    assert move_through_door_cost == 1 + 1
+    assert move_through_door_cost == 0
 
-    # Test open door multiple times then move skeleton
-    move_door_multiple_skeleton = [
-        ground_move_and_open_door,
-        ground_move_and_open_door,
-        ground_move_and_open_door,
-        ground_move_to_target,
-    ]
-    move_door_multiple_cost = estimator.get_cost(sample_state,
-                                                 move_door_multiple_skeleton,
-                                                 [])
-    assert move_door_multiple_cost == 4
+    # Make sure that sorting the costs considers move_through_door cheaper
+    assert sorted([move_direct_cost, move_through_door_cost
+                   ]) == [move_through_door_cost, move_direct_cost]
 
-    # Make sure that sorting the costs makes sense
-    assert sorted([
-        move_direct_cost, move_through_door_cost, move_door_multiple_cost
-    ]) == [move_through_door_cost, move_direct_cost, move_door_multiple_cost]
+    # 2. Try state where door width < passage width
+    sample_state.set(door, "width", (0.02 + robot_radius) * 2)
+
+    # Test direct MoveToTarget skeleton
+    move_direct_cost = estimator.get_cost(sample_state, move_direct_skeleton,
+                                          [])
+    assert move_direct_cost == 1
+
+    # Test open door then move skeleton
+    move_through_door_cost = estimator.get_cost(sample_state,
+                                                move_through_door_skeleton, [])
+    assert move_through_door_cost == 2
+
+    # Make sure that sorting the costs considers move_direct cheaper
+    assert sorted([move_direct_cost, move_through_door_cost
+                   ]) == [move_direct_cost, move_through_door_cost]
