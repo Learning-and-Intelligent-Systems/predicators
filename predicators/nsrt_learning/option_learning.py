@@ -300,8 +300,8 @@ class _KinematicActionConverter(_ActionConverter):
         self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                        self._physics_client_id)
         # The rotation is assumed to be fixed, so record it once.
-        q0, q1, q2, q3 = self._robot.get_state()[3:7]
-        self._ee_orn = (q0, q1, q2, q3)
+        qx, qy, qz, qw = self._robot.get_state()[3:7]
+        self._ee_orn = (qx, qy, qz, qw)
 
     def __setstate__(self, state: Dict) -> None:
         # Recreate the object to avoid issues with the PyBullet client.

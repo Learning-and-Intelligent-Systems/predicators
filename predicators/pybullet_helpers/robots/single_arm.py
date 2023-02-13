@@ -245,7 +245,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         The robot_state corresponds to the State vector for the robot
         object.
         """
-        rx, ry, rz, q0, q1, q2, q3, rf = robot_state
+        rx, ry, rz, qx, qy, qz, qw, rf = robot_state
         p.resetBasePositionAndOrientation(
             self.robot_id,
             self._base_pose.position,
@@ -258,7 +258,7 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        pose = Pose((rx, ry, rz), (q0, q1, q2, q3))
+        pose = Pose((rx, ry, rz), (qx, qy, qz, qw))
         self.inverse_kinematics(pose, validate=True)
 
         # Handle setting the robot finger joints.
@@ -278,7 +278,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             self.end_effector_id,
             physics_client_id=self.physics_client_id)
         rx, ry, rz = ee_link_state.worldLinkFramePosition
-        q0, q1, q2, q3 = ee_link_state.worldLinkFrameOrientation
+        qx, qy, qz, qw = ee_link_state.worldLinkFrameOrientation
         # Note: we assume both left and right gripper have the same joint
         # position.
         rf = p.getJointState(
@@ -286,7 +286,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             self.left_finger_id,
             physicsClientId=self.physics_client_id,
         )[0]
-        return np.array([rx, ry, rz, q0, q1, q2, q3, rf], dtype=np.float32)
+        return np.array([rx, ry, rz, qx, qy, qz, qw, rf], dtype=np.float32)
 
     def get_joints(self) -> JointPositions:
         """Get the joint positions from the current PyBullet state."""

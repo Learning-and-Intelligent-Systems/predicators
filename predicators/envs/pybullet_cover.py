@@ -158,8 +158,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         rx = state.get(self._robot, "pose_x")
         rz = state.get(self._robot, "pose_z")
         # The orientation is fixed in this environment.
-        q0, q1, q2, q3 = self._robot_ee_home_orn
-        return np.array([rx, ry, rz, q0, q1, q2, q3, fingers],
+        qx, qy, qz, qw = self._robot_ee_home_orn
+        return np.array([rx, ry, rz, qx, qy, qz, qw, fingers],
                         dtype=np.float32)
 
     def _reset_state(self, state: State) -> None:

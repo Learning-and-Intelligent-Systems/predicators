@@ -225,15 +225,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     def _extract_robot_state(self, state: State) -> Array:
         # The orientation is fixed in this environment.
-        q0, q1, q2, q3 = self._robot_ee_home_orn
+        qx, qy, qz, qw = self._robot_ee_home_orn
         return np.array([
             state.get(self._robot, "pose_x"),
             state.get(self._robot, "pose_y"),
             state.get(self._robot, "pose_z"),
-            q0,
-            q1,
-            q2,
-            q3,
+            qx,
+            qy,
+            qz,
+            qw,
             self._fingers_state_to_joint(state.get(self._robot, "fingers")),
         ],
                         dtype=np.float32)
