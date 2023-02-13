@@ -1,8 +1,10 @@
 """Test cases for the sandwich env."""
 
 import numpy as np
+import pytest
 
 from predicators import utils
+from predicators.envs import create_new_env
 from predicators.envs.sandwich import SandwichEnv
 from predicators.structs import Action, GroundAtom
 
@@ -54,14 +56,15 @@ def test_sandwich_properties():
     assert env.action_space.shape == (4, )
 
 
-def test_sandwich_options():
+@pytest.mark.parametrize("env_name", ["sandwich", "sandwich_clear"])
+def test_sandwich_options(env_name):
     """Tests for sandwich parameterized options, predicates, and rendering."""
     # Set up environment
     utils.reset_config({
-        "env": "sandwich",
+        "env": env_name,
         # "render_state_dpi": 150,  # uncomment for higher-res test videos
     })
-    env = SandwichEnv()
+    env = create_new_env(env_name)
     BoardClear, Clear, GripperOpen, _, InHolder, _, _, _, _, _, _, _, _, On, \
         OnBoard = sorted(env.predicates)
     Pick, PutOnBoard, Stack = sorted(env.options)
