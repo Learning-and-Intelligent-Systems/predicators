@@ -164,11 +164,11 @@ def test_pybullet_inverse_kinematics(scene_attributes):
 
 def test_fetch_pybullet_robot(physics_client_id):
     """Tests for FetchPyBulletRobot()."""
-    ee_home_pose = (1.35, 0.75, 0.75)
+    ee_home_position = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    ee_home_pose = Pose(ee_home_position, ee_orn)
     base_pose = Pose((0.75, 0.7441, 0.0))
-    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id,
-                               base_pose)
+    robot = FetchPyBulletRobot(ee_home_pose, physics_client_id, base_pose)
     assert robot.get_name() == "fetch"
     assert robot.arm_joint_names == [
         'shoulder_pan_joint', 'shoulder_lift_joint', 'upperarm_roll_joint',
@@ -181,17 +181,20 @@ def test_fetch_pybullet_robot(physics_client_id):
     assert robot.left_finger_joint_idx == 7
     assert robot.right_finger_joint_idx == 8
 
-    robot_state = np.array(ee_home_pose + (robot.open_fingers, ),
+    robot_state = np.array(ee_home_position + tuple(ee_orn) +
+                           (robot.open_fingers, ),
                            dtype=np.float32)
     robot.reset_state(robot_state)
     recovered_state = robot.get_state()
-    assert np.allclose(robot_state, recovered_state, atol=1e-3)
+    assert np.allclose(robot_state[:3], recovered_state[:3], atol=1e-3)
+    assert np.isclose(robot_state[-1], recovered_state[-1], atol=1e-3)
     assert np.allclose(robot.get_joints(),
                        robot.initial_joint_positions,
                        atol=1e-2)
 
     ee_delta = (-0.01, 0.0, 0.01)
-    ee_target = np.add(ee_home_pose, ee_delta)
+    ee_target_position = np.add(ee_home_position, ee_delta)
+    ee_target = Pose(ee_target_position, ee_orn)
     joint_target = robot.inverse_kinematics(ee_target, validate=False)
     f_value = 0.03
     joint_target[robot.left_finger_joint_idx] = f_value
@@ -213,14 +216,13 @@ def test_fetch_pybullet_robot(physics_client_id):
     robot.set_motors(action_arr)
     for _ in range(CFG.pybullet_sim_steps_per_action):
         p.stepSimulation(physicsClientId=physics_client_id)
-    expected_state = tuple(ee_target) + (f_value, )
-    recovered_state = robot.get_state()
+    recovered_ee_pos = robot.get_state()[:3]
 
     # IK is currently not precise enough to increase this tolerance.
-    assert np.allclose(expected_state, recovered_state, atol=1e-2)
+    assert np.allclose(ee_target_position, recovered_ee_pos, atol=1e-2)
     # Test forward kinematics.
     fk_result = robot.forward_kinematics(action_arr)
-    assert np.allclose(fk_result, ee_target, atol=1e-2)
+    assert np.allclose(fk_result.position, ee_target_position, atol=1e-2)
 
     # Check link_from_name
     assert robot.link_from_name("gripper_link")
@@ -249,11 +251,14 @@ def test_create_single_arm_pybullet_robot(physics_client_id):
 
 def test_run_motion_planning(physics_client_id):
     """Tests for run_motion_planning()."""
-    ee_home_pose = (1.35, 0.75, 0.75)
+    ee_home_position = (1.35, 0.75, 0.75)
+    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    ee_home_pose = Pose(ee_home_position, ee_orn)
     seed = 123
     robot = create_single_arm_pybullet_robot("fetch", physics_client_id,
                                              ee_home_pose)
-    robot_init_state = tuple(ee_home_pose) + (robot.open_fingers, )
+    robot_init_state = tuple(ee_home_position) + tuple(
+        ee_orn, ) + (robot.open_fingers, )
     robot.reset_state(robot_init_state)
     joint_initial = robot.get_joints()
     # Should succeed with a path of length 2.
@@ -268,7 +273,8 @@ def test_run_motion_planning(physics_client_id):
     assert np.allclose(path[0], joint_initial)
     assert np.allclose(path[-1], joint_target)
     # Should succeed, no collisions.
-    ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.05))
+    ee_target_position = np.add(ee_home_position, (0.0, 0.0, -0.05))
+    ee_target = Pose(ee_target_position, ee_orn)
     joint_target = robot.inverse_kinematics(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
@@ -288,7 +294,8 @@ def test_run_motion_planning(physics_client_id):
                                       table_pose,
                                       table_orientation,
                                       physicsClientId=physics_client_id)
-    ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.6))
+    ee_target_position = np.add(ee_home_position, (0.0, 0.0, -0.6))
+    ee_target = Pose(ee_target_position, ee_orn)
     joint_target = robot.inverse_kinematics(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
@@ -319,7 +326,8 @@ def test_run_motion_planning(physics_client_id):
                                       block_pose,
                                       block_orientation,
                                       physicsClientId=physics_client_id)
-    ee_target = (1.35, 0.4, 0.6)
+    ee_target_position = (1.35, 0.4, 0.6)
+    ee_target = Pose(ee_target_position, ee_orn)
     joint_target = robot.inverse_kinematics(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,

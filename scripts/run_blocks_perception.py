@@ -332,9 +332,7 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
                                       table_orientation,
                                       physicsClientId=physics_client_id)
     # Create the robot.
-    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
-               PyBulletBlocksEnv.robot_init_z)
-    create_single_arm_pybullet_robot("panda", physics_client_id, ee_home)
+    create_single_arm_pybullet_robot("panda", physics_client_id)
     # Show the point cloud. Downsample because PyBullet has a limit on points.
     if len(pcd.points) > 5000:
         pcd = pcd.farthest_point_down_sample(5000)
@@ -388,10 +386,7 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
 def _get_world_to_base() -> Pose3D:
     """Get the translation for the Panda robot in PyBullet blocks env."""
     physics_client_id = p.connect(p.DIRECT)
-    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
-               PyBulletBlocksEnv.robot_init_z)
-    robot = create_single_arm_pybullet_robot("panda", physics_client_id,
-                                             ee_home)
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id)
     dx, dy, _ = p.getBasePositionAndOrientation(
         robot.robot_id, physicsClientId=physics_client_id)[0]
     dz = PyBulletBlocksEnv.table_height

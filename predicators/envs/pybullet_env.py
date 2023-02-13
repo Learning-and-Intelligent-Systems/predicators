@@ -13,7 +13,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.pybullet_helpers.geometry import Pose3D
+from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
@@ -408,6 +408,11 @@ class PyBulletEnv(BaseEnv):
             pybullet_task = Task(pybullet_init, task.goal)
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks
+
+    @property
+    def _robot_ee_home_orn(self) -> Quaternion:
+        robot_ee_orns = CFG.pybullet_robot_ee_orns[self.get_name()]
+        return robot_ee_orns[CFG.pybullet_robot]
 
 
 def create_pybullet_block(color: Tuple[float, float, float, float],

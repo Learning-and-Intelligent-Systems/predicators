@@ -6,6 +6,7 @@ import pytest
 from pybullet_utils.transformations import quaternion_from_euler
 
 from predicators import utils
+from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.joint import get_joint_infos, get_joints
 from predicators.pybullet_helpers.robots import PandaPyBulletRobot
 
@@ -16,9 +17,9 @@ def _panda_fixture(physics_client_id) -> PandaPyBulletRobot:
     # Use reset control, so we can see effects of actions without stepping.
     utils.reset_config({"pybullet_control_mode": "reset"})
 
-    panda = PandaPyBulletRobot((0.5, 0.0, 0.5),
-                               quaternion_from_euler(np.pi, 0, np.pi / 2),
-                               physics_client_id)
+    home_pose = Pose((0.5, 0.0, 0.5),
+                     quaternion_from_euler(np.pi, 0, np.pi / 2))
+    panda = PandaPyBulletRobot(home_pose, physics_client_id)
     assert panda.get_name() == "panda"
     assert panda.physics_client_id == physics_client_id
     # Panda must have IKFast
@@ -31,9 +32,9 @@ def test_panda_pybullet_robot_initial_configuration(panda):
     """Check initial configuration matches expected position."""
     # Check get_state
     state = panda.get_state()
-    assert len(state) == 4
+    assert len(state) == 8
     xyz = state[:3]
-    finger_pos = state[3]
+    finger_pos = state[-1]
     assert np.allclose(xyz, (0.5, 0.0, 0.5), atol=1e-3)
     assert np.isclose(finger_pos, panda.open_fingers)
 
@@ -86,9 +87,9 @@ def test_panda_pybullet_robot_joints(panda):
 def test_panda_pybullet_robot_inverse_kinematics_no_solutions(panda):
     """Test when IKFast returns no solutions."""
     # Impossible target pose with no solutions
+    pose = Pose((999.0, 99.0, 999.0), (0.7071, 0.7071, 0.0, 0.0))
     with pytest.raises(ValueError):
-        panda.inverse_kinematics(end_effector_pose=(999.0, 99.0, 999.0),
-                                 validate=True)
+        panda.inverse_kinematics(end_effector_pose=pose, validate=True)
 
 
 def test_panda_pybullet_robot_inverse_kinematics_incorrect_solution(panda):
@@ -97,6 +98,7 @@ def test_panda_pybullet_robot_inverse_kinematics_incorrect_solution(panda):
     Note that this doesn't happen in reality, but we need to check we
     validate correctly).
     """
+    pose = Pose((0.25, 0.25, 0.25), (0.7071, 0.7071, 0.0, 0.0))
     # Note: the ikfast_closest_inverse_kinematics import happens
     # in the single_arm.py module, not the panda.py module.
     with patch("predicators.pybullet_helpers.robots.single_arm."
@@ -105,20 +107,18 @@ def test_panda_pybullet_robot_inverse_kinematics_incorrect_solution(panda):
         ikfast_mock.return_value = [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]]
 
         # If validate=False, error shouldn't be raised
-        panda.inverse_kinematics(end_effector_pose=(0.25, 0.25, 0.25),
-                                 validate=False)
+        panda.inverse_kinematics(end_effector_pose=pose, validate=False)
 
         # If validate=True, error should be raised as solution doesn't match
         # desired end effector pose
         with pytest.raises(ValueError):
-            panda.inverse_kinematics(end_effector_pose=(0.25, 0.25, 0.25),
-                                     validate=True)
+            panda.inverse_kinematics(end_effector_pose=pose, validate=True)
 
 
 def test_panda_pybullet_robot_inverse_kinematics(panda):
     """Test IKFast normal functionality on PandaPyBulletRobot."""
-    joint_positions = panda.inverse_kinematics(end_effector_pose=(0.25, 0.25,
-                                                                  0.25),
+    pose = Pose((0.25, 0.25, 0.25), (0.7071, 0.7071, 0.0, 0.0))
+    joint_positions = panda.inverse_kinematics(end_effector_pose=pose,
                                                validate=True)
-    assert np.allclose(panda.forward_kinematics(joint_positions),
-                       (0.25, 0.25, 0.25))
+    recovered_pose = panda.forward_kinematics(joint_positions)
+    assert np.allclose(recovered_pose.position, pose.position)
