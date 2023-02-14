@@ -63,10 +63,7 @@ def _main(lisdf_filepath: Path) -> None:
                                       table_orientation,
                                       physicsClientId=physics_client_id)
     # Create the robot.
-    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
-               PyBulletBlocksEnv.robot_init_z)
-    robot = create_single_arm_pybullet_robot("panda", physics_client_id,
-                                             ee_home)
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id)
     # Set up the LISDF structs.
     initial_conf = np.array(robot.get_joints())
     lisdf_robot = LISDFPanda(initial_conf)
