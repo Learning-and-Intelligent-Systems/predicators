@@ -22,7 +22,10 @@ def test_train_refinement_estimator():
     utils.reset_config_with_parser(
         parser, {
             "env": "narrow_passage",
-            "narrow_passage_passage_width_padding": 0.02,
+            "narrow_passage_door_width_padding_lb": 0.05,
+            "narrow_passage_door_width_padding_ub": 0.05,
+            "narrow_passage_passage_width_padding_lb": 0.05,
+            "narrow_passage_passage_width_padding_ub": 0.05,
             "num_train_tasks": 1,
         })
     sys.argv = [

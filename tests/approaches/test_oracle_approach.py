@@ -150,7 +150,13 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_max_obstacles_per_room": 1,
 }]
 EXTRA_ARGS_ORACLE_APPROACH["narrow_passage"] = [{
-    "narrow_passage_passage_width_padding":
+    "narrow_passage_door_width_padding_lb":
+    0.075,
+    "narrow_passage_door_width_padding_ub":
+    0.075,
+    "narrow_passage_passage_width_padding_lb":
+    0.075,
+    "narrow_passage_passage_width_padding_ub":
     0.075,
 }]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
