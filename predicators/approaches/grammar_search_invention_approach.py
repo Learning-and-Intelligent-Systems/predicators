@@ -11,6 +11,7 @@ from functools import cached_property
 from operator import le
 from typing import Callable, Dict, FrozenSet, Iterator, List, Sequence, Set, \
     Tuple
+import numpy as np
 
 from gym.spaces import Box
 
@@ -794,6 +795,32 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
     def _get_successors(
         s: FrozenSet[Predicate]
     ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+
+        # Before generating successors, prune out useless predicate sets.
+        # that result in the creation of a large number of operators.
+        pred_set_to_num_ops: Dict[FrozenSet[Predicate], int] = {}
+        for predicate in sorted(set(candidates) - s):
+            candidate_predicates = s | {predicate}
+            pruned_atom_data = utils.prune_ground_atom_dataset(
+                score_function._atom_dataset,
+                candidate_predicates | score_function._initial_predicates)
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in pruned_atom_data
+            ]
+            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+            del pruned_atom_data
+            pnads = learn_strips_operators(low_level_trajs,
+                                        score_function._train_tasks,
+                                        set(candidate_predicates
+                                            | score_function._initial_predicates),
+                                        segmented_trajs,
+                                        verify_harmlessness=False,
+                                        verbose=False)
+            pred_set_to_num_ops[candidate_predicates] = len(pnads)
+        print((np.mean(list(pred_set_to_num_ops.values())), np.std(list(pred_set_to_num_ops.values()))))
+        import ipdb; ipdb.set_trace()
+        
+
         for predicate in sorted(set(candidates) - s):  # determinism
             # Actions not needed. Frozensets for hashing. The cost of
             # 1.0 is irrelevant because we're doing GBFS / hill
