@@ -54,6 +54,10 @@ def run_motion_planning(
         to_ee = robot.forward_kinematics(to_pt).position
         return sum(np.subtract(from_ee, to_ee)**2)
 
+    # Fail immediately if the start or end is in collision.    
+    if _collision_fn(initial_positions) or _collision_fn(target_positions):
+        return None
+
     birrt = utils.BiRRT(_sample_fn,
                         _extend_fn,
                         _collision_fn,
