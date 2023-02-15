@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.ml_models import BinaryClassifierEnsemble, \
+from predicators.ml_models import BinaryClassifierEnsemble, CNNRegressor, \
     DegenerateMLPDistributionRegressor, ImplicitMLPRegressor, \
     KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
-    MLPRegressor, CNNRegressor, NeuralGaussianRegressor
+    MLPRegressor, NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():

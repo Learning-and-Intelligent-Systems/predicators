@@ -82,6 +82,7 @@ class _NormalizingRegressor(Regressor):
         super().__init__(seed)
         # Set in fit().
         self._x_dim = -1
+        self._x_shape: Tuple[int, ...] = tuple()
         self._y_dim = -1
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
@@ -96,7 +97,7 @@ class _NormalizingRegressor(Regressor):
             # Inputs are arrays with at least 2 dimensions
             # Set self._x_dim to a tuple
             num_data = X.shape[0]
-            self._x_dim = tuple(X.shape[1:])
+            self._x_shape = tuple(X.shape[1:])
         _, self._y_dim = Y.shape
         assert Y.shape[0] == num_data
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
@@ -106,8 +107,9 @@ class _NormalizingRegressor(Regressor):
         self._fit(X, Y)
 
     def predict(self, x: Array) -> Array:
-        assert self._x_dim != -1, "Fit must be called before predict."
-        assert x.shape == (self._x_dim, ) or x.shape == self._x_dim
+        assert self._x_dim != -1 or len(self._x_shape), \
+            "Fit must be called before predict."
+        assert x.shape == (self._x_dim, ) or x.shape == self._x_shape
         # Normalize.
         x = (x - self._input_shift) / self._input_scale
         # Make prediction.
@@ -781,8 +783,8 @@ class CNNRegressor(PyTorchRegressor):
 
         # We need to calculate the size of the tensor outputted from the Conv2d
         # layers to use as the input dim for the linear layers post-flatten.
-        assert len(self._x_dim) == 3  # expect (C, H, W)
-        c_dim, h_dim, w_dim = self._x_dim
+        assert len(self._x_shape) == 3  # expect (C, H, W)
+        c_dim, h_dim, w_dim = self._x_shape
         for i in range(len(self._conv_channel_nums)):
             kernel_size = self._conv_kernel_sizes[i]
             self._convs.append(
