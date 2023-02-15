@@ -1,5 +1,6 @@
 """Tests for PyBullet motion planning."""
 
+import numpy as np
 import pybullet as p
 
 from predicators import utils
@@ -41,17 +42,15 @@ def test_move_to_shelf():
     block_color = (1.0, 0.0, 0.0, 1.0)
     block_size = 0.04
     block_x = (x_lb + x_ub) / 2
-    block_y = (shelf_y - 5 * block_size)
+    block_y = y_lb + block_size
     block_z = table_height + block_size / 2
+    offset_z = 0.01
     obj_mass = 0.5
     obj_friction = 1.2
     camera_distance = 0.8
     camera_yaw = 90.0
     camera_pitch = -24
     camera_target = (1.65, 0.75, 0.42)
-    robot_init_x = (x_lb + x_ub) / 2
-    robot_init_y = (y_lb + y_ub) / 2
-    robot_init_z = pick_z
     robot_ee_home_orn = (0.7071, 0.7071, 0.0, 0.0)
 
     physics_client_id = p.connect(p.GUI)  # TODO change to direct
@@ -182,11 +181,41 @@ def test_move_to_shelf():
                                       default_orn,
                                       physicsClientId=physics_client_id)
 
-    # Create robot.
-    ee_home = Pose((robot_init_x, robot_init_y, robot_init_z),
-                   robot_ee_home_orn)
+    # Create robot, initialized to be grasping the block.
+    ee_home = Pose((block_x, block_y, block_z + offset_z), robot_ee_home_orn)
     robot = create_single_arm_pybullet_robot("panda", physics_client_id,
                                              ee_home)
+    # Close the fingers.
+    joint_state = robot.get_joints()
+    joint_state[robot.left_finger_joint_idx] = 0.03
+    joint_state[robot.right_finger_joint_idx] = 0.03
+    robot.set_joints(joint_state)
+    for _ in range(10):
+        p.stepSimulation(physics_client_id)
+
+    # Create holding constraint.
+    held_obj_id = block_id
+    base_link_to_world = np.r_[p.invertTransform(
+        *p.getLinkState(robot.robot_id,
+                        robot.end_effector_id,
+                        physicsClientId=physics_client_id)[:2])]
+    world_to_obj = np.r_[p.getBasePositionAndOrientation(
+        held_obj_id, physicsClientId=physics_client_id)]
+    held_obj_to_base_link = p.invertTransform(
+        *p.multiplyTransforms(base_link_to_world[:3], base_link_to_world[3:],
+                              world_to_obj[:3], world_to_obj[3:]))
+    held_constraint_id = p.createConstraint(
+        parentBodyUniqueId=robot.robot_id,
+        parentLinkIndex=robot.end_effector_id,
+        childBodyUniqueId=held_obj_id,
+        childLinkIndex=-1,  # -1 for the base
+        jointType=p.JOINT_FIXED,
+        jointAxis=[0, 0, 0],
+        parentFramePosition=[0, 0, 0],
+        childFramePosition=held_obj_to_base_link[0],
+        parentFrameOrientation=[0, 0, 0, 1],
+        childFrameOrientation=held_obj_to_base_link[1],
+        physicsClientId=physics_client_id)
 
     import time
     while True:
