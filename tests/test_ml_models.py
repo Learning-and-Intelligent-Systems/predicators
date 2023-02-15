@@ -95,12 +95,12 @@ def test_implicit_mlp_regressor():
 def test_basic_cnn_regressor():
     """Tests for CNNRegressor."""
     utils.reset_config()
-    input_size = (3, 5, 3)
+    input_size = (3, 6, 4)
     output_size = 2
     num_samples = 5
     model = CNNRegressor(seed=123,
-                         conv_channel_nums=[1],
-                         conv_kernel_sizes=[3],
+                         conv_channel_nums=[1, 1],
+                         conv_kernel_sizes=[3, 1],
                          linear_hid_sizes=[32, 32],
                          max_train_iters=100,
                          clip_gradients=True,
