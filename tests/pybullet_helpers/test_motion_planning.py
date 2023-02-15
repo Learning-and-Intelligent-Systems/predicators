@@ -6,6 +6,7 @@ import pybullet as p
 from predicators import utils
 from predicators.envs.pybullet_env import create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose
+from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.motion_planning import run_motion_planning
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
@@ -18,27 +19,30 @@ def test_move_to_shelf():
     to forward-facing, so motion planning must be in position and
     orientation.
     """
-    utils.reset_config()
+    utils.reset_config({
+        # TODO: the "digital twin" robot should always be in reset mode?
+        "pybullet_control_mode": "reset"
+    })
 
     # Set up scene.
     x_lb = 1.2
     x_ub = 1.5
     y_lb = 0.4
     y_ub = 1.1
-    pick_z = 0.5
+    pick_z = 0.75
     default_orn = (0.0, 0.0, 0.0, 1.0)
     table_pose = (1.35, 0.75, 0.0)
     table_orientation = (0., 0., 0., 1.)
     table_height = 0.2
     shelf_width = (x_ub - x_lb) * 0.4
-    shelf_length = (y_ub - y_lb) * 0.2
+    shelf_length = (y_ub - y_lb) * 0.6
     shelf_base_height = pick_z * 0.8
     shelf_ceiling_height = pick_z * 0.2
     shelf_ceiling_thickness = 0.01
     shelf_pole_girth = 0.01
     shelf_color = (0.5, 0.3, 0.05, 1.0)
     shelf_x = x_ub - shelf_width / 2
-    shelf_y = y_ub - shelf_length
+    shelf_y = y_ub - shelf_length / 2
     block_color = (1.0, 0.0, 0.0, 1.0)
     block_size = 0.04
     block_x = (x_lb + x_ub) / 2
@@ -52,6 +56,14 @@ def test_move_to_shelf():
     camera_pitch = -24
     camera_target = (1.65, 0.75, 0.42)
     robot_ee_home_orn = (0.7071, 0.7071, 0.0, 0.0)
+    home_pose = Pose((block_x, block_y, block_z + offset_z), robot_ee_home_orn)
+
+    # Target for motion planning.
+    tx = shelf_x
+    ty = shelf_y
+    tz = table_height + shelf_base_height + block_size / 2 + offset_z
+    target_orn = (0.7071, 0.0, 0.7071, 0.0)
+    target_pose = Pose((tx, ty, tz), target_orn)
 
     physics_client_id = p.connect(p.GUI)  # TODO change to direct
     p.configureDebugVisualizer(p.COV_ENABLE_GUI,
@@ -84,7 +96,7 @@ def test_move_to_shelf():
     # Create shelf.
     color = shelf_color
     orientation = default_orn
-    base_pose = (shelf_x, shelf_y, shelf_base_height / 2)
+    base_pose = (shelf_x, shelf_y, table_height + shelf_base_height / 2)
     # Shelf base.
     # Create the collision shape.
     base_half_extents = [
@@ -182,18 +194,17 @@ def test_move_to_shelf():
                                       physicsClientId=physics_client_id)
 
     # Create robot, initialized to be grasping the block.
-    ee_home = Pose((block_x, block_y, block_z + offset_z), robot_ee_home_orn)
     robot = create_single_arm_pybullet_robot("panda", physics_client_id,
-                                             ee_home)
-    # Close the fingers.
-    joint_state = robot.get_joints()
-    joint_state[robot.left_finger_joint_idx] = 0.03
-    joint_state[robot.right_finger_joint_idx] = 0.03
-    robot.set_joints(joint_state)
-    for _ in range(10):
-        p.stepSimulation(physics_client_id)
+                                             home_pose)
+    # # Close the fingers.
+    # joint_state = robot.get_joints()
+    # joint_state[robot.left_finger_joint_idx] = robot.closed_fingers
+    # joint_state[robot.right_finger_joint_idx] = robot.closed_fingers
+    # robot.set_motors(joint_state)
+    # for _ in range(10):
+    #     p.stepSimulation(physics_client_id)
 
-    # Create holding constraint.
+    # Create holding transform.
     held_obj_id = block_id
     base_link_to_world = np.r_[p.invertTransform(
         *p.getLinkState(robot.robot_id,
@@ -204,18 +215,33 @@ def test_move_to_shelf():
     held_obj_to_base_link = p.invertTransform(
         *p.multiplyTransforms(base_link_to_world[:3], base_link_to_world[3:],
                               world_to_obj[:3], world_to_obj[3:]))
-    held_constraint_id = p.createConstraint(
-        parentBodyUniqueId=robot.robot_id,
-        parentLinkIndex=robot.end_effector_id,
-        childBodyUniqueId=held_obj_id,
-        childLinkIndex=-1,  # -1 for the base
-        jointType=p.JOINT_FIXED,
-        jointAxis=[0, 0, 0],
-        parentFramePosition=[0, 0, 0],
-        childFramePosition=held_obj_to_base_link[0],
-        parentFrameOrientation=[0, 0, 0, 1],
-        childFrameOrientation=held_obj_to_base_link[1],
-        physicsClientId=physics_client_id)
+
+    # Force move to target.
+    robot_state = tuple(target_pose.position) + \
+        tuple(target_pose.orientation) + (robot.closed_fingers, )
+    robot.reset_state(robot_state)
+
+    # Draw the target.
+    p.addUserDebugText("*",
+                       target_pose.position, [1.0, 0.0, 0.0],
+                       physicsClientId=physics_client_id)
+
+    # # Apply the holding transform.
+    # world_to_base_link = get_link_state(
+    #     robot.robot_id,
+    #     robot.end_effector_id,
+    #     physics_client_id=physics_client_id).com_pose
+    # base_link_to_held_obj = p.invertTransform(
+    #     *held_obj_to_base_link)
+    # world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
+    #                                             world_to_base_link[1],
+    #                                             base_link_to_held_obj[0],
+    #                                             base_link_to_held_obj[1])
+    # p.resetBasePositionAndOrientation(
+    #     held_obj_id,
+    #     world_to_held_obj[0],
+    #     world_to_held_obj[1],
+    #     physicsClientId=physics_client_id)
 
     import time
     while True:
