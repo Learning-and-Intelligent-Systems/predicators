@@ -57,7 +57,6 @@ def test_move_to_shelf():
     camera_target = (1.65, 0.75, 0.42)
     robot_ee_home_orn = (0.7071, 0.7071, 0.0, 0.0)
     home_pose = Pose((block_x, block_y, block_z + offset_z), robot_ee_home_orn)
-
     # Target for motion planning.
     tx = shelf_x
     ty = shelf_y
@@ -83,6 +82,11 @@ def test_move_to_shelf():
                                  camera_pitch,
                                  camera_target,
                                  physicsClientId=physics_client_id)
+
+    # Draw the target.
+    p.addUserDebugText("*",
+                       target_pose.position, [1.0, 0.0, 0.0],
+                       physicsClientId=physics_client_id)
 
     # Load table in both the main client and the copy.
     table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
@@ -218,30 +222,43 @@ def test_move_to_shelf():
     robot_state = tuple(target_pose.position) + \
         tuple(target_pose.orientation) + (robot.closed_fingers, )
     robot.reset_state(robot_state)
+    target_positions = robot.get_joints()
 
-    # Draw the target.
-    p.addUserDebugText("*",
-                       target_pose.position, [1.0, 0.0, 0.0],
-                       physicsClientId=physics_client_id)
+    # Move back to start.
+    robot_state = tuple(home_pose.position) + \
+        tuple(home_pose.orientation) + (robot.closed_fingers, )
+    robot.reset_state(robot_state)
 
     # Apply the holding transform.
-    world_to_base_link = get_link_state(
-        robot.robot_id,
-        robot.end_effector_id,
-        physics_client_id=physics_client_id).com_pose
-    base_link_to_held_obj = p.invertTransform(
-        *held_obj_to_base_link)
-    world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
-                                                world_to_base_link[1],
-                                                base_link_to_held_obj[0],
-                                                base_link_to_held_obj[1])
-    p.resetBasePositionAndOrientation(
-        held_obj_id,
-        world_to_held_obj[0],
-        world_to_held_obj[1],
-        physicsClientId=physics_client_id)
+    # world_to_base_link = get_link_state(
+    #     robot.robot_id,
+    #     robot.end_effector_id,
+    #     physics_client_id=physics_client_id).com_pose
+    # base_link_to_held_obj = p.invertTransform(*held_obj_to_base_link)
+    # world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
+    #                                          world_to_base_link[1],
+    #                                          base_link_to_held_obj[0],
+    #                                          base_link_to_held_obj[1])
+    # p.resetBasePositionAndOrientation(held_obj_id,
+    #                                   world_to_held_obj[0],
+    #                                   world_to_held_obj[1],
+    #                                   physicsClientId=physics_client_id)
 
-    import time
-    while True:
-        p.stepSimulation(physics_client_id)
-        time.sleep(0.001)
+    collision_bodies = {shelf_id}
+
+    initial_positions = robot.get_joints()
+    plan = run_motion_planning(robot,
+                               initial_positions,
+                               target_positions,
+                               collision_bodies,
+                               seed=123,
+                               physics_client_id=physics_client_id)
+    assert plan is not None
+
+    # Replay the plan.
+    for state in plan:
+        robot.set_joints(state)
+        import time
+        for _ in range(100):
+            p.stepSimulation(physics_client_id)
+            time.sleep(0.001)
