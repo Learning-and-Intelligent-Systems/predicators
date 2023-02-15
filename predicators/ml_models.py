@@ -109,7 +109,7 @@ class _NormalizingRegressor(Regressor):
     def predict(self, x: Array) -> Array:
         assert self._x_dim != -1 or len(self._x_shape), \
             "Fit must be called before predict."
-        assert x.shape == (self._x_dim, ) or x.shape == self._x_shape
+        assert x.shape in ((self._x_dim, ), self._x_shape)
         # Normalize.
         x = (x - self._input_shift) / self._input_scale
         # Make prediction.
