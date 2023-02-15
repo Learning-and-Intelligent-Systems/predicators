@@ -196,13 +196,11 @@ def test_move_to_shelf():
     # Create robot, initialized to be grasping the block.
     robot = create_single_arm_pybullet_robot("panda", physics_client_id,
                                              home_pose)
-    # # Close the fingers.
-    # joint_state = robot.get_joints()
-    # joint_state[robot.left_finger_joint_idx] = robot.closed_fingers
-    # joint_state[robot.right_finger_joint_idx] = robot.closed_fingers
-    # robot.set_motors(joint_state)
-    # for _ in range(10):
-    #     p.stepSimulation(physics_client_id)
+    # Close the fingers.
+    joint_state = robot.get_joints()
+    joint_state[robot.left_finger_joint_idx] = robot.closed_fingers
+    joint_state[robot.right_finger_joint_idx] = robot.closed_fingers
+    robot.set_motors(joint_state)
 
     # Create holding transform.
     held_obj_id = block_id
@@ -226,22 +224,22 @@ def test_move_to_shelf():
                        target_pose.position, [1.0, 0.0, 0.0],
                        physicsClientId=physics_client_id)
 
-    # # Apply the holding transform.
-    # world_to_base_link = get_link_state(
-    #     robot.robot_id,
-    #     robot.end_effector_id,
-    #     physics_client_id=physics_client_id).com_pose
-    # base_link_to_held_obj = p.invertTransform(
-    #     *held_obj_to_base_link)
-    # world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
-    #                                             world_to_base_link[1],
-    #                                             base_link_to_held_obj[0],
-    #                                             base_link_to_held_obj[1])
-    # p.resetBasePositionAndOrientation(
-    #     held_obj_id,
-    #     world_to_held_obj[0],
-    #     world_to_held_obj[1],
-    #     physicsClientId=physics_client_id)
+    # Apply the holding transform.
+    world_to_base_link = get_link_state(
+        robot.robot_id,
+        robot.end_effector_id,
+        physics_client_id=physics_client_id).com_pose
+    base_link_to_held_obj = p.invertTransform(
+        *held_obj_to_base_link)
+    world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
+                                                world_to_base_link[1],
+                                                base_link_to_held_obj[0],
+                                                base_link_to_held_obj[1])
+    p.resetBasePositionAndOrientation(
+        held_obj_id,
+        world_to_held_obj[0],
+        world_to_held_obj[1],
+        physicsClientId=physics_client_id)
 
     import time
     while True:
