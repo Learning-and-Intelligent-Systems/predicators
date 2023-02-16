@@ -769,9 +769,8 @@ class CNNRegressor(PyTorchRegressor):
         self._linears = nn.ModuleList()
 
     def forward(self, tensor_X: Tensor) -> Tensor:
-        for _, conv in enumerate(self._convs[:-1]):
-            tensor_X = self._max_pool(conv(tensor_X))
-        tensor_X = self._convs[-1](tensor_X)
+        for _, conv in enumerate(self._convs):
+            tensor_X = self._max_pool(F.relu(conv(tensor_X)))
         tensor_X = torch.flatten(tensor_X, 1)
         for _, linear in enumerate(self._linears[:-1]):
             tensor_X = F.relu(linear(tensor_X))
@@ -789,14 +788,10 @@ class CNNRegressor(PyTorchRegressor):
             kernel_size = self._conv_kernel_sizes[i]
             self._convs.append(
                 nn.Conv2d(c_dim, self._conv_channel_nums[i], kernel_size))
-            # Calculate size after Conv2d
+            # Calculate size after Conv2d + MaxPool2d
             c_dim = self._conv_channel_nums[i]
-            h_dim = h_dim - kernel_size + 1
-            w_dim = w_dim - kernel_size + 1
-            if i < len(self._conv_channel_nums) - 1:
-                # Calculate size after MaxPool2d
-                h_dim = h_dim // 2
-                w_dim = w_dim // 2
+            h_dim = (h_dim - kernel_size + 1) // 2
+            w_dim = (w_dim - kernel_size + 1) // 2
 
         flattened_size = c_dim * h_dim * w_dim
         self._linears = nn.ModuleList()
