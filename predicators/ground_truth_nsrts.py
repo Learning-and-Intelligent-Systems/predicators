@@ -11,6 +11,7 @@ from predicators.envs.pddl_env import _PDDLEnv
 from predicators.envs.playroom import PlayroomEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.satellites import SatellitesEnv
+from predicators.envs.spot_env import SpotEnv
 from predicators.envs.tools import ToolsEnv
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
@@ -57,6 +58,8 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts(env_name)
+    elif env_name == "realworld_spot":
+        nsrts = _get_spot_env_gt_nsrts(env_name)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -2846,6 +2849,25 @@ def _get_satellites_gt_nsrts(env_name: str) -> Set[NSRT]:
 def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
     env = get_or_create_env(name)
     assert isinstance(env, _PDDLEnv)
+
+    nsrts = set()
+    option_name_to_option = {o.name: o for o in env.options}
+
+    for strips_op in env.strips_operators:
+        option = option_name_to_option[strips_op.name]
+        nsrt = strips_op.make_nsrt(
+            option=option,
+            option_vars=strips_op.parameters,
+            sampler=null_sampler,
+        )
+        nsrts.add(nsrt)
+
+    return nsrts
+
+
+def _get_spot_env_gt_nsrts(name: str) -> Set[NSRT]:
+    env = get_or_create_env(name)
+    assert isinstance(env, SpotEnv)
 
     nsrts = set()
     option_name_to_option = {o.name: o for o in env.options}

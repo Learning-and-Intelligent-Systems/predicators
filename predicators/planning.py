@@ -163,6 +163,8 @@ def _sesame_plan_with_astar(
         all_reachable_atoms = utils.get_reachable_atoms(
             nonempty_ground_nsrts, init_atoms)
         if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
+            import ipdb
+            ipdb.set_trace()
             raise PlanningFailure(f"Goal {task.goal} not dr-reachable")
         reachable_nsrts = [
             nsrt for nsrt in nonempty_ground_nsrts

@@ -1,12 +1,14 @@
-from typing import List, Set
+from typing import List, Optional, Set
 
+import matplotlib
 import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op, \
-    _PDDLEnvState, _strips_operator_to_parameterized_option
+    _create_predicate_classifier, _PDDLEnvState, \
+    _strips_operator_to_parameterized_option
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
@@ -29,20 +31,35 @@ class SpotEnv(BaseEnv):
         self._surface_type = Type("flat_surface", [])
 
         # Predicates
-        # Note that all classifiers assigned here are dummies.
+        # Note that all classifiers assigned here just directly use
+        # the ground atoms from the low-level simulator state.
+        self._temp_On = Predicate("On", [self._can_type, self._surface_type],
+                                  lambda s, o: False)
         self._On = Predicate("On", [self._can_type, self._surface_type],
-                             lambda s, o: False)
-        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
-                                    lambda s, o: False)
-        self._HoldingCan = Predicate("HoldingCan",
-                                     [self._robot_type, self._can_type],
-                                     lambda s, o: False)
-        self._ReachableCan = Predicate("ReachableCan",
-                                       [self._robot_type, self._can_type],
-                                       lambda s, o: False)
-        self._ReachableSurface = Predicate(
+                             _create_predicate_classifier(self._temp_On))
+        self._temp_HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                         lambda s, o: False)
+        self._HandEmpty = Predicate(
+            "HandEmpty", [self._robot_type],
+            _create_predicate_classifier(self._temp_HandEmpty))
+        self._temp_HoldingCan = Predicate("HoldingCan",
+                                          [self._robot_type, self._can_type],
+                                          lambda s, o: False)
+        self._HoldingCan = Predicate(
+            "HoldingCan", [self._robot_type, self._can_type],
+            _create_predicate_classifier(self._temp_HoldingCan))
+        self._temp_ReachableCan = Predicate("ReachableCan",
+                                            [self._robot_type, self._can_type],
+                                            lambda s, o: False)
+        self._ReachableCan = Predicate(
+            "ReachableCan", [self._robot_type, self._can_type],
+            _create_predicate_classifier(self._temp_ReachableCan))
+        self._temp_ReachableSurface = Predicate(
             "ReachableSurface", [self._robot_type, self._surface_type],
             lambda s, o: False)
+        self._ReachableSurface = Predicate(
+            "ReachableSurface", [self._robot_type, self._surface_type],
+            _create_predicate_classifier(self._temp_ReachableSurface))
 
         # STRIPS Operators (needed for option creation)
         # MoveToCan
@@ -159,15 +176,18 @@ class SpotEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
-        raise NotImplementedError
+        return self._generate_tasks(CFG.num_train_tasks)
 
     def _generate_test_tasks(self) -> List[Task]:
+        return self._generate_tasks(CFG.num_test_tasks)
+
+    def _generate_tasks(self, num_tasks: int) -> List[Task]:
         tasks: List[Task] = []
         spot = Object("spot", self._robot_type)
         kitchen_counter = Object("counter", self._surface_type)
         snack_table = Object("snack_table", self._surface_type)
         soda_can = Object("soda_can", self._can_type)
-        for _ in range(CFG.num_test_tasks):
+        for _ in range(num_tasks):
             init_state = _PDDLEnvState.from_ground_atoms(
                 {
                     GroundAtom(self._HandEmpty, [spot]),
@@ -180,3 +200,11 @@ class SpotEnv(BaseEnv):
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return {self._On}
+
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        raise NotImplementedError("This env does not use Matplotlib")
