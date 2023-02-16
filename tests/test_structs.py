@@ -1000,7 +1000,8 @@ def test_lifted_decision_lists():
                     goal_preconditions={on([cup_var, plate_var])},
                     nsrt=pick_nsrt)
 
-    # Test string representation of rules with no preconditions / goals.
+    # Test string representation of rules with no preconditions and with
+    # multiple goals.
     noop_nsrt = NSRT("Noop",
                      parameters=[],
                      preconditions=set(),
@@ -1010,16 +1011,18 @@ def test_lifted_decision_lists():
                      option=DummyOption,
                      option_vars=[],
                      _sampler=utils.null_sampler)
-    noop_rule = LDLRule("MyNoopRule",
-                        parameters=[cup_var],
-                        pos_state_preconditions=set(),
-                        neg_state_preconditions=set(),
-                        goal_preconditions=set(),
-                        nsrt=noop_nsrt)
+    noop_rule = LDLRule(
+        "MyNoopRule",
+        parameters=[cup_var, plate_var, robot_var],
+        pos_state_preconditions=set(),
+        neg_state_preconditions=set(),
+        goal_preconditions={on([cup_var, plate_var]),
+                            hand_empty([robot_var])},
+        nsrt=noop_nsrt)
     assert str(noop_rule) == """(:rule MyNoopRule
-    :parameters (?cup - cup_type)
+    :parameters (?cup - cup_type ?plate - plate_type ?robot - robot_type)
     :preconditions ()
-    :goals ()
+    :goals (and (HandEmpty ?robot) (On ?cup ?plate))
     :action (Noop )
   )"""
 
