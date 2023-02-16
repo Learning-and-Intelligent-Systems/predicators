@@ -795,8 +795,8 @@ class CNNRegressor(PyTorchRegressor):
             w_dim = w_dim - kernel_size + 1
             if i < len(self._conv_channel_nums) - 1:
                 # Calculate size after MaxPool2d
-                h_dim = (h_dim + 1) // 2
-                w_dim = (w_dim + 1) // 2
+                h_dim = h_dim // 2
+                w_dim = w_dim // 2
 
         flattened_size = c_dim * h_dim * w_dim
         self._linears = nn.ModuleList()
