@@ -6,10 +6,11 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.structs import NSRT, PNAD, Action, DefaultState, \
-    DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
-    LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, Object, \
-    ParameterizedOption, Predicate, Query, Segment, State, STRIPSOperator, \
-    Task, Type, Variable, _Atom, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    DemonstrationQuery, DummyOption, GroundAtom, InteractionRequest, \
+    InteractionResult, LDLRule, LiftedAtom, LiftedDecisionList, \
+    LowLevelTrajectory, Object, ParameterizedOption, Predicate, Query, \
+    Segment, State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
@@ -998,6 +999,29 @@ def test_lifted_decision_lists():
                     neg_state_preconditions=set(),
                     goal_preconditions={on([cup_var, plate_var])},
                     nsrt=pick_nsrt)
+
+    # Test string representation of rules with no preconditions / goals.
+    noop_nsrt = NSRT("Noop",
+                     parameters=[],
+                     preconditions=set(),
+                     add_effects=set(),
+                     delete_effects=set(),
+                     ignore_effects=set(),
+                     option=DummyOption,
+                     option_vars=[],
+                     _sampler=utils.null_sampler)
+    noop_rule = LDLRule("MyNoopRule",
+                        parameters=[cup_var],
+                        pos_state_preconditions=set(),
+                        neg_state_preconditions=set(),
+                        goal_preconditions=set(),
+                        nsrt=noop_nsrt)
+    assert str(noop_rule) == """(:rule MyNoopRule
+    :parameters (?cup - cup_type)
+    :preconditions ()
+    :goals ()
+    :action (Noop )
+  )"""
 
     # _GroundLDLRule
     cup1 = cup_type("cup1")
