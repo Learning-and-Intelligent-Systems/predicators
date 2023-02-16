@@ -129,6 +129,7 @@ class PG3Approach(NSRTLearningApproach):
             max_policy_guided_rollout=CFG.pg3_max_policy_guided_rollout,
             gbfs_max_expansions=CFG.pg3_gbfs_max_expansions,
             hc_enforced_depth=CFG.pg3_hc_enforced_depth,
+            allow_new_vars=CFG.pg3_add_condition_allow_new_vars,
             initial_policy_strs=initial_ldl_strs)
 
         learned_ldl = utils.parse_ldl_from_str(learned_ldl_str, types,
