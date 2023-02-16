@@ -124,7 +124,7 @@ class SpotEnv(BaseEnv):
         return {self._robot_type, self._can_type, self._surface_type}
 
     @property
-    def predicates(self) -> Set[Type]:
+    def predicates(self) -> Set[Predicate]:
         return {
             self._On, self._HandEmpty, self._HoldingCan, self._ReachableCan,
             self._ReachableSurface
