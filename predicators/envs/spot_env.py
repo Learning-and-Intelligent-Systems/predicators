@@ -1,12 +1,16 @@
-from typing import Set
+from typing import List, Set
 
 import numpy as np
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.envs.pddl_env import _strips_operator_to_parameterized_option
-from predicators.structs import LiftedAtom, Predicate, STRIPSOperator, Type, \
-    Variable, ParameterizedOption
+from predicators.envs.pddl_env import _action_to_ground_strips_op, \
+    _PDDLEnvState, _strips_operator_to_parameterized_option
+from predicators.settings import CFG
+from predicators.structs import Action, GroundAtom, LiftedAtom, Object, \
+    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
+    Variable
 
 
 class SpotEnv(BaseEnv):
@@ -126,3 +130,53 @@ class SpotEnv(BaseEnv):
     @classmethod
     def get_name(cls) -> str:
         return "realworld_spot"
+
+    @property
+    def strips_operators(self) -> Set[STRIPSOperator]:
+        """Expose the STRIPSOperators for use by oracles."""
+        return self._strips_operators
+
+    def simulate(self, state: State, action: Action) -> State:
+        assert isinstance(state, _PDDLEnvState)
+        assert self.action_space.contains(action.arr)
+        ordered_objs = list(state)
+        # Convert the state into a Set[GroundAtom].
+        ground_atoms = state.get_ground_atoms()
+        # Convert the action into a _GroundSTRIPSOperator.
+        ground_op = _action_to_ground_strips_op(action, ordered_objs,
+                                                self._ordered_strips_operators)
+        # If we couldn't turn this action into a ground operator, noop.
+        if ground_op is None:
+            return state.copy()
+        # If the operator is not applicable in this state, noop.
+        if not ground_op.preconditions.issubset(ground_atoms):
+            return state.copy()
+        # Apply the operator.
+        next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
+        # Convert back into a State.
+        next_state = _PDDLEnvState.from_ground_atoms(next_ground_atoms,
+                                                     ordered_objs)
+        return next_state
+
+    def _generate_train_tasks(self) -> List[Task]:
+        raise NotImplementedError
+
+    def _generate_test_tasks(self) -> List[Task]:
+        tasks: List[Task] = []
+        spot = Object("spot", self._robot_type)
+        kitchen_counter = Object("counter", self._surface_type)
+        snack_table = Object("snack_table", self._surface_type)
+        soda_can = Object("soda_can", self._can_type)
+        for _ in range(CFG.num_test_tasks):
+            init_state = _PDDLEnvState.from_ground_atoms(
+                {
+                    GroundAtom(self._HandEmpty, [spot]),
+                    GroundAtom(self._On, [soda_can, kitchen_counter])
+                }, [spot, kitchen_counter, snack_table, soda_can])
+            goal = {GroundAtom(self._On, [soda_can, snack_table])}
+            tasks.append(Task(init_state, goal))
+        return tasks
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._On}
