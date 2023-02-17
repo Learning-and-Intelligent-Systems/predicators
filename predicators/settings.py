@@ -278,7 +278,7 @@ class GlobalSettings:
 
     # narrow_passage env parameters
     narrow_passage_door_width_padding_lb = 1e-4
-    narrow_passage_door_width_padding_ub = 5e-3
+    narrow_passage_door_width_padding_ub = 0.015
     narrow_passage_passage_width_padding_lb = 5e-4
     narrow_passage_passage_width_padding_ub = 2e-2
     narrow_passage_birrt_num_attempts = 10
