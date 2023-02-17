@@ -10,7 +10,7 @@ import numpy as np
 
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, RefinementDatapoint, State, \
+from predicators.structs import GroundAtom, RefinementDatapoint, Task, \
     _GroundNSRT
 
 # Type of the (skeleton, atoms_sequence) key for cost dictionary
@@ -37,7 +37,7 @@ class TabularRefinementEstimator(BaseRefinementEstimator):
     def is_learning_based(self) -> bool:
         return True
 
-    def get_cost(self, initial_state: State, skeleton: List[_GroundNSRT],
+    def get_cost(self, initial_task: Task, skeleton: List[_GroundNSRT],
                  atoms_sequence: List[Set[GroundAtom]]) -> float:
         assert self._cost_dict is not None, "Need to train"
         key = self._immutable_cost_dict_key(skeleton, atoms_sequence)

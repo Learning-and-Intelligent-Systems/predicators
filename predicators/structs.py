@@ -1573,7 +1573,7 @@ GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
 ObjectOrVariable = TypeVar("ObjectOrVariable", bound=_TypedEntity)
 SamplerDatapoint = Tuple[State, VarToObjSub, _Option,
                          Optional[Set[GroundAtom]]]
-RefinementDatapoint = Tuple[State, List[_GroundNSRT], List[Set[GroundAtom]],
+RefinementDatapoint = Tuple[Task, List[_GroundNSRT], List[Set[GroundAtom]],
                             bool, float]
 # For PDDLEnv environments, given a desired number of problems and an rng,
 # returns a list of that many PDDL problem strings.

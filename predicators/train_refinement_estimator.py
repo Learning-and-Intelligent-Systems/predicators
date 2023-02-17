@@ -230,7 +230,7 @@ def _collect_refinement_data_for_task(task: Task,
             refinement_time = time.perf_counter() - refinement_start_time
             # Add datapoint to dataset
             data.append((
-                task.init,
+                task,
                 skeleton,
                 atoms_sequence,
                 suc,
