@@ -1,15 +1,20 @@
 """Tests for PyBullet motion planning."""
 
+import time
+
 import numpy as np
 import pybullet as p
 
 from predicators import utils
 from predicators.envs.pybullet_env import create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose
+from predicators.pybullet_helpers.joint import JointPositions
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.motion_planning import run_motion_planning
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
+
+USE_GUI = True
 
 
 def test_move_to_shelf():
@@ -18,11 +23,10 @@ def test_move_to_shelf():
     Notably, the robot must change its gripper orientation from top-down
     to forward-facing, so motion planning must be in position and
     orientation.
+
+    Also notably, the held object must be collision-checked like the robot.
     """
-    utils.reset_config({
-        # TODO: the "digital twin" robot should always be in reset mode?
-        "pybullet_control_mode": "reset"
-    })
+    utils.reset_config({"pybullet_control_mode": "reset"})
 
     # Set up scene.
     x_lb = 1.2
@@ -42,11 +46,11 @@ def test_move_to_shelf():
     shelf_pole_girth = 0.01
     shelf_color = (0.5, 0.3, 0.05, 1.0)
     shelf_x = x_ub - shelf_width / 2
-    shelf_y = y_ub - shelf_length / 2
+    shelf_y = y_lb + shelf_length / 2
     block_color = (1.0, 0.0, 0.0, 1.0)
-    block_size = 0.04
+    block_size = 0.05
     block_x = (x_lb + x_ub) / 2
-    block_y = y_lb + block_size
+    block_y = y_ub - block_size
     block_z = table_height + block_size / 2
     offset_z = 0.01
     obj_mass = 0.5
@@ -57,6 +61,7 @@ def test_move_to_shelf():
     camera_target = (1.65, 0.75, 0.42)
     robot_ee_home_orn = (0.7071, 0.7071, 0.0, 0.0)
     home_pose = Pose((block_x, block_y, block_z + offset_z), robot_ee_home_orn)
+
     # Target for motion planning.
     tx = shelf_x
     ty = shelf_y
@@ -64,31 +69,33 @@ def test_move_to_shelf():
     target_orn = (0.7071, 0.0, 0.7071, 0.0)
     target_pose = Pose((tx, ty, tz), target_orn)
 
-    physics_client_id = p.connect(p.GUI)  # TODO change to direct
-    p.configureDebugVisualizer(p.COV_ENABLE_GUI,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.resetDebugVisualizerCamera(camera_distance,
-                                 camera_yaw,
-                                 camera_pitch,
-                                 camera_target,
-                                 physicsClientId=physics_client_id)
+    if USE_GUI:
+        physics_client_id = p.connect(p.GUI)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI,
+                                   False,
+                                   physicsClientId=physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+                                   False,
+                                   physicsClientId=physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+                                   False,
+                                   physicsClientId=physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+                                   False,
+                                   physicsClientId=physics_client_id)
+        p.resetDebugVisualizerCamera(camera_distance,
+                                     camera_yaw,
+                                     camera_pitch,
+                                     camera_target,
+                                     physicsClientId=physics_client_id)
+        # Draw the target.
+        p.addUserDebugText("*",
+                           target_pose.position, [1.0, 0.0, 0.0],
+                           physicsClientId=physics_client_id)
+    else:
+        physics_client_id = p.connect(p.DIRECT)
 
-    # Draw the target.
-    p.addUserDebugText("*",
-                       target_pose.position, [1.0, 0.0, 0.0],
-                       physicsClientId=physics_client_id)
-
-    # Load table in both the main client and the copy.
+    # Load table.
     table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
                           useFixedBase=True,
                           physicsClientId=physics_client_id)
@@ -206,59 +213,76 @@ def test_move_to_shelf():
     joint_state[robot.right_finger_joint_idx] = robot.closed_fingers
     robot.set_motors(joint_state)
 
+    # while True:
+    #     p.stepSimulation(physicsClientId=physics_client_id)
+    #     time.sleep(0.001)
+
     # Create holding transform.
     held_obj_id = block_id
-    base_link_to_world = np.r_[p.invertTransform(
-        *p.getLinkState(robot.robot_id,
-                        robot.end_effector_id,
-                        physicsClientId=physics_client_id)[:2])]
+    world_to_base_link = get_link_state(
+        robot.robot_id,
+        robot.end_effector_id,
+        physics_client_id=physics_client_id).com_pose
+    base_link_to_world = np.r_[p.invertTransform(world_to_base_link[0],
+                                                 world_to_base_link[1])]
     world_to_obj = np.r_[p.getBasePositionAndOrientation(
         held_obj_id, physicsClientId=physics_client_id)]
     held_obj_to_base_link = p.invertTransform(
         *p.multiplyTransforms(base_link_to_world[:3], base_link_to_world[3:],
                               world_to_obj[:3], world_to_obj[3:]))
+    base_link_to_held_obj = p.invertTransform(*held_obj_to_base_link)
 
-    # Force move to target.
+    def _set_state(pt: JointPositions) -> None:
+        robot.set_motors(pt)
+        world_to_base_link = get_link_state(
+            robot.robot_id,
+            robot.end_effector_id,
+            physics_client_id=physics_client_id).com_pose
+        world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
+                                                 world_to_base_link[1],
+                                                 base_link_to_held_obj[0],
+                                                 base_link_to_held_obj[1])
+        p.resetBasePositionAndOrientation(held_obj_id,
+                                          world_to_held_obj[0],
+                                          world_to_held_obj[1],
+                                          physicsClientId=physics_client_id)
+
+    # Force move to target to get the target joint positions.
     robot_state = tuple(target_pose.position) + \
         tuple(target_pose.orientation) + (robot.closed_fingers, )
     robot.reset_state(robot_state)
     target_positions = robot.get_joints()
 
-    # Move back to start.
-    robot_state = tuple(home_pose.position) + \
+    # Move back to start, but slightly up so that the robot is not in collision
+    # with the table.
+    x, y, z = home_pose.position
+    z += offset_z
+    robot_state = (x, y, z) + \
         tuple(home_pose.orientation) + (robot.closed_fingers, )
     robot.reset_state(robot_state)
-
-    # Apply the holding transform.
-    # world_to_base_link = get_link_state(
-    #     robot.robot_id,
-    #     robot.end_effector_id,
-    #     physics_client_id=physics_client_id).com_pose
-    # base_link_to_held_obj = p.invertTransform(*held_obj_to_base_link)
-    # world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
-    #                                          world_to_base_link[1],
-    #                                          base_link_to_held_obj[0],
-    #                                          base_link_to_held_obj[1])
-    # p.resetBasePositionAndOrientation(held_obj_id,
-    #                                   world_to_held_obj[0],
-    #                                   world_to_held_obj[1],
-    #                                   physicsClientId=physics_client_id)
-
-    collision_bodies = {shelf_id}
-
     initial_positions = robot.get_joints()
+    _set_state(initial_positions)
+
+    # TODO: the block is still moving around on the replay, I can't figure out
+    # why. Check how Caelan does it...
+
+    # while True:
+    #     p.stepSimulation(physicsClientId=physics_client_id)
+    #     time.sleep(0.001)
+
+    collision_bodies = {shelf_id, table_id}
     plan = run_motion_planning(robot,
                                initial_positions,
                                target_positions,
                                collision_bodies,
+                               held_object=held_obj_id,
+                               base_link_to_held_obj=base_link_to_held_obj,
                                seed=123,
                                physics_client_id=physics_client_id)
     assert plan is not None
 
     # Replay the plan.
-    for state in plan:
-        robot.set_joints(state)
-        import time
-        for _ in range(100):
-            p.stepSimulation(physics_client_id)
-            time.sleep(0.001)
+    if USE_GUI:
+        for state in plan:
+            _set_state(state)
+            time.sleep(0.1)
