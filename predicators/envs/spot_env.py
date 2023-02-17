@@ -66,27 +66,32 @@ class SpotEnv(BaseEnv):
         spot = Variable("?robot", self._robot_type)
         can = Variable("?can", self._can_type)
         add_effs = {LiftedAtom(self._ReachableCan, [spot, can])}
-        ignore_effs = {self._ReachableCan}
+        ignore_effs = {self._ReachableCan, self._ReachableSurface}
         self._MoveToCanOp = STRIPSOperator("MoveToCan", [spot, can], set(),
                                            add_effs, set(), ignore_effs)
         # MoveToSurface
         spot = Variable("?robot", self._robot_type)
         surface = Variable("?surface", self._surface_type)
         add_effs = {LiftedAtom(self._ReachableSurface, [spot, surface])}
-        ignore_effs = {self._ReachableSurface}
+        ignore_effs = {self._ReachableCan, self._ReachableSurface}
         self._MoveToSurfaceOp = STRIPSOperator("MoveToSurface",
                                                [spot, surface], set(),
                                                add_effs, set(), ignore_effs)
         # GraspCan
         spot = Variable("?robot", self._robot_type)
         can = Variable("?can", self._can_type)
+        surface = Variable("?surface", self._surface_type)
         preconds = {
+            LiftedAtom(self._On, [can, surface]),
             LiftedAtom(self._ReachableCan, [spot, can]),
             LiftedAtom(self._HandEmpty, [spot])
         }
         add_effs = {LiftedAtom(self._HoldingCan, [spot, can])}
-        del_effs = {LiftedAtom(self._HandEmpty, [spot])}
-        self._GraspCanOp = STRIPSOperator("GraspCan", [spot, can], preconds,
+        del_effs = {
+            LiftedAtom(self._On, [can, surface]),
+            LiftedAtom(self._HandEmpty, [spot])
+        }
+        self._GraspCanOp = STRIPSOperator("GraspCan", [spot, can, surface], preconds,
                                           add_effs, del_effs, set())
         # Place Can
         spot = Variable("?robot", self._robot_type)
@@ -101,9 +106,10 @@ class SpotEnv(BaseEnv):
             LiftedAtom(self._HandEmpty, [spot])
         }
         del_effs = {LiftedAtom(self._HoldingCan, [spot, can])}
-        self._PlaceCanOp = STRIPSOperator("PlaceCanOnTop",
+        self._PlaceCanOp = STRIPSOperator("PlaceCanOntop",
                                           [spot, can, surface], preconds,
                                           add_effs, del_effs, set())
+                                          
         self._strips_operators = {
             self._MoveToCanOp, self._MoveToSurfaceOp, self._GraspCanOp,
             self._PlaceCanOp
