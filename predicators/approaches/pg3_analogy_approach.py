@@ -1,10 +1,5 @@
 """Policy-guided planning for generalized policy generation (PG3) initialized
-with policies that are induced by analogy to another domain.
-
-PG3 requires known STRIPS operators. The command below uses oracle
-operators, but it is also possible to use this approach with operators
-learned from demonstrations.
-"""
+with policies that are induced by analogy to another domain."""
 from __future__ import annotations
 
 import abc
