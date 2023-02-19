@@ -13,6 +13,7 @@ from gym.spaces import Box
 
 from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
+from predicators.ground_truth_options import get_gt_options
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.inverse_kinematics import \
@@ -140,12 +141,12 @@ class _OracleOptionLearner(_OptionLearnerBase):
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
-        env = get_or_create_env(CFG.env)
+        env_options = get_gt_options(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
             assert len(strips_ops) == 4
             PickPlace = [
-                option for option in env.options if option.name == "PickPlace"
+                option for option in env_options if option.name == "PickPlace"
             ][0]
             # All strips operators use the same PickPlace option,
             # which has no parameters.
@@ -153,13 +154,13 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 option_specs.append((PickPlace, []))
         elif CFG.env == "blocks":
             assert len(strips_ops) == 4
-            Pick = [option for option in env.options
+            Pick = [option for option in env_options
                     if option.name == "Pick"][0]
             Stack = [
-                option for option in env.options if option.name == "Stack"
+                option for option in env_options if option.name == "Stack"
             ][0]
             PutOnTable = [
-                option for option in env.options if option.name == "PutOnTable"
+                option for option in env_options if option.name == "PutOnTable"
             ][0]
             for op in strips_ops:
                 if {atom.predicate.name for atom in op.preconditions} in \

@@ -2959,7 +2959,8 @@ def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
     assert isinstance(env, _PDDLEnv)
 
     nsrts = set()
-    option_name_to_option = {o.name: o for o in env.options}
+    options = get_gt_options(name)
+    option_name_to_option = {o.name: o for o in options}
 
     for strips_op in env.strips_operators:
         option = option_name_to_option[strips_op.name]

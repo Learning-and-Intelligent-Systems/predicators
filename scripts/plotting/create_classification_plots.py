@@ -13,6 +13,7 @@ from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Array, Image, Predicate, Task
 from scripts.evaluate_interactive_approach_classifiers import \
@@ -29,7 +30,8 @@ def _main() -> None:
     # Don't need actual train tasks.
     train_tasks: List[Task] = []
     # Create the agent (approach).
-    approach = create_approach(CFG.approach, preds, env.options, env.types,
+    options = get_gt_options(env.get_name())
+    approach = create_approach(CFG.approach, preds, options, env.types,
                                env.action_space, train_tasks)
     assert isinstance(approach, InteractiveLearningApproach)
     # Get plotting function

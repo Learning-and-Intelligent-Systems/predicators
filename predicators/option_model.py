@@ -70,11 +70,11 @@ class _OracleOptionModel(_OptionModelBase):
         # for one environment with options from another environment. E.g.,
         # using a non-PyBullet environment in the option model while using a
         # PyBullet environment otherwise. In the case where we are
-        # learning options, the learned options will not appear in the
-        # env.options set. However, we still want to use the environment
+        # learning options, the learned options will not appear in the ground
+        # truth options set. However, we still want to use the environment
         # options during data collection when we are learning options. In this
         # case, we make a copy of the option itself, rather than reconstructing
-        # it from env.options.
+        # it from the ground truth options.
         param_opt = option.parent
         if param_opt.name not in self._name_to_parameterized_option:
             assert "Learned" in param_opt.name

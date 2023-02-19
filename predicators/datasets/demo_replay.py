@@ -8,6 +8,7 @@ from predicators import utils
 from predicators.datasets.demo_only import create_demo_data
 from predicators.envs import BaseEnv
 from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Dataset, LowLevelTrajectory, \
     ParameterizedOption, Task, _GroundNSRT
@@ -27,7 +28,8 @@ def create_demo_replay_data(
         [len(traj.states) for traj in demo_dataset.trajectories])
     weights = weights / sum(weights)
     # Ground all NSRTs once per trajectory
-    all_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    options = get_gt_options(env.get_name())
+    all_nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     ground_nsrts = []
     for traj in demo_dataset.trajectories:
         objects = sorted(traj.states[0])

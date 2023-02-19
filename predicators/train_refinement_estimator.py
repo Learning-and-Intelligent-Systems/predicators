@@ -43,6 +43,7 @@ from predicators.approaches.refinement_estimation_approach import \
     RefinementEstimationApproach
 from predicators.envs import BaseEnv, create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_options import get_gt_options
 from predicators.option_model import _OptionModelBase, create_option_model
 from predicators.planning import PlanningTimeout, _MaxSkeletonsFailure, \
     _skeleton_generator, _SkeletonSearchTimeout, filter_nsrts, \
@@ -77,11 +78,9 @@ def _train_refinement_estimation_approach() -> None:
 
     # Create environment
     env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
-    # The action space and options need to be seeded externally, because
-    # env.action_space and env.options are often created during env __init__().
+    # The action space needs to be seeded externally, because env.action_space
+    # is often created during env __init__().
     env.action_space.seed(CFG.seed)
-    for option in env.options:
-        option.params_space.seed(CFG.seed)
     assert env.goal_predicates.issubset(env.predicates)
     preds, _ = utils.parse_config_excluded_predicates(env)
 
@@ -90,7 +89,7 @@ def _train_refinement_estimation_approach() -> None:
     # Assume we're not doing option learning, pass in all the environment's
     # oracle options.
     assert CFG.option_learner == "no_learning"
-    options = env.options
+    options = get_gt_options(env.get_name())
 
     # Get dataset to train on
     if CFG.load_data:

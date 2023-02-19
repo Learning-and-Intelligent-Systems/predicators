@@ -140,7 +140,7 @@ class CoverEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        raise NotImplementedError("env.options is leaving soon!")
+        raise NotImplementedError("This base class method is leaving soon!")
 
     @property
     def action_space(self) -> Box:
