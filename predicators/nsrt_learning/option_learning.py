@@ -11,7 +11,6 @@ import numpy as np
 import pybullet as p
 from gym.spaces import Box
 
-from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.ground_truth_options import get_gt_options
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor

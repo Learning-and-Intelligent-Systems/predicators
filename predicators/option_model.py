@@ -55,7 +55,7 @@ class _OracleOptionModel(_OptionModelBase):
     Runs options through this simulator to figure out the next state.
     """
 
-    def __init__(self, env: BaseEnv()) -> None:
+    def __init__(self, env: BaseEnv) -> None:
         super().__init__()
         gt_options = get_gt_options(env.get_name())
         self._name_to_parameterized_option = {o.name: o for o in gt_options}

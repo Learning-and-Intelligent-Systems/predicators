@@ -53,7 +53,8 @@ def _extract_oracle_samplers(
     given a random sampler. If a ground truth operator has no given
     operator match, a warning is generated.
     """
-    env_options = get_gt_options(CFG.env)
+    env = get_or_create_env(CFG.env)
+    env_options = get_gt_options(env.get_name())
     # We don't need to match ground truth NSRTs with no continuous
     # parameters, so we filter them out.
     gt_nsrts = {

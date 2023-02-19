@@ -5,13 +5,13 @@ from typing import Dict, Sequence, Set
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.envs import get_or_create_env
+from predicators.envs import BaseEnv, get_or_create_env
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     State
 
 
-def get_gt_options(env_name) -> Set[ParameterizedOption]:
+def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
     """Create ground truth options for an env."""
     # This is a work in progress. Gradually moving options out of environments
     # until we can remove them from the environment API entirely.
