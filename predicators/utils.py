@@ -207,6 +207,30 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
     return State(state_dict, simulator_state)
 
 
+def create_dict_from_state(state: State) -> Dict[Object, Dict[str, float]]:
+    """Inverse of create_state_from_dict().
+
+    Used by save_task_to_json().
+    """
+    return {
+        o: {n: v
+            for n, v in zip(o.type.feature_names, state.data[o])}
+        for o in state
+    }
+
+
+def save_task_to_json(task: Task, filepath: Path) -> None:
+    """Save a task to a JSON file."""
+    import ipdb
+    ipdb.set_trace()
+
+
+def load_task_from_json(filepath: Path) -> Task:
+    """Load a task from a JSON file."""
+    import ipdb
+    ipdb.set_trace()
+
+
 class _Geom2D(abc.ABC):
     """A 2D shape that contains some points."""
 

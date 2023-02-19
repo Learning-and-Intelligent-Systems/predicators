@@ -196,6 +196,31 @@ def test_create_state_from_dict():
         state2.allclose(state3)
 
 
+def test_create_dict_from_state():
+    """Tests for create_dict_from_state()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate = plate_type("plate")
+    data = {
+        cup1: {
+            "feat1": 0.3
+        },
+        cup2: {
+            "feat1": 0.5
+        },
+        plate: {
+            "feat1": 0.6,
+            "feat2": 1.3
+        }
+    }
+    state = utils.create_state_from_dict(data)
+    state_dict = utils.create_dict_from_state(state)
+    recovered_state = utils.create_state_from_dict(state_dict)
+    assert state.allclose(recovered_state)
+
+
 def test_line_segment():
     """Tests for LineSegment()."""
     _, ax = plt.subplots(1, 1)
