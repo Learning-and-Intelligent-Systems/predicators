@@ -50,7 +50,7 @@ def test_load_task_from_json(env_name):
     json.dump(json_dict, f)
     f.flush()
     # Now, load the task from the JSON file.
-    recovered_task = env._load_task_from_json(f.name)  # pylint: disable=protected-method
+    recovered_task = env._load_task_from_json(f.name)  # pylint: disable=protected-access
     assert task.init.allclose(recovered_task.init)
     assert task.goal == recovered_task.goal
     # Test with a language goal.
@@ -62,6 +62,6 @@ def test_load_task_from_json(env_name):
     f.flush()
     with patch(f"{_MODULE_PATH}.BaseEnv._parse_language_goal_from_json") as m:
         m.return_value = set()
-        recovered_task = env._load_task_from_json(f.name)  # pylint: disable=protected-method
+        recovered_task = env._load_task_from_json(f.name)  # pylint: disable=protected-access
     assert task.init.allclose(recovered_task.init)
     assert recovered_task.goal == set()

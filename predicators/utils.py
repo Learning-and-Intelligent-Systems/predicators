@@ -19,9 +19,9 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, \
-    DefaultDict, Dict, FrozenSet, Generator, Generic, Hashable, Iterator, \
-    List, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
+    FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
