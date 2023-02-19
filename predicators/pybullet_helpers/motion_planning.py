@@ -41,7 +41,7 @@ def run_motion_planning(
         return new_pt
 
     def _set_state(pt: JointPositions) -> None:
-        robot.set_motors(pt)
+        robot.set_joints(pt)
         if held_object is not None:
             assert base_link_to_held_obj is not None
             world_to_base_link = get_link_state(
@@ -87,10 +87,6 @@ def run_motion_planning(
         from_ee = robot.forward_kinematics(from_pt).position
         to_ee = robot.forward_kinematics(to_pt).position
         return sum(np.subtract(from_ee, to_ee)**2)
-
-    # Fail immediately if the start or end is in collision.
-    if _collision_fn(initial_positions) or _collision_fn(target_positions):
-        return None
 
     birrt = utils.BiRRT(_sample_fn,
                         _extend_fn,

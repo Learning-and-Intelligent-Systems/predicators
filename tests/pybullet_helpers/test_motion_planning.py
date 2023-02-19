@@ -17,6 +17,120 @@ from predicators.pybullet_helpers.robots import \
 USE_GUI = False
 
 
+def test_run_motion_planning(physics_client_id):
+    """Tests for run_motion_planning()."""
+    ee_home_position = (1.35, 0.75, 0.75)
+    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    ee_home_pose = Pose(ee_home_position, ee_orn)
+    seed = 123
+    robot = create_single_arm_pybullet_robot("fetch", physics_client_id,
+                                             ee_home_pose)
+    robot_init_state = tuple(ee_home_position) + tuple(
+        ee_orn, ) + (robot.open_fingers, )
+    robot.reset_state(robot_init_state)
+    joint_initial = robot.get_joints()
+    # Should succeed with a path of length 2.
+    joint_target = list(joint_initial)
+    path = run_motion_planning(robot,
+                               joint_initial,
+                               joint_target,
+                               collision_bodies=set(),
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert len(path) == 2
+    assert np.allclose(path[0], joint_initial)
+    assert np.allclose(path[-1], joint_target)
+    # Should succeed, no collisions.
+    ee_target_position = np.add(ee_home_position, (0.0, 0.0, -0.05))
+    ee_target = Pose(ee_target_position, ee_orn)
+    joint_target = robot.inverse_kinematics(ee_target, validate=True)
+    path = run_motion_planning(robot,
+                               joint_initial,
+                               joint_target,
+                               collision_bodies=set(),
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert np.allclose(path[0], joint_initial)
+    assert np.allclose(path[-1], joint_target)
+    # Should fail because the target collides with the table.
+    table_pose = (1.35, 0.75, 0.0)
+    table_orientation = [0., 0., 0., 1.]
+    table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
+                          useFixedBase=True,
+                          physicsClientId=physics_client_id)
+    p.resetBasePositionAndOrientation(table_id,
+                                      table_pose,
+                                      table_orientation,
+                                      physicsClientId=physics_client_id)
+    ee_target_position = np.add(ee_home_position, (0.0, 0.0, -0.6))
+    ee_target = Pose(ee_target_position, ee_orn)
+    joint_target = robot.inverse_kinematics(ee_target, validate=True)
+    path = run_motion_planning(robot,
+                               joint_initial,
+                               joint_target,
+                               collision_bodies={table_id},
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert path is None
+    # Should fail because the initial state collides with the table.
+    path = run_motion_planning(robot,
+                               joint_target,
+                               joint_initial,
+                               collision_bodies={table_id},
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert path is None
+    # Should succeed, but will need to move the arm up to avoid the obstacle.
+    block_pose = (1.35, 0.6, 0.5)
+    block_orientation = [0., 0., 0., 1.]
+    block_id = create_pybullet_block(
+        color=(1.0, 0.0, 0.0, 1.0),
+        half_extents=(0.2, 0.01, 0.3),
+        mass=0,  # immoveable
+        friction=1,
+        orientation=block_orientation,
+        physics_client_id=physics_client_id)
+    p.resetBasePositionAndOrientation(block_id,
+                                      block_pose,
+                                      block_orientation,
+                                      physicsClientId=physics_client_id)
+    ee_target_position = (1.35, 0.4, 0.6)
+    ee_target = Pose(ee_target_position, ee_orn)
+    joint_target = robot.inverse_kinematics(ee_target, validate=True)
+    path = run_motion_planning(robot,
+                               joint_initial,
+                               joint_target,
+                               collision_bodies={table_id, block_id},
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert path is not None
+    p.removeBody(block_id, physicsClientId=physics_client_id)
+    # Should fail because the hyperparameters are too limited.
+    utils.reset_config({
+        "pybullet_birrt_num_iters": 1,
+        "pybullet_birrt_num_attempts": 1,
+    })
+    block_id = create_pybullet_block(
+        color=(1.0, 0.0, 0.0, 1.0),
+        half_extents=(0.2, 0.01, 0.3),
+        mass=0,  # immoveable
+        friction=1,
+        orientation=block_orientation,
+        physics_client_id=physics_client_id)
+    p.resetBasePositionAndOrientation(block_id,
+                                      block_pose,
+                                      block_orientation,
+                                      physicsClientId=physics_client_id)
+    path = run_motion_planning(robot,
+                               joint_initial,
+                               joint_target,
+                               collision_bodies={table_id, block_id},
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert path is None
+    p.removeBody(block_id, physicsClientId=physics_client_id)
+
+
 def test_move_to_shelf():
     """Test for Panda robot moving to put a held block into a shelf.
 
@@ -211,7 +325,7 @@ def test_move_to_shelf():
     joint_state = robot.get_joints()
     joint_state[robot.left_finger_joint_idx] = robot.closed_fingers
     joint_state[robot.right_finger_joint_idx] = robot.closed_fingers
-    robot.set_motors(joint_state)
+    robot.set_joints(joint_state)
 
     # Create holding transform.
     held_obj_id = block_id
@@ -229,7 +343,7 @@ def test_move_to_shelf():
     base_link_to_held_obj = p.invertTransform(*held_obj_to_base_link)
 
     def _set_state(pt: JointPositions) -> None:
-        robot.set_motors(pt)
+        robot.set_joints(pt)
         world_to_base_link = get_link_state(
             robot.robot_id,
             robot.end_effector_id,
