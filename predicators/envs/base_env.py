@@ -3,7 +3,7 @@
 import abc
 import json
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Collection, Dict, List, Optional, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -235,7 +235,8 @@ class BaseEnv(abc.ABC):
                 json_dict["language_goal"], object_name_to_object)
         return Task(init_state, goal)
 
-    def _get_language_goal_prompt_prefix(self) -> str:
+    def _get_language_goal_prompt_prefix(self,
+                                         object_names: Collection[str]) -> str:
         """Create a prompt to prepend to a language model query for parsing
         language-based goals into goal atoms.
 
@@ -271,7 +272,8 @@ class BaseEnv(abc.ABC):
             self, language_goal: str,
             id_to_obj: Dict[str, Object]) -> Set[GroundAtom]:
         """Helper for parsing language-based goals from JSON task specs."""
-        prompt_prefix = self._get_language_goal_prompt_prefix()
+        object_names = set(id_to_obj)
+        prompt_prefix = self._get_language_goal_prompt_prefix(object_names)
         prompt = prompt_prefix + f"\n# {language_goal}"
         llm = OpenAILLM(CFG.llm_model_name)
         responses = llm.sample_completions(prompt,
@@ -279,6 +281,7 @@ class BaseEnv(abc.ABC):
                                            seed=CFG.seed,
                                            stop_token="#")
         response = responses[0]
+        print(response)  # TODO remove
         # Currently assumes that the LLM is perfect. In the future, will need
         # to handle various errors and perhaps query the LLM for multiple
         # responses until we find one that can be parsed.
