@@ -281,7 +281,6 @@ class BaseEnv(abc.ABC):
                                            seed=CFG.seed,
                                            stop_token="#")
         response = responses[0]
-        print(response)  # TODO remove
         # Currently assumes that the LLM is perfect. In the future, will need
         # to handle various errors and perhaps query the LLM for multiple
         # responses until we find one that can be parsed.
