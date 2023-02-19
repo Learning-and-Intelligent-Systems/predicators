@@ -19,9 +19,9 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
-    FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, \
+    DefaultDict, Dict, FrozenSet, Generator, Generic, Hashable, Iterator, \
+    List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
@@ -205,6 +205,52 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
             obj_vec.append(obj_data[feat])
         state_dict[obj] = np.array(obj_vec)
     return State(state_dict, simulator_state)
+
+
+def create_json_dict_from_ground_atoms(
+        ground_atoms: Collection[GroundAtom]) -> Dict[str, List[List[str]]]:
+    """Saves a set of ground atoms in a JSON-compatible dict.
+
+    Helper for create_json_dict_from_task().
+    """
+    predicate_to_argument_lists = defaultdict(list)
+    for atom in sorted(ground_atoms):
+        argument_list = [o.name for o in atom.objects]
+        predicate_to_argument_lists[atom.predicate.name].append(argument_list)
+    return dict(predicate_to_argument_lists)
+
+
+def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
+    """Create a JSON-compatible dict from a task.
+
+    The format of the dict is:
+
+    {
+        "objects": {
+            <object name>: <type name>
+        }
+        "init": {
+            <object name>: {
+                <feature name>: <value>
+            }
+        }
+        "goal": {
+            <predicate name> : [
+                [<object name>]
+            ]
+        }
+    }
+
+    The dict can be loaded with BaseEnv._load_task_from_json(). This is
+    helpful for testing and designing standalone tasks.
+    """
+    object_dict = {o.name: o.type.name for o in task.init}
+    init_dict = {
+        o.name: dict(zip(o.type.feature_names, task.init.data[o]))
+        for o in task.init
+    }
+    goal_dict = create_json_dict_from_ground_atoms(task.goal)
+    return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
 
 
 class _Geom2D(abc.ABC):
