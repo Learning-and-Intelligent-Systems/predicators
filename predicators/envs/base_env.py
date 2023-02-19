@@ -174,7 +174,7 @@ class BaseEnv(abc.ABC):
         """Return the ordered list of tasks for testing / evaluation."""
         if not self._test_tasks:
             if CFG.test_task_json_dir is not None:
-                files = list(Path(CFG.test_task_json_dir).glob("*.json"))
+                files = sorted(Path(CFG.test_task_json_dir).glob("*.json"))
                 assert len(files) >= CFG.num_test_tasks
                 self._test_tasks = [
                     self._load_task_from_json(f)
