@@ -183,7 +183,7 @@ def test_move_to_shelf():
     target_orn = (0.7071, 0.0, 0.7071, 0.0)
     target_pose = Pose((tx, ty, tz), target_orn)
 
-    if USE_GUI:
+    if USE_GUI:  # pragma: no cover
         physics_client_id = p.connect(p.GUI)
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,
                                    False,
@@ -385,7 +385,7 @@ def test_move_to_shelf():
     assert plan is not None
 
     # Replay the plan.
-    if USE_GUI:
+    if USE_GUI:  # pragma: no cover
         for state in plan:
             _set_state(state)
             for _ in range(100):
