@@ -213,11 +213,7 @@ def create_dict_from_state(state: State) -> Dict[Object, Dict[str, float]]:
 
     Used by save_task_to_json().
     """
-    return {
-        o: {n: v
-            for n, v in zip(o.type.feature_names, state.data[o])}
-        for o in state
-    }
+    return {o: dict(zip(o.type.feature_names, state.data[o])) for o in state}
 
 
 def create_dict_from_ground_atoms(
@@ -261,14 +257,14 @@ def save_task_to_json(task: Task, filepath: Path) -> None:
     }
     goal_dict = create_dict_from_ground_atoms(task.goal)
     json_dict = {"init": init_json_dict, "goal": goal_dict}
-    with open(filepath, "w") as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         json.dump(json_dict, f)
 
 
 def load_task_from_json(filepath: Path, types: Collection[Type],
                         predicates: Collection[Predicate]) -> Task:
     """Load a task from a JSON file."""
-    with open(filepath, "r") as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         json_dict = json.load(f)
     type_name_to_type = {t.name: t for t in types}
     init_dict: Dict[Object, Dict[str, float]] = {}
