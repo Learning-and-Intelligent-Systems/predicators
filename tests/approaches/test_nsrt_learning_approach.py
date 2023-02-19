@@ -9,6 +9,7 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, create_approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_options import parse_config_included_options
 from predicators.settings import CFG
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
@@ -68,7 +69,7 @@ def _test_approach(env_name,
     if option_learner == "no_learning":
         options = env.options
     else:
-        options = utils.parse_config_included_options(env)
+        options = parse_config_included_options(env)
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks, options)

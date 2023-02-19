@@ -12,6 +12,7 @@ from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.ground_truth_nsrts import _get_predicates_by_names
+from predicators.ground_truth_options import parse_config_included_options
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, Task
 
@@ -30,7 +31,7 @@ def test_demo_dataset():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    options = utils.parse_config_included_options(env)
+    options = parse_config_included_options(env)
     dataset = create_dataset(env, train_tasks, options)
     assert len(dataset.trajectories) == 7
     assert len(dataset.trajectories[0].states) == 3
@@ -77,7 +78,7 @@ def test_demo_dataset():
     assert Pick.name == "Pick"
     assert Place.name == "Place"
     train_tasks = env.get_train_tasks()
-    options = utils.parse_config_included_options(env)
+    options = parse_config_included_options(env)
     assert options == {Pick}
     dataset = create_dataset(env, train_tasks, options)
     assert len(dataset.trajectories) == 3
@@ -263,7 +264,7 @@ def test_demo_replay_dataset():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    options = utils.parse_config_included_options(env)
+    options = parse_config_included_options(env)
     dataset = create_dataset(env, train_tasks, options)
     assert len(dataset.trajectories) == 5 + 3
     assert len(dataset.trajectories[-1].states) == 2
@@ -292,7 +293,7 @@ def test_demo_replay_dataset():
     assert Pick.name == "Pick"
     assert Place.name == "Place"
     train_tasks = env.get_train_tasks()
-    options = utils.parse_config_included_options(env)
+    options = parse_config_included_options(env)
     assert options == {Pick}
     dataset = create_dataset(env, train_tasks, options)
     assert len(dataset.trajectories) == 3 + 3
