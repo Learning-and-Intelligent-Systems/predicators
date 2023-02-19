@@ -14,7 +14,7 @@ from predicators.pybullet_helpers.motion_planning import run_motion_planning
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
 
-USE_GUI = True
+USE_GUI = False
 
 
 def test_move_to_shelf():
@@ -213,10 +213,6 @@ def test_move_to_shelf():
     joint_state[robot.right_finger_joint_idx] = robot.closed_fingers
     robot.set_motors(joint_state)
 
-    # while True:
-    #     p.stepSimulation(physicsClientId=physics_client_id)
-    #     time.sleep(0.001)
-
     # Create holding transform.
     held_obj_id = block_id
     world_to_base_link = get_link_state(
@@ -263,13 +259,6 @@ def test_move_to_shelf():
     initial_positions = robot.get_joints()
     _set_state(initial_positions)
 
-    # TODO: the block is still moving around on the replay, I can't figure out
-    # why. Check how Caelan does it...
-
-    # while True:
-    #     p.stepSimulation(physicsClientId=physics_client_id)
-    #     time.sleep(0.001)
-
     collision_bodies = {shelf_id, table_id}
     plan = run_motion_planning(robot,
                                initial_positions,
@@ -285,4 +274,6 @@ def test_move_to_shelf():
     if USE_GUI:
         for state in plan:
             _set_state(state)
-            time.sleep(0.1)
+            for _ in range(100):
+                p.stepSimulation(physicsClientId=physics_client_id)
+                time.sleep(0.001)

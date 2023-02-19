@@ -43,6 +43,7 @@ def run_motion_planning(
     def _set_state(pt: JointPositions) -> None:
         robot.set_motors(pt)
         if held_object is not None:
+            assert base_link_to_held_obj is not None
             world_to_base_link = get_link_state(
                 robot.robot_id,
                 robot.end_effector_id,
