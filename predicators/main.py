@@ -49,6 +49,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
+from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
@@ -87,8 +88,6 @@ def main() -> None:
     # The action space and options need to be seeded externally, because
     # env.action_space and env.options are often created during env __init__().
     env.action_space.seed(CFG.seed)
-    for option in env.options:
-        option.params_space.seed(CFG.seed)
     assert env.goal_predicates.issubset(env.predicates)
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
@@ -101,7 +100,7 @@ def main() -> None:
     if CFG.option_learner == "no_learning":
         # If we are not doing option learning, pass in all the environment's
         # oracle options.
-        options = env.options
+        options = get_gt_options(env.get_name())
     else:
         # Determine from the config which oracle options to include, if any.
         options = utils.parse_config_included_options(env)

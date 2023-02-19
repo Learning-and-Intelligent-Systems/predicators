@@ -13,6 +13,7 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import BaseEnv, create_new_env
+from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import DefaultState, State, _Option
 
@@ -54,9 +55,10 @@ class _OracleOptionModel(_OptionModelBase):
     Runs options through this simulator to figure out the next state.
     """
 
-    def __init__(self, env: BaseEnv) -> None:
+    def __init__(self, env: BaseEnv()) -> None:
         super().__init__()
-        self._name_to_parameterized_option = {o.name: o for o in env.options}
+        gt_options = get_gt_options(env.get_name())
+        self._name_to_parameterized_option = {o.name: o for o in gt_options}
         self._simulator = env.simulate
 
     def get_next_state_and_num_actions(self, state: State,

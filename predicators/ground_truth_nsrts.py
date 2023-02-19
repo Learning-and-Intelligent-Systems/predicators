@@ -13,6 +13,7 @@ from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.satellites import SatellitesEnv
 from predicators.envs.tools import ToolsEnv
 from predicators.envs.touch_point import TouchOpenEnv
+from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
@@ -101,7 +102,9 @@ def _get_predicates_by_names(env_name: str,
 def _get_options_by_names(env_name: str,
                           names: Sequence[str]) -> List[ParameterizedOption]:
     """Load parameterized options from an env given their names."""
-    return _get_from_env_by_names(env_name, names, "options")
+    options = get_gt_options(env_name)
+    name_to_option = {o.name: o for o in options}
+    return [name_to_option[name] for name in names]
 
 
 def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
