@@ -1,6 +1,7 @@
 """Test cases for utils."""
 
 import os
+import tempfile
 import time
 from typing import Iterator, Tuple
 from typing import Type as TypingType
@@ -20,7 +21,7 @@ from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
-    State, STRIPSOperator, Type, Variable
+    State, STRIPSOperator, Task, Type, Variable
 from predicators.utils import GoalCountHeuristic, _PyperplanHeuristicWrapper, \
     _TaskPlanningHeuristic
 
@@ -219,6 +220,66 @@ def test_create_dict_from_state():
     state_dict = utils.create_dict_from_state(state)
     recovered_state = utils.create_state_from_dict(state_dict)
     assert state.allclose(recovered_state)
+
+
+def test_create_dict_from_ground_atoms_and_inverse():
+    """Tests for create_dict_from_ground_atoms() and
+    create_ground_atoms_from_dict()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate = plate_type("plate")
+    on = Predicate("On", [cup_type, plate_type], lambda _1, _2: True)
+    ontable = Predicate("OnTable", [plate_type], lambda _1, _2: True)
+    atoms = {on([cup1, plate]), on([cup2, plate]), ontable([plate])}
+    atom_dict = utils.create_dict_from_ground_atoms(atoms)
+    assert atom_dict == {
+        "On": [
+            ["cup1:cup_type", "plate:plate_type"],
+            ["cup2:cup_type", "plate:plate_type"],
+        ],
+        "OnTable": [
+            ["plate:plate_type"],
+        ]
+    }
+    types = {cup_type, plate_type}
+    predicates = {on, ontable}
+    atoms2 = utils.create_ground_atoms_from_dict(atom_dict, types, predicates)
+    assert atoms == atoms2
+
+
+def test_save_and_load_task_json():
+    """Tests for save_task_to_json() and load_task_from_json()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate = plate_type("plate")
+    data = {
+        cup1: {
+            "feat1": 0.3
+        },
+        cup2: {
+            "feat1": 0.5
+        },
+        plate: {
+            "feat1": 0.6,
+            "feat2": 1.3
+        }
+    }
+    state = utils.create_state_from_dict(data)
+    on = Predicate("On", [cup_type, plate_type], lambda _1, _2: True)
+    ontable = Predicate("OnTable", [plate_type], lambda _1, _2: True)
+    goal = {on([cup1, plate]), ontable([plate])}
+    task = Task(state, goal)
+    types = {cup_type, plate_type}
+    predicates = {on, ontable}
+    with tempfile.NamedTemporaryFile(suffix=".json") as f:
+        utils.save_task_to_json(task, f.name)
+        loaded_task = utils.load_task_from_json(f.name, types, predicates)
+    assert loaded_task.init.allclose(state)
+    assert loaded_task.goal == goal
 
 
 def test_line_segment():

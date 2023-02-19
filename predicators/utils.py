@@ -9,6 +9,7 @@ import gc
 import heapq as hq
 import io
 import itertools
+import json
 import logging
 import os
 import re
@@ -19,9 +20,9 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
-    FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, \
+    DefaultDict, Dict, FrozenSet, Generator, Generic, Hashable, Iterator, \
+    List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
@@ -219,16 +220,67 @@ def create_dict_from_state(state: State) -> Dict[Object, Dict[str, float]]:
     }
 
 
+def create_dict_from_ground_atoms(
+        ground_atoms: Collection[GroundAtom]) -> Dict[str, List[List[str]]]:
+    """Saves a set of ground atoms in a JSON-compatible dictionary format."""
+    predicate_to_argument_lists: DefaultDict[
+        str, List[List[str]]] = defaultdict(list)
+    for atom in sorted(ground_atoms):
+        argument_list = [f"{o.name}:{o.type.name}" for o in atom.objects]
+        predicate_to_argument_lists[atom.predicate.name].append(argument_list)
+    return dict(predicate_to_argument_lists)
+
+
+def create_ground_atoms_from_dict(
+        ground_atoms_dict: Dict[str, List[List[str]]], types: Collection[Type],
+        predicates: Collection[Predicate]) -> Set[GroundAtom]:
+    """Inverse of create_dict_from_ground_atoms()."""
+    ground_atoms: Set[GroundAtom] = set()
+    type_name_to_type = {t.name: t for t in types}
+    pred_name_to_pred = {p.name: p for p in predicates}
+    for pred_name, argument_lists in ground_atoms_dict.items():
+        pred = pred_name_to_pred[pred_name]
+        for argument_list in argument_lists:
+            object_list: List[Object] = []
+            for argument in argument_list:
+                name, type_name = argument.split(":")
+                object_type = type_name_to_type[type_name]
+                obj = Object(name, object_type)
+                object_list.append(obj)
+            ground_atom = GroundAtom(pred, object_list)
+            ground_atoms.add(ground_atom)
+    return ground_atoms
+
+
 def save_task_to_json(task: Task, filepath: Path) -> None:
     """Save a task to a JSON file."""
-    import ipdb
-    ipdb.set_trace()
+    init_dict = create_dict_from_state(task.init)
+    init_json_dict = {
+        f"{o.name}:{o.type.name}": d
+        for o, d in init_dict.items()
+    }
+    goal_dict = create_dict_from_ground_atoms(task.goal)
+    json_dict = {"init": init_json_dict, "goal": goal_dict}
+    with open(filepath, "w") as f:
+        json.dump(json_dict, f)
 
 
-def load_task_from_json(filepath: Path) -> Task:
+def load_task_from_json(filepath: Path, types: Collection[Type],
+                        predicates: Collection[Predicate]) -> Task:
     """Load a task from a JSON file."""
-    import ipdb
-    ipdb.set_trace()
+    with open(filepath, "r") as f:
+        json_dict = json.load(f)
+    type_name_to_type = {t.name: t for t in types}
+    init_dict: Dict[Object, Dict[str, float]] = {}
+    # Create Object instances from name:type strings.
+    for obj_name_with_type, obj_dict in json_dict["init"].items():
+        obj_name, type_name = obj_name_with_type.split(":")
+        obj_type = type_name_to_type[type_name]
+        obj = Object(obj_name, obj_type)
+        init_dict[obj] = obj_dict
+    init = create_state_from_dict(init_dict)
+    goal = create_ground_atoms_from_dict(json_dict["goal"], types, predicates)
+    return Task(init, goal)
 
 
 class _Geom2D(abc.ABC):
