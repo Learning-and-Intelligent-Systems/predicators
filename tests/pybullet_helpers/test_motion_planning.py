@@ -170,6 +170,7 @@ def test_move_to_shelf():
     offset_z = 0.01
     obj_mass = 0.5
     obj_friction = 1.2
+    robot_ee_home_orn = (0.7071, 0.7071, 0.0, 0.0)
     home_pose = Pose((block_x, block_y, block_z + offset_z), robot_ee_home_orn)
 
     # Target for motion planning.
