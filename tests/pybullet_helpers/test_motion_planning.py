@@ -7,6 +7,7 @@ import pybullet as p
 
 from predicators import utils
 from predicators.envs.pybullet_env import create_pybullet_block
+from predicators.pybullet_helpers.camera import create_gui_connection
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.pybullet_helpers.link import get_link_state
@@ -169,11 +170,6 @@ def test_move_to_shelf():
     offset_z = 0.01
     obj_mass = 0.5
     obj_friction = 1.2
-    camera_distance = 0.8
-    camera_yaw = 90.0
-    camera_pitch = -24
-    camera_target = (1.65, 0.75, 0.42)
-    robot_ee_home_orn = (0.7071, 0.7071, 0.0, 0.0)
     home_pose = Pose((block_x, block_y, block_z + offset_z), robot_ee_home_orn)
 
     # Target for motion planning.
@@ -184,24 +180,7 @@ def test_move_to_shelf():
     target_pose = Pose((tx, ty, tz), target_orn)
 
     if USE_GUI:  # pragma: no cover
-        physics_client_id = p.connect(p.GUI)
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI,
-                                   False,
-                                   physicsClientId=physics_client_id)
-        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
-                                   False,
-                                   physicsClientId=physics_client_id)
-        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
-                                   False,
-                                   physicsClientId=physics_client_id)
-        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
-                                   False,
-                                   physicsClientId=physics_client_id)
-        p.resetDebugVisualizerCamera(camera_distance,
-                                     camera_yaw,
-                                     camera_pitch,
-                                     camera_target,
-                                     physicsClientId=physics_client_id)
+        physics_client_id = create_gui_connection()
         # Draw the target.
         p.addUserDebugText("*",
                            target_pose.position, [1.0, 0.0, 0.0],
