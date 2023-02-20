@@ -1,10 +1,17 @@
 """Test cases for the base environment class."""
 
+import json
+import tempfile
+from unittest.mock import patch
+
 import pytest
 from test_oracle_approach import ENV_NAME_AND_CLS
 
+import predicators.envs
 from predicators import utils
 from predicators.envs import BaseEnv, create_new_env, get_or_create_env
+
+_MODULE_PATH = predicators.envs.__name__
 
 
 def test_env_creation():
@@ -29,3 +36,32 @@ def test_env_creation():
             env.get_task("not a real task category", 0)
     with pytest.raises(NotImplementedError):
         create_new_env("Not a real env")
+
+
+@pytest.mark.parametrize("env_name", ("cover", "sandwich"))
+def test_load_task_from_json(env_name):
+    """Tests for env._load_task_from_json()."""
+    # First, generate a task.
+    utils.reset_config({"num_train_tasks": 0, "num_test_tasks": 1})
+    env = get_or_create_env(env_name)
+    task = env.get_test_tasks()[0]
+    json_dict = utils.create_json_dict_from_task(task)
+    f = tempfile.NamedTemporaryFile(mode="w+", suffix=".json")
+    json.dump(json_dict, f)
+    f.flush()
+    # Now, load the task from the JSON file.
+    recovered_task = env._load_task_from_json(f.name)  # pylint: disable=protected-access
+    assert task.init.allclose(recovered_task.init)
+    assert task.goal == recovered_task.goal
+    # Test with a language goal.
+    language_json_dict = json_dict.copy()
+    del language_json_dict["goal"]
+    language_json_dict["language_goal"] = "dummy language goal"
+    f = tempfile.NamedTemporaryFile(mode="w+", suffix=".json")
+    json.dump(language_json_dict, f)
+    f.flush()
+    with patch(f"{_MODULE_PATH}.BaseEnv._parse_language_goal_from_json") as m:
+        m.return_value = set()
+        recovered_task = env._load_task_from_json(f.name)  # pylint: disable=protected-access
+    assert task.init.allclose(recovered_task.init)
+    assert recovered_task.goal == set()
