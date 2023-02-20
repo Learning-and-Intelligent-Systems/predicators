@@ -99,6 +99,7 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.pybullet_env import create_pybullet_block
+from predicators.pybullet_helpers.camera import create_gui_connection
 from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
@@ -310,17 +311,7 @@ def _visualize_point_cloud(pcd: o3d.geometry.PointCloud) -> None:
 
 def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
                         pcd: o3d.geometry.PointCloud) -> None:
-    physics_client_id = p.connect(p.GUI)
-    # Disable the preview windows for faster rendering.
-    p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
+    physics_client_id = create_gui_connection()
     # Load table.
     table_pose = PyBulletBlocksEnv._table_pose  # pylint: disable=protected-access
     table_orientation = PyBulletBlocksEnv._table_orientation  # pylint: disable=protected-access
