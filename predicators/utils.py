@@ -211,7 +211,7 @@ def create_json_dict_from_ground_atoms(
         ground_atoms: Collection[GroundAtom]) -> Dict[str, List[List[str]]]:
     """Saves a set of ground atoms in a JSON-compatible dict.
 
-    Helper for create_json_dict_from_task().
+    Helper for creating the goal dict in create_json_dict_from_task().
     """
     predicate_to_argument_lists = defaultdict(list)
     for atom in sorted(ground_atoms):

@@ -218,7 +218,10 @@ class BaseEnv(abc.ABC):
             obj_type = type_name_to_type[type_name]
             obj = Object(obj_name, obj_type)
             object_name_to_object[obj_name] = obj
-        assert set(object_name_to_object) == set(json_dict["init"])
+        assert set(object_name_to_object).issubset(set(json_dict["init"])), \
+            "The init state can only include objects in `objects`."
+        assert set(object_name_to_object).issuperset(set(json_dict["init"])), \
+            "The init state must include every object in `objects`."
         # Parse initial state.
         init_dict: Dict[Object, Dict[str, float]] = {}
         for obj_name, obj_dict in json_dict["init"].items():
