@@ -111,7 +111,12 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
     # Plot means, entropies, and true means
     heatmap(true_means, axes[0], axis_vals, axis_vals, "True Means")
     heatmap(means, axes[1], axis_vals, axis_vals, "Means")
-    heatmap(entropies, axes[2], axis_vals, axis_vals, "Entropies", cmap_max=0.3)
+    heatmap(entropies,
+            axes[2],
+            axis_vals,
+            axis_vals,
+            "Entropies",
+            cmap_max=0.3)
     # Plot originally annotated data points
     for ax in axes[:2]:
         ax.scatter(pos_examples[0],
