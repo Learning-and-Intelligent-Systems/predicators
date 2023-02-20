@@ -94,7 +94,7 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
     state = states[0]
     axis_vals = np.linspace(0.0, 1.0, num=GRID_SIZE)
     means = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
-    stds = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
+    entropies = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
     true_means = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
     for c, target_pose in enumerate(axis_vals):
         for r, block_pose in enumerate(axis_vals):
@@ -104,14 +104,14 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
             x = new_state.vec((block, target))
             ps = approach._pred_to_ensemble[PRED_NAME].predict_member_probas(x)  # pylint: disable=protected-access
             means[r][c] = np.mean(ps)
-            stds[r][c] = np.std(ps)
+            entropies[r][c] = utils.entropy(float(np.mean(ps)))
             true_means[r][c] = 1 if Covers.holds(new_state,
                                                  (block, target)) else 0
     fig, axes = plt.subplots(1, 3, figsize=(8, 3))
-    # Plot means, stds, and true means
+    # Plot means, entropies, and true means
     heatmap(true_means, axes[0], axis_vals, axis_vals, "True Means")
     heatmap(means, axes[1], axis_vals, axis_vals, "Means")
-    heatmap(stds, axes[2], axis_vals, axis_vals, "Stds", cmap_max=0.3)
+    heatmap(entropies, axes[2], axis_vals, axis_vals, "Entropies", cmap_max=0.3)
     # Plot originally annotated data points
     for ax in axes[:2]:
         ax.scatter(pos_examples[0],
