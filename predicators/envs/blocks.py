@@ -10,7 +10,8 @@ environment makes it a good testbed for predicate invention.
 import json
 import logging
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Collection, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -597,7 +598,8 @@ class BlocksEnv(BaseEnv):
         assert not task.goal_holds(init_state)
         return task
 
-    def _get_language_goal_prompt_prefix(self) -> str:
+    def _get_language_goal_prompt_prefix(self,
+                                         object_names: Collection[str]) -> str:
         # pylint:disable=line-too-long
         return """# Build a tower of block 1, block 2, and block 3, with block 1 on top
 {"On": [["block1", "block2"], ["block2", "block3"]]}
