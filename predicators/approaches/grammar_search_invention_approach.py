@@ -407,7 +407,6 @@ class _DebugGrammar(_PredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         env_name = (CFG.env if not CFG.env.startswith("pybullet") else
                     CFG.env[CFG.env.index("_") + 1:])
-        # num_times_pred_encountered = 0
         for (predicate, cost) in self.base_grammar.enumerate():
             if any(
                     str(predicate).startswith(debug_str)

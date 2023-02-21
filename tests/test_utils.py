@@ -2788,7 +2788,7 @@ def test_run_hill_climbing():
                                     _local_minimum_grid_heuristic_fn,
                                     enforced_depth=1,
                                     parallelize=parallelize,
-                                    timeout=1e-012)
+                                    timeout=0.0)
 
     # Test early_termination_heuristic_thresh with very high value.
     initial_state = (0, 0)

@@ -77,7 +77,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         # For certain predicates, the above call can eat up significant
         # time and memory. Thus, we check here if we exceed the preset
         # timeout.
-        if time.perf_counter() - start_time > CFG.pnad_search_timeout:
+        if time.perf_counter() - start_time > self._learner._timeout:
             raise TimeoutError()
         # Ensure that the unnecessary keep effs sub and poss
         # keep effects are both cleared before backchaining. This is
