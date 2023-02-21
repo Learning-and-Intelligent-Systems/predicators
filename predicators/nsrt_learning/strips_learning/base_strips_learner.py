@@ -31,7 +31,7 @@ class BaseSTRIPSLearner(abc.ABC):
         self._verbose = verbose
         self._num_segments = sum(len(t) for t in segmented_trajs)
         assert len(self._trajectories) == len(self._segmented_trajs)
-        self._timeout = timeout
+        self.timeout = timeout
 
     def learn(self) -> List[PNAD]:
         """The public method for a STRIPS operator learning strategy.

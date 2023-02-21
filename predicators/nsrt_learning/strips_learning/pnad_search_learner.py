@@ -291,7 +291,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                              get_successors=get_successors,
                                              heuristic=heuristic,
                                              verbose=self._verbose,
-                                             timeout=self._timeout)
+                                             timeout=self.timeout)
 
         # Extract the best PNADs set.
         final_pnads = path[-1]
