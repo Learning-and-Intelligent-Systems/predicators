@@ -15,16 +15,14 @@ from predicators.structs import PNAD, DummyOption, GroundAtom, LiftedAtom, \
 class BaseSTRIPSLearner(abc.ABC):
     """Base class definition."""
 
-    def __init__(
-        self,
-        trajectories: List[LowLevelTrajectory],
-        train_tasks: List[Task],
-        predicates: Set[Predicate],
-        segmented_trajs: List[List[Segment]],
-        verify_harmlessness: bool,
-        verbose: bool = True,
-        timeout: float = float('inf')
-    ) -> None:
+    def __init__(self,
+                 trajectories: List[LowLevelTrajectory],
+                 train_tasks: List[Task],
+                 predicates: Set[Predicate],
+                 segmented_trajs: List[List[Segment]],
+                 verify_harmlessness: bool,
+                 verbose: bool = True,
+                 timeout: float = float('inf')) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates

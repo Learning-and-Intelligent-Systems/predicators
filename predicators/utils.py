@@ -1403,15 +1403,16 @@ def run_astar(initial_state: _S,
 
 
 def run_hill_climbing(
-        initial_state: _S,
-        check_goal: Callable[[_S], bool],
-        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-        heuristic: Callable[[_S], float],
-        early_termination_heuristic_thresh: Optional[float] = None,
-        enforced_depth: int = 0,
-        parallelize: bool = False,
-        verbose: bool = True,
-        timeout: float = float('inf')) -> Tuple[List[_S], List[_A], List[float]]:
+    initial_state: _S,
+    check_goal: Callable[[_S], bool],
+    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+    heuristic: Callable[[_S], float],
+    early_termination_heuristic_thresh: Optional[float] = None,
+    enforced_depth: int = 0,
+    parallelize: bool = False,
+    verbose: bool = True,
+    timeout: float = float('inf')
+) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is

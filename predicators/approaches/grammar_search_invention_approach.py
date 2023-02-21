@@ -413,11 +413,7 @@ class _DebugGrammar(_PredicateGrammar):
                     str(predicate).startswith(debug_str)
                     for debug_str in _DEBUG_PREDICATE_PREFIXES[env_name]):
                 yield (predicate, cost)
-            # if "(|(0:dot).x - (1:robot).x|<=[idx" in str(predicate):
-            #     print(predicate)
-            #     num_times_pred_encountered += 1
-            # if num_times_pred_encountered != 0 and num_times_pred_encountered % 50 == 0:
-            #     import ipdb; ipdb.set_trace()
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _DataBasedPredicateGrammar(_PredicateGrammar):
