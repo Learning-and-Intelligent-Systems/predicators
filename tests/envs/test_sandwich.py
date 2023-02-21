@@ -1,12 +1,20 @@
 """Test cases for the sandwich env."""
 
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
+import predicators.llm_interface
 from predicators import utils
 from predicators.envs import create_new_env
 from predicators.envs.sandwich import SandwichEnv
 from predicators.structs import Action, GroundAtom
+
+_LLM_MODULE_PATH = predicators.llm_interface.__name__
 
 
 def test_sandwich_properties():
@@ -195,3 +203,221 @@ def test_sandwich_options(env_name):
 
     # Rendering with caption.
     env.render(state, caption="Test caption")
+
+
+def test_sandwich_load_task_from_json():
+    """Tests for loading sandwich test tasks from a JSON file."""
+    # Set up the JSON file.
+    task_spec = {
+        "goal": {
+            "On": [["bread1", "cheese0"], ["cheese0", "bread0"]],
+            "OnBoard": [["bread0", "board"]]
+        },
+        "init": {
+            "board": {
+                "pose_x": 1.3224584114361717,
+                "pose_y": 0.9605784672434986,
+                "length": 0.14,
+                "width": 0.24000000000000005,
+                "thickness": 0.01
+            },
+            "bread0": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.478885069963471,
+                "pose_z": 0.266,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.58,
+                "color_g": 0.29,
+                "color_b": 0,
+                "thickness": 0.02,
+                "radius": 0.05600000000000001,
+                "shape": 0
+            },
+            "bread1": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.7788850699634711,
+                "pose_z": 0.266,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.58,
+                "color_g": 0.29,
+                "color_b": 0,
+                "thickness": 0.02,
+                "radius": 0.05600000000000001,
+                "shape": 0
+            },
+            "cheese0": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.628885069963471,
+                "pose_z": 0.2609090909090909,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.937,
+                "color_g": 0.737,
+                "color_b": 0.203,
+                "thickness": 0.02,
+                "radius": 0.05090909090909091,
+                "shape": 0
+            },
+            "egg0": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.5788850699634711,
+                "pose_z": 0.2530769230769231,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.937,
+                "color_g": 0.898,
+                "color_b": 0.384,
+                "thickness": 0.02,
+                "radius": 0.04307692307692308,
+                "shape": 1
+            },
+            "green_pepper0": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.42888506996347103,
+                "pose_z": 0.25,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.156,
+                "color_g": 0.541,
+                "color_b": 0.16,
+                "thickness": 0.02,
+                "radius": 0.04,
+                "shape": 1
+            },
+            "ham0": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.8288850699634711,
+                "pose_z": 0.2609090909090909,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.937,
+                "color_g": 0.384,
+                "color_b": 0.576,
+                "thickness": 0.02,
+                "radius": 0.05090909090909091,
+                "shape": 0
+            },
+            "holder": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.628885069963471,
+                "length": 0.42000000000000004,
+                "width": 0.24000000000000005,
+                "thickness": 0.01
+            },
+            "lettuce0": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.728885069963471,
+                "pose_z": 0.2566666666666667,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.203,
+                "color_g": 0.937,
+                "color_b": 0.431,
+                "thickness": 0.02,
+                "radius": 0.04666666666666667,
+                "shape": 1
+            },
+            "patty0": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.678885069963471,
+                "pose_z": 0.2566666666666667,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.32,
+                "color_g": 0.15,
+                "color_b": 0,
+                "thickness": 0.02,
+                "radius": 0.04666666666666667,
+                "shape": 1
+            },
+            "robby": {
+                "pose_x": 1.35,
+                "pose_y": 0.75,
+                "pose_z": 0.7,
+                "fingers": 1
+            },
+            "tomato0": {
+                "pose_x": 1.3582177012392873,
+                "pose_y": 0.5288850699634711,
+                "pose_z": 0.2566666666666667,
+                "rot": 1.5707963267948966,
+                "held": 0,
+                "color_r": 0.917,
+                "color_g": 0.18,
+                "color_b": 0.043,
+                "thickness": 0.02,
+                "radius": 0.04666666666666667,
+                "shape": 1
+            }
+        },
+        "objects": {
+            "board": "board",
+            "bread0": "ingredient",
+            "bread1": "ingredient",
+            "cheese0": "ingredient",
+            "egg0": "ingredient",
+            "green_pepper0": "ingredient",
+            "ham0": "ingredient",
+            "holder": "holder",
+            "lettuce0": "ingredient",
+            "patty0": "ingredient",
+            "robby": "robot",
+            "tomato0": "ingredient"
+        }
+    }
+
+    with tempfile.TemporaryDirectory() as json_dir:
+        json_file = Path(json_dir) / "example_task1.json"
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(task_spec, f)
+
+        utils.reset_config({
+            "env": "sandwich",
+            "num_test_tasks": 1,
+            "test_task_json_dir": json_dir
+        })
+
+        env = SandwichEnv()
+        test_tasks = env.get_test_tasks()
+
+    assert len(test_tasks) == 1
+    task = test_tasks[0]
+
+    assert str(
+        sorted(task.goal)
+    ) == "[On(bread1:ingredient, cheese0:ingredient), On(cheese0:ingredient, bread0:ingredient), OnBoard(bread0:ingredient, board:board)]"  # pylint:disable=line-too-long
+
+    # Test language-based goal specification.
+    task_spec = task_spec.copy()
+    del task_spec["goal"]
+    task_spec["language_goal"] = "Make me a cheese sandwich."
+
+    with tempfile.TemporaryDirectory() as json_dir:
+        json_file = Path(json_dir) / "example_task2.json"
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(task_spec, f)
+
+        utils.reset_config({
+            "env": "sandwich",
+            "num_test_tasks": 1,
+            "test_task_json_dir": json_dir
+        })
+
+        env = SandwichEnv()
+
+        with patch(f"{_LLM_MODULE_PATH}.OpenAILLM.sample_completions") as \
+            mock_sample_completions:
+            mock_sample_completions.return_value = [
+                """
+{"On": [["bread1", "cheese0"], ["cheese0", "bread0"]],
+ "OnBoard": [["bread0", "board"]]}"""
+            ]
+            test_tasks = env.get_test_tasks()
+
+    assert len(test_tasks) == 1
+    task = test_tasks[0]
+    assert str(
+        sorted(task.goal)
+    ) == "[On(bread1:ingredient, cheese0:ingredient), On(cheese0:ingredient, bread0:ingredient), OnBoard(bread0:ingredient, board:board)]"  # pylint:disable=line-too-long
