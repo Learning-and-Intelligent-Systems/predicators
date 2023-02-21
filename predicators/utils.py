@@ -1410,7 +1410,8 @@ def run_hill_climbing(
         early_termination_heuristic_thresh: Optional[float] = None,
         enforced_depth: int = 0,
         parallelize: bool = False,
-        verbose: bool = True) -> Tuple[List[_S], List[_A], List[float]]:
+        verbose: bool = True,
+        timeout: float = float('inf')) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -1431,6 +1432,7 @@ def run_hill_climbing(
     if verbose:
         logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                      f"with heuristic {last_heuristic}")
+    start_time = time.perf_counter()
     while True:
 
         # Stops when heuristic reaches specified value.
@@ -1454,6 +1456,9 @@ def run_hill_climbing(
             successors_at_depth = []
             for parent in current_depth_nodes:
                 for action, child_state, cost in get_successors(parent.state):
+                    # Raise error if timeout gets hit.
+                    if time.perf_counter() - start_time > timeout:
+                        raise TimeoutError()
                     if child_state in visited:
                         continue
                     visited.add(child_state)
@@ -1491,6 +1496,7 @@ def run_hill_climbing(
             current_depth_nodes = successors_at_depth
             if verbose:
                 logging.info(f"No improvement found at depth {depth}")
+
         if best_child_node is None:
             if verbose:
                 logging.info("\nTerminating hill climbing, no more successors")

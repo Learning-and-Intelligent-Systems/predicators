@@ -379,6 +379,9 @@ _DEBUG_PREDICATE_PREFIXES = {
         "Forall[0:block].[NOT-On(0,1)]",  # Clear
         "NOT-((0:block).pose_z<=[idx 0]",  # Holding
     ],
+    "repeated_nextto_single_option": [
+        "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
+    ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
         "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
@@ -404,12 +407,17 @@ class _DebugGrammar(_PredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         env_name = (CFG.env if not CFG.env.startswith("pybullet") else
                     CFG.env[CFG.env.index("_") + 1:])
+        # num_times_pred_encountered = 0
         for (predicate, cost) in self.base_grammar.enumerate():
             if any(
                     str(predicate).startswith(debug_str)
                     for debug_str in _DEBUG_PREDICATE_PREFIXES[env_name]):
                 yield (predicate, cost)
-
+            # if "(|(0:dot).x - (1:robot).x|<=[idx" in str(predicate):
+            #     print(predicate)
+            #     num_times_pred_encountered += 1
+            # if num_times_pred_encountered != 0 and num_times_pred_encountered % 50 == 0:
+            #     import ipdb; ipdb.set_trace()
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _DataBasedPredicateGrammar(_PredicateGrammar):

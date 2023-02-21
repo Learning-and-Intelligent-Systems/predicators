@@ -82,6 +82,7 @@ class GlobalSettings:
 
     # repeated nextto env parameters
     repeated_nextto_num_dots = 15
+    repeated_nextto_nextto_thresh = 0.5
 
     # painting env parameters
     painting_initial_holding_prob = 0.5
@@ -407,6 +408,7 @@ class GlobalSettings:
     enable_harmless_op_pruning = False  # some methods may want this to be True
     backchaining_check_intermediate_harmlessness = False
     pnad_search_without_del = False
+    pnad_search_timeout = 10.0
     compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
