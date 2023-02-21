@@ -1497,7 +1497,6 @@ def run_hill_climbing(
             current_depth_nodes = successors_at_depth
             if verbose:
                 logging.info(f"No improvement found at depth {depth}")
-
         if best_child_node is None:
             if verbose:
                 logging.info("\nTerminating hill climbing, no more successors")

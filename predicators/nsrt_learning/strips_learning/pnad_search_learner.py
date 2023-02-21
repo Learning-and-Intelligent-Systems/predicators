@@ -101,11 +101,6 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         # that are unnecessary.
         new_pnads = self._learner.recompute_pnads_from_effects(
             sorted(new_pnads))
-        # For certain predicates, the above call can eat up significant
-        # time and memory. Thus, we check here if we exceed the preset
-        # timeout.
-        if time.perf_counter() - start_time > CFG.pnad_search_timeout:
-            raise TimeoutError()
         return new_pnads
 
     def _get_backchaining_results(
