@@ -121,26 +121,26 @@ def test_initialized_pg3_approach():
         mocker.return_value = [identity_analogy]
         init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
     assert len(init_ldls) == 1
-    assert str(init_ldls[0]) == """LiftedDecisionList[
-LDLRule-rule1:
-    Parameters: [?loc:loc, ?paper:paper]
-    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
-    Neg State Pre: []
-    Goal Pre: []
-    NSRT: pick-up(?paper:paper, ?loc:loc)
-LDLRule-rule2:
-    Parameters: [?loc:loc, ?paper:paper]
-    Pos State Pre: [at(?loc:loc), carrying(?paper:paper)]
-    Neg State Pre: [satisfied(?loc:loc)]
-    Goal Pre: []
-    NSRT: deliver(?paper:paper, ?loc:loc)
-LDLRule-rule3:
-    Parameters: [?from:loc, ?to:loc]
-    Pos State Pre: [at(?from:loc), safe(?from:loc), wantspaper(?to:loc)]
-    Neg State Pre: []
-    Goal Pre: []
-    NSRT: move(?from:loc, ?to:loc)
-]"""
+    assert str(init_ldls[0]) == """(define (policy)
+  (:rule rule1
+    :parameters (?loc - loc ?paper - paper)
+    :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper))
+    :goals ()
+    :action (pick-up ?paper ?loc)
+  )
+  (:rule rule2
+    :parameters (?loc - loc ?paper - paper)
+    :preconditions (and (at ?loc) (carrying ?paper) (not (satisfied ?loc)))
+    :goals ()
+    :action (deliver ?paper ?loc)
+  )
+  (:rule rule3
+    :parameters (?from - loc ?to - loc)
+    :preconditions (and (at ?from) (safe ?from) (wantspaper ?to))
+    :goals ()
+    :action (move ?from ?to)
+  )
+)"""
 
 
 def test_find_env_analogies():
@@ -254,14 +254,14 @@ def test_apply_analogy_to_ldl():
                        nsrt_variables=nsrt_var_map)
     assert analogy.types == {t: t for t in env.types if t.name != "object"}
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
-    assert str(new_ldl) == """LiftedDecisionList[
-LDLRule-PickUp:
-    Parameters: [?loc:loc, ?paper:paper]
-    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
-    Neg State Pre: []
-    Goal Pre: []
-    NSRT: pick-up(?paper:paper, ?loc:loc)
-]"""
+    assert str(new_ldl) == """(define (policy)
+  (:rule PickUp
+    :parameters (?loc - loc ?paper - paper)
+    :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper))
+    :goals ()
+    :action (pick-up ?paper ?loc)
+  )
+)"""
 
     # Test case where there is a variable in the LDL rule that doesn't appear
     # in the NSRT.
@@ -284,11 +284,11 @@ LDLRule-PickUp:
         nsrt=pick_up_nsrt)
     ldl_extra_param = LiftedDecisionList([pick_up_extra_param_rule])
     new_ldl = _apply_analogy_to_ldl(identity_analogy, ldl_extra_param)
-    assert str(new_ldl) == """LiftedDecisionList[
-LDLRule-PickUp:
-    Parameters: [?extra:paper, ?loc:loc, ?paper:paper]
-    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
-    Neg State Pre: [unpacked(?extra:paper)]
-    Goal Pre: []
-    NSRT: pick-up(?paper:paper, ?loc:loc)
-]"""
+    assert str(new_ldl) == """(define (policy)
+  (:rule PickUp
+    :parameters (?extra - paper ?loc - loc ?paper - paper)
+    :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper) (not (unpacked ?extra)))
+    :goals ()
+    :action (pick-up ?paper ?loc)
+  )
+)"""
