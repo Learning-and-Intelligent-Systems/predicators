@@ -26,7 +26,6 @@ class RepeatedNextToEnv(BaseEnv):
     env_lb: ClassVar[float] = 0.0
     env_ub: ClassVar[float] = 100.0
     grasped_thresh: ClassVar[float] = 0.5
-    nextto_thresh: ClassVar[float] = CFG.repeated_nextto_nextto_thresh
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -54,6 +53,7 @@ class RepeatedNextToEnv(BaseEnv):
             types=[self._robot_type, self._dot_type])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        self._nextto_thresh: float = CFG.repeated_nextto_nextto_thresh
 
     @classmethod
     def get_name(cls) -> str:
@@ -78,7 +78,7 @@ class RepeatedNextToEnv(BaseEnv):
             if abs(dot_to_grasp_x - desired_x) > 1e-4:
                 # There is no dot near the desired_x action argument.
                 return next_state
-            if abs(robot_x - dot_to_grasp_x) > self.nextto_thresh:
+            if abs(robot_x - dot_to_grasp_x) > self._nextto_thresh:
                 # Robot must be next to dot in order to grasp it.
                 return next_state
             next_state.set(dot_to_grasp, "grasped", 1.0)
@@ -126,7 +126,7 @@ class RepeatedNextToEnv(BaseEnv):
             dot_x = state.get(dot, "x")
             if state.get(dot, "grasped") > self.grasped_thresh:
                 color = "green"
-            elif abs(robot_x - dot_x) < self.nextto_thresh:
+            elif abs(robot_x - dot_x) < self._nextto_thresh:
                 color = "orange"
             else:
                 color = "red"
@@ -190,7 +190,7 @@ class RepeatedNextToEnv(BaseEnv):
         robot, dot = objects
         return (state.get(dot, "grasped") < self.grasped_thresh
                 and abs(state.get(robot, "x") - state.get(dot, "x")) <
-                self.nextto_thresh)
+                self._nextto_thresh)
 
     def _NextToNothing_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
@@ -260,7 +260,7 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
 
     def _get_tasks_ambiguous(self, num: int, rng: np.random.Generator,
                              are_train_tasks: bool) -> List[Task]:
-        assert self.env_ub - self.env_lb > self.nextto_thresh
+        assert self.env_ub - self.env_lb > self._nextto_thresh
         tasks = []
         dots = []
         assert CFG.repeated_nextto_num_dots >= 3
@@ -281,10 +281,10 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
             data: Dict[Object, Array] = {}
             for dot in dots:
                 if are_train_tasks:
-                    dot_x = rng.uniform(self.env_ub - self.nextto_thresh,
+                    dot_x = rng.uniform(self.env_ub - self._nextto_thresh,
                                         self.env_ub)
                 else:
-                    dot_x = rng.uniform(self.env_ub - self.nextto_thresh * 10,
+                    dot_x = rng.uniform(self.env_ub - self._nextto_thresh * 10,
                                         self.env_ub)
                 data[dot] = np.array([dot_x, 0.0])
             robot_x = self.env_lb

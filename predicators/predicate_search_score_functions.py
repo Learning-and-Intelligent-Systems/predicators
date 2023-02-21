@@ -154,7 +154,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                                            verbose=False,
                                            timeout=timeout)
         except TimeoutError:
-            print("Warning: Operator Learning timed out! Skipping evaluation.")
+            logging.info("Warning: Operator Learning timed out! Skipping evaluation.")
             return float('inf')
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
