@@ -13,6 +13,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import BaseEnv
+from predicators.pybullet_helpers.camera import create_gui_connection
 from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
@@ -72,26 +73,12 @@ class PyBulletEnv(BaseEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if self.using_gui:  # pragma: no cover
-            self._physics_client_id = p.connect(p.GUI)
-            # Disable the preview windows for faster rendering.
-            p.configureDebugVisualizer(p.COV_ENABLE_GUI,
-                                       False,
-                                       physicsClientId=self._physics_client_id)
-            p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
-                                       False,
-                                       physicsClientId=self._physics_client_id)
-            p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
-                                       False,
-                                       physicsClientId=self._physics_client_id)
-            p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
-                                       False,
-                                       physicsClientId=self._physics_client_id)
-            p.resetDebugVisualizerCamera(
-                self._camera_distance,
-                self._camera_yaw,
-                self._camera_pitch,
-                self._camera_target,
-                physicsClientId=self._physics_client_id)
+            self._physics_client_id = create_gui_connection(
+                camera_distance=self._camera_distance,
+                camera_yaw=self._camera_yaw,
+                camera_pitch=self._camera_pitch,
+                camera_target=self._camera_target,
+            )
         else:
             self._physics_client_id = p.connect(p.DIRECT)
         # This second connection can be useful for stateless operations.

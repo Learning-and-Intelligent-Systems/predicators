@@ -116,6 +116,10 @@ class PG3Approach(NSRTLearningApproach):
                                                     domain_name, problem_name)
             problem_strs.append(problem_str)
 
+        # Get the initial policies to start the search.
+        initial_ldls = self._get_policy_search_initial_ldls()
+        initial_ldl_strs = [str(ldl) for ldl in initial_ldls]
+
         learned_ldl_str = learn_policy(
             domain_str,
             problem_strs,
@@ -124,7 +128,9 @@ class PG3Approach(NSRTLearningApproach):
             search_method=CFG.pg3_search_method,
             max_policy_guided_rollout=CFG.pg3_max_policy_guided_rollout,
             gbfs_max_expansions=CFG.pg3_gbfs_max_expansions,
-            hc_enforced_depth=CFG.pg3_hc_enforced_depth)
+            hc_enforced_depth=CFG.pg3_hc_enforced_depth,
+            allow_new_vars=CFG.pg3_add_condition_allow_new_vars,
+            initial_policy_strs=initial_ldl_strs)
 
         learned_ldl = utils.parse_ldl_from_str(learned_ldl_str, types,
                                                predicates, nsrts)
@@ -148,3 +154,9 @@ class PG3Approach(NSRTLearningApproach):
         load_path = utils.get_approach_load_path_str()
         with open(f"{load_path}_{online_learning_cycle}.ldl", "rb") as f:
             self._current_ldl = pkl.load(f)
+
+    @staticmethod
+    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
+        # Initialize with an empty list by default, but subclasses may
+        # override.
+        return [LiftedDecisionList([])]
