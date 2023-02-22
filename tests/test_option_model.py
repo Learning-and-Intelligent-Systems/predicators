@@ -52,9 +52,8 @@ def test_default_option_model():
             return next_state
 
     # Mock option.
-    parameterized_option = ParameterizedOption("Pick", [],
-                                                params_space, policy,
-                                                initiable, terminal)
+    parameterized_option = ParameterizedOption("Pick", [], params_space,
+                                               policy, initiable, terminal)
 
     env = _MockEnv()
 

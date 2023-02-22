@@ -15,11 +15,13 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"cover"}
+        return {
+            "cover", "cover_regrasp", "cover_handempty",
+            "cover_hierarchical_types"
+        }
 
     @staticmethod
     def get_options(env_name: str) -> Set[ParameterizedOption]:
-        assert env_name == "cover"
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
