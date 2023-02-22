@@ -12,6 +12,7 @@ from predicators.envs.playroom import PlayroomEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.satellites import SatellitesEnv
 from predicators.envs.tools import ToolsEnv
+from predicators.envs.touch_point import TouchOpenEnv
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
@@ -35,7 +36,8 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_painting_gt_nsrts(env_name)
     elif env_name == "tools":
         nsrts = _get_tools_gt_nsrts(env_name)
-    elif env_name in ("playroom", "playroom_simple", "playroom_hard"):
+    elif env_name in ("playroom", "playroom_simple", "playroom_hard",
+                      "playroom_simple_clear"):
         nsrts = _get_playroom_gt_nsrts(env_name)
     elif env_name in ("repeated_nextto", "repeated_nextto_ambiguous"):
         nsrts = _get_repeated_nextto_gt_nsrts(env_name)
@@ -45,8 +47,10 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_screws_gt_nsrts(env_name)
     elif env_name.startswith("pddl_"):
         nsrts = _get_pddl_env_gt_nsrts(env_name)
-    elif env_name == "touch_point":
+    elif env_name in ("touch_point", "touch_point_param"):
         nsrts = _get_touch_point_gt_nsrts(env_name)
+    elif env_name == "touch_open":
+        nsrts = _get_touch_open_gt_nsrts(env_name)
     elif env_name == "stick_button":
         nsrts = _get_stick_button_gt_nsrts(env_name)
     elif env_name == "doors":
@@ -57,6 +61,8 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts(env_name)
+    elif env_name in ("sandwich", "sandwich_clear"):
+        nsrts = _get_sandwich_gt_nsrts(env_name)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -1392,9 +1398,8 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         _get_options_by_names(env_name,
         ["Pick", "Stack", "PutOnTable", "TurnOnDial", "TurnOffDial"])
 
-    if env_name == "playroom_simple":
-        MoveTableToDial, = _get_options_by_names("playroom_simple",
-                                                 ["MoveTableToDial"])
+    if env_name in ("playroom_simple", "playroom_simple_clear"):
+        MoveTableToDial, = _get_options_by_names(env_name, ["MoveTableToDial"])
     else:  # playroom or playroom_hard
         door_type, region_type = _get_types_by_names(env_name,
                                                      ["door", "region"])
@@ -1615,7 +1620,7 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
                             option_vars, toggledial_sampler)
     nsrts.add(turnoffdial_nsrt)
 
-    if env_name == "playroom_simple":
+    if env_name in ("playroom_simple", "playroom_simple_clear"):
         # MoveTableToDial
         robot = Variable("?robot", robot_type)
         dial = Variable("?dial", dial_type)
@@ -2064,10 +2069,113 @@ def _get_touch_point_gt_nsrts(env_name: str) -> Set[NSRT]:
     add_effects = {LiftedAtom(Touched, [robot, target])}
     delete_effects: Set[LiftedAtom] = set()
     ignore_effects: Set[Predicate] = set()
+
+    if CFG.env == "touch_point_param":
+
+        def moveto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+            del rng, goal  # unused
+            robot, target, = objs
+            assert robot.is_instance(robot_type)
+            assert target.is_instance(target_type)
+            rx = state.get(robot, "x")
+            ry = state.get(robot, "y")
+            tx = state.get(target, "x")
+            ty = state.get(target, "y")
+            dx = tx - rx
+            dy = ty - ry
+            return np.array([dx, dy], dtype=np.float32)
+
+    elif CFG.env == "touch_point":
+        moveto_sampler = null_sampler
+
     move_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
                      delete_effects, ignore_effects, option, option_vars,
-                     null_sampler)
+                     moveto_sampler)
     nsrts.add(move_nsrt)
+
+    return nsrts
+
+
+def _get_touch_open_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for TouchOpenEnv."""
+    robot_type, door_type = _get_types_by_names(env_name, ["robot", "door"])
+    TouchingDoor, DoorIsOpen = _get_predicates_by_names(
+        CFG.env, ["TouchingDoor", "DoorIsOpen"])
+    MoveToDoor, OpenDoor = _get_options_by_names(CFG.env,
+                                                 ["MoveToDoor", "OpenDoor"])
+    robot = Variable("?robot", robot_type)
+    door = Variable("?door", door_type)
+
+    nsrts = set()
+
+    # MoveToDoor
+    parameters = [robot, door]
+    option_vars = [robot, door]
+    option = MoveToDoor
+    preconditions: Set[LiftedAtom] = set()
+    add_effects = {LiftedAtom(TouchingDoor, [robot, door])}
+    delete_effects: Set[LiftedAtom] = set()
+    side_predicates: Set[Predicate] = set()
+
+    def move_to_door_sampler(state: State, goal: Set[GroundAtom],
+                             rng: np.random.Generator,
+                             objs: Sequence[Object]) -> Array:
+        del goal, rng  # unused
+        robot, door = objs
+        assert robot.is_instance(robot_type)
+        assert door.is_instance(door_type)
+        r_x = state.get(robot, "x")
+        r_y = state.get(robot, "y")
+        d_x = state.get(door, "x")
+        d_y = state.get(door, "y")
+        delta_x = d_x - r_x
+        delta_y = d_y - r_y
+        return np.array([delta_x, delta_y], dtype=np.float32)
+
+    move_to_door_nsrt = NSRT("MoveToDoor", parameters, preconditions,
+                             add_effects, delete_effects, side_predicates,
+                             option, option_vars, move_to_door_sampler)
+    nsrts.add(move_to_door_nsrt)
+
+    # OpenDoor
+    parameters = [door, robot]
+    option_vars = [door, robot]
+    option = OpenDoor
+    preconditions = {LiftedAtom(TouchingDoor, [robot, door])}
+    add_effects = {LiftedAtom(DoorIsOpen, [door])}
+    delete_effects = set()
+    side_predicates = set()
+
+    # Allow protected access because this is an oracle. Used in the sampler.
+    env = get_or_create_env(CFG.env)
+    assert isinstance(env, TouchOpenEnv)
+    get_open_door_target_value = env._get_open_door_target_value  # pylint: disable=protected-access
+
+    def open_door_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+        del goal, rng
+        door, _ = objs
+        assert door.is_instance(door_type)
+        # Calculate the desired change in the doors "rotation" feature.
+        mass = state.get(door, "mass")
+        friction = state.get(door, "friction")
+        flex = state.get(door, "flex")
+        target_rot = get_open_door_target_value(mass=mass,
+                                                friction=friction,
+                                                flex=flex)
+        current_rot = state.get(door, "rot")
+        # The door always changes from closed to open.
+        delta_open = 1.0
+        return np.array([target_rot - current_rot, delta_open],
+                        dtype=np.float32)
+
+    open_door_nsrt = NSRT("OpenDoor", parameters, preconditions, add_effects,
+                          delete_effects, side_predicates, option, option_vars,
+                          open_door_sampler)
+    nsrts.add(open_door_nsrt)
 
     return nsrts
 
@@ -2858,5 +2966,96 @@ def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
             sampler=null_sampler,
         )
         nsrts.add(nsrt)
+
+    return nsrts
+
+
+def _get_sandwich_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for SandwichEnv."""
+    robot_type, ingredient_type, board_type, holder_type = _get_types_by_names(
+        env_name, ["robot", "ingredient", "board", "holder"])
+
+    On, OnBoard, InHolder, GripperOpen, Holding, Clear, BoardClear = \
+        _get_predicates_by_names(env_name, ["On", "OnBoard", "InHolder",
+                                            "GripperOpen", "Holding", "Clear",
+                                            "BoardClear"])
+
+    Pick, Stack, PutOnBoard = _get_options_by_names(
+        env_name, ["Pick", "Stack", "PutOnBoard"])
+
+    nsrts = set()
+
+    # PickFromHolder
+    ing = Variable("?ing", ingredient_type)
+    robot = Variable("?robot", robot_type)
+    holder = Variable("?holder", holder_type)
+    parameters = [ing, robot, holder]
+    option_vars = [robot, ing]
+    option = Pick
+    preconditions = {
+        LiftedAtom(InHolder, [ing, holder]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [ing, robot])}
+    delete_effects = {
+        LiftedAtom(InHolder, [ing, holder]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+
+    pickfromholder_nsrt = NSRT("PickFromHolder", parameters, preconditions,
+                               add_effects, delete_effects, set(), option,
+                               option_vars, null_sampler)
+    nsrts.add(pickfromholder_nsrt)
+
+    # Stack
+    ing = Variable("?ing", ingredient_type)
+    othering = Variable("?othering", ingredient_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [ing, othering, robot]
+    option_vars = [robot, othering]
+    option = Stack
+    preconditions = {
+        LiftedAtom(Holding, [ing, robot]),
+        LiftedAtom(Clear, [othering])
+    }
+    add_effects = {
+        LiftedAtom(On, [ing, othering]),
+        LiftedAtom(Clear, [ing]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    delete_effects = {
+        LiftedAtom(Holding, [ing, robot]),
+        LiftedAtom(Clear, [othering])
+    }
+
+    stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
+                      delete_effects, set(), option, option_vars, null_sampler)
+    nsrts.add(stack_nsrt)
+
+    # PutOnBoard
+    ing = Variable("?ing", ingredient_type)
+    robot = Variable("?robot", robot_type)
+    board = Variable("?board", board_type)
+    parameters = [ing, robot, board]
+    option_vars = [robot, board]
+    option = PutOnBoard
+    preconditions = {
+        LiftedAtom(Holding, [ing, robot]),
+        LiftedAtom(BoardClear, [board]),
+    }
+    add_effects = {
+        LiftedAtom(OnBoard, [ing, board]),
+        LiftedAtom(Clear, [ing]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    delete_effects = {
+        LiftedAtom(Holding, [ing, robot]),
+        LiftedAtom(BoardClear, [board]),
+    }
+
+    putonboard_nsrt = NSRT("PutOnBoard", parameters, preconditions,
+                           add_effects, delete_effects, set(), option,
+                           option_vars, null_sampler)
+    nsrts.add(putonboard_nsrt)
 
     return nsrts

@@ -3,7 +3,7 @@
 import abc
 import json
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Collection, Dict, List, Optional, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -174,7 +174,7 @@ class BaseEnv(abc.ABC):
         """Return the ordered list of tasks for testing / evaluation."""
         if not self._test_tasks:
             if CFG.test_task_json_dir is not None:
-                files = list(Path(CFG.test_task_json_dir).glob("*.json"))
+                files = sorted(Path(CFG.test_task_json_dir).glob("*.json"))
                 assert len(files) >= CFG.num_test_tasks
                 self._test_tasks = [
                     self._load_task_from_json(f)
@@ -187,12 +187,59 @@ class BaseEnv(abc.ABC):
     def _load_task_from_json(self, json_file: Path) -> Task:
         """Create a task from a JSON file.
 
-        Not all environments support this.
-        """
-        raise NotImplementedError("This environment did not implement an "
-                                  "interface for loading JSON tasks!")
+        By default, we assume JSON files are in the following format:
 
-    def _get_language_goal_prompt_prefix(self) -> str:
+        {
+            "objects": {
+                <object name>: <type name>
+            }
+            "init": {
+                <object name>: {
+                    <feature name>: <value>
+                }
+            }
+            "goal": {
+                <predicate name> : [
+                    [<object name>]
+                ]
+            }
+        }
+
+        Instead of "goal", "language_goal" can also be used.
+
+        Environments can override this method to handle different formats.
+        """
+        with open(json_file, "r", encoding="utf-8") as f:
+            json_dict = json.load(f)
+        # Parse objects.
+        type_name_to_type = {t.name: t for t in self.types}
+        object_name_to_object: Dict[str, Object] = {}
+        for obj_name, type_name in json_dict["objects"].items():
+            obj_type = type_name_to_type[type_name]
+            obj = Object(obj_name, obj_type)
+            object_name_to_object[obj_name] = obj
+        assert set(object_name_to_object).issubset(set(json_dict["init"])), \
+            "The init state can only include objects in `objects`."
+        assert set(object_name_to_object).issuperset(set(json_dict["init"])), \
+            "The init state must include every object in `objects`."
+        # Parse initial state.
+        init_dict: Dict[Object, Dict[str, float]] = {}
+        for obj_name, obj_dict in json_dict["init"].items():
+            obj = object_name_to_object[obj_name]
+            init_dict[obj] = obj_dict.copy()
+        init_state = utils.create_state_from_dict(init_dict)
+        # Parse goal.
+        if "goal" in json_dict:
+            goal = self._parse_goal_from_json(json_dict["goal"],
+                                              object_name_to_object)
+        else:
+            assert "language_goal" in json_dict
+            goal = self._parse_language_goal_from_json(
+                json_dict["language_goal"], object_name_to_object)
+        return Task(init_state, goal)
+
+    def _get_language_goal_prompt_prefix(self,
+                                         object_names: Collection[str]) -> str:
         """Create a prompt to prepend to a language model query for parsing
         language-based goals into goal atoms.
 
@@ -228,7 +275,8 @@ class BaseEnv(abc.ABC):
             self, language_goal: str,
             id_to_obj: Dict[str, Object]) -> Set[GroundAtom]:
         """Helper for parsing language-based goals from JSON task specs."""
-        prompt_prefix = self._get_language_goal_prompt_prefix()
+        object_names = set(id_to_obj)
+        prompt_prefix = self._get_language_goal_prompt_prefix(object_names)
         prompt = prompt_prefix + f"\n# {language_goal}"
         llm = OpenAILLM(CFG.llm_model_name)
         responses = llm.sample_completions(prompt,
