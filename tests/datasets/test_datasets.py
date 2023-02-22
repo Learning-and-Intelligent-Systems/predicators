@@ -11,8 +11,8 @@ from predicators.datasets import create_dataset
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
-from predicators.ground_truth_models import parse_config_included_options
-from predicators.ground_truth_nsrts import _get_predicates_by_names
+from predicators.ground_truth_models import _get_predicates_by_names, \
+    parse_config_included_options
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, Task
 

@@ -14,8 +14,8 @@ from predicators import utils
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.envs.pddl_env import ProceduralTasksGripperPDDLEnv, \
     ProceduralTasksSpannerPDDLEnv
-from predicators.ground_truth_models import get_gt_nsrts
-from predicators.ground_truth_nsrts import _get_predicates_by_names
+from predicators.ground_truth_models import _get_predicates_by_names, \
+    get_gt_nsrts
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
