@@ -141,13 +141,18 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         # low-level ground atoms sequence after segmentation.
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         del pruned_atom_data
-        pnads = learn_strips_operators(low_level_trajs,
-                                       self._train_tasks,
-                                       set(candidate_predicates
-                                           | self._initial_predicates),
-                                       segmented_trajs,
-                                       verify_harmlessness=False,
-                                       verbose=False)
+        try:
+            pnads = learn_strips_operators(low_level_trajs,
+                                           self._train_tasks,
+                                           set(candidate_predicates
+                                               | self._initial_predicates),
+                                           segmented_trajs,
+                                           verify_harmlessness=False,
+                                           verbose=False)
+        except TimeoutError:
+            logging.info(
+                "Warning: Operator Learning timed out! Skipping evaluation.")
+            return float('inf')
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,
