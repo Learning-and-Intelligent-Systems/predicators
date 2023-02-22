@@ -49,10 +49,7 @@ def _main(lisdf_filepath: Path, output_filepath: Path, seed: int = 0) -> None:
                                       table_pose,
                                       table_orientation,
                                       physicsClientId=physics_client_id)
-    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
-               PyBulletBlocksEnv.robot_init_z)
-    robot = create_single_arm_pybullet_robot("panda", physics_client_id,
-                                             ee_home)
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id)
     # Get the initial robot state in the plan.
     gripper_idxs = [robot.left_finger_joint_idx, robot.right_finger_joint_idx]
     joint_names = robot.arm_joint_names

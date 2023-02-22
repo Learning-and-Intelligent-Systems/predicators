@@ -7,14 +7,17 @@ import contextlib
 import functools
 import gc
 import heapq as hq
+import importlib
 import io
 import itertools
 import logging
 import os
+import pkgutil
 import re
 import subprocess
 import sys
 import time
+from argparse import ArgumentParser
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -204,6 +207,52 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
             obj_vec.append(obj_data[feat])
         state_dict[obj] = np.array(obj_vec)
     return State(state_dict, simulator_state)
+
+
+def create_json_dict_from_ground_atoms(
+        ground_atoms: Collection[GroundAtom]) -> Dict[str, List[List[str]]]:
+    """Saves a set of ground atoms in a JSON-compatible dict.
+
+    Helper for creating the goal dict in create_json_dict_from_task().
+    """
+    predicate_to_argument_lists = defaultdict(list)
+    for atom in sorted(ground_atoms):
+        argument_list = [o.name for o in atom.objects]
+        predicate_to_argument_lists[atom.predicate.name].append(argument_list)
+    return dict(predicate_to_argument_lists)
+
+
+def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
+    """Create a JSON-compatible dict from a task.
+
+    The format of the dict is:
+
+    {
+        "objects": {
+            <object name>: <type name>
+        }
+        "init": {
+            <object name>: {
+                <feature name>: <value>
+            }
+        }
+        "goal": {
+            <predicate name> : [
+                [<object name>]
+            ]
+        }
+    }
+
+    The dict can be loaded with BaseEnv._load_task_from_json(). This is
+    helpful for testing and designing standalone tasks.
+    """
+    object_dict = {o.name: o.type.name for o in task.init}
+    init_dict = {
+        o.name: dict(zip(o.type.feature_names, task.init.data[o]))
+        for o in task.init
+    }
+    goal_dict = create_json_dict_from_ground_atoms(task.goal)
+    return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
 
 
 class _Geom2D(abc.ABC):
@@ -1917,12 +1966,16 @@ class _LDLParser:
     def __init__(self, types: Collection[Type],
                  predicates: Collection[Predicate],
                  nsrts: Collection[NSRT]) -> None:
-        self._nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
-        self._type_name_to_type = {t.name: t for t in types}
-        self._predicate_name_to_predicate = {p.name: p for p in predicates}
+        self._nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+        self._type_name_to_type = {t.name.lower(): t for t in types}
+        self._predicate_name_to_predicate = {
+            p.name.lower(): p
+            for p in predicates
+        }
 
     def parse(self, ldl_str: str) -> LiftedDecisionList:
         """Run parsing."""
+        ldl_str = ldl_str.lower()  # ignore case during parsing
         rules = []
         rule_matches = re.finditer(r"\(:rule", ldl_str)
         for start in rule_matches:
@@ -2586,12 +2639,32 @@ def get_third_party_path() -> str:
     return third_party_dir_path
 
 
+def import_submodules(path: List[str], name: str) -> None:
+    """Load all submodules on the given path.
+
+    Useful for finding subclasses of an abstract base class
+    automatically.
+    """
+    if not TYPE_CHECKING:
+        for _, module_name, _ in pkgutil.walk_packages(path):
+            if "__init__" not in module_name:
+                # Important! We use an absolute import here to avoid issues
+                # with isinstance checking when using relative imports.
+                importlib.import_module(f"{name}.{module_name}")
+
+
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
+    parser = create_arg_parser()
+    update_config_with_parser(parser, args)
+
+
+def update_config_with_parser(parser: ArgumentParser, args: Dict[str,
+                                                                 Any]) -> None:
+    """Helper function for update_config() that accepts a parser argument."""
     arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
     # Only override attributes, don't create new ones.
     allowed_args = set(CFG.__dict__) | set(arg_specific_settings)
-    parser = create_arg_parser()
     # Unfortunately, can't figure out any other way to do this.
     for parser_action in parser._actions:  # pylint: disable=protected-access
         allowed_args.add(parser_action.dest)
@@ -2617,6 +2690,15 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     This utility is meant for use in testing only.
     """
     parser = create_arg_parser()
+    reset_config_with_parser(parser, args, default_seed,
+                             default_render_state_dpi)
+
+
+def reset_config_with_parser(parser: ArgumentParser,
+                             args: Optional[Dict[str, Any]] = None,
+                             default_seed: int = 123,
+                             default_render_state_dpi: int = 10) -> None:
+    """Helper function for reset_config that accepts a parser argument."""
     default_args = parser.parse_args([
         "--env",
         "default env placeholder",
@@ -2636,7 +2718,7 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
         # By default, use a small value for the rendering DPI, to avoid
         # expensive rendering during testing.
         arg_dict["render_state_dpi"] = default_render_state_dpi
-    update_config(arg_dict)
+    update_config_with_parser(parser, arg_dict)
 
 
 def get_config_path_str(experiment_id: Optional[str] = None) -> str:
@@ -2673,13 +2755,18 @@ def parse_args(env_required: bool = True,
     parser = create_arg_parser(env_required=env_required,
                                approach_required=approach_required,
                                seed_required=seed_required)
+    return parse_args_with_parser(parser)
+
+
+def parse_args_with_parser(parser: ArgumentParser) -> Dict[str, Any]:
+    """Helper function for parse_args that accepts a parser argument."""
     args, overrides = parser.parse_known_args()
     arg_dict = vars(args)
     if len(overrides) == 0:
         return arg_dict
     # Update initial settings to make sure we're overriding
     # existing flags only
-    update_config(arg_dict)
+    update_config_with_parser(parser, arg_dict)
     # Override global settings
     assert len(overrides) >= 2
     assert len(overrides) % 2 == 0

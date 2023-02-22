@@ -204,7 +204,9 @@ def test_pddlenv(domain_str, problem_strs):
         env.render_state_plt(state, test_task)
     assert "This env does not use Matplotlib" in str(e)
     inapplicable_option = eat_fish_option.ground([salmon1], [])
-    assert not inapplicable_option.initiable(state)
+    # Even though the operator is inapplicable, the option's initiation set
+    # should be universal. See the note in PDDLEnv.
+    assert inapplicable_option.initiable(state)
     # This is generally not defined, but in this case, it will just give us
     # an invalid action that we can use to test simulate.
     inapplicable_action = inapplicable_option.policy(state)

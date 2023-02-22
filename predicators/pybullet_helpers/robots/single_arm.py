@@ -8,7 +8,7 @@ import numpy as np
 import pybullet as p
 from gym.spaces import Box
 
-from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.ikfast import IKFastInfo
 from predicators.pybullet_helpers.ikfast.utils import \
     ikfast_closest_inverse_kinematics
@@ -27,19 +27,17 @@ class SingleArmPyBulletRobot(abc.ABC):
 
     def __init__(
             self,
-            ee_home_pose: Pose3D,
-            ee_orientation: Quaternion,
+            ee_home_pose: Pose,
             physics_client_id: int,
             base_pose: Pose = Pose.identity(),
     ) -> None:
-        # Initial pose for the end effector.
+        # The home positions and orientations should be "reasonable" because
+        # IK will always reset to home before starting. Bad home poses will
+        # lead to IK failure cases in some situations.
         self._ee_home_pose = ee_home_pose
-        # Orientation of the end effector.
-        # IK will use this as target orientation.
-        self._ee_orientation = ee_orientation
         self.physics_client_id = physics_client_id
 
-        # Pose of base of robot
+        # Pose of base of robot.
         self._base_pose = base_pose
 
         # Load the robot and set base position and orientation.
@@ -51,7 +49,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             physicsClientId=self.physics_client_id,
         )
 
-        # Robot initially at home pose
+        # Robot initially at home pose.
         self.go_home()
 
     @classmethod
@@ -247,7 +245,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         The robot_state corresponds to the State vector for the robot
         object.
         """
-        rx, ry, rz, rf = robot_state
+        rx, ry, rz, qx, qy, qz, qw, rf = robot_state
         p.resetBasePositionAndOrientation(
             self.robot_id,
             self._base_pose.position,
@@ -260,7 +258,8 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        self.inverse_kinematics((rx, ry, rz), validate=True)
+        pose = Pose((rx, ry, rz), (qx, qy, qz, qw))
+        self.inverse_kinematics(pose, validate=True)
 
         # Handle setting the robot finger joints.
         for finger_id in [self.left_finger_id, self.right_finger_id]:
@@ -279,15 +278,15 @@ class SingleArmPyBulletRobot(abc.ABC):
             self.end_effector_id,
             physics_client_id=self.physics_client_id)
         rx, ry, rz = ee_link_state.worldLinkFramePosition
+        qx, qy, qz, qw = ee_link_state.worldLinkFrameOrientation
         # Note: we assume both left and right gripper have the same joint
-        # position
+        # position.
         rf = p.getJointState(
             self.robot_id,
             self.left_finger_id,
             physicsClientId=self.physics_client_id,
         )[0]
-        # pose_x, pose_y, pose_z, fingers
-        return np.array([rx, ry, rz, rf], dtype=np.float32)
+        return np.array([rx, ry, rz, qx, qy, qz, qw, rf], dtype=np.float32)
 
     def get_joints(self) -> JointPositions:
         """Get the joint positions from the current PyBullet state."""
@@ -335,8 +334,8 @@ class SingleArmPyBulletRobot(abc.ABC):
         """Move the robot to its home end-effector pose."""
         self.set_motors(self.initial_joint_positions)
 
-    def forward_kinematics(self, joint_positions: JointPositions) -> Pose3D:
-        """Compute the end effector position that would result if the robot arm
+    def forward_kinematics(self, joint_positions: JointPositions) -> Pose:
+        """Compute the end effector pose that would result if the robot arm
         joint positions was equal to the input joint_positions.
 
         WARNING: This method will make use of resetJointState(), and so it
@@ -348,10 +347,11 @@ class SingleArmPyBulletRobot(abc.ABC):
             self.end_effector_id,
             physics_client_id=self.physics_client_id)
         position = ee_link_state.worldLinkFramePosition
-        return position
+        orientation = ee_link_state.worldLinkFrameOrientation
+        return Pose(position, orientation)
 
     def _validate_joints_state(self, joint_positions: JointPositions,
-                               target_pose: Pose3D) -> None:
+                               target_pose: Pose) -> None:
         """Validate that the given joint positions matches the target pose.
 
         This method should NOT be used during simulation mode as it
@@ -363,7 +363,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         # Set joint states, forward kinematics to determine EE position
         self.set_joints(joint_positions)
         ee_pos = self.get_state()[:3]
-        target_pos = target_pose
+        target_pos = target_pose.position
         pos_is_close = np.allclose(ee_pos,
                                    target_pos,
                                    atol=CFG.pybullet_ik_tol)
@@ -384,15 +384,15 @@ class SingleArmPyBulletRobot(abc.ABC):
         """
         return None
 
-    def _ikfast_inverse_kinematics(
-            self, end_effector_pose: Pose3D) -> JointPositions:
+    def _ikfast_inverse_kinematics(self,
+                                   end_effector_pose: Pose) -> JointPositions:
         """IK using IKFast.
 
         Returns the joint positions.
         """
         ik_solutions = ikfast_closest_inverse_kinematics(
             self,
-            world_from_target=Pose(end_effector_pose, self._ee_orientation),
+            world_from_target=end_effector_pose,
         )
         if not ik_solutions:
             raise InverseKinematicsError(
@@ -412,7 +412,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         return final_joint_state
 
     def inverse_kinematics(self,
-                           end_effector_pose: Pose3D,
+                           end_effector_pose: Pose,
                            validate: bool,
                            set_joints: bool = True) -> JointPositions:
         """Compute joint positions from a target end effector position, based
@@ -450,8 +450,8 @@ class SingleArmPyBulletRobot(abc.ABC):
             joint_positions = pybullet_inverse_kinematics(
                 self.robot_id,
                 self.end_effector_id,
-                end_effector_pose,
-                self._ee_orientation,
+                end_effector_pose.position,
+                end_effector_pose.orientation,
                 self.arm_joints,
                 physics_client_id=self.physics_client_id,
                 validate=validate,

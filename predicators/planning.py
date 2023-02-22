@@ -124,25 +124,8 @@ def _sesame_plan_with_astar(
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.perf_counter()
-    if CFG.sesame_grounder == "naive":
-        ground_nsrts = []
-        for nsrt in sorted(nsrts):
-            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-                ground_nsrts.append(ground_nsrt)
-                if time.perf_counter() - start_time > timeout:
-                    raise PlanningTimeout("Planning timed out in grounding!")
-    elif CFG.sesame_grounder == "fd_translator":
-        # WARNING: there is no easy way to check the timeout within this call,
-        # since Fast Downward's translator is a third-party function. We'll
-        # just check the timeout afterward.
-        ground_nsrts = list(
-            utils.all_ground_nsrts_fd_translator(nsrts, objects, predicates,
-                                                 types, init_atoms, task.goal))
-        if time.perf_counter() - start_time > timeout:
-            raise PlanningTimeout("Planning timed out in grounding!")
-    else:
-        raise ValueError(
-            f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+    ground_nsrts = sesame_ground_nsrts(task, init_atoms, nsrts, objects,
+                                       predicates, types, start_time, timeout)
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     # Make a copy of the predicates set to avoid modifying the input set,
@@ -156,18 +139,8 @@ def _sesame_plan_with_astar(
         # the search significantly, so we may want to exclude them. Note however
         # that we need to do this inside the while True here, because an NSRT
         # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
-        nonempty_ground_nsrts = [
-            nsrt for nsrt in ground_nsrts
-            if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
-        ]
-        all_reachable_atoms = utils.get_reachable_atoms(
-            nonempty_ground_nsrts, init_atoms)
-        if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
-            raise PlanningFailure(f"Goal {task.goal} not dr-reachable")
-        reachable_nsrts = [
-            nsrt for nsrt in nonempty_ground_nsrts
-            if nsrt.preconditions.issubset(all_reachable_atoms)
-        ]
+        reachable_nsrts = filter_nsrts(task, init_atoms, ground_nsrts,
+                                       check_dr_reachable, allow_noops)
         heuristic = utils.create_task_planning_heuristic(
             task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
             predicates, objects)
@@ -192,7 +165,7 @@ def _sesame_plan_with_astar(
                         break
                 gen = iter(
                     sorted(proposed_skeletons,
-                           key=lambda s: estimator.get_cost(*s)))
+                           key=lambda s: estimator.get_cost(task.init, *s)))
             for skeleton, atoms_sequence in gen:
                 if CFG.sesame_use_necessary_atoms:
                     atoms_seq = utils.compute_necessary_atoms_seq(
@@ -229,6 +202,63 @@ def _sesame_plan_with_astar(
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
             e.info["partial_refinements"] = partial_refinements
             raise e
+
+
+def sesame_ground_nsrts(
+    task: Task,
+    init_atoms: Set[GroundAtom],
+    nsrts: Set[NSRT],
+    objects: List[Object],
+    predicates: Set[Predicate],
+    types: Set[Type],
+    start_time: float,
+    timeout: float,
+) -> List[_GroundNSRT]:
+    """Helper function for _sesame_plan_with_astar(); generate ground NSRTs."""
+    if CFG.sesame_grounder == "naive":
+        ground_nsrts = []
+        for nsrt in sorted(nsrts):
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+                if time.perf_counter() - start_time > timeout:
+                    raise PlanningTimeout("Planning timed out in grounding!")
+    elif CFG.sesame_grounder == "fd_translator":
+        # WARNING: there is no easy way to check the timeout within this call,
+        # since Fast Downward's translator is a third-party function. We'll
+        # just check the timeout afterward.
+        ground_nsrts = list(
+            utils.all_ground_nsrts_fd_translator(nsrts, objects, predicates,
+                                                 types, init_atoms, task.goal))
+        if time.perf_counter() - start_time > timeout:
+            raise PlanningTimeout("Planning timed out in grounding!")
+    else:
+        raise ValueError(
+            f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+    return ground_nsrts
+
+
+def filter_nsrts(
+    task: Task,
+    init_atoms: Set[GroundAtom],
+    ground_nsrts: List[_GroundNSRT],
+    check_dr_reachable: bool = True,
+    allow_noops: bool = False,
+) -> List[_GroundNSRT]:
+    """Helper function for _sesame_plan_with_astar(); optionally filter out
+    NSRTs with empty effectws and/or those that are unreachable."""
+    nonempty_ground_nsrts = [
+        nsrt for nsrt in ground_nsrts
+        if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
+    ]
+    all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
+                                                    init_atoms)
+    if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
+        raise PlanningFailure(f"Goal {task.goal} not dr-reachable")
+    reachable_nsrts = [
+        nsrt for nsrt in nonempty_ground_nsrts
+        if nsrt.preconditions.issubset(all_reachable_atoms)
+    ]
+    return reachable_nsrts
 
 
 def task_plan_grounding(

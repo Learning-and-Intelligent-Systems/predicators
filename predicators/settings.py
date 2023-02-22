@@ -102,6 +102,28 @@ class GlobalSettings:
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
 
+    # sandwich env parameters
+    sandwich_ingredients_train = {
+        "bread": [2],
+        "patty": [1],
+        "ham": [1],
+        "egg": [1],
+        "cheese": [1],
+        "lettuce": [1],
+        "tomato": [1],
+        "green_pepper": [1],
+    }
+    sandwich_ingredients_test = {
+        "bread": [2],
+        "patty": [1],
+        "ham": [1],
+        "egg": [1],
+        "cheese": [1],
+        "lettuce": [1],
+        "tomato": [1],
+        "green_pepper": [1],
+    }
+
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
@@ -254,8 +276,10 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
-    narrow_passage_door_width_padding = 0.075
-    narrow_passage_passage_width_padding = 2e-4
+    narrow_passage_door_width_padding_lb = 1e-4
+    narrow_passage_door_width_padding_ub = 5e-3
+    narrow_passage_passage_width_padding_lb = 5e-4
+    narrow_passage_passage_width_padding_ub = 2e-2
     narrow_passage_birrt_num_attempts = 10
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
@@ -447,6 +471,12 @@ class GlobalSettings:
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
     refinement_estimation_num_skeletons_generated = 3
+
+    # refinement data collection parameters
+    refinement_data_num_skeletons = 3
+    refinement_data_skeleton_generator_timeout = 20
+    refinement_data_low_level_search_timeout = 5  # timeout for refinement try
+    refinement_data_failed_refinement_penalty = 5  # added time on failure
 
     # glib explorer parameters
     glib_min_goal_size = 1
