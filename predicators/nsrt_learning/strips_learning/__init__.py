@@ -22,14 +22,12 @@ if not TYPE_CHECKING:
             importlib.import_module(f"{__name__}.{module_name}")
 
 
-def learn_strips_operators(
-    trajectories: List[LowLevelTrajectory],
-    train_tasks: List[Task],
-    predicates: Set[Predicate],
-    segmented_trajs: List[List[Segment]],
-    verify_harmlessness: bool,
-    verbose: bool = True,
-    timeout: float = float('inf')) -> List[PNAD]:
+def learn_strips_operators(trajectories: List[LowLevelTrajectory],
+                           train_tasks: List[Task],
+                           predicates: Set[Predicate],
+                           segmented_trajs: List[List[Segment]],
+                           verify_harmlessness: bool,
+                           verbose: bool = True) -> List[PNAD]:
     """Learn strips operators on the given data segments.
 
     Return a list of PNADs with op (STRIPSOperator), datastore, and
@@ -39,8 +37,7 @@ def learn_strips_operators(
         if not cls.__abstractmethods__ and \
            cls.get_name() == CFG.strips_learner:
             learner = cls(trajectories, train_tasks, predicates,
-                          segmented_trajs, verify_harmlessness, verbose,
-                          timeout)
+                          segmented_trajs, verify_harmlessness, verbose)
             break
     else:
         raise ValueError(f"Unrecognized STRIPS learner: {CFG.strips_learner}")

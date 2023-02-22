@@ -21,8 +21,7 @@ class BaseSTRIPSLearner(abc.ABC):
                  predicates: Set[Predicate],
                  segmented_trajs: List[List[Segment]],
                  verify_harmlessness: bool,
-                 verbose: bool = True,
-                 timeout: float = float('inf')) -> None:
+                 verbose: bool = True) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates
@@ -31,7 +30,6 @@ class BaseSTRIPSLearner(abc.ABC):
         self._verbose = verbose
         self._num_segments = sum(len(t) for t in segmented_trajs)
         assert len(self._trajectories) == len(self._segmented_trajs)
-        self.timeout = timeout
 
     def learn(self) -> List[PNAD]:
         """The public method for a STRIPS operator learning strategy.

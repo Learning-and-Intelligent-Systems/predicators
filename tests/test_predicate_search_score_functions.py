@@ -577,7 +577,7 @@ def test_expected_nodes_score_function():
         score_function.evaluate({Holding, HandEmpty})
     # Try with extremely small timeout and pnad_search.
     utils.update_config({
-        "pnad_search_timeout": 1e-12,
+        "pnad_search_timeout": 0,
         "strips_learner": "pnad_search"
     })
     score = score_function.evaluate({Holding, HandEmpty})
