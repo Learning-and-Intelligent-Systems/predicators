@@ -1,5 +1,4 @@
 """Implements ground-truth NSRTs and options."""
-
 import abc
 from typing import Dict, List, Sequence, Set
 
@@ -68,7 +67,7 @@ def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
         # In the final version of this function, we will instead raise an
         # error in this case.
         env = get_or_create_env(env_name)
-        options = env.options
+        options = get_gt_options(env.get_name())
     # Seed the options for reproducibility.
     for option in options:
         option.params_space.seed(CFG.seed)

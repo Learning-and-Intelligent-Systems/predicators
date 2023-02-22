@@ -1,5 +1,4 @@
 """Test cases for the online PG3 approach."""
-
 import pytest
 
 from predicators import utils
@@ -7,6 +6,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.online_pg3_approach import OnlinePG3Approach
 from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
 from predicators.settings import CFG
 from predicators.structs import Dataset
@@ -32,9 +32,10 @@ def test_online_pg3_approach():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    approach = OnlinePG3Approach(env.predicates, env.options, env.types,
+    approach = OnlinePG3Approach(env.predicates,
+                                 get_gt_options(env.get_name()), env.types,
                                  env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert approach.is_learning_based
     # Learning with an empty dataset should not crash.
     approach.learn_from_offline_dataset(Dataset([]))

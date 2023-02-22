@@ -1,5 +1,4 @@
 """Test cases for the touch point environment."""
-
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,6 +7,7 @@ import pytest
 from predicators import utils
 from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
     TouchPointEnvParam
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -24,7 +24,7 @@ def test_touch_point():
     assert len(env.predicates) == 1
     assert len(env.goal_predicates) == 1
     assert {pred.name for pred in env.goal_predicates} == {"Touched"}
-    assert len(env.options) == 1
+    assert len(get_gt_options(env.get_name())) == 1
     assert len(env.types) == 2
     assert env.action_space.shape == (1, )
     task = env.get_train_tasks()[0]
@@ -114,7 +114,7 @@ def test_touch_open():
     assert len(env.predicates) == 2
     assert len(env.goal_predicates) == 1
     assert {pred.name for pred in env.goal_predicates} == {"DoorIsOpen"}
-    assert len(env.options) == 2
+    assert len(get_gt_options(env.get_name())) == 2
     assert len(env.types) == 2
     assert env.action_space.shape == (3, )
     task = env.get_train_tasks()[0]

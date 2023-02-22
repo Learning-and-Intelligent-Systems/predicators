@@ -1,5 +1,4 @@
 """Test cases for the interactive learning approach."""
-
 from contextlib import nullcontext as does_not_raise
 from typing import Dict, Sequence
 
@@ -12,6 +11,7 @@ from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Array, Dataset, Object, State
@@ -54,11 +54,12 @@ def test_interactive_learning_approach(predicate_classifier_model,
     stripped_train_tasks = [
         utils.strip_task(task, initial_predicates) for task in train_tasks
     ]
-    approach = InteractiveLearningApproach(initial_predicates, env.options,
+    approach = InteractiveLearningApproach(initial_predicates,
+                                           get_gt_options(env.get_name()),
                                            env.types, env.action_space,
                                            stripped_train_tasks)
     teacher = Teacher(train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert approach.is_learning_based
     # Learning with an empty dataset should not crash.
     approach.learn_from_offline_dataset(Dataset([]))
@@ -104,7 +105,8 @@ def test_interactive_learning_approach(predicate_classifier_model,
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
     # Test that glib also falls back when there are no non-static predicates.
-    approach2 = InteractiveLearningApproach(initial_predicates, env.options,
+    approach2 = InteractiveLearningApproach(initial_predicates,
+                                            get_gt_options(env.get_name()),
                                             env.types, env.action_space,
                                             stripped_train_tasks)
     approach2.learn_from_offline_dataset(Dataset([]))
@@ -228,4 +230,4 @@ def test_interactive_learning_approach(predicate_classifier_model,
         "teacher_dataset_num_examples": 0,
     })
     with pytest.raises(AssertionError):
-        create_dataset(env, train_tasks, env.options)
+        create_dataset(env, train_tasks, get_gt_options(env.get_name()))

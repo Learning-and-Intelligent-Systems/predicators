@@ -1,11 +1,11 @@
 """Test cases for the GNN action policy approach."""
-
 import pytest
 
 from predicators import utils
 from predicators.approaches import create_approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 
 
@@ -24,9 +24,9 @@ def test_gnn_action_policy_approach():
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     approach = create_approach("gnn_action_policy", env.predicates,
-                               env.options, env.types, env.action_space,
-                               train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+                               get_gt_options(env.get_name()), env.types,
+                               env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
     with pytest.raises(AssertionError):  # haven't learned yet!
@@ -43,6 +43,6 @@ def test_gnn_action_policy_approach():
                                     max_num_steps=CFG.horizon)
     # Test loading.
     approach2 = create_approach("gnn_action_policy", env.predicates,
-                                env.options, env.types, env.action_space,
-                                train_tasks)
+                                get_gt_options(env.get_name()), env.types,
+                                env.action_space, train_tasks)
     approach2.load(online_learning_cycle=None)

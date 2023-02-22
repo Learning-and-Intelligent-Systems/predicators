@@ -1,5 +1,4 @@
 """Tests for main.py."""
-
 import os
 import shutil
 import sys
@@ -12,6 +11,7 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.main import _run_testing, main
 from predicators.structs import Action, State, Task
 
@@ -207,18 +207,21 @@ def test_bilevel_planning_approach_failure_and_timeout():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    approach = _DummyFailureApproach(env.predicates, env.options, env.types,
+    approach = _DummyFailureApproach(env.predicates,
+                                     get_gt_options(env.get_name()), env.types,
                                      env.action_space, train_tasks)
     assert not approach.is_learning_based
     _run_testing(env, approach)
 
-    approach = _DummySolveTimeoutApproach(env.predicates, env.options,
+    approach = _DummySolveTimeoutApproach(env.predicates,
+                                          get_gt_options(env.get_name()),
                                           env.types, env.action_space,
                                           train_tasks)
     assert not approach.is_learning_based
     _run_testing(env, approach)
 
-    approach = _DummyExecutionTimeoutApproach(env.predicates, env.options,
+    approach = _DummyExecutionTimeoutApproach(env.predicates,
+                                              get_gt_options(env.get_name()),
                                               env.types, env.action_space,
                                               train_tasks)
     assert not approach.is_learning_based
@@ -237,8 +240,9 @@ def test_env_failure():
     })
     env = _DummyCoverEnv()
     train_tasks = env.get_train_tasks()
-    approach = create_approach("random_actions", env.predicates, env.options,
-                               env.types, env.action_space, train_tasks)
+    approach = create_approach("random_actions", env.predicates,
+                               get_gt_options(env.get_name()), env.types,
+                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     task = train_tasks[0]
     approach.solve(task, timeout=500)

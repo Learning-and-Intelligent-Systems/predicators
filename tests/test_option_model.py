@@ -1,5 +1,4 @@
 """Test cases for option models."""
-
 import pytest
 from gym.spaces import Box
 
@@ -52,18 +51,12 @@ def test_default_option_model():
                            next_state.get(obj, "feat3") + action.arr[1])
             return next_state
 
-        @property
-        def options(self):
-            """Mock options."""
-
-            parameterized_option = ParameterizedOption("Pick", [],
-                                                       params_space, policy,
-                                                       initiable, terminal)
-
-            return {parameterized_option}
+    # Mock option.
+    parameterized_option = ParameterizedOption("Pick", [],
+                                                params_space, policy,
+                                                initiable, terminal)
 
     env = _MockEnv()
-    parameterized_option = env.options.pop()
 
     params1 = [-5, 5]
     option1 = parameterized_option.ground([], params1)

@@ -1,5 +1,4 @@
 """Test cases for utils."""
-
 import os
 import time
 from typing import Iterator, Tuple
@@ -15,7 +14,7 @@ from predicators.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.envs.pddl_env import ProceduralTasksGripperPDDLEnv, \
     ProceduralTasksSpannerPDDLEnv
 from predicators.ground_truth_models import _get_predicates_by_names, \
-    get_gt_nsrts
+    get_gt_nsrts, get_gt_options
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
@@ -473,7 +472,8 @@ def test_get_static_preds():
     """Tests for get_static_preds()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     static_preds = utils.get_static_preds(nsrts, env.predicates)
     assert {pred.name for pred in static_preds} == {"IsTarget", "IsBlock"}
 
@@ -482,7 +482,8 @@ def test_get_static_atoms():
     """Tests for get_static_atoms()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     task = env.get_train_tasks()[0]
     objects = set(task.init)
     ground_nsrts = set()
@@ -2163,7 +2164,8 @@ def test_create_pddl():
     utils.reset_config({"env": "cover"})
     # All predicates and options
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     train_task = env.get_train_tasks()[0]
     state = train_task.init
     objects = list(state)
@@ -2227,7 +2229,8 @@ def test_create_pddl():
     utils.reset_config({"env": "pddl_spanner_procedural_tasks"})
     # All predicates and options
     env = ProceduralTasksSpannerPDDLEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
                                           "spanner")
     assert domain_str == """(define (domain spanner)
@@ -2980,7 +2983,7 @@ def test_get_third_party_path():
 def test_create_video_from_partial_refinements():
     """Tests for create_video_from_partial_refinements()."""
     env = CoverEnv()
-    PickPlace = list(env.options)[0]
+    PickPlace = list(get_gt_options(env.get_name()))[0]
     option = PickPlace.ground([],
                               np.zeros(PickPlace.params_space.shape,
                                        dtype=np.float32))
@@ -3127,6 +3130,7 @@ def test_parse_ldl_from_str():
 )"""
 
     env = ProceduralTasksGripperPDDLEnv(use_gui=False)
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     ldl = utils.parse_ldl_from_str(ldl_str, env.types, env.predicates, nsrts)
     assert str(ldl) == ldl_str

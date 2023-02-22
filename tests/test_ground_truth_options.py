@@ -1,10 +1,10 @@
 """Tests for ground_truth_models.py."""
-
 import pytest
 
 from predicators import utils
 from predicators.envs.cover import CoverMultistepOptions
-from predicators.ground_truth_models import parse_config_included_options
+from predicators.ground_truth_models import get_gt_options, \
+    parse_config_included_options
 
 
 def test_parse_config_included_options():
@@ -21,7 +21,7 @@ def test_parse_config_included_options():
     utils.reset_config({
         "included_options": "Pick",
     })
-    Pick, Place = sorted(env.options)
+    Pick, Place = sorted(get_gt_options(env.get_name()))
     assert Pick.name == "Pick"
     assert Place.name == "Place"
     included = parse_config_included_options(env)
