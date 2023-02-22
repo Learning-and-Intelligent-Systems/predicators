@@ -42,8 +42,8 @@ from predicators import utils
 from predicators.approaches.refinement_estimation_approach import \
     RefinementEstimationApproach
 from predicators.envs import BaseEnv, create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.ground_truth_nsrts import get_gt_nsrts
-from predicators.ground_truth_options import get_gt_options
 from predicators.option_model import _OptionModelBase, create_option_model
 from predicators.planning import PlanningTimeout, _MaxSkeletonsFailure, \
     _skeleton_generator, _SkeletonSearchTimeout, filter_nsrts, \

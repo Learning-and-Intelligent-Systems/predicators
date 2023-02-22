@@ -7,8 +7,8 @@ import numpy as np
 from predicators import utils
 from predicators.datasets.demo_only import create_demo_data
 from predicators.envs import BaseEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.ground_truth_nsrts import get_gt_nsrts
-from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Dataset, LowLevelTrajectory, \
     ParameterizedOption, Task, _GroundNSRT

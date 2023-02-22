@@ -16,8 +16,8 @@ from predicators.approaches.grammar_search_invention_approach import \
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.ground_truth_nsrts import _get_predicates_by_names
-from predicators.ground_truth_options import get_gt_options
 from predicators.main import _run_testing
 from predicators.predicate_search_score_functions import create_score_function
 from predicators.structs import Dataset, Object, Predicate, State, Task

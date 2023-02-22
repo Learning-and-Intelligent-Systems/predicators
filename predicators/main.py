@@ -49,7 +49,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
-from predicators.ground_truth_options import get_gt_options, \
+from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
 from predicators.settings import CFG
 from predicators.structs import Dataset, InteractionRequest, \

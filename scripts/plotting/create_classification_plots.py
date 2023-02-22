@@ -13,7 +13,7 @@ from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnv
-from predicators.ground_truth_options import get_gt_options
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Array, Image, Predicate, Task
 from scripts.evaluate_interactive_approach_classifiers import \

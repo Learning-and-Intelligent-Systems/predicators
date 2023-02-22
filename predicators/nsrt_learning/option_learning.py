@@ -12,7 +12,7 @@ import pybullet as p
 from gym.spaces import Box
 
 from predicators.envs.blocks import BlocksEnv
-from predicators.ground_truth_options import get_gt_options
+from predicators.ground_truth_models import get_gt_options
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.inverse_kinematics import \

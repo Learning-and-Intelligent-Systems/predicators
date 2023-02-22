@@ -9,7 +9,7 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, create_approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
-from predicators.ground_truth_options import parse_config_included_options
+from predicators.ground_truth_models import parse_config_included_options
 from predicators.settings import CFG
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")

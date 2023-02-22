@@ -12,9 +12,9 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import get_or_create_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.ground_truth_nsrts import _get_options_by_names, \
     _get_types_by_names
-from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \

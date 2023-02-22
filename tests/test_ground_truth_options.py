@@ -1,10 +1,10 @@
-"""Tests for ground_truth_options.py."""
+"""Tests for ground_truth_models.py."""
 
 import pytest
 
 from predicators import utils
 from predicators.envs.cover import CoverMultistepOptions
-from predicators.ground_truth_options import parse_config_included_options
+from predicators.ground_truth_models import parse_config_included_options
 
 
 def test_parse_config_included_options():

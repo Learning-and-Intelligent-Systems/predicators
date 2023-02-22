@@ -45,8 +45,8 @@ from predicators import utils
 from predicators.approaches.pg3_approach import PG3Approach
 from predicators.envs import get_or_create_env
 from predicators.envs.base_env import BaseEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.ground_truth_nsrts import get_gt_nsrts
-from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import NSRT, LDLRule, LiftedAtom, \
     LiftedDecisionList, Predicate, Type, Variable

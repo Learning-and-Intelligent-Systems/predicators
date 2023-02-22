@@ -4,8 +4,8 @@ from typing import Callable, List
 
 from predicators import utils
 from predicators.envs import get_or_create_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.ground_truth_nsrts import get_gt_nsrts
-from predicators.ground_truth_options import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtomTrajectory, \
     LowLevelTrajectory, Segment, State

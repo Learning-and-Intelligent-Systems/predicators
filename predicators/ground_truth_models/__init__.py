@@ -1,22 +1,41 @@
-"""Definitions of ground truth options for all environments."""
+"""Implements ground-truth NSRTs and options."""
 
-from typing import Dict, Sequence, Set
-
-from gym.spaces import Box
+import abc
+import importlib
+import pkgutil
+from typing import TYPE_CHECKING, Set
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    State
+from predicators.structs import ParameterizedOption
+
+
+class GroundTruthOptionFactory(abc.ABC):
+    """Parent class for ground-truth option definitions."""
+
+    @classmethod
+    @abc.abstractmethod
+    def get_env_names(cls) -> Set[str]:
+        """Get the env names that this factory builds options for."""
+        raise NotImplementedError("Override me!")
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_options(env_name: str) -> Set[ParameterizedOption]:
+        """Create options for the given env name."""
+        raise NotImplementedError("Override me!")
 
 
 def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
     """Create ground truth options for an env."""
     # This is a work in progress. Gradually moving options out of environments
     # until we can remove them from the environment API entirely.
-    if env_name == "cover":
-        options = _create_cover_options()
+    for cls in utils.get_all_subclasses(GroundTruthOptionFactory):
+        if not cls.__abstractmethods__ and env_name in cls.get_env_names():
+            factory = cls()
+            options = factory.get_options(env_name)
+            break
     else:
         # In the final version of this function, we will instead raise an
         # error in this case.
@@ -46,16 +65,11 @@ def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
     return included_options
 
 
-def _create_cover_options() -> Set[ParameterizedOption]:
-
-    def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        del state, memory, objects  # unused
-        return Action(params)  # action is simply the parameter
-
-    PickPlace = utils.SingletonParameterizedOption("PickPlace",
-                                                   _policy,
-                                                   params_space=Box(
-                                                       0, 1, (1, )))
-
-    return {PickPlace}
+# TODO: factor out
+if not TYPE_CHECKING:
+    # Load all modules so that utils.get_all_subclasses() works.
+    for _, module_name, _ in pkgutil.walk_packages(__path__):
+        if "__init__" not in module_name:
+            # Important! We use an absolute import here to avoid issues
+            # with isinstance checking when using relative imports.
+            importlib.import_module(f"{__name__}.{module_name}")
