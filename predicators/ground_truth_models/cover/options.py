@@ -10,7 +10,8 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
     State
 
 
-class _CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
+class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the cover environment."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:

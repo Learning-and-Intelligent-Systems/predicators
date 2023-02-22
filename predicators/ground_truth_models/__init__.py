@@ -1,9 +1,7 @@
 """Implements ground-truth NSRTs and options."""
 
 import abc
-import importlib
-import pkgutil
-from typing import TYPE_CHECKING, Set
+from typing import Set
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
@@ -65,11 +63,5 @@ def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
     return included_options
 
 
-# TODO: factor out
-if not TYPE_CHECKING:
-    # Load all modules so that utils.get_all_subclasses() works.
-    for _, module_name, _ in pkgutil.walk_packages(__path__):
-        if "__init__" not in module_name:
-            # Important! We use an absolute import here to avoid issues
-            # with isinstance checking when using relative imports.
-            importlib.import_module(f"{__name__}.{module_name}")
+# Find the factories.
+utils.import_submodules(__path__, __name__)
