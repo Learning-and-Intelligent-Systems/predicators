@@ -21,7 +21,6 @@ from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
 
 
 class _MockOptionModel(_OptionModelBase):
-
     def __init__(self, simulator):
         self._simulator = simulator
 

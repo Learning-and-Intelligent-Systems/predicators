@@ -26,7 +26,8 @@ from predicators.spot_utils.helpers import graph_nav_util
 class GraphNavInterface():
     """GraphNav service command line interface."""
 
-    def __init__(self, robot, upload_path: str, lease_client, lease_keepalive) -> None:
+    def __init__(self, robot, upload_path, lease_client,
+                 lease_keepalive) -> None:
         self._robot = robot
 
         # Force trigger timesync.
@@ -59,7 +60,7 @@ class GraphNavInterface():
         # Number of attempts to wait before trying to re-power on.
         self._max_attempts_to_wait = 50
 
-        # Store the most recent knowledge of the state of the robot based on rpc calls.
+        # Store the most recent state of the robot based on rpc calls.
         self._current_graph = None
         self._current_edges = dict()  #maps to_waypoint to list(from_waypoint)
         self._current_waypoint_snapshots = dict(
@@ -104,8 +105,8 @@ class GraphNavInterface():
         robot_state = self._robot_state_client.get_robot_state()
         current_odom_tform_body = get_odom_tform_body(
             robot_state.kinematic_state.transforms_snapshot).to_proto()
-        # Create an empty instance for initial localization since we are asking it to localize
-        # based on the nearest fiducial.
+        # Create an empty instance for initial localization since we are
+        # asking it to localize based on the nearest fiducial.
         localization = nav_pb2.Localization()
         self._graph_nav_client.set_localization(
             initial_guess_localization=localization,
@@ -176,20 +177,20 @@ class GraphNavInterface():
             self._graph_nav_client.upload_edge_snapshot(edge_snapshot)
             print("Uploaded {}".format(edge_snapshot.id))
 
-        # The upload is complete! Check that the robot is localized to the graph,
-        # and if it is not, prompt the user to localize the robot before attempting
-        # any navigation commands.
+        # The upload is complete! Check that the robot is localized to the
+        # graph, and if it is not, prompt the user to localize the robot
+        # before attempting any navigation commands.
         localization_state = self._graph_nav_client.get_localization_state()
         if not localization_state.localization.waypoint_id:
             # The robot is not localized to the newly uploaded graph.
             print("\n")
-            print("Upload complete! The robot is currently not localized to the map; please localize", \
-                   "the robot using command (1).")
+            print("Upload complete! The robot is currently not localized to", \
+                "the map; please localize the robot using command (1).")
 
     def _navigate_to_anchor(self, *args):
         """Navigate to a pose in seed frame, using anchors."""
-        # The following options are accepted for arguments: [x, y], [x, y, yaw], [x, y, z, yaw],
-        # [x, y, z, qw, qx, qy, qz].
+        # The following options are accepted for arguments:
+        # [x, y], [x, y, yaw], [x, y, z, yaw], [x, y, z, qw, qx, qy, qz].
         # When a value for z is not specified, we use the current z height.
         # When only yaw is specified, the quaternion is constructed from the yaw.
         # When yaw is not specified, an identity quaternion is used.
@@ -231,8 +232,9 @@ class GraphNavInterface():
         # Navigate to the destination.
         is_finished = False
         while not is_finished:
-            # Issue the navigation command about twice a second such that it is easy to terminate the
-            # navigation command (with estop or killing the program).
+            # Issue the navigation command about twice a second such that it is
+            # easy to terminate the navigation command (with estop or killing
+            # the program).
             try:
                 nav_to_cmd_id = self._graph_nav_client.navigate_to_anchor(
                     seed_T_goal.to_proto(), 1.0, command_id=nav_to_cmd_id)
@@ -241,20 +243,23 @@ class GraphNavInterface():
                 break
             time.sleep(
                 .5)  # Sleep for half a second to allow for command execution.
-            # Poll the robot for feedback to determine if the navigation command is complete.
+            # Poll the robot for feedback to determine if the navigation
+            # command is complete.
             is_finished = self._check_success(nav_to_cmd_id)
 
     def _navigate_to(self, *args):
         """Navigate to a specific waypoint."""
         # Take the first argument as the destination waypoint.
         if len(args) < 1:
-            # If no waypoint id is given as input, then return without requesting navigation.
+            # If no waypoint id is given as input, then return without
+            # requesting navigation.
             print("No waypoint provided as a destination for navigate to.")
             return
 
         destination_waypoint = args[0][0]
         if not destination_waypoint:
-            # Failed to find the appropriate unique waypoint id for the navigation command.
+            # Failed to find the appropriate unique waypoint id for the
+            # navigation command.
             return
         if not self.toggle_power(should_power_on=True):
             print(
@@ -266,8 +271,9 @@ class GraphNavInterface():
         # Navigate to the destination waypoint.
         is_finished = False
         while not is_finished:
-            # Issue the navigation command about twice a second such that it is easy to terminate the
-            # navigation command (with estop or killing the program).
+            # Issue the navigation command about twice a second such that
+            # it is easy to terminate the navigation command (with estop or
+            # killing the program).
             try:
                 nav_to_cmd_id = self._graph_nav_client.navigate_to(
                     destination_waypoint, 1.0, command_id=nav_to_cmd_id)
@@ -276,14 +282,16 @@ class GraphNavInterface():
                 break
             time.sleep(
                 .5)  # Sleep for half a second to allow for command execution.
-            # Poll the robot for feedback to determine if the navigation command is complete.
+            # Poll the robot for feedback to determine if the navigation
+            # command is complete.
             is_finished = self._check_success(nav_to_cmd_id)
 
     def toggle_power(self, should_power_on):
         """Power the robot on/off dependent on the current power state."""
         is_powered_on = self.check_is_powered_on()
         if not is_powered_on and should_power_on:
-            # Power on the robot up before navigating when it is in a powered-off state.
+            # Power on the robot up before navigating when it is in a
+            # powered-off state.
             power_on(self._power_client)
             motors_on = False
             while not motors_on:
@@ -321,16 +329,20 @@ class GraphNavInterface():
             # No command, so we have no status to check.
             return False
         status = self._graph_nav_client.navigation_feedback(command_id)
-        if status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL:
+        if status.status == \
+            graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL:
             # Successfully completed the navigation commands!
             return True
-        elif status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_LOST:
+        elif status.status == \
+            graph_nav_pb2.NavigationFeedbackResponse.STATUS_LOST:
             print("Robot got lost when navigating the route.")
             return True
-        elif status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK:
+        elif status.status == \
+            graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK:
             print("Robot got stuck when navigating the route.")
             return True
-        elif status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_ROBOT_IMPAIRED:
+        elif status.status == \
+            graph_nav_pb2.NavigationFeedbackResponse.STATUS_ROBOT_IMPAIRED:
             print("Robot is impaired.")
             return True
         else:
@@ -347,34 +359,3 @@ class GraphNavInterface():
         except (ResponseError, RpcError, LeaseBaseError) as err:
             self.add_message("Failed {}: {}".format(desc, err))
             return None
-
-    def run(self) -> None:
-        """Main loop for the command line interface."""
-        self.start()
-        while True:
-            print("""
-            Options:
-            (1) Initialize localization to the nearest fiducial (must be in sight of a fiducial).
-            (2) Get localization state.
-            (3) List the waypoint ids and edge ids of the map on the robot.
-            (4) Navigate to. The destination waypoint id is the second argument.
-            (q) Exit.
-            """)
-            try:
-                inputs = input('>')
-            except NameError:
-                pass
-            req_type = str.split(inputs)[0]
-
-            if req_type == 'q':
-                self._on_quit()
-                break
-
-            if req_type not in self._command_dictionary:
-                print("Request not in the known command dictionary.")
-                continue
-            try:
-                cmd_func = self._command_dictionary[req_type]
-                cmd_func(str.split(inputs)[1:])
-            except Exception as e:
-                print(e)

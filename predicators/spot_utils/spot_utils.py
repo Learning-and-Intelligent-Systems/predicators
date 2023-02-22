@@ -1,8 +1,7 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
-from predicators.structs import Object
-from typing import Any, Sequence
 import time
+from typing import Any, Sequence
 
 import bosdyn.client
 import bosdyn.client.estop
@@ -24,6 +23,7 @@ from bosdyn.client.robot_state import RobotStateClient
 
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
+from predicators.structs import Object
 
 g_image_click = None
 g_image_display = None
@@ -282,7 +282,7 @@ class SpotControllers():
             dtype = np.uint16  # type: ignore
         else:
             dtype = np.uint8  # type: ignore
-        img = np.fromstring(image.shot.image.data, dtype=dtype) # type: ignore
+        img = np.fromstring(image.shot.image.data, dtype=dtype)  # type: ignore
         if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
             img = img.reshape(image.shot.image.rows, image.shot.image.cols)
         else:

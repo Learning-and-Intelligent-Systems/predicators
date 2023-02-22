@@ -19,7 +19,6 @@ class RandomOptionsApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-
         def fallback_policy(state: State) -> Action:
             del state  # unused
             raise ApproachFailure("Random option sampling failed!")

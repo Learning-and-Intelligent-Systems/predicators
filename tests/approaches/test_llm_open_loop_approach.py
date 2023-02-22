@@ -41,7 +41,6 @@ def test_llm_open_loop_approach():
     # Create a mock LLM so that we can control the outputs.
 
     class _MockLLM(LargeLanguageModel):
-
         def __init__(self):
             self.response = None
 
