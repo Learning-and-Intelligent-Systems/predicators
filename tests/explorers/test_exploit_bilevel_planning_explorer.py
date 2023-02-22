@@ -5,7 +5,7 @@ import pytest
 from predicators import utils
 from predicators.envs.cover import CoverEnv
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.option_model import _OracleOptionModel
 
 

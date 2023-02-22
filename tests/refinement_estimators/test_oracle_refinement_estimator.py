@@ -4,7 +4,7 @@ import pytest
 
 from predicators import utils
 from predicators.envs.narrow_passage import NarrowPassageEnv
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.refinement_estimators.oracle_refinement_estimator import \
     OracleRefinementEstimator
 from predicators.settings import CFG

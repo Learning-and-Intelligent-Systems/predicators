@@ -10,7 +10,7 @@ from predicators.approaches.pg3_approach import PG3Approach
 from predicators.approaches.pg4_approach import PG4Approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.option_model import _OptionModelBase
 from predicators.structs import LDLRule, LiftedDecisionList
 

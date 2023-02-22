@@ -15,7 +15,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
 from predicators.datasets import create_dataset
 from predicators.datasets.demo_replay import create_demo_replay_data
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.ml_models import MLPRegressor
 from predicators.nsrt_learning.option_learning import _ActionConverter, \
     _LearnedNeuralParameterizedOption, create_action_converter, \

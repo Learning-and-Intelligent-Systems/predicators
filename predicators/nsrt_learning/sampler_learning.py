@@ -8,8 +8,7 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.ground_truth_models import get_gt_options
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DistributionRegressor, \
     MLPBinaryClassifier, NeuralGaussianRegressor

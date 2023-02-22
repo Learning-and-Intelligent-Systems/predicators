@@ -13,7 +13,7 @@ from predicators.approaches.initialized_pg3_approach import \
     InitializedPG3Approach, _Analogy, _apply_analogy_to_ldl, \
     _find_env_analogies
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
     Variable
 

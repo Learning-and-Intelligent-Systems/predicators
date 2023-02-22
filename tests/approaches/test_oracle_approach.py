@@ -31,7 +31,7 @@ from predicators.envs.stick_button import StickButtonEnv
 from predicators.envs.tools import ToolsEnv
 from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
     TouchPointEnvParam
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.option_model import _OracleOptionModel
 from predicators.settings import CFG
 from predicators.structs import Action, Variable
