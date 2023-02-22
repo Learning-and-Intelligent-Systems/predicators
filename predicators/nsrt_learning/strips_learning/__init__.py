@@ -1,8 +1,6 @@
 """This directory contains algorithms for STRIPS operator learning."""
 
-import importlib
-import pkgutil
-from typing import TYPE_CHECKING, List, Set
+from typing import List, Set
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
@@ -13,13 +11,8 @@ from predicators.structs import PNAD, LowLevelTrajectory, Predicate, Segment, \
 
 __all__ = ["BaseSTRIPSLearner"]
 
-if not TYPE_CHECKING:
-    # Load all modules so that utils.get_all_subclasses() works.
-    for _, module_name, _ in pkgutil.walk_packages(__path__):
-        if "__init__" not in module_name:
-            # Important! We use an absolute import here to avoid issues
-            # with isinstance checking when using relative imports.
-            importlib.import_module(f"{__name__}.{module_name}")
+# Find the subclasses.
+utils.import_submodules(__path__, __name__)
 
 
 def learn_strips_operators(
