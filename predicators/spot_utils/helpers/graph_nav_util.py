@@ -3,7 +3,8 @@
 # Downloading, reproducing, distributing or otherwise using the SDK Software
 # is subject to the terms and conditions of the Boston Dynamics Software
 # Development Kit License (20191101-BDSDK-SL).
-"""Graph nav utility functions"""
+"""Graph nav utility functions."""
+
 
 def id_to_short_code(waypoint_id):
     """Convert a unique id to a 2 letter short code."""
@@ -18,9 +19,12 @@ def pretty_print_waypoints(waypoint_id, waypoint_name, localization_id):
 
 
 def find_unique_waypoint_id(short_code, graph, name_to_id):
-    """Convert either a 2 letter short code or an annotation name into the associated unique id."""
+    """Convert either a 2 letter short code or an annotation name into the
+    associated unique id."""
     if graph is None:
-        print("Please list the waypoints in the map before trying to navigate to a specific one (Option #4).")
+        print(
+            "Please list the waypoints in the map before trying to navigate to a specific one (Option #4)."
+        )
         return
 
     if len(short_code) != 2:
@@ -63,7 +67,8 @@ def update_waypoints_and_edges(graph, localization_id, do_print=True):
             # Must be operating on an older graph nav map, since the creation_time is not
             # available within the waypoint annotations message.
             pass
-        waypoint_to_timestamp.append((waypoint.id, timestamp, waypoint.annotations.name))
+        waypoint_to_timestamp.append(
+            (waypoint.id, timestamp, waypoint.annotations.name))
 
         # Determine how many waypoints have the same short code.
         short_code = id_to_short_code(waypoint.id)
@@ -85,7 +90,8 @@ def update_waypoints_and_edges(graph, localization_id, do_print=True):
 
     # Sort the set of waypoints by their creation timestamp. If the creation timestamp is unavailable,
     # fallback to sorting by annotation name.
-    waypoint_to_timestamp = sorted(waypoint_to_timestamp, key=lambda x: (x[1], x[2]))
+    waypoint_to_timestamp = sorted(waypoint_to_timestamp,
+                                   key=lambda x: (x[1], x[2]))
 
     # Print out the waypoints name, id, and short code in an ordered sorted by the timestamp from
     # when the waypoint was created.
@@ -116,10 +122,12 @@ def sort_waypoints_chrono(graph):
             # Must be operating on an older graph nav map, since the creation_time is not
             # available within the waypoint annotations message.
             pass
-        waypoint_to_timestamp.append((waypoint.id, timestamp, waypoint.annotations.name))
+        waypoint_to_timestamp.append(
+            (waypoint.id, timestamp, waypoint.annotations.name))
 
     # Sort the set of waypoints by their creation timestamp. If the creation timestamp is unavailable,
     # fallback to sorting by annotation name.
-    waypoint_to_timestamp = sorted(waypoint_to_timestamp, key=lambda x: (x[1], x[2]))
+    waypoint_to_timestamp = sorted(waypoint_to_timestamp,
+                                   key=lambda x: (x[1], x[2]))
 
     return waypoint_to_timestamp

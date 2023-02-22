@@ -1,6 +1,7 @@
 [run]
 omit =
     predicators/third_party/**
+    predicators/spot_utils/**
 
 [report]
 # Regexes for lines to exclude from consideration

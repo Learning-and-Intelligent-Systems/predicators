@@ -15,9 +15,9 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
 from predicators.option_model import _OptionModelBase, create_option_model
 from predicators.planning import PlanningFailure, PlanningTimeout, sesame_plan
 from predicators.settings import CFG
+from predicators.spot_utils.spot_utils import SpotControllers
 from predicators.structs import NSRT, Action, Metrics, ParameterizedOption, \
     Predicate, State, Task, Type, _Option
-from predicators.spot_utils.spot_utils import SpotControllers
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -56,7 +56,7 @@ class BilevelPlanningApproach(BaseApproach):
         option_policy = utils.option_plan_to_policy(plan)
 
         if CFG.env == "realworld_spot":
-            spot_controllers =  SpotControllers()
+            spot_controllers = SpotControllers()
             for op in plan:
                 if op.name == 'MoveToSurface':
                     spot_controllers.navigateToController(op.objects)
@@ -66,7 +66,6 @@ class BilevelPlanningApproach(BaseApproach):
                     spot_controllers.graspController(op.objects)
                 elif op.name == 'PlaceCanOntop':
                     spot_controllers.placeOntopController(op.objects)
-                    
 
         def _policy(s: State) -> Action:
             try:

@@ -1,6 +1,8 @@
 """Setup script."""
 from setuptools import find_packages, setup
 
+path_to_myproject = "."
+
 setup(name="predicators",
       version="0.1.0",
       packages=find_packages(include=["predicators", "predicators.*"]),
@@ -10,7 +12,8 @@ setup(name="predicators",
           "pyperplan", "pathos", "requests", "slack_bolt", "pybullet>=3.2.0",
           "scikit-learn", "graphlib-backport", "openai", "pyyaml",
           "pylint==2.14.5", "types-PyYAML", "lisdf", "seaborn",
-          "smepy@git+https://github.com/sebdumancic/structure_mapping.git"
+          "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
+          "bosdyn-client >= 3.1", "opencv-python >= 3.4.2.17"
       ],
       include_package_data=True,
       extras_require={

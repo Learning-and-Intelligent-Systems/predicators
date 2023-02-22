@@ -91,8 +91,8 @@ class SpotEnv(BaseEnv):
             LiftedAtom(self._On, [can, surface]),
             LiftedAtom(self._HandEmpty, [spot])
         }
-        self._GraspCanOp = STRIPSOperator("GraspCan", [spot, can, surface], preconds,
-                                          add_effs, del_effs, set())
+        self._GraspCanOp = STRIPSOperator("GraspCan", [spot, can, surface],
+                                          preconds, add_effs, del_effs, set())
         # Place Can
         spot = Variable("?robot", self._robot_type)
         can = Variable("?can", self._can_type)
@@ -109,7 +109,7 @@ class SpotEnv(BaseEnv):
         self._PlaceCanOp = STRIPSOperator("PlaceCanOntop",
                                           [spot, can, surface], preconds,
                                           add_effs, del_effs, set())
-                                          
+
         self._strips_operators = {
             self._MoveToCanOp, self._MoveToSurfaceOp, self._GraspCanOp,
             self._PlaceCanOp

@@ -1,24 +1,26 @@
 import sys
 import time
 
-import cv2
-import numpy as np
-
 import bosdyn.client
 import bosdyn.client.estop
 import bosdyn.client.lease
 import bosdyn.client.util
-from bosdyn.api import estop_pb2, geometry_pb2, image_pb2, manipulation_api_pb2, arm_command_pb2, basic_command_pb2
+import cv2
+import numpy as np
+from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2, \
+    geometry_pb2, image_pb2, manipulation_api_pb2
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.frame_helpers import VISION_FRAME_NAME, get_vision_tform_body, math_helpers
+from bosdyn.client.frame_helpers import GRAV_ALIGNED_BODY_FRAME_NAME, \
+    ODOM_FRAME_NAME, VISION_FRAME_NAME, get_a_tform_b, get_vision_tform_body, \
+    math_helpers
 from bosdyn.client.image import ImageClient
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
-from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, blocking_stand, block_until_arm_arrives
+from bosdyn.client.robot_command import RobotCommandBuilder, \
+    RobotCommandClient, block_until_arm_arrives, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 
-from bosdyn.client.frame_helpers import GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, get_a_tform_b
-
-from predicators.spot_utils.helpers.graph_nav_command_line import GraphNavInterface
+from predicators.spot_utils.helpers.graph_nav_command_line import \
+    GraphNavInterface
 
 g_image_click = None
 g_image_display = None
@@ -38,10 +40,21 @@ graph_nav_loc_to_id = {
     "kitchen_counter_2": "wimpy-craw-HiGC+x9qFcALR.9.jLCyFg=="
 }
 
+
 class SpotControllers(object):
+
     def __init__(self) -> None:
-        self.config = type('Config', (object,), {'force_45_angle_grasp': False, 'force_horizontal_grasp': False, 'force_squeeze_grasp': False, 'force_top_down_grasp': True, 'hostname': '10.17.4.35', 'image_source': 'hand_color_image', 'verbose': False})
-        
+        self.config = type(
+            'Config', (object, ), {
+                'force_45_angle_grasp': False,
+                'force_horizontal_grasp': False,
+                'force_squeeze_grasp': False,
+                'force_top_down_grasp': True,
+                'hostname': '10.17.4.35',
+                'image_source': 'hand_color_image',
+                'verbose': False
+            })
+
         # See hello_spot.py for an explanation of these lines.
         bosdyn.client.util.setup_logging(self.config.verbose)
 
@@ -50,52 +63,57 @@ class SpotControllers(object):
         bosdyn.client.util.authenticate(self.robot)
         self.robot.time_sync.wait_for_sync()
 
-        assert self.robot.has_arm(), "Robot requires an arm to run this example."
+        assert self.robot.has_arm(
+        ), "Robot requires an arm to run this example."
 
         # Verify the robot is not estopped and that an external application has registered and holds
         # an estop endpoint.
         self.verify_estop(self.robot)
 
-        self.lease_client = self.robot.ensure_client(bosdyn.client.lease.LeaseClient.default_service_name)
-        self.robot_state_client = self.robot.ensure_client(RobotStateClient.default_service_name)
-        self.robot_command_client = self.robot.ensure_client(RobotCommandClient.default_service_name)
-        self.image_client = self.robot.ensure_client(ImageClient.default_service_name)
-        self.manipulation_api_client = self.robot.ensure_client(ManipulationApiClient.default_service_name)
+        self.lease_client = self.robot.ensure_client(
+            bosdyn.client.lease.LeaseClient.default_service_name)
+        self.robot_state_client = self.robot.ensure_client(
+            RobotStateClient.default_service_name)
+        self.robot_command_client = self.robot.ensure_client(
+            RobotCommandClient.default_service_name)
+        self.image_client = self.robot.ensure_client(
+            ImageClient.default_service_name)
+        self.manipulation_api_client = self.robot.ensure_client(
+            ManipulationApiClient.default_service_name)
 
-        self.lease_keepalive = bosdyn.client.lease.LeaseKeepAlive(self.lease_client,
-                                                                   must_acquire=True,
-                                                                   return_at_exit=True)
+        self.lease_keepalive = bosdyn.client.lease.LeaseKeepAlive(
+            self.lease_client, must_acquire=True, return_at_exit=True)
 
         # Create Graph Nav Command Line
         self.upload_filepath = "predicators/spot_utils/kitchen/downloaded_graph/"
-        self.graph_nav_command_line = GraphNavInterface(self.robot, self.upload_filepath, self.lease_client,
-                                                   self.lease_keepalive)
+        self.graph_nav_command_line = GraphNavInterface(
+            self.robot, self.upload_filepath, self.lease_client,
+            self.lease_keepalive)
 
         # Initializing Spot
-        self.robot.logger.info("Powering on robot... This may take a several seconds.")
+        self.robot.logger.info(
+            "Powering on robot... This may take a several seconds.")
         self.robot.power_on(timeout_sec=20)
         assert self.robot.is_powered_on(), "Robot power on failed."
 
         self.robot.logger.info("Commanding robot to stand...")
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
-    
 
     def navigateToController(self, objs):
         print("NavigateTo", objs)
-        
+
         id = ""
         if objs[1].name == 'soda_can':
-            id = graph_nav_loc_to_id['table_1'] #['kitchen_counter_1']
+            id = graph_nav_loc_to_id['table_1']  #['kitchen_counter_1']
         elif objs[1].name == 'counter':
-            id = graph_nav_loc_to_id['table_1'] #['kitchen_counter_1']
+            id = graph_nav_loc_to_id['table_1']  #['kitchen_counter_1']
         elif objs[1].name == 'snack_table':
-            id = graph_nav_loc_to_id['kitchen_counter_1'] #['table_1']
+            id = graph_nav_loc_to_id['kitchen_counter_1']  #['table_1']
         else:
             raise NotImplementedError()
 
         self.navigate_to(id)
-
 
     def graspController(self, objs):
         print("Grasp", objs)
@@ -106,7 +124,7 @@ class SpotControllers(object):
         self.hand_movement()
 
     def verify_estop(self, robot):
-        """Verify the robot is not estopped"""
+        """Verify the robot is not estopped."""
 
         client = robot.ensure_client(EstopClient.default_service_name)
         if client.get_status().stop_level != estop_pb2.ESTOP_LEVEL_NONE:
@@ -114,7 +132,7 @@ class SpotControllers(object):
             " estop SDK example, to configure E-Stop."
             robot.logger.error(error_message)
             raise Exception(error_message)
-    
+
     def cv_mouse_callback(self, event, x, y, flags, param):
         global g_image_click, g_image_display
         clone = g_image_display.copy()
@@ -190,7 +208,8 @@ class SpotControllers(object):
 
             # First, get the robot's position in the world.
             robot_state = robot_state_client.get_robot_state()
-            vision_T_body = get_vision_tform_body(robot_state.kinematic_state.transforms_snapshot)
+            vision_T_body = get_vision_tform_body(
+                robot_state.kinematic_state.transforms_snapshot)
 
             # Rotation from the body to our desired grasp.
             body_Q_grasp = math_helpers.Quat.from_pitch(0.785398)  # 45 degrees
@@ -198,7 +217,8 @@ class SpotControllers(object):
 
             # Turn into a proto
             constraint = grasp.grasp_params.allowable_orientation.add()
-            constraint.rotation_with_tolerance.rotation_ewrt_frame.CopyFrom(vision_Q_grasp.to_proto())
+            constraint.rotation_with_tolerance.rotation_ewrt_frame.CopyFrom(
+                vision_Q_grasp.to_proto())
 
             # We'll accept anything within +/- 10 degrees
             constraint.rotation_with_tolerance.threshold_radians = 0.17
@@ -211,13 +231,16 @@ class SpotControllers(object):
         return grasp
 
     def arm_object_grasp(self):
-        """A simple example of using the Boston Dynamics API to command Spot's arm."""
+        """A simple example of using the Boston Dynamics API to command Spot's
+        arm."""
         assert self.robot.is_powered_on(), "Robot power on failed."
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
 
         # Take a picture with a camera
-        self.robot.logger.info('Getting an image from: ' + self.config.image_source)
-        image_responses = self.image_client.get_image_from_sources([self.config.image_source])
+        self.robot.logger.info('Getting an image from: ' +
+                               self.config.image_source)
+        image_responses = self.image_client.get_image_from_sources(
+            [self.config.image_source])
 
         if len(image_responses) != 1:
             print('Got invalid number of images: ' + str(len(image_responses)))
@@ -251,14 +274,16 @@ class SpotControllers(object):
                 print('"q" pressed, exiting.')
                 exit(0)
 
-        self.robot.logger.info('Picking object at image location (' + str(g_image_click[0]) + ', ' +
-                        str(g_image_click[1]) + ')')
+        self.robot.logger.info('Picking object at image location (' +
+                               str(g_image_click[0]) + ', ' +
+                               str(g_image_click[1]) + ')')
 
         pick_vec = geometry_pb2.Vec2(x=g_image_click[0], y=g_image_click[1])
 
         # Build the proto
         grasp = manipulation_api_pb2.PickObjectInImage(
-            pixel_xy=pick_vec, transforms_snapshot_for_camera=image.shot.transforms_snapshot,
+            pixel_xy=pick_vec,
+            transforms_snapshot_for_camera=image.shot.transforms_snapshot,
             frame_name_image_sensor=image.shot.frame_name_image_sensor,
             camera_model=image.source.pinhole)
 
@@ -266,7 +291,8 @@ class SpotControllers(object):
         grasp = self.add_grasp_constraint(grasp, self.robot_state_client)
 
         # Ask the robot to pick up the object
-        grasp_request = manipulation_api_pb2.ManipulationApiRequest(pick_object_in_image=grasp)
+        grasp_request = manipulation_api_pb2.ManipulationApiRequest(
+            pick_object_in_image=grasp)
 
         # Send the request
         cmd_response = self.manipulation_api_client.manipulation_api_command(
@@ -281,8 +307,10 @@ class SpotControllers(object):
             response = self.manipulation_api_client.manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            print('Current state: ',
-                manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state))
+            print(
+                'Current state: ',
+                manipulation_api_pb2.ManipulationFeedbackState.Name(
+                    response.current_state))
 
             if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
                 break
@@ -294,7 +322,8 @@ class SpotControllers(object):
         unstow_command_id = self.robot_command_client.robot_command(unstow)
 
         self.robot.logger.info("Unstow command issued.")
-        block_until_arm_arrives(self.robot_command_client, unstow_command_id, 3.0)
+        block_until_arm_arrives(self.robot_command_client, unstow_command_id,
+                                3.0)
 
         time.sleep(1.0)
 
@@ -302,16 +331,20 @@ class SpotControllers(object):
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         stow_command_id = self.robot_command_client.robot_command(stow_cmd)
         self.robot.logger.info("Stow command issued.")
-        block_until_arm_arrives(self.robot_command_client, stow_command_id, 3.0)
+        block_until_arm_arrives(self.robot_command_client, stow_command_id,
+                                3.0)
 
         self.robot.logger.info('Finished grasp.')
 
         time.sleep(2.0)
 
-    def block_until_arm_arrives_with_prints(self, robot, command_client, cmd_id):
-        """Block until the arm arrives at the goal and print the distance remaining.
-            Note: a version of this function is available as a helper in robot_command
-            without the prints.
+    def block_until_arm_arrives_with_prints(self, robot, command_client,
+                                            cmd_id):
+        """Block until the arm arrives at the goal and print the distance
+        remaining.
+
+        Note: a version of this function is available as a helper in robot_command
+        without the prints.
         """
         while True:
             feedback_resp = command_client.robot_command_feedback(cmd_id)
@@ -328,9 +361,9 @@ class SpotControllers(object):
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
 
         # Rotation as a quaternion
-        qw = np.cos((np.pi/4)/2)
+        qw = np.cos((np.pi / 4) / 2)
         qx = 0
-        qy = np.sin((np.pi/4)/2)
+        qy = np.sin((np.pi / 4) / 2)
         qz = 0
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
@@ -343,48 +376,60 @@ class SpotControllers(object):
         z = self.hand_z
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
-        flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body, rotation=flat_body_Q_hand)
+        flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body,
+                                                rotation=flat_body_Q_hand)
 
         robot_state = self.robot_state_client.get_robot_state()
-        odom_T_flat_body = get_a_tform_b(robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
-                                            GRAV_ALIGNED_BODY_FRAME_NAME)
+        odom_T_flat_body = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
+            GRAV_ALIGNED_BODY_FRAME_NAME)
 
-        odom_T_hand = odom_T_flat_body * math_helpers.SE3Pose.from_obj(flat_body_T_hand)
+        odom_T_hand = odom_T_flat_body * math_helpers.SE3Pose.from_obj(
+            flat_body_T_hand)
 
         # duration in seconds
         seconds = 2
 
-        arm_command = RobotCommandBuilder.arm_pose_command(odom_T_hand.x, odom_T_hand.y, odom_T_hand.z,
-                                                            odom_T_hand.rot.w, odom_T_hand.rot.x, odom_T_hand.rot.y,
-                                                            odom_T_hand.rot.z, ODOM_FRAME_NAME, seconds)
+        arm_command = RobotCommandBuilder.arm_pose_command(
+            odom_T_hand.x, odom_T_hand.y, odom_T_hand.z, odom_T_hand.rot.w,
+            odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z,
+            ODOM_FRAME_NAME, seconds)
 
         # Make the open gripper RobotCommand
-        gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(0.0)
+        gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(
+            0.0)
 
         # Combine the arm and gripper commands into one RobotCommand
-        command = RobotCommandBuilder.build_synchro_command(gripper_command, arm_command)
+        command = RobotCommandBuilder.build_synchro_command(
+            gripper_command, arm_command)
 
         # Send the request
         cmd_id = self.robot_command_client.robot_command(command)
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
-        self.block_until_arm_arrives_with_prints(self.robot, self.robot_command_client, cmd_id)
-        
+        self.block_until_arm_arrives_with_prints(self.robot,
+                                                 self.robot_command_client,
+                                                 cmd_id)
+
         time.sleep(2)
 
         # Make the open gripper RobotCommand
-        gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(1.0)
+        gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(
+            1.0)
 
         # Combine the arm and gripper commands into one RobotCommand
-        command = RobotCommandBuilder.build_synchro_command(gripper_command, arm_command)
+        command = RobotCommandBuilder.build_synchro_command(
+            gripper_command, arm_command)
 
         # Send the request
         cmd_id = self.robot_command_client.robot_command(command)
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
-        self.block_until_arm_arrives_with_prints(self.robot, self.robot_command_client, cmd_id)
+        self.block_until_arm_arrives_with_prints(self.robot,
+                                                 self.robot_command_client,
+                                                 cmd_id)
 
         time.sleep(2)
 
@@ -393,19 +438,22 @@ class SpotControllers(object):
             # (1) Initialize location
             req_type = '1'
             args = []
-            cmd_func = self.graph_nav_command_line._command_dictionary[req_type]
+            cmd_func = self.graph_nav_command_line._command_dictionary[
+                req_type]
             cmd_func(args)
 
             # (2) Get localization state
             req_type = '2'
             args = []
-            cmd_func = self.graph_nav_command_line._command_dictionary[req_type]
+            cmd_func = self.graph_nav_command_line._command_dictionary[
+                req_type]
             cmd_func(args)
 
             # (4) Navigate to
             req_type = '4'
             args = [id]
-            cmd_func = self.graph_nav_command_line._command_dictionary[req_type]
+            cmd_func = self.graph_nav_command_line._command_dictionary[
+                req_type]
             cmd_func(args)
 
         except Exception as e:

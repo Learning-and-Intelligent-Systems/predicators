@@ -10,7 +10,7 @@ extension-pkg-whitelist=numpy,pybullet,torch,tensorflow,pyrealsense2
 ignore=CVS
 
 # Add paths to the blacklist.
-ignore-paths=predicators/envs/assets,predicators/third_party
+ignore-paths=predicators/envs/assets,predicators/third_party,predicators/spot_utils/kitchen,predicators/spot_utils/prebuilt
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
