@@ -1,3 +1,5 @@
+"""Simple pick-place-move environment for the Boston Dynamics Spot Robot."""
+
 from typing import List, Optional, Set
 
 import matplotlib
@@ -18,8 +20,9 @@ from predicators.structs import Action, GroundAtom, LiftedAtom, Object, \
 class SpotEnv(BaseEnv):
     """An environment containing tasks for a real Spot robot to execute.
 
-    (TODO: description of current simple setup and
-    mechanics of env).
+    Currently, the robot can move to specific 'surfaces' (e.g. tables),
+    pick objects from on top these surfaces, and then place them
+    elsewhere.
     """
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -117,8 +120,8 @@ class SpotEnv(BaseEnv):
         self._ordered_strips_operators = sorted(self._strips_operators)
 
         # Options (aka Controllers)
-        # Note that these are 1:1 with the operators; in the future, we will actually
-        # implement these with robot-specific API calls.
+        # Note that these are 1:1 with the operators; in the future,
+        # we will actually implement these with robot-specific API calls.
         self._options = {
             _strips_operator_to_parameterized_option(
                 op, self._ordered_strips_operators, self.action_space.shape[0])

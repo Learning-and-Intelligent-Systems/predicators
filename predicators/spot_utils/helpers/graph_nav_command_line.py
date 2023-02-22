@@ -23,10 +23,10 @@ from bosdyn.client.robot_state import RobotStateClient
 from predicators.spot_utils.helpers import graph_nav_util
 
 
-class GraphNavInterface(object):
+class GraphNavInterface():
     """GraphNav service command line interface."""
 
-    def __init__(self, robot, upload_path, lease_client, lease_keepalive):
+    def __init__(self, robot, upload_path: str, lease_client, lease_keepalive) -> None:
         self._robot = robot
 
         # Force trigger timesync.
@@ -86,7 +86,7 @@ class GraphNavInterface(object):
         # Stuff that is set in start()
         self._robot_id = None
 
-    def start(self):
+    def start(self) -> None:
         """Begin communication with the robot."""
         self._robot_id = self._robot.get_id()
 
@@ -337,7 +337,7 @@ class GraphNavInterface(object):
             # Navigation command is not complete yet.
             return False
 
-    def _on_quit(self):
+    def _on_quit(self) -> None:
         """Cleanup on quit from the command line interface."""
         pass
 
@@ -348,7 +348,7 @@ class GraphNavInterface(object):
             self.add_message("Failed {}: {}".format(desc, err))
             return None
 
-    def run(self):
+    def run(self) -> None:
         """Main loop for the command line interface."""
         self.start()
         while True:

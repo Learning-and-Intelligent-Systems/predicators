@@ -1,4 +1,7 @@
-import sys
+"""Utility functions to interface with the Boston Dynamics Spot robot."""
+
+from predicators.structs import Object
+from typing import Any, Sequence
 import time
 
 import bosdyn.client
@@ -41,33 +44,41 @@ graph_nav_loc_to_id = {
 }
 
 
-class SpotControllers(object):
+class SpotControllers():
+    """Implementation of interface with low-level controllers for the Spot
+    robot."""
 
     def __init__(self) -> None:
-        self.config = type(
-            'Config', (object, ), {
-                'force_45_angle_grasp': False,
-                'force_horizontal_grasp': False,
-                'force_squeeze_grasp': False,
-                'force_top_down_grasp': True,
-                'hostname': '10.17.4.35',
-                'image_source': 'hand_color_image',
-                'verbose': False
-            })
+        # self.config = {
+        #         'force_45_angle_grasp': False,
+        #         'force_horizontal_grasp': False,
+        #         'force_squeeze_grasp': False,
+        #         'force_top_down_grasp': True,
+        #         'hostname': '10.17.4.35',
+        #         'image_source': 'hand_color_image',
+        #         'verbose': False
+        #     }
+        self._hostname = "10.17.4.35"
+        self._verbose = False
+        self._force_45_angle_grasp = False
+        self._force_horizontal_grasp = False
+        self._force_squeeze_grasp = False
+        self._force_top_down_grasp = True
+        self._image_source = "hand_color_image"
 
         # See hello_spot.py for an explanation of these lines.
-        bosdyn.client.util.setup_logging(self.config.verbose)
+        bosdyn.client.util.setup_logging(self._verbose)
 
         self.sdk = bosdyn.client.create_standard_sdk('ArmObjectGraspClient')
-        self.robot = self.sdk.create_robot(self.config.hostname)
+        self.robot = self.sdk.create_robot(self._hostname)
         bosdyn.client.util.authenticate(self.robot)
         self.robot.time_sync.wait_for_sync()
 
         assert self.robot.has_arm(
         ), "Robot requires an arm to run this example."
 
-        # Verify the robot is not estopped and that an external application has registered and holds
-        # an estop endpoint.
+        # Verify the robot is not estopped and that an external application has
+        # registered and holds an estop endpoint.
         self.verify_estop(self.robot)
 
         self.lease_client = self.robot.ensure_client(
@@ -80,12 +91,12 @@ class SpotControllers(object):
             ImageClient.default_service_name)
         self.manipulation_api_client = self.robot.ensure_client(
             ManipulationApiClient.default_service_name)
-
         self.lease_keepalive = bosdyn.client.lease.LeaseKeepAlive(
             self.lease_client, must_acquire=True, return_at_exit=True)
 
         # Create Graph Nav Command Line
-        self.upload_filepath = "predicators/spot_utils/kitchen/downloaded_graph/"
+        self.upload_filepath = "predicators/spot_utils/kitchen/" + \
+            "downloaded_graph/"
         self.graph_nav_command_line = GraphNavInterface(
             self.robot, self.upload_filepath, self.lease_client,
             self.lease_keepalive)
@@ -100,40 +111,48 @@ class SpotControllers(object):
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def navigateToController(self, objs):
+    def navigateToController(self, objs: Sequence[Object]) -> None:
+        """Controller that navigates to specific pre-specified locations."""
         print("NavigateTo", objs)
 
-        id = ""
+        waypoint_id = ""
         if objs[1].name == 'soda_can':
-            id = graph_nav_loc_to_id['table_1']  #['kitchen_counter_1']
+            waypoint_id = graph_nav_loc_to_id[
+                'table_1']  #['kitchen_counter_1']
         elif objs[1].name == 'counter':
-            id = graph_nav_loc_to_id['table_1']  #['kitchen_counter_1']
+            waypoint_id = graph_nav_loc_to_id[
+                'table_1']  #['kitchen_counter_1']
         elif objs[1].name == 'snack_table':
-            id = graph_nav_loc_to_id['kitchen_counter_1']  #['table_1']
+            waypoint_id = graph_nav_loc_to_id[
+                'kitchen_counter_1']  #['table_1']
         else:
             raise NotImplementedError()
+        self.navigate_to(waypoint_id)
 
-        self.navigate_to(id)
-
-    def graspController(self, objs):
+    def graspController(self, objs: Sequence[Object]) -> None:
+        """Wrapper method for grasp controller."""
         print("Grasp", objs)
         self.arm_object_grasp()
 
-    def placeOntopController(self, objs):
+    def placeOntopController(self, objs: Sequence[Object]) -> None:
+        """Wrapper method for placeOnTop controller."""
         print("PlaceOntop", objs)
         self.hand_movement()
 
-    def verify_estop(self, robot):
+    def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
 
         client = robot.ensure_client(EstopClient.default_service_name)
         if client.get_status().stop_level != estop_pb2.ESTOP_LEVEL_NONE:
-            error_message = "Robot is estopped. Please use an external E-Stop client, such as the" \
-            " estop SDK example, to configure E-Stop."
+            error_message = "Robot is estopped. Please use an external" + \
+                " E-Stop client, such as the estop SDK example, to" + \
+                " configure E-Stop."
             robot.logger.error(error_message)
             raise Exception(error_message)
 
-    def cv_mouse_callback(self, event, x, y, flags, param):
+    def cv_mouse_callback(self, event, x, y):
+        """Callback for the click-to-grasp functionality with the Spot API's
+        grasping interface."""
         global g_image_click, g_image_display
         clone = g_image_display.copy()
         if event == cv2.EVENT_LBUTTONUP:
@@ -151,23 +170,27 @@ class SpotControllers(object):
             cv2.imshow(image_title, clone)
 
     def add_grasp_constraint(self, grasp, robot_state_client):
+        """Method to constrain desirable grasps."""
         # There are 3 types of constraints:
         #   1. Vector alignment
         #   2. Full rotation
         #   3. Squeeze grasp
         #
-        # You can specify more than one if you want and they will be OR'ed together.
+        # You can specify more than one if you want and they will be
+        # OR'ed together.
 
         # For these options, we'll use a vector alignment constraint.
-        use_vector_constraint = self.config.force_top_down_grasp or self.config.force_horizontal_grasp
+        use_vector_constraint = self._force_top_down_grasp or \
+            self._force_horizontal_grasp
 
         # Specify the frame we're using.
         grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME
 
         if use_vector_constraint:
-            if self.config.force_top_down_grasp:
-                # Add a constraint that requests that the x-axis of the gripper is pointing in the
-                # negative-z direction in the vision frame.
+            if self._force_top_down_grasp:
+                # Add a constraint that requests that the x-axis of the
+                # gripper is pointing in the negative-z direction in the
+                # vision frame.
 
                 # The axis on the gripper is the x-axis.
                 axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=1, y=0, z=0)
@@ -175,9 +198,12 @@ class SpotControllers(object):
                 # The axis in the vision frame is the negative z-axis
                 axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=-1)
 
-            if self.config.force_horizontal_grasp:
-                # Add a constraint that requests that the y-axis of the gripper is pointing in the
-                # positive-z direction in the vision frame.  That means that the gripper is constrained to be rolled 90 degrees and pointed at the horizon.
+            if self._force_horizontal_grasp:
+                # Add a constraint that requests that the y-axis of the
+                # gripper is pointing in the positive-z direction in the
+                # vision frame.  That means that the gripper is
+                # constrained to be rolled 90 degrees and pointed at the
+                # horizon.
 
                 # The axis on the gripper is the y-axis.
                 axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=0, y=1, z=0)
@@ -187,23 +213,27 @@ class SpotControllers(object):
 
             # Add the vector constraint to our proto.
             constraint = grasp.grasp_params.allowable_orientation.add()
-            constraint.vector_alignment_with_tolerance.axis_on_gripper_ewrt_gripper.CopyFrom(
-                axis_on_gripper_ewrt_gripper)
-            constraint.vector_alignment_with_tolerance.axis_to_align_with_ewrt_frame.CopyFrom(
-                axis_to_align_with_ewrt_vo)
+            constraint.vector_alignment_with_tolerance.\
+                axis_on_gripper_ewrt_gripper.\
+                    CopyFrom(axis_on_gripper_ewrt_gripper)
+            constraint.vector_alignment_with_tolerance.\
+                axis_to_align_with_ewrt_frame.\
+                    CopyFrom(axis_to_align_with_ewrt_vo)
 
-            # We'll take anything within about 10 degrees for top-down or horizontal grasps.
-            constraint.vector_alignment_with_tolerance.threshold_radians = 0.17
+            # We'll take anything within about 10 degrees for top-down or
+            # horizontal grasps.
+            constraint.vector_alignment_with_tolerance.\
+                threshold_radians = 0.17
 
-        elif self.config.force_45_angle_grasp:
-            # Demonstration of a RotationWithTolerance constraint.  This constraint allows you to
-            # specify a full orientation you want the hand to be in, along with a threshold.
-            #
-            # You might want this feature when grasping an object with known geometry and you want to
-            # make sure you grasp a specific part of it.
-            #
-            # Here, since we don't have anything in particular we want to grasp,  we'll specify an
-            # orientation that will have the hand aligned with robot and rotated down 45 degrees as an
+        elif self._force_45_angle_grasp:
+            # Demonstration of a RotationWithTolerance constraint.
+            # This constraint allows you to specify a full orientation you
+            # want the hand to be in, along with a threshold.
+            # You might want this feature when grasping an object with known
+            # geometry and you want to make sure you grasp a specific part
+            # of it. Here, since we don't have anything in particular we
+            # want to grasp,  we'll specify an orientation that will have the
+            # hand aligned with robot and rotated down 45 degrees as an
             # example.
 
             # First, get the robot's position in the world.
@@ -223,24 +253,23 @@ class SpotControllers(object):
             # We'll accept anything within +/- 10 degrees
             constraint.rotation_with_tolerance.threshold_radians = 0.17
 
-        elif self.config.force_squeeze_grasp:
+        elif self._force_squeeze_grasp:
             # Tell the robot to just squeeze on the ground at the given point.
             constraint = grasp.grasp_params.allowable_orientation.add()
             constraint.squeeze_grasp.SetInParent()
 
         return grasp
 
-    def arm_object_grasp(self):
+    def arm_object_grasp(self) -> None:
         """A simple example of using the Boston Dynamics API to command Spot's
         arm."""
         assert self.robot.is_powered_on(), "Robot power on failed."
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
 
         # Take a picture with a camera
-        self.robot.logger.info('Getting an image from: ' +
-                               self.config.image_source)
+        self.robot.logger.info('Getting an image from: ' + self._image_source)
         image_responses = self.image_client.get_image_from_sources(
-            [self.config.image_source])
+            [self._image_source])
 
         if len(image_responses) != 1:
             print('Got invalid number of images: ' + str(len(image_responses)))
@@ -248,11 +277,12 @@ class SpotControllers(object):
             assert False
 
         image = image_responses[0]
-        if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
-            dtype = np.uint16
+        if image.shot.image.pixel_format == image_pb2.Image.\
+            PIXEL_FORMAT_DEPTH_U16:
+            dtype = np.uint16  # type: ignore
         else:
-            dtype = np.uint8
-        img = np.fromstring(image.shot.image.data, dtype=dtype)
+            dtype = np.uint8  # type: ignore
+        img = np.fromstring(image.shot.image.data, dtype=dtype) # type: ignore
         if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
             img = img.reshape(image.shot.image.rows, image.shot.image.cols)
         else:
@@ -287,7 +317,8 @@ class SpotControllers(object):
             frame_name_image_sensor=image.shot.frame_name_image_sensor,
             camera_model=image.source.pinhole)
 
-        # Optionally add a grasp constraint.  This lets you tell the robot you only want top-down grasps or side-on grasps.
+        # Optionally add a grasp constraint.  This lets you tell the robot you
+        # only want top-down grasps or side-on grasps.
         grasp = self.add_grasp_constraint(grasp, self.robot_state_client)
 
         # Ask the robot to pick up the object
@@ -300,11 +331,13 @@ class SpotControllers(object):
 
         # Get feedback from the robot
         while True:
-            feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(
-                manipulation_cmd_id=cmd_response.manipulation_cmd_id)
+            feedback_request = manipulation_api_pb2.\
+                ManipulationApiFeedbackRequest(manipulation_cmd_id=\
+                    cmd_response.manipulation_cmd_id)
 
             # Send the request
-            response = self.manipulation_api_client.manipulation_api_feedback_command(
+            response = self.manipulation_api_client.\
+                manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
             print(
@@ -312,7 +345,10 @@ class SpotControllers(object):
                 manipulation_api_pb2.ManipulationFeedbackState.Name(
                     response.current_state))
 
-            if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
+            if response.current_state == manipulation_api_pb2.\
+                MANIP_STATE_GRASP_SUCCEEDED or \
+                response.current_state == manipulation_api_pb2.\
+                    MANIP_STATE_GRASP_FAILED:
                 break
 
         # Unstow the arm
@@ -343,19 +379,21 @@ class SpotControllers(object):
         """Block until the arm arrives at the goal and print the distance
         remaining.
 
-        Note: a version of this function is available as a helper in robot_command
-        without the prints.
+        Note: a version of this function is available as a helper in
+        robot_command without the prints.
         """
         while True:
             feedback_resp = command_client.robot_command_feedback(cmd_id)
 
-            if feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.status == \
-                arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_COMPLETE:
+            if feedback_resp.feedback.synchronized_feedback.\
+                arm_command_feedback.arm_cartesian_feedback.status == \
+                arm_command_pb2.ArmCartesianCommand.Feedback.\
+                    STATUS_TRAJECTORY_COMPLETE:
                 robot.logger.info('Move complete.')
                 break
             time.sleep(0.1)
 
-    def hand_movement(self):
+    def hand_movement(self) -> None:
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
@@ -370,7 +408,8 @@ class SpotControllers(object):
         self.hand_x, self.hand_y, self.hand_z = (0.65, 0, 0.45)
 
         # Make the arm pose RobotCommand
-        # Build a position to move the arm to (in meters, relative to and expressed in the gravity aligned body frame).
+        # Build a position to move the arm to (in meters, relative to and
+        # expressed in the gravity aligned body frame).
         x = self.hand_x
         y = self.hand_y
         z = self.hand_z
@@ -396,8 +435,8 @@ class SpotControllers(object):
             ODOM_FRAME_NAME, seconds)
 
         # Make the open gripper RobotCommand
-        gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(
-            0.0)
+        gripper_command = RobotCommandBuilder.\
+            claw_gripper_open_fraction_command(0.0)
 
         # Combine the arm and gripper commands into one RobotCommand
         command = RobotCommandBuilder.build_synchro_command(
@@ -415,8 +454,8 @@ class SpotControllers(object):
         time.sleep(2)
 
         # Make the open gripper RobotCommand
-        gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(
-            1.0)
+        gripper_command = RobotCommandBuilder.\
+            claw_gripper_open_fraction_command(1.0)
 
         # Combine the arm and gripper commands into one RobotCommand
         command = RobotCommandBuilder.build_synchro_command(
@@ -433,7 +472,7 @@ class SpotControllers(object):
 
         time.sleep(2)
 
-    def navigate_to(self, id):
+    def navigate_to(self, waypoint_id: str) -> None:
         try:
             # (1) Initialize location
             req_type = '1'
@@ -451,7 +490,7 @@ class SpotControllers(object):
 
             # (4) Navigate to
             req_type = '4'
-            args = [id]
+            args = [waypoint_id]
             cmd_func = self.graph_nav_command_line._command_dictionary[
                 req_type]
             cmd_func(args)
