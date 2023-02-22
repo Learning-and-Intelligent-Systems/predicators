@@ -141,9 +141,6 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         # low-level ground atoms sequence after segmentation.
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         del pruned_atom_data
-        timeout = float('inf')
-        if CFG.strips_learner == "pnad_search":
-            timeout = CFG.pnad_search_timeout
         try:
             pnads = learn_strips_operators(low_level_trajs,
                                            self._train_tasks,
