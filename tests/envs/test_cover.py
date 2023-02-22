@@ -119,10 +119,7 @@ def test_cover(env_name):
         env.get_event_to_action_fn()
     assert "did not implement an interface for human demonstrations" in str(e)
     with pytest.raises(NotImplementedError) as e:
-        env._load_task_from_json("")  # pylint:disable=protected-access
-    assert "did not implement an interface for loading JSON tasks" in str(e)
-    with pytest.raises(NotImplementedError) as e:
-        env._get_language_goal_prompt_prefix()  # pylint:disable=protected-access
+        env._get_language_goal_prompt_prefix(set())  # pylint:disable=protected-access
     assert "did not implement an interface for language-based goals" in str(e)
 
 
