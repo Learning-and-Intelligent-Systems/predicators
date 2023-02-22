@@ -7,10 +7,12 @@ import contextlib
 import functools
 import gc
 import heapq as hq
+import importlib
 import io
 import itertools
 import logging
 import os
+import pkgutil
 import re
 import subprocess
 import sys
@@ -2635,6 +2637,20 @@ def get_third_party_path() -> str:
     predicators_dir = module_path.parent
     third_party_dir_path = os.path.join(predicators_dir, "third_party")
     return third_party_dir_path
+
+
+def import_submodules(path: List[str], name: str) -> None:
+    """Load all submodules on the given path.
+
+    Useful for finding subclasses of an abstract base class
+    automatically.
+    """
+    if not TYPE_CHECKING:
+        for _, module_name, _ in pkgutil.walk_packages(path):
+            if "__init__" not in module_name:
+                # Important! We use an absolute import here to avoid issues
+                # with isinstance checking when using relative imports.
+                importlib.import_module(f"{name}.{module_name}")
 
 
 def update_config(args: Dict[str, Any]) -> None:
