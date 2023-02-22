@@ -2990,6 +2990,7 @@ def _get_spot_env_gt_nsrts(name: str) -> Set[NSRT]:
         nsrts.add(nsrt)
     return nsrts
 
+
 def _get_sandwich_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for SandwichEnv."""
     robot_type, ingredient_type, board_type, holder_type = _get_types_by_names(

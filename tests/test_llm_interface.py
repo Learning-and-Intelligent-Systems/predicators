@@ -10,6 +10,7 @@ from predicators.llm_interface import LargeLanguageModel, OpenAILLM
 
 
 class _DummyLLM(LargeLanguageModel):
+
     def get_id(self):
         return "dummy"
 

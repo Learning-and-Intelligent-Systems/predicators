@@ -28,6 +28,7 @@ class _DummyFailureApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
         def _policy(s: State) -> Action:
             raise ApproachFailure("Option plan exhausted.")
 
@@ -63,6 +64,7 @@ class _DummyExecutionTimeoutApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
         def _policy(s: State) -> Action:
             raise ApproachTimeout("Policy timed out.")
 

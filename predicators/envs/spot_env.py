@@ -1,6 +1,6 @@
 """Simple pick-place-move environment for the Boston Dynamics Spot Robot."""
 
-from typing import List, Optional, Set
+from typing import Collection, List, Optional, Set
 
 import matplotlib
 import numpy as np
@@ -217,3 +217,20 @@ class SpotEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
+
+    def _get_language_goal_prompt_prefix(self,
+                                         object_names: Collection[str]) -> str:
+        # pylint:disable=line-too-long
+        available_predicates = ", ".join(
+            [p.name for p in sorted(self.goal_predicates)])
+        available_objects = ", ".join(sorted(object_names))
+        # We could extract the object names, but this is simpler.
+        assert {"spot", "counter", "snack_table",
+                "soda_can"}.issubset(object_names)
+        prompt = f"""# The available predicates are: {available_predicates}
+# The available objects are: {available_objects}
+# Use the available predicates and objects to convert natural language goals into JSON goals.
+        
+# Hey spot, can you move the soda can to the snack table?
+{{"On": [["soda_can", "snack_table"]]}}
+"""

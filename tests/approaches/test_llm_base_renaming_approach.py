@@ -8,6 +8,7 @@ from predicators.envs import create_new_env
 
 
 class _MockLLMBaseRenamingApproach(LLMBaseRenamingApproach):
+
     @classmethod
     def get_name(cls):
         return "mock_llm_renaming"

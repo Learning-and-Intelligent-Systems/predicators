@@ -429,6 +429,7 @@ def test_option_memory_correct():
     """
 
     def _make_option():
+
         def initiable(s, m, o, p):
             del s, o, p  # unused
             m["value"] = 0.0  # initialize value
