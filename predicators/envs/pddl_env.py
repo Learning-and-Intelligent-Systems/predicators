@@ -674,17 +674,14 @@ def _strips_operator_to_parameterized_option(
         act_arr[1:(len(obj_idxs) + 1)] = obj_idxs
         return Action(act_arr)
 
-    def initiable(s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
-        del m, p  # unused
-        assert isinstance(s, _PDDLEnvState)
-        ground_atoms = s.get_ground_atoms()
-        ground_op = op.ground(tuple(o))
-        return ground_op.preconditions.issubset(ground_atoms)
-
-    return utils.SingletonParameterizedOption(name,
-                                              policy,
-                                              types,
-                                              initiable=initiable)
+    # Note: the initiable is deliberately always True. This only makes a
+    # difference for exploration. If the initiable took into account the
+    # ground-truth preconditions, that would make exploration too easy,
+    # because the options would only ever get used in states where their
+    # preconditions hold. Instead, with always-True initiable, there is a
+    # difficult exploration problem because most options will have trivial
+    # effects on the environment.
+    return utils.SingletonParameterizedOption(name, policy, types)
 
 
 @functools.lru_cache(maxsize=None)

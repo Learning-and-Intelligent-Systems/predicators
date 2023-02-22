@@ -24,11 +24,13 @@ from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
     RepeatedNextToEnv, RepeatedNextToSingleOptionEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
+from predicators.envs.sandwich import SandwichEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
 from predicators.envs.stick_button import StickButtonEnv
 from predicators.envs.tools import ToolsEnv
-from predicators.envs.touch_point import TouchPointEnv
+from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
+    TouchPointEnvParam
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OracleOptionModel
 from predicators.settings import CFG
@@ -42,7 +44,7 @@ ENV_NAME_AND_CLS = [
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
     ("narrow_passage", NarrowPassageEnv), ("painting", PaintingEnv),
-    ("tools", ToolsEnv), ("playroom", PlayroomEnv),
+    ("sandwich", SandwichEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
@@ -54,6 +56,7 @@ ENV_NAME_AND_CLS = [
     ("pddl_delivery_procedural_tasks", ProceduralTasksDeliveryPDDLEnv),
     ("pddl_easy_delivery_procedural_tasks",
      ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
+    ("touch_point_param", TouchPointEnvParam), ("touch_open", TouchOpenEnv),
     ("stick_button", StickButtonEnv), ("doors", DoorsEnv),
     ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv)
 ]
@@ -147,7 +150,13 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_max_obstacles_per_room": 1,
 }]
 EXTRA_ARGS_ORACLE_APPROACH["narrow_passage"] = [{
-    "narrow_passage_passage_width_padding":
+    "narrow_passage_door_width_padding_lb":
+    0.075,
+    "narrow_passage_door_width_padding_ub":
+    0.075,
+    "narrow_passage_passage_width_padding_lb":
+    0.075,
+    "narrow_passage_passage_width_padding_ub":
     0.075,
 }]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [

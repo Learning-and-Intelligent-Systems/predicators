@@ -13,7 +13,8 @@ setup(name="predicators",
           "scikit-learn", "graphlib-backport", "openai", "pyyaml",
           "pylint==2.14.5", "types-PyYAML", "lisdf", "seaborn",
           "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
-          "bosdyn-client >= 3.1", "opencv-python >= 3.4.2.17"
+          "bosdyn-client >= 3.1", "opencv-python >= 3.4.2.17",
+          "pg3@git+https://github.com/tomsilver/pg3.git",
       ],
       include_package_data=True,
       extras_require={

@@ -2,9 +2,10 @@
 
 from typing import List, Set
 
+from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, _GroundNSRT
+from predicators.structs import GroundAtom, State, _GroundNSRT
 
 
 class OracleRefinementEstimator(BaseRefinementEstimator):
@@ -15,11 +16,16 @@ class OracleRefinementEstimator(BaseRefinementEstimator):
     def get_name(cls) -> str:
         return "oracle"
 
-    def get_cost(self, skeleton: List[_GroundNSRT],
+    @property
+    def is_learning_based(self) -> bool:
+        return False
+
+    def get_cost(self, initial_state: State, skeleton: List[_GroundNSRT],
                  atoms_sequence: List[Set[GroundAtom]]) -> float:
         env_name = CFG.env
         if env_name == "narrow_passage":
-            return narrow_passage_oracle_estimator(skeleton, atoms_sequence)
+            return narrow_passage_oracle_estimator(initial_state, skeleton,
+                                                   atoms_sequence)
 
         # Given environment doesn't have an implemented oracle estimator
         raise NotImplementedError(
@@ -27,24 +33,32 @@ class OracleRefinementEstimator(BaseRefinementEstimator):
 
 
 def narrow_passage_oracle_estimator(
+    initial_state: State,
     skeleton: List[_GroundNSRT],
     atoms_sequence: List[Set[GroundAtom]],
 ) -> float:
     """Oracle refinement estimation function for narrow_passage env."""
     del atoms_sequence  # unused
 
-    # Hard-coded estimated num_samples needed to refine different operators
-    move_and_open_door = 1
-    move_through_door = 1
-    move_through_passage = 3
+    # Extract door and passage widths from the state
+    env = NarrowPassageEnv()
+    door_type, _, _, _, wall_type = sorted(env.types)
+    door, = initial_state.get_objects(door_type)
+    door_width = initial_state.get(door, "width")
+    _, middle_wall, right_wall = sorted(initial_state.get_objects(wall_type))
+    passage_x = initial_state.get(middle_wall, "x") + \
+                initial_state.get(middle_wall, "width")
+    passage_width = initial_state.get(right_wall, "x") - passage_x
+
+    # If the door is wider than the passage, then opening the door is
+    # beneficial. Otherwise, opening the door should be costly.
+    cost_of_open_door = -1 if door_width > passage_width else 1
 
     # Sum metric of difficulty over skeleton
     cost = 0
-    door_open = False
     for ground_nsrt in skeleton:
         if ground_nsrt.name == "MoveAndOpenDoor":
-            cost += move_and_open_door
-            door_open = True
+            cost += cost_of_open_door
         elif ground_nsrt.name == "MoveToTarget":
-            cost += move_through_door if door_open else move_through_passage
+            cost += 1
     return cost

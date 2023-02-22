@@ -6,7 +6,8 @@ import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.envs.touch_point import TouchPointEnv
+from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
+    TouchPointEnvParam
 from predicators.structs import Action
 
 
@@ -72,3 +73,88 @@ def test_touch_point():
     event.ydata = event.y
     assert isinstance(event_to_action(state, event), Action)
     plt.close()
+
+
+def test_touch_point_param():
+    """Tests for TouchPointEnvParam class."""
+    utils.reset_config({"env": "touch_point_param"})
+    env = TouchPointEnvParam()
+    task = env.get_train_tasks()[0]
+    state = task.init
+    env.render_state(state, task, caption="caption")
+    robot, target = sorted(state, key=lambda o: o.name)
+    state = utils.create_state_from_dict({
+        robot: {
+            "x": 0.5,
+            "y": 0.1,
+        },
+        target: {
+            "x": 0.7,
+            "y": 0.5,
+        }
+    })
+    goal_atom = list(task.goal)[0]
+    assert not goal_atom.holds(state)
+    action = Action(np.array([1, 1], dtype=np.float32))  # move diagonally
+    state = env.simulate(state, action)
+    act_mag = TouchPointEnv.action_magnitude
+    assert abs(state.get(robot, "x") - (0.5 + act_mag * 1)) <= 1e-7
+    assert abs(state.get(robot, "y") - (0.1 + act_mag * 1)) <= 1e-7
+    state = env.simulate(state, action)
+    action = Action(np.array([0, 1], dtype=np.float32))  # move up
+    state = env.simulate(state, action)
+    state = env.simulate(state, action)
+    assert goal_atom.holds(state)
+
+
+def test_touch_open():
+    """Tests for TouchPointEnv class."""
+    utils.reset_config({"env": "touch_point"})
+    env = TouchOpenEnv()
+    assert len(env.predicates) == 2
+    assert len(env.goal_predicates) == 1
+    assert {pred.name for pred in env.goal_predicates} == {"DoorIsOpen"}
+    assert len(env.options) == 2
+    assert len(env.types) == 2
+    assert env.action_space.shape == (3, )
+    task = env.get_train_tasks()[0]
+    state = task.init
+    env.render_state(state, task, caption="caption")
+    door, robot = sorted(state, key=lambda o: o.name)
+    assert robot.name == "robby"
+    assert door.name == "door"
+    state = utils.create_state_from_dict({
+        robot: {
+            "x": 0.4,
+            "y": 0.3,
+        },
+        door: {
+            "x": 0.5,
+            "y": 0.5,
+            "mass": 0.93,
+            "friction": 0.75,
+            "rot": 0,
+            "flex": 0.32,
+            "open": 0.0
+        }
+    })
+    assert len(task.goal) == 2
+    goal_atom = list(task.goal)[0]
+    assert goal_atom.objects == [door]
+    # Try to turn the door handle from far away.
+    action = Action(np.array([0.0, 0.0, 0.466], dtype=np.float32))
+    assert not goal_atom.holds(state)
+    action = Action(np.array([1.0, 1.0, 0.0], dtype=np.float32))
+    state = env.simulate(state, action)
+    act_mag = TouchPointEnv.action_magnitude
+    assert abs(state.get(robot, "x") - (0.4 + act_mag)) < 1e-7
+    assert abs(state.get(robot, "y") - (0.3 + act_mag)) < 1e-7
+    action = Action(np.array([0.0, 1.0, 0.0], dtype=np.float32))
+    state = env.simulate(state, action)
+    action = Action(np.array([0.0, 0.0, 0.466], dtype=np.float32))
+    state = env.simulate(state, action)
+    assert goal_atom.holds(state)
+    env.render_state(state, task, caption="caption")
+    action = Action(np.array([0.0, 0.0, -1.0], dtype=np.float32))
+    state = env.simulate(state, action)
+    assert not goal_atom.holds(state)

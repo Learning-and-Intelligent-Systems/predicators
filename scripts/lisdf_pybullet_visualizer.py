@@ -21,6 +21,7 @@ from lisdf.planner_output.plan import LISDFPlan
 
 from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
+from predicators.pybullet_helpers.camera import create_gui_connection
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
 
@@ -33,25 +34,7 @@ def _main(lisdf_filepath: Path) -> None:
         plan = cast(LISDFPlan, LISDFPlan.from_json(plan_json))
     # Set up PyBullet.
     utils.reset_config({"blocks_block_size": 0.0505})
-    physics_client_id = p.connect(p.GUI)
-    p.configureDebugVisualizer(p.COV_ENABLE_GUI,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
-                               False,
-                               physicsClientId=physics_client_id)
-    p.resetDebugVisualizerCamera(
-        PyBulletBlocksEnv._camera_distance,  # pylint: disable=protected-access
-        PyBulletBlocksEnv._camera_yaw,  # pylint: disable=protected-access
-        PyBulletBlocksEnv._camera_pitch,  # pylint: disable=protected-access
-        PyBulletBlocksEnv._camera_target,  # pylint: disable=protected-access
-        physicsClientId=physics_client_id)
+    physics_client_id = create_gui_connection()
     # Load table.
     table_pose = PyBulletBlocksEnv._table_pose  # pylint: disable=protected-access
     table_orientation = PyBulletBlocksEnv._table_orientation  # pylint: disable=protected-access
@@ -63,10 +46,7 @@ def _main(lisdf_filepath: Path) -> None:
                                       table_orientation,
                                       physicsClientId=physics_client_id)
     # Create the robot.
-    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
-               PyBulletBlocksEnv.robot_init_z)
-    robot = create_single_arm_pybullet_robot("panda", physics_client_id,
-                                             ee_home)
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id)
     # Set up the LISDF structs.
     initial_conf = np.array(robot.get_joints())
     lisdf_robot = LISDFPanda(initial_conf)
