@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import time
 from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 from predicators import utils
@@ -68,10 +69,16 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         Return the final set of all PNADs (current, newly-created, and
         ones with keep effects).
         """
+        start_time = time.perf_counter()
         new_pnads = current_pnads + [new_pnad]
         # We first repartition data and ensure delete and ignore
         # effects for the newly-created PNAD are correct.
         new_pnads = self._learner.recompute_pnads_from_effects(new_pnads)
+        # For certain predicates, the above call can eat up significant
+        # time and memory. Thus, we check here if we exceed the preset
+        # timeout.
+        if time.perf_counter() - start_time > CFG.pnad_search_timeout:
+            raise TimeoutError()
         # Ensure that the unnecessary keep effs sub and poss
         # keep effects are both cleared before backchaining. This is
         # important because we will be inducing keep effects after this
@@ -283,7 +290,8 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                              check_goal=lambda _: False,
                                              get_successors=get_successors,
                                              heuristic=heuristic,
-                                             verbose=self._verbose)
+                                             verbose=self._verbose,
+                                             timeout=CFG.pnad_search_timeout)
 
         # Extract the best PNADs set.
         final_pnads = path[-1]

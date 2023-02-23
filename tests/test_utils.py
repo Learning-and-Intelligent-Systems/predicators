@@ -2783,6 +2783,15 @@ def test_run_hill_climbing():
         assert heuristics == [
             8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0
         ]
+        # Test timeout.
+        with pytest.raises(TimeoutError):
+            utils.run_hill_climbing(initial_state,
+                                    _grid_check_goal_fn,
+                                    _grid_successor_fn,
+                                    _local_minimum_grid_heuristic_fn,
+                                    enforced_depth=1,
+                                    parallelize=parallelize,
+                                    timeout=0.0)
 
     # Test early_termination_heuristic_thresh with very high value.
     initial_state = (0, 0)
