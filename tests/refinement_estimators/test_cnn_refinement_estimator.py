@@ -20,7 +20,7 @@ def test_cnn_refinement_estimator():
         "cnn_regressor_conv_channel_nums": [1],
         "cnn_regressor_conv_kernel_sizes": [3],
         "cnn_regressor_linear_hid_sizes": [8],
-        "cnn_refinement_estimator_crop": False,
+        "cnn_refinement_estimator_crop": True,
         "cnn_refinement_estimator_crop_bounds": (0, 5, 0, 5),
         "cnn_refinement_estimator_downsample": 1,
     })
@@ -46,7 +46,7 @@ def test_narrow_passage_cnn_refinement_estimator():
         "cnn_regressor_conv_channel_nums": [1],
         "cnn_regressor_conv_kernel_sizes": [3],
         "cnn_regressor_linear_hid_sizes": [8],
-        "cnn_refinement_estimator_crop": False,
+        "cnn_refinement_estimator_crop": True,
         "cnn_refinement_estimator_crop_bounds": (0, 10, 0, 10),
         "cnn_refinement_estimator_downsample": 2,
     })
