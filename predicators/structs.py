@@ -1554,6 +1554,7 @@ class LiftedDecisionList:
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
+ImageInput = NDArray[np.float32]
 Video = List[Image]
 Array = NDArray[np.float32]
 ObjToVarSub = Dict[Object, Variable]

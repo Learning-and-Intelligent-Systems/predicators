@@ -10,7 +10,7 @@ from predicators import utils
 from predicators.refinement_estimators import BaseRefinementEstimator, \
     create_refinement_estimator
 
-ESTIMATOR_NAMES = ["oracle", "tabular"]
+ESTIMATOR_NAMES = ["oracle", "tabular", "cnn"]
 
 
 def test_refinement_estimator_creation():
