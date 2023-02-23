@@ -2856,7 +2856,10 @@ def _get_bookshelf_gt_nsrts(env_name: str) -> Set[NSRT]:
     nsrts = set()
 
     # NavigateTo
-    obj = Variable("?object", object_type)
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?book", book_type)
+    else:
+        obj = Variable("?object", object_type)
     robot = Variable("?robot", robot_type)
     parameters = [obj, robot]
     option_vars = [robot, obj]
@@ -2887,10 +2890,26 @@ def _get_bookshelf_gt_nsrts(env_name: str) -> Set[NSRT]:
             #     break
         return params
 
-    navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
-                           add_effects, delete_effects, ignore_effects,
-                           option, option_vars, navigateto_sampler)
+    if CFG.bookshelf_specialized_nsrts:
+        navigateto_nsrt = NSRT("NavigateToBook", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    else:
+        navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
     nsrts.add(navigateto_nsrt)
+
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?shelf", shelf_type)
+        parameters = [obj, robot]
+        option_vars = [robot, obj]
+        add_effects = {LiftedAtom(CanReach, [obj, robot])}
+        navigateto_nsrt = NSRT("NavigateToShelf", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+        nsrts.add(navigateto_nsrt)
+
 
     # PickBook
     book = Variable("?book", book_type)

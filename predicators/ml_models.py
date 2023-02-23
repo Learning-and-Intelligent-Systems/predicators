@@ -12,6 +12,7 @@ from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 from typing import Type as TypingType
 
 import numpy as np
+import math
 import torch
 import torch.nn.functional as F
 from sklearn.base import BaseEstimator
@@ -101,12 +102,12 @@ class _NormalizingRegressor(Regressor):
 
     def predict(self, x: Array) -> Array:
         assert self._x_dim > -1, "Fit must be called before predict."
-        assert x.shape == (self._x_dim, )
+        # assert x.shape == (self._x_dim, )
         # Normalize.
         x = (x - self._input_shift) / self._input_scale
         # Make prediction.
         y = self._predict(x)
-        assert y.shape == (self._y_dim, )
+        # assert y.shape == (self._y_dim, )
         # Denormalize.
         y = (y * self._output_scale) + self._output_shift
         return y
@@ -135,6 +136,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         self._clip_gradients = clip_gradients
         self._clip_value = clip_value
         self._learning_rate = learning_rate
+        self._device = 'cuda' if CFG.use_cuda else 'cpu'
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -158,13 +160,14 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
+        self.to(self._device)
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Create the optimizer.
         optimizer = self._create_optimizer()
         # Convert data to tensors.
-        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
-        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(self._device)
+        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(self._device)
         batch_generator = _single_batch_generator(tensor_X, tensor_Y)
         # Run training.
         _train_pytorch_model(self,
@@ -177,11 +180,11 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              clip_value=self._clip_value)
 
     def _predict(self, x: Array) -> Array:
-        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(self._device)
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
-        y = tensor_y.detach().numpy()
+        y = tensor_y.detach().cpu().numpy()
         return y
 
 
@@ -213,7 +216,7 @@ class BinaryClassifier(abc.ABC):
         self._rng = np.random.default_rng(seed)
 
     @abc.abstractmethod
-    def fit(self, X: Array, y: Array) -> None:
+    def fit(self, X: Array, y: Array, X_val: Array = None, y_val: Array = None) -> None:
         """Train the classifier on the given data.
 
         X is two-dimensional, y is one-dimensional.
@@ -280,7 +283,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         self._do_single_class_prediction = False
         self._predicted_single_class = False
 
-    def fit(self, X: Array, y: Array) -> None:
+    def fit(self, X: Array, y: Array, X_val: Array = None, y_val: Array = None) -> None:
         """Train the classifier on the given data.
 
         X is two-dimensional, y is one-dimensional.
@@ -306,7 +309,9 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
             X, y = _balance_binary_classification_data(X, y, self._rng)
             logging.info(f"Reduced dataset size from {old_len} to {len(y)}")
         X, self._input_shift, self._input_scale = _normalize_data(X)
-        self._fit(X, y)
+        if X_val is not None:
+            X_val = (X_val - self._input_shift) / self._input_scale
+        self._fit(X, y, X_val, y_val)
 
     def classify(self, x: Array) -> bool:
         """Return a predicted class for the given datapoint.
@@ -323,7 +328,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         return self._classify(x)
 
     @abc.abstractmethod
-    def _fit(self, X: Array, y: Array) -> None:
+    def _fit(self, X: Array, y: Array, X_val: Array = None, y_val: Array = None) -> None:
         """Train the classifier on normalized data."""
         raise NotImplementedError("Override me!")
 
@@ -400,7 +405,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         #     # To make sure all the weights are being reset
         #     assert m is self or isinstance(m, nn.ModuleList)
 
-    def _fit(self, X: Array, y: Array) -> None:
+    def _fit(self, X: Array, y: Array, X_val: Array = None, y_val: Array = None) -> None:
         # Initialize the network.
         self._initialize_net()
         # Create the optimizer.
@@ -412,7 +417,12 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(self._device)
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(self._device)
         batch_generator = _single_batch_generator(tensor_X, tensor_y)
-        # Run training.
+        if X_val is not None:
+            tensor_X_val = torch.from_numpy(np.array(X_val, dtype=np.float32)).to(self._device)
+            tensor_y_val = torch.from_numpy(np.array(y_val, dtype=np.float32)).to(self._device)
+            batch_generator_val = _single_batch_generator(tensor_X_val, tensor_y_val)
+        else:
+            batch_generator_val = None
         # Run training.
         loss = _train_pytorch_model(
             self,
@@ -421,7 +431,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
             batch_generator,
             max_train_iters=self._max_train_iters,
             dataset_size=X.shape[0],
-            n_iter_no_change=self._n_iter_no_change)
+            n_iter_no_change=self._n_iter_no_change,
+            batch_generator_val=batch_generator_val)
         # Weights may not have converged during training.
         if loss >= 1:
             raise RuntimeError(f"Failed to converge within "
@@ -863,10 +874,19 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
 
     def _initialize_net(self) -> None:
         if len(self._linears) == 0:
-            self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+            self._linears.append(nn.Sequential(
+                nn.Linear(self._x_dim, self._hid_sizes[0]),
+                nn.Dropout(0.5),
+                nn.ReLU(),
+                # nn.BatchNorm1d(self._hid_sizes[0])
+            ))
             for i in range(len(self._hid_sizes) - 1):
-                self._linears.append(
-                    nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+                self._linears.append(nn.Sequential(
+                    nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]),
+                    nn.Dropout(0.5),
+                    nn.ReLU(),
+                    # nn.BatchNorm1d(self._hid_sizes[i + 1])
+                ))
             self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
             self._reset_weights()
         self._is_initialized = True
@@ -877,7 +897,8 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
     def forward(self, tensor_X: Tensor) -> Tensor:
         assert not self._do_single_class_prediction
         for _, linear in enumerate(self._linears[:-1]):
-            tensor_X = F.relu(linear(tensor_X))
+            # tensor_X = F.relu(linear(tensor_X))
+            tensor_X = linear(tensor_X)
         tensor_X = self._linears[-1](tensor_X)
         return torch.sigmoid(tensor_X.squeeze(dim=-1))
 
@@ -919,64 +940,14 @@ class BinaryClassifierEnsemble(BinaryClassifier):
         return np.array([m.predict_proba(x) for m in self._members])
 
 ############################# Energy-based models #############################
-'''
-class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
-    """A wrapper around a binary classifier that uses Langevin dynamics
-    to generate samples using the classifier as an energy function."""
-    
-    @property
-    def is_trained(self):
-        return self._is_initialized
-
-    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
-        return nn.BCEWithLogitsLoss()
-
-    def forward(self, tensor_X: Tensor) -> Tensor:
-        assert not self._do_single_class_prediction
-        for _, linear in enumerate(self._linears[:-1]):
-            tensor_X = F.relu(linear(tensor_X))
-        tensor_X = self._linears[-1](tensor_X)
-        return tensor_X.squeeze(dim=-1)
-
-    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
-        """Assume that x contains the conditioning variables and that these
-        correspond to the first x.shape[1] inputs to the model."""
-        cond_dim = x.shape[0]
-        out_dim = self._x_dim - cond_dim
-        # samples = torch.from_numpy(rng.normal(size=out_dim).astype(np.float32)).unsqueeze(0).to(self._device)
-        samples = torch.from_numpy(rng.uniform(size=out_dim).astype(np.float32)).unsqueeze(0).to(self._device)
-        x = (x - self._input_shift[:cond_dim]) / self._input_scale[:cond_dim]
-        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(self._device)
-        tensor_X = tensor_x.unsqueeze(dim=0)
-        stepsize = 1e-4 # TODO: pass to CFG
-        n_steps = 10 # TODO: pass to CFG
-        noise_scale = np.sqrt(stepsize * 2)
-        samples.requires_grad = True
-        for _ in range(n_steps):
-            noise = torch.from_numpy(rng.normal(size=out_dim).astype(np.float32)).to(self._device) * noise_scale
-            out = self.forward(torch.cat((tensor_X, samples), dim=1))
-            grad = torch.autograd.grad(out.sum(), samples)[0]
-            dynamics = stepsize * grad + noise
-            samples = samples + dynamics
-        samples = samples.squeeze().detach().to('cpu').numpy()
-        samples = samples * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
-        return samples
-'''
-
-# '''
 class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
     """A wrapper around a binary classifier that uses Langevin dynamics
     to generate samples using the classifier as an energy function."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._cached_x = None
-        self._use_cache = True  # TODO: move to global CFG
-        if self._use_cache:
-            self._cache_size = CFG.sesame_max_samples_per_step
-        else:
-            self._cache_size = 1
-    
+        self._parallel_samples = 1
+
     @property
     def is_trained(self):
         return self._is_initialized
@@ -987,7 +958,8 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
     def forward(self, tensor_X: Tensor) -> Tensor:
         assert not self._do_single_class_prediction
         for _, linear in enumerate(self._linears[:-1]):
-            tensor_X = F.relu(linear(tensor_X))
+            # tensor_X = F.relu(linear(tensor_X))
+            tensor_X = linear(tensor_X)
         tensor_X = self._linears[-1](tensor_X)
         return tensor_X.squeeze(dim=-1)
     
@@ -999,12 +971,113 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
         norm_X = (X - self._input_shift) / self._input_scale
 
         assert X.shape[-1] == self._x_dim
-        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(self._device)
+        tensor_X = torch.from_numpy(np.array(norm_X, dtype=np.float32)).to(self._device)
         tensor_Y = torch.sigmoid(self(tensor_X))
         Y = tensor_Y.detach().to('cpu').numpy()
         assert (0 <= Y).all() and  (Y <= 1).all()
         return Y
 
+
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        """Assume that x contains the conditioning variables and that these
+        correspond to the first x.shape[1] inputs to the model."""
+
+        cond_dim = x.shape[0]
+        out_dim = self._x_dim - cond_dim
+        x = (x - self._input_shift[:cond_dim]) / self._input_scale[:cond_dim]
+        tensor_x = torch.from_numpy(np.repeat(np.array(x, dtype=np.float32).reshape(1, -1), self._parallel_samples, axis=0)).to(self._device)
+        tensor_X = tensor_x#.unsqueeze(dim=0)
+        stepsize = 1e-4 # TODO: pass to CFG
+        n_steps = 10 # TODO: pass to CFG
+        noise_scale = np.sqrt(stepsize * 2)
+        noise_step = 0#noise_scale / n_steps
+        samples = torch.from_numpy(rng.uniform(size=(self._parallel_samples, out_dim)).astype(np.float32)).to(self._device)
+        samples.requires_grad = True
+        for _ in range(n_steps):
+            noise = torch.from_numpy(rng.normal(size=(self._parallel_samples, out_dim)).astype(np.float32)).to(self._device) * noise_scale
+            out = self.forward(torch.cat((tensor_X, samples), dim=1))
+            grad = torch.autograd.grad(out.sum(), samples)[0]
+            dynamics = stepsize * grad + noise
+            samples = samples + dynamics
+
+            noise_scale -= noise_step
+        # sample = samples[out.argmax()].detach().to('cpu').numpy()
+        if (out > 0).any():
+            samples = samples[out > 0]
+        sample = samples[0].detach().to('cpu').numpy()
+        sample = sample * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
+        return sample
+
+class BinaryCNNEBM(BinaryEBM):
+
+    def __init__(self, seed: int, balance_data: bool,
+                 max_train_iters: MaxTrainIters, learning_rate: float,
+                 n_iter_no_change: int, hid_sizes: List[int],
+                 n_reinitialize_tries: int, weight_init: str) -> None:
+        super().__init__(seed, balance_data, max_train_iters, learning_rate, 
+                         n_iter_no_change, hid_sizes, n_reinitialize_tries,
+                         weight_init)
+
+        # Store information about CNN 
+        self._conv_backbone = None
+
+
+    def _initialize_net(self) -> None:
+        if self._conv_backbone is None:
+            self._conv_backbone = nn.Sequential(
+                # nn.Conv2d(1, 6, kernel_size=5, padding=2),
+                nn.Conv2d(3, 6, kernel_size=3),
+                nn.MaxPool2d(2, stride=2),
+                nn.Dropout(0.5),
+                nn.ReLU(),
+                # nn.BatchNorm2d(6),
+                # nn.Conv2d(6, 16, kernel_size=5),
+                nn.Conv2d(6, 16, kernel_size=3),
+                nn.MaxPool2d(2, stride=2),
+                nn.Dropout(0.5),
+                nn.ReLU(),
+                # nn.BatchNorm2d(16),
+                # nn.Conv2d(16, 32, kernel_size=5),
+                nn.Conv2d(16, 32, kernel_size=3),
+                nn.Dropout(0.5),
+                nn.ReLU(),
+                # nn.BatchNorm2d(32),
+            )      
+        # self._x_dim -= (900)  # subtract image dimensions
+        self._x_dim -= (20*20*3)  # subtract image dimensions
+        # self._x_dim -= (12*12*3)  # subtract image dimensions
+        self._x_dim += 32   # add CNN output dimensions
+        super()._initialize_net()
+        # self._x_dim += (900)
+        self._x_dim += (20*20*3)
+        # self._x_dim += (12*12*3)
+        self._x_dim -= 32    
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        assert not self._do_single_class_prediction
+        # img_X = tensor_X[:, :900].reshape(tensor_X.shape[0], 1, 30, 30)
+        # tensor_X = tensor_X[:, 900:]
+        img_X = tensor_X[:, :20*20*3].reshape(tensor_X.shape[0], 20, 20, 3).permute((0, 3, 1, 2))
+        tensor_X = tensor_X[:, 20*20*3:]
+        # img_X = tensor_X[:, :12*12*3].reshape(tensor_X.shape[0], 12, 12, 3).permute((0, 3, 1, 2))
+        # tensor_X = tensor_X[:, 12*12*3:]
+        img_X = self._conv_backbone(img_X)
+        tensor_X = torch.cat((tensor_X, img_X.reshape(-1, 32)), dim=1)
+        return super().forward(tensor_X)
+
+class RegressionEBM(MLPRegressor, DistributionRegressor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cached_x = None
+        self._use_cache = True  # TODO: move to global CFG
+        if self._use_cache:
+            self._cache_size = CFG.sesame_max_samples_per_step
+        else:
+            self._cache_size = 1
+
+    @property
+    def is_trained(self):
+        return self._x_dim != -1
 
     def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
         """Assume that x contains the conditioning variables and that these
@@ -1040,50 +1113,45 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
         self._cached_sample_idx += 1
         sample = sample * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
         return sample
-# '''
 
-class BinaryCNNEBM(BinaryEBM):
+    def predict_samples(self, x: Array, rng: np.random.Generator) -> Array:
+        """Assume that x contains the conditioning variables and that these
+        correspond to the first x.shape[1] inputs to the model."""
 
-    def __init__(self, seed: int, balance_data: bool,
-                 max_train_iters: MaxTrainIters, learning_rate: float,
-                 n_iter_no_change: int, hid_sizes: List[int],
-                 n_reinitialize_tries: int, weight_init: str) -> None:
-        super().__init__(seed, balance_data, max_train_iters, learning_rate, 
-                         n_iter_no_change, hid_sizes, n_reinitialize_tries,
-                         weight_init)
+        cond_dim = x.shape[1]
+        out_dim = self._x_dim - cond_dim
+        samples = torch.from_numpy(rng.uniform(size=(x.shape[0],out_dim)).astype(np.float32)).to(self._device)
+        x = (x - self._input_shift[:cond_dim]) / self._input_scale[:cond_dim]
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(self._device)
+        tensor_X = tensor_x#.unsqueeze(dim=0)
+        stepsize = 1e-4 # TODO: pass to CFG
+        n_steps = 10 # TODO: pass to CFG
+        noise_scale = np.sqrt(stepsize * 2)
+        samples.requires_grad = True
+        output_scale = torch.from_numpy(np.array(self._output_scale, dtype=np.float32)).to(self._device)
+        output_shift = torch.from_numpy(np.array(self._output_shift, dtype=np.float32)).to(self._device)
+        for _ in range(n_steps):
+            noise = torch.from_numpy(rng.normal(size=(x.shape[0], out_dim)).astype(np.float32)).to(self._device) * noise_scale
+            out = self.forward(torch.cat((tensor_X, samples), dim=1))
+            out = out * output_scale + output_shift
+            grad = torch.autograd.grad(out.sum(), samples)[0]
+            dynamics = stepsize * grad + noise
+            samples = samples + dynamics
+        samples = samples.detach().to('cpu').numpy()
+        samples = samples * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
+        return samples
 
-        # Store information about CNN 
-        self._conv_backbone = None
 
+    # def predict(self, x: Array) -> Array:
+    #     tensor_x = torch.from_numpy(x).to(self._device)
+    #     tensor_X = tensor_x.unsqueeze(dim=0)
+    #     tensor_Y = self(tensor_X)
+    #     tensor_y = tensor_Y.squeeze(dim=0)
+    #     y = tensor_y.detach().cpu().numpy()
+    #     return y
 
-    def _initialize_net(self) -> None:
-        if self._conv_backbone is None:
-            self._conv_backbone = nn.Sequential(
-                nn.Conv2d(1, 6, kernel_size=5, padding=2),
-                nn.MaxPool2d(2, stride=2),
-                nn.ReLU(),
-                nn.Conv2d(6, 16, kernel_size=5),
-                nn.MaxPool2d(2, stride=2),
-                nn.ReLU(),
-                nn.Conv2d(16, 32, kernel_size=5),
-                nn.ReLU()
-            )      
-        self._x_dim -= 900  # subtract image dimensions
-        self._x_dim += 32   # add CNN output dimensions
-        super()._initialize_net()
-        self._x_dim += 900
-        self._x_dim -= 32    
-
-    def forward(self, tensor_X: Tensor) -> Tensor:
-        assert not self._do_single_class_prediction
-        img_X = tensor_X[:, :900].reshape(tensor_X.shape[0], 1, 30, 30)
-        tensor_X = tensor_X[:, 900:]
-        img_X = self._conv_backbone(img_X)
-        tensor_X = torch.cat((tensor_X, img_X.reshape(-1, 32)), dim=1)
-        return super().forward(tensor_X)
 
 ################################## Utilities ##################################
-
 
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedPredicateClassifier:
@@ -1137,7 +1205,7 @@ def _single_batch_generator(
         tensor_X: Tensor, tensor_Y: Tensor) -> Iterator[Tuple[Tensor, Tensor]]:
     """Infinitely generate all of the data in one batch."""
     data = torch.utils.data.TensorDataset(tensor_X, tensor_Y)
-    return torch.utils.data.DataLoader(data, batch_size=64, shuffle=False)
+    return torch.utils.data.DataLoader(data, batch_size=512, shuffle=True)
 
     # while True:
     #     yield (tensor_X, tensor_Y)
@@ -1148,15 +1216,18 @@ def _train_pytorch_model(model: nn.Module,
                          batch_generator: Iterator[Tuple[Tensor, Tensor]],
                          max_train_iters: MaxTrainIters,
                          dataset_size: int,
-                         print_every: int = 1000,
+                         print_every: int = 100,
                          clip_gradients: bool = False,
                          clip_value: float = 5,
-                         n_iter_no_change: int = 10000000) -> float:
+                         n_iter_no_change: int = 10000000,
+                         batch_generator_val: Optional[Iterator[Tuple[Tensor, Tensor]]] = None) -> float:
     """Note that this currently does not use minibatches.
 
     In the future, with very large datasets, we would want to switch to
     minibatches. Returns the best loss seen during training.
     """
+    import time
+
     model.train()
     itr = 0
     best_loss = float("inf")
@@ -1173,6 +1244,9 @@ def _train_pytorch_model(model: nn.Module,
         for tensor_X, tensor_Y in batch_generator:
             Y_hat = model(tensor_X)
             loss = loss_fn(Y_hat, tensor_Y)
+            # if torch.isnan(loss):
+            #     print(tensor_Y)
+            #     raise ValueError('nan')
             optimizer.zero_grad()
             loss.backward()  # type: ignore
             if clip_gradients:
@@ -1188,13 +1262,393 @@ def _train_pytorch_model(model: nn.Module,
             torch.save(model.state_dict(), model_name)
         if itr % print_every == 0:
             logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{max_iters}")
+            if batch_generator_val is not None:
+                model.eval()
+                cum_loss = 0
+                cum_acc = 0
+                n = 0
+                with torch.no_grad():
+                    for tensor_X, tensor_Y in batch_generator_val:
+                        Y_hat = model(tensor_X)
+                        loss = loss_fn(Y_hat, tensor_Y)
+                        cum_loss += loss.item() * tensor_X.shape[0]
+                        cum_acc += ((Y_hat > 0) == tensor_Y).float().sum()
+                        n += tensor_X.shape[0]
+                cum_loss /= n
+                cum_acc /= n
+                model.train()
+                logging.info(f"\tValidation loss: {cum_loss:.5f}, acc: {cum_acc:.3f}")
         if itr - best_itr > n_iter_no_change:
             logging.info(f"Loss did not improve after {n_iter_no_change} "
                          f"itrs, terminating at itr {itr}.")
             break
+
     # Load best model.
     model.load_state_dict(torch.load(model_name))  # type: ignore
     os.remove(model_name)
     model.eval()
     logging.info(f"Loaded best model with loss: {best_loss:.5f}")
     return best_loss
+
+
+class DiffusionRegressor(nn.Module):
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: int, timesteps: int,
+                 learning_rate: float) -> None:
+        super().__init__()
+        self._linears = nn.ModuleList()
+        self._hid_sizes = hid_sizes
+        self._max_train_iters = max_train_iters
+        self._timesteps = timesteps
+        self._device = 'cuda' if CFG.use_cuda else 'cpu'
+        self._optimizer = None
+        self._learning_rate = learning_rate
+        self.is_trained = False
+
+        # define beta schedule
+        self._betas = self._cosine_beta_schedule(timesteps=timesteps)
+        # self._betas = self._linear_beta_schedule(timesteps=timesteps)
+
+        # define alphas 
+        alphas = 1. - self._betas
+        alphas_cumprod = torch.cumprod(alphas, axis=0)
+        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
+        self._sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
+
+        # calculations for diffusion q(x_t | x_{t-1}) and others
+        self._sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+        self._sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
+
+        # calculations for posterior q(x_{t-1} | x_t, x_0)
+        self._posterior_variance = self._betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
+
+        self._cache_num_samples = CFG.sesame_max_samples_per_step
+        self._cache = {}
+
+    def forward(self, X_cond, Y_out, t):
+        half_t_dim = self._t_dim // 2
+        t_embeddings = math.log(10000) / (half_t_dim - 1)
+        t_embeddings = torch.exp(torch.arange(half_t_dim, device=self._device) * -t_embeddings)
+        t_embeddings = t[:, None] * t_embeddings[None, :]
+        t_embeddings = torch.cat((t_embeddings.sin(), t_embeddings.cos()), dim=-1)
+        X = torch.cat((X_cond, Y_out, t_embeddings), dim=1)
+        for linear in self._linears[:-1]:
+            X = F.relu(linear(X))
+        X = self._linears[-1](X)
+        return X
+
+
+    def fit(self, X_cond: Array, Y_out: Array,) -> None:# X_neg: Array, Y_neg: Array) -> None:
+        self.is_trained = True
+        self._x_cond_dim = X_cond.shape[1]
+        self._t_dim = (X_cond.shape[1] // 2) * 2    # make sure it's even
+        num_data, self._y_dim = Y_out.shape
+        self._x_dim = self._x_cond_dim + self._t_dim + self._y_dim
+
+        self._input_shift = np.min(X_cond, axis=0)
+        self._input_scale = np.max(X_cond - self._input_shift, axis=0)
+        self._input_scale = np.clip(self._input_scale, 1e-6, None)
+        X_cond = ((X_cond - self._input_shift) / self._input_scale) * 2 - 1
+        # X_neg = ((X_neg - self._input_shift) / self._input_scale) * 2 - 1
+
+        self._output_shift = np.min(Y_out, axis=0)
+        self._output_scale = np.max(Y_out - self._output_shift, axis=0)
+        self._output_scale = np.clip(self._output_scale, 1e-6, None)
+        Y_out = ((Y_out - self._output_shift) / self._output_scale) * 2 - 1
+        # Y_neg = ((Y_neg - self._output_shift) / self._output_scale) * 2 - 1
+
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
+
+        self._initialize_net()
+        self.to(self._device) 
+        optimizer = self._create_optimizer()
+
+        tensor_X_cond = torch.from_numpy(np.array(X_cond, dtype=np.float32)).to(self._device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
+        # tensor_X_neg = torch.from_numpy(np.array(X_neg, dtype=np.float32)).to(self._device)
+        # tensor_Y_neg = torch.from_numpy(np.array(Y_neg, dtype=np.float32)).to(self._device)
+        data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
+        # data_neg = torch.utils.data.TensorDataset(tensor_X_neg, tensor_Y_neg)
+        dataloader = torch.utils.data.DataLoader(data, batch_size=512, shuffle=True)
+        # dataloader_neg = torch.utils.data.DataLoader(data_neg, batch_size=(512 * len(data_neg)) // len(data), shuffle=True)
+
+        assert isinstance(self._max_train_iters, int)
+        self.train()
+        for itr in range(self._max_train_iters):
+            cum_loss = 0
+            n = 0
+            # for (tensor_X, tensor_Y), (tensor_X_neg, tensor_Y_neg) in zip(dataloader, dataloader_neg):
+            for tensor_X, tensor_Y in dataloader:
+                t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self._device)
+                # t_neg = torch.randint(0, self._timesteps, (tensor_X_neg.shape[0],), device=self._device)
+                loss = self._p_losses(tensor_X, tensor_Y, t)#, tensor_X_neg, tensor_Y_neg, t_neg)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                cum_loss += loss.item() * tensor_X.shape[0]
+                n += tensor_X.shape[0]
+            cum_loss /= n
+            if itr % 100 == 0:
+                logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{self._max_train_iters}")
+
+        self.eval()
+        logging.info(f"Trained model with loss: {cum_loss:.5f}")
+        return cum_loss
+
+    @torch.no_grad()
+    def _p_sample(self, x_cond, y_out, t, t_index):
+        betas_t = self._extract(self._betas, t, y_out.shape)
+        sqrt_one_minus_alphas_cumprod_t = self._extract(
+            self._sqrt_one_minus_alphas_cumprod, t, y_out.shape
+        )
+        sqrt_recip_alphas_t = self._extract(self._sqrt_recip_alphas, t, y_out.shape)
+        
+        # Equation 11 in the paper
+        # Use our model (noise predictor) to predict the mean
+        epsilon_out = self(x_cond, y_out, t)
+        epsilon = epsilon_out#[:, :-1]
+        # out = epsilon_out[:, -1]
+        # grad = torch.autograd.grad(out.sum(), y_out)[0]
+        # epsilon -= (sqrt_one_minus_alphas_cumprod_t * grad)
+        model_mean = sqrt_recip_alphas_t * (
+            y_out - betas_t * epsilon / sqrt_one_minus_alphas_cumprod_t
+        )
+
+        if t_index == 0:
+            return model_mean
+        else:
+            posterior_variance_t = self._extract(self._posterior_variance, t, y_out.shape)
+            noise = torch.randn_like(y_out)
+            # Algorithm 2 line 4:
+            return model_mean + torch.sqrt(posterior_variance_t) * noise 
+
+
+    @torch.no_grad()
+    def _p_sample_loop(self, x_cond):
+        # start from pure noise (for each example in the batch)
+        y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self._device, requires_grad=True)
+        y_outs = []
+
+        for i in reversed(range(0, self._timesteps)):
+            y_out = self._p_sample(x_cond, y_out, torch.full((self._cache_num_samples,), i, device=self._device, dtype=torch.long), i)
+            y_outs.append(y_out.detach().cpu().numpy())
+        return y_outs
+
+    def predict_sample(self, x_cond: Array, rng: np.random.Generator) -> Array:
+        if x_cond.round(decimals=4).data.tobytes() not in self._cache:
+            x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1
+            x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self._device)
+            x_cond_tensor = x_cond_tensor.view(1, -1).expand(self._cache_num_samples, -1)
+            samples = self._p_sample_loop(x_cond_tensor)[-1]
+            self._cache[x_cond.round(decimals=4).data.tobytes()] = (samples, 0)   # cache, idx
+        sample = self._next_sample_in_cache(x_cond.round(decimals=4))
+        return ((sample + 1) / 2 * self._output_scale) + self._output_shift
+
+    def _next_sample_in_cache(self, arr):
+        samples, idx = self._cache[arr.data.tobytes()]
+        if idx < samples.shape[0] - 1:
+            self._cache[arr.data.tobytes()] = (samples, idx + 1)
+        else:
+            del self._cache[arr.data.tobytes()]
+        return samples[idx]
+
+    def _initialize_net(self):
+        self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+        for i in range(len(self._hid_sizes) - 1):
+            self._linears.append(
+                nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+        # self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim + 1))   # +1 for classifier guidance
+        self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim))
+
+    def _create_optimizer(self) -> optim.Optimizer:
+        """Create an optimizer after the model is initialized."""
+        if self._optimizer is None:
+            print('Creating optimizer afresh')
+            self._optimizer = optim.Adam(self.parameters(), lr=self._learning_rate)
+        return self._optimizer
+
+    @classmethod
+    def _cosine_beta_schedule(cls, timesteps, s=0.008):
+        """
+        cosine schedule as proposed in https://arxiv.org/abs/2102.09672
+        """
+        steps = timesteps + 1
+        x = torch.linspace(0, timesteps, steps)
+        alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * torch.pi * 0.5) ** 2
+        alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
+        betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
+        return torch.clip(betas, 0.0001, 0.9999)
+    
+    @classmethod
+    def _linear_beta_schedule(cls, timesteps):
+        beta_start = 0.0001
+        beta_end = 0.02
+        return torch.linspace(beta_start, beta_end, timesteps)
+
+    def _p_losses(self, X_cond, Y_start, t):#, X_neg, Y_neg_start, t_neg):
+        noise = torch.randn_like(Y_start)
+        Y_noisy = self._q_sample(Y_start, t, noise)
+        predicted_noise_label = self(X_cond, Y_noisy, t)
+        predicted_noise = predicted_noise_label#[:, :-1]
+        # label_pos = predicted_noise_label[:, -1]
+        loss = F.smooth_l1_loss(noise, predicted_noise)
+
+        # noise_neg = torch.randn_like(Y_neg_start)
+        # Y_neg_noisy = self._q_sample(Y_neg_start, t_neg, noise_neg)
+        # predicted_noise_label = self(X_neg, Y_neg_noisy, t_neg)
+        # label_neg = predicted_noise_label[:, -1]
+
+        # loss += F.binary_cross_entropy_with_logits(torch.cat((label_pos, label_neg)),
+        #                 torch.cat((torch.ones_like(label_pos), torch.zeros_like(label_neg))))
+
+        return loss
+
+    def _q_sample(self, Y_start, t, noise):
+        sqrt_alphas_cumprod_t = self._extract(self._sqrt_alphas_cumprod, t, Y_start.shape)
+        sqrt_one_minus_alphas_cumprod_t = self._extract(
+            self._sqrt_one_minus_alphas_cumprod, t, Y_start.shape
+        )
+
+        return sqrt_alphas_cumprod_t * Y_start + sqrt_one_minus_alphas_cumprod_t * noise
+
+    def _extract(self, a, t, shape):
+        batch_size = t.shape[0]
+        out = a.gather(-1, t.cpu())
+        return out.reshape(batch_size, *((1,) * (len(shape) - 1))).to(t.device)
+
+class CNNDiffusionRegressor(DiffusionRegressor):
+
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: int, timesteps: int,
+                 learning_rate: float) -> None:
+        super().__init__(seed, hid_sizes, max_train_iters, timesteps, learning_rate)
+
+        # Store information about CNN 
+        self._conv_backbone = None
+
+    def _initialize_net(self) -> None:
+        if self._conv_backbone is None:
+            # self._conv_backbone = nn.Sequential(
+            #     # nn.Conv2d(1, 6, kernel_size=5, padding=2),
+            #     nn.Conv2d(3, 6, kernel_size=3),
+            #     nn.MaxPool2d(2, stride=2),
+            #     # nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     # nn.Conv2d(6, 16, kernel_size=5),
+            #     nn.Conv2d(6, 16, kernel_size=3),
+            #     nn.MaxPool2d(2, stride=2),
+            #     # nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     # nn.Conv2d(16, 32, kernel_size=5),
+            #     nn.Conv2d(16, 32, kernel_size=3),
+            #     # nn.Dropout(0.5),
+            #     nn.ReLU()
+            # ) 
+            self._conv_backbone = nn.Sequential(
+                nn.Conv2d(3, 16, 5),
+                nn.MaxPool2d(2, stride=2),
+                nn.ReLU(),
+                nn.Conv2d(16, 32, 5),
+                nn.MaxPool2d(2, stride=2),
+                nn.ReLU(),
+                nn.Conv2d(32, 64, 5),
+                nn.MaxPool2d(2, stride=2),
+                nn.ReLU(),
+                nn.Conv2d(64, 64, 5),
+                nn.MaxPool2d(2, stride=2),
+                nn.ReLU(),
+                nn.Conv2d(64, 64, 5),
+                nn.ReLU()
+            )     
+
+        # self._x_cond_dim -= (20*20*3)
+        self._x_cond_dim -= (150*150*3)
+        self._x_cond_dim += 64
+        self._t_dim = (self._x_cond_dim // 2) * 2
+        self._x_dim = self._x_cond_dim + self._t_dim + self._y_dim
+        super()._initialize_net()
+        # self._x_cond_dim += (20*20*3)
+        # self._x_cond_dim -= 32
+        # self._t_dim = (self._x_cond_dim // 2)
+
+        # # self._x_dim += (900)
+        # self._x_dim += (20*20*3)
+        # # self._x_dim += (12*12*3)
+        # self._x_dim -= 32    
+
+    def forward(self, X_cond, Y_out, t) -> Tensor:
+        # img_X = X_cond[:, :900].reshape(X_cond.shape[0], 1, 30, 30)
+        # X_cond = X_cond[:, 900:]
+        # img_X = X_cond[:, :20*20*3].reshape(X_cond.shape[0], 20, 20, 3).permute((0, 3, 1, 2))
+        # X_cond = X_cond[:, 20*20*3:]
+        # img_X = X_cond[:, :12*12*3].reshape(X_cond.shape[0], 12, 12, 3).permute((0, 3, 1, 2))
+        # X_cond = X_cond[:, 12*12*3:]
+        img_X = X_cond[:, :150*150*3].reshape(X_cond.shape[0], 150, 150, 3).permute((0, 3, 1, 2))
+        X_cond = X_cond[:, 150*150*3:]
+        img_X = self._forward_cnn(img_X)
+        X_cond = torch.cat((X_cond, img_X.reshape(X_cond.shape[0], -1)), dim=1)
+        return self._forward_fcn(X_cond, Y_out, t)
+    
+    def _forward_cnn(self, img_X) -> Tensor:
+        # print(img_X.shape)
+        # tmp_x = self._conv_backbone[:3](img_X)
+        # print(tmp_x.shape)
+        # tmp_x = self._conv_backbone[3:6](tmp_x)
+        # print(tmp_x.shape)
+        # tmp_x = self._conv_backbone[6:](tmp_x)
+        # print(tmp_x.shape)
+        # exit()
+        return self._conv_backbone(img_X)
+
+
+    def _forward_fcn(self, X_cond, Y_out, t) -> Tensor:
+        return super().forward(X_cond, Y_out, t)
+
+    @torch.no_grad()
+    def _p_sample(self, x_cond, y_out, t, t_index):
+        betas_t = self._extract(self._betas, t, y_out.shape)
+        sqrt_one_minus_alphas_cumprod_t = self._extract(
+            self._sqrt_one_minus_alphas_cumprod, t, y_out.shape
+        )
+        sqrt_recip_alphas_t = self._extract(self._sqrt_recip_alphas, t, y_out.shape)
+        
+        # Equation 11 in the paper
+        # Use our model (noise predictor) to predict the mean
+        epsilon_out = self._forward_fcn(x_cond, y_out, t)
+        epsilon = epsilon_out#[:, :-1]
+        # out = epsilon_out[:, -1]
+        # grad = torch.autograd.grad(out.sum(), y_out)[0]
+        # epsilon -= (sqrt_one_minus_alphas_cumprod_t * grad)
+        model_mean = sqrt_recip_alphas_t * (
+            y_out - betas_t * epsilon / sqrt_one_minus_alphas_cumprod_t
+        )
+
+        if t_index == 0:
+            return model_mean
+        else:
+            posterior_variance_t = self._extract(self._posterior_variance, t, y_out.shape)
+            noise = torch.randn_like(y_out)
+            # Algorithm 2 line 4:
+            return model_mean + torch.sqrt(posterior_variance_t) * noise 
+
+
+    @torch.no_grad()
+    def _p_sample_loop(self, x_cond):
+        # start from pure noise (for each example in the batch)
+        y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self._device, requires_grad=True)
+        y_outs = []
+
+        # img_X = x_cond[:, :20*20*3].reshape(x_cond.shape[0], 20, 20, 3).permute((0, 3, 1, 2))
+        # X_cond = x_cond[:, 20*20*3:]
+        img_X = x_cond[:, :150*150*3].reshape(x_cond.shape[0], 150, 150, 3).permute((0, 3, 1, 2))
+        X_cond = x_cond[:, 150*150*3:]
+        # img_X = X_cond[:, :12*12*3].reshape(X_cond.shape[0], 12, 12, 3).permute((0, 3, 1, 2))
+        # X_cond = X_cond[:, 12*12*3:]
+
+        img_X = self._forward_cnn(img_X)
+        X_cond = torch.cat((X_cond, img_X.reshape(X_cond.shape[0], -1)), dim=1)
+        for i in reversed(range(0, self._timesteps)):
+            y_out = self._p_sample(X_cond, y_out, torch.full((self._cache_num_samples,), i, device=self._device, dtype=torch.long), i)
+            y_outs.append(y_out.detach().cpu().numpy())
+        return y_outs

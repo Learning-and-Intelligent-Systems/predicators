@@ -62,7 +62,8 @@ def sesame_plan(
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
         use_visited_state_set: bool = False,
-        return_skeleton: bool = False) -> Tuple[List[_Option], Metrics]:
+        return_skeleton: bool = False,
+        return_all_failed_refinements: bool = False) -> Tuple[List[_Option], Metrics]:
     """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
@@ -81,7 +82,8 @@ def sesame_plan(
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
             max_samples_per_step, abstract_policy, max_policy_guided_rollout, 
             refinement_estimator, check_dr_reachable, allow_noops, 
-            use_visited_state_set, return_skeleton)
+            use_visited_state_set, return_skeleton,
+            return_all_failed_refinements)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -94,7 +96,8 @@ def sesame_plan(
                                                max_horizon,
                                                max_samples_per_step,
                                                optimal=True,
-                                               return_skeleton=return_skeleton)
+                                               return_skeleton=return_skeleton,
+                                               return_all_failed_refinements=return_all_failed_refinements)
     if CFG.sesame_task_planner == "fdsat":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -107,7 +110,8 @@ def sesame_plan(
                                                max_horizon,
                                                max_samples_per_step,
                                                optimal=False,
-                                               return_skeleton=return_skeleton)
+                                               return_skeleton=return_skeleton,
+                                               return_all_failed_refinements=return_all_failed_refinements)
     raise ValueError("Unrecognized sesame_task_planner: "
                      f"{CFG.sesame_task_planner}")
 
@@ -130,7 +134,8 @@ def _sesame_plan_with_astar(
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
         use_visited_state_set: bool = False,
-        return_skeleton: bool = False) -> Tuple[List[_Option], Metrics]:
+        return_skeleton: bool = False,
+        return_all_failed_refinements: bool = False) -> Tuple[List[_Option], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -210,7 +215,8 @@ def _sesame_plan_with_astar(
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, necessary_atoms_seq,
                     new_seed, timeout - (time.perf_counter() - start_time),
-                    metrics, max_horizon, max_samples_per_step)
+                    metrics, max_horizon, max_samples_per_step,
+                    return_all_failed_refinements)
                 if suc:
                     # Success! It's a complete plan.
                     # logging.info(
@@ -222,9 +228,15 @@ def _sesame_plan_with_astar(
                     #     f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
                     if return_skeleton:
+                        if return_all_failed_refinements:
+                            return plan + [ref[1] for ref in partial_refinements], metrics, \
+                                    [skeleton] * len(plan) + [ref[0] for ref in partial_refinements]
                         return plan, metrics, skeleton
                     return plan, metrics
-                partial_refinements.append((skeleton, plan))
+                if return_all_failed_refinements:
+                    partial_refinements += [(skeleton, p) for p in plan]
+                else:
+                    partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout(
                         "Planning timed out in refinement!",
@@ -234,8 +246,11 @@ def _sesame_plan_with_astar(
             new_predicates, ground_nsrts = _update_nsrts_with_failure(
                 e.discovered_failure, ground_nsrts)
             predicates |= new_predicates
-            partial_refinements.append(
-                (skeleton, e.info["longest_failed_refinement"]))
+            if return_all_failed_refinements:
+                partial_refinements += [(skeleton, refinement) for refinement in e.info["all_failed_refinements"]]
+            else:
+                partial_refinements.append(
+                    (skeleton, e.info["longest_failed_refinement"]))
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
             e.info["partial_refinements"] = partial_refinements
             raise e
@@ -471,7 +486,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                          atoms_sequence: List[Set[GroundAtom]], seed: int,
                          timeout: float, metrics: Metrics,
                          max_horizon: int,
-                         max_samples_per_step: int) -> Tuple[List[_Option], bool]:
+                         max_samples_per_step: int,
+                         return_all_failed_refinements: bool = False) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -504,8 +520,11 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
     discovered_failures: List[Optional[_DiscoveredFailure]] = [
         None for _ in skeleton
     ]
+    all_failed_refinements: List[List[_Option]] = []
     while cur_idx < len(skeleton):
         if time.perf_counter() - start_time > timeout:
+            if return_all_failed_refinements:
+                return all_failed_refinements, False
             return longest_failed_refinement, False
         assert num_tries[cur_idx] < max_tries[cur_idx]
         # Good debug point #2: if you have a skeleton that you think is
@@ -571,6 +590,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
+                            if return_all_failed_refinements:
+                                return [plan] + all_failed_refinements, True
                             return plan, True  # success!
                     else:
                         can_continue_on = False
@@ -580,6 +601,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     can_continue_on = True
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
+                            if return_all_failed_refinements:
+                                return [plan] + all_failed_refinements, True
                             return plan, True  # success!
                         can_continue_on = False
         else:
@@ -587,6 +610,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
             can_continue_on = False
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
             # Update the longest_failed_refinement found so far.
+            all_failed_refinements.append(list(plan[:cur_idx]))
             if cur_idx > len(longest_failed_refinement):
                 longest_failed_refinement = list(plan[:cur_idx])
             # If we're immediately propagating failures, and we got a failure,
@@ -598,7 +622,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                CFG.sesame_propagate_failures == "immediately":
                 raise _DiscoveredFailureException(
                     "Discovered a failure", possible_failure,
-                    {"longest_failed_refinement": longest_failed_refinement})
+                    {"longest_failed_refinement": longest_failed_refinement,
+                    "all_failed_refinements": all_failed_refinements})
             # Decrement cur_idx to re-do the step we just did. If num_tries
             # is exhausted, backtrack.
             cur_idx -= 1
@@ -621,11 +646,17 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                             raise _DiscoveredFailureException(
                                 "Discovered a failure", possible_failure, {
                                     "longest_failed_refinement":
-                                    longest_failed_refinement
+                                    longest_failed_refinement,
+                                    "all_failed_refinements":
+                                    all_failed_refinements
                                 })
+                    if return_all_failed_refinements:
+                        return all_failed_refinements, False
                     return longest_failed_refinement, False
     # Should only get here if the skeleton was empty.
     assert not skeleton
+    if return_all_failed_refinements:
+        return [[]], True
     return [], True
 
 
@@ -921,7 +952,8 @@ def _sesame_plan_with_fast_downward(
         seed: int, max_horizon: int,
         max_samples_per_step,
         optimal: bool,
-        return_skeleton: bool = False) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
+        return_skeleton: bool = False,
+        return_all_failed_refinements: bool = False) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
     """A version of SeSamE that runs the Fast Downward planner to produce a
     single skeleton, then calls run_low_level_search() to turn it into a plan.
 
@@ -1028,9 +1060,13 @@ def _sesame_plan_with_fast_downward(
             plan, suc = run_low_level_search(task, option_model, skeleton,
                                              necessary_atoms_seq, seed,
                                              low_level_timeout, metrics,
-                                             max_horizon, max_samples_per_step)
+                                             max_horizon, max_samples_per_step,
+                                             return_all_failed_refinements)
             if not suc:
-                partial_refinements.append((skeleton, plan))
+                if return_all_failed_refinements:
+                    partial_refinements += [(skeleton, p) for p in plan]
+                else:
+                    partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout(
                         "Planning timed out in refinement!",
@@ -1040,12 +1076,18 @@ def _sesame_plan_with_fast_downward(
                     info={"partial_refinements": partial_refinements})
             metrics["plan_length"] = len(plan)
             if return_skeleton:
+                if return_all_failed_refinements:
+                    return plan + [ref[1] for ref in partial_refinements], metrics, \
+                            [skeleton] * len(plan) + [ref[0] for ref in partial_refinements]
                 return plan, metrics, skeleton
             return plan, metrics
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
-            partial_refinements.append(
-                (skeleton, e.info["longest_failed_refinement"]))
+            if return_all_failed_refinements:
+                partial_refinements += [(skeleton, refinement) for refinement in e.info["all_failed_refinements"]]
+            else:
+                partial_refinements.append(
+                    (skeleton, e.info["longest_failed_refinement"]))
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
             e.info["partial_refinements"] = partial_refinements

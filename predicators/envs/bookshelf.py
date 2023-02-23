@@ -19,14 +19,14 @@ class BookshelfEnv(BaseEnv):
 
     env_x_lb: ClassVar[float] = 0
     env_y_lb: ClassVar[float] = 0
-    env_x_ub: ClassVar[float] = 20
-    env_y_ub: ClassVar[float] = 20
+    env_x_ub: ClassVar[float] = 20#12#
+    env_y_ub: ClassVar[float] = 20#12#
     robot_radius: ClassVar[float] = 2
     gripper_length: ClassVar[float] = 2
     shelf_w_lb: ClassVar[float] = 5
-    shelf_w_ub: ClassVar[float] = 10
+    shelf_w_ub: ClassVar[float] = 10#7#
     shelf_h_lb: ClassVar[float] = 2
-    shelf_h_ub: ClassVar[float] = 5
+    shelf_h_ub: ClassVar[float] = 5#3#
     book_w_lb: ClassVar[float] = 0.5
     book_w_ub: ClassVar[float] = 1
     book_h_lb: ClassVar[float] = 1
@@ -133,9 +133,9 @@ class BookshelfEnv(BaseEnv):
         # Execute pick
         book_rect = book_rect.rotate_about_point(tip_x, tip_y, yaw)
         yaw = book_rect.theta - robby_yaw
-        if yaw > np.pi:
+        while yaw > np.pi:
             yaw -= (2 * np.pi)
-        elif yaw < -np.pi:
+        while yaw < -np.pi:
             yaw += (2 * np.pi)
         rel_x = book_rect.x - tip_x
         rel_y = book_rect.y - tip_y
@@ -187,9 +187,9 @@ class BookshelfEnv(BaseEnv):
         place_y = tip_y + book_relative_y * np.sin(
             robby_yaw) - book_relative_x * np.cos(robby_yaw)
         place_yaw = book_relative_yaw + robby_yaw
-        if place_yaw > np.pi:
+        while place_yaw > np.pi:
             place_yaw -= (2 * np.pi)
-        elif place_yaw < -np.pi:
+        while place_yaw < -np.pi:
             place_yaw += (2 * np.pi)
 
         # Check whether the books center-of-mass is within the shelf bounds
@@ -235,14 +235,24 @@ class BookshelfEnv(BaseEnv):
     def _num_books_test(self) -> List[int]:
         return CFG.bookshelf_num_books_test
 
+    @property
+    def _num_obstacles_train(self) -> List[int]:
+        return CFG.bookshelf_num_obstacles_train
+
+    @property
+    def _num_obstacles_test(self) -> List[int]:
+        return CFG.bookshelf_num_obstacles_test
+
     def _generate_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_train_tasks,
+        return self._get_tasks(num_tasks=CFG.bookshelf_train_tasks_overwrite if CFG.bookshelf_train_tasks_overwrite is not None else CFG.num_train_tasks,
                                possible_num_books=self._num_books_train,
+                               possible_num_obstacles=self._num_obstacles_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_books=self._num_books_test,
+                               possible_num_obstacles=self._num_obstacles_test,
                                rng=self._test_rng)
 
     @property
@@ -284,6 +294,11 @@ class BookshelfEnv(BaseEnv):
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
         books = [b for b in state if b.is_instance(self._book_type)]
+        if task is not None:
+            goal_books = {obj for atom in task.goal for obj in atom.objects if obj.is_instance(self._book_type) }
+        else:
+            goal_books = books
+        
         shelf = self._shelf
         robby = self._robot
         # Draw shelf
@@ -308,7 +323,7 @@ class BookshelfEnv(BaseEnv):
         tip_y = robby_y + (self.robot_radius + offset_gripper *
                            self.gripper_length) * np.sin(robby_yaw)
         gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
-        gripper_line.plot(ax)
+        gripper_line.plot(ax, color="white")
 
         # Draw books
         for b in sorted(books):
@@ -318,18 +333,18 @@ class BookshelfEnv(BaseEnv):
             h = state.get(b, "height")
             yaw = state.get(b, "yaw")
             holding = state.get(b, "held") == 1.0
-            fc = "blue"
-            ec = "red" if holding else "black"
+            fc = "blue" if b in goal_books else "gray"
+            ec = "red" if holding else "gray"
             if holding:
                 aux_x = tip_x + x * np.sin(robby_yaw) + y * np.cos(robby_yaw)
                 aux_y = tip_y + y * np.sin(robby_yaw) - x * np.cos(robby_yaw)
                 x = aux_x
                 y = aux_y
                 yaw += robby_yaw
-                if yaw > np.pi:
-                    yaw -= (2 * np.pi)
-                elif yaw < -np.pi:
-                    yaw += (2 * np.pi)
+            while yaw > np.pi:
+                yaw -= (2 * np.pi)
+            while yaw < -np.pi:
+                yaw += (2 * np.pi)
             rect = utils.Rectangle(x, y, w, h, yaw)
             rect.plot(ax, facecolor=fc, edgecolor=ec)
 
@@ -340,42 +355,116 @@ class BookshelfEnv(BaseEnv):
         plt.axis("off")
         return fig
 
+    def grid_state(self, state: State) -> Array:
+
+        grid = np.zeros((self.env_x_ub, self.env_y_ub, 3))
+        books = [b for b in state if b.is_instance(self._book_type)]
+        shelf = self._shelf
+        robby = self._robot                                
+
+        # Draw shelf
+        shelf_x = state.get(shelf, "pose_x")
+        shelf_y = state.get(shelf, "pose_y")
+        shelf_w = state.get(shelf, "width")
+        shelf_h = state.get(shelf, "height")
+        shelf_yaw = state.get(shelf, "yaw")
+        shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw)
+
+        # Draw robot
+        robby_x = state.get(robby, "pose_x")
+        robby_y = state.get(robby, "pose_y")
+        robby_yaw = state.get(robby, "yaw")
+        gripper_free = state.get(robby, "gripper_free") == 1.0
+        robby_circ = utils.Circle(robby_x, robby_y, self.robot_radius)
+
+        # Draw books
+        book_rects = []
+        for b in sorted(books):
+            x = state.get(b, "pose_x")
+            y = state.get(b, "pose_y")
+            w = state.get(b, "width")
+            h = state.get(b, "height")
+            yaw = state.get(b, "yaw")
+            holding = state.get(b, "held") == 1.0
+            if holding:
+                yaw += robby_yaw
+            while yaw > np.pi:
+                yaw -= (2 * np.pi)
+            while yaw < -np.pi:
+                yaw += (2 * np.pi)
+            book_rects.append(utils.Rectangle(x, y, w, h, yaw))
+
+        cell_w = 1
+        cell_h = 1
+        cell_yaw = 0
+        for i in range(self.env_x_ub):
+            for j in range(self.env_y_ub):
+                grid_cell = utils.Rectangle(i, j, cell_w, cell_h, cell_yaw)
+                if utils.geom2ds_intersect(shelf_rect, grid_cell):
+                    grid[i, j, 0] = 1
+                if utils.geom2ds_intersect(robby_circ, grid_cell):
+                    grid[i, j, 1] = 1
+                for rect in book_rects:
+                    if utils.geom2ds_intersect(rect, grid_cell):
+                        grid[i, j, 2] = 1
+        return grid
+
     def _get_tasks(self, num_tasks: int, possible_num_books: List[int],
+                   possible_num_obstacles: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
             num_books = rng.choice(possible_num_books)
+            num_obstacles = rng.choice(possible_num_obstacles)
             data = {}
 
             # Sample shelf variables
-            shelf_out_of_bounds = True
-            while shelf_out_of_bounds:
+            if CFG.bookshelf_against_wall:
                 # Size
                 shelf_w = rng.uniform(self.shelf_w_lb, self.shelf_w_ub)
                 shelf_h = rng.uniform(self.shelf_h_lb, self.shelf_h_ub)
+                # Pick wall
+                wall_idx = rng.integers(4)  # l, b, r, t
                 # Pose
-                shelf_x = rng.uniform(self.env_x_lb, self.env_x_ub - shelf_w)
-                shelf_y = rng.uniform(self.env_y_lb, self.env_y_ub - shelf_h)
-                shelf_yaw = rng.uniform(-np.pi, np.pi)
-
-                if shelf_yaw >= 0:
-                    min_x = shelf_x - shelf_h * np.sin(shelf_yaw)
-                    max_x = shelf_x + shelf_w * np.cos(shelf_yaw)
-                    min_y = shelf_y
-                    max_y = shelf_y + shelf_w * np.sin(
-                        shelf_yaw) + shelf_h * np.cos(shelf_yaw)
+                if wall_idx == 0 or wall_idx == 2:
+                    shelf_y = rng.uniform(self.env_y_lb + shelf_w, self.env_y_ub)
+                    if wall_idx == 0:
+                        shelf_x = self.env_x_lb
+                    else:
+                        shelf_x = self.env_x_ub - shelf_h
+                    shelf_yaw = - np.pi / 2
                 else:
-                    min_x = shelf_x
-                    max_x = shelf_x + shelf_h * np.sin(
-                        -shelf_yaw) + shelf_w * np.cos(-shelf_yaw)
-                    min_y = shelf_y - shelf_w * np.sin(-shelf_yaw)
-                    max_y = shelf_y + shelf_h * np.cos(-shelf_yaw)
+                    shelf_x = rng.uniform(self.env_x_lb, self.env_x_ub - shelf_w)
+                    if wall_idx == 1:
+                        shelf_y = self.env_y_lb
+                    else:
+                        shelf_y = self.env_y_ub - shelf_h
+                    shelf_yaw = 0
+            else:
+                shelf_out_of_bounds = True
+                env_w = self.env_x_ub - self.env_x_lb
+                env_h = self.env_y_ub - self.env_y_lb
+                env_x = self.env_x_lb
+                env_y = self.env_y_lb
+                env_rect = utils.Rectangle(env_x, env_y, env_w, env_h, 0)
+                while shelf_out_of_bounds:
+                    # Size
+                    shelf_w = rng.uniform(self.shelf_w_lb, self.shelf_w_ub)
+                    shelf_h = rng.uniform(self.shelf_h_lb, self.shelf_h_ub)
+                    # Pose
+                    shelf_x = rng.uniform(self.env_x_lb, self.env_x_ub - shelf_w)
+                    shelf_y = rng.uniform(self.env_y_lb, self.env_y_ub - shelf_h)
+                    shelf_yaw = rng.uniform(-np.pi, np.pi)
 
-                if min_x >= self.env_x_lb and max_x <= self.env_x_ub \
-                    and min_y >= self.env_y_lb and max_y <= self.env_y_ub:
-                    shelf_out_of_bounds = False
-            shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h,
-                                         shelf_yaw)
+                    shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h,
+                                                 shelf_yaw)
+                    shelf_out_of_bounds = not(
+                        env_rect.contains_point(*(shelf_rect.vertices[0])) and
+                        env_rect.contains_point(*(shelf_rect.vertices[1])) and
+                        env_rect.contains_point(*(shelf_rect.vertices[2])) and
+                        env_rect.contains_point(*(shelf_rect.vertices[3]))
+                    )
+
             data[self._shelf] = np.array(
                 [shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw, 0.0])
 
@@ -416,7 +505,33 @@ class BookshelfEnv(BaseEnv):
                     book_init_yaw, held
                 ],
                                       dtype=np.float32)
-                goal.add(GroundAtom(self._OnShelf, [book, self._shelf]))
+                if not CFG.bookshelf_singlestep_goal:
+                    goal.add(GroundAtom(self._OnShelf, [book, self._shelf]))
+                elif j == 0:
+                    goal.add(GroundAtom(self._CanReach, [book, self._robot]))
+
+            for j in range(num_books, num_books + num_obstacles):
+                obstacle_collision = True
+                tmp_state = State(data)
+                ignore_objects = {self._shelf}   # allow obstacles to be placed on shelf
+                while obstacle_collision:
+                    obstacle_init_x = rng.uniform(self.env_x_lb, self.env_x_ub)
+                    obstacle_init_y = rng.uniform(self.env_y_lb, self.env_y_ub)
+                    obstacle_init_yaw = rng.uniform(-np.pi, np.pi)
+                    obstacle_width = rng.uniform(self.book_w_lb, self.book_w_ub)
+                    obstacle_height = rng.uniform(self.book_h_lb, self.book_h_ub)
+                    obstacle_rect = utils.Rectangle(obstacle_init_x, obstacle_init_y,
+                                                obstacle_width, obstacle_height,
+                                                obstacle_init_yaw)
+                    obstacle_collision = self.check_collision(tmp_state, obstacle_rect,
+                                                              ignore_objects)
+                obstacle = Object(f"book{j}", self._book_type)
+                held = 0.0
+                data[obstacle] = np.array([
+                    obstacle_init_x, obstacle_init_y, obstacle_width, obstacle_height,
+                    obstacle_init_yaw, held
+                ],
+                                      dtype=np.float32)
 
             state = State(data)
             tasks.append(Task(state, goal))
@@ -473,6 +588,10 @@ class BookshelfEnv(BaseEnv):
                 width = state.get(obj, "width")
                 height = state.get(obj, "height")
                 theta = state.get(obj, "yaw")
+                while theta > np.pi:
+                    theta -= (2 * np.pi)
+                while theta < -np.pi:
+                    theta += (2 * np.pi)
                 obj_geom = utils.Rectangle(x, y, width, height, theta)
             elif obj.is_instance(self._robot_type):
                 x = state.get(obj, "pose_x")
@@ -577,9 +696,9 @@ class BookshelfEnv(BaseEnv):
             y = offset_y - 1 if offset_y > 1 else offset_y
             yaw = np.arctan2(-y * obj_h, -x * obj_w)
         yaw += obj_yaw
-        if yaw > np.pi:
+        while yaw > np.pi:
             yaw -= (2 * np.pi)
-        elif yaw < -np.pi:
+        while yaw < -np.pi:
             yaw += (2 * np.pi)
         arr = np.array([pos_x, pos_y, yaw, 0.0, 1.0], dtype=np.float32)
         # pos_x and pos_y might take the robot out of the env bounds, so we clip
@@ -606,6 +725,10 @@ class BookshelfEnv(BaseEnv):
         shelf_h = state.get(shelf, "height")
         shelf_yaw = state.get(shelf, "yaw")
 
+        while book_yaw > np.pi:
+            book_yaw -= (2 * np.pi)
+        while book_yaw < -np.pi:
+            book_yaw += (2 * np.pi)
         book_rect = utils.Rectangle(book_x, book_y, book_w, book_h, book_yaw)
         shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h,
                                      shelf_yaw)
@@ -627,6 +750,10 @@ class BookshelfEnv(BaseEnv):
             width = state.get(obj, "width")
             height = state.get(obj, "height")
             theta = state.get(obj, "yaw")
+            while theta > np.pi:
+                theta -= (2 * np.pi)
+            while theta < -np.pi:
+                theta += (2 * np.pi)
             obj_geom = utils.Rectangle(x, y, width, height, theta)
         else:
             raise ValueError("Can only compute reachable for books and shelves")
@@ -650,6 +777,10 @@ class BookshelfEnv(BaseEnv):
                 width = state.get(obj, "width")
                 height = state.get(obj, "height")
                 theta = state.get(obj, "yaw")
+                while theta > np.pi:
+                    theta -= (2 * np.pi)
+                while theta < -np.pi:
+                    theta += (2 * np.pi)
                 book_rect = utils.Rectangle(x, y, width, height, theta)
                 if book_rect.contains_point(tip_x, tip_y):
                     pick_book = obj

@@ -10,6 +10,8 @@ from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
+from predicators.explorers.bilevel_planning_explorer_failures import \
+    BilevelPlanningExplorerFailures
 from predicators.option_model import _OptionModelBase
 from predicators.structs import NSRT, GroundAtom, ParameterizedOption, \
     Predicate, State, Task, Type
@@ -61,7 +63,7 @@ def create_explorer(
                                action_space, train_tasks, nsrts, option_model,
                                state_score_fn)
             # Bilevel planning approaches use NSRTs and an option model.
-            elif issubclass(cls, BilevelPlanningExplorer):
+            elif issubclass(cls, (BilevelPlanningExplorer, BilevelPlanningExplorerFailures)):
                 assert nsrts is not None
                 assert option_model is not None
                 explorer = cls(initial_predicates, initial_options, types,

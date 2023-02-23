@@ -279,7 +279,7 @@ class GlobalSettings:
 
     # parameters for abstract GNN approach
     gnn_num_message_passing = 3
-    gnn_layer_size = 16
+    gnn_layer_size = 256#16
     gnn_learning_rate = 1e-3
     gnn_num_epochs = 25000
     gnn_batch_size = 128
@@ -399,7 +399,8 @@ class GlobalSettings:
     # mlp_classifier_hid_sizes = [32, 32]
     mlp_classifier_hid_sizes = [256, 256]
     mlp_classifier_balance_data = True
-    neural_gaus_regressor_hid_sizes = [32, 32]
+    # neural_gaus_regressor_hid_sizes = [32, 32]
+    neural_gaus_regressor_hid_sizes = [256, 256]
     neural_gaus_regressor_max_itr = 1000
     mlp_classifier_n_iter_no_change = 5000
     implicit_mlp_regressor_max_itr = 10000
@@ -488,14 +489,28 @@ class GlobalSettings:
     use_cuda = False
 
     # EBM model
+    ebm_class = 'diff' # ebm or diff(usion)
     use_full_state = False
     use_skeleton_state = False
-    sampler_horizon = 1     # 1 is the minimum, which is completely myopic
+    sampler_horizon = 1
+    sampler_learning_single_step = False
     use_ebm = True
+    sql_reward_scale = 1/24#1#100#
 
     # bookshelf env parameters
-    bookshelf_num_books_train = [4, 5]#[3, 4]#[2, 3]#
-    bookshelf_num_books_test = [5, 6]#[4, 5]#[3, 4]#
+    bookshelf_num_books_train = [4, 5]#[3, 4]#[2, 3]#[8, 9]#
+    bookshelf_num_books_test = [5, 6]#[4, 5]#[3, 4]#[9, 10]#
+    # bookshelf_num_obstacles_train = [18, 19]#[4, 5]#
+    # bookshelf_num_obstacles_test = [19,20]#[5, 6]#
+    bookshelf_against_wall = False
+    bookshelf_train_tasks_overwrite = None
+    bookshelf_specialized_nsrts = False
+    bookshelf_singlestep_goal = False
+
+    # data collection
+    data_collection_process_idx = 0
+    data_collection_num_processes = 1
+    collect_failures = False
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -503,6 +518,19 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
+            bookshelf_num_obstacles_train=defaultdict(
+                lambda: [18, 19],
+                {
+                    "sampler_learning": [18, 19],
+                    "sampler_learning_mix": [0],
+                })[args.get("approach", "")],
+            bookshelf_num_obstacles_test=defaultdict(
+                lambda: [19, 20],
+                {
+                    "sampler_learning": [19, 20],
+                    "sampler_learning_mix": [0],
+                })[args.get("approach", "")],
+
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
             horizon=defaultdict(
@@ -605,7 +633,7 @@ def get_allowed_query_type_names() -> Set[str]:
             "PathToStateQuery",
             "_MockQuery",
         }
-    if CFG.approach == "sampler_learning":
+    if CFG.approach == "sampler_learning"  or CFG.approach == "gnn_sampler_learning":
         return {"GroundAtomsHoldQuery"}
     return set()
 

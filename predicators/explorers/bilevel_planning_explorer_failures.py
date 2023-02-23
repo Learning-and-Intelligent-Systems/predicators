@@ -13,7 +13,7 @@ from predicators.structs import NSRT, ExplorationStrategy, \
     ParameterizedOption, Predicate, Task, Type
 
 
-class BilevelPlanningExplorer(BaseExplorer):
+class BilevelPlanningExplorerFailures(BaseExplorer):
     """BilevelPlanningExplorer implementation.
 
     This explorer is abstract: subclasses decide how to use the _solve
@@ -37,7 +37,7 @@ class BilevelPlanningExplorer(BaseExplorer):
         seed = self._seed + self._num_calls
         # Note: subclasses are responsible for catching PlanningFailure and
         # PlanningTimeout and handling them accordingly.
-        plan, _, skeleton = sesame_plan(
+        plan_list, _, skeleton_list = sesame_plan(
             task,
             self._option_model,
             self._nsrts,
@@ -46,13 +46,15 @@ class BilevelPlanningExplorer(BaseExplorer):
             timeout,
             seed,
             CFG.sesame_task_planning_heuristic,
-            CFG.sesame_max_skeletons_optimized,#
+            CFG.sesame_max_skeletons_optimized,
             max_horizon=CFG.horizon,
-            # max_samples_per_step=1,
             allow_noops=CFG.sesame_allow_noops,
             use_visited_state_set=CFG.sesame_use_visited_state_set,
-            return_skeleton=True)
-        policy = utils.option_plan_to_policy(plan)
-        termination_function = task.goal_holds
+            return_skeleton=True,
+            return_all_failed_refinements=True)
 
-        return policy, termination_function, skeleton
+        policies = [utils.option_plan_to_policy(plan) for plan in plan_list]
+        termination_function = task.goal_holds
+        assert len(policies) == len(plan_list) == len(skeleton_list)
+        # print(sum(len(plan) for plan in plan_list))
+        return policies, [termination_function] * len(policies), skeleton_list
