@@ -55,6 +55,7 @@ class LLMPG3AnalogyApproach(PG3AnalogyApproach):
                                                      target_env.get_name())
 
         # Create a prompt for the LLM.
+        stop_token = "(end policy)"
         prompt = f"""We are going to find an analogy between PDDL domains.
 
 Here is a PDDL domain for {base_env.get_name()}:
@@ -65,14 +66,13 @@ Here is a PDDL domain for {target_env.get_name()}:
 
 Here is the policy for {base_env.get_name()}:
 {base_policy}
-<END-POLICY>
+{stop_token}
 
 Here is the policy for {target_env.get_name()}:"""
 
         logging.info(f"Prompting LLM with: {prompt}")
 
         # Query the LLM.
-        stop_token = "<END-POLICY>"
         llm_predictions = self._llm.sample_completions(
             prompt=prompt,
             temperature=CFG.llm_temperature,
