@@ -1,9 +1,6 @@
 """Handle creation of environments."""
 
-import importlib
 import logging
-import pkgutil
-from typing import TYPE_CHECKING
 
 from predicators import utils
 from predicators.envs.base_env import BaseEnv
@@ -11,13 +8,8 @@ from predicators.envs.base_env import BaseEnv
 __all__ = ["BaseEnv"]
 _MOST_RECENT_ENV_INSTANCE = {}
 
-if not TYPE_CHECKING:
-    # Load all modules so that utils.get_all_subclasses() works.
-    for _, module_name, _ in pkgutil.walk_packages(__path__):
-        if "__init__" not in module_name:
-            # Important! We use an absolute import here to avoid issues
-            # with isinstance checking when using relative imports.
-            importlib.import_module(f"{__name__}.{module_name}")
+# Find the subclasses.
+utils.import_submodules(__path__, __name__)
 
 
 def create_new_env(name: str,

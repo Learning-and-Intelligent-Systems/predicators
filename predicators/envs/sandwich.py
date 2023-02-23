@@ -1,6 +1,7 @@
 """Sandwich making domain."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Collection, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -543,6 +544,24 @@ class SandwichEnv(BaseEnv):
             on_atom = GroundAtom(self._On, [top, bot])
             goal_atoms.add(on_atom)
         return goal_atoms
+
+    def _get_language_goal_prompt_prefix(self,
+                                         object_names: Collection[str]) -> str:
+        # pylint:disable=line-too-long
+        available_predicates = ", ".join(
+            [p.name for p in sorted(self.goal_predicates)])
+        available_objects = ", ".join(sorted(object_names))
+        # We could extract the object names, but this is simpler.
+        assert {"bread0", "bread1", "patty0", "cheese0",
+                "lettuce0"}.issubset(object_names)
+        prompt = f"""# The available predicates are: {available_predicates}
+# The available objects are: {available_objects}
+# Use the available predicates and objects to convert natural language goals into JSON goals.
+        
+# I want a sandwich with a patty, cheese, and lettuce.
+{{"OnBoard": [["bread0", "board"]], "On": [["bread1", "lettuce0"], ["lettuce0", "cheese0"], ["cheese0", "patty0"], ["patty0", "bread0"]]}}
+"""
+        return prompt
 
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj1, obj2 = objects
