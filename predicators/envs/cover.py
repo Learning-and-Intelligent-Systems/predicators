@@ -139,7 +139,7 @@ class CoverEnv(BaseEnv):
         return {self._block_type, self._target_type, self._robot_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
         raise NotImplementedError("This base class method is leaving soon!")
 
     @property

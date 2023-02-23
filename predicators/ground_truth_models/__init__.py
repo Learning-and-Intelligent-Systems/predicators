@@ -97,8 +97,7 @@ def get_gt_nsrts(env_name: str, predicates_to_keep: Set[Predicate],
     else:
         # In the final version of this function, we will instead raise an
         # error in this case.
-        nsrts = deprecated_get_gt_nsrts(env_name, predicates_to_keep,
-                                        options_to_keep)
+        nsrts = deprecated_get_gt_nsrts(env_name)
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
     # options are excluded.
     final_nsrts = set()
@@ -134,8 +133,7 @@ utils.import_submodules(__path__, __name__)
 ############# EVERYTHING BELOW HERE IS SCHEDULED FOR REMOVAL ##################
 
 
-def deprecated_get_gt_nsrts(env_name: str, predicates: Set[Predicate],
-                            options: Set[ParameterizedOption]) -> Set[NSRT]:
+def deprecated_get_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
     if env_name == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts(env_name)
@@ -172,19 +170,10 @@ def deprecated_get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts(env_name)
-    elif env_name in ("sandwich", "sandwich_clear"):
-        nsrts = _get_sandwich_gt_nsrts(env_name)
     else:
-        raise NotImplementedError("Ground truth NSRTs not implemented")
-    # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
-    # options are excluded.
-    final_nsrts = set()
-    for nsrt in nsrts:
-        if nsrt.option not in options:
-            continue
-        nsrt = nsrt.filter_predicates(predicates)
-        final_nsrts.add(nsrt)
-    return final_nsrts
+        assert env_name in ("sandwich", "sandwich_clear")
+        nsrts = _get_sandwich_gt_nsrts(env_name)
+    return nsrts
 
 
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
