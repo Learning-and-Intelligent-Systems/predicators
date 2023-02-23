@@ -93,7 +93,7 @@ def test_pddlenv(domain_str, problem_strs):
 
         @classmethod
         def get_name(cls):
-            return "dummy"
+            return "dummy-pddl"
 
         @property
         def _domain_str(self):
@@ -108,7 +108,7 @@ def test_pddlenv(domain_str, problem_strs):
             return lambda num, rng: [problem_str2]
 
     env = _DummyPDDLEnv()
-    assert env.get_name() == "dummy"
+    assert env.get_name() == "dummy-pddl"
 
     # Domain creation checks.
     assert np.allclose(env.action_space.low, np.array([0, 0],
