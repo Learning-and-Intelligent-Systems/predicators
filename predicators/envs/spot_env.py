@@ -1,12 +1,12 @@
 """Simple pick-place-move environment for the Boston Dynamics Spot Robot."""
 
-from typing import Collection, List, Optional, Set, Dict
 import json
+from pathlib import Path
+from typing import Collection, Dict, List, Optional, Set
 
 import matplotlib
 import numpy as np
 from gym.spaces import Box
-from pathlib import Path
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -238,6 +238,21 @@ class SpotEnv(BaseEnv):
 """
         return prompt
 
+    def _parse_init_preds_from_json(
+            self, spec: Dict[str, List[List[str]]],
+            id_to_obj: Dict[str, Object]) -> Set[GroundAtom]:
+        """Helper for parsing init preds from JSON task specifications."""
+        pred_names = {p.name for p in self.predicates}
+        assert set(spec.keys()).issubset(pred_names)
+        pred_to_args = {p: spec.get(p.name, []) for p in self.predicates}
+        init_preds: Set[GroundAtom] = set()
+        for pred, args in pred_to_args.items():
+            for id_args in args:
+                obj_args = [id_to_obj[a] for a in id_args]
+                init_atom = GroundAtom(pred, obj_args)
+                init_preds.add(init_atom)
+        return init_preds
+
     def _load_task_from_json(self, json_file: Path) -> Task:
         """Create a task from a JSON file.
 
@@ -281,12 +296,12 @@ class SpotEnv(BaseEnv):
         for obj_name, obj_dict in json_dict["init"].items():
             obj = object_name_to_object[obj_name]
             init_dict[obj] = obj_dict.copy()
-        
-        # TODO: Parse out the predicates and yeet them into the simulator state
-        # to correctly construct!
-        init_state = _PDDLEnvState(init_dict, )
-        
-        
+
+        # NOTE: We need to parse out init preds to create a simulator state.
+        init_preds = self._parse_init_preds_from_json(json_dict["init_preds"],
+                                                      object_name_to_object)
+        init_state = _PDDLEnvState(init_dict, init_preds)
+
         # Parse goal.
         if "goal" in json_dict:
             goal = self._parse_goal_from_json(json_dict["goal"],
@@ -296,5 +311,3 @@ class SpotEnv(BaseEnv):
             goal = self._parse_language_goal_from_json(
                 json_dict["language_goal"], object_name_to_object)
         return Task(init_state, goal)
-
-

@@ -21,6 +21,7 @@ from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 
+from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
 from predicators.structs import Object
@@ -49,16 +50,7 @@ class SpotControllers():
     robot."""
 
     def __init__(self) -> None:
-        # self.config = {
-        #         'force_45_angle_grasp': False,
-        #         'force_horizontal_grasp': False,
-        #         'force_squeeze_grasp': False,
-        #         'force_top_down_grasp': True,
-        #         'hostname': '10.17.4.35',
-        #         'image_source': 'hand_color_image',
-        #         'verbose': False
-        #     }
-        self._hostname = "10.17.4.35"
+        self._hostname = CFG.spot_robot_ip
         self._verbose = False
         self._force_45_angle_grasp = False
         self._force_horizontal_grasp = False
