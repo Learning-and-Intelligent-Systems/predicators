@@ -51,6 +51,12 @@ def test_default_option_model():
                            next_state.get(obj, "feat3") + action.arr[1])
             return next_state
 
+    class _MockOracleOptionModel(_OracleOptionModel):
+
+        def __init__(self, env) -> None:  # pylint: disable=super-init-not-called
+            self._name_to_parameterized_option = {"Pick": parameterized_option}
+            self._simulator = env.simulate
+
     # Mock option.
     parameterized_option = ParameterizedOption("Pick", [], params_space,
                                                policy, initiable, terminal)
@@ -70,7 +76,7 @@ def test_default_option_model():
         obj4: [8, 9, 10],
         obj9: [11, 12, 13]
     })
-    model = _OracleOptionModel(env)
+    model = _MockOracleOptionModel(env)
     next_state, num_act = model.get_next_state_and_num_actions(state, option1)
     assert num_act == 5
     # Test that the option's memory has not been updated.
@@ -135,14 +141,17 @@ def test_default_option_model():
             del action  # unused
             return state.copy()
 
-        @property
-        def options(self):
-            """Mock options."""
-            return {infinite_param_opt}
+    class _MockOracleOptionModel(_OracleOptionModel):
+
+        def __init__(self, env) -> None:  # pylint: disable=super-init-not-called
+            self._name_to_parameterized_option = {
+                "InfiniteLearnedOption": infinite_param_opt
+            }
+            self._simulator = env.simulate
 
     infinite_option = infinite_param_opt.ground([], params1)
     env = _NoopMockEnv()
-    model = _OracleOptionModel(env)
+    model = _MockOracleOptionModel(env)
     next_state, num_act = model.get_next_state_and_num_actions(
         state, infinite_option)
     assert next_state.allclose(state)
@@ -154,7 +163,7 @@ def test_default_option_model():
         "max_num_steps_option_rollout": 5,
     })
 
-    model = _OracleOptionModel(env)
+    model = _MockOracleOptionModel(env)
     _, num_act = model.get_next_state_and_num_actions(state, infinite_option)
     assert num_act == 5
 
