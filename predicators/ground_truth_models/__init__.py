@@ -95,7 +95,7 @@ def get_gt_nsrts(env_name: str, predicates_to_keep: Set[Predicate],
             nsrts = factory.get_nsrts(env_name, types, predicates, options)
             break
     else:
-        # In the final version of this function, we will instead raise an
+        # TODO: In the final version of this function, we will instead raise an
         # error in this case.
         nsrts = deprecated_get_gt_nsrts(env_name)
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -130,7 +130,7 @@ def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
 # Find the factories.
 utils.import_submodules(__path__, __name__)
 
-############# EVERYTHING BELOW HERE IS SCHEDULED FOR REMOVAL ##################
+############# TODO: EVERYTHING BELOW HERE IS SCHEDULED FOR REMOVAL ############
 
 
 def deprecated_get_gt_nsrts(env_name: str) -> Set[NSRT]:
