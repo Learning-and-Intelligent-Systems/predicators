@@ -8,7 +8,6 @@ from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.satellites import SatellitesEnv
-from predicators.envs.touch_point import TouchOpenEnv
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
@@ -130,9 +129,7 @@ utils.import_submodules(__path__, __name__)
 
 def deprecated_get_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
-    if env_name == "touch_open":
-        nsrts = _get_touch_open_gt_nsrts(env_name)
-    elif env_name == "stick_button":
+    if env_name == "stick_button":
         nsrts = _get_stick_button_gt_nsrts(env_name)
     elif env_name == "doors":
         nsrts = _get_doors_gt_nsrts(env_name)
@@ -176,88 +173,6 @@ def _get_options_by_names(env_name: str,
     options = get_gt_options(env_name)
     name_to_option = {o.name: o for o in options}
     return [name_to_option[name] for name in names]
-
-
-def _get_touch_open_gt_nsrts(env_name: str) -> Set[NSRT]:
-    """Create ground truth NSRTs for TouchOpenEnv."""
-    robot_type, door_type = _get_types_by_names(env_name, ["robot", "door"])
-    TouchingDoor, DoorIsOpen = _get_predicates_by_names(
-        CFG.env, ["TouchingDoor", "DoorIsOpen"])
-    MoveToDoor, OpenDoor = _get_options_by_names(CFG.env,
-                                                 ["MoveToDoor", "OpenDoor"])
-    robot = Variable("?robot", robot_type)
-    door = Variable("?door", door_type)
-
-    nsrts = set()
-
-    # MoveToDoor
-    parameters = [robot, door]
-    option_vars = [robot, door]
-    option = MoveToDoor
-    preconditions: Set[LiftedAtom] = set()
-    add_effects = {LiftedAtom(TouchingDoor, [robot, door])}
-    delete_effects: Set[LiftedAtom] = set()
-    side_predicates: Set[Predicate] = set()
-
-    def move_to_door_sampler(state: State, goal: Set[GroundAtom],
-                             rng: np.random.Generator,
-                             objs: Sequence[Object]) -> Array:
-        del goal, rng  # unused
-        robot, door = objs
-        assert robot.is_instance(robot_type)
-        assert door.is_instance(door_type)
-        r_x = state.get(robot, "x")
-        r_y = state.get(robot, "y")
-        d_x = state.get(door, "x")
-        d_y = state.get(door, "y")
-        delta_x = d_x - r_x
-        delta_y = d_y - r_y
-        return np.array([delta_x, delta_y], dtype=np.float32)
-
-    move_to_door_nsrt = NSRT("MoveToDoor", parameters, preconditions,
-                             add_effects, delete_effects, side_predicates,
-                             option, option_vars, move_to_door_sampler)
-    nsrts.add(move_to_door_nsrt)
-
-    # OpenDoor
-    parameters = [door, robot]
-    option_vars = [door, robot]
-    option = OpenDoor
-    preconditions = {LiftedAtom(TouchingDoor, [robot, door])}
-    add_effects = {LiftedAtom(DoorIsOpen, [door])}
-    delete_effects = set()
-    side_predicates = set()
-
-    # Allow protected access because this is an oracle. Used in the sampler.
-    env = get_or_create_env(CFG.env)
-    assert isinstance(env, TouchOpenEnv)
-    get_open_door_target_value = env._get_open_door_target_value  # pylint: disable=protected-access
-
-    def open_door_sampler(state: State, goal: Set[GroundAtom],
-                          rng: np.random.Generator,
-                          objs: Sequence[Object]) -> Array:
-        del goal, rng
-        door, _ = objs
-        assert door.is_instance(door_type)
-        # Calculate the desired change in the doors "rotation" feature.
-        mass = state.get(door, "mass")
-        friction = state.get(door, "friction")
-        flex = state.get(door, "flex")
-        target_rot = get_open_door_target_value(mass=mass,
-                                                friction=friction,
-                                                flex=flex)
-        current_rot = state.get(door, "rot")
-        # The door always changes from closed to open.
-        delta_open = 1.0
-        return np.array([target_rot - current_rot, delta_open],
-                        dtype=np.float32)
-
-    open_door_nsrt = NSRT("OpenDoor", parameters, preconditions, add_effects,
-                          delete_effects, side_predicates, option, option_vars,
-                          open_door_sampler)
-    nsrts.add(open_door_nsrt)
-
-    return nsrts
 
 
 def _get_stick_button_gt_nsrts(env_name: str) -> Set[NSRT]:
