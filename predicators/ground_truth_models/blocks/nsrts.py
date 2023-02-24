@@ -5,7 +5,6 @@ from typing import Dict, Sequence, Set
 import numpy as np
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
