@@ -131,11 +131,7 @@ utils.import_submodules(__path__, __name__)
 
 def deprecated_get_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
-    if env_name in ("repeated_nextto", "repeated_nextto_ambiguous"):
-        nsrts = _get_repeated_nextto_gt_nsrts(env_name)
-    elif env_name == "repeated_nextto_single_option":
-        nsrts = _get_repeated_nextto_single_option_gt_nsrts(env_name)
-    elif env_name == "screws":
+    if env_name == "screws":
         nsrts = _get_screws_gt_nsrts(env_name)
     elif env_name.startswith("pddl_"):
         nsrts = _get_pddl_env_gt_nsrts(env_name)
@@ -187,89 +183,6 @@ def _get_options_by_names(env_name: str,
     options = get_gt_options(env_name)
     name_to_option = {o.name: o for o in options}
     return [name_to_option[name] for name in names]
-
-
-def _get_repeated_nextto_gt_nsrts(env_name: str) -> Set[NSRT]:
-    """Create ground truth NSRTs for RepeatedNextToEnv."""
-    robot_type, dot_type = _get_types_by_names(env_name, ["robot", "dot"])
-
-    NextTo, NextToNothing, Grasped = _get_predicates_by_names(
-        env_name, ["NextTo", "NextToNothing", "Grasped"])
-
-    Move, Grasp = _get_options_by_names(env_name, ["Move", "Grasp"])
-
-    nsrts = set()
-
-    # Move
-    robot = Variable("?robot", robot_type)
-    targetdot = Variable("?targetdot", dot_type)
-    parameters = [robot, targetdot]
-    option_vars = [robot, targetdot]
-    option = Move
-    preconditions: Set[LiftedAtom] = set()
-    add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
-    delete_effects: Set[LiftedAtom] = set()
-    # Moving could have us end up NextTo other objects. It could also
-    # include NextToNothing as a delete effect.
-    ignore_effects = {NextTo, NextToNothing}
-    move_nsrt = NSRT("Move", parameters, preconditions, add_effects,
-                     delete_effects, ignore_effects, option, option_vars,
-                     lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
-    nsrts.add(move_nsrt)
-
-    # Grasp
-    robot = Variable("?robot", robot_type)
-    targetdot = Variable("?targetdot", dot_type)
-    parameters = [robot, targetdot]
-    option_vars = [robot, targetdot]
-    option = Grasp
-    preconditions = {LiftedAtom(NextTo, [robot, targetdot])}
-    add_effects = {LiftedAtom(Grasped, [robot, targetdot])}
-    delete_effects = {LiftedAtom(NextTo, [robot, targetdot])}
-    # After grasping, it's possible that you could end up NextToNothing,
-    # but it's also possible that you remain next to something else.
-    # Note that NextTo isn't an ignore effect here because it's not
-    # something we'd be unsure about for any object. For every object we
-    # are NextTo but did not grasp, we will stay NextTo it.
-    ignore_effects = {NextToNothing}
-    grasp_nsrt = NSRT("Grasp", parameters, preconditions, add_effects,
-                      delete_effects, ignore_effects, option, option_vars,
-                      null_sampler)
-    nsrts.add(grasp_nsrt)
-
-    return nsrts
-
-
-def _get_repeated_nextto_single_option_gt_nsrts(env_name: str) -> Set[NSRT]:
-    """Create ground truth NSRTs for RepeatedNextToSingleOptionEnv."""
-    rn_grasp_nsrt, rn_move_nsrt = sorted(
-        _get_repeated_nextto_gt_nsrts("repeated_nextto"),
-        key=lambda nsrt: nsrt.name)
-    assert rn_grasp_nsrt.name == "Grasp"
-    assert rn_move_nsrt.name == "Move"
-
-    MoveGrasp, = _get_options_by_names(env_name, ["MoveGrasp"])
-
-    nsrts = set()
-
-    # Move
-    move_nsrt = NSRT(
-        rn_move_nsrt.name, rn_move_nsrt.parameters, rn_move_nsrt.preconditions,
-        rn_move_nsrt.add_effects, rn_move_nsrt.delete_effects,
-        rn_move_nsrt.ignore_effects, MoveGrasp, rn_move_nsrt.option_vars,
-        lambda s, g, rng, o: np.array([-1.0, 0.0], dtype=np.float32))
-    nsrts.add(move_nsrt)
-
-    # Grasp
-    grasp_nsrt = NSRT(
-        rn_grasp_nsrt.name, rn_grasp_nsrt.parameters,
-        rn_grasp_nsrt.preconditions, rn_grasp_nsrt.add_effects,
-        rn_grasp_nsrt.delete_effects, rn_grasp_nsrt.ignore_effects, MoveGrasp,
-        rn_grasp_nsrt.option_vars,
-        lambda s, g, rng, o: np.array([1.0, 0.0], dtype=np.float32))
-    nsrts.add(grasp_nsrt)
-
-    return nsrts
 
 
 def _get_screws_gt_nsrts(env_name: str) -> Set[NSRT]:
