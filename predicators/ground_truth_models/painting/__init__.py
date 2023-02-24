@@ -1,4 +1,4 @@
-"""Ground-truth models for cover environment and variants."""
+"""Ground-truth models for painting environment and variants."""
 
 from .nsrts import PaintingGroundTruthNSRTFactory
 

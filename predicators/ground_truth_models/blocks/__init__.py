@@ -1,4 +1,4 @@
-"""Ground-truth models for cover environment and variants."""
+"""Ground-truth models for blocks environment and variants."""
 
 from .nsrts import BlocksGroundTruthNSRTFactory
 
