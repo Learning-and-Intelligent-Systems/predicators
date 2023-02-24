@@ -130,9 +130,7 @@ utils.import_submodules(__path__, __name__)
 
 def deprecated_get_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
-    if env_name in ("touch_point", "touch_point_param"):
-        nsrts = _get_touch_point_gt_nsrts(env_name)
-    elif env_name == "touch_open":
+    if env_name == "touch_open":
         nsrts = _get_touch_open_gt_nsrts(env_name)
     elif env_name == "stick_button":
         nsrts = _get_stick_button_gt_nsrts(env_name)
@@ -178,54 +176,6 @@ def _get_options_by_names(env_name: str,
     options = get_gt_options(env_name)
     name_to_option = {o.name: o for o in options}
     return [name_to_option[name] for name in names]
-
-
-def _get_touch_point_gt_nsrts(env_name: str) -> Set[NSRT]:
-    """Create ground truth NSRTs for TouchPointEnv."""
-    robot_type, target_type = _get_types_by_names(env_name,
-                                                  ["robot", "target"])
-    Touched, = _get_predicates_by_names(env_name, ["Touched"])
-    MoveTo, = _get_options_by_names(env_name, ["MoveTo"])
-
-    nsrts = set()
-
-    # MoveTo
-    robot = Variable("?robot", robot_type)
-    target = Variable("?target", target_type)
-    parameters = [robot, target]
-    option_vars = [robot, target]
-    option = MoveTo
-    preconditions: Set[LiftedAtom] = set()
-    add_effects = {LiftedAtom(Touched, [robot, target])}
-    delete_effects: Set[LiftedAtom] = set()
-    ignore_effects: Set[Predicate] = set()
-
-    if CFG.env == "touch_point_param":
-
-        def moveto_sampler(state: State, goal: Set[GroundAtom],
-                           rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
-            del rng, goal  # unused
-            robot, target, = objs
-            assert robot.is_instance(robot_type)
-            assert target.is_instance(target_type)
-            rx = state.get(robot, "x")
-            ry = state.get(robot, "y")
-            tx = state.get(target, "x")
-            ty = state.get(target, "y")
-            dx = tx - rx
-            dy = ty - ry
-            return np.array([dx, dy], dtype=np.float32)
-
-    elif CFG.env == "touch_point":
-        moveto_sampler = null_sampler
-
-    move_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
-                     delete_effects, ignore_effects, option, option_vars,
-                     moveto_sampler)
-    nsrts.add(move_nsrt)
-
-    return nsrts
 
 
 def _get_touch_open_gt_nsrts(env_name: str) -> Set[NSRT]:
@@ -1079,6 +1029,7 @@ def _get_satellites_gt_nsrts(env_name: str) -> Set[NSRT]:
     nsrts.add(take_geiger_reading_nsrt)
 
     return nsrts
+
 
 def _get_sandwich_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for SandwichEnv."""
