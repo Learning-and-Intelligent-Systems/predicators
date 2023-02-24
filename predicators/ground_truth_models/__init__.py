@@ -7,7 +7,6 @@ import numpy as np
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.doors import DoorsEnv
-from predicators.envs.pddl_env import _PDDLEnv
 from predicators.envs.satellites import SatellitesEnv
 from predicators.envs.touch_point import TouchOpenEnv
 from predicators.settings import CFG
@@ -131,9 +130,7 @@ utils.import_submodules(__path__, __name__)
 
 def deprecated_get_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
-    if env_name.startswith("pddl_"):
-        nsrts = _get_pddl_env_gt_nsrts(env_name)
-    elif env_name in ("touch_point", "touch_point_param"):
+    if env_name in ("touch_point", "touch_point_param"):
         nsrts = _get_touch_point_gt_nsrts(env_name)
     elif env_name == "touch_open":
         nsrts = _get_touch_open_gt_nsrts(env_name)
@@ -1082,27 +1079,6 @@ def _get_satellites_gt_nsrts(env_name: str) -> Set[NSRT]:
     nsrts.add(take_geiger_reading_nsrt)
 
     return nsrts
-
-
-def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
-    env = get_or_create_env(name)
-    assert isinstance(env, _PDDLEnv)
-
-    nsrts = set()
-    options = get_gt_options(name)
-    option_name_to_option = {o.name: o for o in options}
-
-    for strips_op in env.strips_operators:
-        option = option_name_to_option[strips_op.name]
-        nsrt = strips_op.make_nsrt(
-            option=option,
-            option_vars=strips_op.parameters,
-            sampler=null_sampler,
-        )
-        nsrts.add(nsrt)
-
-    return nsrts
-
 
 def _get_sandwich_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for SandwichEnv."""
