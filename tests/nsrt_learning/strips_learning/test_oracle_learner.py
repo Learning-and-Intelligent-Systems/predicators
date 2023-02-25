@@ -1,8 +1,8 @@
 """Tests for oracle STRIPS operator learning."""
-
 from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 
@@ -23,7 +23,7 @@ def test_oracle_strips_learner():
     # With sufficiently representative data, all operators should be learned.
     env = create_new_env("blocks")
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
     segmented_trajs = [

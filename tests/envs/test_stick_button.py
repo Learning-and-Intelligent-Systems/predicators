@@ -1,5 +1,4 @@
 """Test cases for the stick button environment."""
-
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,6 +6,7 @@ import pytest
 
 from predicators import utils
 from predicators.envs.stick_button import StickButtonEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, GroundAtom, Task
 
 
@@ -29,7 +29,7 @@ def test_stick_button():
     assert len(env.goal_predicates) == 1
     AboveNoButton = [p for p in env.predicates if p.name == "AboveNoButton"][0]
     assert {pred.name for pred in env.goal_predicates} == {"Pressed"}
-    assert len(env.options) == 3
+    assert len(get_gt_options(env.get_name())) == 3
     assert len(env.types) == 4
     button_type, holder_type, robot_type, stick_type = sorted(env.types)
     assert button_type.name == "button"
@@ -167,7 +167,8 @@ def test_stick_button():
 
     ## Test options ##
 
-    PickStick, RobotPressButton, StickPressButton = sorted(env.options)
+    PickStick, RobotPressButton, StickPressButton = sorted(
+        get_gt_options(env.get_name()))
     assert PickStick.name == "PickStick"
     assert RobotPressButton.name == "RobotPressButton"
     assert StickPressButton.name == "StickPressButton"

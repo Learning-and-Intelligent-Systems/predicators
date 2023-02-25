@@ -14,6 +14,7 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import BaseEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
@@ -122,9 +123,10 @@ def _generate_demonstrations(
     """Use the demonstrator to generate demonstrations, one per training task
     starting from train_tasks_start_idx."""
     if CFG.demonstrator == "oracle":
+        options = get_gt_options(env.get_name())
         oracle_approach = OracleApproach(
             env.predicates,
-            env.options,
+            options,
             env.types,
             env.action_space,
             train_tasks,

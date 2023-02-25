@@ -1,10 +1,9 @@
 """Test cases for the tabular refinement cost estimator."""
-
 import pytest
 
 from predicators import utils
 from predicators.envs.narrow_passage import NarrowPassageEnv
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.refinement_estimators.tabular_refinement_estimator import \
     TabularRefinementEstimator
 from predicators.settings import CFG
@@ -48,7 +47,8 @@ def test_narrow_passage_tabular_refinement_estimator():
     door, = sample_state.get_objects(door_type)
     robot, = sample_state.get_objects(robot_type)
     target, = sample_state.get_objects(target_type)
-    gt_nsrts = get_gt_nsrts(CFG.env, env.predicates, env.options)
+    gt_nsrts = get_gt_nsrts(CFG.env, env.predicates,
+                            get_gt_options(env.get_name()))
     move_and_open_door_nsrt, move_to_target_nsrt = sorted(gt_nsrts)
 
     # Ground NSRTs using objects

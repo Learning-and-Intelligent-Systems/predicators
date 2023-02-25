@@ -12,7 +12,7 @@ from gym.spaces import Box
 
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts
 from predicators.settings import CFG
 from predicators.structs import NSRT, ParameterizedOption, Predicate, Task, \
     Type
