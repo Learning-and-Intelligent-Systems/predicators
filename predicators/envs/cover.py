@@ -140,7 +140,8 @@ class CoverEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError("This base class method is leaving soon!")
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
