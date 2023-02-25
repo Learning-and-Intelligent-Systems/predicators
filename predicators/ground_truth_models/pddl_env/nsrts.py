@@ -1,14 +1,12 @@
 """Ground-truth NSRTs for the PDDLEnv."""
 
-from pathlib import Path
-from typing import Dict, Sequence, Set
+from typing import Dict, Set
 
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.pddl_env import _PDDLEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, Type, Variable
+from predicators.structs import NSRT, ParameterizedOption, Predicate, Type
 from predicators.utils import null_sampler
 
 

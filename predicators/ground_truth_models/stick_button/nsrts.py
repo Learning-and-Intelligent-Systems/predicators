@@ -106,8 +106,8 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Normalized x position along the long dimension of the stick, in the
-            # center of the short dimension.
+            # Normalized x position along the long dimension of the stick, in
+            # the center of the short dimension.
             pick_pos = rng.uniform(0, 1)
             return np.array([pick_pos], dtype=np.float32)
 

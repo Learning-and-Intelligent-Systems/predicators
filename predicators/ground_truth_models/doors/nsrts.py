@@ -113,10 +113,10 @@ class DoorsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         assert isinstance(env, DoorsEnv)
         get_open_door_target_value = env._get_open_door_target_value  # pylint: disable=protected-access
 
-        # Even though this option does not need to be parameterized, we make it so,
-        # because we want to match the parameter space of the option that will
-        # get learned during option learning. This is useful for when we want
-        # to use sampler_learner = "oracle" too.
+        # Even though this option does not need to be parameterized, we make it
+        # so, because we want to match the parameter space of the option that
+        # will get learned during option learning. This is useful for when we
+        # want to use sampler_learner = "oracle" too.
         def open_door_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,
                               objs: Sequence[Object]) -> Array:

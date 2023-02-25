@@ -1,13 +1,12 @@
 """Ground-truth NSRTs for the repeated nextto environment."""
 
-from typing import Dict, Sequence, Set
+from typing import Dict, Set
 
 import numpy as np
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, Array, DummyOption, GroundAtom, \
-    LiftedAtom, Object, ParameterizedOption, Predicate, State, Type, \
-    Variable
+from predicators.structs import NSRT, DummyOption, LiftedAtom, \
+    ParameterizedOption, Predicate, Type, Variable
 from predicators.utils import null_sampler
 
 

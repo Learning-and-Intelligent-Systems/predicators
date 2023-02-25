@@ -2,14 +2,10 @@
 import abc
 from typing import Dict, List, Sequence, Set
 
-import numpy as np
-
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.settings import CFG
-from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, Type, Variable
-from predicators.utils import null_sampler
+from predicators.structs import NSRT, ParameterizedOption, Predicate, Type
 
 
 class GroundTruthOptionFactory(abc.ABC):
@@ -87,9 +83,7 @@ def get_gt_nsrts(env_name: str, predicates_to_keep: Set[Predicate],
             nsrts = factory.get_nsrts(env_name, types, predicates, options)
             break
     else:
-        # TODO: In the final version of this function, we will instead raise an
-        # error in this case.
-        nsrts = deprecated_get_gt_nsrts(env_name)
+        raise NotImplementedError(f"Unrecognized env: {env_name}")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
     # options are excluded.
     final_nsrts = set()
@@ -119,17 +113,7 @@ def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
     return included_options
 
 
-# Find the factories.
-utils.import_submodules(__path__, __name__)
-
-############# TODO: EVERYTHING BELOW HERE IS SCHEDULED FOR REMOVAL ############
-
-
-def deprecated_get_gt_nsrts(env_name: str) -> Set[NSRT]:
-    """Create ground truth NSRTs for an env."""
-    assert env_name in ("sandwich", "sandwich_clear")
-    nsrts = _get_sandwich_gt_nsrts(env_name)
-    return nsrts
+# Convenience functions used by external scripts, tests, and other oracles.
 
 
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
@@ -162,92 +146,5 @@ def _get_options_by_names(env_name: str,
     return [name_to_option[name] for name in names]
 
 
-def _get_sandwich_gt_nsrts(env_name: str) -> Set[NSRT]:
-    """Create ground truth NSRTs for SandwichEnv."""
-    robot_type, ingredient_type, board_type, holder_type = _get_types_by_names(
-        env_name, ["robot", "ingredient", "board", "holder"])
-
-    On, OnBoard, InHolder, GripperOpen, Holding, Clear, BoardClear = \
-        _get_predicates_by_names(env_name, ["On", "OnBoard", "InHolder",
-                                            "GripperOpen", "Holding", "Clear",
-                                            "BoardClear"])
-
-    Pick, Stack, PutOnBoard = _get_options_by_names(
-        env_name, ["Pick", "Stack", "PutOnBoard"])
-
-    nsrts = set()
-
-    # PickFromHolder
-    ing = Variable("?ing", ingredient_type)
-    robot = Variable("?robot", robot_type)
-    holder = Variable("?holder", holder_type)
-    parameters = [ing, robot, holder]
-    option_vars = [robot, ing]
-    option = Pick
-    preconditions = {
-        LiftedAtom(InHolder, [ing, holder]),
-        LiftedAtom(GripperOpen, [robot])
-    }
-    add_effects = {LiftedAtom(Holding, [ing, robot])}
-    delete_effects = {
-        LiftedAtom(InHolder, [ing, holder]),
-        LiftedAtom(GripperOpen, [robot])
-    }
-
-    pickfromholder_nsrt = NSRT("PickFromHolder", parameters, preconditions,
-                               add_effects, delete_effects, set(), option,
-                               option_vars, null_sampler)
-    nsrts.add(pickfromholder_nsrt)
-
-    # Stack
-    ing = Variable("?ing", ingredient_type)
-    othering = Variable("?othering", ingredient_type)
-    robot = Variable("?robot", robot_type)
-    parameters = [ing, othering, robot]
-    option_vars = [robot, othering]
-    option = Stack
-    preconditions = {
-        LiftedAtom(Holding, [ing, robot]),
-        LiftedAtom(Clear, [othering])
-    }
-    add_effects = {
-        LiftedAtom(On, [ing, othering]),
-        LiftedAtom(Clear, [ing]),
-        LiftedAtom(GripperOpen, [robot])
-    }
-    delete_effects = {
-        LiftedAtom(Holding, [ing, robot]),
-        LiftedAtom(Clear, [othering])
-    }
-
-    stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
-                      delete_effects, set(), option, option_vars, null_sampler)
-    nsrts.add(stack_nsrt)
-
-    # PutOnBoard
-    ing = Variable("?ing", ingredient_type)
-    robot = Variable("?robot", robot_type)
-    board = Variable("?board", board_type)
-    parameters = [ing, robot, board]
-    option_vars = [robot, board]
-    option = PutOnBoard
-    preconditions = {
-        LiftedAtom(Holding, [ing, robot]),
-        LiftedAtom(BoardClear, [board]),
-    }
-    add_effects = {
-        LiftedAtom(OnBoard, [ing, board]),
-        LiftedAtom(Clear, [ing]),
-        LiftedAtom(GripperOpen, [robot])
-    }
-    delete_effects = {
-        LiftedAtom(Holding, [ing, robot]),
-        LiftedAtom(BoardClear, [board]),
-    }
-
-    putonboard_nsrt = NSRT("PutOnBoard", parameters, preconditions,
-                           add_effects, delete_effects, set(), option,
-                           option_vars, null_sampler)
-    nsrts.add(putonboard_nsrt)
-
-    return nsrts
+# Find the factories.
+utils.import_submodules(__path__, __name__)
