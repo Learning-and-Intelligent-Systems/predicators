@@ -19,7 +19,9 @@ class GroundTruthOptionFactory(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def get_options(env_name: str) -> Set[ParameterizedOption]:
+    def get_options(
+            env_name: str, types: Dict[str, Type],
+            predicates: Dict[str, Predicate]) -> Set[ParameterizedOption]:
         """Create options for the given env name."""
         raise NotImplementedError("Override me!")
 
@@ -46,10 +48,13 @@ def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
     """Create ground truth options for an env."""
     # This is a work in progress. Gradually moving options out of environments
     # until we can remove them from the environment API entirely.
+    env = get_or_create_env(env_name)
     for cls in utils.get_all_subclasses(GroundTruthOptionFactory):
         if not cls.__abstractmethods__ and env_name in cls.get_env_names():
             factory = cls()
-            options = factory.get_options(env_name)
+            types = {t.name: t for t in env.types}
+            predicates = {p.name: p for p in env.predicates}
+            options = factory.get_options(env_name, types, predicates)
             break
     else:
         # In the final version of this function, we will instead raise an

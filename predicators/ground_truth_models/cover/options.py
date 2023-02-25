@@ -7,7 +7,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    State
+    Predicate, State, Type
 
 
 class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
@@ -21,7 +21,9 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         }
 
     @staticmethod
-    def get_options(env_name: str) -> Set[ParameterizedOption]:
+    def get_options(
+            env_name: str, types: Dict[str, Type],
+            predicates: Dict[str, Predicate]) -> Set[ParameterizedOption]:
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
