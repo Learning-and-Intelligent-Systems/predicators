@@ -82,8 +82,9 @@ def get_gt_nsrts(env_name: str, predicates_to_keep: Set[Predicate],
             options = {o.name: o for o in env_options}
             nsrts = factory.get_nsrts(env_name, types, predicates, options)
             break
-    else:
-        raise NotImplementedError(f"Unrecognized env: {env_name}")
+    else:  # pragma: no cover
+        raise NotImplementedError("Ground-truth NSRTs not implemented for "
+                                  f"env: {env_name}")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
     # options are excluded.
     final_nsrts = set()
