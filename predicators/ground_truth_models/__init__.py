@@ -2,6 +2,8 @@
 import abc
 from typing import Dict, List, Sequence, Set
 
+from gym.spaces import Box
+
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.settings import CFG
@@ -19,9 +21,9 @@ class GroundTruthOptionFactory(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def get_options(
-            env_name: str, types: Dict[str, Type],
-            predicates: Dict[str, Predicate]) -> Set[ParameterizedOption]:
+    def get_options(env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
         """Create options for the given env name."""
         raise NotImplementedError("Override me!")
 
@@ -54,12 +56,12 @@ def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
             factory = cls()
             types = {t.name: t for t in env.types}
             predicates = {p.name: p for p in env.predicates}
-            options = factory.get_options(env_name, types, predicates)
+            options = factory.get_options(env_name, types, predicates,
+                                          env.action_space)
             break
     else:
         # In the final version of this function, we will instead raise an
         # error in this case.
-        env = get_or_create_env(env_name)
         options = env.options
     # Seed the options for reproducibility.
     for option in options:

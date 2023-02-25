@@ -21,9 +21,9 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         }
 
     @staticmethod
-    def get_options(
-            env_name: str, types: Dict[str, Type],
-            predicates: Dict[str, Predicate]) -> Set[ParameterizedOption]:
+    def get_options(env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:

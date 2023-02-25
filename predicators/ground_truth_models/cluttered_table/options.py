@@ -19,32 +19,32 @@ class ClutteredTableGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {"cluttered_table"}
 
     @staticmethod
-    def get_options(
-            env_name: str, types: Dict[str, Type],
-            predicates: Dict[str, Predicate]) -> Set[ParameterizedOption]:
+    def get_options(env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
 
         # Grasp
         can_type = types["can"]
 
-        def _grasp_policy(state: State, memory: Dict,
+        def _Grasp_policy(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> Action:
             del state, memory, objects  # unused
             return Action(params)  # action is simply the parameter
 
         Grasp = utils.SingletonParameterizedOption("Grasp",
-                                                   _grasp_policy,
+                                                   _Grasp_policy,
                                                    types=[can_type],
                                                    params_space=Box(
                                                        0, 1, (4, )))
 
         # Dump
-        def _dump_policy(state: State, memory: Dict, objects: Sequence[Object],
+        def _Dump_policy(state: State, memory: Dict, objects: Sequence[Object],
                          params: Array) -> Action:
             del state, memory, objects, params  # unused
             return Action(np.zeros(
                 4, dtype=np.float32))  # no parameter for dumping
 
-        Dump = utils.SingletonParameterizedOption("Dump", _dump_policy)
+        Dump = utils.SingletonParameterizedOption("Dump", _Dump_policy)
 
         return {Grasp, Dump}
 
@@ -57,9 +57,9 @@ class ClutteredTablePlaceGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {"cluttered_table_place"}
 
     @staticmethod
-    def get_options(
-            env_name: str, types: Dict[str, Type],
-            predicates: Dict[str, Predicate]) -> Set[ParameterizedOption]:
+    def get_options(env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
 
         # Policy is the same in both cases
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
