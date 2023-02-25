@@ -1,5 +1,4 @@
 """Tests for PDDLEnv."""
-
 import os
 import shutil
 
@@ -13,6 +12,7 @@ from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksGripperPDDLEnv, ProceduralTasksMiconicPDDLEnv, \
     ProceduralTasksPrefixedGripperPDDLEnv, ProceduralTasksSpannerPDDLEnv, \
     _FixedTasksPDDLEnv, _PDDLEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -93,7 +93,7 @@ def test_pddlenv(domain_str, problem_strs):
 
         @classmethod
         def get_name(cls):
-            return "dummy"
+            return "dummy-pddl"
 
         @property
         def _domain_str(self):
@@ -108,7 +108,7 @@ def test_pddlenv(domain_str, problem_strs):
             return lambda num, rng: [problem_str2]
 
     env = _DummyPDDLEnv()
-    assert env.get_name() == "dummy"
+    assert env.get_name() == "dummy-pddl"
 
     # Domain creation checks.
     assert np.allclose(env.action_space.low, np.array([0, 0],
@@ -136,9 +136,11 @@ def test_pddlenv(domain_str, problem_strs):
     assert ate.types == [object_type]
     IsPink = pred_name_to_pred["ispink"]
     assert IsPink.types == [salmon_type]
-    assert {o.name for o in env.options} == {"eatfish", "eatbanana", "cook"}
+    assert {o.name
+            for o in get_gt_options(env.get_name())
+            } == {"eatfish", "eatbanana", "cook"}
     assert env.goal_predicates == {ate}
-    option_name_to_option = {o.name: o for o in env.options}
+    option_name_to_option = {o.name: o for o in get_gt_options(env.get_name())}
     eat_fish_option = option_name_to_option["eatfish"]
     assert eat_fish_option.types == [fish_type]
     assert eat_fish_option.params_space.shape[0] == 0
@@ -303,7 +305,7 @@ def test_fixed_tasks_blocks_pddl_env():
             } == {"on", "ontable", "clear", "handempty", "holding"}
     assert {p.name for p in env.goal_predicates} == {"on"}
     assert {o.name
-            for o in env.options
+            for o in get_gt_options(env.get_name())
             } == {"pick-up", "put-down", "stack", "unstack"}
     assert {o.name
             for o in env.strips_operators
@@ -332,7 +334,7 @@ def test_procedural_tasks_blocks_pddl_env():
             } == {"on", "ontable", "clear", "handempty", "holding"}
     assert {p.name for p in env.goal_predicates} == {"on", "ontable"}
     assert {o.name
-            for o in env.options
+            for o in get_gt_options(env.get_name())
             } == {"pick-up", "put-down", "stack", "unstack"}
     assert {o.name
             for o in env.strips_operators
@@ -362,7 +364,9 @@ def test_procedural_tasks_delivery_pddl_env():
                 "carrying", "at"
             }
     assert {p.name for p in env.goal_predicates} == {"satisfied"}
-    assert {o.name for o in env.options} == {"pick-up", "move", "deliver"}
+    assert {o.name
+            for o in get_gt_options(env.get_name())
+            } == {"pick-up", "move", "deliver"}
     assert {o.name
             for o in env.strips_operators} == {"pick-up", "move", "deliver"}
     train_tasks = env.get_train_tasks()
@@ -391,7 +395,8 @@ def test_procedural_tasks_spanner_pddl_env():
             } == {"at", "carrying", "useable", "link", "tightened", "loose"}
     assert {p.name for p in env.goal_predicates} == {"tightened"}
     assert {o.name
-            for o in env.options} == {"walk", "pickup_spanner", "tighten_nut"}
+            for o in get_gt_options(env.get_name())
+            } == {"walk", "pickup_spanner", "tighten_nut"}
     assert {o.name
             for o in env.strips_operators
             } == {"walk", "pickup_spanner", "tighten_nut"}
@@ -420,7 +425,8 @@ def test_procedural_tasks_forest_pddl_env():
                 "adjacent"
             }
     assert {p.name for p in env.goal_predicates} == {"at"}
-    assert {o.name for o in env.options} == {"walk", "climb"}
+    assert {o.name
+            for o in get_gt_options(env.get_name())} == {"walk", "climb"}
     assert {o.name for o in env.strips_operators} == {"walk", "climb"}
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 2
@@ -447,7 +453,9 @@ def test_procedural_tasks_gripper_pddl_env():
                 "room", "ball", "gripper", "free", "at", "at-robby", "carry"
             }
     assert {p.name for p in env.goal_predicates} == {"at"}
-    assert {o.name for o in env.options} == {"move", "pick", "drop"}
+    assert {o.name
+            for o in get_gt_options(env.get_name())
+            } == {"move", "pick", "drop"}
     assert {o.name for o in env.strips_operators} == {"move", "pick", "drop"}
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 2
@@ -475,7 +483,9 @@ def test_procedural_tasks_prefixed_gripper_pddl_env():
                 "preat-robby", "precarry"
             }
     assert {p.name for p in env.goal_predicates} == {"preat"}
-    assert {o.name for o in env.options} == {"move", "pick", "drop"}
+    assert {o.name
+            for o in get_gt_options(env.get_name())
+            } == {"move", "pick", "drop"}
     assert {o.name for o in env.strips_operators} == {"move", "pick", "drop"}
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 2
@@ -502,7 +512,9 @@ def test_procedural_tasks_ferry_pddl_env():
                 "not-eq"
             }
     assert {p.name for p in env.goal_predicates} == {"at"}
-    assert {o.name for o in env.options} == {"board", "sail", "debark"}
+    assert {o.name
+            for o in get_gt_options(env.get_name())
+            } == {"board", "sail", "debark"}
     assert {o.name
             for o in env.strips_operators} == {"board", "sail", "debark"}
     train_tasks = env.get_train_tasks()
@@ -528,7 +540,9 @@ def test_procedural_tasks_miconic_pddl_env():
             for p in env.predicates
             } == {"origin", "destin", "above", "boarded", "served", "lift-at"}
     assert {p.name for p in env.goal_predicates} == {"served"}
-    assert {o.name for o in env.options} == {"board", "depart", "up", "down"}
+    assert {o.name
+            for o in get_gt_options(env.get_name())
+            } == {"board", "depart", "up", "down"}
     assert {o.name
             for o in env.strips_operators
             } == {"board", "depart", "up", "down"}

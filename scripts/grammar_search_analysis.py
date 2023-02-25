@@ -16,7 +16,8 @@ from predicators.approaches.grammar_search_invention_approach import \
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import CoverEnv
-from predicators.ground_truth_nsrts import _get_predicates_by_names
+from predicators.ground_truth_models import _get_predicates_by_names, \
+    get_gt_options
 from predicators.main import _run_testing
 from predicators.predicate_search_score_functions import create_score_function
 from predicators.structs import Dataset, Object, Predicate, State, Task
@@ -175,8 +176,9 @@ def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
         **args,
     })
     env = create_new_env(env_name)
+    options = get_gt_options(env.get_name())
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, options)
     start_time = time.perf_counter()
 
     for non_goal_predicates in non_goal_predicate_sets:
@@ -229,9 +231,9 @@ def _run_proxy_analysis_for_predicates(
     # Learn NSRTs and plan.
     if run_planning:
         utils.flush_cache()
-        approach = create_approach("nsrt_learning", all_predicates,
-                                   env.options, env.types, env.action_space,
-                                   train_tasks)
+        options = get_gt_options(env.get_name())
+        approach = create_approach("nsrt_learning", all_predicates, options,
+                                   env.types, env.action_space, train_tasks)
         approach.learn_from_offline_dataset(dataset)
         planning_result = _run_testing(env, approach)
         results.update(planning_result)

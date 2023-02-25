@@ -8,7 +8,7 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DistributionRegressor, \
     MLPBinaryClassifier, NeuralGaussianRegressor
@@ -53,11 +53,12 @@ def _extract_oracle_samplers(
     operator match, a warning is generated.
     """
     env = get_or_create_env(CFG.env)
+    env_options = get_gt_options(env.get_name())
     # We don't need to match ground truth NSRTs with no continuous
     # parameters, so we filter them out.
     gt_nsrts = {
         nsrt
-        for nsrt in get_gt_nsrts(env.get_name(), env.predicates, env.options)
+        for nsrt in get_gt_nsrts(env.get_name(), env.predicates, env_options)
         if nsrt.option.params_space.shape != (0, )
     }
     assert len(strips_ops) == len(option_specs)

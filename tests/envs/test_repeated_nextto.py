@@ -1,9 +1,9 @@
 """Test cases for the repeated NextTo environment."""
-
 import numpy as np
 
 from predicators import utils
 from predicators.envs.repeated_nextto import RepeatedNextToEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -20,7 +20,7 @@ def test_repeated_nextto():
     assert {pred.name for pred in env.predicates} == \
         {"NextTo", "NextToNothing", "Grasped"}
     assert {pred.name for pred in env.goal_predicates} == {"Grasped"}
-    assert len(env.options) == 2
+    assert len(get_gt_options(env.get_name())) == 2
     assert len(env.types) == 2
     dot_type = [t for t in env.types if t.name == "dot"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
@@ -51,8 +51,8 @@ def test_repeated_nextto_simulate():
         "approach": "nsrt_learning",
     })
     env = RepeatedNextToEnv()
-    Move = [o for o in env.options if o.name == "Move"][0]
-    Grasp = [o for o in env.options if o.name == "Grasp"][0]
+    Move = [o for o in get_gt_options(env.get_name()) if o.name == "Move"][0]
+    Grasp = [o for o in get_gt_options(env.get_name()) if o.name == "Grasp"][0]
     Grasped = [o for o in env.predicates if o.name == "Grasped"][0]
     dot_type = [t for t in env.types if t.name == "dot"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]

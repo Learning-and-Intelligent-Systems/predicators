@@ -1,11 +1,11 @@
 """Test cases for the cluttered table environment."""
-
 import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, GroundAtom
 
 
@@ -28,7 +28,7 @@ def test_cluttered_table(place_version=False):
     # Goal predicates should be {Holding}.
     assert {pred.name for pred in env.goal_predicates} == {"Holding"}
     # Options should be {Grasp, Dump}. If place version, {Grasp, Place}.
-    assert len(env.options) == 2
+    assert len(get_gt_options(env.get_name())) == 2
     # Types should be {can}
     assert len(env.types) == 1
     # Action space should be 4-dimensional.
