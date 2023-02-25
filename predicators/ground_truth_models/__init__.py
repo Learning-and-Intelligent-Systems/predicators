@@ -129,9 +129,7 @@ utils.import_submodules(__path__, __name__)
 
 def deprecated_get_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
-    if env_name == "narrow_passage":
-        nsrts = _get_narrow_passage_gt_nsrts(env_name)
-    elif env_name == "coffee":
+    if env_name == "coffee":
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts(env_name)
