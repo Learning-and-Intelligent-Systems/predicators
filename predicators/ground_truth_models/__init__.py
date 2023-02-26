@@ -19,9 +19,9 @@ class GroundTruthOptionFactory(abc.ABC):
         """Get the env names that this factory builds options for."""
         raise NotImplementedError("Override me!")
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def get_options(env_name: str, types: Dict[str, Type],
+    def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
         """Create options for the given env name."""
