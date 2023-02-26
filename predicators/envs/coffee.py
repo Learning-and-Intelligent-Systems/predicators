@@ -642,13 +642,14 @@ class CoffeeEnv(BaseEnv):
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
         return sq_dist_to_pour < self.pour_pos_tol
 
-    def _get_jug_handle_grasp(self, state: State,
+    @classmethod
+    def _get_jug_handle_grasp(cls, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Orient pointing down.
         rot = state.get(jug, "rot") - np.pi / 2
-        target_x = state.get(jug, "x") + np.cos(rot) * self.jug_handle_offset
-        target_y = state.get(jug, "y") + np.sin(rot) * self.jug_handle_offset
-        target_z = self.jug_handle_height
+        target_x = state.get(jug, "x") + np.cos(rot) * cls.jug_handle_offset
+        target_y = state.get(jug, "y") + np.sin(rot) * cls.jug_handle_offset
+        target_z = cls.jug_handle_height
         return (target_x, target_y, target_z)
 
     def _get_pour_position(self, state: State,
