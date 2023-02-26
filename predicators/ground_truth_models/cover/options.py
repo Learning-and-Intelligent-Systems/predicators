@@ -20,8 +20,8 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
             "cover_hierarchical_types"
         }
 
-    @staticmethod
-    def get_options(env_name: str, types: Dict[str, Type],
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 

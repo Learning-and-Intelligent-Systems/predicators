@@ -18,8 +18,8 @@ class ClutteredTableGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_env_names(cls) -> Set[str]:
         return {"cluttered_table"}
 
-    @staticmethod
-    def get_options(env_name: str, types: Dict[str, Type],
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 
@@ -56,8 +56,8 @@ class ClutteredTablePlaceGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_env_names(cls) -> Set[str]:
         return {"cluttered_table_place"}
 
-    @staticmethod
-    def get_options(env_name: str, types: Dict[str, Type],
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 
