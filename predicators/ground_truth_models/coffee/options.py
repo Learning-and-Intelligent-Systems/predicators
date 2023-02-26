@@ -393,11 +393,9 @@ class CoffeeGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _get_jug_z(cls, state: State, robot: Object, jug: Object) -> float:
-        if state.get(jug, "is_held") > 0.5:
-            # Offset to account for handle.
-            return state.get(robot, "z") - CoffeeEnv.jug_handle_height
-        # On the table.
-        return CoffeeEnv.z_lb
+        assert state.get(jug, "is_held") > 0.5
+        # Offset to account for handle.
+        return state.get(robot, "z") - CoffeeEnv.jug_handle_height
 
     @staticmethod
     def _get_pour_position(state: State,
