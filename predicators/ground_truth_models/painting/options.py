@@ -184,7 +184,7 @@ class PaintingGroundTruthOptionFactory(GroundTruthOptionFactory):
         return policy
 
 
-class RNTPaintingGroundTruthOptionFactory(GroundTruthOptionFactory):
+class RNTPaintingGroundTruthOptionFactory(PaintingGroundTruthOptionFactory):
     """Ground-truth options for the painting environment."""
 
     @classmethod
