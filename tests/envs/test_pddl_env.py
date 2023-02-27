@@ -95,8 +95,8 @@ def test_pddlenv(domain_str, problem_strs):
         def get_name(cls):
             return "dummy-pddl"
 
-        @property
-        def _domain_str(self):
+        @classmethod
+        def get_domain_str(cls):
             return domain_str
 
         @property
@@ -257,8 +257,8 @@ def test_fixed_tasks_pddlenv(domain_str, problem_strs):
         def get_name(cls):
             return "dummy_fixed_tasks"
 
-        @property
-        def _domain_str(self):
+        @classmethod
+        def get_domain_str(cls):
             return domain_str
 
         @property
