@@ -222,6 +222,7 @@ def _generate_interaction_results(
                                "if allow_interaction_in_demo_tasks is False.")
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
+        init_state = last_state if CFG.online_learning_lifelong else None
         traj, _ = utils.run_policy(
             request.act_policy,
             env,
@@ -229,14 +230,13 @@ def _generate_interaction_results(
             request.train_task_idx,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
-            init_state=last_state
-            if CFG.online_learning_use_last_state else None,
+            init_state=init_state,
             exceptions_to_break_on={
                 utils.EnvironmentFailure, utils.OptionExecutionFailure,
                 utils.RequestActPolicyFailure
             },
             monitor=monitor)
-        if CFG.online_learning_use_last_state:
+        if CFG.online_learning_lifelong:
             last_state = traj.states[-1]
         request_responses = monitor.get_responses()
         query_cost += monitor.get_query_cost()

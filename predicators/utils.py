@@ -905,7 +905,7 @@ def run_policy(
         task_idx: int,
         termination_function: Callable[[State], bool],
         max_num_steps: int,
-        init_state: State = None,
+        init_state: Optional[State] = None,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
         monitor: Optional[Monitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
@@ -925,6 +925,7 @@ def run_policy(
     """
     state = init_state if init_state is not None else env.reset(
         train_or_test, task_idx)
+    assert env.get_state().allclose(state)
     states = [state]
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
