@@ -604,6 +604,7 @@ def test_run_policy():
             raise utils.EnvironmentFailure("mock failure")
 
         def get_state(self):
+            """Gets currrent state in mock environment."""
             return DefaultState
 
     mock_env = _MockEnv()
