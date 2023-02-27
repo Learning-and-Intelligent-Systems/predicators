@@ -603,6 +603,9 @@ def test_run_policy():
             del action  # unused
             raise utils.EnvironmentFailure("mock failure")
 
+        def get_state(self):
+            return DefaultState
+
     mock_env = _MockEnv()
     policy = lambda _: Action(np.zeros(1, dtype=np.float32))
     monitor = _CountingMonitor()
