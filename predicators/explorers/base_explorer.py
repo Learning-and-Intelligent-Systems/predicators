@@ -44,6 +44,16 @@ class BaseExplorer(abc.ABC):
         tuple of a policy and a termination function."""
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
+    def get_exploration_plan_strategy(
+        self,
+        train_task_idx: int,
+        timeout: int,
+    ) -> ExplorationStrategy:
+        """Given a train task idx, create an ExplorationStrategy, which is a
+        tuple of a policy and a termination function."""
+        raise NotImplementedError("Override me!")
+
     def _set_seed(self, seed: int) -> None:
         """Reset seed and rng."""
         self._seed = seed

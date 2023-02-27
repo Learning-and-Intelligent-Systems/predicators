@@ -69,14 +69,25 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
         for _ in range(CFG.online_nsrt_learning_requests_per_cycle):
             # Select a random task (with replacement).
             task_idx = self._rng.choice(len(self._train_tasks))
-            # Set up the explorer policy and termination function.
-            policy, termination_function = explorer.get_exploration_strategy(
-                task_idx, CFG.timeout)
-            # Create the interaction request.
-            req = InteractionRequest(train_task_idx=task_idx,
-                                     act_policy=policy,
-                                     query_policy=lambda s: None,
-                                     termination_function=termination_function)
+            if CFG.env == "behavior":
+                # Set up the explorer policy and termination function.
+                act_plan = explorer.get_exploration_plan_strategy(
+                    task_idx, CFG.timeout)
+                # Create the interaction request.
+                req = InteractionRequest(train_task_idx=task_idx,
+                                        act_policy=None,
+                                        query_policy=lambda s: None,
+                                        termination_function=None,
+                                        act_plan=act_plan)
+            else:
+                # Set up the explorer policy and termination function.
+                policy, termination_function = explorer.get_exploration_strategy(
+                    task_idx, CFG.timeout)
+                # Create the interaction request.
+                req = InteractionRequest(train_task_idx=task_idx,
+                                        act_policy=policy,
+                                        query_policy=lambda s: None,
+                                        termination_function=termination_function)
             requests.append(req)
         return requests
 

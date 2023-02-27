@@ -175,7 +175,7 @@ def _run_pipeline(env: BaseEnv,
                              "terminating")
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
-                env, teacher, interaction_requests, i)
+                env, teacher, interaction_requests, i, approach=approach)
             num_online_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
@@ -209,7 +209,8 @@ def _generate_interaction_results(
         env: BaseEnv,
         teacher: Teacher,
         requests: Sequence[InteractionRequest],
-        cycle_num: Optional[int] = None
+        cycle_num: Optional[int] = None,
+        approach: BaseApproach = None
 ) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
@@ -225,18 +226,29 @@ def _generate_interaction_results(
                                "if allow_interaction_in_demo_tasks is False.")
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
-        traj, _ = utils.run_policy(
-            request.act_policy,
-            env,
-            "train",
-            request.train_task_idx,
-            request.termination_function,
-            max_num_steps=CFG.max_num_steps_interaction_request,
-            exceptions_to_break_on={
-                utils.EnvironmentFailure, utils.OptionExecutionFailure,
-                utils.RequestActPolicyFailure
-            },
-            monitor=monitor)
+        if CFG.behavior_option_model_eval:
+            # TODO needs to run random option_model instead of policy.
+            assert approach
+            # TODO needs to be fixed
+            init_state = env.current_ig_state_to_state(use_test_scene=env.task_instance_id >= 10)
+            #
+            plan = request.act_policy
+            traj, _ = _run_plan_with_option_model(
+                request.train_task_idx, approach.get_option_model(),
+                plan, init_state=init_state)
+        else:
+            traj, _ = utils.run_policy(
+                request.act_policy,
+                env,
+                "train",
+                request.train_task_idx,
+                request.termination_function,
+                max_num_steps=CFG.max_num_steps_interaction_request,
+                exceptions_to_break_on={
+                    utils.EnvironmentFailure, utils.OptionExecutionFailure,
+                    utils.RequestActPolicyFailure
+                },
+                monitor=monitor)
         request_responses = monitor.get_responses()
         query_cost += monitor.get_query_cost()
         result = InteractionResult(traj.states, traj.actions,
@@ -337,8 +349,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 last_traj = approach.get_last_traj()
                 option_model_start_time = time.time()
                 traj, solved = _run_plan_with_option_model(
-                    task, test_task_idx, approach.get_option_model(),
-                    last_plan, last_traj)
+                    test_task_idx, approach.get_option_model(),
+                    last_plan, task=task, last_traj=last_traj)
                 execution_metrics = {
                     "policy_call_time": option_model_start_time - time.time()
                 }

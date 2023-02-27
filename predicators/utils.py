@@ -1076,6 +1076,28 @@ def create_random_option_policy(
 
     return _policy
 
+def create_random_option_plan(
+        options: Collection[ParameterizedOption], rng: np.random.Generator) -> Callable[[State], list[_Option]]:
+    """Create a policy that executes random initiable options.
+
+    If no applicable option can be found, query the fallback policy.
+    """
+    sorted_options = sorted(options, key=lambda o: o.name)
+    cur_option = DummyOption
+
+    def _plan(state: State) -> Action:
+        nonlocal cur_option
+        param_opt = sorted_options[rng.choice(len(sorted_options))]
+        objs = get_random_object_combination(list(state),
+                                                param_opt.types, rng)
+        assert objs is not None
+        params = param_opt.params_space.sample()
+        opt = param_opt.ground(objs, params)
+        plan = [opt]
+        return plan
+
+    return _plan
+
 
 def action_arrs_to_policy(
         action_arrs: Sequence[Array]) -> Callable[[State], Action]:

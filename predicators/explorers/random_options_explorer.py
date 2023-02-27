@@ -30,3 +30,13 @@ class RandomOptionsExplorer(BaseExplorer):
         # Never terminate (until the interaction budget is exceeded).
         termination_function = lambda _: False
         return policy, termination_function
+
+    def get_exploration_plan_strategy(self, train_task_idx: int,
+                                 timeout: int) -> ExplorationStrategy:
+        
+        # Take a random action.
+        plan = utils.create_random_option_plan(self._options, self._rng)
+        # Never terminate (until the interaction budget is exceeded).
+        termination_function = lambda _: False
+        return plan, termination_function
+

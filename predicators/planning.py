@@ -636,9 +636,11 @@ def run_low_level_search(
 
 
 def _run_plan_with_option_model(
-        task: Task, task_idx: int, option_model: _OptionModelBase,
+        task_idx: int, option_model: _OptionModelBase,
         plan: List[_Option],
-        last_traj: List[State]) -> Tuple[LowLevelTrajectory, bool]:
+        task: Task = None,
+        last_traj: List[State] = None,
+        init_state: State = None) -> Tuple[LowLevelTrajectory, bool]:
     """Runs a plan on an option model to generate a low-level trajectory.
 
     Returns a LowLevelTrajectory and a boolean. If the boolean is True,
@@ -647,19 +649,24 @@ def _run_plan_with_option_model(
     and False. Since option models return only states, we will add dummy
     actions to the states to create our low level trajectories.
     """
-    traj: List[State] = [task.init] + [DefaultState for _ in plan]
+    if init_state is None:
+        init_state = task.init
+    if task is not None:
+        assert init_state == task.init
+    traj: List[State] = [init_state] + [DefaultState for _ in plan]
     actions: List[Action] = [Action(np.array([0.0])) for _ in plan]
     for idx in range(len(plan)):
         state = traj[idx]
         option = plan[idx]
         if not option.initiable(state):
             # The option is not initiable.
-            return LowLevelTrajectory(_states=[task.init],
+            return LowLevelTrajectory(_states=[init_state],
                                       _actions=[],
                                       _is_demo=False,
                                       _train_task_idx=task_idx), False
         if CFG.plan_only_eval:  # pragma: no cover
             assert isinstance(option_model, _BehaviorOptionModel)
+            assert last_traj is not None
             # We need to load state into option model so predicate classifiers
             # work when we run task.goal_holds(traj[-1]), otherwise
             # classifiers will be ran on non-updated prior state.
@@ -681,12 +688,12 @@ def _run_plan_with_option_model(
         actions[idx].set_option(action_option)
     # Since we're not checking the expected_atoms, we need to
     # explicitly check if the goal is achieved.
-    if task.goal_holds(traj[-1]):
+    if task is None or task.goal_holds(traj[-1]):
         return LowLevelTrajectory(_states=traj,
                                   _actions=actions,
                                   _is_demo=True,
                                   _train_task_idx=task_idx), True  # success!
-    return LowLevelTrajectory(_states=[task.init],
+    return LowLevelTrajectory(_states=[init_state],
                               _actions=[],
                               _is_demo=False,
                               _train_task_idx=task_idx), False

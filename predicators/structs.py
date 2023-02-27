@@ -1281,6 +1281,7 @@ class InteractionRequest:
     act_policy: Callable[[State], Action]
     query_policy: Callable[[State], Optional[Query]]  # query can be None
     termination_function: Callable[[State], bool]
+    act_plan: Callable[[State], list[_Option]] = None
 
 
 @dataclass(frozen=True, eq=False, repr=False)
