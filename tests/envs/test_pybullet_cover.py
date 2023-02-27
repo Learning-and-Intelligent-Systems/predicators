@@ -105,6 +105,14 @@ def test_pybullet_cover_reset(env):
         env.render_state(state, task, action)
 
 
+def test_pybullet_cover_options(env):
+    """Tests for PyBulletCoverEnv.options."""
+    options = env.options
+    assert len(options) == 1
+    option = next(iter(options))
+    assert option.name == "PickPlace"
+
+
 def test_pybullet_cover_step(env):
     """Tests for taking actions in PyBulletCoverEnv."""
     block = Object("block0", env.block_type)
