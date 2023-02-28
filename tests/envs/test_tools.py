@@ -1,10 +1,10 @@
 """Test cases for the tools environment."""
-
 import numpy as np
 import pytest
 
 from predicators import utils
 from predicators.envs.tools import ToolsEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -30,7 +30,7 @@ def test_tools():
     assert {pred.name for pred in env.goal_predicates} == \
         {"ScrewPlaced", "ScrewFastened", "NailPlaced",
          "NailFastened", "BoltPlaced", "BoltFastened"}
-    assert len(env.options) == 11
+    assert len(get_gt_options(env.get_name())) == 11
     assert len(env.types) == 8
     assert env.action_space.shape == (4, )
     task = env.get_train_tasks()[0]
@@ -60,7 +60,8 @@ def test_tools_fasten_option():
     assert screw is not None
     assert contraption is not None
     FastenScrewByHand = [
-        o for o in env.options if o.name == "FastenScrewByHand"
+        o for o in get_gt_options(env.get_name())
+        if o.name == "FastenScrewByHand"
     ][0]
     option = FastenScrewByHand.ground([robot, screw, contraption], [])
     act = option.policy(state)

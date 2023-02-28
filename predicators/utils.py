@@ -905,6 +905,7 @@ def run_policy(
         task_idx: int,
         termination_function: Callable[[State], bool],
         max_num_steps: int,
+        do_state_reset: bool = True,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
         monitor: Optional[Monitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
@@ -922,7 +923,10 @@ def run_policy(
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
     """
-    state = env.reset(train_or_test, task_idx)
+    state = env.get_state()
+    if do_state_reset:
+        state = env.reset(train_or_test, task_idx)
+    assert env.get_state().allclose(state)
     states = [state]
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
@@ -2853,23 +2857,6 @@ def parse_config_excluded_predicates(
         included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
-
-
-def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
-    """Parse the CFG.included_options string, given an environment.
-
-    Return the set of included oracle options.
-
-    Note that "all" is not implemented because setting the option_learner flag
-    to "no_learning" is the preferred way to include all options.
-    """
-    if not CFG.included_options:
-        return set()
-    included_names = set(CFG.included_options.split(","))
-    assert included_names.issubset({option.name for option in env.options}), \
-        "Unrecognized option in included_options!"
-    included_options = {o for o in env.options if o.name in included_names}
-    return included_options
 
 
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
