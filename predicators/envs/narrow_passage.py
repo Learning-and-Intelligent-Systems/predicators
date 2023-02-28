@@ -325,7 +325,7 @@ class NarrowPassageEnv(BaseEnv):
         memory["action_plan"].append(
             Action(np.array([0.0, 0.0, 1.0], dtype=np.float32)))
         # Opening the door takes a little bit of time to plan, artificially
-        time.sleep(0.2)
+        time.sleep(CFG.narrow_passage_open_door_refine_penalty)
         return True
 
     def _MoveAndOpenDoor_terminal(self, state: State, memory: Dict,

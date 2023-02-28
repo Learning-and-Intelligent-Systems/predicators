@@ -4,51 +4,26 @@ CNN regression model mapping initial state render to cost."""
 import logging
 import time
 from collections import defaultdict
-from pathlib import Path
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import List
 
-import dill as pkl
 import numpy as np
 
 from predicators.ml_models import CNNRegressor
-from predicators.refinement_estimators import BaseRefinementEstimator
+from predicators.refinement_estimators.per_skeleton_refinement_estimator import \
+    PerSkeletonRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, ImageInput, RefinementDatapoint, \
-    Task, _GroundNSRT
-
-# Type of the (skeleton, atoms_sequence) key for model dictionary
-# which converts both of them to be immutable
-ModelDictKey = Tuple[Tuple[_GroundNSRT, ...],  # skeleton converted to tuple
-                     Tuple[FrozenSet[GroundAtom], ...]  # atoms_sequence
-                     ]
+from predicators.structs import ImageInput, RefinementDatapoint, Task
 
 
-class CNNRefinementEstimator(BaseRefinementEstimator):
+class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
     """A refinement cost estimator that uses a CNN to predict refinement cost
     from an initial state render."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        # _model_dict maps immutable skeleton atoms_sequence pair to model
-        self._model_dict: Optional[Dict[ModelDictKey, CNNRegressor]] = None
 
     @classmethod
     def get_name(cls) -> str:
         return "cnn"
 
-    @property
-    def is_learning_based(self) -> bool:
-        return True
-
-    def get_cost(self, initial_task: Task, skeleton: List[_GroundNSRT],
-                 atoms_sequence: List[Set[GroundAtom]]) -> float:
-        assert self._model_dict is not None, "Need to train"
-        key = self._immutable_model_dict_key(skeleton, atoms_sequence)
-        # If key isn't in dictionary (no data for skeleton), cost is infinite
-        if key not in self._model_dict:
-            return float('inf')
-        model = self._model_dict[key]
-        # Get render image of initial state and pass into model
+    def _model_predict(self, model: CNNRegressor, initial_task: Task) -> float:
         input_img = self._get_rendered_initial_state(initial_task)
         cost = model.predict(input_img)
         return cost[0]
@@ -89,15 +64,6 @@ class CNNRefinementEstimator(BaseRefinementEstimator):
             self._model_dict[key] = model
 
     @staticmethod
-    def _immutable_model_dict_key(
-            skeleton: List[_GroundNSRT],
-            atoms_sequence: List[Set[GroundAtom]]) -> ModelDictKey:
-        """Converts a skeleton and atoms_sequence into immutable types to use
-        as a key for the model dictionary."""
-        return (tuple(skeleton),
-                tuple(frozenset(atoms) for atoms in atoms_sequence))
-
-    @staticmethod
     def _create_regressor() -> CNNRegressor:
         return CNNRegressor(
             seed=CFG.seed,
@@ -128,11 +94,3 @@ class CNNRefinementEstimator(BaseRefinementEstimator):
         img = np.moveaxis(img, -1, 0)
         float_img = img.astype(np.float32)
         return float_img
-
-    def save_model(self, filepath: Path) -> None:
-        with open(filepath, "wb") as f:
-            pkl.dump(self._model_dict, f)
-
-    def load_model(self, filepath: Path) -> None:
-        with open(filepath, "rb") as f:
-            self._model_dict = pkl.load(f)
