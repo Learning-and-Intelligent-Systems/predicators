@@ -6,7 +6,7 @@ from typing import List
 
 import numpy as np
 
-from predicators.refinement_estimators.per_skeleton_refinement_estimator import \
+from predicators.refinement_estimators.per_skeleton_estimator import \
     PerSkeletonRefinementEstimator
 from predicators.settings import CFG
 from predicators.structs import RefinementDatapoint, Task
