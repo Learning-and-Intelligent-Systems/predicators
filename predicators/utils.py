@@ -923,9 +923,8 @@ def run_policy(
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
     """
-    if not do_state_reset:
-        state = env.get_state()
-    else:
+    state = env.get_state()
+    if do_state_reset:
         state = env.reset(train_or_test, task_idx)
     assert env.get_state().allclose(state)
     states = [state]

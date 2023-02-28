@@ -212,7 +212,6 @@ def _generate_interaction_results(
     logging.info("Generating interaction results...")
     results = []
     query_cost = 0.0
-    do_state_reset = True
     if CFG.make_interaction_videos:
         video = []
     for request in requests:
@@ -229,14 +228,12 @@ def _generate_interaction_results(
             request.train_task_idx,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
-            do_state_reset=do_state_reset,
+            do_state_reset=(not CFG.online_learning_lifelong),
             exceptions_to_break_on={
                 utils.EnvironmentFailure, utils.OptionExecutionFailure,
                 utils.RequestActPolicyFailure
             },
             monitor=monitor)
-        if CFG.online_learning_lifelong:
-            do_state_reset = False
         request_responses = monitor.get_responses()
         query_cost += monitor.get_query_cost()
         result = InteractionResult(traj.states, traj.actions,
