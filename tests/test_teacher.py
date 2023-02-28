@@ -4,7 +4,7 @@ import pytest
 
 from predicators import utils
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import _get_predicates_by_names
+from predicators.ground_truth_models import _get_predicates_by_names
 from predicators.structs import DemonstrationQuery, DemonstrationResponse, \
     GroundAtom, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
     InteractionRequest, LowLevelTrajectory, PathToStateQuery, \

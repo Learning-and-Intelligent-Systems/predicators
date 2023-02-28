@@ -1,10 +1,10 @@
 """Test cases for the painting environment."""
-
 import numpy as np
 import pytest
 
 from predicators import utils
 from predicators.envs.painting import PaintingEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -23,7 +23,7 @@ def test_painting():
     assert len(env.predicates) == 14
     assert {pred.name for pred in env.goal_predicates} == \
         {"InBox", "IsBoxColor", "InShelf", "IsShelfColor"}
-    assert len(env.options) == 6
+    assert len(get_gt_options(env.get_name())) == 6
     assert len(env.types) == 5
     obj_type = [t for t in env.types if t.name == "obj"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
@@ -95,12 +95,14 @@ def test_painting_failure_cases():
         "painting_lid_open_prob": 0.0,
     })
     env = PaintingEnv()
-    Pick = [o for o in env.options if o.name == "Pick"][0]
-    Wash = [o for o in env.options if o.name == "Wash"][0]
-    Dry = [o for o in env.options if o.name == "Dry"][0]
-    Paint = [o for o in env.options if o.name == "Paint"][0]
-    Place = [o for o in env.options if o.name == "Place"][0]
-    OpenLid = [o for o in env.options if o.name == "OpenLid"][0]
+    Pick = [o for o in get_gt_options(env.get_name()) if o.name == "Pick"][0]
+    Wash = [o for o in get_gt_options(env.get_name()) if o.name == "Wash"][0]
+    Dry = [o for o in get_gt_options(env.get_name()) if o.name == "Dry"][0]
+    Paint = [o for o in get_gt_options(env.get_name()) if o.name == "Paint"][0]
+    Place = [o for o in get_gt_options(env.get_name()) if o.name == "Place"][0]
+    OpenLid = [
+        o for o in get_gt_options(env.get_name()) if o.name == "OpenLid"
+    ][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     Holding = [o for o in env.predicates if o.name == "Holding"][0]
     obj_type = [t for t in env.types if t.name == "obj"][0]

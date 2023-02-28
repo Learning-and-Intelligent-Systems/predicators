@@ -49,6 +49,8 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
+from predicators.ground_truth_models import get_gt_options, \
+    parse_config_included_options
 from predicators.settings import CFG
 from predicators.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
@@ -84,11 +86,9 @@ def main() -> None:
     os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
-    # The action space and options need to be seeded externally, because
-    # env.action_space and env.options are often created during env __init__().
+    # The action space needs to be seeded externally, because env.action_space
+    # is often created during env __init__().
     env.action_space.seed(CFG.seed)
-    for option in env.options:
-        option.params_space.seed(CFG.seed)
     assert env.goal_predicates.issubset(env.predicates)
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
@@ -101,10 +101,10 @@ def main() -> None:
     if CFG.option_learner == "no_learning":
         # If we are not doing option learning, pass in all the environment's
         # oracle options.
-        options = env.options
+        options = get_gt_options(env.get_name())
     else:
         # Determine from the config which oracle options to include, if any.
-        options = utils.parse_config_included_options(env)
+        options = parse_config_included_options(env)
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
@@ -228,6 +228,7 @@ def _generate_interaction_results(
             request.train_task_idx,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
+            do_state_reset=(not CFG.online_learning_lifelong),
             exceptions_to_break_on={
                 utils.EnvironmentFailure, utils.OptionExecutionFailure,
                 utils.RequestActPolicyFailure

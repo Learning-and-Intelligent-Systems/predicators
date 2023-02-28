@@ -18,6 +18,7 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
@@ -54,8 +55,9 @@ def _setup_data_for_env(env_name: str,
         "offline_data_planning_timeout": 10
     })
     env = create_new_env(env_name)
+    options = get_gt_options(env.get_name())
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, options)
     assert all(traj.is_demo for traj in dataset.trajectories)
     demo_skeleton_lengths = [
         utils.num_options_in_action_sequence(t.actions)

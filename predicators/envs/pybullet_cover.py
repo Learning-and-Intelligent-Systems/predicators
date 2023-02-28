@@ -1,6 +1,6 @@
 """A PyBullet version of Cover."""
 
-from typing import ClassVar, Dict, List, Sequence, Tuple
+from typing import ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 import pybullet as p
@@ -83,6 +83,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 ])
         self._block_id_to_block: Dict[int, Object] = {}
         self._target_id_to_target: Dict[int, Object] = {}
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._PickPlace}
 
     def simulate(self, state: State, action: Action) -> State:
         # To implement this, need to handle resetting to states where the

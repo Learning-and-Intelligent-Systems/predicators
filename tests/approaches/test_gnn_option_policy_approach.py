@@ -1,5 +1,4 @@
 """Test cases for the GNN option policy approach."""
-
 import numpy as np
 import pytest
 from gym.spaces import Box
@@ -9,6 +8,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
     create_approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, GroundAtom, \
@@ -58,9 +58,9 @@ def test_gnn_option_policy_approach_with_envs(env_name):
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
     approach = create_approach("gnn_option_policy", env.predicates,
-                               env.options, env.types, env.action_space,
-                               train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+                               get_gt_options(env.get_name()), env.types,
+                               env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
     with pytest.raises(AssertionError):  # haven't learned yet!
@@ -75,8 +75,8 @@ def test_gnn_option_policy_approach_with_envs(env_name):
                                     max_num_steps=CFG.horizon)
     # Test loading.
     approach2 = create_approach("gnn_option_policy", env.predicates,
-                                env.options, env.types, env.action_space,
-                                train_tasks)
+                                get_gt_options(env.get_name()), env.types,
+                                env.action_space, train_tasks)
     approach2.load(online_learning_cycle=None)
 
 
