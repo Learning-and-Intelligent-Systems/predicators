@@ -556,7 +556,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
         feature_ranges = self._get_feature_ranges()
         # Edge case: if there are no features at all, return immediately.
         if not any(r for r in feature_ranges.values()):
-            yield from ()
+            return
         if CFG.grammar_search_enumeration_approach == "naive":
             yield from self._enumerate_naive(feature_ranges)
         if CFG.grammar_search_enumeration_approach == "transition_changes":
