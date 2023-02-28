@@ -454,12 +454,48 @@ def _halving_constant_generator(
 class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
     """Generates features of the form "0.feature >= c" or "0.feature <= c"."""
 
-    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
-        # Get ranges of feature values from data.
-        feature_ranges = self._get_feature_ranges()
-        # Edge case: if there are no features at all, return immediately.
-        if not any(r for r in feature_ranges.values()):
-            return
+    def _get_transition_for_inspection(self) -> Tuple[State, State]:
+        _max_traj_len = max(
+            len(traj.actions) for traj in self.dataset.trajectories)
+        for idx_into_traj in range(-2, -1 * _max_traj_len, -1):
+            for traj in self.dataset.trajectories:
+                if len(traj.states) < (idx_into_traj * -1) + 1:
+                    continue
+                yield (traj.states[idx_into_traj - 1],
+                       traj.states[idx_into_traj])
+
+    def _get_changing_feats_for_transition(
+            self, transition: Tuple[State, State]) -> Set[Tuple[str, str]]:
+        """Given a transition, gets all the features that change during the
+        transition."""
+        changing_types_and_feats: Set[Tuple[str, str]] = set()
+        for obj in transition[0].data:
+            for feat in obj.type.feature_names:
+                if sum(transition[0].data.get(obj, feat) -
+                       transition[1].data.get(obj, feat)) != 0:
+                    changing_types_and_feats.add((obj.type, feat))
+        return changing_types_and_feats
+
+    def _construct_pred(self, t: Type, f: str, constant: float, ub: float,
+                        lb: float, constant_idx: int) -> Predicate:
+        # Scale the constant by the feature range.
+        k = constant * (ub - lb) + lb
+        # Only need one of (ge, le) because we can use negations
+        # to get the other (modulo equality, which we shouldn't
+        # rely on anyway because of precision issues).
+        comp, comp_str = le, "<="
+        classifier = _SingleAttributeCompareClassifier(0, t, f, k,
+                                                       constant_idx, comp,
+                                                       comp_str)
+        name = str(classifier)
+        types = [t]
+        pred = Predicate(name, types, classifier)
+        assert pred.arity == 1
+        return pred
+
+    def _enumerate_naive(
+        self, feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]]
+    ) -> Iterator[Tuple[Predicate, float]]:
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
@@ -471,19 +507,55 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                     # learn a classifier with it. So, skip the feature.
                     if abs(lb - ub) < 1e-6:
                         continue
-                    # Scale the constant by the feature range.
-                    k = constant * (ub - lb) + lb
-                    # Only need one of (ge, le) because we can use negations
-                    # to get the other (modulo equality, which we shouldn't
-                    # rely on anyway because of precision issues).
-                    comp, comp_str = le, "<="
-                    classifier = _SingleAttributeCompareClassifier(
-                        0, t, f, k, constant_idx, comp, comp_str)
-                    name = str(classifier)
-                    types = [t]
-                    pred = Predicate(name, types, classifier)
-                    assert pred.arity == 1
+                    pred = self._construct_pred(t, f, constant, ub, lb,
+                                                constant_idx)
                     yield (pred, 1 + cost)  # cost = arity + cost from constant
+
+    def _enumerate_transition_changes(
+        self, feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]]
+    ) -> Iterator[Tuple[Predicate, float]]:
+        constant_generator = _halving_constant_generator(0.0, 1.0)
+        constant_idx = 0
+        while True:
+            # First generate a set of constants that all predicates in
+            # this iteration will be evaluated on.
+            curr_iter_constants_and_costs = []
+            for _ in range(CFG.grammar_search_num_constants_each_iter):
+                curr_iter_constants_and_costs.append(next(constant_generator))
+            # Next, try a bunch of predicates on these different constants.
+            for curr_transition in self._get_transition_for_inspection():
+                for (constant, cost) in curr_iter_constants_and_costs:
+                    changing_types_and_feats = self._get_changing_feats_for_transition(
+                        curr_transition)
+                    for t in sorted(self.types):
+                        for f in t.feature_names:
+                            if (t, f) not in changing_types_and_feats:
+                                continue
+                            lb, ub = feature_ranges[t][f]
+                            # Optimization: if lb == ub, there is no variation
+                            # among this feature, so there's no point in trying to
+                            # learn a classifier with it. So, skip the feature.
+                            if abs(lb - ub) < 1e-6:
+                                continue
+                            pred = self._construct_pred(
+                                t, f, constant, ub, lb, constant_idx)
+                            yield (pred, 1 + cost
+                                   )  # cost = arity + cost from constant
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        # Get ranges of feature values from data.
+        feature_ranges = self._get_feature_ranges()
+        # Edge case: if there are no features at all, return immediately.
+        if not any(r for r in feature_ranges.values()):
+            return
+        if CFG.grammar_search_enumeration_approach == "naive":
+            return self._enumerate_naive(feature_ranges)
+        elif CFG.grammar_search_enumeration_approach == "transition_changes":
+            return self._enumerate_transition_changes(feature_ranges)
+        else:
+            raise NotImplementedError(
+                f"{CFG.grammar_search_enumeration_approach} is not an implemented approach for enumerating predicates from our grammars."
+            )
 
     def _get_feature_ranges(
             self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
@@ -510,12 +582,38 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
     """Generates features of the form "|0.feature - 1.feature| <= c"."""
 
-    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
-        # Get ranges of feature values from data.
-        feature_ranges = self._get_feature_ranges()
-        # Edge case: if there are no features at all, return immediately.
-        if not any(r for r in feature_ranges.values()):
-            return
+    def _construct_pred(self, t1: Type, t2: Type, f1: str, f2: str,
+                        constant: float, ub1: float, ub2: float, lb1: float,
+                        lb2: float, constant_idx: int) -> Predicate:
+        # Now, we must compute the upper and lower bounds of
+        # the expression |t1.f1 - t2.f2|. If the intervals
+        # [lb1, ub1] and [lb2, ub2] overlap, then the lower
+        # bound of the expression is just 0. Otherwise, if
+        # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
+        # ub2 < lb1, the lower bound is |lb1 - ub2|.
+        if utils.f_range_intersection(lb1, ub1, lb2, ub2):
+            lb = 0.0
+        else:
+            lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+        # The upper bound for the expression can be
+        # computed in a similar fashion.
+        ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
+
+        # Scale the constant by the correct range.
+        k = constant * (ub - lb) + lb
+        # Create classifier.
+        comp, comp_str = le, "<="
+        diff_classifier = _AttributeDiffCompareClassifier(
+            0, t1, f1, 1, t2, f2, k, constant_idx, comp, comp_str)
+        name = str(diff_classifier)
+        types = [t1, t2]
+        pred = Predicate(name, types, diff_classifier)
+        assert pred.arity == 2
+        return pred
+
+    def _enumerate_naive(
+        self, feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]]
+    ) -> Iterator[Tuple[Predicate, float]]:
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
@@ -533,33 +631,55 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                         lb2, ub2 = feature_ranges[t2][f2]
                         if abs(lb2 - ub2) < 1e-6:
                             continue
-                        # Now, we must compute the upper and lower bounds of
-                        # the expression |t1.f1 - t2.f2|. If the intervals
-                        # [lb1, ub1] and [lb2, ub2] overlap, then the lower
-                        # bound of the expression is just 0. Otherwise, if
-                        # lb2 > ub1, the lower bound is |ub1 - lb2|, and if
-                        # ub2 < lb1, the lower bound is |lb1 - ub2|.
-                        if utils.f_range_intersection(lb1, ub1, lb2, ub2):
-                            lb = 0.0
-                        else:
-                            lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
-                        # The upper bound for the expression can be
-                        # computed in a similar fashion.
-                        ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
-
-                        # Scale the constant by the correct range.
-                        k = constant * (ub - lb) + lb
-                        # Create classifier.
-                        comp, comp_str = le, "<="
-                        diff_classifier = _AttributeDiffCompareClassifier(
-                            0, t1, f1, 1, t2, f2, k, constant_idx, comp,
-                            comp_str)
-                        name = str(diff_classifier)
-                        types = [t1, t2]
-                        pred = Predicate(name, types, diff_classifier)
-                        assert pred.arity == 2
+                        pred = self._construct_pred(t1, t2, f1, f2, constant,
+                                                    ub1, ub2, lb1, lb2,
+                                                    constant_idx)
                         yield (pred, 2 + cost
                                )  # cost = arity + cost from constant
+
+    def _enumerate_transition_changes(
+            self, feature_ranges) -> Iterator[Tuple[Predicate, float]]:
+        # 0.5, 0.25, 0.75, 0.125, 0.375, ...
+        constant_generator = _halving_constant_generator(0.0, 1.0)
+        constant_idx = 0
+        while True:
+            # First generate a set of constants that all predicates in
+            # this iteration will be evaluated on.
+            curr_iter_constants_and_costs = []
+            for _ in range(CFG.grammar_search_num_constants_each_iter):
+                curr_iter_constants_and_costs.append(next(constant_generator))
+            # Next, try a bunch of predicates on these different constants.
+            for curr_transition in self._get_transition_for_inspection():
+                for (constant, cost) in curr_iter_constants_and_costs:
+                    changing_types_and_feats = self._get_changing_feats_for_transition(
+                        curr_transition)
+                    for (t1, t2) in itertools.combinations_with_replacement(
+                            sorted(self.types), 2):
+                        for f1 in t1.feature_names:
+                            for f2 in t2.feature_names:
+                                # We only consider relations over features that
+                                # actually change in the current transition.
+                                if (t1, f1
+                                    ) not in changing_types_and_feats and (
+                                        t2,
+                                        f2) not in changing_types_and_feats:
+                                    continue
+
+                                # To create our classifier, we need to leverage the
+                                # upper and lower bounds of its features.
+                                # First, we extract these and move on if these
+                                # bounds are relatively close together.
+                                lb1, ub1 = feature_ranges[t1][f1]
+                                if abs(lb1 - ub1) < 1e-6:
+                                    continue
+                                lb2, ub2 = feature_ranges[t2][f2]
+                                if abs(lb2 - ub2) < 1e-6:
+                                    continue
+                                pred = self._construct_pred(
+                                    t1, t2, f1, f2, constant, ub1, ub2, lb1,
+                                    lb2, constant_idx)
+                                yield (pred, 2 + cost
+                                       )  # cost = arity + cost from constant
 
 
 @dataclass(frozen=True, eq=False, repr=False)

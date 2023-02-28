@@ -41,6 +41,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
 
     def get_successors(self,
                        pnads: FrozenSet[PNAD]) -> Iterator[FrozenSet[PNAD]]:
+        start_time = time.perf_counter()
         init_heuristic_val = self._associated_heuristic(pnads)
         new_heuristic_val = float('inf')
         ret_pnads_list = sorted(pnads)
@@ -57,6 +58,10 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                 new_heuristic_val = self._associated_heuristic(ret_pnads)
                 uncovered_segment = self._get_first_uncovered_segment(
                     ret_pnads_list)
+                # This loop can often take a very long time, and we want to
+                # exit it if we run for longer the timeout.
+                if time.perf_counter() - start_time > CFG.pnad_search_timeout:
+                    raise TimeoutError()
 
             yield ret_pnads
 
@@ -330,6 +335,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def backchain(self, segmented_traj: List[Segment], pnads: List[PNAD],
                   traj_goal: Set[GroundAtom]) -> List[_GroundSTRIPSOperator]:
         """Returns chain of ground operators in REVERSE order."""
+        start_time = time.perf_counter()
         operator_chain: List[_GroundSTRIPSOperator] = []
         atoms_seq = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
         objects = set(segmented_traj[0].states[0])
@@ -369,4 +375,6 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 a.ground(var_to_obj)
                 for a in pnad.op.preconditions
             }
+            if time.perf_counter() - start_time > CFG.pnad_search_timeout:
+                raise TimeoutError()
         return operator_chain
