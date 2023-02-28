@@ -9,8 +9,8 @@ import logging
 from dataclasses import dataclass, field
 from functools import cached_property
 from operator import le
-from typing import Callable, Dict, FrozenSet, Iterator, List, \
-    Sequence, Set, Tuple
+from typing import Callable, Dict, FrozenSet, Iterator, List, Sequence, Set, \
+    Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -456,9 +456,17 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
     """Generates features of the form "0.feature >= c" or "0.feature <= c"."""
 
     def _get_transition_for_inspection(self) -> Iterator[Tuple[State, State]]:
-        _max_traj_len = max(
+        max_traj_len = max(
             len(traj.actions) for traj in self.dataset.trajectories)
-        for idx_into_traj in range(-2, -1 * _max_traj_len, -1):
+        if max_traj_len < 2:
+            raise ValueError("Can only use transition_changes enumeration " +
+                             "approach when at least one transition has " +
+                             "length greater than 2")
+        # We get transitions backwards thru the trajectory.
+        # We skip the last transition because we already have the goal
+        # predicates, so we don't need to 'inspect' this transition
+        # to invent new predicates that it is trying to achieve.
+        for idx_into_traj in range(-2, (-1 * max_traj_len) - 1, -1):
             for traj in self.dataset.trajectories:
                 if len(traj.states) < (idx_into_traj * -1) + 1:
                     continue
@@ -527,7 +535,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                 try:
                     curr_iter_constants_and_costs.append(
                         next(constant_generator))
-                except StopIteration:
+                except StopIteration:  # pragma: no cover
                     raise ValueError("No more constants to generate. " +
                                      "This should be impossible.")
             # Next, try a bunch of predicates on these different constants.
@@ -661,7 +669,7 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                 try:
                     curr_iter_constants_and_costs.append(
                         next(constant_generator))
-                except StopIteration:
+                except StopIteration:  # pragma: no cover
                     raise ValueError("No more constants to generate. " +
                                      "This should be impossible.")
             # Next, try a bunch of predicates on these different constants.

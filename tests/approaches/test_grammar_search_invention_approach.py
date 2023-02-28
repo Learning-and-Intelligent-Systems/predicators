@@ -74,7 +74,7 @@ def test_predicate_grammar(segmenter):
     # more predicates would appear unique.
     assert len(forall_grammar.generate(max_num=100)) == 12
     # Test the same thing, but using a forall grammar with
-    # on 2-arity predicates.
+    # 2-arity predicates.
     utils.reset_config({
         "grammar_search_grammar_use_diff_features": True,
         "segmenter": segmenter,
@@ -82,6 +82,47 @@ def test_predicate_grammar(segmenter):
     })
     forall_grammar = _create_grammar(dataset, env.predicates)
     assert len(forall_grammar.generate(max_num=100)) == 55
+    # Try the same thing, but only generate candidate predicates
+    # based on feature changes.
+    utils.reset_config({
+        "grammar_search_grammar_use_diff_features": True,
+        "grammar_search_enumeration_approach": "transition_changes",
+        "grammar_search_num_constants_each_iter": 1,
+        "segmenter": segmenter,
+        "env": "cover",
+    })
+    # We need the trajectory to have at least length 2 for this to work.
+    dataset_2step = Dataset([
+        LowLevelTrajectory([state, other_state],
+                           [Action(np.zeros(1, dtype=np.float32))]),
+        LowLevelTrajectory([other_state, state, other_state], [
+            Action(np.zeros(1, dtype=np.float32)),
+            Action(np.zeros(1, dtype=np.float32))
+        ])
+    ])
+    forall_grammar = _create_grammar(dataset_2step, env.predicates)
+    # This should generate less predicates than otherwise, since
+    # checking feature changes should really cut down the set
+    # of generated predicates.
+    assert len(forall_grammar.generate(max_num=100)) == 49
+    # Test that doing this with the normal dataset raises a
+    # ValueError because we need trajectories to have a min.
+    # of 2 steps.
+    forall_grammar = _create_grammar(dataset, env.predicates)
+    with pytest.raises(ValueError):
+        forall_grammar.generate(max_num=100)
+    # Try the same thing, but use a non-existent enumeration
+    # approach.
+    utils.reset_config({
+        "grammar_search_grammar_use_diff_features": True,
+        "grammar_search_enumeration_approach": "ask_merlin",
+        "grammar_search_num_constants_each_iter": 1,
+        "segmenter": segmenter,
+        "env": "cover",
+    })
+    forall_grammar = _create_grammar(dataset, env.predicates)
+    with pytest.raises(NotImplementedError):
+        forall_grammar.generate(max_num=100)
     # Test CFG.grammar_search_predicate_cost_upper_bound.
     default = CFG.grammar_search_predicate_cost_upper_bound
     utils.reset_config({"grammar_search_predicate_cost_upper_bound": 0})

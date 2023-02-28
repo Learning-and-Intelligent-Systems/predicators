@@ -61,7 +61,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                 # This loop can often take a very long time, and we want to
                 # exit it if we run for longer the timeout.
                 if time.perf_counter() - start_time > CFG.pnad_search_timeout:
-                    raise TimeoutError()
+                    raise TimeoutError()  # pragma: no cover
 
             yield ret_pnads
 
@@ -376,5 +376,5 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 for a in pnad.op.preconditions
             }
             if time.perf_counter() - start_time > CFG.pnad_search_timeout:
-                raise TimeoutError()
+                raise TimeoutError()  # pragma: no cover
         return operator_chain
