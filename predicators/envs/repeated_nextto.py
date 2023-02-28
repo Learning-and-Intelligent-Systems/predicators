@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
@@ -41,16 +40,6 @@ class RepeatedNextToEnv(BaseEnv):
         self._Grasped = Predicate("Grasped",
                                   [self._robot_type, self._dot_type],
                                   self._Grasped_holds)
-        # Options
-        self._Move = utils.SingletonParameterizedOption(
-            "Move",
-            self._Move_policy,
-            types=[self._robot_type, self._dot_type],
-            params_space=Box(-1, 1, (1, )))
-        self._Grasp = utils.SingletonParameterizedOption(
-            "Grasp",
-            policy=self._Grasp_policy,
-            types=[self._robot_type, self._dot_type])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._nextto_thresh: float = CFG.repeated_nextto_nextto_thresh
@@ -103,8 +92,9 @@ class RepeatedNextToEnv(BaseEnv):
         return {self._robot_type, self._dot_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Move, self._Grasp}
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -168,24 +158,6 @@ class RepeatedNextToEnv(BaseEnv):
             tasks.append(Task(State(data), goals[i % len(goals)]))
         return tasks
 
-    def _Move_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        _, dot = objects
-        dot_x = state.get(dot, "x")
-        delta, = params
-        robot_x = max(min(self.env_ub, dot_x + delta), self.env_lb)
-        norm_robot_x = (robot_x - self.env_lb) / (self.env_ub - self.env_lb)
-        return Action(np.array([0, norm_robot_x, 0], dtype=np.float32))
-
-    def _Grasp_policy(self, state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        _, dot = objects
-        dot_x = state.get(dot, "x")
-        norm_dot_x = (dot_x - self.env_lb) / (self.env_ub - self.env_lb)
-        return Action(np.array([1, 0, norm_dot_x], dtype=np.float32))
-
     def _NextTo_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, dot = objects
         return (state.get(dot, "grasped") < self.grasped_thresh
@@ -207,37 +179,14 @@ class RepeatedNextToEnv(BaseEnv):
 
 
 class RepeatedNextToSingleOptionEnv(RepeatedNextToEnv):
-    """A variation on RepeatedNextToEnv with a single parameterized option."""
+    """A variation on RepeatedNextToEnv with a single parameterized option.
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        # Options
-        del self._Move
-        del self._Grasp
-
-        # The first parameter dimension modulates whether the action will be a
-        # move (negative value) or a grasp (nonnegative value). The second
-        # dimension is the same as that for self._Move in the parent class.
-        self._MoveGrasp = utils.SingletonParameterizedOption(
-            "MoveGrasp",
-            policy=self._MoveGrasp_policy,
-            types=[self._robot_type, self._dot_type],
-            params_space=Box(-1, 1, (2, )))
+    Note that the only difference is in the oracle options.
+    """
 
     @classmethod
     def get_name(cls) -> str:
         return "repeated_nextto_single_option"
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._MoveGrasp}
-
-    def _MoveGrasp_policy(self, state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> Action:
-        if params[0] < 0:
-            return self._Move_policy(state, memory, objects, params[1:])
-        return self._Grasp_policy(state, memory, objects, params[1:])
 
 
 class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
