@@ -905,7 +905,7 @@ def run_policy(
         task_idx: int,
         termination_function: Callable[[State], bool],
         max_num_steps: int,
-        init_state: Optional[State] = None,
+        do_state_reset: bool = True,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
         monitor: Optional[Monitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
@@ -923,8 +923,10 @@ def run_policy(
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
     """
-    state = init_state if init_state is not None else env.reset(
-        train_or_test, task_idx)
+    if not do_state_reset:
+        state = env.get_state()
+    else:
+        state = env.reset(train_or_test, task_idx)
     assert env.get_state().allclose(state)
     states = [state]
     actions: List[Action] = []

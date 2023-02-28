@@ -345,4 +345,4 @@ class BaseEnv(abc.ABC):
 
     def get_state(self) -> State:
         """Get the current state of this environment."""
-        return self._current_state
+        return self._current_state.copy()
