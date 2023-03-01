@@ -168,6 +168,7 @@ def test_narrow_passage_options():
         "narrow_passage_door_width_padding_ub": 0.02,
         "narrow_passage_passage_width_padding_lb": 0.02,
         "narrow_passage_passage_width_padding_ub": 0.02,
+        "narrow_passage_open_door_refine_penalty": 0,
         # "render_state_dpi": 150,  # uncomment for higher-res test videos
     })
     env = NarrowPassageEnv()
@@ -274,6 +275,7 @@ def test_narrow_passage_failed_birrt():
     # Set up environment
     utils.reset_config({
         "env": "narrow_passage",
+        "narrow_passage_open_door_refine_penalty": 0,
         "narrow_passage_birrt_num_attempts": 0,
     })
     env = NarrowPassageEnv()

@@ -1,5 +1,6 @@
 """Toy environment for testing refinement cost heuristic learning."""
 
+import time
 from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set
 
 import matplotlib
@@ -323,6 +324,8 @@ class NarrowPassageEnv(BaseEnv):
         # Append open door action to memory action plan
         memory["action_plan"].append(
             Action(np.array([0.0, 0.0, 1.0], dtype=np.float32)))
+        # Opening the door takes a little bit of time to plan, artificially
+        time.sleep(CFG.narrow_passage_open_door_refine_penalty)
         return True
 
     def _MoveAndOpenDoor_terminal(self, state: State, memory: Dict,
