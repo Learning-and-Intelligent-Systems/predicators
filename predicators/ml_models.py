@@ -22,10 +22,14 @@ from sklearn.neighbors import \
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
+from predicators.settings import CFG
 from predicators.structs import Array, MaxTrainIters, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
+
+device = torch.device("cuda:0" if CFG.torch_gpu and torch.cuda.is_available()
+                      else "cpu")
 
 ################################ Base Classes #################################
 
@@ -158,13 +162,14 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
+        self.to(device)
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Create the optimizer.
         optimizer = self._create_optimizer()
         # Convert data to tensors.
-        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
-        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(device)
+        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(device)
         batch_generator = _single_batch_generator(tensor_X, tensor_Y)
         # Run training.
         _train_pytorch_model(self,
@@ -177,7 +182,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              clip_value=self._clip_value)
 
     def _predict(self, x: Array) -> Array:
-        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(device)
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
@@ -397,11 +402,12 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
+        self.to(device)
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Convert data to tensors.
-        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
-        tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(device)
+        tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(device)
         batch_generator = _single_batch_generator(tensor_X, tensor_y)
         # Run training.
         for _ in range(self._n_reinitialize_tries):
@@ -428,7 +434,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     def _forward_single_input_np(self, x: Array) -> float:
         """Helper for _classify() and predict_proba()."""
         assert x.shape == self._x_dims
-        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(device)
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
@@ -589,8 +595,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         num_samples = X.shape[0]
         num_negatives = self._num_negatives_per_input
         # Cast to torch first.
-        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
-        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(device)
+        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(device)
         assert tensor_X.shape == (num_samples, *self._x_dims)
         assert tensor_Y.shape == (num_samples, self._y_dim)
         # Expand tensor_Y in preparation for concat in the loop below.
@@ -633,6 +639,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # maps concatenated X and Y vectors to floats (energies).
         # Initialize the network.
         self._initialize_net()
+        self.to(device)
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Create the optimizer.
@@ -670,7 +677,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              dtype=np.float32)
         assert concat_xy.shape == (num_samples, self._x_dims[0] + self._y_dim)
         # Pass through network.
-        scores = self(torch.from_numpy(concat_xy))
+        scores = self(torch.from_numpy(concat_xy).to(device))
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return sample_ys[sample_idx]
@@ -695,7 +702,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         assert num_iters is not None and num_iters > 0
         assert sigma is not None and sigma > 0
         assert K is not None and 0 < K < 1
-        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(device)
         repeated_x = tensor_x.repeat(num_samples, 1)
         # Initialize candidate outputs.
         Y = torch.rand(size=(num_samples, self._y_dim), dtype=tensor_x.dtype)
@@ -732,7 +739,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              dtype=np.float32)
         assert concat_xy.shape == (num_samples, self._x_dims[0] + self._y_dim)
         # Pass through network.
-        scores = self(torch.from_numpy(concat_xy))
+        scores = self(torch.from_numpy(concat_xy).to(device))
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return candidate_ys[sample_idx]
