@@ -97,7 +97,7 @@ def _train_refinement_estimation_approach() -> None:
             dataset = pkl.load(f)
         logging.info(f"Loaded dataset from {data_file_path}")
     else:
-        logging.info("Generating refinement data using"
+        logging.info("Generating refinement data using "
                      f"{len(train_tasks)} train tasks...")
         data_gen_start_time = time.perf_counter()
         dataset = _generate_refinement_data(env, preds, options, train_tasks)
@@ -228,7 +228,7 @@ def _collect_refinement_data_for_task(task: Task,
             refinement_time = time.perf_counter() - refinement_start_time
             # Add datapoint to dataset
             data.append((
-                task.init,
+                task,
                 skeleton,
                 atoms_sequence,
                 suc,
