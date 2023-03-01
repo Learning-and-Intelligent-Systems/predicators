@@ -110,10 +110,8 @@ class SokobanEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        # TODO
-        return set()
-        # raise NotImplementedError(
-        #     "This base class method will be deprecated soon!")
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     def _get_tasks(self, num: int, seed_offset: int) -> List[Task]:
         tasks = []
