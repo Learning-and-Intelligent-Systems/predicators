@@ -1,7 +1,7 @@
 """Toy environment for testing option learning."""
 
 import logging
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set
+from typing import Callable, ClassVar, List, Optional, Sequence, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
+from predicators.structs import Action, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -43,14 +43,6 @@ class TouchPointEnv(BaseEnv):
         self._Touched = Predicate("Touched",
                                   [self._robot_type, self._target_type],
                                   self._Touched_holds)
-        # Options
-        self._MoveTo = ParameterizedOption(
-            "MoveTo",
-            types=[self._robot_type, self._target_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._MoveTo_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._MoveTo_terminal)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._target = Object("target", self._target_type)
@@ -92,8 +84,9 @@ class TouchPointEnv(BaseEnv):
         return {self._robot_type, self._target_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._MoveTo}
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -151,26 +144,6 @@ class TouchPointEnv(BaseEnv):
                 tasks.append(Task(state, goal))
         return tasks
 
-    @staticmethod
-    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> Action:
-        # Move in the direction of the target.
-        del memory, params  # unused
-        robot, target = objects
-        rx = state.get(robot, "x")
-        ry = state.get(robot, "y")
-        tx = state.get(target, "x")
-        ty = state.get(target, "y")
-        dx = tx - rx
-        dy = ty - ry
-        rot = np.arctan2(dy, dx)  # between -pi and pi
-        return Action(np.array([rot], dtype=np.float32))
-
-    def _MoveTo_terminal(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        return self._Touched_holds(state, objects)
-
     def _Touched_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, target = objects
         rx = state.get(robot, "x")
@@ -205,19 +178,6 @@ class TouchPointEnvParam(TouchPointEnv):
 
     action_limits: ClassVar[List[float]] = [-2.0, 2.0]
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        # Override option.
-        self._MoveTo = ParameterizedOption(
-            "MoveTo",
-            types=[self._robot_type, self._target_type],
-            params_space=Box(self.action_limits[0], self.action_limits[1],
-                             (2, )),
-            policy=self._MoveTo_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._MoveTo_terminal)
-
     @classmethod
     def get_name(cls) -> str:
         return "touch_point_param"
@@ -242,11 +202,6 @@ class TouchPointEnvParam(TouchPointEnv):
         next_state.set(self._robot, "x", new_x)
         next_state.set(self._robot, "y", new_y)
         return next_state
-
-    @staticmethod
-    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> Action:
-        return Action(params)
 
 
 class TouchOpenEnv(TouchPointEnvParam):
