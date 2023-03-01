@@ -22,14 +22,12 @@ from sklearn.neighbors import \
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
-from predicators.settings import CFG
 from predicators.structs import Array, MaxTrainIters, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
 
-device = torch.device("cuda:0" if CFG.torch_gpu and torch.cuda.is_available()
-                      else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 ################################ Base Classes #################################
 
@@ -131,7 +129,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
 
     def __init__(self, seed: int, max_train_iters: MaxTrainIters,
                  clip_gradients: bool, clip_value: float,
-                 learning_rate: float) -> None:
+                 learning_rate: float, weight_decay: float = 0) -> None:
         torch.manual_seed(seed)
         _NormalizingRegressor.__init__(self, seed)
         nn.Module.__init__(self)  # type: ignore
@@ -139,6 +137,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         self._clip_gradients = clip_gradients
         self._clip_value = clip_value
         self._learning_rate = learning_rate
+        self._weight_decay = weight_decay
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -157,7 +156,8 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
 
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""
-        return optim.Adam(self.parameters(), lr=self._learning_rate)
+        return optim.Adam(self.parameters(), lr=self._learning_rate,
+                          weight_decay=self._weight_decay)
 
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
@@ -186,7 +186,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
-        y = tensor_y.detach().numpy()
+        y = tensor_y.detach().cpu().numpy()
         return y
 
 
@@ -345,12 +345,13 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     def __init__(self, seed: int, balance_data: bool,
                  max_train_iters: MaxTrainIters, learning_rate: float,
                  n_iter_no_change: int, n_reinitialize_tries: int,
-                 weight_init: str) -> None:
+                 weight_init: str, weight_decay: float = 0) -> None:
         torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
         self._learning_rate = learning_rate
+        self._weight_decay = weight_decay
         self._n_iter_no_change = n_iter_no_change
         self._n_reinitialize_tries = n_reinitialize_tries
         self._weight_init = weight_init
@@ -380,7 +381,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""
-        return optim.Adam(self.parameters(), lr=self._learning_rate)
+        return optim.Adam(self.parameters(), lr=self._learning_rate,
+                          weight_decay=self._weight_decay)
 
     def _reset_weights(self) -> None:
         """(Re-)initialize the network weights."""
@@ -438,7 +440,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
-        y = tensor_y.detach().numpy()
+        y = tensor_y.detach().cpu().numpy()
         proba = y.item()
         assert 0 <= proba <= 1
         return proba
@@ -723,7 +725,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                 sigma = K * sigma
         # Make a final selection.
         selected_idx = torch.argmax(scores)
-        return Y[selected_idx].detach().numpy()  # type: ignore
+        return Y[selected_idx].detach().cpu().numpy()  # type: ignore
 
     def _predict_grid(self, x: Array) -> Array:
         assert self._grid_num_ticks_per_dim is not None
@@ -1048,7 +1050,7 @@ def _train_pytorch_model(model: nn.Module,
                          batch_generator: Iterator[Tuple[Tensor, Tensor]],
                          max_train_iters: MaxTrainIters,
                          dataset_size: int,
-                         print_every: int = 1000,
+                         print_every: int = 10,
                          clip_gradients: bool = False,
                          clip_value: float = 5,
                          n_iter_no_change: int = 10000000) -> float:
@@ -1090,7 +1092,8 @@ def _train_pytorch_model(model: nn.Module,
             break
         itr += 1
     # Load best model.
-    model.load_state_dict(torch.load(model_name))  # type: ignore
+    model.load_state_dict(torch.load(model_name, map_location='cpu'))  # type: ignore
+    model.to(device)
     os.remove(model_name)
     model.eval()
     logging.info(f"Loaded best model with loss: {best_loss:.5f}")
