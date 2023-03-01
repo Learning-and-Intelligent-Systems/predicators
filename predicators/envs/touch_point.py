@@ -269,26 +269,6 @@ class TouchOpenEnv(TouchPointEnvParam):
                                        self._TouchingDoor_holds)
         self._DoorIsOpen = Predicate("DoorIsOpen", [self._door_type],
                                      self._DoorIsOpen_holds)
-        # Add options.
-        # Note that the parameter spaces are designed to match what would be
-        # learned by the neural option learners, in that they correspond to
-        # only the dimensions that change when the option is run.
-        del self._MoveTo
-        self._MoveToDoor = ParameterizedOption(
-            "MoveToDoor",
-            types=[self._robot_type, self._door_type],
-            params_space=Box(self.action_limits[0], self.action_limits[1],
-                             (2, )),
-            policy=self._MoveToDoor_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._MoveToDoor_terminal)
-        self._OpenDoor = ParameterizedOption(
-            "OpenDoor",
-            types=[self._door_type, self._robot_type],
-            params_space=Box(-np.inf, np.inf, (2, )),
-            policy=self._OpenDoor_policy,
-            initiable=self._OpenDoor_initiable,
-            terminal=self._OpenDoor_terminal)
         # Add static object.
         self._door = Object("door", self._door_type)
 
@@ -349,8 +329,9 @@ class TouchOpenEnv(TouchPointEnvParam):
         return {self._robot_type, self._door_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._MoveToDoor, self._OpenDoor}
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     def render_state_plt(
             self,
@@ -416,38 +397,6 @@ class TouchOpenEnv(TouchPointEnvParam):
             if not goal_atom1.holds(state) and not goal_atom2.holds(state):
                 tasks.append(Task(state, goal1))
         return tasks
-
-    @staticmethod
-    def _MoveToDoor_policy(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        dx, dy = params
-        return Action(np.array([dx, dy, 0.0], dtype=np.float32))
-
-    def _MoveToDoor_terminal(self, state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        return self._TouchingDoor_holds(state, objects)
-
-    def _OpenDoor_initiable(self, state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        # You can only open the door if touching it.
-        door, robot = objects
-        return self._TouchingDoor_holds(state, [robot, door])
-
-    @staticmethod
-    def _OpenDoor_policy(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> Action:
-        del state, memory, objects  # unused
-        delta_rot, _ = params
-        return Action(np.array([0.0, 0.0, delta_rot], dtype=np.float32))
-
-    def _OpenDoor_terminal(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        door, _ = objects
-        return self._DoorIsOpen_holds(state, [door])
 
     def _TouchingDoor_holds(self, state: State,
                             objects: Sequence[Object]) -> bool:
