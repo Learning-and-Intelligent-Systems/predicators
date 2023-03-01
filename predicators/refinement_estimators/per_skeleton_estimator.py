@@ -16,17 +16,17 @@ from predicators.structs import GroundAtom, Task, _GroundNSRT
 ModelDictKey = Tuple[Tuple[_GroundNSRT, ...],  # skeleton converted to tuple
                      Tuple[FrozenSet[GroundAtom], ...]  # atoms_sequence
                      ]
-T = TypeVar('T')
+Model = TypeVar('Model')
 
 
-class PerSkeletonRefinementEstimator(BaseRefinementEstimator, Generic[T]):
+class PerSkeletonRefinementEstimator(BaseRefinementEstimator, Generic[Model]):
     """A refinement cost estimator that trains a separate cost predictor per
     skeleton, which is given as a (skeleton, atoms_sequence) pair."""
 
     def __init__(self) -> None:
         super().__init__()
         # _model_dict maps immutable skeleton atoms_sequence pair to model
-        self._model_dict: Optional[Dict[ModelDictKey, T]] = None
+        self._model_dict: Optional[Dict[ModelDictKey, Model]] = None
 
     @property
     def is_learning_based(self) -> bool:
@@ -44,7 +44,7 @@ class PerSkeletonRefinementEstimator(BaseRefinementEstimator, Generic[T]):
         return cost
 
     @abc.abstractmethod
-    def _model_predict(self, model: T, initial_task: Task) -> float:
+    def _model_predict(self, model: Model, initial_task: Task) -> float:
         """Get the cost prediction from a model using the initial task as
         input."""
 
