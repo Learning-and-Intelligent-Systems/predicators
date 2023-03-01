@@ -1,7 +1,7 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
 import time
-from typing import Any, Sequence
+from typing import Any, Sequence, List
 
 import bosdyn.client
 import bosdyn.client.estop
@@ -20,6 +20,7 @@ from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
+from bosdyn.client.sdk import Robot
 
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
@@ -62,7 +63,7 @@ class SpotControllers():
         bosdyn.client.util.setup_logging(self._verbose)
 
         self.sdk = bosdyn.client.create_standard_sdk('ArmObjectGraspClient')
-        self.robot = self.sdk.create_robot(self._hostname)
+        self.robot: Robot = self.sdk.create_robot(self._hostname)
         bosdyn.client.util.authenticate(self.robot)
         self.robot.time_sync.wait_for_sync()
 
@@ -75,9 +76,9 @@ class SpotControllers():
 
         self.lease_client = self.robot.ensure_client(
             bosdyn.client.lease.LeaseClient.default_service_name)
-        self.robot_state_client = self.robot.ensure_client(
+        self.robot_state_client: RobotStateClient = self.robot.ensure_client(
             RobotStateClient.default_service_name)
-        self.robot_command_client = self.robot.ensure_client(
+        self.robot_command_client: RobotCommandClient = self.robot.ensure_client(
             RobotCommandClient.default_service_name)
         self.image_client = self.robot.ensure_client(
             ImageClient.default_service_name)
@@ -142,7 +143,8 @@ class SpotControllers():
             robot.logger.error(error_message)
             raise Exception(error_message)
 
-    def cv_mouse_callback(self, event, x, y):
+    # NOTE: We want to deprecate this over the long-term!
+    def cv_mouse_callback(self, event, x, y): # type: ignore
         """Callback for the click-to-grasp functionality with the Spot API's
         grasping interface."""
         global g_image_click, g_image_display
@@ -161,7 +163,7 @@ class SpotControllers():
             cv2.line(clone, (x, 0), (x, height), color, thickness)
             cv2.imshow(image_title, clone)
 
-    def add_grasp_constraint(self, grasp, robot_state_client):
+    def add_grasp_constraint(self, grasp: manipulation_api_pb2.PickObjectInImage, robot_state_client: RobotStateClient) -> manipulation_api_pb2.PickObjectInImage:
         """Method to constrain desirable grasps."""
         # There are 3 types of constraints:
         #   1. Vector alignment
@@ -366,8 +368,8 @@ class SpotControllers():
 
         time.sleep(2.0)
 
-    def block_until_arm_arrives_with_prints(self, robot, command_client,
-                                            cmd_id):
+    def block_until_arm_arrives_with_prints(self, robot: Robot, command_client: RobotCommandClient,
+                                            cmd_id: int) -> None:
         """Block until the arm arrives at the goal and print the distance
         remaining.
 
@@ -435,7 +437,7 @@ class SpotControllers():
             gripper_command, arm_command)
 
         # Send the request
-        cmd_id = self.robot_command_client.robot_command(command)
+        cmd_id: int = self.robot_command_client.robot_command(command)
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
@@ -467,25 +469,13 @@ class SpotControllers():
     def navigate_to(self, waypoint_id: str) -> None:
         try:
             # (1) Initialize location
-            req_type = '1'
-            args = []
-            cmd_func = self.graph_nav_command_line._command_dictionary[
-                req_type]
-            cmd_func(args)
+            self.graph_nav_command_line._set_initial_localization_fiducial()
 
             # (2) Get localization state
-            req_type = '2'
-            args = []
-            cmd_func = self.graph_nav_command_line._command_dictionary[
-                req_type]
-            cmd_func(args)
+            self.graph_nav_command_line._get_localization_state()
 
             # (4) Navigate to
-            req_type = '4'
-            args = [waypoint_id]
-            cmd_func = self.graph_nav_command_line._command_dictionary[
-                req_type]
-            cmd_func(args)
+            self.graph_nav_command_line._navigate_to([waypoint_id])
 
         except Exception as e:
             print(e)

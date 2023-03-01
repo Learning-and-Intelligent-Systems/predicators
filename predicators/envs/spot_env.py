@@ -300,7 +300,10 @@ class SpotEnv(BaseEnv):
         # NOTE: We need to parse out init preds to create a simulator state.
         init_preds = self._parse_init_preds_from_json(json_dict["init_preds"],
                                                       object_name_to_object)
-        init_state = _PDDLEnvState(init_dict, init_preds)
+        # NOTE: mypy gets mad at this usage here because we're putting
+        # predicates into the PDDLEnvState when the signature actually
+        # expects Arrays.
+        init_state = _PDDLEnvState(init_dict, init_preds) # type: ignore
 
         # Parse goal.
         if "goal" in json_dict:

@@ -91,7 +91,7 @@ class GraphNavInterface():
         """Begin communication with the robot."""
         self._robot_id = self._robot.get_id()
 
-    def _get_localization_state(self, *args):
+    def _get_localization_state(self) -> None:
         """Get the current localization and state of the robot."""
         state = self._graph_nav_client.get_localization_state()
         print('Got localization: \n%s' % str(state.localization))
@@ -100,7 +100,7 @@ class GraphNavInterface():
         print('Got robot state in kinematic odometry frame: \n%s' %
               str(odom_tform_body))
 
-    def _set_initial_localization_fiducial(self, *args):
+    def _set_initial_localization_fiducial(self) -> None:
         """Trigger localization when near a fiducial."""
         robot_state = self._robot_state_client.get_robot_state()
         current_odom_tform_body = get_odom_tform_body(
@@ -247,7 +247,7 @@ class GraphNavInterface():
             # command is complete.
             is_finished = self._check_success(nav_to_cmd_id)
 
-    def _navigate_to(self, *args):
+    def _navigate_to(self, *args) -> None:
         """Navigate to a specific waypoint."""
         # Take the first argument as the destination waypoint.
         if len(args) < 1:
