@@ -303,7 +303,7 @@ class SpotEnv(BaseEnv):
         # NOTE: mypy gets mad at this usage here because we're putting
         # predicates into the PDDLEnvState when the signature actually
         # expects Arrays.
-        init_state = _PDDLEnvState(init_dict, init_preds) # type: ignore
+        init_state = _PDDLEnvState(init_dict, init_preds)  # type: ignore
 
         # Parse goal.
         if "goal" in json_dict:

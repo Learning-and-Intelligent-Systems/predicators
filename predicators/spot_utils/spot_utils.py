@@ -1,7 +1,8 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
+import sys
 import time
-from typing import Any, Sequence, List
+from typing import Any, Sequence
 
 import bosdyn.client
 import bosdyn.client.estop
@@ -46,6 +47,7 @@ graph_nav_loc_to_id = {
 }
 
 
+# pylint: disable=no-member
 class SpotControllers():
     """Implementation of interface with low-level controllers for the Spot
     robot."""
@@ -58,6 +60,8 @@ class SpotControllers():
         self._force_squeeze_grasp = False
         self._force_top_down_grasp = True
         self._image_source = "hand_color_image"
+
+        self.hand_x, self.hand_y, self.hand_z = (0.65, 0, 0.45)
 
         # See hello_spot.py for an explanation of these lines.
         bosdyn.client.util.setup_logging(self._verbose)
@@ -78,8 +82,8 @@ class SpotControllers():
             bosdyn.client.lease.LeaseClient.default_service_name)
         self.robot_state_client: RobotStateClient = self.robot.ensure_client(
             RobotStateClient.default_service_name)
-        self.robot_command_client: RobotCommandClient = self.robot.ensure_client(
-            RobotCommandClient.default_service_name)
+        self.robot_command_client: RobotCommandClient = \
+            self.robot.ensure_client(RobotCommandClient.default_service_name)
         self.image_client = self.robot.ensure_client(
             ImageClient.default_service_name)
         self.manipulation_api_client = self.robot.ensure_client(
@@ -144,9 +148,10 @@ class SpotControllers():
             raise Exception(error_message)
 
     # NOTE: We want to deprecate this over the long-term!
-    def cv_mouse_callback(self, event, x, y): # type: ignore
+    def cv_mouse_callback(self, event, x, y):  # type: ignore
         """Callback for the click-to-grasp functionality with the Spot API's
         grasping interface."""
+        # pylint: disable=global-variable-not-assigned
         global g_image_click, g_image_display
         clone = g_image_display.copy()
         if event == cv2.EVENT_LBUTTONUP:
@@ -163,7 +168,10 @@ class SpotControllers():
             cv2.line(clone, (x, 0), (x, height), color, thickness)
             cv2.imshow(image_title, clone)
 
-    def add_grasp_constraint(self, grasp: manipulation_api_pb2.PickObjectInImage, robot_state_client: RobotStateClient) -> manipulation_api_pb2.PickObjectInImage:
+    def add_grasp_constraint(
+        self, grasp: manipulation_api_pb2.PickObjectInImage,
+        robot_state_client: RobotStateClient
+    ) -> manipulation_api_pb2.PickObjectInImage:
         """Method to constrain desirable grasps."""
         # There are 3 types of constraints:
         #   1. Vector alignment
@@ -261,12 +269,12 @@ class SpotControllers():
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
 
         # Take a picture with a camera
-        self.robot.logger.info('Getting an image from: ' + self._image_source)
+        self.robot.logger.info(f'Getting an image from: {self._image_source}')
         image_responses = self.image_client.get_image_from_sources(
             [self._image_source])
 
         if len(image_responses) != 1:
-            print('Got invalid number of images: ' + str(len(image_responses)))
+            print(f'Got invalid number of images: {str(len(image_responses))}')
             print(image_responses)
             assert False
 
@@ -288,6 +296,7 @@ class SpotControllers():
         cv2.namedWindow(image_title)
         cv2.setMouseCallback(image_title, self.cv_mouse_callback)
 
+        # pylint: disable=global-variable-not-assigned
         global g_image_click, g_image_display
         g_image_display = img
         cv2.imshow(image_title, g_image_display)
@@ -296,11 +305,10 @@ class SpotControllers():
             if key == ord('q') or key == ord('Q'):
                 # Quit
                 print('"q" pressed, exiting.')
-                exit(0)
+                sys.exit()
 
-        self.robot.logger.info('Picking object at image location (' +
-                               str(g_image_click[0]) + ', ' +
-                               str(g_image_click[1]) + ')')
+        self.robot.\
+            logger.info(f"Object at ({g_image_click[0]}, {g_image_click[1]})")
 
         pick_vec = geometry_pb2.Vec2(x=g_image_click[0], y=g_image_click[1])
 
@@ -339,10 +347,9 @@ class SpotControllers():
                 manipulation_api_pb2.ManipulationFeedbackState.Name(
                     response.current_state))
 
-            if response.current_state == manipulation_api_pb2.\
-                MANIP_STATE_GRASP_SUCCEEDED or \
-                response.current_state == manipulation_api_pb2.\
-                    MANIP_STATE_GRASP_FAILED:
+            if response.current_state in [manipulation_api_pb2.\
+                MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2.\
+                MANIP_STATE_GRASP_FAILED]:
                 break
 
         # Unstow the arm
@@ -357,18 +364,20 @@ class SpotControllers():
 
         time.sleep(1.0)
 
-        # TODO Does not work!!! Stow the arm
+        ### (wmcclinton) Does not work!!! Stow the arm
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         stow_command_id = self.robot_command_client.robot_command(stow_cmd)
         self.robot.logger.info("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client, stow_command_id,
                                 3.0)
+        ###
 
         self.robot.logger.info('Finished grasp.')
 
         time.sleep(2.0)
 
-    def block_until_arm_arrives_with_prints(self, robot: Robot, command_client: RobotCommandClient,
+    def block_until_arm_arrives_with_prints(self, robot: Robot,
+                                            command_client: RobotCommandClient,
                                             cmd_id: int) -> None:
         """Block until the arm arrives at the goal and print the distance
         remaining.
@@ -388,6 +397,7 @@ class SpotControllers():
             time.sleep(0.1)
 
     def hand_movement(self) -> None:
+        """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
@@ -398,8 +408,6 @@ class SpotControllers():
         qy = np.sin((np.pi / 4) / 2)
         qz = 0
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
-
-        self.hand_x, self.hand_y, self.hand_z = (0.65, 0, 0.45)
 
         # Make the arm pose RobotCommand
         # Build a position to move the arm to (in meters, relative to and
@@ -467,15 +475,17 @@ class SpotControllers():
         time.sleep(2)
 
     def navigate_to(self, waypoint_id: str) -> None:
+        """Use GraphNavInterface to localize robot and go to a location."""
+        # pylint: disable=broad-except
         try:
             # (1) Initialize location
-            self.graph_nav_command_line._set_initial_localization_fiducial()
+            self.graph_nav_command_line.set_initial_localization_fiducial()
 
             # (2) Get localization state
-            self.graph_nav_command_line._get_localization_state()
+            self.graph_nav_command_line.get_localization_state()
 
             # (4) Navigate to
-            self.graph_nav_command_line._navigate_to([waypoint_id])
+            self.graph_nav_command_line.navigate_to([waypoint_id])
 
         except Exception as e:
             print(e)
