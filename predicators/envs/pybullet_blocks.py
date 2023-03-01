@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, List, Sequence, Tuple
+from typing import Callable, ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 import pybullet as p
@@ -45,8 +45,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                                 )
 
         ## Pick option
-        types = self._Pick.types
-        params_space = self._Pick.params_space
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
         self._Pick: ParameterizedOption = utils.LinearChainParameterizedOption(
             "Pick",
             [
@@ -78,8 +78,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             ])
 
         ## Stack option
-        types = self._Stack.types
-        params_space = self._Stack.params_space
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
         self._Stack: ParameterizedOption = \
             utils.LinearChainParameterizedOption("Stack",
             [
@@ -106,8 +106,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             ])
 
         ## PutOnTable option
-        types = self._PutOnTable.types
-        params_space = self._PutOnTable.params_space
+        types = [self._robot_type]
+        params_space = Box(0, 1, (2, ))
         place_z = self.table_height + self._block_size / 2 + self._offset_z
         self._PutOnTable: ParameterizedOption = \
             utils.LinearChainParameterizedOption("PutOnTable",
@@ -135,6 +135,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
         self._block_id_to_block: Dict[int, Object] = {}
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._Pick, self._Stack, self._PutOnTable}
 
     def _initialize_pybullet(self) -> None:
         """Run super(), then handle blocks-specific initialization."""

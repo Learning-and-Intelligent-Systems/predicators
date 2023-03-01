@@ -19,7 +19,7 @@ an infrared reading, the object must first be shot with Chemical Y. Geiger
 readings can be taken without any sort of chemical reaction.
 """
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+from typing import ClassVar, List, Optional, Sequence, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -29,7 +29,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
+from predicators.structs import Action, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -92,29 +92,6 @@ class SatellitesEnv(BaseEnv):
         self._GeigerReadingTaken = Predicate("GeigerReadingTaken",
                                              [self._sat_type, self._obj_type],
                                              self._GeigerReadingTaken_holds)
-
-        # Options
-        self._MoveTo = utils.SingletonParameterizedOption(
-            "MoveTo",
-            types=[self._sat_type, self._obj_type],
-            params_space=Box(0, 1, (2, )),  # target absolute x/y
-            policy=self._MoveTo_policy)
-        self._Calibrate = utils.SingletonParameterizedOption(
-            "Calibrate",
-            types=[self._sat_type, self._obj_type],
-            policy=self._Calibrate_policy)
-        self._ShootChemX = utils.SingletonParameterizedOption(
-            "ShootChemX",
-            types=[self._sat_type, self._obj_type],
-            policy=self._ShootChemX_policy)
-        self._ShootChemY = utils.SingletonParameterizedOption(
-            "ShootChemY",
-            types=[self._sat_type, self._obj_type],
-            policy=self._ShootChemY_policy)
-        self._UseInstrument = utils.SingletonParameterizedOption(
-            "UseInstrument",
-            types=[self._sat_type, self._obj_type],
-            policy=self._UseInstrument_policy)
 
     @classmethod
     def get_name(cls) -> str:
@@ -224,11 +201,9 @@ class SatellitesEnv(BaseEnv):
         return {self._sat_type, self._obj_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._MoveTo, self._Calibrate, self._ShootChemX, self._ShootChemY,
-            self._UseInstrument
-        }
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -470,96 +445,6 @@ class SatellitesEnv(BaseEnv):
         return self._HasGeiger_holds(state, [sat]) and \
             abs(state.get(sat, "read_obj_id") -
                 state.get(obj, "id")) < self.id_tol
-
-    @staticmethod
-    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> Action:
-        del memory  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x, target_sat_y = params
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            0.0, 0.0, 0.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _Calibrate_policy(state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x = cur_sat_x
-        target_sat_y = cur_sat_y
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            1.0, 0.0, 0.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _ShootChemX_policy(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x = cur_sat_x
-        target_sat_y = cur_sat_y
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            0.0, 1.0, 0.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _ShootChemY_policy(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x = cur_sat_x
-        target_sat_y = cur_sat_y
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            0.0, 0.0, 1.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _UseInstrument_policy(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> Action:
-        del memory, params  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x = cur_sat_x
-        target_sat_y = cur_sat_y
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            0.0, 0.0, 0.0, 1.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
 
     def _get_all_circles(self, state: State) -> Set[utils.Circle]:
         """Get all entities in the state as utils.Circle objects."""
