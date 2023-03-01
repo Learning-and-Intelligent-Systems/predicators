@@ -130,7 +130,6 @@ class NarrowPassageGroundTruthOptionFactory(GroundTruthOptionFactory):
             memory["action_plan"].append(
                 Action(np.array([0.0, 0.0, 1.0], dtype=np.float32)))
             # Opening the door takes a little bit of time to plan, artificially
-            # TODO: can we put this in the environment instead?
             time.sleep(CFG.narrow_passage_open_door_refine_penalty)
             return True
 
