@@ -32,18 +32,25 @@ g_image_click = None
 g_image_display = None
 
 graph_nav_loc_to_id = {
-    "kitchen_counter_0": "pro-husky-FQMaErmPnbpMdKKsP8g++Q==",
-    "kitchen_counter_1": "leaved-mayfly-SlTLLmBRu2O.wu+mAUQ7TQ==",
-    "far_kitchen_counter": "stubby-gadfly-8btHl1epqzuPt7nWaP0NcQ==",
-    "room_0_outside_0": "molded-gull-wYTmfl.e.MgxvGZO65h5BQ==",
-    "room_0_inside_0": "chichi-howler-TWSpk.P1GqBVb.2ZtNYwOw==",
-    "room_0_outside_1": "toxic-poodle-I7.uhYQ0JuuDp0BshFYD.w==",
-    "bad_table_1": "anemic-dayfly-RVYKbec3QzKvrkkb+qO4UQ==",
-    "table_1": "swishy-cicala-x+kO.BnPfDlX7Um55xo52A==",
-    "multi_trash": "sly-bird-3YrFghbzHLElk6VxWTylEg==",
-    "big_trash": "canty-deer-UPapQsR+Fz8IpffWRM.xYg==",
-    "fridge": "bionic-bowfin-X5vFfv5g2sDpMYwAV5uD7Q==",
-    "kitchen_counter_2": "wimpy-craw-HiGC+x9qFcALR.9.jLCyFg=="
+    "microwave_0": "sudden-buck-mZtfRKlks3p+yJjac4NenQ==",
+    "kitchen_counter_0": "spoken-sawfly-sv+CrbBRCfenw7QX5dvrPQ==",
+    "compost_bin_0": "punic-cicada-65HnkpdVrQtpteI4nG.qUw==",
+    "dishwasher_0": "urbane-otter-bP2FTCyWk.bKjBub.WwShA==",
+    "sink_0": "titled-rabbit-2wr0E8RQx5YH7lNsO9zD+Q==",
+    "fridge_0": "blabby-howler-sukc2NseJ9SYW0zkSR4NcQ==",
+    "kitchen_counter_1": "hunted-equid-AjeBjxUoRRzymDHNNakkgA==",
+    "room_0_outside_0": "germy-fly-WtbLPt6S3+9ns4oOjsAUkQ==",
+    "room_0_inside_0": "hectic-collie-Fg0izmsfWi8kgURPvGk0qw==",
+    "room_0_outside_1": "rize-buck-rV5ZXQ12GxQuDIUGKVu6Mg==",
+    "room_1_outside_0": "votive-jaguar-putQqtZVgU9Hvxx5eIm2Fg==",
+    "room_1_inside_0": "boss-pug-wi6QuZZbAtr5V7krU.ewkQ===",
+    "room_1_outside_1": "fleet-bunny-2bZe9+H+l1qbECZ9ED6IYw==",
+    "storage_room_0_outside_0": "missed-falcon-DMuRgeXB0EXMZS4MYSd5kQ==",
+    "storage_room_0_inside_0": "abuzz-newt-Rx1E8Dzhs7jLRhmono.YXA==",
+    "storage_room_0_outside_1": "curly-colt-28WukUdR02W3QbBCSzqUsw==",
+    "room_2_outside_0": "averse-dayfly-sl2pPLUDDSiRvCjdt6jj9g==",
+    "room_2_room_0_inside_0": "unary-amoeba-WGnqua.JuUXk1xFO3JalXQ==",
+    "room_2_room_0_outside_1": "ace-worm-opjd54QQSj5acIX19ve8jg=="
 }
 
 
@@ -61,7 +68,7 @@ class SpotControllers():
         self._force_top_down_grasp = True
         self._image_source = "hand_color_image"
 
-        self.hand_x, self.hand_y, self.hand_z = (0.65, 0, 0.45)
+        self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
 
         # See hello_spot.py for an explanation of these lines.
         bosdyn.client.util.setup_logging(self._verbose)
@@ -114,14 +121,11 @@ class SpotControllers():
 
         waypoint_id = ""
         if objs[1].name == 'soda_can':
-            waypoint_id = graph_nav_loc_to_id[
-                'table_1']  #['kitchen_counter_1']
+            waypoint_id = graph_nav_loc_to_id['kitchen_counter_1']
         elif objs[1].name == 'counter':
-            waypoint_id = graph_nav_loc_to_id[
-                'table_1']  #['kitchen_counter_1']
+            waypoint_id = graph_nav_loc_to_id['kitchen_counter_1']
         elif objs[1].name == 'snack_table':
-            waypoint_id = graph_nav_loc_to_id[
-                'kitchen_counter_1']  #['table_1']
+            waypoint_id = graph_nav_loc_to_id['room_0_inside_0']
         else:
             raise NotImplementedError()
         self.navigate_to(waypoint_id)
@@ -148,9 +152,10 @@ class SpotControllers():
             raise Exception(error_message)
 
     # NOTE: We want to deprecate this over the long-term!
-    def cv_mouse_callback(self, event, x, y):  # type: ignore
+    def cv_mouse_callback(self, event, x, y, flags, param):  # type: ignore
         """Callback for the click-to-grasp functionality with the Spot API's
         grasping interface."""
+        del flags, param
         # pylint: disable=global-variable-not-assigned
         global g_image_click, g_image_display
         clone = g_image_display.copy()
@@ -473,6 +478,12 @@ class SpotControllers():
                                                  cmd_id)
 
         time.sleep(2)
+
+        stow_cmd = RobotCommandBuilder.arm_stow_command()
+        stow_command_id = self.robot_command_client.robot_command(stow_cmd)
+        self.robot.logger.info("Stow command issued.")
+        block_until_arm_arrives(self.robot_command_client, stow_command_id,
+                                3.0)
 
     def navigate_to(self, waypoint_id: str) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
