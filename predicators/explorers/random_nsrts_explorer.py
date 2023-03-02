@@ -31,7 +31,7 @@ class RandomNSRTsExplorer(BaseExplorer):
     as input. An alternative approach would generate a plan of
     options by planning towards the goal with the ground nsrts
     and avoid refinement by (1) inferring the terminal low-level
-    state of each option (the intial low-level state of the
+    state of each option (the initial low-level state of the
     subsequent option) from the option's sample, which is
     proposing a low-level subgoal, and (2) setting the simulator
     state directly to that state. Because applying dimensionality
