@@ -1120,6 +1120,20 @@ def create_random_option_policy(
     return _policy
 
 
+def sample_applicable_ground_nsrt(
+        state: State, ground_nsrts: Sequence[_GroundNSRT],
+        predicates: Set[Predicate],
+        rng: np.random.Generator) -> Optional[_GroundNSRT]:
+    """Choose uniformly among the ground NSRTs that are applicable in the
+    state."""
+    atoms = abstract(state, predicates)
+    applicable_nsrts = sorted(get_applicable_operators(ground_nsrts, atoms))
+    if len(applicable_nsrts) == 0:
+        return None
+    idx = rng.choice(len(applicable_nsrts))
+    return applicable_nsrts[idx]
+
+
 def action_arrs_to_policy(
         action_arrs: Sequence[Array]) -> Callable[[State], Action]:
     """Create a policy that executes action arrays in sequence."""
