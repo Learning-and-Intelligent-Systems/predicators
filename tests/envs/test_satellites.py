@@ -1,10 +1,10 @@
 """Test cases for the satellites environment."""
-
 import matplotlib.pyplot as plt
 import numpy as np
 
 from predicators import utils
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -26,7 +26,7 @@ def test_satellites():
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 13
     assert len(env.goal_predicates) == 3
-    assert len(env.options) == 5
+    assert len(get_gt_options(env.get_name())) == 5
     assert len(env.types) == 2
     obj_type, sat_type = sorted(env.types)
     assert obj_type.name == "object"
@@ -77,7 +77,7 @@ def test_satellites_simulate_failures():
     })
     env = SatellitesEnv()
     Calibrate, MoveTo, ShootChemX, ShootChemY, UseInstrument = \
-        sorted(env.options)
+        sorted(get_gt_options(env.get_name()))
     assert Calibrate.name == "Calibrate"
     assert MoveTo.name == "MoveTo"
     assert ShootChemX.name == "ShootChemX"

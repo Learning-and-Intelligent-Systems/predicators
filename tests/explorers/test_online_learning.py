@@ -1,11 +1,11 @@
 """Test cases for online learning / interaction with the environment."""
-
 import pytest
 
 from predicators import utils
 from predicators.approaches import BaseApproach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.main import _run_pipeline
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, GroundAtomsHoldQuery, \
@@ -106,9 +106,9 @@ def test_interaction():
     })
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
-    approach = _MockApproach(env.predicates, env.options, env.types,
-                             env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+    approach = _MockApproach(env.predicates, get_gt_options(env.get_name()),
+                             env.types, env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     _run_pipeline(env, approach, train_tasks, dataset)
     utils.update_config({
         "approach": "nsrt_learning",

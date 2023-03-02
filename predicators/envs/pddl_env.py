@@ -27,8 +27,8 @@ from predicators.envs.pddl_procedural_generation import \
     create_gripper_pddl_generator, create_miconic_pddl_generator, \
     create_spanner_pddl_generator
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, LiftedAtom, \
-    Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
+from predicators.structs import Action, GroundAtom, LiftedAtom, Object, \
+    ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
     STRIPSOperator, Task, Type, Variable, Video, _GroundSTRIPSOperator
 
 ###############################################################################
@@ -80,23 +80,17 @@ class _PDDLEnv(BaseEnv):
     encoding assumes a fixed ordering over operators and objects in the
     state.
 
-    The parameterized options are 1:1 with the STRIPS operators. They have the
-    same object parameters and no continuous parameters.
+    The oracle parameterized options are 1:1 with the STRIPS operators.
+    They have the same object parameters and no continuous parameters.
     """
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         # Parse the domain str.
         self._types, self._predicates, self._strips_operators = \
-            _parse_pddl_domain(self._domain_str)
+            _parse_pddl_domain(self.get_domain_str())
         # The order is used for constructing actions; see class docstring.
         self._ordered_strips_operators = sorted(self._strips_operators)
-        # Compute the options. Note that they are 1:1 with the operators.
-        self._options = {
-            _strips_operator_to_parameterized_option(
-                op, self._ordered_strips_operators, self.action_space.shape[0])
-            for op in self._strips_operators
-        }
         # Compute the train and test tasks.
         self._pregenerated_train_tasks = self._generate_tasks(
             CFG.num_train_tasks, self._pddl_train_problem_generator,
@@ -108,9 +102,13 @@ class _PDDLEnv(BaseEnv):
         tasks = self._pregenerated_train_tasks + self._pregenerated_test_tasks
         self._goal_predicates = {a.predicate for t in tasks for a in t.goal}
 
-    @property
+    @classmethod
     @abc.abstractmethod
-    def _domain_str(self) -> str:
+    def get_domain_str(cls) -> str:
+        """Get the PDDL domain as a string.
+
+        Public for oracles.
+        """
         raise NotImplementedError("Override me!")
 
     @property
@@ -160,10 +158,10 @@ class _PDDLEnv(BaseEnv):
                         problem_gen: PDDLProblemGenerator,
                         rng: np.random.Generator) -> List[Task]:
         tasks = []
+        domain_str = self.get_domain_str()
         for pddl_problem_str in problem_gen(num_tasks, rng):
-            task = _pddl_problem_str_to_task(pddl_problem_str,
-                                             self._domain_str, self.types,
-                                             self.predicates)
+            task = _pddl_problem_str_to_task(pddl_problem_str, domain_str,
+                                             self.types, self.predicates)
             tasks.append(task)
         return tasks
 
@@ -180,8 +178,9 @@ class _PDDLEnv(BaseEnv):
         return self._types
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return self._options
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -259,8 +258,8 @@ class _FixedTasksPDDLEnv(_PDDLEnv):
 class _BlocksPDDLEnv(_PDDLEnv):
     """The IPC 4-operator blocks world domain."""
 
-    @property
-    def _domain_str(self) -> str:
+    @classmethod
+    def get_domain_str(cls) -> str:
         path = utils.get_env_asset_path("pddl/blocks/domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
@@ -320,8 +319,8 @@ class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
 class _DeliveryPDDLEnv(_PDDLEnv):
     """A custom newspaper delivery domain from the PG3 paper."""
 
-    @property
-    def _domain_str(self) -> str:
+    @classmethod
+    def get_domain_str(cls) -> str:
         path = utils.get_env_asset_path("pddl/delivery/domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
@@ -395,8 +394,8 @@ class ProceduralTasksEasyDeliveryPDDLEnv(ProceduralTasksDeliveryPDDLEnv):
 class _SpannerPDDLEnv(_PDDLEnv):
     """The spanner domain from the PG3 paper."""
 
-    @property
-    def _domain_str(self) -> str:
+    @classmethod
+    def get_domain_str(cls) -> str:
         path = utils.get_env_asset_path("pddl/spannerlearning/domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
@@ -438,8 +437,8 @@ class ProceduralTasksSpannerPDDLEnv(_SpannerPDDLEnv):
 class _ForestPDDLEnv(_PDDLEnv):
     """The forest domain from the PG3 paper."""
 
-    @property
-    def _domain_str(self) -> str:
+    @classmethod
+    def get_domain_str(cls) -> str:
         path = utils.get_env_asset_path("pddl/forest/domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
@@ -469,8 +468,8 @@ class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
 class _GripperPDDLEnv(_PDDLEnv):
     """The IPC gripper domain."""
 
-    @property
-    def _domain_str(self) -> str:
+    @classmethod
+    def get_domain_str(cls) -> str:
         path = utils.get_env_asset_path("pddl/gripper/domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
@@ -506,8 +505,8 @@ class ProceduralTasksGripperPDDLEnv(_GripperPDDLEnv):
 class _PrefixedGripperPDDLEnv(_PDDLEnv):
     """The IPC gripper domain with prefixes on predicates."""
 
-    @property
-    def _domain_str(self) -> str:
+    @classmethod
+    def get_domain_str(cls) -> str:
         path = utils.get_env_asset_path("pddl/gripper/prefixed_domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
@@ -545,8 +544,8 @@ class ProceduralTasksPrefixedGripperPDDLEnv(_PrefixedGripperPDDLEnv):
 class _FerryPDDLEnv(_PDDLEnv):
     """The IPC ferry domain."""
 
-    @property
-    def _domain_str(self) -> str:
+    @classmethod
+    def get_domain_str(cls) -> str:
         path = utils.get_env_asset_path("pddl/ferry/domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
@@ -582,8 +581,8 @@ class ProceduralTasksFerryPDDLEnv(_FerryPDDLEnv):
 class _MiconicPDDLEnv(_PDDLEnv):
     """The IPC miconic domain."""
 
-    @property
-    def _domain_str(self) -> str:
+    @classmethod
+    def get_domain_str(cls) -> str:
         path = utils.get_env_asset_path("pddl/miconic/domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
@@ -651,37 +650,6 @@ def _action_to_ground_strips_op(
     if not all(o.is_instance(t) for o, t in zip(objs, var_types)):
         return None
     return op.ground(objs)
-
-
-def _strips_operator_to_parameterized_option(
-        op: STRIPSOperator, ordered_operators: List[STRIPSOperator],
-        action_dims: int) -> ParameterizedOption:
-    name = op.name
-    types = [p.type for p in op.parameters]
-    op_idx = ordered_operators.index(op)
-
-    def policy(s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
-        del m, p  # unused
-        ordered_objs = list(s)
-        # The first dimension of an action encodes the operator.
-        # The second dimension of an action encodes the first object argument
-        # to the ground operator. The third dimension encodes the second object
-        # and so on. Actions are always padded so that their length is equal
-        # to the max number of arguments for any operator.
-        obj_idxs = [ordered_objs.index(obj) for obj in o]
-        act_arr = np.zeros(action_dims, dtype=np.float32)
-        act_arr[0] = op_idx
-        act_arr[1:(len(obj_idxs) + 1)] = obj_idxs
-        return Action(act_arr)
-
-    # Note: the initiable is deliberately always True. This only makes a
-    # difference for exploration. If the initiable took into account the
-    # ground-truth preconditions, that would make exploration too easy,
-    # because the options would only ever get used in states where their
-    # preconditions hold. Instead, with always-True initiable, there is a
-    # difficult exploration problem because most options will have trivial
-    # effects on the environment.
-    return utils.SingletonParameterizedOption(name, policy, types)
 
 
 @functools.lru_cache(maxsize=None)

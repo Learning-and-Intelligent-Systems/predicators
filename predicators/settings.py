@@ -277,8 +277,9 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
+    narrow_passage_open_door_refine_penalty = 0.2
     narrow_passage_door_width_padding_lb = 1e-4
-    narrow_passage_door_width_padding_ub = 5e-3
+    narrow_passage_door_width_padding_ub = 0.015
     narrow_passage_passage_width_padding_lb = 5e-4
     narrow_passage_passage_width_padding_ub = 2e-2
     narrow_passage_birrt_num_attempts = 10
@@ -427,6 +428,12 @@ class GlobalSettings:
     mlp_regressor_gradient_clip_value = 5
     mlp_classifier_hid_sizes = [32, 32]
     mlp_classifier_balance_data = True
+    cnn_regressor_max_itr = 500
+    cnn_regressor_conv_channel_nums = [3, 3]
+    cnn_regressor_conv_kernel_sizes = [5, 3]
+    cnn_regressor_linear_hid_sizes = [32, 8]
+    cnn_regressor_clip_gradients = True
+    cnn_regressor_gradient_clip_value = 5
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 1000
     mlp_classifier_n_iter_no_change = 5000
@@ -469,6 +476,7 @@ class GlobalSettings:
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
+    online_learning_lifelong = False
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -479,6 +487,11 @@ class GlobalSettings:
     refinement_data_skeleton_generator_timeout = 20
     refinement_data_low_level_search_timeout = 5  # timeout for refinement try
     refinement_data_failed_refinement_penalty = 5  # added time on failure
+
+    # CNN refinement cost estimator image pre-processing parameters
+    cnn_refinement_estimator_crop = True
+    cnn_refinement_estimator_crop_bounds = (320, 400, 100, 650)
+    cnn_refinement_estimator_downsample = 1
 
     # glib explorer parameters
     glib_min_goal_size = 1

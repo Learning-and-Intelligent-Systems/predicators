@@ -1,5 +1,4 @@
 """Test cases for the LLM bilevel_planning approach."""
-
 import shutil
 
 from predicators import utils
@@ -8,6 +7,7 @@ from predicators.approaches.llm_bilevel_planning_approach import \
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.llm_interface import LargeLanguageModel
 
 
@@ -25,12 +25,13 @@ def test_llm_bilevel_planning_approach():
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    approach = LLMBilevelPlanningApproach(env.predicates, env.options,
+    approach = LLMBilevelPlanningApproach(env.predicates,
+                                          get_gt_options(env.get_name()),
                                           env.types, env.action_space,
                                           train_tasks)
     assert approach.get_name() == "llm_bilevel_planning"
     # Test "learning", i.e., constructing the prompt prefix.
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert not approach._prompt_prefix  # pylint: disable=protected-access
     approach.learn_from_offline_dataset(dataset)
     assert approach._prompt_prefix  # pylint: disable=protected-access
@@ -60,8 +61,8 @@ def test_llm_bilevel_planning_approach():
     # Test successful usage, where the LLM output corresponds to a plan.
     task_idx = 0
     task = train_tasks[task_idx]
-    oracle = OracleApproach(env.predicates, env.options, env.types,
-                            env.action_space, train_tasks)
+    oracle = OracleApproach(env.predicates, get_gt_options(env.get_name()),
+                            env.types, env.action_space, train_tasks)
     oracle.solve(task, timeout=500)
     last_plan = oracle.get_last_plan()
     option_to_str = approach._option_to_str  # pylint: disable=protected-access

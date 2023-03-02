@@ -1,5 +1,4 @@
 """Tests for low-level trajectory segmentation."""
-
 import numpy as np
 import pytest
 from gym.spaces import Box
@@ -7,6 +6,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.structs import Action, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Type
@@ -217,7 +217,7 @@ def test_contact_based_segmentation(env):
     env = create_new_env(env, do_cache=False)
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 1
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
     assert len(ground_atom_dataset) == 1

@@ -1,5 +1,4 @@
 """Test cases for the Initialized PG3 approach."""
-
 import tempfile
 from unittest.mock import patch
 
@@ -13,7 +12,7 @@ from predicators.approaches.sme_pg3_analogy_approach import \
     SMEPG3AnalogyApproach, _Analogy, _apply_analogy_to_ldl, \
     _find_env_analogies
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
     Variable
 
@@ -29,7 +28,8 @@ def test_pg3_analogy_approach():
     })
 
     env = create_new_env(env_name)
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     train_tasks = env.get_train_tasks()
 
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
@@ -63,7 +63,8 @@ def test_pg3_analogy_approach():
         "pg3_init_base_env": env_name,
     })
 
-    approach = SMEPG3AnalogyApproach(env.predicates, env.options, env.types,
+    approach = SMEPG3AnalogyApproach(env.predicates,
+                                     get_gt_options(env.get_name()), env.types,
                                      env.action_space, train_tasks)
     assert approach.get_name() == "sme_pg3"
 
@@ -115,7 +116,8 @@ def test_pg3_analogy_approach():
             "pg3_init_policy": ldl_policy_txt_file,
             "pg3_init_base_env": env_name,
         })
-    approach = SMEPG3AnalogyApproach(env.predicates, env.options, env.types,
+    approach = SMEPG3AnalogyApproach(env.predicates,
+                                     get_gt_options(env.get_name()), env.types,
                                      env.action_space, train_tasks)
     with patch(f"{_MODULE_PATH}._find_env_analogies") as mocker:
         mocker.return_value = [identity_analogy]
@@ -148,10 +150,10 @@ def test_find_env_analogies():
     # Test for gripper -> ferry.
     base_env = create_new_env("pddl_gripper_procedural_tasks")
     base_nsrts = get_gt_nsrts(base_env.get_name(), base_env.predicates,
-                              base_env.options)
+                              get_gt_options(base_env.get_name()))
     target_env = create_new_env("pddl_ferry_procedural_tasks")
     target_nsrts = get_gt_nsrts(target_env.get_name(), target_env.predicates,
-                                target_env.options)
+                                get_gt_options(target_env.get_name()))
 
     # Mock SME because it's potentially slow.
     mock_match_strs = [
@@ -228,7 +230,8 @@ def test_apply_analogy_to_ldl():
         "approach": "sme_pg3",
     })
     env = create_new_env(env_name)
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     pick_up_nsrt = name_to_nsrt["pick-up"]
     pick_up_rule = LDLRule(name="PickUp",

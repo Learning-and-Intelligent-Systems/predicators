@@ -100,7 +100,7 @@ def _create_exposed_pybullet_blocks_env(request):
 
 def _get_predicates_by_names(env, names):
     # Note that we do this, rather than use the function of the same name
-    # defined in ground_truth_nsrts, because that function calls
+    # defined in ground_truth_models, because that function calls
     # get_or_create_env. We want to use the _ExposedPyBulletBlocksEnv only,
     # not create a new instance of the PyBulletEnv. This is especially
     # important when _GUI_ON = True.

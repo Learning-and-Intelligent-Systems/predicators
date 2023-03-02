@@ -1,9 +1,9 @@
 """Test cases for the doors environment."""
-
 import numpy as np
 
 from predicators import utils
 from predicators.envs.doors import DoorsEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, GroundAtom, Object, State, Task
 
 
@@ -36,8 +36,9 @@ def test_doors():
     assert InRoom.name == "InRoom"
     assert TouchingDoor.name == "TouchingDoor"
     assert env.goal_predicates == {InRoom}
-    assert len(env.options) == 3
-    MoveThroughDoor, MoveToDoor, OpenDoor = sorted(env.options)
+    assert len(get_gt_options(env.get_name())) == 3
+    MoveThroughDoor, MoveToDoor, OpenDoor = sorted(
+        get_gt_options(env.get_name()))
     assert MoveThroughDoor.name == "MoveThroughDoor"
     assert MoveToDoor.name == "MoveToDoor"
     assert OpenDoor.name == "OpenDoor"

@@ -1,9 +1,9 @@
 """Test cases for the repeated_nextto_painting environment."""
-
 import numpy as np
 
 from predicators import utils
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
+from predicators.ground_truth_models import get_gt_options
 
 
 def test_repeated_nextto_painting():
@@ -21,7 +21,7 @@ def test_repeated_nextto_painting():
     assert len(env.predicates) == 18
     assert {pred.name for pred in env.goal_predicates} == \
         {"InBox", "IsBoxColor", "InShelf", "IsShelfColor"}
-    assert len(env.options) == 9
+    assert len(get_gt_options(env.get_name())) == 9
     assert len(env.types) == 5
     obj_type = [t for t in env.types if t.name == "obj"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
@@ -48,8 +48,8 @@ def test_repeated_nextto_painting_failure_cases():
         "painting_lid_open_prob": 0.0,
     })
     env = RepeatedNextToPaintingEnv()
-    Pick = [o for o in env.options if o.name == "Pick"][0]
-    Place = [o for o in env.options if o.name == "Place"][0]
+    Pick = [o for o in get_gt_options(env.get_name()) if o.name == "Pick"][0]
+    Place = [o for o in get_gt_options(env.get_name()) if o.name == "Place"][0]
     Holding = [o for o in env.predicates if o.name == "Holding"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     obj_type = [t for t in env.types if t.name == "obj"][0]
