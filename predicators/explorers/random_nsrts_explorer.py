@@ -55,8 +55,7 @@ class RandomNSRTsExplorer(BaseExplorer):
     def get_name(cls) -> str:
         return "random_nsrts"
 
-    def get_option_sequence(self,
-                            train_task_idx: int) -> List[_Option]:
+    def get_option_sequence(self, train_task_idx: int) -> List[_Option]:
         """Get the sequence of options produced by the exploration strategy for
         a particular task."""
         return self._option_seq[train_task_idx]
