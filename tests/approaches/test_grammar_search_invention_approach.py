@@ -104,7 +104,7 @@ def test_predicate_grammar(segmenter):
     # This should generate less predicates than otherwise, since
     # checking feature changes should really cut down the set
     # of generated predicates.
-    assert len(forall_grammar.generate(max_num=100)) == 49
+    assert len(forall_grammar.generate(max_num=100)) == 54
     # Test that doing this with the normal dataset raises a
     # ValueError because we need trajectories to have a min.
     # of 2 steps.

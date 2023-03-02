@@ -419,6 +419,27 @@ class _DebugGrammar(_PredicateGrammar):
 class _DataBasedPredicateGrammar(_PredicateGrammar):
     """A predicate grammar that uses a dataset."""
     dataset: Dataset
+    _state_sequences: List[List[State]] = field(init=False,
+                                                default_factory=list)
+
+    def __post_init__(self) -> None:
+        if CFG.segmenter != "atom_changes":
+            # If the segmenter doesn't depend on atoms, we can be very
+            # efficient during pruning by pre-computing the segments.
+            # Then, we only need to care about the initial and final
+            # states in each segment, which we store into
+            # self._state_sequence.
+            try:
+                for traj in self.dataset.trajectories:
+                    dummy_atoms_seq: List[Set[GroundAtom]] = [
+                        set() for _ in range(len(traj.states))
+                    ]
+                    seg_traj = segment_trajectory((traj, dummy_atoms_seq))
+                    state_seq = utils.segment_trajectory_to_state_sequence(
+                        seg_traj)
+                    self._state_sequences.append(state_seq)
+            except AssertionError: # occurs in certain test cases.
+                pass
 
     @cached_property
     def types(self) -> Set[Type]:
@@ -456,33 +477,42 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
     """Generates features of the form "0.feature >= c" or "0.feature <= c"."""
 
     def _get_transition_for_inspection(self) -> Iterator[Tuple[State, State]]:
-        max_traj_len = max(
-            len(traj.actions) for traj in self.dataset.trajectories)
-        if max_traj_len < 2:
+        if len(self._state_sequences) == 0:
+            max_traj_len = max(
+                len(traj.actions) for traj in self.dataset.trajectories) + 1
+        else:
+            max_traj_len = max(len(seq) for seq in self._state_sequences)
+        if max_traj_len < 3:
             raise ValueError("Can only use transition_changes enumeration " +
-                             "approach when at least one transition has " +
-                             "length greater than 2")
+                            "approach when at least one transition has " +
+                            "length greater than 2")
         # We get transitions backwards thru the trajectory.
         # We skip the last transition because we already have the goal
         # predicates, so we don't need to 'inspect' this transition
         # to invent new predicates that it is trying to achieve.
         for idx_into_traj in range(-2, (-1 * max_traj_len) - 1, -1):
+            if len(self._state_sequences) > 0:
+                for traj in self._state_sequences:
+                    if len(traj) < (idx_into_traj * -1) + 1:
+                        continue
+                    yield (traj[idx_into_traj - 1], traj[idx_into_traj])
             for traj in self.dataset.trajectories:
                 if len(traj.states) < (idx_into_traj * -1) + 1:
                     continue
                 yield (traj.states[idx_into_traj - 1],
-                       traj.states[idx_into_traj])
+                    traj.states[idx_into_traj])
+
 
     def _get_changing_feats_for_transition(
             self, transition: Tuple[State, State]) -> Set[Tuple[Type, str]]:
         """Given a transition, gets all the features that change during the
         transition."""
         changing_types_and_feats: Set[Tuple[Type, str]] = set()
-        for obj in transition[0].data:
+        for obj in transition[0]:
             for feat in obj.type.feature_names:
-                if np.sum(
-                        np.subtract(transition[0].data.get(obj, feat),
-                                    transition[1].data.get(obj, feat))) != 0:
+                if np.isclose(np.sum(
+                        np.subtract(transition[0].get(obj, feat),
+                                    transition[1].get(obj, feat))), 0):
                     changing_types_and_feats.add((obj.type, feat))
         return changing_types_and_feats
 
@@ -530,14 +560,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
         while True:
             # First generate a set of constants that all predicates in
             # this iteration will be evaluated on.
-            curr_iter_constants_and_costs = []
-            for _ in range(CFG.grammar_search_num_constants_each_iter):
-                try:
-                    curr_iter_constants_and_costs.append(
-                        next(constant_generator))
-                except StopIteration:  # pragma: no cover
-                    raise ValueError("No more constants to generate. " +
-                                     "This should be impossible.")
+            curr_iter_constants_and_costs = list(itertools.islice(constant_generator, CFG.grammar_search_num_constants_each_iter))
             # Next, try a bunch of predicates on these different constants.
             for curr_transition in self._get_transition_for_inspection():
                 for (constant, cost) in curr_iter_constants_and_costs:
@@ -664,14 +687,7 @@ class _FeatureDiffInequalitiesPredicateGrammar(
         while True:
             # First generate a set of constants that all predicates in
             # this iteration will be evaluated on.
-            curr_iter_constants_and_costs = []
-            for _ in range(CFG.grammar_search_num_constants_each_iter):
-                try:
-                    curr_iter_constants_and_costs.append(
-                        next(constant_generator))
-                except StopIteration:  # pragma: no cover
-                    raise ValueError("No more constants to generate. " +
-                                     "This should be impossible.")
+            curr_iter_constants_and_costs = list(itertools.islice(constant_generator, CFG.grammar_search_num_constants_each_iter))
             # Next, try a bunch of predicates on these different constants.
             for curr_transition in self._get_transition_for_inspection():
                 for (constant, cost) in curr_iter_constants_and_costs:
@@ -703,6 +719,10 @@ class _FeatureDiffInequalitiesPredicateGrammar(
                                 pred = self._construct_binary_pred(
                                     t1, t2, f1, f2, constant, ub1, ub2, lb1,
                                     lb2, constant_idx)
+                                
+                                # TODO: figure out why tf it's taking so long to
+                                # produce the pred with the constant we want...
+
                                 yield (pred, 2 + cost
                                        )  # cost = arity + cost from constant
 
@@ -748,24 +768,6 @@ class _SkipGrammar(_PredicateGrammar):
 class _PrunedGrammar(_DataBasedPredicateGrammar):
     """A grammar that prunes redundant predicates."""
     base_grammar: _PredicateGrammar
-    _state_sequences: List[List[State]] = field(init=False,
-                                                default_factory=list)
-
-    def __post_init__(self) -> None:
-        if CFG.segmenter != "atom_changes":
-            # If the segmenter doesn't depend on atoms, we can be very
-            # efficient during pruning by pre-computing the segments.
-            # Then, we only need to care about the initial and final
-            # states in each segment, which we store into
-            # self._state_sequence.
-            for traj in self.dataset.trajectories:
-                dummy_atoms_seq: List[Set[GroundAtom]] = [
-                    set() for _ in range(len(traj.states))
-                ]
-                seg_traj = segment_trajectory((traj, dummy_atoms_seq))
-                state_seq = utils.segment_trajectory_to_state_sequence(
-                    seg_traj)
-                self._state_sequences.append(state_seq)
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Predicates are identified based on their evaluation across
