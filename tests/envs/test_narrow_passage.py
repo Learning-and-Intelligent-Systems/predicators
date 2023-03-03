@@ -1,9 +1,9 @@
 """Test cases for the narrow_passage environment."""
-
 import numpy as np
 
 from predicators import utils
 from predicators.envs.narrow_passage import NarrowPassageEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, GroundAtom, Task
 
 
@@ -23,8 +23,8 @@ def test_narrow_passage_properties():
     assert DoorIsOpen.name == "DoorIsOpen"
     assert TouchedGoal.name == "TouchedGoal"
     assert env.goal_predicates == {TouchedGoal}
-    assert len(env.options) == 2
-    MoveAndOpenDoor, MoveToTarget = sorted(env.options)
+    assert len(get_gt_options(env.get_name())) == 2
+    MoveAndOpenDoor, MoveToTarget = sorted(get_gt_options(env.get_name()))
     assert MoveAndOpenDoor.name == "MoveAndOpenDoor"
     assert MoveToTarget.name == "MoveToTarget"
     assert len(env.types) == 5
@@ -168,11 +168,12 @@ def test_narrow_passage_options():
         "narrow_passage_door_width_padding_ub": 0.02,
         "narrow_passage_passage_width_padding_lb": 0.02,
         "narrow_passage_passage_width_padding_ub": 0.02,
+        "narrow_passage_open_door_refine_penalty": 0,
         # "render_state_dpi": 150,  # uncomment for higher-res test videos
     })
     env = NarrowPassageEnv()
     DoorIsClosed, DoorIsOpen, TouchedGoal = sorted(env.predicates)
-    MoveAndOpenDoor, MoveToTarget = sorted(env.options)
+    MoveAndOpenDoor, MoveToTarget = sorted(get_gt_options(env.get_name()))
     door_type, _, robot_type, target_type, _ = sorted(env.types)
 
     task = env.get_train_tasks()[0]
@@ -274,10 +275,11 @@ def test_narrow_passage_failed_birrt():
     # Set up environment
     utils.reset_config({
         "env": "narrow_passage",
+        "narrow_passage_open_door_refine_penalty": 0,
         "narrow_passage_birrt_num_attempts": 0,
     })
     env = NarrowPassageEnv()
-    MoveAndOpenDoor, MoveToTarget = sorted(env.options)
+    MoveAndOpenDoor, MoveToTarget = sorted(get_gt_options(env.get_name()))
     door_type, _, robot_type, target_type, _ = sorted(env.types)
 
     task = env.get_train_tasks()[0]

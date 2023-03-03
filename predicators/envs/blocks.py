@@ -10,7 +10,8 @@ environment makes it a good testbed for predicate invention.
 import json
 import logging
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Collection, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -68,27 +69,6 @@ class BlocksEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
-        # Options
-        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
-            # variables: [robot, object to pick]
-            # params: []
-            "Pick",
-            self._Pick_policy,
-            types=[self._robot_type, self._block_type])
-        self._Stack: ParameterizedOption = utils.SingletonParameterizedOption(
-            # variables: [robot, object on which to stack currently-held-object]
-            # params: []
-            "Stack",
-            self._Stack_policy,
-            types=[self._robot_type, self._block_type])
-        self._PutOnTable: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: [x, y] (normalized coordinates on the table surface)
-            "PutOnTable",
-            self._PutOnTable_policy,
-            types=[self._robot_type],
-            params_space=Box(0, 1, (2, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         # Hyperparameters from CFG.
@@ -226,8 +206,9 @@ class BlocksEnv(BaseEnv):
         return {self._block_type, self._robot_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Stack, self._PutOnTable}
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -460,49 +441,6 @@ class BlocksEnv(BaseEnv):
                 return False
         return True
 
-    def _Pick_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        _, block = objects
-        block_pose = np.array([
-            state.get(block, "pose_x"),
-            state.get(block, "pose_y"),
-            state.get(block, "pose_z")
-        ])
-        arr = np.r_[block_pose, 0.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _Stack_policy(self, state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        _, block = objects
-        block_pose = np.array([
-            state.get(block, "pose_x"),
-            state.get(block, "pose_y"),
-            state.get(block, "pose_z")
-        ])
-        relative_grasp = np.array([
-            0.,
-            0.,
-            self._block_size,
-        ])
-        arr = np.r_[block_pose + relative_grasp, 1.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _PutOnTable_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        # De-normalize parameters to actual table coordinates.
-        x_norm, y_norm = params
-        x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
-        y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-        z = self.table_height + 0.5 * self._block_size
-        arr = np.array([x, y, z, 1.0], dtype=np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
     def _get_held_block(self, state: State) -> Optional[Object]:
         for block in state:
             if not block.is_instance(self._block_type):
@@ -597,7 +535,8 @@ class BlocksEnv(BaseEnv):
         assert not task.goal_holds(init_state)
         return task
 
-    def _get_language_goal_prompt_prefix(self) -> str:
+    def _get_language_goal_prompt_prefix(self,
+                                         object_names: Collection[str]) -> str:
         # pylint:disable=line-too-long
         return """# Build a tower of block 1, block 2, and block 3, with block 1 on top
 {"On": [["block1", "block2"], ["block2", "block3"]]}
@@ -634,19 +573,6 @@ class BlocksEnvClear(BlocksEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
-        # Options
-        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
-            # variables: [robot, object to pick]
-            # params: []
-            "Pick",
-            self._Pick_policy,
-            types=[self._robot_type, self._block_type])
-        self._Stack: ParameterizedOption = utils.SingletonParameterizedOption(
-            # variables: [robot, object on which to stack currently-held-object]
-            # params: []
-            "Stack",
-            self._Stack_policy,
-            types=[self._robot_type, self._block_type])
 
     @classmethod
     def get_name(cls) -> str:

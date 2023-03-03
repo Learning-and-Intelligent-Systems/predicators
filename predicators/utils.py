@@ -7,10 +7,12 @@ import contextlib
 import functools
 import gc
 import heapq as hq
+import importlib
 import io
 import itertools
 import logging
 import os
+import pkgutil
 import re
 import subprocess
 import sys
@@ -205,6 +207,52 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
             obj_vec.append(obj_data[feat])
         state_dict[obj] = np.array(obj_vec)
     return State(state_dict, simulator_state)
+
+
+def create_json_dict_from_ground_atoms(
+        ground_atoms: Collection[GroundAtom]) -> Dict[str, List[List[str]]]:
+    """Saves a set of ground atoms in a JSON-compatible dict.
+
+    Helper for creating the goal dict in create_json_dict_from_task().
+    """
+    predicate_to_argument_lists = defaultdict(list)
+    for atom in sorted(ground_atoms):
+        argument_list = [o.name for o in atom.objects]
+        predicate_to_argument_lists[atom.predicate.name].append(argument_list)
+    return dict(predicate_to_argument_lists)
+
+
+def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
+    """Create a JSON-compatible dict from a task.
+
+    The format of the dict is:
+
+    {
+        "objects": {
+            <object name>: <type name>
+        }
+        "init": {
+            <object name>: {
+                <feature name>: <value>
+            }
+        }
+        "goal": {
+            <predicate name> : [
+                [<object name>]
+            ]
+        }
+    }
+
+    The dict can be loaded with BaseEnv._load_task_from_json(). This is
+    helpful for testing and designing standalone tasks.
+    """
+    object_dict = {o.name: o.type.name for o in task.init}
+    init_dict = {
+        o.name: dict(zip(o.type.feature_names, task.init.data[o]))
+        for o in task.init
+    }
+    goal_dict = create_json_dict_from_ground_atoms(task.goal)
+    return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
 
 
 class _Geom2D(abc.ABC):
@@ -857,6 +905,7 @@ def run_policy(
         task_idx: int,
         termination_function: Callable[[State], bool],
         max_num_steps: int,
+        do_state_reset: bool = True,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
         monitor: Optional[Monitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
@@ -874,7 +923,10 @@ def run_policy(
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
     """
-    state = env.reset(train_or_test, task_idx)
+    state = env.get_state()
+    if do_state_reset:
+        state = env.reset(train_or_test, task_idx)
+    assert env.get_state().allclose(state)
     states = [state]
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
@@ -1403,14 +1455,16 @@ def run_astar(initial_state: _S,
 
 
 def run_hill_climbing(
-        initial_state: _S,
-        check_goal: Callable[[_S], bool],
-        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-        heuristic: Callable[[_S], float],
-        early_termination_heuristic_thresh: Optional[float] = None,
-        enforced_depth: int = 0,
-        parallelize: bool = False,
-        verbose: bool = True) -> Tuple[List[_S], List[_A], List[float]]:
+    initial_state: _S,
+    check_goal: Callable[[_S], bool],
+    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+    heuristic: Callable[[_S], float],
+    early_termination_heuristic_thresh: Optional[float] = None,
+    enforced_depth: int = 0,
+    parallelize: bool = False,
+    verbose: bool = True,
+    timeout: float = float('inf')
+) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -1431,6 +1485,7 @@ def run_hill_climbing(
     if verbose:
         logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                      f"with heuristic {last_heuristic}")
+    start_time = time.perf_counter()
     while True:
 
         # Stops when heuristic reaches specified value.
@@ -1454,6 +1509,9 @@ def run_hill_climbing(
             successors_at_depth = []
             for parent in current_depth_nodes:
                 for action, child_state, cost in get_successors(parent.state):
+                    # Raise error if timeout gets hit.
+                    if time.perf_counter() - start_time > timeout:
+                        raise TimeoutError()
                     if child_state in visited:
                         continue
                     visited.add(child_state)
@@ -2591,6 +2649,20 @@ def get_third_party_path() -> str:
     return third_party_dir_path
 
 
+def import_submodules(path: List[str], name: str) -> None:
+    """Load all submodules on the given path.
+
+    Useful for finding subclasses of an abstract base class
+    automatically.
+    """
+    if not TYPE_CHECKING:
+        for _, module_name, _ in pkgutil.walk_packages(path):
+            if "__init__" not in module_name:
+                # Important! We use an absolute import here to avoid issues
+                # with isinstance checking when using relative imports.
+                importlib.import_module(f"{name}.{module_name}")
+
+
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
     parser = create_arg_parser()
@@ -2785,23 +2857,6 @@ def parse_config_excluded_predicates(
         included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
-
-
-def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
-    """Parse the CFG.included_options string, given an environment.
-
-    Return the set of included oracle options.
-
-    Note that "all" is not implemented because setting the option_learner flag
-    to "no_learning" is the preferred way to include all options.
-    """
-    if not CFG.included_options:
-        return set()
-    included_names = set(CFG.included_options.split(","))
-    assert included_names.issubset({option.name for option in env.options}), \
-        "Unrecognized option in included_options!"
-    included_options = {o for o in env.options if o.name in included_names}
-    return included_options
 
 
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,

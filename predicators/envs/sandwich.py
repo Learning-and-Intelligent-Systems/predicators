@@ -1,6 +1,7 @@
 """Sandwich making domain."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Collection, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -10,7 +11,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import RGBA, Action, Array, GroundAtom, Object, \
+from predicators.structs import RGBA, Action, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 from predicators.utils import _Geom2D
 
@@ -134,23 +135,6 @@ class SandwichEnv(BaseEnv):
         self._IsGreenPepper = Predicate("IsGreenPepper",
                                         [self._ingredient_type],
                                         self._IsGreenPepper_holds)
-        # Options
-        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
-            # variables: [robot, object to pick]
-            "Pick",
-            self._Pick_policy,
-            types=[self._robot_type, self._ingredient_type])
-        self._Stack: ParameterizedOption = utils.SingletonParameterizedOption(
-            # variables: [robot, object on which to stack currently-held-object]
-            "Stack",
-            self._Stack_policy,
-            types=[self._robot_type, self._ingredient_type])
-        self._PutOnBoard: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
-            # variables: [robot, board]
-            "PutOnBoard",
-            self._PutOnBoard_policy,
-            types=[self._robot_type, self._board_type])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._holder = Object("holder", self._holder_type)
@@ -292,8 +276,9 @@ class SandwichEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Stack, self._PutOnBoard}
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -544,6 +529,24 @@ class SandwichEnv(BaseEnv):
             goal_atoms.add(on_atom)
         return goal_atoms
 
+    def _get_language_goal_prompt_prefix(self,
+                                         object_names: Collection[str]) -> str:
+        # pylint:disable=line-too-long
+        available_predicates = ", ".join(
+            [p.name for p in sorted(self.goal_predicates)])
+        available_objects = ", ".join(sorted(object_names))
+        # We could extract the object names, but this is simpler.
+        assert {"bread0", "bread1", "patty0", "cheese0",
+                "lettuce0"}.issubset(object_names)
+        prompt = f"""# The available predicates are: {available_predicates}
+# The available objects are: {available_objects}
+# Use the available predicates and objects to convert natural language goals into JSON goals.
+        
+# I want a sandwich with a patty, cheese, and lettuce.
+{{"OnBoard": [["bread0", "board"]], "On": [["bread1", "lettuce0"], ["lettuce0", "cheese0"], ["cheese0", "patty0"], ["patty0", "bread0"]]}}
+"""
+        return prompt
+
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj1, obj2 = objects
         if state.get(obj1, "held") >= self.held_tol or \
@@ -627,48 +630,6 @@ class SandwichEnv(BaseEnv):
                              objects: Sequence[Object]) -> bool:
         obj, = objects
         return self._is_ingredient(obj, "green_pepper", state)
-
-    def _Pick_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        _, ing = objects
-        pose = np.array([
-            state.get(ing, "pose_x"),
-            state.get(ing, "pose_y"),
-            state.get(ing, "pose_z")
-        ])
-        arr = np.r_[pose, 0.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _Stack_policy(self, state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        _, ing = objects
-        pose = np.array([
-            state.get(ing, "pose_x"),
-            state.get(ing, "pose_y"),
-            state.get(ing, "pose_z")
-        ])
-        relative_grasp = np.array([
-            0.,
-            0.,
-            self.ingredient_thickness,
-        ])
-        arr = np.r_[pose + relative_grasp, 1.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _PutOnBoard_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        _, board = objects
-        x = state.get(board, "pose_x")
-        y = state.get(board, "pose_y")
-        z = self.table_height + self.board_thickness
-        arr = np.array([x, y, z, 1.0], dtype=np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
 
     def _obj_to_geom2d(self, obj: Object, state: State, view: str) -> _Geom2D:
         if view == "topdown":
@@ -923,23 +884,6 @@ class SandwichEnvClear(SandwichEnv):
         self._IsGreenPepper = Predicate("IsGreenPepper",
                                         [self._ingredient_type],
                                         self._IsGreenPepper_holds)
-        # Override options.
-        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
-            # variables: [robot, object to pick]
-            "Pick",
-            self._Pick_policy,
-            types=[self._robot_type, self._ingredient_type])
-        self._Stack: ParameterizedOption = utils.SingletonParameterizedOption(
-            # variables: [robot, object on which to stack currently-held-object]
-            "Stack",
-            self._Stack_policy,
-            types=[self._robot_type, self._ingredient_type])
-        self._PutOnBoard: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
-            # variables: [robot, board]
-            "PutOnBoard",
-            self._PutOnBoard_policy,
-            types=[self._robot_type, self._board_type])
         # Override board object.
         self._board = Object("board", self._board_type)
 

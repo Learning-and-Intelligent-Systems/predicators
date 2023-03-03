@@ -379,6 +379,9 @@ _DEBUG_PREDICATE_PREFIXES = {
         "Forall[0:block].[NOT-On(0,1)]",  # Clear
         "NOT-((0:block).pose_z<=[idx 0]",  # Holding
     ],
+    "repeated_nextto_single_option": [
+        "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
+    ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
         "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"

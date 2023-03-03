@@ -431,20 +431,17 @@ class ParameterizedOption:
     # A policy maps a state, memory dict, objects, and parameters to an action.
     # The objects' types will match those in self.types. The parameters
     # will be contained in params_space.
-    policy: Callable[[State, Dict, Sequence[Object], Array],
-                     Action] = field(repr=False)
+    policy: ParameterizedPolicy = field(repr=False)
     # An initiation classifier maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option can start
     # now. The objects' types will match those in self.types. The
     # parameters will be contained in params_space.
-    initiable: Callable[[State, Dict, Sequence[Object], Array],
-                        bool] = field(repr=False)
+    initiable: ParameterizedInitiable = field(repr=False)
     # A termination condition maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option should
     # terminate now. The objects' types will match those in
     # self.types. The parameters will be contained in params_space.
-    terminal: Callable[[State, Dict, Sequence[Object], Array],
-                       bool] = field(repr=False)
+    terminal: ParameterizedTerminal = field(repr=False)
 
     @cached_property
     def _hash(self) -> int:
@@ -1554,6 +1551,7 @@ class LiftedDecisionList:
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
+ImageInput = NDArray[np.float32]
 Video = List[Image]
 Array = NDArray[np.float32]
 ObjToVarSub = Dict[Object, Variable]
@@ -1573,7 +1571,7 @@ GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
 ObjectOrVariable = TypeVar("ObjectOrVariable", bound=_TypedEntity)
 SamplerDatapoint = Tuple[State, VarToObjSub, _Option,
                          Optional[Set[GroundAtom]]]
-RefinementDatapoint = Tuple[State, List[_GroundNSRT], List[Set[GroundAtom]],
+RefinementDatapoint = Tuple[Task, List[_GroundNSRT], List[Set[GroundAtom]],
                             bool, float]
 # For PDDLEnv environments, given a desired number of problems and an rng,
 # returns a list of that many PDDL problem strings.
@@ -1582,6 +1580,9 @@ PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
 # a model, or a function that produces this number given the amount of data.
 MaxTrainIters = Union[int, Callable[[int], int]]
 ExplorationStrategy = Tuple[Callable[[State], Action], Callable[[State], bool]]
+ParameterizedPolicy = Callable[[State, Dict, Sequence[Object], Array], Action]
+ParameterizedInitiable = Callable[[State, Dict, Sequence[Object], Array], bool]
+ParameterizedTerminal = Callable[[State, Dict, Sequence[Object], Array], bool]
 AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
 RGBA = Tuple[float, float, float, float]

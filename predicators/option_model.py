@@ -13,6 +13,7 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import BaseEnv, create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import DefaultState, State, _Option
 
@@ -56,7 +57,8 @@ class _OracleOptionModel(_OptionModelBase):
 
     def __init__(self, env: BaseEnv) -> None:
         super().__init__()
-        self._name_to_parameterized_option = {o.name: o for o in env.options}
+        gt_options = get_gt_options(env.get_name())
+        self._name_to_parameterized_option = {o.name: o for o in gt_options}
         self._simulator = env.simulate
 
     def get_next_state_and_num_actions(self, state: State,
@@ -68,11 +70,11 @@ class _OracleOptionModel(_OptionModelBase):
         # for one environment with options from another environment. E.g.,
         # using a non-PyBullet environment in the option model while using a
         # PyBullet environment otherwise. In the case where we are
-        # learning options, the learned options will not appear in the
-        # env.options set. However, we still want to use the environment
+        # learning options, the learned options will not appear in the ground
+        # truth options set. However, we still want to use the environment
         # options during data collection when we are learning options. In this
         # case, we make a copy of the option itself, rather than reconstructing
-        # it from env.options.
+        # it from the ground truth options.
         param_opt = option.parent
         if param_opt.name not in self._name_to_parameterized_option:
             assert "Learned" in param_opt.name

@@ -1,11 +1,10 @@
 """Test cases for the GLIB explorer class."""
-
 import pytest
 
 from predicators import utils
 from predicators.envs.cover import CoverEnv
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
 
 
@@ -18,14 +17,15 @@ def test_glib_explorer(target_predicate):
         "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
     train_tasks = env.get_train_tasks()
     # For testing purposes, score everything except target predicate low.
     score_fn = lambda atoms: target_predicate in str(atoms)
     explorer = create_explorer("glib",
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -56,7 +56,7 @@ def test_glib_explorer(target_predicate):
     score_fn = lambda _: -float("inf")
     explorer = create_explorer("glib",
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -85,7 +85,8 @@ def test_glib_explorer_failure_cases():
         "explorer": "glib",
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
     train_tasks = env.get_train_tasks()
     score_fn = lambda _: 0.0
@@ -100,14 +101,15 @@ def test_glib_explorer_failure_cases():
         def get_exploration_strategy(self, train_task_idx, timeout):
             raise NotImplementedError("Dummy explorer called")
 
-    dummy_explorer = _DummyExplorer(env.predicates, env.options, env.types,
+    dummy_explorer = _DummyExplorer(env.predicates,
+                                    get_gt_options(env.get_name()), env.types,
                                     env.action_space, train_tasks)
     assert dummy_explorer.get_name() == "dummy"
 
     # Test case where there are no possible goals.
     explorer = create_explorer("glib",
                                set(),
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -122,7 +124,7 @@ def test_glib_explorer_failure_cases():
     # Test case where no plan can be found (due to timeout).
     explorer = create_explorer("glib",
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
