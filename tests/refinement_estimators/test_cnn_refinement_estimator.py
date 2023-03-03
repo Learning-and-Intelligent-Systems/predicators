@@ -4,7 +4,7 @@ import pytest
 
 from predicators import utils
 from predicators.envs.narrow_passage import NarrowPassageEnv
-from predicators.ground_truth_models import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.refinement_estimators.cnn_refinement_estimator import \
     CNNRefinementEstimator
 from predicators.settings import CFG
@@ -61,7 +61,8 @@ def test_narrow_passage_cnn_refinement_estimator():
     door, = sample_state.get_objects(door_type)
     robot, = sample_state.get_objects(robot_type)
     target, = sample_state.get_objects(target_type)
-    gt_nsrts = get_gt_nsrts(CFG.env, env.predicates, env.options)
+    options = get_gt_options(env.get_name())
+    gt_nsrts = get_gt_nsrts(CFG.env, env.predicates, options)
     move_and_open_door_nsrt, move_to_target_nsrt = sorted(gt_nsrts)
 
     # Ground NSRTs using objects
