@@ -1,31 +1,7 @@
-"""Policy-guided planning for generalized policy generation (PG3) with an
-initialized policy.
-
-PG3 requires known STRIPS operators. The command below uses oracle operators,
-but it is also possible to use this approach with operators learned from
-demonstrations.
-
-Example. First run:
-    python predicators/main.py --approach pg3 --seed 0 \
-        --env pddl_easy_delivery_procedural_tasks \
-        --strips_learner oracle --num_train_tasks 10
-
-Then run:
-    python predicators/main.py --approach initialized_pg3 --seed 0 \
-        --env pddl_easy_delivery_procedural_tasks \
-        --strips_learner oracle --num_train_tasks 10 \
-        --pg3_init_base_env pddl_easy_delivery_procedural_tasks
-
-Alternatively, define an initial LDL in plain text and save it to
-<path to file>.txt Then run:
-    python predicators/main.py --approach initialized_pg3 --seed 0 \
-        --env pddl_easy_delivery_procedural_tasks \
-        --strips_learner oracle --num_train_tasks 10 \
-        --pg3_init_policy <path to file>.txt \
-        --pg3_init_base_env pddl_easy_delivery_procedural_tasks
+"""Use SME for cross-domain policy learning in PG3.
 
 Command for testing gripper / ferry:
-    python predicators/main.py --approach initialized_pg3 --seed 0  \
+    python predicators/main.py --approach sme_pg3 --seed 0  \
         --env pddl_ferry_procedural_tasks --strips_learner oracle \
         --num_train_tasks 20 --pg3_init_policy gripper_ldl_policy.txt \
         --pg3_init_base_env pddl_gripper_procedural_tasks \
@@ -33,65 +9,30 @@ Command for testing gripper / ferry:
 """
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Dict, Iterator, List, Set, Tuple
 
-import dill as pkl
 import smepy
 
-from predicators import utils
-from predicators.approaches.pg3_approach import PG3Approach
-from predicators.envs import get_or_create_env
+from predicators.approaches.pg3_analogy_approach import PG3AnalogyApproach
 from predicators.envs.base_env import BaseEnv
-from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
 from predicators.structs import NSRT, LDLRule, LiftedAtom, \
     LiftedDecisionList, Predicate, Type, Variable
 
 
-class InitializedPG3Approach(PG3Approach):
-    """Policy-guided planning for generalized policy generation (PG3) with
-    initialized policy."""
+class SMEPG3AnalogyApproach(PG3AnalogyApproach):
+    """Use SME for cross-domain policy learning in PG3."""
 
     @classmethod
     def get_name(cls) -> str:
-        return "initialized_pg3"
+        return "sme_pg3"
 
-    @staticmethod
-    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
-        # Create base and target envs.
-        base_env_name = CFG.pg3_init_base_env
-        target_env_name = CFG.env
-        base_env = get_or_create_env(base_env_name)
-        target_env = get_or_create_env(target_env_name)
-        base_options = get_gt_options(base_env_name)
-        target_options = get_gt_options(target_env_name)
-        base_nsrts = get_gt_nsrts(base_env.get_name(), base_env.predicates,
-                                  base_options)
-        target_nsrts = get_gt_nsrts(target_env.get_name(),
-                                    target_env.predicates, target_options)
-        # Initialize with initialized policy from file.
-        if CFG.pg3_init_policy is None:  # pragma: no cover
-            # By default, use policy from base domain.
-            save_path = utils.get_approach_save_path_str()
-            pg3_init_policy_file = f"{save_path}_None.ldl"
-        else:
-            pg3_init_policy_file = CFG.pg3_init_policy
-        # Can load from a pickled LDL or a plain text LDL.
-        _, file_extension = os.path.splitext(pg3_init_policy_file)
-        assert file_extension in (".ldl", ".txt")
-        if file_extension == ".ldl":
-            with open(pg3_init_policy_file, "rb") as fb:
-                base_policy = pkl.load(fb)
-        else:
-            with open(pg3_init_policy_file, "r", encoding="utf-8") as f:
-                base_policy_str = f.read()
-            base_policy = utils.parse_ldl_from_str(base_policy_str,
-                                                   base_env.types,
-                                                   base_env.predicates,
-                                                   base_nsrts)
+    def _induce_policies_by_analogy(
+            self, base_policy: LiftedDecisionList, base_env: BaseEnv,
+            target_env: BaseEnv, base_nsrts: Set[NSRT],
+            target_nsrts: Set[NSRT]) -> List[LiftedDecisionList]:
         # Determine analogical mappings between the current env and the
         # base env that the initialized policy originates from.
         analogies = _find_env_analogies(base_env, target_env, base_nsrts,
