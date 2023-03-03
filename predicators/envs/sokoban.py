@@ -16,9 +16,12 @@ from predicators.structs import Action, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, Video
 
 
-# Free, goals, boxes, player masks
+# Free, goals, boxes, player masks.
 _Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]]
 
+# TODO: Big bug here: After we get a number of tasks, the simulator gets into the
+# configuration of the last task. However, when we start planning, we need to
+# set it to the current task we're trying to solve!
 
 class SokobanEnv(BaseEnv):
     """Sokoban environment wrapping gym-sokoban."""
@@ -38,6 +41,12 @@ class SokobanEnv(BaseEnv):
 
         # Predicates
         self._At = Predicate("At", [self._object_type, self._object_type], self._At_holds)
+        self._LocFree = Predicate("Free", [self._object_type], self._Free_Holds)
+        self._Above = Predicate("Above", [self._object_type, self._object_type], self._Above_Holds)
+        self._Below = Predicate("Below", [self._object_type, self._object_type], self._Below_Holds)
+        self._RightOf = Predicate("RightOf", [self._object_type, self._object_type], self._RightOf_Holds)
+        self._LeftOf = Predicate("LeftOf", [self._object_type, self._object_type], self._LeftOf_Holds)
+        self._Above = Predicate("Above", [self._object_type], self._Above_Holds)
         self._GoalCovered = Predicate("GoalCovered", [self._object_type], self._GoalCovered_holds)
 
         # TODO: change to a different level?
@@ -127,7 +136,6 @@ class SokobanEnv(BaseEnv):
         return tasks
 
     def _reset_initial_state_from_seed(self, seed: int) -> _Observation:
-        # TODO: seeding doesn't seem to be working...
         self._gym_env.seed(seed)
         self._gym_env.reset()
         return self._gym_env.render(mode='raw')
@@ -160,8 +168,12 @@ class SokobanEnv(BaseEnv):
 
     @staticmethod
     def _At_holds(state: State, objects: Sequence[Object]) -> bool:
-        # TODO
-        return False
+        obj, loc, = objects
+        obj_r = state.get(obj, "row")
+        loc_r = state.get(loc, "row")
+        obj_c = state.get(obj, "column")
+        loc_c = state.get(loc, "column")
+        return obj_r == loc_r and obj_c == loc_c
     
     def _GoalCovered_holds(self, state: State, objects: Sequence[Object]) -> bool:
         goal, = objects

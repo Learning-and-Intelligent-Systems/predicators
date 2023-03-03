@@ -31,7 +31,7 @@ setup(name="predicators",
           "seaborn",
           "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
           "pg3@git+https://github.com/tomsilver/pg3.git",
-          # TODO: add gym sokoban from source (not pip!)
+          "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git"
       ],
       include_package_data=True,
       extras_require={
