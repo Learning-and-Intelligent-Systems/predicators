@@ -32,10 +32,6 @@ def test_random_nsrts_explorer():
         state = env.simulate(state, act)
         assert env.action_space.contains(act.arr)
 
-    # Test that we can get the sequence of options.
-    option_seq = explorer.get_option_sequence(task_idx)
-    assert len(option_seq) > 0
-
     # Test case where no applicable nsrt can be found.
     insufficient_nsrts = {sorted(nsrts)[1]}  #  OpenDoor
     explorer = create_explorer("random_nsrts", env.predicates, options,
@@ -44,4 +40,4 @@ def test_random_nsrts_explorer():
     policy, _ = explorer.get_exploration_strategy(task_idx, 500)
     with pytest.raises(utils.RequestActPolicyFailure) as e:
         policy(task.init)
-    assert "No applicable nsrt in this state!" in str(e)
+    assert "No applicable NSRT in this state!" in str(e)

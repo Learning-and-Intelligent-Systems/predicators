@@ -1,6 +1,6 @@
 """An explorer that takes random NSRTs."""
 
-from typing import Dict, List, Set
+from typing import List, Set
 
 from gym.spaces import Box
 
@@ -8,7 +8,7 @@ from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.structs import NSRT, Action, DummyOption, \
     ExplorationStrategy, ParameterizedOption, Predicate, State, Task, Type, \
-    _GroundNSRT, _Option
+    _GroundNSRT
 
 
 class RandomNSRTsExplorer(BaseExplorer):
@@ -48,23 +48,14 @@ class RandomNSRTsExplorer(BaseExplorer):
         super().__init__(predicates, options, types, action_space, train_tasks)
         self._nsrts = nsrts
 
-        # Sequence of options generated during exploration.
-        self._option_seq: Dict[int, List[_Option]] = {}
-
     @classmethod
     def get_name(cls) -> str:
         return "random_nsrts"
-
-    def get_option_sequence(self, train_task_idx: int) -> List[_Option]:
-        """Get the sequence of options produced by the exploration strategy for
-        a particular task."""
-        return self._option_seq[train_task_idx]
 
     def get_exploration_strategy(self, train_task_idx: int,
                                  timeout: int) -> ExplorationStrategy:
         cur_option = DummyOption
         task = self._train_tasks[train_task_idx]
-        self._option_seq[train_task_idx] = []
 
         def fallback_policy(state: State) -> Action:
             del state  # unused
@@ -93,11 +84,6 @@ class RandomNSRTsExplorer(BaseExplorer):
                                                    goal=task.goal,
                                                    rng=self._rng)
                 cur_option = option
-
-                # Store option (so that we can attribute experience
-                # in the environment to each option when learning
-                # options via RL).
-                self._option_seq[train_task_idx].append(option)
 
             act = cur_option.policy(state)
             return act
