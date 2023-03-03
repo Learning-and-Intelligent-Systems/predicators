@@ -6,25 +6,25 @@ import dill as pkl
 import smepy
 from smepy.struct_case import Entity as SmepyEntity
 
-import predicators.approaches.initialized_pg3_approach
+import predicators.approaches.sme_pg3_analogy_approach
 from predicators import utils
-from predicators.approaches.initialized_pg3_approach import \
-    InitializedPG3Approach, _Analogy, _apply_analogy_to_ldl, \
+from predicators.approaches.sme_pg3_analogy_approach import \
+    SMEPG3AnalogyApproach, _Analogy, _apply_analogy_to_ldl, \
     _find_env_analogies
 from predicators.envs import create_new_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
     Variable
 
-_MODULE_PATH = predicators.approaches.initialized_pg3_approach.__name__
+_MODULE_PATH = predicators.approaches.sme_pg3_analogy_approach.__name__
 
 
-def test_initialized_pg3_approach():
-    """Tests for InitializedPG3Approach()."""
+def test_pg3_analogy_approach():
+    """Tests for SMEPG3AnalogyApproach()."""
     env_name = "pddl_easy_delivery_procedural_tasks"
     utils.reset_config({
         "env": env_name,
-        "approach": "initialized_pg3",
+        "approach": "sme_pg3",
     })
 
     env = create_new_env(env_name)
@@ -52,7 +52,7 @@ def test_initialized_pg3_approach():
 
     utils.reset_config({
         "env": env_name,
-        "approach": "initialized_pg3",
+        "approach": "sme_pg3",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
@@ -63,10 +63,10 @@ def test_initialized_pg3_approach():
         "pg3_init_base_env": env_name,
     })
 
-    approach = InitializedPG3Approach(env.predicates,
-                                      get_gt_options(env.get_name()),
-                                      env.types, env.action_space, train_tasks)
-    assert approach.get_name() == "initialized_pg3"
+    approach = SMEPG3AnalogyApproach(env.predicates,
+                                     get_gt_options(env.get_name()), env.types,
+                                     env.action_space, train_tasks)
+    assert approach.get_name() == "sme_pg3"
 
     predicate_map = {p: p for p in env.predicates}
     nsrt_map = {n: n for n in nsrts}
@@ -106,7 +106,7 @@ def test_initialized_pg3_approach():
         f.write(ldl_str)
         utils.reset_config({
             "env": env_name,
-            "approach": "initialized_pg3",
+            "approach": "sme_pg3",
             "num_train_tasks": 1,
             "num_test_tasks": 1,
             "strips_learner": "oracle",
@@ -116,9 +116,9 @@ def test_initialized_pg3_approach():
             "pg3_init_policy": ldl_policy_txt_file,
             "pg3_init_base_env": env_name,
         })
-    approach = InitializedPG3Approach(env.predicates,
-                                      get_gt_options(env.get_name()),
-                                      env.types, env.action_space, train_tasks)
+    approach = SMEPG3AnalogyApproach(env.predicates,
+                                     get_gt_options(env.get_name()), env.types,
+                                     env.action_space, train_tasks)
     with patch(f"{_MODULE_PATH}._find_env_analogies") as mocker:
         mocker.return_value = [identity_analogy]
         init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
@@ -227,7 +227,7 @@ def test_apply_analogy_to_ldl():
     env_name = "pddl_easy_delivery_procedural_tasks"
     utils.reset_config({
         "env": env_name,
-        "approach": "initialized_pg3",
+        "approach": "sme_pg3",
     })
     env = create_new_env(env_name)
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,

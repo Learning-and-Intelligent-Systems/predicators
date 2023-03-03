@@ -155,8 +155,7 @@ class PG3Approach(NSRTLearningApproach):
         with open(f"{load_path}_{online_learning_cycle}.ldl", "rb") as f:
             self._current_ldl = pkl.load(f)
 
-    @staticmethod
-    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
+    def _get_policy_search_initial_ldls(self) -> List[LiftedDecisionList]:
         # Initialize with an empty list by default, but subclasses may
         # override.
         return [LiftedDecisionList([])]
