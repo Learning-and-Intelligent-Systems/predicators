@@ -3,6 +3,7 @@
 import abc
 import logging
 import os
+import time
 from typing import List, Optional
 
 import openai
@@ -123,13 +124,28 @@ class OpenAILLM(LargeLanguageModel):
             stop_token: Optional[str] = None,
             num_completions: int = 1) -> List[str]:  # pragma: no cover
         del seed  # unused
-        response = openai.Completion.create(
-            model=self._model_name,  # type: ignore
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=self._max_tokens,
-            stop=stop_token,
-            n=num_completions)
+
+        # Retry 10 times before giving up. In some rare cases, a particular
+        # prompt may always lead to an error.
+        for _ in range(10):
+            try:
+                response = openai.Completion.create(
+                    model=self._model_name,  # type: ignore
+                    prompt=prompt,
+                    temperature=temperature,
+                    max_tokens=self._max_tokens,
+                    stop=stop_token,
+                    n=num_completions)
+                # Successfully queried, so break.
+                break
+            except (openai.error.RateLimitError,
+                    openai.error.APIConnectionError, openai.error.APIError):
+                # Wait for 60 seconds if this limit is reached. Hopefully rare.
+                time.sleep(60)
+        else:
+            # If we tried 10 times and still failed, return no responses.
+            logging.warning("Max query attempts exceeded, skipping!")
+            return []        
         assert len(response["choices"]) == num_completions
         text_responses = [
             response["choices"][i]["text"] for i in range(num_completions)

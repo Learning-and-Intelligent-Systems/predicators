@@ -1964,9 +1964,12 @@ def _cached_all_ground_ldl_rules(
 
 def parse_ldl_from_str(ldl_str: str, types: Collection[Type],
                        predicates: Collection[Predicate],
-                       nsrts: Collection[NSRT]) -> LiftedDecisionList:
+                       goal_predicates: Collection[Preidcate],
+                       nsrts: Collection[NSRT],
+                       add_missing_preconditions: bool = False,
+                       remove_invalid_goal_preconditions: bool = False) -> LiftedDecisionList:
     """Parse a lifted decision list from a string representation of it."""
-    parser = _LDLParser(types, predicates, nsrts)
+    parser = _LDLParser(types, predicates, goal_predicates, nsrts, add_missing_preconditions, remove_invalid_goal_preconditions)
     return parser.parse(ldl_str)
 
 
@@ -1975,13 +1978,19 @@ class _LDLParser:
 
     def __init__(self, types: Collection[Type],
                  predicates: Collection[Predicate],
-                 nsrts: Collection[NSRT]) -> None:
+                 goal_predicates: Collection[Predicate],
+                 nsrts: Collection[NSRT], 
+                 add_missing_preconditions: bool = False,
+                 remove_invalid_goal_preconditions: bool = False) -> None:
         self._nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
         self._type_name_to_type = {t.name.lower(): t for t in types}
         self._predicate_name_to_predicate = {
             p.name.lower(): p
             for p in predicates
         }
+        self._goal_predicate_names = {p.name for p in goal_predicates}
+        self._add_missing_preconditions = add_missing_preconditions
+        self._remove_invalid_goal_preconditions = remove_invalid_goal_preconditions
 
     def parse(self, ldl_str: str) -> LiftedDecisionList:
         """Run parsing."""
@@ -2022,10 +2031,14 @@ class _LDLParser:
         pos_goals, neg_goals = self._parse_lifted_atoms(
             goals_str, variable_name_to_variable)
         assert not neg_goals, "Negative LDL goals not currently supported"
+        if self._remove_invalid_goal_preconditions:
+            pos_goals = {a for a in pos_goals if a.predicate.name in self._goal_predicate_names}
         # Handle the NSRT.
         nsrt = self._parse_into_nsrt(nsrt_str, variable_name_to_variable)
         # Finalize the rule.
         params = sorted(variable_name_to_variable.values())
+        if self._add_missing_preconditions:
+            pos_preconds |= nsrt.preconditions
         return LDLRule(rule_name, params, pos_preconds, neg_preconds,
                        pos_goals, nsrt)
 

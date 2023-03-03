@@ -336,6 +336,7 @@ class GlobalSettings:
     # These need to be overridden via command line
     pg3_init_policy = None
     pg3_init_base_env = None
+    llm_pg3_num_completions = 1
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal

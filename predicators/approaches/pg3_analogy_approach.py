@@ -59,6 +59,7 @@ class PG3AnalogyApproach(PG3Approach):
             base_policy = utils.parse_ldl_from_str(base_policy_str,
                                                    base_env.types,
                                                    base_env.predicates,
+                                                   base_env.goal_predicates,
                                                    base_nsrts)
         target_policies = self._induce_policies_by_analogy(
             base_policy, base_env, target_env, base_nsrts, target_nsrts)

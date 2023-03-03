@@ -6,9 +6,10 @@ Command for testing gripper / ferry:
         --num_train_tasks 20 --pg3_init_policy gripper_ldl_policy.txt \
         --pg3_init_base_env pddl_gripper_procedural_tasks \
         --pg3_add_condition_allow_new_vars False \
-        --llm_model_name code-davinci-002 \
-        --llm_temperature 0.0 \
-        --llm_openai_max_response_tokens 2000
+        --llm_model_name text-davinci-003 \
+        --llm_temperature 0.5 \
+        --llm_openai_max_response_tokens 1000 \
+        --llm_pg3_num_completions 10
 """
 from __future__ import annotations
 
@@ -54,40 +55,63 @@ class LLMPG3AnalogyApproach(PG3AnalogyApproach):
                                                      target_env.types,
                                                      target_env.get_name())
 
+        base_goal_predicates = ", ".join([str(p) for p in base_env.goal_predicates])
+        target_goal_predicates = ", ".join([str(p) for p in target_env.goal_predicates])
+
         # Create a prompt for the LLM.
         stop_token = "(end policy)"
         prompt = f"""We are going to find an analogy between PDDL domains.
 
-Here is a PDDL domain for {base_env.get_name()}:
+PDDL domain for {base_env.get_name()}:
 {base_domain_str}
 
-Here is a PDDL domain for {target_env.get_name()}:
-{target_domain_str}
+Goal predicates for {base_env.get_name()}:
+{base_goal_predicates}
 
-Here is the policy for {base_env.get_name()}:
+Policy for {base_env.get_name()}:
 {base_policy}
 {stop_token}
 
-Here is the policy for {target_env.get_name()}:"""
+PDDL domain for {target_env.get_name()}:
+{target_domain_str}
+
+Goal predicates for {target_env.get_name()}:
+{target_goal_predicates}
+
+Policy for {target_env.get_name()}:"""
 
         logging.info(f"Prompting LLM with: {prompt}")
 
         # Query the LLM.
-        llm_predictions = self._llm.sample_completions(
-            prompt=prompt,
-            temperature=CFG.llm_temperature,
-            seed=CFG.seed,
-            num_completions=CFG.llm_num_completions,
-            stop_token=stop_token)
+        llm_predictions = []
+        for i in range(CFG.llm_pg3_num_completions):
+            single_predictions = self._llm.sample_completions(
+                prompt=prompt,
+                temperature=CFG.llm_temperature,
+                seed=(CFG.seed + i),
+                num_completions=1,
+                stop_token=stop_token)
+            llm_predictions.extend(single_predictions)
 
         # Parse the responses into init policies.
-        init_policies = []
+        # Always start with an empty policy in case the output policies are
+        # all garbage.
+        init_policies = [LiftedDecisionList([])]
         for ldl_str in llm_predictions:
             logging.info(f"Processing LLM response: {ldl_str}")
 
-            init_policy = utils.parse_ldl_from_str(ldl_str, target_env.types,
-                                                   target_env.predicates,
-                                                   target_nsrts)
+            # In the future, we should parse more gracefully, but for now just
+            # skip any policy that is not perfectly formed.
+            try:
+                init_policy = utils.parse_ldl_from_str(ldl_str, target_env.types,
+                                                    target_env.predicates,
+                                                    target_env.goal_predicates,
+                                                    target_nsrts,
+                                                    add_missing_preconditions=True,
+                                                    remove_invalid_goal_preconditions=True)
+            except (AssertionError, ValueError, IndexError, KeyError):
+                continue
+
             init_policies.append(init_policy)
 
         return init_policies
