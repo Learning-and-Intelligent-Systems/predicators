@@ -6,7 +6,7 @@ from typing import Callable, ClassVar, List, Optional, Sequence, Set
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from gym.spaces import Discrete
+from gym.spaces import MultiDiscrete
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -31,6 +31,12 @@ class CozmoEnv(BaseEnv):
         self._NextTo = Predicate("NextTo",
                                   [self._robot_type, self._cube_type],
                                   self._NextTo_holds)
+
+        ### Touched
+        ### Red, Blue, Green
+        ### Ontop
+        ### RightSideUp, UpSideDown, OnSide
+
         # Static objects (always exist no matter the settings).
         self._robot = Object("cozmo", self._robot_type)
         self._cube_0 = Object("cube_0", self._cube_type)
@@ -45,12 +51,9 @@ class CozmoEnv(BaseEnv):
     def get_name(cls) -> str:
         return "cozmo"
 
-    def get_state(self) -> State:
+    def get_state(self, last_state: State = None, state_info: str = "all") -> State:
         def cozmo_program(robot: cozmo.robot.Robot):
-            lookaround = robot.start_behavior(cozmo.behavior.BehaviorTypes.LookAroundInPlace)
-            cubes = robot.world.wait_until_observe_num_objects(num=3, object_type=cozmo.objects.LightCube, timeout=30)
-            #charger = robot.world.wait_for_observed_charger(timeout=30)
-            lookaround.stop()
+            assert state_info == "all" or state_info == "robot"
             state = {}
             state[self._robot] = {
                                     "x": robot.pose.position.x,
@@ -60,38 +63,68 @@ class CozmoEnv(BaseEnv):
                                     "ry": robot.pose.rotation.euler_angles[1],
                                     "rz": robot.pose.rotation.euler_angles[2]
                                 }
-            name_to_object = {"cube_0": self._cube_0, "cube_1": self._cube_1, "cube_2": self._cube_2, "dock_0": self._dock_0}
-            for i, cube in enumerate(cubes):
-                state[name_to_object[f"cube_{i}"]] = {
-                                                        "x": cube.pose.position.x,
-                                                        "y": cube.pose.position.y,
-                                                        "z": cube.pose.position.z,
-                                                        "rx": cube.pose.rotation.euler_angles[0],
-                                                        "ry": cube.pose.rotation.euler_angles[1],
-                                                        "rz": cube.pose.rotation.euler_angles[2]
-                                                    }
-            # if charger:
-            #     obj_name_to_obj[f"charger_0"] = charger
-            #     state["charger_0"] = {"pose": charger.pose}
-            # For ontop, nextto, under, sees
-            if self._last_state is None:
-                self._last_state = utils.create_state_from_dict(state)
-            else:
-                for obj, features in state.items():
-                    if obj == self._robot:
-                        for feature_name, feature_val in features.items():
-                            self._last_state.set(obj, feature_name, feature_val)
+            if state_info == "all":
+                lookaround = robot.start_behavior(cozmo.behavior.BehaviorTypes.LookAroundInPlace)
+                cubes = robot.world.wait_until_observe_num_objects(num=3, object_type=cozmo.objects.LightCube, timeout=30)
+                dock = robot.world.wait_for_observed_charger(timeout=30)
+                lookaround.stop()
+                name_to_object = {"cube_0": self._cube_0, "cube_1": self._cube_1, "cube_2": self._cube_2, "dock_0": self._dock_0}
+                for i, cube in enumerate(cubes):
+                    state[name_to_object[f"cube_{i}"]] = {
+                                                            "x": cube.pose.position.x,
+                                                            "y": cube.pose.position.y,
+                                                            "z": cube.pose.position.z,
+                                                            "rx": cube.pose.rotation.euler_angles[0],
+                                                            "ry": cube.pose.rotation.euler_angles[1],
+                                                            "rz": cube.pose.rotation.euler_angles[2]
+                                                        }
+                if dock is not None:
+                    state[self._dock_0] = {
+                                            "x": dock.pose.position.x,
+                                            "y": dock.pose.position.y,
+                                            "z": dock.pose.position.z,
+                                            "rx": dock.pose.rotation.euler_angles[0],
+                                            "ry": dock.pose.rotation.euler_angles[1],
+                                            "rz": dock.pose.rotation.euler_angles[2]
+                                        }
+                if last_state is None:
+                    self._last_state = utils.create_state_from_dict(state)
+                    return
+            for obj, features in state.items():
+                for feature_name, feature_val in features.items():
+                    last_state.set(obj, feature_name, feature_val)
+                    self._last_state = last_state
         cozmo.run_program(cozmo_program)
         assert self._last_state is not None
         return self._last_state
 
     def simulate(self, state: State, action: CozmoAction) -> State:
+        action_id = int(action.arr[0])
+        # TODO Don't use cozmo as simulator
+        next_state = state.copy()
+        if action_id == 0:
+            target_x = state.get(self._cube_0, "x")
+            target_y = state.get(self._cube_0, "y")
+            next_state.set(self._robot, "x", target_x)
+            next_state.set(self._robot, "y", target_y)
+        return next_state
+
+    def execute_on_robot(self, state: State, action: CozmoAction) -> State:
+        action_id = int(action.arr[0])
         # TODO Run Cozmo Action
         cozmo_program = action.run
         cozmo.run_program(cozmo_program)
         # TODO Don't use cozmo as simulator
-        next_state = self.get_state()
+        if action_id == 0:
+            next_state = self.get_state(last_state=state, state_info="robot")
+        else:
+            next_state = self.get_state(last_state=state, state_info="all")
         return next_state
+
+    def step(self, action: CozmoAction) -> State:
+        self._current_state = self.execute_on_robot(self._current_state, action)
+        # Copy to prevent external changes to the environment's state.
+        return self._current_state.copy()
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
@@ -117,9 +150,9 @@ class CozmoEnv(BaseEnv):
             "This base class method will be deprecated soon!")
 
     @property
-    def action_space(self) -> Discrete:
+    def action_space(self) -> MultiDiscrete:
         # Discrete actions and objects.
-        return Discrete(0)
+        return MultiDiscrete([4*5])
 
     def render_state_plt(
             self,

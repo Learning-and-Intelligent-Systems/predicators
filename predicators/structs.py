@@ -995,16 +995,16 @@ class Action:
 
 @dataclass(eq=False)
 class CozmoAction(Action):
-    """An action in an environment.
+    """An action in our Cozmo environment.
 
-    This is a light wrapper around a numpy float array that can
-    optionally store the option which produced it.
+    This is a light wrapper around our State class that can
+    optionally store a cozmo program to execute.
     """
     _run: Callable = field(repr=False, default=lambda x: None)
 
     @property
     def run(self) -> Callable:
-        """The array representation of this action."""
+        """The a Cozmo Function for this action."""
         return self._run
 
 @dataclass(frozen=True, repr=False, eq=False)
