@@ -15,7 +15,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
-from predicators.utils import Rectangle, _Geom2D
+from predicators.utils import Rectangle, StateWithCache, _Geom2D
 
 
 class DoorsEnv(BaseEnv):
@@ -108,13 +108,6 @@ class DoorsEnv(BaseEnv):
         self._max_obstacles_per_room = CFG.doors_max_obstacles_per_room
         self._min_room_exists_frac = CFG.doors_min_room_exists_frac
         self._max_room_exists_frac = CFG.doors_max_room_exists_frac
-        # Caches for values that do not ever change.
-        self._static_geom_cache: Dict[Object, _Geom2D] = {}
-        self._door_to_rooms_cache: Dict[Object, Set[Object]] = {}
-        self._room_to_doors_cache: Dict[Object, Set[Object]] = {}
-        self._door_to_doorway_geom_cache: Dict[Object, Rectangle] = {}
-        self._position_in_doorway_cache: Dict[Tuple[Object, Object],
-                                              Tuple[float, float]] = {}
         # See note in _sample_initial_state_from_map().
         self._task_id_count = itertools.count()
 
@@ -393,8 +386,19 @@ class DoorsEnv(BaseEnv):
             y = rng.uniform(room_cy - rad, room_cy + rad)
             state_dict[self._robot] = {"x": x, "y": y}
             state = utils.create_state_from_dict(state_dict)
-            if not self._state_has_collision(state):
-                return state
+            # Create task-constant caches and store them in the sim state.
+            # We store in the sim state, rather than the environment, because
+            # the caches may be used by oracle options (which are external).
+            task_cache: Dict[str, Dict] = {
+                "static_geom": {},
+                "door_to_rooms": {},
+                "room_to_doors": {},
+                "door_to_doorway_geom": {},
+                "position_in_doorway": {},
+            }
+            state_with_cache = utils.StateWithCache(state.data, task_cache)
+            if not self._state_has_collision(state_with_cache):
+                return state_with_cache
 
     def _MoveToDoor_initiable(self, state: State, memory: Dict,
                               objects: Sequence[Object],
@@ -648,7 +652,9 @@ class DoorsEnv(BaseEnv):
         if obj.is_instance(self._robot_type):
             return utils.Circle(x, y, self.robot_radius)
         # Only the robot shape is dynamic. All other shapes are cached.
-        if obj not in self._static_geom_cache:
+        assert isinstance(state, StateWithCache)
+        static_geom_cache = state.cache["static_geom"]
+        if obj not in static_geom_cache:
             if obj.is_instance(self._room_type):
                 width = self.room_size
                 height = self.room_size
@@ -663,8 +669,8 @@ class DoorsEnv(BaseEnv):
                 height = state.get(obj, "height")
                 theta = state.get(obj, "theta")
             geom = Rectangle(x=x, y=y, width=width, height=height, theta=theta)
-            self._static_geom_cache[obj] = geom
-        return self._static_geom_cache[obj]
+            static_geom_cache[obj] = geom
+        return static_geom_cache[obj]
 
     def _get_world_boundaries(
             self, state: State) -> Tuple[float, float, float, float]:
@@ -832,7 +838,9 @@ class DoorsEnv(BaseEnv):
         }
 
     def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
-        if door not in self._door_to_rooms_cache:
+        assert isinstance(state, StateWithCache)
+        door_to_rooms_cache = state.cache["door_to_rooms"]
+        if door not in door_to_rooms_cache:
             rooms = set()
             door_geom = self._object_to_geom(door, state)
             for room in state.get_objects(self._room_type):
@@ -840,11 +848,13 @@ class DoorsEnv(BaseEnv):
                 if door_geom.intersects(room_geom):
                     rooms.add(room)
             assert len(rooms) == 2
-            self._door_to_rooms_cache[door] = rooms
-        return self._door_to_rooms_cache[door]
+            door_to_rooms_cache[door] = rooms
+        return door_to_rooms_cache[door]
 
     def _room_to_doors(self, room: Object, state: State) -> Set[Object]:
-        if room not in self._room_to_doors_cache:
+        assert isinstance(state, StateWithCache)
+        room_to_doors_cache = state.cache["room_to_doors"]
+        if room not in room_to_doors_cache:
             doors = set()
             room_geom = self._object_to_geom(room, state)
             for door in state.get_objects(self._door_type):
@@ -852,11 +862,13 @@ class DoorsEnv(BaseEnv):
                 if room_geom.intersects(door_geom):
                     doors.add(door)
             assert 1 <= len(doors) <= 4
-            self._room_to_doors_cache[room] = doors
-        return self._room_to_doors_cache[room]
+            room_to_doors_cache[room] = doors
+        return room_to_doors_cache[room]
 
     def _door_to_doorway_geom(self, door: Object, state: State) -> Rectangle:
-        if door not in self._door_to_doorway_geom_cache:
+        assert isinstance(state, StateWithCache)
+        doorway_geom_cache = state.cache["door_to_doorway_geom"]
+        if door not in doorway_geom_cache:
             x = state.get(door, "x")
             y = state.get(door, "y")
             theta = state.get(door, "theta")
@@ -875,12 +887,14 @@ class DoorsEnv(BaseEnv):
                              width=(self.wall_depth + 2 * doorway_size),
                              height=self.hallway_width,
                              theta=0)
-            self._door_to_doorway_geom_cache[door] = geom
-        return self._door_to_doorway_geom_cache[door]
+            doorway_geom_cache[door] = geom
+        return doorway_geom_cache[door]
 
     def _get_position_in_doorway(self, room: Object, door: Object,
                                  state: State) -> Tuple[float, float]:
-        if (room, door) not in self._position_in_doorway_cache:
+        assert isinstance(state, StateWithCache)
+        position_cache = state.cache["position_in_doorway"]
+        if (room, door) not in position_cache:
             # Find the two vertices of the doorway that are in the room.
             doorway_geom = self._door_to_doorway_geom(door, state)
             room_geom = self._object_to_geom(room, state)
@@ -892,8 +906,8 @@ class DoorsEnv(BaseEnv):
             (x0, y0), (x1, y1) = vertices_in_room
             tx = (x0 + x1) / 2
             ty = (y0 + y1) / 2
-            self._position_in_doorway_cache[(room, door)] = (tx, ty)
-        return self._position_in_doorway_cache[(room, door)]
+            position_cache[(room, door)] = (tx, ty)
+        return position_cache[(room, door)]
 
     def _sample_room_map(self, rng: np.random.Generator) -> NDArray:
         # Sample a grid where any room can be reached from any other room.

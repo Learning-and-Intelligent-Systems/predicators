@@ -885,6 +885,27 @@ class PyBulletState(State):
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
 
+class StateWithCache(State):
+    """A state with a cache stored in the simulator state that is ignored for
+    state equality checks.
+
+    The cache is deliberately not copied.
+    """
+
+    @property
+    def cache(self) -> Dict[str, Dict]:
+        """Expose the cache in the simulator_state."""
+        return cast(Dict[str, Dict], self.simulator_state)
+
+    def allclose(self, other: State) -> bool:
+        # Ignores the simulator state.
+        return State(self.data).allclose(State(other.data))
+
+    def copy(self) -> State:
+        state_dict_copy = super().copy().data
+        return StateWithCache(state_dict_copy, self.cache)
+
+
 class Monitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
