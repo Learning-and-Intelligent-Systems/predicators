@@ -993,6 +993,19 @@ class Action:
         self._option = DummyOption
         assert not self.has_option()
 
+@dataclass(eq=False)
+class CozmoAction(Action):
+    """An action in an environment.
+
+    This is a light wrapper around a numpy float array that can
+    optionally store the option which produced it.
+    """
+    _run: Callable = field(repr=False, default=lambda x: None)
+
+    @property
+    def run(self) -> Callable:
+        """The array representation of this action."""
+        return self._run
 
 @dataclass(frozen=True, repr=False, eq=False)
 class LowLevelTrajectory:
