@@ -926,7 +926,8 @@ def run_policy(
     state = env.get_state()
     if do_state_reset:
         state = env.reset(train_or_test, task_idx)
-    assert env.get_state().allclose(state)
+    if CFG.env != "cozmo":
+        assert env.get_state().allclose(state)
     states = [state]
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
