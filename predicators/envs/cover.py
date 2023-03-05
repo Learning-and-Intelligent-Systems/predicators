@@ -416,38 +416,9 @@ class CoverEnvTypedOptions(CoverEnv):
     This means we need two options (one for block, one for target).
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        del self._PickPlace
-        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
-            "Pick",
-            self._Pick_policy,
-            types=[self._block_type],
-            params_space=Box(-0.1, 0.1, (1, )))
-        self._Place: ParameterizedOption = utils.SingletonParameterizedOption(
-            "Place",
-            self._PickPlace_policy,  # use the parent class's policy
-            types=[self._target_type],
-            params_space=Box(0, 1, (1, )))
-
     @classmethod
     def get_name(cls) -> str:
         return "cover_typed_options"
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Place}
-
-    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
-                     p: Array) -> Action:
-        del m  # unused
-        _ = self  # unused
-        # The pick parameter is a RELATIVE position, so we need to
-        # add the pose of the object.
-        pick_pose = s.get(o[0], "pose") + p[0]
-        pick_pose = min(max(pick_pose, 0.0), 1.0)
-        return Action(np.array([pick_pose], dtype=np.float32))
 
 
 class CoverEnvHierarchicalTypes(CoverEnv):
