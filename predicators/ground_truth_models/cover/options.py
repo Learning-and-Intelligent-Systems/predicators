@@ -7,10 +7,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.cover import CoverMultistepOptions
-from predicators.envs.pybullet_cover import PyBulletCoverEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.pybullet_helpers.controllers import \
-    create_change_fingers_option, create_move_end_effector_to_pose_option
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
@@ -149,7 +146,7 @@ class CoverMultiStepOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             assert robot.is_instance(robot_type)
             # Convert the relative parameters into absolute parameters.
             m["params"] = p
-            # Only the block and robot are changing. Get the non-static features.
+            # Only the block and robot are changing. Get the changing features.
             vec = [
                 s.get(block, "x"),
                 s.get(block, "grasp"),
@@ -230,7 +227,8 @@ class CoverMultiStepOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             at_desired_x = abs(desired_x - x) < 1e-5
 
             lb, ub = CFG.cover_multistep_action_limits
-            # If we're already above the object, move down and turn off the magnet.
+            # If we're already above the object, move down and turn off
+            # the magnet.
             if at_desired_x:
                 delta_y = np.clip(desired_y - y, lb, ub)
                 return Action(np.array([0., delta_y, -1.0], dtype=np.float32))
