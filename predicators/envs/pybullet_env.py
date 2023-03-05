@@ -26,7 +26,7 @@ class PyBulletEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    _grasp_tol: ClassVar[float] = 0.05
+    grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
 
@@ -57,57 +57,49 @@ class PyBulletEnv(BaseEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Controls the maximum end effector change between time steps.
-        self._max_vel_norm = CFG.pybullet_max_vel_norm
-
         # When an object is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
         self._held_obj_to_base_link: Optional[Any] = None
         self._held_obj_id: Optional[int] = None
 
         # Set up all the static PyBullet content.
-        self._initialize_pybullet()
+        self.initialize_pybullet(self.using_gui)
 
-    def _initialize_pybullet(self) -> None:
-        """One-time initialization of PyBullet assets."""
+    @classmethod
+    def initialize_pybullet(cls, using_gui: bool) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
+        """One-time initialization of PyBullet assets. Returns the physics
+        client ID for the scene, the PyBullet robot, and a dictionary of any
+        Pybullet IDs that the environment needs to know about."""
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
-        if self.using_gui:  # pragma: no cover
-            self._physics_client_id = create_gui_connection(
-                camera_distance=self._camera_distance,
-                camera_yaw=self._camera_yaw,
-                camera_pitch=self._camera_pitch,
-                camera_target=self._camera_target,
+        if using_gui:  # pragma: no cover
+            physics_client_id = create_gui_connection(
+                camera_distance=cls._camera_distance,
+                camera_yaw=cls._camera_yaw,
+                camera_pitch=cls._camera_pitch,
+                camera_target=cls._camera_target,
             )
         else:
-            self._physics_client_id = p.connect(p.DIRECT)
-        # This second connection can be useful for stateless operations.
-        self._physics_client_id2 = p.connect(p.DIRECT)
+            physics_client_id = p.connect(p.DIRECT)
 
-        p.resetSimulation(physicsClientId=self._physics_client_id)
-        p.resetSimulation(physicsClientId=self._physics_client_id2)
+        p.resetSimulation(physicsClientId=physics_client_id)
 
         # Load plane.
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
-                   physicsClientId=self._physics_client_id)
-        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
-                   useFixedBase=True,
-                   physicsClientId=self._physics_client_id2)
-
+                   physicsClientId=physics_client_id)
         # Load robot.
-        self._pybullet_robot = self._create_pybullet_robot(
-            self._physics_client_id)
-        self._pybullet_robot_sim = self._create_pybullet_robot(
-            self._physics_client_id2)
+        pybullet_robot = cls._create_pybullet_robot(physics_client_id)
 
         # Set gravity.
-        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
-        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id2)
+        p.setGravity(0., 0., -10., physicsClientId=physics_client_id)
+
+        return physics_client_id, pybullet_robot, {}
 
     @abc.abstractmethod
+    @classmethod
     def _create_pybullet_robot(
-            self, physics_client_id: int) -> SingleArmPyBulletRobot:
+            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
         """Make and return a PyBullet robot object in the given
         physics_client_id.
 
@@ -310,7 +302,7 @@ class PyBulletEnv(BaseEnv):
                 closest_points = p.getClosestPoints(
                     bodyA=self._pybullet_robot.robot_id,
                     bodyB=obj_id,
-                    distance=self._grasp_tol,
+                    distance=self.grasp_tol,
                     linkIndexA=finger_id,
                     physicsClientId=self._physics_client_id)
                 for point in closest_points:
@@ -396,9 +388,10 @@ class PyBulletEnv(BaseEnv):
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks
 
+    @classmethod
     @property
-    def _robot_ee_home_orn(self) -> Quaternion:
-        robot_ee_orns = CFG.pybullet_robot_ee_orns[self.get_name()]
+    def _robot_ee_home_orn(cls) -> Quaternion:
+        robot_ee_orns = CFG.pybullet_robot_ee_orns[cls.get_name()]
         return robot_ee_orns[CFG.pybullet_robot]
 
 

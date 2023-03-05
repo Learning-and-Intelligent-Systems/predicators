@@ -25,7 +25,7 @@ class CoverEnv(BaseEnv):
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
     _workspace_x: ClassVar[float] = 1.35
-    _workspace_z: ClassVar[float] = 0.65
+    workspace_z: ClassVar[float] = 0.65
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -47,11 +47,6 @@ class CoverEnv(BaseEnv):
         self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
-        # Options
-        self._PickPlace: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
-                "PickPlace", self._PickPlace_policy,
-                params_space=Box(0, 1, (1, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -295,11 +290,11 @@ class CoverEnv(BaseEnv):
         if "hand_empty" in self._robot_type.feature_names:
             # [hand, pose_x, pose_z, hand_empty]
             data[self._robot] = np.array(
-                [0.5, self._workspace_x, self._workspace_z, 1])
+                [0.5, self._workspace_x, self.workspace_z, 1])
         else:
             # [hand, pose_x, pose_z]
             data[self._robot] = np.array(
-                [0.5, self._workspace_x, self._workspace_z])
+                [0.5, self._workspace_x, self.workspace_z])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
@@ -352,12 +347,6 @@ class CoverEnv(BaseEnv):
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return state.get(block, "grasp") != -1
-
-    @staticmethod
-    def _PickPlace_policy(state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        return Action(params)  # action is simply the parameter
 
     def _any_intersection(self,
                           pose: float,
