@@ -48,7 +48,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         super().__init__(use_gui)
 
         # Override PickPlace option
-        types = []
+        types: List[Type] = []
         params_space = Box(0, 1, (1, ))
         # Note: this isn't exactly correct because the first argument should be
         # the current finger joint value, which we don't have in the State `s`.
