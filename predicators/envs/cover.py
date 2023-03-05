@@ -25,7 +25,7 @@ class CoverEnv(BaseEnv):
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
     _workspace_x: ClassVar[float] = 1.35
-    workspace_z: ClassVar[float] = 0.65
+    _workspace_z: ClassVar[float] = 0.65
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -290,11 +290,11 @@ class CoverEnv(BaseEnv):
         if "hand_empty" in self._robot_type.feature_names:
             # [hand, pose_x, pose_z, hand_empty]
             data[self._robot] = np.array(
-                [0.5, self._workspace_x, self.workspace_z, 1])
+                [0.5, self._workspace_x, self._workspace_z, 1])
         else:
             # [hand, pose_x, pose_z]
             data[self._robot] = np.array(
-                [0.5, self._workspace_x, self.workspace_z])
+                [0.5, self._workspace_x, self._workspace_z])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
