@@ -420,6 +420,9 @@ class GlobalSettings:
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
 
+    # torch GPU usage setting
+    use_torch_gpu = False
+
     # torch model parameters
     learning_rate = 1e-3
     weight_decay = 0

@@ -74,7 +74,8 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
             clip_gradients=CFG.cnn_regressor_clip_gradients,
             clip_value=CFG.cnn_regressor_gradient_clip_value,
             learning_rate=CFG.learning_rate,
-            weight_decay=CFG.weight_decay)
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu)
 
     def _get_rendered_initial_state(self, task: Task) -> ImageInput:
         """Render the initial state of the task using the given environment's
