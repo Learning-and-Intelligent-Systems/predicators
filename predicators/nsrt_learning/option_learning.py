@@ -11,9 +11,10 @@ import numpy as np
 import pybullet as p
 from gym.spaces import Box
 
-from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
+from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.inverse_kinematics import \
     InverseKinematicsError
 from predicators.pybullet_helpers.robots import \
@@ -139,12 +140,12 @@ class _OracleOptionLearner(_OptionLearnerBase):
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
-        env = get_or_create_env(CFG.env)
+        env_options = get_gt_options(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
             assert len(strips_ops) == 4
             PickPlace = [
-                option for option in env.options if option.name == "PickPlace"
+                option for option in env_options if option.name == "PickPlace"
             ][0]
             # All strips operators use the same PickPlace option,
             # which has no parameters.
@@ -152,13 +153,13 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 option_specs.append((PickPlace, []))
         elif CFG.env == "blocks":
             assert len(strips_ops) == 4
-            Pick = [option for option in env.options
+            Pick = [option for option in env_options
                     if option.name == "Pick"][0]
             Stack = [
-                option for option in env.options if option.name == "Stack"
+                option for option in env_options if option.name == "Stack"
             ][0]
             PutOnTable = [
-                option for option in env.options if option.name == "PutOnTable"
+                option for option in env_options if option.name == "PutOnTable"
             ][0]
             for op in strips_ops:
                 if {atom.predicate.name for atom in op.preconditions} in \
@@ -298,6 +299,9 @@ class _KinematicActionConverter(_ActionConverter):
         # Create the robot.
         self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                        self._physics_client_id)
+        # The rotation is assumed to be fixed, so record it once.
+        qx, qy, qz, qw = self._robot.get_state()[3:7]
+        self._ee_orn = (qx, qy, qz, qw)
 
     def __setstate__(self, state: Dict) -> None:
         # Recreate the object to avoid issues with the PyBullet client.
@@ -307,7 +311,8 @@ class _KinematicActionConverter(_ActionConverter):
     def env_to_reduced(self, env_action_arr: Array) -> Array:
         # Forward kinematics.
         assert env_action_arr.shape == (9, )
-        x, y, z = self._robot.forward_kinematics(env_action_arr.tolist())
+        pose = self._robot.forward_kinematics(env_action_arr.tolist())
+        x, y, z = pose.position
         # Average the two fingers.
         left_finger = env_action_arr[self._robot.left_finger_joint_idx]
         right_finger = env_action_arr[self._robot.right_finger_joint_idx]
@@ -332,7 +337,8 @@ class _KinematicActionConverter(_ActionConverter):
         else:
             fingers = self._robot.open_fingers
         try:
-            joints = self._robot.inverse_kinematics((x, y, z), validate=True)
+            pose = Pose((x, y, z), self._ee_orn)
+            joints = self._robot.inverse_kinematics(pose, validate=True)
         except InverseKinematicsError:
             raise OptionExecutionFailure("IK failure in action conversion.")
         joints[self._robot.left_finger_joint_idx] = fingers

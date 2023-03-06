@@ -1,8 +1,6 @@
 """Handle creation of explorers."""
 
-import importlib
-import pkgutil
-from typing import TYPE_CHECKING, Callable, List, Optional, Set
+from typing import Callable, List, Optional, Set
 
 from gym.spaces import Box
 
@@ -16,13 +14,8 @@ from predicators.structs import NSRT, GroundAtom, ParameterizedOption, \
 
 __all__ = ["BaseExplorer"]
 
-if not TYPE_CHECKING:
-    # Load all modules so that utils.get_all_subclasses() works.
-    for _, module_name, _ in pkgutil.walk_packages(__path__):
-        if "__init__" not in module_name:
-            # Important! We use an absolute import here to avoid issues
-            # with isinstance checking when using relative imports.
-            importlib.import_module(f"{__name__}.{module_name}")
+# Find the subclasses.
+utils.import_submodules(__path__, __name__)
 
 
 def create_explorer(
@@ -66,6 +59,11 @@ def create_explorer(
                 assert option_model is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks, nsrts, option_model)
+            # Random NSRTs explorer uses NSRTs, but not an option model
+            elif name == "random_nsrts":
+                assert nsrts is not None
+                explorer = cls(initial_predicates, initial_options, types,
+                               action_space, train_tasks, nsrts)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks)

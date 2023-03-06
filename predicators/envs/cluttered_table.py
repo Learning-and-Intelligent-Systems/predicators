@@ -33,14 +33,6 @@ class ClutteredTableEnv(BaseEnv):
                                   self._Holding_holds)
         self._Untrashed = Predicate("Untrashed", [self._can_type],
                                     self._Untrashed_holds)
-        # Options
-        self._Grasp = utils.SingletonParameterizedOption(
-            "Grasp",
-            self._Grasp_policy,
-            types=[self._can_type],
-            params_space=Box(0, 1, (4, )))
-        self._Dump = utils.SingletonParameterizedOption(
-            "Dump", self._Dump_policy)
 
     @classmethod
     def get_name(cls) -> str:
@@ -104,8 +96,9 @@ class ClutteredTableEnv(BaseEnv):
         return {self._can_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Grasp, self._Dump}
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -222,19 +215,6 @@ class ClutteredTableEnv(BaseEnv):
         return state.get(can, "is_trashed") < 0.5
 
     @staticmethod
-    def _Grasp_policy(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> Action:
-        del state, memory, objects  # unused
-        return Action(params)  # action is simply the parameter
-
-    @staticmethod
-    def _Dump_policy(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> Action:
-        del state, memory, objects, params  # unused
-        return Action(np.zeros(4,
-                               dtype=np.float32))  # no parameter for dumping
-
-    @staticmethod
     def _any_intersection(pose: Array, radius: float,
                           data: Dict[Object, Array]) -> bool:
         for other in data:
@@ -298,27 +278,9 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
     the colliding can and place it out of the way of the goal can.
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        self._Place = utils.SingletonParameterizedOption(
-            "Place",
-            self._Place_policy,
-            types=[self._can_type],
-            params_space=Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1])))
-        self._Grasp = utils.SingletonParameterizedOption(
-            "Grasp",
-            self._Grasp_policy,
-            types=[self._can_type],
-            params_space=Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1])))
-
     @classmethod
     def get_name(cls) -> str:
         return "cluttered_table_place"
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Grasp, self._Place}
 
     @property
     def action_space(self) -> Box:
@@ -326,12 +288,6 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
         # ending coordinates are in a more narrow region than in the original
         # task. Constraints make this version of the task more challenging.
         return Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1]))
-
-    @staticmethod
-    def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> Action:
-        del state, memory, objects  # unused
-        return Action(params)  # action is simply the parameter
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)

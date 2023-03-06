@@ -6,10 +6,11 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.structs import NSRT, PNAD, Action, DefaultState, \
-    DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
-    LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, Object, \
-    ParameterizedOption, Predicate, Query, Segment, State, STRIPSOperator, \
-    Task, Type, Variable, _Atom, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    DemonstrationQuery, DummyOption, GroundAtom, InteractionRequest, \
+    InteractionResult, LDLRule, LiftedAtom, LiftedDecisionList, \
+    LowLevelTrajectory, Object, ParameterizedOption, Predicate, Query, \
+    Segment, State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
@@ -940,12 +941,12 @@ def test_lifted_decision_lists():
         goal_preconditions={on([cup_var, plate_var])},
         nsrt=pick_nsrt)
 
-    assert str(pick_rule) == repr(pick_rule) == """LDLRule-MyPickRule:
-    Parameters: [?cup:cup_type, ?plate:plate_type, ?robot:robot_type]
-    Pos State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
-    Neg State Pre: [Holding(?cup:cup_type)]
-    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
-    NSRT: Pick(?cup:cup_type)"""
+    assert str(pick_rule) == repr(pick_rule) == """(:rule MyPickRule
+    :parameters (?cup - cup_type ?plate - plate_type ?robot - robot_type)
+    :preconditions (and (HandEmpty ?robot) (OnTable ?cup) (not (Holding ?cup)))
+    :goals (On ?cup ?plate)
+    :action (Pick ?cup)
+  )"""
 
     place_rule = LDLRule("MyPlaceRule",
                          parameters=[cup_var, plate_var],
@@ -954,12 +955,12 @@ def test_lifted_decision_lists():
                          goal_preconditions={on([cup_var, plate_var])},
                          nsrt=place_nsrt)
 
-    assert str(place_rule) == repr(place_rule) == """LDLRule-MyPlaceRule:
-    Parameters: [?cup:cup_type, ?plate:plate_type]
-    Pos State Pre: [Holding(?cup:cup_type)]
-    Neg State Pre: []
-    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
-    NSRT: Place(?cup:cup_type, ?plate:plate_type)"""
+    assert str(place_rule) == repr(place_rule) == """(:rule MyPlaceRule
+    :parameters (?cup - cup_type ?plate - plate_type)
+    :preconditions (Holding ?cup)
+    :goals (On ?cup ?plate)
+    :action (Place ?cup ?plate)
+  )"""
 
     assert pick_rule != place_rule
 
@@ -999,6 +1000,32 @@ def test_lifted_decision_lists():
                     goal_preconditions={on([cup_var, plate_var])},
                     nsrt=pick_nsrt)
 
+    # Test string representation of rules with no preconditions and with
+    # multiple goals.
+    noop_nsrt = NSRT("Noop",
+                     parameters=[],
+                     preconditions=set(),
+                     add_effects=set(),
+                     delete_effects=set(),
+                     ignore_effects=set(),
+                     option=DummyOption,
+                     option_vars=[],
+                     _sampler=utils.null_sampler)
+    noop_rule = LDLRule(
+        "MyNoopRule",
+        parameters=[cup_var, plate_var, robot_var],
+        pos_state_preconditions=set(),
+        neg_state_preconditions=set(),
+        goal_preconditions={on([cup_var, plate_var]),
+                            hand_empty([robot_var])},
+        nsrt=noop_nsrt)
+    assert str(noop_rule) == """(:rule MyNoopRule
+    :parameters (?cup - cup_type ?plate - plate_type ?robot - robot_type)
+    :preconditions ()
+    :goals (and (HandEmpty ?robot) (On ?cup ?plate))
+    :action (Noop )
+  )"""
+
     # _GroundLDLRule
     cup1 = cup_type("cup1")
     plate1 = plate_type("plate1")
@@ -1030,20 +1057,20 @@ def test_lifted_decision_lists():
     ldl = LiftedDecisionList(rules)
     assert ldl.rules == rules
 
-    assert str(ldl) == """LiftedDecisionList[
-LDLRule-MyPlaceRule:
-    Parameters: [?cup:cup_type, ?plate:plate_type]
-    Pos State Pre: [Holding(?cup:cup_type)]
-    Neg State Pre: []
-    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
-    NSRT: Place(?cup:cup_type, ?plate:plate_type)
-LDLRule-MyPickRule:
-    Parameters: [?cup:cup_type, ?plate:plate_type, ?robot:robot_type]
-    Pos State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
-    Neg State Pre: [Holding(?cup:cup_type)]
-    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
-    NSRT: Pick(?cup:cup_type)
-]"""
+    assert str(ldl) == """(define (policy)
+  (:rule MyPlaceRule
+    :parameters (?cup - cup_type ?plate - plate_type)
+    :preconditions (Holding ?cup)
+    :goals (On ?cup ?plate)
+    :action (Place ?cup ?plate)
+  )
+  (:rule MyPickRule
+    :parameters (?cup - cup_type ?plate - plate_type ?robot - robot_type)
+    :preconditions (and (HandEmpty ?robot) (OnTable ?cup) (not (Holding ?cup)))
+    :goals (On ?cup ?plate)
+    :action (Pick ?cup)
+  )
+)"""
 
     atoms = {on_table([cup1]), hand_empty([robot])}
     goal = {on([cup1, plate1])}
@@ -1051,6 +1078,17 @@ LDLRule-MyPickRule:
 
     expected_nsrt = pick_nsrt.ground([cup1])
     assert utils.query_ldl(ldl, atoms, objects, goal) == expected_nsrt
+
+    # Test for missing positive static preconditions.
+    static_predicates = {hand_empty}  # pretend static for this test
+    init_atoms = set()
+    assert utils.query_ldl(ldl, atoms, objects, goal, static_predicates,
+                           init_atoms) is None
+    # Test for present negative static preconditions.
+    static_predicates = {holding}  # pretend static for this test
+    init_atoms = {holding([cup1])}
+    assert utils.query_ldl(ldl, atoms, objects, goal, static_predicates,
+                           init_atoms) is None
 
     atoms = {holding([cup1])}
 

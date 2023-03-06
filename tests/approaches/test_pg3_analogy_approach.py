@@ -1,5 +1,4 @@
 """Test cases for the Initialized PG3 approach."""
-
 import tempfile
 from unittest.mock import patch
 
@@ -7,29 +6,30 @@ import dill as pkl
 import smepy
 from smepy.struct_case import Entity as SmepyEntity
 
-import predicators.approaches.initialized_pg3_approach
+import predicators.approaches.sme_pg3_analogy_approach
 from predicators import utils
-from predicators.approaches.initialized_pg3_approach import \
-    InitializedPG3Approach, _Analogy, _apply_analogy_to_ldl, \
+from predicators.approaches.sme_pg3_analogy_approach import \
+    SMEPG3AnalogyApproach, _Analogy, _apply_analogy_to_ldl, \
     _find_env_analogies
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
     Variable
 
-_MODULE_PATH = predicators.approaches.initialized_pg3_approach.__name__
+_MODULE_PATH = predicators.approaches.sme_pg3_analogy_approach.__name__
 
 
-def test_initialized_pg3_approach():
-    """Tests for InitializedPG3Approach()."""
+def test_pg3_analogy_approach():
+    """Tests for SMEPG3AnalogyApproach()."""
     env_name = "pddl_easy_delivery_procedural_tasks"
     utils.reset_config({
         "env": env_name,
-        "approach": "initialized_pg3",
+        "approach": "sme_pg3",
     })
 
     env = create_new_env(env_name)
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     train_tasks = env.get_train_tasks()
 
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
@@ -52,7 +52,7 @@ def test_initialized_pg3_approach():
 
     utils.reset_config({
         "env": env_name,
-        "approach": "initialized_pg3",
+        "approach": "sme_pg3",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
@@ -63,9 +63,10 @@ def test_initialized_pg3_approach():
         "pg3_init_base_env": env_name,
     })
 
-    approach = InitializedPG3Approach(env.predicates, env.options, env.types,
-                                      env.action_space, train_tasks)
-    assert approach.get_name() == "initialized_pg3"
+    approach = SMEPG3AnalogyApproach(env.predicates,
+                                     get_gt_options(env.get_name()), env.types,
+                                     env.action_space, train_tasks)
+    assert approach.get_name() == "sme_pg3"
 
     predicate_map = {p: p for p in env.predicates}
     nsrt_map = {n: n for n in nsrts}
@@ -105,7 +106,7 @@ def test_initialized_pg3_approach():
         f.write(ldl_str)
         utils.reset_config({
             "env": env_name,
-            "approach": "initialized_pg3",
+            "approach": "sme_pg3",
             "num_train_tasks": 1,
             "num_test_tasks": 1,
             "strips_learner": "oracle",
@@ -115,32 +116,33 @@ def test_initialized_pg3_approach():
             "pg3_init_policy": ldl_policy_txt_file,
             "pg3_init_base_env": env_name,
         })
-    approach = InitializedPG3Approach(env.predicates, env.options, env.types,
-                                      env.action_space, train_tasks)
+    approach = SMEPG3AnalogyApproach(env.predicates,
+                                     get_gt_options(env.get_name()), env.types,
+                                     env.action_space, train_tasks)
     with patch(f"{_MODULE_PATH}._find_env_analogies") as mocker:
         mocker.return_value = [identity_analogy]
         init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
     assert len(init_ldls) == 1
-    assert str(init_ldls[0]) == """LiftedDecisionList[
-LDLRule-rule1:
-    Parameters: [?loc:loc, ?paper:paper]
-    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
-    Neg State Pre: []
-    Goal Pre: []
-    NSRT: pick-up(?paper:paper, ?loc:loc)
-LDLRule-rule2:
-    Parameters: [?loc:loc, ?paper:paper]
-    Pos State Pre: [at(?loc:loc), carrying(?paper:paper)]
-    Neg State Pre: [satisfied(?loc:loc)]
-    Goal Pre: []
-    NSRT: deliver(?paper:paper, ?loc:loc)
-LDLRule-rule3:
-    Parameters: [?from:loc, ?to:loc]
-    Pos State Pre: [at(?from:loc), safe(?from:loc), wantspaper(?to:loc)]
-    Neg State Pre: []
-    Goal Pre: []
-    NSRT: move(?from:loc, ?to:loc)
-]"""
+    assert str(init_ldls[0]) == """(define (policy)
+  (:rule rule1
+    :parameters (?loc - loc ?paper - paper)
+    :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper))
+    :goals ()
+    :action (pick-up ?paper ?loc)
+  )
+  (:rule rule2
+    :parameters (?loc - loc ?paper - paper)
+    :preconditions (and (at ?loc) (carrying ?paper) (not (satisfied ?loc)))
+    :goals ()
+    :action (deliver ?paper ?loc)
+  )
+  (:rule rule3
+    :parameters (?from - loc ?to - loc)
+    :preconditions (and (at ?from) (safe ?from) (wantspaper ?to))
+    :goals ()
+    :action (move ?from ?to)
+  )
+)"""
 
 
 def test_find_env_analogies():
@@ -148,10 +150,10 @@ def test_find_env_analogies():
     # Test for gripper -> ferry.
     base_env = create_new_env("pddl_gripper_procedural_tasks")
     base_nsrts = get_gt_nsrts(base_env.get_name(), base_env.predicates,
-                              base_env.options)
+                              get_gt_options(base_env.get_name()))
     target_env = create_new_env("pddl_ferry_procedural_tasks")
     target_nsrts = get_gt_nsrts(target_env.get_name(), target_env.predicates,
-                                target_env.options)
+                                get_gt_options(target_env.get_name()))
 
     # Mock SME because it's potentially slow.
     mock_match_strs = [
@@ -225,10 +227,11 @@ def test_apply_analogy_to_ldl():
     env_name = "pddl_easy_delivery_procedural_tasks"
     utils.reset_config({
         "env": env_name,
-        "approach": "initialized_pg3",
+        "approach": "sme_pg3",
     })
     env = create_new_env(env_name)
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     pick_up_nsrt = name_to_nsrt["pick-up"]
     pick_up_rule = LDLRule(name="PickUp",
@@ -254,14 +257,14 @@ def test_apply_analogy_to_ldl():
                        nsrt_variables=nsrt_var_map)
     assert analogy.types == {t: t for t in env.types if t.name != "object"}
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
-    assert str(new_ldl) == """LiftedDecisionList[
-LDLRule-PickUp:
-    Parameters: [?loc:loc, ?paper:paper]
-    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
-    Neg State Pre: []
-    Goal Pre: []
-    NSRT: pick-up(?paper:paper, ?loc:loc)
-]"""
+    assert str(new_ldl) == """(define (policy)
+  (:rule PickUp
+    :parameters (?loc - loc ?paper - paper)
+    :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper))
+    :goals ()
+    :action (pick-up ?paper ?loc)
+  )
+)"""
 
     # Test case where there is a variable in the LDL rule that doesn't appear
     # in the NSRT.
@@ -284,11 +287,11 @@ LDLRule-PickUp:
         nsrt=pick_up_nsrt)
     ldl_extra_param = LiftedDecisionList([pick_up_extra_param_rule])
     new_ldl = _apply_analogy_to_ldl(identity_analogy, ldl_extra_param)
-    assert str(new_ldl) == """LiftedDecisionList[
-LDLRule-PickUp:
-    Parameters: [?extra:paper, ?loc:loc, ?paper:paper]
-    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
-    Neg State Pre: [unpacked(?extra:paper)]
-    Goal Pre: []
-    NSRT: pick-up(?paper:paper, ?loc:loc)
-]"""
+    assert str(new_ldl) == """(define (policy)
+  (:rule PickUp
+    :parameters (?extra - paper ?loc - loc ?paper - paper)
+    :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper) (not (unpacked ?extra)))
+    :goals ()
+    :action (pick-up ?paper ?loc)
+  )
+)"""

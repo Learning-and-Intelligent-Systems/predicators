@@ -81,7 +81,7 @@ class _NormalizingRegressor(Regressor):
     def __init__(self, seed: int) -> None:
         super().__init__(seed)
         # Set in fit().
-        self._x_dim = -1
+        self._x_dims: Tuple[int, ...] = tuple()
         self._y_dim = -1
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
@@ -89,7 +89,8 @@ class _NormalizingRegressor(Regressor):
         self._output_scale = np.zeros(1, dtype=np.float32)
 
     def fit(self, X: Array, Y: Array) -> None:
-        num_data, self._x_dim = X.shape
+        num_data = X.shape[0]
+        self._x_dims = tuple(X.shape[1:])
         _, self._y_dim = Y.shape
         assert Y.shape[0] == num_data
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
@@ -99,8 +100,8 @@ class _NormalizingRegressor(Regressor):
         self._fit(X, Y)
 
     def predict(self, x: Array) -> Array:
-        assert self._x_dim > -1, "Fit must be called before predict."
-        assert x.shape == (self._x_dim, )
+        assert len(self._x_dims), "Fit must be called before predict."
+        assert x.shape == self._x_dims
         # Normalize.
         x = (x - self._input_shift) / self._input_scale
         # Make prediction.
@@ -273,7 +274,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         super().__init__(seed)
         self._balance_data = balance_data
         # Set in fit().
-        self._x_dim = -1
+        self._x_dims: Tuple[int, ...] = tuple()
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
         self._do_single_class_prediction = False
@@ -284,7 +285,8 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
 
         X is two-dimensional, y is one-dimensional.
         """
-        num_data, self._x_dim = X.shape
+        num_data = X.shape[0]
+        self._x_dims = tuple(X.shape[1:])
         assert y.shape == (num_data, )
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
@@ -312,8 +314,8 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
 
         x is single-dimensional.
         """
-        assert self._x_dim > -1, "Fit must be called before classify."
-        assert x.shape == (self._x_dim, )
+        assert len(self._x_dims), "Fit must be called before classify."
+        assert x.shape == self._x_dims
         if self._do_single_class_prediction:
             return self._predicted_single_class
         # Normalize.
@@ -425,7 +427,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
     def _forward_single_input_np(self, x: Array) -> float:
         """Helper for _classify() and predict_proba()."""
-        assert x.shape == (self._x_dim, )
+        assert x.shape == self._x_dims
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
@@ -461,8 +463,9 @@ class MLPRegressor(PyTorchRegressor):
         return tensor_X
 
     def _initialize_net(self) -> None:
+        assert len(self._x_dims) == 1, "X should be two-dimensional"
         self._linears = nn.ModuleList()
-        self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+        self._linears.append(nn.Linear(self._x_dims[0], self._hid_sizes[0]))
         for i in range(len(self._hid_sizes) - 1):
             self._linears.append(
                 nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
@@ -553,9 +556,10 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         return tensor_X.squeeze(dim=-1)
 
     def _initialize_net(self) -> None:
+        assert len(self._x_dims) == 1, "X must be two-dimensional"
         self._linears = nn.ModuleList()
         self._linears.append(
-            nn.Linear(self._x_dim + self._y_dim, self._hid_sizes[0]))
+            nn.Linear(self._x_dims[0] + self._y_dim, self._hid_sizes[0]))
         for i in range(len(self._hid_sizes) - 1):
             self._linears.append(
                 nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
@@ -587,7 +591,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Cast to torch first.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
-        assert tensor_X.shape == (num_samples, self._x_dim)
+        assert tensor_X.shape == (num_samples, *self._x_dims)
         assert tensor_Y.shape == (num_samples, self._y_dim)
         # Expand tensor_Y in preparation for concat in the loop below.
         tensor_Y = tensor_Y[:, None, :]
@@ -597,10 +601,10 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # the num_negatives outputs, and the 1 positive output, have a
         # corresponding input.
         tiled_X = tensor_X.unsqueeze(1).repeat(1, num_negatives + 1, 1)
-        assert tiled_X.shape == (num_samples, num_negatives + 1, self._x_dim)
+        assert tiled_X.shape == (num_samples, num_negatives + 1, *self._x_dims)
         extended_X = tiled_X.reshape([-1, tensor_X.shape[-1]])
         assert extended_X.shape == (num_samples * (num_negatives + 1),
-                                    self._x_dim)
+                                    *self._x_dims)
         while True:
             # Resample negative examples on each iteration.
             neg_Y = torch.rand(size=(num_samples, num_negatives, self._y_dim),
@@ -611,7 +615,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
             # Concatenate to create the final input to the network.
             XY = torch.cat([extended_X, combined_Y], axis=1)  # type: ignore
             assert XY.shape == (num_samples * (num_negatives + 1),
-                                self._x_dim + self._y_dim)
+                                self._x_dims[0] + self._y_dim)
             # Create labels for multiclass loss. Note that the true inputs
             # are first, so the target labels are all zeros (see docstring).
             idxs = torch.zeros([num_samples], dtype=torch.int64)
@@ -646,7 +650,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              clip_value=self._clip_value)
 
     def _predict(self, x: Array) -> Array:
-        assert x.shape == (self._x_dim, )
+        assert x.shape == self._x_dims
         if self._inference_method == "sample_once":
             return self._predict_sample_once(x)
         if self._inference_method == "derivative_free":
@@ -664,7 +668,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Concatenate the x and ys.
         concat_xy = np.array([np.hstack([x, y]) for y in sample_ys],
                              dtype=np.float32)
-        assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
+        assert concat_xy.shape == (num_samples, self._x_dims[0] + self._y_dim)
         # Pass through network.
         scores = self(torch.from_numpy(concat_xy))
         # Find the highest probability sample.
@@ -726,12 +730,77 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Concatenate the x and ys.
         concat_xy = np.array([np.hstack([x, y]) for y in candidate_ys],
                              dtype=np.float32)
-        assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
+        assert concat_xy.shape == (num_samples, self._x_dims[0] + self._y_dim)
         # Pass through network.
         scores = self(torch.from_numpy(concat_xy))
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return candidate_ys[sample_idx]
+
+
+class CNNRegressor(PyTorchRegressor):
+    """A basic CNN regressor operating on 2D images with multiple channels."""
+
+    def __init__(self, seed: int, conv_channel_nums: List[int],
+                 conv_kernel_sizes: List[int], linear_hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters, clip_gradients: bool,
+                 clip_value: float, learning_rate: float) -> None:
+        """Create a CNNRegressor.
+
+        conv_channel_nums and conv_kernel_sizes define the sizes of the
+        output channels and square kernels for the Conv2d layers.
+        linear_hid_sizes is the same as hid_sizes for MLPRegressor.
+        """
+        super().__init__(seed, max_train_iters, clip_gradients, clip_value,
+                         learning_rate)
+        assert len(conv_channel_nums) == len(conv_kernel_sizes)
+        self._conv_channel_nums = conv_channel_nums
+        self._conv_kernel_sizes = conv_kernel_sizes
+        self._linear_hid_sizes = linear_hid_sizes
+
+        self._max_pool = nn.MaxPool2d(2, 2)
+        # Set in fit().
+        self._convs = nn.ModuleList()
+        self._linears = nn.ModuleList()
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        for _, conv in enumerate(self._convs):
+            tensor_X = self._max_pool(F.relu(conv(tensor_X)))
+        tensor_X = torch.flatten(tensor_X, 1)
+        for _, linear in enumerate(self._linears[:-1]):
+            tensor_X = F.relu(linear(tensor_X))
+        tensor_X = self._linears[-1](tensor_X)
+        return tensor_X
+
+    def _initialize_net(self) -> None:
+        self._convs = nn.ModuleList()
+
+        # We need to calculate the size of the tensor outputted from the Conv2d
+        # layers to use as the input dim for the linear layers post-flatten.
+        assert len(self._x_dims) == 3, "X should be 4-dimensional (N, C, H, W)"
+        c_dim, h_dim, w_dim = self._x_dims
+        for i in range(len(self._conv_channel_nums)):
+            kernel_size = self._conv_kernel_sizes[i]
+            self._convs.append(
+                nn.Conv2d(c_dim, self._conv_channel_nums[i], kernel_size))
+            # Calculate size after Conv2d + MaxPool2d
+            c_dim = self._conv_channel_nums[i]
+            h_dim = (h_dim - kernel_size + 1) // 2
+            w_dim = (w_dim - kernel_size + 1) // 2
+
+        flattened_size = c_dim * h_dim * w_dim
+        self._linears = nn.ModuleList()
+        self._linears.append(
+            nn.Linear(flattened_size, self._linear_hid_sizes[0]))
+        for i in range(len(self._linear_hid_sizes) - 1):
+            self._linears.append(
+                nn.Linear(self._linear_hid_sizes[i],
+                          self._linear_hid_sizes[i + 1]))
+        self._linears.append(nn.Linear(self._linear_hid_sizes[-1],
+                                       self._y_dim))
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        return nn.MSELoss()
 
 
 class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
@@ -762,8 +831,9 @@ class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
         # Versus MLPRegressor, the only difference here is that the output
         # size is 2 * self._y_dim, rather than self._y_dim, because we are
         # predicting both mean and diagonal variance.
+        assert len(self._x_dims) == 1, "X should be two-dimensional"
         self._linears = nn.ModuleList()
-        self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+        self._linears.append(nn.Linear(self._x_dims[0], self._hid_sizes[0]))
         for i in range(len(self._hid_sizes) - 1):
             self._linears.append(
                 nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
@@ -804,7 +874,7 @@ class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
         # Note: we need to use _predict(), rather than predict(), because
         # we need to apply normalization separately to the mean and variance
         # components of the prediction (see below).
-        assert x.shape == (self._x_dim, )
+        assert x.shape == self._x_dims
         # Normalize.
         norm_x = (x - self._input_shift) / self._input_scale
         norm_y = self._predict(norm_x)
@@ -857,7 +927,8 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
         self._linears = nn.ModuleList()
 
     def _initialize_net(self) -> None:
-        self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+        assert len(self._x_dims) == 1, "X should be two-dimensional"
+        self._linears.append(nn.Linear(self._x_dims[0], self._hid_sizes[0]))
         for i in range(len(self._hid_sizes) - 1):
             self._linears.append(
                 nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))

@@ -7,14 +7,17 @@ import contextlib
 import functools
 import gc
 import heapq as hq
+import importlib
 import io
 import itertools
 import logging
 import os
+import pkgutil
 import re
 import subprocess
 import sys
 import time
+from argparse import ArgumentParser
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -204,6 +207,52 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
             obj_vec.append(obj_data[feat])
         state_dict[obj] = np.array(obj_vec)
     return State(state_dict, simulator_state)
+
+
+def create_json_dict_from_ground_atoms(
+        ground_atoms: Collection[GroundAtom]) -> Dict[str, List[List[str]]]:
+    """Saves a set of ground atoms in a JSON-compatible dict.
+
+    Helper for creating the goal dict in create_json_dict_from_task().
+    """
+    predicate_to_argument_lists = defaultdict(list)
+    for atom in sorted(ground_atoms):
+        argument_list = [o.name for o in atom.objects]
+        predicate_to_argument_lists[atom.predicate.name].append(argument_list)
+    return dict(predicate_to_argument_lists)
+
+
+def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
+    """Create a JSON-compatible dict from a task.
+
+    The format of the dict is:
+
+    {
+        "objects": {
+            <object name>: <type name>
+        }
+        "init": {
+            <object name>: {
+                <feature name>: <value>
+            }
+        }
+        "goal": {
+            <predicate name> : [
+                [<object name>]
+            ]
+        }
+    }
+
+    The dict can be loaded with BaseEnv._load_task_from_json(). This is
+    helpful for testing and designing standalone tasks.
+    """
+    object_dict = {o.name: o.type.name for o in task.init}
+    init_dict = {
+        o.name: dict(zip(o.type.feature_names, task.init.data[o]))
+        for o in task.init
+    }
+    goal_dict = create_json_dict_from_ground_atoms(task.goal)
+    return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
 
 
 class _Geom2D(abc.ABC):
@@ -836,6 +885,27 @@ class PyBulletState(State):
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
 
+class StateWithCache(State):
+    """A state with a cache stored in the simulator state that is ignored for
+    state equality checks.
+
+    The cache is deliberately not copied.
+    """
+
+    @property
+    def cache(self) -> Dict[str, Dict]:
+        """Expose the cache in the simulator_state."""
+        return cast(Dict[str, Dict], self.simulator_state)
+
+    def allclose(self, other: State) -> bool:
+        # Ignores the simulator state.
+        return State(self.data).allclose(State(other.data))
+
+    def copy(self) -> State:
+        state_dict_copy = super().copy().data
+        return StateWithCache(state_dict_copy, self.cache)
+
+
 class Monitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
@@ -856,6 +926,7 @@ def run_policy(
         task_idx: int,
         termination_function: Callable[[State], bool],
         max_num_steps: int,
+        do_state_reset: bool = True,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
         monitor: Optional[Monitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
@@ -873,7 +944,10 @@ def run_policy(
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
     """
-    state = env.reset(train_or_test, task_idx)
+    state = env.get_state()
+    if do_state_reset:
+        state = env.reset(train_or_test, task_idx)
+    assert env.get_state().allclose(state)
     states = [state]
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
@@ -1067,6 +1141,20 @@ def create_random_option_policy(
     return _policy
 
 
+def sample_applicable_ground_nsrt(
+        state: State, ground_nsrts: Sequence[_GroundNSRT],
+        predicates: Set[Predicate],
+        rng: np.random.Generator) -> Optional[_GroundNSRT]:
+    """Choose uniformly among the ground NSRTs that are applicable in the
+    state."""
+    atoms = abstract(state, predicates)
+    applicable_nsrts = sorted(get_applicable_operators(ground_nsrts, atoms))
+    if len(applicable_nsrts) == 0:
+        return None
+    idx = rng.choice(len(applicable_nsrts))
+    return applicable_nsrts[idx]
+
+
 def action_arrs_to_policy(
         action_arrs: Sequence[Array]) -> Callable[[State], Action]:
     """Create a policy that executes action arrays in sequence."""
@@ -1105,7 +1193,8 @@ def get_object_combinations(objects: Collection[Object],
 def get_variable_combinations(
         variables: Collection[Variable],
         types: Sequence[Type]) -> Iterator[List[Variable]]:
-    """Get all combinations of objects satisfying the given types sequence."""
+    """Get all combinations of variables satisfying the given types
+    sequence."""
     return _get_entity_combinations(variables, types)
 
 
@@ -1401,13 +1490,16 @@ def run_astar(initial_state: _S,
 
 
 def run_hill_climbing(
-        initial_state: _S,
-        check_goal: Callable[[_S], bool],
-        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-        heuristic: Callable[[_S], float],
-        early_termination_heuristic_thresh: Optional[float] = None,
-        enforced_depth: int = 0,
-        parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
+    initial_state: _S,
+    check_goal: Callable[[_S], bool],
+    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+    heuristic: Callable[[_S], float],
+    early_termination_heuristic_thresh: Optional[float] = None,
+    enforced_depth: int = 0,
+    parallelize: bool = False,
+    verbose: bool = True,
+    timeout: float = float('inf')
+) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -1425,8 +1517,10 @@ def run_hill_climbing(
     last_heuristic = heuristic(cur_node.state)
     heuristics = [last_heuristic]
     visited = {initial_state}
-    logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
-                 f"with heuristic {last_heuristic}")
+    if verbose:
+        logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
+                     f"with heuristic {last_heuristic}")
+    start_time = time.perf_counter()
     while True:
 
         # Stops when heuristic reaches specified value.
@@ -1435,19 +1529,24 @@ def run_hill_climbing(
             break
 
         if check_goal(cur_node.state):
-            logging.info("\nTerminating hill climbing, achieved goal")
+            if verbose:
+                logging.info("\nTerminating hill climbing, achieved goal")
             break
         best_heuristic = float("inf")
         best_child_node = None
         current_depth_nodes = [cur_node]
         all_best_heuristics = []
         for depth in range(0, enforced_depth + 1):
-            logging.info(f"Searching for an improvement at depth {depth}")
+            if verbose:
+                logging.info(f"Searching for an improvement at depth {depth}")
             # This is a list to ensure determinism. Note that duplicates are
             # filtered out in the `child_state in visited` check.
             successors_at_depth = []
             for parent in current_depth_nodes:
                 for action, child_state, cost in get_successors(parent.state):
+                    # Raise error if timeout gets hit.
+                    if time.perf_counter() - start_time > timeout:
+                        raise TimeoutError()
                     if child_state in visited:
                         continue
                     visited.add(child_state)
@@ -1478,23 +1577,28 @@ def run_hill_climbing(
             all_best_heuristics.append(best_heuristic)
             if last_heuristic > best_heuristic:
                 # Some improvement found.
-                logging.info(f"Found an improvement at depth {depth}")
+                if verbose:
+                    logging.info(f"Found an improvement at depth {depth}")
                 break
             # Continue on to the next depth.
             current_depth_nodes = successors_at_depth
-            logging.info(f"No improvement found at depth {depth}")
+            if verbose:
+                logging.info(f"No improvement found at depth {depth}")
         if best_child_node is None:
-            logging.info("\nTerminating hill climbing, no more successors")
+            if verbose:
+                logging.info("\nTerminating hill climbing, no more successors")
             break
         if last_heuristic <= best_heuristic:
-            logging.info(
-                "\nTerminating hill climbing, could not improve score")
+            if verbose:
+                logging.info(
+                    "\nTerminating hill climbing, could not improve score")
             break
         heuristics.extend(all_best_heuristics)
         cur_node = best_child_node
         last_heuristic = best_heuristic
-        logging.info(f"\nHill climbing reached new state {cur_node.state} "
-                     f"with heuristic {last_heuristic}")
+        if verbose:
+            logging.info(f"\nHill climbing reached new state {cur_node.state} "
+                         f"with heuristic {last_heuristic}")
     states, actions = _finish_plan(cur_node)
     assert len(states) == len(heuristics)
     return states, actions, heuristics
@@ -1812,21 +1916,83 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
-def all_ground_ldl_rules(rule: LDLRule,
-                         objects: Collection[Object]) -> List[_GroundLDLRule]:
-    """Get all possible groundings of the given rule with the given objects."""
-    return _cached_all_ground_ldl_rules(rule, frozenset(objects))
+def all_ground_ldl_rules(
+    rule: LDLRule,
+    objects: Collection[Object],
+    static_predicates: Optional[Collection[Predicate]] = None,
+    init_atoms: Optional[Collection[GroundAtom]] = None
+) -> List[_GroundLDLRule]:
+    """Get all possible groundings of the given rule with the given objects.
+
+    If provided, use the static predicates and init_atoms to avoid
+    grounding rules that will never have satisfied preconditions in any
+    state.
+    """
+    if static_predicates is None:
+        static_predicates = set()
+    if init_atoms is None:
+        init_atoms = set()
+    return _cached_all_ground_ldl_rules(rule, frozenset(objects),
+                                        frozenset(static_predicates),
+                                        frozenset(init_atoms))
 
 
 @functools.lru_cache(maxsize=None)
 def _cached_all_ground_ldl_rules(
-        rule: LDLRule,
-        frozen_objects: FrozenSet[Object]) -> List[_GroundLDLRule]:
+        rule: LDLRule, objects: FrozenSet[Object],
+        static_predicates: FrozenSet[Predicate],
+        init_atoms: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
     """Helper for all_ground_ldl_rules() that caches the outputs."""
     ground_rules = []
-    types = [p.type for p in rule.parameters]
-    for choice in get_object_combinations(frozen_objects, types):
-        ground_rule = rule.ground(tuple(choice))
+    # Use static preconds to reduce the map of parameters to possible objects.
+    # For example, if IsBall(?x) is a positive state precondition, then only
+    # the objects that appear in init_atoms with IsBall could bind to ?x.
+    # For now, we just check unary static predicates, since that covers the
+    # common case where such predicates are used in place of types.
+    # Create map from each param to unary static predicates.
+    param_to_pos_preds: Dict[Variable, Set[Predicate]] = {
+        p: set()
+        for p in rule.parameters
+    }
+    param_to_neg_preds: Dict[Variable, Set[Predicate]] = {
+        p: set()
+        for p in rule.parameters
+    }
+    for (preconditions, param_to_preds) in [
+        (rule.pos_state_preconditions, param_to_pos_preds),
+        (rule.neg_state_preconditions, param_to_neg_preds),
+    ]:
+        for atom in preconditions:
+            pred = atom.predicate
+            if pred in static_predicates and pred.arity == 1:
+                param = atom.variables[0]
+                param_to_preds[param].add(pred)
+    # Create the param choices, filtering based on the unary static atoms.
+    param_choices = []  # list of lists of possible objects for each param
+    # Preprocess the atom sets for faster lookups.
+    init_atom_tups = {(a.predicate, tuple(a.objects)) for a in init_atoms}
+    for param in rule.parameters:
+        choices = []
+        for obj in objects:
+            # Types must match, as usual.
+            if obj.type != param.type:
+                continue
+            # Check the static conditions.
+            binding_valid = True
+            for pred in param_to_pos_preds[param]:
+                if (pred, (obj, )) not in init_atom_tups:
+                    binding_valid = False
+                    break
+            for pred in param_to_neg_preds[param]:
+                if (pred, (obj, )) in init_atom_tups:
+                    binding_valid = False
+                    break
+            if binding_valid:
+                choices.append(obj)
+        # Must be sorted for consistency with other grounding code.
+        param_choices.append(sorted(choices))
+    for choice in itertools.product(*param_choices):
+        ground_rule = rule.ground(choice)
         ground_rules.append(ground_rule)
     return ground_rules
 
@@ -1845,12 +2011,16 @@ class _LDLParser:
     def __init__(self, types: Collection[Type],
                  predicates: Collection[Predicate],
                  nsrts: Collection[NSRT]) -> None:
-        self._nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
-        self._type_name_to_type = {t.name: t for t in types}
-        self._predicate_name_to_predicate = {p.name: p for p in predicates}
+        self._nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+        self._type_name_to_type = {t.name.lower(): t for t in types}
+        self._predicate_name_to_predicate = {
+            p.name.lower(): p
+            for p in predicates
+        }
 
     def parse(self, ldl_str: str) -> LiftedDecisionList:
         """Run parsing."""
+        ldl_str = ldl_str.lower()  # ignore case during parsing
         rules = []
         rule_matches = re.finditer(r"\(:rule", ldl_str)
         for start in rule_matches:
@@ -2514,12 +2684,32 @@ def get_third_party_path() -> str:
     return third_party_dir_path
 
 
+def import_submodules(path: List[str], name: str) -> None:
+    """Load all submodules on the given path.
+
+    Useful for finding subclasses of an abstract base class
+    automatically.
+    """
+    if not TYPE_CHECKING:
+        for _, module_name, _ in pkgutil.walk_packages(path):
+            if "__init__" not in module_name:
+                # Important! We use an absolute import here to avoid issues
+                # with isinstance checking when using relative imports.
+                importlib.import_module(f"{name}.{module_name}")
+
+
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
+    parser = create_arg_parser()
+    update_config_with_parser(parser, args)
+
+
+def update_config_with_parser(parser: ArgumentParser, args: Dict[str,
+                                                                 Any]) -> None:
+    """Helper function for update_config() that accepts a parser argument."""
     arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
     # Only override attributes, don't create new ones.
     allowed_args = set(CFG.__dict__) | set(arg_specific_settings)
-    parser = create_arg_parser()
     # Unfortunately, can't figure out any other way to do this.
     for parser_action in parser._actions:  # pylint: disable=protected-access
         allowed_args.add(parser_action.dest)
@@ -2545,6 +2735,15 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     This utility is meant for use in testing only.
     """
     parser = create_arg_parser()
+    reset_config_with_parser(parser, args, default_seed,
+                             default_render_state_dpi)
+
+
+def reset_config_with_parser(parser: ArgumentParser,
+                             args: Optional[Dict[str, Any]] = None,
+                             default_seed: int = 123,
+                             default_render_state_dpi: int = 10) -> None:
+    """Helper function for reset_config that accepts a parser argument."""
     default_args = parser.parse_args([
         "--env",
         "default env placeholder",
@@ -2564,7 +2763,7 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
         # By default, use a small value for the rendering DPI, to avoid
         # expensive rendering during testing.
         arg_dict["render_state_dpi"] = default_render_state_dpi
-    update_config(arg_dict)
+    update_config_with_parser(parser, arg_dict)
 
 
 def get_config_path_str(experiment_id: Optional[str] = None) -> str:
@@ -2601,13 +2800,18 @@ def parse_args(env_required: bool = True,
     parser = create_arg_parser(env_required=env_required,
                                approach_required=approach_required,
                                seed_required=seed_required)
+    return parse_args_with_parser(parser)
+
+
+def parse_args_with_parser(parser: ArgumentParser) -> Dict[str, Any]:
+    """Helper function for parse_args that accepts a parser argument."""
     args, overrides = parser.parse_known_args()
     arg_dict = vars(args)
     if len(overrides) == 0:
         return arg_dict
     # Update initial settings to make sure we're overriding
     # existing flags only
-    update_config(arg_dict)
+    update_config_with_parser(parser, arg_dict)
     # Override global settings
     assert len(overrides) >= 2
     assert len(overrides) % 2 == 0
@@ -2690,23 +2894,6 @@ def parse_config_excluded_predicates(
     return included, excluded
 
 
-def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
-    """Parse the CFG.included_options string, given an environment.
-
-    Return the set of included oracle options.
-
-    Note that "all" is not implemented because setting the option_learner flag
-    to "no_learning" is the preferred way to include all options.
-    """
-    if not CFG.included_options:
-        return set()
-    included_names = set(CFG.included_options.split(","))
-    assert included_names.issubset({option.name for option in env.options}), \
-        "Unrecognized option in included_options!"
-    included_options = {o for o in env.options if o.name in included_names}
-    return included_options
-
-
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
                  objs: Sequence[Object]) -> Array:
     """A sampler for an NSRT with no continuous parameters."""
@@ -2753,18 +2940,30 @@ def nostdout() -> Generator[None, None, None]:
     sys.stdout = save_stdout
 
 
-def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
-              objects: Set[Object],
-              goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
+def query_ldl(
+    ldl: LiftedDecisionList,
+    atoms: Set[GroundAtom],
+    objects: Set[Object],
+    goal: Set[GroundAtom],
+    static_predicates: Optional[Set[Predicate]] = None,
+    init_atoms: Optional[Collection[GroundAtom]] = None
+) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
     Given an abstract state and goal, the rules are grounded in order. The
     first applicable ground rule is used to return a ground NSRT.
 
+    If static_predicates is provided, it is used to avoid grounding rules with
+    nonsense preconditions like IsBall(robot).
+
     If no rule is applicable, returns None.
     """
     for rule in ldl.rules:
-        for ground_rule in all_ground_ldl_rules(rule, objects):
+        for ground_rule in all_ground_ldl_rules(
+                rule,
+                objects,
+                static_predicates=static_predicates,
+                init_atoms=init_atoms):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
                not ground_rule.neg_state_preconditions & atoms and \
                ground_rule.goal_preconditions.issubset(goal):
@@ -2824,3 +3023,21 @@ def find_all_balanced_expressions(s: str) -> List[str]:
     assert balance == 0
     exprs.append(s[start_index:index + 1])
     return exprs
+
+
+def f_range_intersection(lb1: float, ub1: float, lb2: float,
+                         ub2: float) -> bool:
+    """Given upper and lower bounds for two feature ranges, returns True iff
+    the ranges intersect."""
+    return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
+
+
+def roundrobin(iterables: Sequence[Iterator]) -> Iterator:
+    """roundrobin(['ABC...', 'D...', 'EF...']) --> A D E B F C..."""
+    # Recipe credited to George Sakkis, code adapted slightly from
+    # from https://docs.python.org/3/library/itertools.html
+    num_active = len(iterables)
+    nexts = itertools.cycle(iter(it).__next__ for it in iterables)
+    while num_active:
+        for nxt in nexts:
+            yield nxt()

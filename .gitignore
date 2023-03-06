@@ -22,6 +22,8 @@ scripts/results
 llm_cache
 machines.txt
 *_vision_data
+tests/_fake_trajs
+tests/_fake_results
 
 # Jetbrains IDEs
 .idea/

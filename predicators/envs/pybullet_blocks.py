@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, List, Sequence, Tuple
+from typing import Callable, ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 import pybullet as p
@@ -13,7 +13,7 @@ from predicators.envs.blocks import BlocksEnv
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option
-from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
@@ -45,8 +45,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                                 )
 
         ## Pick option
-        types = self._Pick.types
-        params_space = self._Pick.params_space
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
         self._Pick: ParameterizedOption = utils.LinearChainParameterizedOption(
             "Pick",
             [
@@ -78,8 +78,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             ])
 
         ## Stack option
-        types = self._Stack.types
-        params_space = self._Stack.params_space
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
         self._Stack: ParameterizedOption = \
             utils.LinearChainParameterizedOption("Stack",
             [
@@ -106,8 +106,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             ])
 
         ## PutOnTable option
-        types = self._PutOnTable.types
-        params_space = self._PutOnTable.params_space
+        types = [self._robot_type]
+        params_space = Box(0, 1, (2, ))
         place_z = self.table_height + self._block_size / 2 + self._offset_z
         self._PutOnTable: ParameterizedOption = \
             utils.LinearChainParameterizedOption("PutOnTable",
@@ -135,6 +135,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
         self._block_id_to_block: Dict[int, Object] = {}
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._Pick, self._Stack, self._PutOnTable}
 
     def _initialize_pybullet(self) -> None:
         """Run super(), then handle blocks-specific initialization."""
@@ -216,15 +220,24 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
-        ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
+        robot_ee_orn = self._robot_ee_home_orn
+        ee_home = Pose(
+            (self.robot_init_x, self.robot_init_y, self.robot_init_z),
+            robot_ee_orn)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                 physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
+        # The orientation is fixed in this environment.
+        qx, qy, qz, qw = self._robot_ee_home_orn
         return np.array([
             state.get(self._robot, "pose_x"),
             state.get(self._robot, "pose_y"),
             state.get(self._robot, "pose_z"),
+            qx,
+            qy,
+            qz,
+            qw,
             self._fingers_state_to_joint(state.get(self._robot, "fingers")),
         ],
                         dtype=np.float32)
@@ -296,7 +309,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         state_dict = {}
 
         # Get robot state.
-        rx, ry, rz, rf = self._pybullet_robot.get_state()
+        rx, ry, rz, _, _, _, _, rf = self._pybullet_robot.get_state()
         fingers = self._fingers_joint_to_state(rf)
         state_dict[self._robot] = np.array([rx, ry, rz, fingers],
                                            dtype=np.float32)
@@ -375,15 +388,17 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D, str]:
+                params: Array) -> Tuple[Pose, Pose, str]:
             assert not params
             robot, block = objects
-            current_pose = (state.get(robot,
-                                      "pose_x"), state.get(robot, "pose_y"),
-                            state.get(robot, "pose_z"))
-            target_pose = (state.get(block,
-                                     "pose_x"), state.get(block, "pose_y"),
-                           z_func(state.get(block, "pose_z")))
+            current_position = (state.get(robot, "pose_x"),
+                                state.get(robot, "pose_y"),
+                                state.get(robot, "pose_z"))
+            current_pose = Pose(current_position, self._robot_ee_home_orn)
+            target_position = (state.get(block,
+                                         "pose_x"), state.get(block, "pose_y"),
+                               z_func(state.get(block, "pose_z")))
+            target_pose = Pose(target_position, self._robot_ee_home_orn)
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
@@ -405,15 +420,17 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D, str]:
+                params: Array) -> Tuple[Pose, Pose, str]:
             robot, = objects
-            current_pose = (state.get(robot,
-                                      "pose_x"), state.get(robot, "pose_y"),
-                            state.get(robot, "pose_z"))
+            current_position = (state.get(robot, "pose_x"),
+                                state.get(robot, "pose_y"),
+                                state.get(robot, "pose_z"))
+            current_pose = Pose(current_position, self._robot_ee_home_orn)
             # De-normalize parameters to actual table coordinates.
             x_norm, y_norm = params
-            target_pose = (self.x_lb + (self.x_ub - self.x_lb) * x_norm,
-                           self.y_lb + (self.y_ub - self.y_lb) * y_norm, z)
+            target_position = (self.x_lb + (self.x_ub - self.x_lb) * x_norm,
+                               self.y_lb + (self.y_ub - self.y_lb) * y_norm, z)
+            target_pose = Pose(target_position, self._robot_ee_home_orn)
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(

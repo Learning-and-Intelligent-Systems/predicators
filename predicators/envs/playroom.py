@@ -9,7 +9,7 @@ from gym.spaces import Box
 from matplotlib import patches
 
 from predicators import utils
-from predicators.envs.blocks import BlocksEnv
+from predicators.envs.blocks import BlocksEnv, BlocksEnvClear
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
@@ -65,59 +65,6 @@ class PlayroomSimpleEnv(BlocksEnv):
                                   self._LightOn_holds)
         self._LightOff = Predicate("LightOff", [self._dial_type],
                                    self._LightOff_holds)
-        # Options
-        self._Pick = utils.SingletonParameterizedOption(
-            # variables: [robot, object to pick]
-            # params: [rotation]
-            "Pick",
-            self._Pick_policy,
-            types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (1, )),
-            initiable=self._NextToTable_initiable)
-        self._Stack = utils.SingletonParameterizedOption(
-            # variables: [robot, object on which to stack currently-held-object]
-            # params: [rotation]
-            "Stack",
-            self._Stack_policy,
-            types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (1, )),
-            initiable=self._NextToTable_initiable)
-        self._PutOnTable = utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: [x, y, rotation] (normalized coords on table surface)
-            "PutOnTable",
-            self._PutOnTable_policy,
-            types=[self._robot_type],
-            params_space=Box(low=np.array([0.0, 0.0, -1.0]),
-                             high=np.array([1.0, 1.0, 1.0])),
-            initiable=self._NextToTable_initiable)
-        self._MoveTableToDial = utils.SingletonParameterizedOption(
-            # variables: [robot, dial]
-            # params: [dx, dy, rotation]
-            "MoveTableToDial",
-            self._MoveTableToDial_policy,  # uses robot, dial
-            types=[self._robot_type, self._dial_type],
-            params_space=Box(low=np.array([-4.0, -4.0, -1.0]),
-                             high=np.array([4.0, 4.0, 1.0])),
-            initiable=self._NextToTable_initiable)  # uses robot
-        self._TurnOnDial = utils.SingletonParameterizedOption(
-            # variables: [robot, dial]
-            # params: [dx, dy, dz, rotation]
-            "TurnOnDial",
-            self._ToggleDial_policy,
-            types=[self._robot_type, self._dial_type],
-            params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                             high=np.array([5.0, 5.0, 5.0, 1.0])),
-            initiable=self._ToggleDial_initiable)
-        self._TurnOffDial = utils.SingletonParameterizedOption(
-            # variables: [robot, dial]
-            # params: [dx, dy, dz, rotation]
-            "TurnOffDial",
-            self._ToggleDial_policy,
-            types=[self._robot_type, self._dial_type],
-            params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                             high=np.array([5.0, 5.0, 5.0, 1.0])),
-            initiable=self._ToggleDial_initiable)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._dial = Object("dial", self._dial_type)
@@ -201,11 +148,9 @@ class PlayroomSimpleEnv(BlocksEnv):
         return {self._block_type, self._robot_type, self._dial_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._Pick, self._Stack, self._PutOnTable, self._MoveTableToDial,
-            self._TurnOnDial, self._TurnOffDial
-        }
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -521,97 +466,6 @@ class PlayroomSimpleEnv(BlocksEnv):
     def _LightOff_holds(self, state: State, objects: Sequence[Object]) -> bool:
         return not self._LightOn_holds(state, objects)
 
-    def _Pick_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        # Differs from blocks because need robot rotation
-        del memory  # unused
-        _, block = objects
-        block_pose = np.array([
-            state.get(block, "pose_x"),
-            state.get(block, "pose_y"),
-            state.get(block, "pose_z")
-        ])
-        arr = np.r_[block_pose, params[-1], 0.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _Stack_policy(self, state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
-        # Differs from blocks because need robot rotation
-        del memory  # unused
-        _, block = objects
-        block_pose = np.array([
-            state.get(block, "pose_x"),
-            state.get(block, "pose_y"),
-            state.get(block, "pose_z")
-        ])
-        relative_grasp = np.array([
-            0.,
-            0.,
-            self._block_size,
-        ])
-        arr = np.r_[block_pose + relative_grasp, params[-1],
-                    1.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _PutOnTable_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        # Differs from blocks because need robot rotation, table bounds
-        del state, memory, objects  # unused
-        # Un-normalize parameters to actual table coordinates
-        x_norm, y_norm = params[:-1]
-        x = self.table_x_lb + (self.table_x_ub - self.table_x_lb) * x_norm
-        y = self.table_y_lb + (self.table_y_ub - self.table_y_lb) * y_norm
-        z = self.table_height + 0.5 * self._block_size
-        arr = np.array([x, y, z, params[-1], 1.0], dtype=np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    @staticmethod
-    def _NextToTable_initiable(state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> bool:
-        del memory, params  # unused
-        robot = objects[0]
-        return PlayroomSimpleEnv._NextToTable_holds(state, (robot, ))
-
-    def _MoveTableToDial_policy(self, state: State, memory: Dict,
-                                objects: Sequence[Object],
-                                params: Array) -> Action:
-        del memory  # unused
-        # params: [dx, dy, rotation]
-        robot, dial = objects
-        fingers = state.get(robot, "fingers")
-        dial_pose = np.array(
-            [state.get(dial, "pose_x"),
-             state.get(dial, "pose_y")])
-        arr = np.r_[dial_pose + params[:-1], 1.0, params[-1],
-                    fingers].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _ToggleDial_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        _, dial = objects
-        dial_pose = np.array([
-            state.get(dial, "pose_x"),
-            state.get(dial, "pose_y"), self.dial_button_z
-        ])
-        arr = np.r_[dial_pose + params[:-1], params[-1],
-                    1.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    @staticmethod
-    def _ToggleDial_initiable(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
-        del memory, params  # unused
-        # objects: (robot, dial)
-        return PlayroomSimpleEnv._NextToDial_holds(state, objects)
-
     def _robot_can_move(self, state: State, action: Action) -> bool:
         """No region or door stuff."""
         x, y, _, _, _ = action.arr
@@ -624,6 +478,19 @@ class PlayroomSimpleEnv(BlocksEnv):
                                           (self._robot, self._dial))):
             return False
         return True
+
+
+class PlayroomSimpleEnvClear(PlayroomSimpleEnv, BlocksEnvClear):
+    """Simple version of the boring room vs playroom domain where each block
+    has a feature indicating whether it is clear or not.
+
+    This allows us to learn all the predicates with the assumption that
+    the predicates are a function of only their argument's states.
+    """
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "playroom_simple_clear"
 
 
 class PlayroomEnv(PlayroomSimpleEnv):
@@ -668,50 +535,6 @@ class PlayroomEnv(PlayroomSimpleEnv):
                                    self._DoorOpen_holds)
         self._DoorClosed = Predicate("DoorClosed", [self._door_type],
                                      self._DoorClosed_holds)
-        # Additional and/or different options
-        self._MoveToDoor = utils.SingletonParameterizedOption(
-            # variables: [robot, region, door]
-            # params: [dx, dy, rotation]
-            "MoveToDoor",
-            self._MoveToDoor_policy,  # uses robot, door
-            types=[self._robot_type, self._region_type, self._door_type],
-            params_space=Box(-1, 1, (3, )),
-            initiable=self._MoveFromRegion_initiable)  # uses robot, region
-        self._MoveDoorToTable = utils.SingletonParameterizedOption(
-            # variables: [robot, region]
-            # params: [x, y, rotation] (x, y normalized)
-            "MoveDoorToTable",
-            self._MoveToTable_policy,  # uses robot
-            types=[self._robot_type, self._region_type],
-            params_space=Box(-1, 1, (3, )),
-            initiable=self._MoveFromRegion_initiable)  # uses robot, region
-        self._MoveDoorToDial = utils.SingletonParameterizedOption(
-            # variables: [robot, region, dial]
-            # params: [dx, dy, rotation]
-            "MoveDoorToDial",
-            self._MoveToDial_policy,  # uses robot, dial
-            types=[self._robot_type, self._region_type, self._dial_type],
-            params_space=Box(low=np.array([-4.0, -4.0, -1.0]),
-                             high=np.array([4.0, 4.0, 1.0])),
-            initiable=self._MoveFromRegion_initiable)  # uses robot, region
-        self._OpenDoor = utils.SingletonParameterizedOption(
-            # variables: [robot, door]
-            # params: [dx, dy, dz, rotation]
-            "OpenDoor",
-            self._ToggleDoor_policy,
-            types=[self._robot_type, self._door_type],
-            params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                             high=np.array([5.0, 5.0, 5.0, 1.0])),
-            initiable=self._ToggleDoor_initiable)
-        self._CloseDoor = utils.SingletonParameterizedOption(
-            # variables: [robot, door]
-            # params: [dx, dy, dz, rotation]
-            "CloseDoor",
-            self._ToggleDoor_policy,
-            types=[self._robot_type, self._door_type],
-            params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                             high=np.array([5.0, 5.0, 5.0, 1.0])),
-            initiable=self._ToggleDoor_initiable)
         # Additional static objects (always exist no matter the settings).
         self._door1 = Object("door1", self._door_type)
         self._door2 = Object("door2", self._door_type)
@@ -821,12 +644,9 @@ class PlayroomEnv(PlayroomSimpleEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._Pick, self._Stack, self._PutOnTable, self._MoveToDoor,
-            self._MoveDoorToTable, self._MoveDoorToDial, self._OpenDoor,
-            self._CloseDoor, self._TurnOnDial, self._TurnOffDial
-        }
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     def _sample_state_from_piles(self, piles: List[List[Object]],
                                  rng: np.random.Generator) -> State:
@@ -936,78 +756,6 @@ class PlayroomEnv(PlayroomSimpleEnv):
     @staticmethod
     def _DoorClosed_holds(state: State, objects: Sequence[Object]) -> bool:
         return not PlayroomEnv._DoorOpen_holds(state, objects)
-
-    @staticmethod
-    def _MoveFromRegion_initiable(state: State, memory: Dict,
-                                  objects: Sequence[Object],
-                                  params: Array) -> bool:
-        del memory, params  # unused
-        # objects: robot, region, ...
-        return PlayroomEnv._InRegion_holds(state, objects[:2])
-
-    def _MoveToDoor_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        # params: [dx, dy, rotation]
-        robot, door = objects[0], objects[-1]
-        fingers = state.get(robot, "fingers")
-        door_pose = np.array([
-            state.get(door, "pose_x"),
-            state.get(door, "pose_y"),
-        ])
-        arr = np.r_[door_pose + params[:-1], 1.0, params[-1],
-                    fingers].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _MoveToTable_policy(self, state: State, memory: Dict,
-                            objects: Sequence[Object],
-                            params: Array) -> Action:
-        del memory  # unused
-        # params: [x, y, rotation] (x, y in normalized coords)
-        robot = objects[0]
-        fingers = state.get(robot, "fingers")
-        x_norm, y_norm = params[:-1]
-        x = self.table_x_lb + (self.table_x_ub - self.table_x_lb) * x_norm
-        y = self.table_y_lb + (self.table_y_ub - self.table_y_lb) * y_norm
-        arr = np.array([x, y, 1.0, params[-1], fingers], dtype=np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _MoveToDial_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        # params: [dx, dy, rotation]
-        robot, _, dial = objects
-        fingers = state.get(robot, "fingers")
-        dial_pose = np.array(
-            [state.get(dial, "pose_x"),
-             state.get(dial, "pose_y")])
-        arr = np.r_[dial_pose + params[:-1], 1.0, params[-1],
-                    fingers].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _ToggleDoor_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        _, door = objects
-        door_pose = np.array([
-            state.get(door, "pose_x"),
-            state.get(door, "pose_y"), self.door_button_z
-        ])
-        arr = np.r_[door_pose + params[:-1], params[-1],
-                    1.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    @staticmethod
-    def _ToggleDoor_initiable(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
-        del memory, params  # unused
-        # objects: (robot, door)
-        return PlayroomEnv._NextToDoor_holds(state, objects)
 
     def _get_door_next_to(self, state: State) -> Object:
         # cannot be next to multiple doors at once

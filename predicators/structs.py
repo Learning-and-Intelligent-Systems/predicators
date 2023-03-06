@@ -431,20 +431,17 @@ class ParameterizedOption:
     # A policy maps a state, memory dict, objects, and parameters to an action.
     # The objects' types will match those in self.types. The parameters
     # will be contained in params_space.
-    policy: Callable[[State, Dict, Sequence[Object], Array],
-                     Action] = field(repr=False)
+    policy: ParameterizedPolicy = field(repr=False)
     # An initiation classifier maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option can start
     # now. The objects' types will match those in self.types. The
     # parameters will be contained in params_space.
-    initiable: Callable[[State, Dict, Sequence[Object], Array],
-                        bool] = field(repr=False)
+    initiable: ParameterizedInitiable = field(repr=False)
     # A termination condition maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option should
     # terminate now. The objects' types will match those in
     # self.types. The parameters will be contained in params_space.
-    terminal: Callable[[State, Dict, Sequence[Object], Array],
-                       bool] = field(repr=False)
+    terminal: ParameterizedTerminal = field(repr=False)
 
     @cached_property
     def _hash(self) -> int:
@@ -1409,13 +1406,39 @@ class LDLRule:
 
     @cached_property
     def _str(self) -> str:
-        nsrt_param_str = ", ".join([str(v) for v in self.nsrt.parameters])
-        return f"""LDLRule-{self.name}:
-    Parameters: {self.parameters}
-    Pos State Pre: {sorted(self.pos_state_preconditions, key=str)}
-    Neg State Pre: {sorted(self.neg_state_preconditions, key=str)}
-    Goal Pre: {sorted(self.goal_preconditions, key=str)}
-    NSRT: {self.nsrt.name}({nsrt_param_str})"""
+        parameter_str = "(" + " ".join(
+            [f"{p.name} - {p.type.name}" for p in self.parameters]) + ")"
+
+        def _atom_to_str(atom: LiftedAtom) -> str:
+            args_str = " ".join([v.name for v in atom.variables])
+            return f"({atom.predicate.name} {args_str})"
+
+        inner_preconditions_strs = [
+            _atom_to_str(a) for a in sorted(self.pos_state_preconditions)
+        ]
+        inner_preconditions_strs += [
+            "(not " + _atom_to_str(a) + ")"
+            for a in sorted(self.neg_state_preconditions)
+        ]
+        preconditions_str = " ".join(inner_preconditions_strs)
+        if len(inner_preconditions_strs) > 1:
+            preconditions_str = "(and " + preconditions_str + ")"
+        elif not inner_preconditions_strs:
+            preconditions_str = "()"
+        goals_strs = [_atom_to_str(a) for a in sorted(self.goal_preconditions)]
+        goals_str = " ".join(goals_strs)
+        if len(goals_strs) > 1:
+            goals_str = "(and " + goals_str + ")"
+        elif not goals_strs:
+            goals_str = "()"
+        action_param_str = " ".join([v.name for v in self.nsrt.parameters])
+        action_str = f"({self.nsrt.name} {action_param_str})"
+        return f"""(:rule {self.name}
+    :parameters {parameter_str}
+    :preconditions {preconditions_str}
+    :goals {goals_str}
+    :action {action_str}
+  )"""
 
     @cached_property
     def _hash(self) -> int:
@@ -1472,7 +1495,7 @@ class _GroundLDLRule:
 
     @property
     def name(self) -> str:
-        """Name of this ground LRL rule."""
+        """Name of this ground LDL rule."""
         return self.parent.name
 
     def __str__(self) -> str:
@@ -1520,14 +1543,15 @@ class LiftedDecisionList:
         return all(r1 == r2 for r1, r2 in zip(self.rules, other.rules))
 
     def __str__(self) -> str:
-        rule_str = "\n".join(str(r) for r in self.rules)
-        return f"LiftedDecisionList[\n{rule_str}\n]"
+        rule_str = "\n  ".join(str(r) for r in self.rules)
+        return f"(define (policy)\n  {rule_str}\n)"
 
 
 # Convenience higher-order types useful throughout the code
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
+ImageInput = NDArray[np.float32]
 Video = List[Image]
 Array = NDArray[np.float32]
 ObjToVarSub = Dict[Object, Variable]
@@ -1547,6 +1571,8 @@ GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
 ObjectOrVariable = TypeVar("ObjectOrVariable", bound=_TypedEntity)
 SamplerDatapoint = Tuple[State, VarToObjSub, _Option,
                          Optional[Set[GroundAtom]]]
+RefinementDatapoint = Tuple[Task, List[_GroundNSRT], List[Set[GroundAtom]],
+                            bool, float]
 # For PDDLEnv environments, given a desired number of problems and an rng,
 # returns a list of that many PDDL problem strings.
 PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
@@ -1554,5 +1580,9 @@ PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
 # a model, or a function that produces this number given the amount of data.
 MaxTrainIters = Union[int, Callable[[int], int]]
 ExplorationStrategy = Tuple[Callable[[State], Action], Callable[[State], bool]]
+ParameterizedPolicy = Callable[[State, Dict, Sequence[Object], Array], Action]
+ParameterizedInitiable = Callable[[State, Dict, Sequence[Object], Array], bool]
+ParameterizedTerminal = Callable[[State, Dict, Sequence[Object], Array], bool]
 AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
+RGBA = Tuple[float, float, float, float]
