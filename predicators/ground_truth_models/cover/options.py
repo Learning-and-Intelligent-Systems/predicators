@@ -1,6 +1,6 @@
 """Ground-truth options for the cover environment."""
 
-from typing import ClassVar, Dict, List, Sequence, Set, Tuple
+from typing import ClassVar, Dict, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -267,7 +267,7 @@ class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 
-        physics_client_id, pybullet_robot, _ = \
+        _, pybullet_robot, _ = \
             PyBulletCoverEnv.initialize_pybullet(using_gui=False)
 
         # Note: this isn't exactly correct because the first argument should be

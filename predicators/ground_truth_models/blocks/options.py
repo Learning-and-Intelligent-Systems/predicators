@@ -135,7 +135,7 @@ class PyBulletBlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 
-        physics_client_id, pybullet_robot, _ = \
+        _, pybullet_robot, _ = \
             PyBulletBlocksEnv.initialize_pybullet(using_gui=False)
 
         robot_type = types["robot"]

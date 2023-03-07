@@ -2,17 +2,14 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Sequence, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Set, Tuple
 
 import numpy as np
 import pybullet as p
-from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
-from predicators.pybullet_helpers.controllers import \
-    create_change_fingers_option, create_move_end_effector_to_pose_option
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
@@ -36,8 +33,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         self._block_id_to_block: Dict[int, Object] = {}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Stack, self._PutOnTable}
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @classmethod
     def initialize_pybullet(

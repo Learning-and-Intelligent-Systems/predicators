@@ -1,10 +1,9 @@
 """A PyBullet version of Cover."""
 
-from typing import Any, ClassVar, Dict, List, Sequence, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Set, Tuple
 
 import numpy as np
 import pybullet as p
-from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.cover import CoverEnv
@@ -14,7 +13,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    State, Task, Type
+    State, Task
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
