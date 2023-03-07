@@ -176,6 +176,7 @@ def _sesame_plan_with_astar(
                     task, option_model, skeleton, atoms_seq, new_seed,
                     timeout - (time.perf_counter() - start_time), metrics,
                     max_horizon)
+                print("PLAN:", plan, suc)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
@@ -572,7 +573,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     can_continue_on = False
                 # Check if the option was effectively a noop.
                 elif num_actions == 0:
-                    can_continue_on = False
+                    if CFG.env != "cozmo":
+                        can_continue_on = False
                 elif CFG.sesame_check_expected_atoms:
                     # Check atoms against expected atoms_sequence constraint.
                     assert len(traj) == len(atoms_sequence)
