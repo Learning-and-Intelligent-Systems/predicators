@@ -49,8 +49,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         self._pybullet_robot_fk = self._create_pybullet_robot(fk_physics_id)
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._PickPlace}
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     def simulate(self, state: State, action: Action) -> State:
         # To implement this, need to handle resetting to states where the
