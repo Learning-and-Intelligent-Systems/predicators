@@ -116,6 +116,11 @@ class BaseEnv(abc.ABC):
         """
         raise NotImplementedError("Matplotlib rendering not implemented!")
 
+    @property
+    def using_gui(self) -> bool:
+        """Whether the GUI for this environment is activated."""
+        return self._using_gui
+
     def render_state(self,
                      state: State,
                      task: Task,

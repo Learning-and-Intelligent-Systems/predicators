@@ -63,7 +63,7 @@ class PyBulletEnv(BaseEnv):
 
         # Set up all the static PyBullet content.
         self._physics_client_id, self._pybullet_robot, pybullet_bodies = \
-            self.initialize_pybullet(use_gui)
+            self.initialize_pybullet(self.using_gui)
         self._store_pybullet_bodies(pybullet_bodies)
 
     @classmethod
