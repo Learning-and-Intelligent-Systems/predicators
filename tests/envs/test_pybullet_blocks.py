@@ -1,5 +1,6 @@
 """Test cases for PyBulletBlocksEnv."""
 
+import functools
 import json
 import tempfile
 from pathlib import Path
@@ -34,7 +35,7 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         """Expose the robot, which is a static object."""
         return self._robot
 
-    @property
+    @functools.cached_property
     def _options(self):
         return {o.name: o for o in get_gt_options(self.get_name())}
 
