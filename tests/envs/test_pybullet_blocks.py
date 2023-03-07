@@ -10,6 +10,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Object, ParameterizedOption, State
 
@@ -34,19 +35,23 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._robot
 
     @property
+    def _options(self):
+        return {o.name: o for o in get_gt_options(self.get_name())}
+
+    @property
     def Pick(self):
         """Expose the Pick parameterized option."""
-        return self._Pick
+        return self._options["Pick"]
 
     @property
     def Stack(self):
         """Expose the Stack parameterized option."""
-        return self._Stack
+        return self._options["Stack"]
 
     @property
     def PutOnTable(self):
         """Expose the PutOnTable parameterized option."""
-        return self._PutOnTable
+        return self._options["PutOnTable"]
 
     def set_state(self, state):
         """Forcibly reset the state.
