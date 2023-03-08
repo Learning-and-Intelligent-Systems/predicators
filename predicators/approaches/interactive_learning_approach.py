@@ -123,10 +123,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     seed=CFG.seed,
                     ensemble_size=CFG.interactive_num_ensemble_members,
                     member_cls=KNeighborsClassifier,
-                    n_neighbors=CFG.predicate_knn_classifier_n_neighbors,
-                    weight_decay=CFG.weight_decay,
-                    use_torch_gpu=CFG.use_torch_gpu,
-                    train_print_every=CFG.pytorch_train_print_every)
+                    n_neighbors=CFG.predicate_knn_classifier_n_neighbors)
             else:
                 raise ValueError("Unrecognized predicate_classifier_model")
             model.fit(X, Y)
