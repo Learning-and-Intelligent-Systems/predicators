@@ -420,8 +420,12 @@ class GlobalSettings:
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
 
+    # torch GPU usage setting
+    use_torch_gpu = False
+
     # torch model parameters
     learning_rate = 1e-3
+    weight_decay = 0
     mlp_regressor_max_itr = 10000
     mlp_regressor_hid_sizes = [32, 32]
     mlp_regressor_clip_gradients = False
@@ -446,6 +450,9 @@ class GlobalSettings:
     implicit_mlp_regressor_derivative_free_sigma_init = 0.33
     implicit_mlp_regressor_derivative_free_shrink_scale = 0.5
     implicit_mlp_regressor_grid_num_ticks_per_dim = 100
+
+    # ml training parameters
+    pytorch_train_print_every = 1000
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
@@ -489,9 +496,9 @@ class GlobalSettings:
     refinement_data_failed_refinement_penalty = 5  # added time on failure
 
     # CNN refinement cost estimator image pre-processing parameters
-    cnn_refinement_estimator_crop = True
+    cnn_refinement_estimator_crop = False  # True
     cnn_refinement_estimator_crop_bounds = (320, 400, 100, 650)
-    cnn_refinement_estimator_downsample = 1
+    cnn_refinement_estimator_downsample = 2
 
     # glib explorer parameters
     glib_min_goal_size = 1
