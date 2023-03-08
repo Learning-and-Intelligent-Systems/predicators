@@ -1,0 +1,394 @@
+"""Ground-truth NSRTs for the cover environment."""
+
+from typing import Dict, Sequence, Set
+
+import numpy as np
+
+from predicators.ground_truth_models import GroundTruthNSRTFactory
+from predicators.settings import CFG
+from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
+    ParameterizedOption, Predicate, State, Type, Variable
+
+
+class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
+    """Ground-truth NSRTs for the Sokoban environment."""
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"sokoban"}
+
+    @staticmethod
+    def get_nsrts(env_name: str, types: Dict[str, Type],
+                  predicates: Dict[str, Predicate],
+                  options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
+        # Types
+        object_type = types["obj"]
+
+        # Objects
+        obj1 = Variable("?obj1", object_type)
+        obj2 = Variable("?obj2", object_type)
+        obj3 = Variable("?obj3", object_type)
+        obj4 = Variable("?obj4", object_type)
+        obj5 = Variable("?obj5", object_type)
+        obj6 = Variable("?obj6", object_type)
+
+        # Predicates
+        At = predicates["At"]
+        GoalCovered = predicates["GoalCovered"]
+        LocFree = predicates["Free"]
+        Above = predicates["Above"]
+        Below = predicates["Below"]
+        RightOf = predicates["RightOf"]
+        LeftOf = predicates["LeftOf"]
+        IsBox = predicates["IsBox"]
+        IsPlayer = predicates["IsPlayer"]
+        IsGoal = predicates["IsGoal"]
+
+        # Options
+        PushUp = options["PushUp"]
+        PushDown = options["PushDown"]
+        PushLeft = options["PushLeft"]
+        PushRight = options["PushRight"]
+        MoveUp = options["MoveUp"]
+        MoveDown = options["MoveDown"]
+        MoveLeft = options["MoveLeft"]
+        MoveRight = options["MoveRight"]
+
+        # All options in the discrete version of this env use a dummy
+        # sampler whose output isn't really used.
+        def dummy_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+            return np.zeros(1)
+
+        nsrts = set()
+
+        # MoveUp
+        # Player, from_loc, to_loc
+        parameters = [obj1, obj2, obj3]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(LocFree, [obj2]),
+            LiftedAtom(Above, [obj2, obj3]),
+            LiftedAtom(At, [obj1, obj2]),
+        }
+        add_effects = {LiftedAtom(At, [obj1, obj3])}
+        delete_effects = {LiftedAtom(At, [obj1, obj2])}
+        option = MoveUp
+        option_vars = []  # dummy - not used
+        move_up_nsrt = NSRT("MoveUp", parameters, preconditions, add_effects,
+                            delete_effects, set(), option, option_vars,
+                            dummy_sampler)
+        nsrts.add(move_up_nsrt)
+
+        # MoveDown
+        # Player, from_loc, to_loc
+        parameters = [obj1, obj2, obj3]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(LocFree, [obj2]),
+            LiftedAtom(Below, [obj2, obj3]),
+            LiftedAtom(At, [obj1, obj2]),
+        }
+        add_effects = {LiftedAtom(At, [obj1, obj3])}
+        delete_effects = {LiftedAtom(At, [obj1, obj2])}
+        option = MoveDown
+        option_vars = []  # dummy - not used
+        move_down_nsrt = NSRT("MoveDown", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, dummy_sampler)
+        nsrts.add(move_down_nsrt)
+
+        # MoveRight
+        # Player, from_loc, to_loc
+        parameters = [obj1, obj2, obj3]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(LocFree, [obj2]),
+            LiftedAtom(RightOf, [obj2, obj3]),
+            LiftedAtom(At, [obj1, obj2]),
+        }
+        add_effects = {LiftedAtom(At, [obj1, obj3])}
+        delete_effects = {LiftedAtom(At, [obj1, obj2])}
+        option = MoveRight
+        option_vars = []  # dummy - not used
+        move_right_nsrt = NSRT("MoveRight", parameters, preconditions,
+                               add_effects, delete_effects, set(), option,
+                               option_vars, dummy_sampler)
+        nsrts.add(move_right_nsrt)
+
+        # MoveLeft
+        # Player, from_loc, to_loc
+        parameters = [obj1, obj2, obj3]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(LocFree, [obj2]),
+            LiftedAtom(LeftOf, [obj2, obj3]),
+            LiftedAtom(At, [obj1, obj2]),
+        }
+        add_effects = {LiftedAtom(At, [obj1, obj3])}
+        delete_effects = {LiftedAtom(At, [obj1, obj2])}
+        option = MoveLeft
+        option_vars = []  # dummy - not used
+        move_left_nsrt = NSRT("MoveLeft", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, dummy_sampler)
+        nsrts.add(move_left_nsrt)
+
+        # PushUp
+        # Player, Box, player_loc, box_loc, pushto_loc
+        parameters = [obj1, obj2, obj3, obj4, obj5]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(IsBox, [obj2]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(Above, [obj4, obj3]),
+            LiftedAtom(Above, [obj5, obj4]),
+        }
+        add_effects = {
+            LiftedAtom(At, [obj2, obj5]),
+            LiftedAtom(At, [obj1, obj4]),
+            LiftedAtom(LocFree, [obj4])
+        }
+        delete_effects = {
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(GoalCovered, [obj4])
+        }
+        option = PushUp
+        option_vars = []  # dummy - not used
+        push_up_nsrt = NSRT("PushUp", parameters, preconditions, add_effects,
+                            delete_effects, set(), option, option_vars,
+                            dummy_sampler)
+        nsrts.add(push_up_nsrt)
+
+        # PushDown
+        # Player, Box, player_loc, box_loc, pushto_loc
+        parameters = [obj1, obj2, obj3, obj4, obj5]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(IsBox, [obj2]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(Below, [obj4, obj3]),
+            LiftedAtom(Below, [obj5, obj4]),
+        }
+        add_effects = {
+            LiftedAtom(At, [obj2, obj5]),
+            LiftedAtom(At, [obj1, obj4]),
+            LiftedAtom(LocFree, [obj4])
+        }
+        delete_effects = {
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(GoalCovered, [obj4])
+        }
+        option = PushDown
+        option_vars = []  # dummy - not used
+        push_down_nsrt = NSRT("PushDown", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, dummy_sampler)
+        nsrts.add(push_down_nsrt)
+
+        # PushRight
+        # Player, Box, player_loc, box_loc, pushto_loc
+        parameters = [obj1, obj2, obj3, obj4, obj5]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(IsBox, [obj2]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(RightOf, [obj4, obj3]),
+            LiftedAtom(RightOf, [obj5, obj4]),
+        }
+        add_effects = {
+            LiftedAtom(At, [obj2, obj5]),
+            LiftedAtom(At, [obj1, obj4]),
+            LiftedAtom(LocFree, [obj4])
+        }
+        delete_effects = {
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(GoalCovered, [obj4])
+        }
+        option = PushUp
+        option_vars = []  # dummy - not used
+        push_right_nsrt = NSRT("PushRight", parameters, preconditions,
+                               add_effects, delete_effects, set(), option,
+                               option_vars, dummy_sampler)
+        nsrts.add(push_right_nsrt)
+
+        # PushLeft
+        # Player, Box, player_loc, box_loc, pushto_loc
+        parameters = [obj1, obj2, obj3, obj4, obj5]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(IsBox, [obj2]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LeftOf, [obj4, obj3]),
+            LiftedAtom(LeftOf, [obj5, obj4]),
+        }
+        add_effects = {
+            LiftedAtom(At, [obj2, obj5]),
+            LiftedAtom(At, [obj1, obj4]),
+            LiftedAtom(LocFree, [obj4])
+        }
+        delete_effects = {
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(GoalCovered, [obj4])
+        }
+        option = PushUp
+        option_vars = []  # dummy - not used
+        push_left_nsrt = NSRT("PushLeft", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, dummy_sampler)
+        nsrts.add(push_left_nsrt)
+
+        # PushUpGoal
+        # Player, Box, player_loc, box_loc, goal_loc
+        parameters = [obj1, obj2, obj3, obj4, obj5]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(IsBox, [obj2]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(IsGoal, [obj5]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(Above, [obj4, obj3]),
+            LiftedAtom(Above, [obj5, obj4]),
+        }
+        add_effects = {
+            LiftedAtom(At, [obj2, obj5]),
+            LiftedAtom(At, [obj1, obj4]),
+            LiftedAtom(LocFree, [obj4]),
+            LiftedAtom(GoalCovered, [obj5])
+        }
+        delete_effects = {
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(GoalCovered, [obj4])
+        }
+        option = PushUp
+        option_vars = []  # dummy - not used
+        push_up_goal_nsrt = NSRT("PushUpGoal", parameters,
+                                 preconditions, add_effects, delete_effects,
+                                 set(), option, option_vars, dummy_sampler)
+        nsrts.add(push_up_goal_nsrt)
+
+        # PushDownGoal
+        # Player, Box, player_loc, box_loc, goal_loc
+        parameters = [obj1, obj2, obj3, obj4, obj5]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(IsBox, [obj2]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(IsGoal, [obj5]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(Below, [obj4, obj3]),
+            LiftedAtom(Below, [obj5, obj4]),
+        }
+        add_effects = {
+            LiftedAtom(At, [obj2, obj5]),
+            LiftedAtom(At, [obj1, obj4]),
+            LiftedAtom(LocFree, [obj4]),
+            LiftedAtom(GoalCovered, [obj5])
+        }
+        delete_effects = {
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(GoalCovered, [obj4])
+        }
+        option = PushDown
+        option_vars = []  # dummy - not used
+        push_down_goal_nsrt = NSRT("PushDownGoal", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   set(), option, option_vars, dummy_sampler)
+        nsrts.add(push_down_goal_nsrt)
+
+        # PushRightGoal
+        # Player, Box, player_loc, box_loc, goal_loc
+        parameters = [obj1, obj2, obj3, obj4, obj5]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(IsBox, [obj2]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(IsGoal, [obj5]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(RightOf, [obj4, obj3]),
+            LiftedAtom(RightOf, [obj5, obj4]),
+        }
+        add_effects = {
+            LiftedAtom(At, [obj2, obj5]),
+            LiftedAtom(At, [obj1, obj4]),
+            LiftedAtom(LocFree, [obj4]),
+            LiftedAtom(GoalCovered, [obj5])
+        }
+        delete_effects = {
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(GoalCovered, [obj4])
+        }
+        option = PushRight
+        option_vars = []  # dummy - not used
+        push_right_goal_nsrt = NSRT("PushRightGoal", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    set(), option, option_vars, dummy_sampler)
+        nsrts.add(push_right_goal_nsrt)
+
+        # PushLeftGoal
+        # Player, Box, player_loc, box_loc, goal_loc
+        parameters = [obj1, obj2, obj3, obj4, obj5]
+        preconditions = {
+            LiftedAtom(IsPlayer, [obj1]),
+            LiftedAtom(IsBox, [obj2]),
+            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(IsGoal, [obj5]),
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LeftOf, [obj4, obj3]),
+            LiftedAtom(LeftOf, [obj5, obj4]),
+        }
+        add_effects = {
+            LiftedAtom(At, [obj2, obj5]),
+            LiftedAtom(At, [obj1, obj4]),
+            LiftedAtom(LocFree, [obj4]),
+            LiftedAtom(GoalCovered, [obj5])
+        }
+        delete_effects = {
+            LiftedAtom(At, [obj1, obj3]),
+            LiftedAtom(At, [obj2, obj4]),
+            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(GoalCovered, [obj4])
+        }
+        option = PushLeft
+        option_vars = []  # dummy - not used
+        push_left_goal_nsrt = NSRT("PushLeftGoal", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   set(), option, option_vars, dummy_sampler)
+        nsrts.add(push_left_goal_nsrt)
+
+        return nsrts

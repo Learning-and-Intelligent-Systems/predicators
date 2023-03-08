@@ -23,21 +23,22 @@ class SokobanGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
-        
+
         # Reference for discrete actions:
         # https://github.com/mpSchrader/gym-sokoban
         discrete_action_names = [
-            "PushUp", "PushDown", "PushLeft", "PushRight",
-            "MoveUp", "MoveDown", "MoveLeft", "MoveRight"
+            "PushUp", "PushDown", "PushLeft", "PushRight", "MoveUp",
+            "MoveDown", "MoveLeft", "MoveRight"
         ]
 
-        options = {utils.SingletonParameterizedOption(
-            name,
-            cls._create_policy(discrete_action=(i+1)))
-            for i, name in enumerate(discrete_action_names)}
+        options = {
+            utils.SingletonParameterizedOption(
+                name, cls._create_policy(discrete_action=(i + 1)))
+            for i, name in enumerate(discrete_action_names)
+        }
 
         return options
-    
+
     @classmethod
     def _create_policy(cls, discrete_action: int) -> ParameterizedPolicy:
 

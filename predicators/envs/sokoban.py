@@ -1,13 +1,13 @@
 """A Sokoban environment wrapping https://github.com/mpSchrader/gym-sokoban."""
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
+import gym
+import gym_sokoban
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.typing import NDArray
 from gym.spaces import Box
-import gym
-import gym_sokoban
+from numpy.typing import NDArray
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -15,13 +15,14 @@ from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, Video
 
-
 # Free, goals, boxes, player masks.
-_Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]]
+_Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8],
+                     NDArray[np.uint8]]
 
 # TODO: Big bug here: After we get a number of tasks, the simulator gets into the
 # configuration of the last task. However, when we start planning, we need to
 # set it to the current task we're trying to solve!
+
 
 class SokobanEnv(BaseEnv):
     """Sokoban environment wrapping gym-sokoban."""
@@ -40,14 +41,30 @@ class SokobanEnv(BaseEnv):
         self._object_type = Type("obj", ["row", "column", "type"])
 
         # Predicates
-        self._At = Predicate("At", [self._object_type, self._object_type], self._At_holds)
-        self._LocFree = Predicate("Free", [self._object_type], self._Free_Holds)
-        self._Above = Predicate("Above", [self._object_type, self._object_type], self._Above_Holds)
-        self._Below = Predicate("Below", [self._object_type, self._object_type], self._Below_Holds)
-        self._RightOf = Predicate("RightOf", [self._object_type, self._object_type], self._RightOf_Holds)
-        self._LeftOf = Predicate("LeftOf", [self._object_type, self._object_type], self._LeftOf_Holds)
-        self._Above = Predicate("Above", [self._object_type], self._Above_Holds)
-        self._GoalCovered = Predicate("GoalCovered", [self._object_type], self._GoalCovered_holds)
+        self._At = Predicate("At", [self._object_type, self._object_type],
+                             self._At_holds)
+        self._LocFree = Predicate("Free", [self._object_type],
+                                  self._IsFree_holds)
+        self._Above = Predicate("Above",
+                                [self._object_type, self._object_type],
+                                self._Above_holds)
+        self._Below = Predicate("Below",
+                                [self._object_type, self._object_type],
+                                self._Below_holds)
+        self._RightOf = Predicate("RightOf",
+                                  [self._object_type, self._object_type],
+                                  self._RightOf_holds)
+        self._LeftOf = Predicate("LeftOf",
+                                 [self._object_type, self._object_type],
+                                 self._LeftOf_holds)
+        self._IsBox = Predicate("IsBox", [self._object_type],
+                                self._IsBox_holds)
+        self._IsPlayer = Predicate("IsPlayer", [self._object_type],
+                                   self._IsPlayer_holds)
+        self._IsGoal = Predicate("IsGoal", [self._object_type],
+                                 self._IsGoal_holds)
+        self._GoalCovered = Predicate("GoalCovered", [self._object_type],
+                                      self._GoalCovered_holds)
 
         # TODO: change to a different level?
         self._gym_env = gym.make("Sokoban-v0")
@@ -64,11 +81,11 @@ class SokobanEnv(BaseEnv):
         return "sokoban"
 
     def render_state_plt(
-        self,
-        state: State,
-        task: Task,
-        action: Optional[Action] = None,
-        caption: Optional[str] = None) -> matplotlib.figure.Figure:
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
 
     def render_state(self,
@@ -80,16 +97,19 @@ class SokobanEnv(BaseEnv):
                                   "arbitrary states.")
 
     def render(self,
-            action: Optional[Action] = None,
-            caption: Optional[str] = None) -> Video:
+               action: Optional[Action] = None,
+               caption: Optional[str] = None) -> Video:
         assert caption is None
         arr = self._gym_env.render('rgb_array')
         return [arr]
 
     @property
     def predicates(self) -> Set[Predicate]:
-        # TODO
-        return {self._At, self._GoalCovered}
+        return {
+            self._At, self._GoalCovered, self._LocFree, self._Above,
+            self._Below, self._RightOf, self._LeftOf, self._IsBox,
+            self._IsPlayer, self._IsGoal
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -107,8 +127,28 @@ class SokobanEnv(BaseEnv):
         uppers = np.ones(9, dtype=np.float32)
         return Box(lowers, uppers)
 
+    def get_state(self) -> State:
+        obs = self._gym_env.render(mode='raw')
+        return self._observation_to_state(obs)
+
     def simulate(self, state: State, action: Action) -> State:
-        raise NotImplementedError("Simulate not implemented for gym envs")
+        orig_simulator_state = state.simulator_state
+        state.simulator_state = None
+        if not state.allclose(self.get_state()):
+            # If this check fails, then we've switched tasks
+            # and need to reset our simulator to its original state.
+            assert orig_simulator_state is not None
+            self._reset_initial_state_from_seed(orig_simulator_state)
+            assert state.allclose(self.get_state())
+        state.simulator_state = orig_simulator_state
+        next_state = self.step(action)
+        # Now, we need to do correct object tracking by finding the difference
+        # between the current state and the next state.
+        for obj in state:
+            if (state.data[obj] != next_state.data[obj]).any():
+                print(obj)
+        import ipdb; ipdb.set_trace()
+        return next_state
 
     def step(self, action: Action) -> State:
         # Convert our actions to their discrete action space.
@@ -127,9 +167,12 @@ class SokobanEnv(BaseEnv):
         for i in range(num):
             seed = i + seed_offset
             obs = self._reset_initial_state_from_seed(seed)
-            init_state = self._observation_to_state(obs)
+            init_state = self._observation_to_state(obs, seed)
             # The goal is always for all goal objects to be covered.
-            goal_objs = [o for o in init_state if init_state.get(o, "type") == self._type_to_enum["goal"]]
+            goal_objs = [
+                o for o in init_state
+                if init_state.get(o, "type") == self._type_to_enum["goal"]
+            ]
             goal = {GroundAtom(self._GoalCovered, [o]) for o in goal_objs}
             task = Task(init_state, goal)
             tasks.append(task)
@@ -140,7 +183,7 @@ class SokobanEnv(BaseEnv):
         self._gym_env.reset()
         return self._gym_env.render(mode='raw')
 
-    def _observation_to_state(self, obs: _Observation) -> State:
+    def _observation_to_state(self, obs: _Observation, seed: Optional[int] = None) -> State:
         """Extract a State from a self._gym_env observation."""
         state_dict = {}
 
@@ -153,18 +196,56 @@ class SokobanEnv(BaseEnv):
         }
         assert set(type_to_mask) == set(self._type_to_enum)
 
-        for type_name, mask in  type_to_mask.items():
+        for type_name, mask in type_to_mask.items():
             enum = self._type_to_enum[type_name]
+            i = 0
             for r, c in np.argwhere(mask):
-                obj = Object(f"{type_name}_{r}_{c}", self._object_type)
+                obj = Object(f"{type_name}_{i}", self._object_type)
                 state_dict[obj] = {
                     "row": r,
                     "column": c,
                     "type": enum,
                 }
+                i += 1
 
         state = utils.create_state_from_dict(state_dict)
+        state.simulator_state = seed
         return state
+
+    def _IsFree_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        # A location is 'free' if it has type 'free' and there is no
+        # box covering it.
+        loc, = objects
+        loc_type = state.get(loc, "type")
+        if not (loc_type == self._type_to_enum["free"]):
+            return False
+        loc_r = state.get(loc, "row")
+        loc_c = state.get(loc, "column")
+        boxes = [
+            o for o in state
+            if state.get(o, "type") == self._type_to_enum["box"]
+        ]
+        for box in boxes:
+            r = state.get(box, "row")
+            c = state.get(box, "column")
+            if r == loc_r and c == loc_c:
+                return False
+        return True
+
+    def _IsBox_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        obj, = objects
+        obj_type = state.get(obj, "type")
+        return obj_type == self._type_to_enum["box"]
+
+    def _IsGoal_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        obj, = objects
+        obj_type = state.get(obj, "type")
+        return obj_type == self._type_to_enum["goal"]
+
+    def _IsPlayer_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        obj, = objects
+        obj_type = state.get(obj, "type")
+        return obj_type == self._type_to_enum["player"]
 
     @staticmethod
     def _At_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -174,12 +255,54 @@ class SokobanEnv(BaseEnv):
         obj_c = state.get(obj, "column")
         loc_c = state.get(loc, "column")
         return obj_r == loc_r and obj_c == loc_c
-    
-    def _GoalCovered_holds(self, state: State, objects: Sequence[Object]) -> bool:
+
+    @staticmethod
+    def _Above_holds(state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2, = objects
+        obj1_r = state.get(obj1, "row")
+        obj1_c = state.get(obj1, "column")
+        obj2_r = state.get(obj2, "row")
+        obj2_c = state.get(obj2, "column")
+        return (obj1_r == obj2_r) and ((obj1_c + 1) == obj2_c)
+
+    @staticmethod
+    def _Below_holds(state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2, = objects
+        obj1_r = state.get(obj1, "row")
+        obj1_c = state.get(obj1, "column")
+        obj2_r = state.get(obj2, "row")
+        obj2_c = state.get(obj2, "column")
+        return (obj1_r == obj2_r) and ((obj1_c - 1) == obj2_c)
+
+    @staticmethod
+    def _RightOf_holds(state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2, = objects
+        obj1_r = state.get(obj1, "row")
+        obj1_c = state.get(obj1, "column")
+        obj2_r = state.get(obj2, "row")
+        obj2_c = state.get(obj2, "column")
+        return ((obj1_r + 1) == obj2_r) and (obj1_c == obj2_c)
+
+    @staticmethod
+    def _LeftOf_holds(state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2, = objects
+        obj1_r = state.get(obj1, "row")
+        obj1_c = state.get(obj1, "column")
+        obj2_r = state.get(obj2, "row")
+        obj2_c = state.get(obj2, "column")
+        return ((obj1_r - 1) == obj2_r) and (obj1_c == obj2_c)
+
+    def _GoalCovered_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
         goal, = objects
+        if not self._IsGoal_holds(state, objects):
+            return False
         goal_r = state.get(goal, "row")
         goal_c = state.get(goal, "column")
-        boxes = [o for o in state if state.get(o, "type") == self._type_to_enum["box"]]
+        boxes = [
+            o for o in state
+            if state.get(o, "type") == self._type_to_enum["box"]
+        ]
         for box in boxes:
             r = state.get(box, "row")
             c = state.get(box, "column")

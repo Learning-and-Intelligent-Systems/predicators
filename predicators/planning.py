@@ -592,6 +592,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                         if cur_idx == len(skeleton):
                             return plan, True  # success!
                     else:
+                        import ipdb; ipdb.set_trace()
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
