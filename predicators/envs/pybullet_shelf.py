@@ -70,6 +70,9 @@ class PyBulletShelfEnv(PyBulletEnv):
     shelf_x: ClassVar[float] = _x_ub - _shelf_width / 2
     shelf_y: ClassVar[float] = _y_lb + _shelf_length / 2
 
+    # Camera parameter override.
+    _camera_distance: ClassVar[float] = 1.0
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -470,7 +473,12 @@ class PyBulletShelfEnv(PyBulletEnv):
         ds = ["x", "y"]
         sizes = [self._shelf_width, self._shelf_length]
         # TODO factor out
-        return self._object_contained_in_object(block, shelf, state, ds, sizes)
+        if not self._object_contained_in_object(block, shelf, state, ds, sizes):
+            return False
+        min_z = self.table_height + self.shelf_base_height
+        max_z = min_z + self._shelf_ceiling_height + self.block_size / 2
+        block_z = state.get(block, "pose_z")
+        return min_z <= block_z <= max_z
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
