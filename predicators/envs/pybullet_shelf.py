@@ -291,7 +291,8 @@ class PyBulletShelfEnv(PyBulletEnv):
         return robot
 
     def _extract_robot_state(self, state: State) -> Array:
-        fingers = self.fingers_state_to_joint(self._pybullet_robot, state.get(self._robot, "fingers"))
+        fingers = self.fingers_state_to_joint(
+            self._pybullet_robot, state.get(self._robot, "fingers"))
         return np.array([
             state.get(self._robot, "pose_x"),
             state.get(self._robot, "pose_y"),

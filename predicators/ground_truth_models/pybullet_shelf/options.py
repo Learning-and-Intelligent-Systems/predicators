@@ -8,14 +8,14 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs.pybullet_shelf import PyBulletShelfEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.structs import Action, Array, Object, \
-    ParameterizedInitiable, ParameterizedOption, ParameterizedPolicy, \
-    Predicate, State, Type
 from predicators.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option
 from predicators.pybullet_helpers.geometry import Pose, Pose3D
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
+from predicators.structs import Action, Array, Object, \
+    ParameterizedInitiable, ParameterizedOption, ParameterizedPolicy, \
+    Predicate, State, Type
 
 
 class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
@@ -77,8 +77,8 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
                     params_space=params_space),
                 # Open fingers.
                 create_change_fingers_option(
-                    pybullet_robot, "OpenFingers", option_types,
-                    params_space, open_fingers_func, CFG.pybullet_max_vel_norm,
+                    pybullet_robot, "OpenFingers", option_types, params_space,
+                    open_fingers_func, CFG.pybullet_max_vel_norm,
                     PyBulletShelfEnv.grasp_tol),
                 # Move down to grasp.
                 cls._create_move_to_above_object_option(
@@ -90,8 +90,8 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
                     params_space=params_space),
                 # Close fingers.
                 create_change_fingers_option(
-                    pybullet_robot, "CloseFingers", option_types,
-                    params_space, close_fingers_func, CFG.pybullet_max_vel_norm,
+                    pybullet_robot, "CloseFingers", option_types, params_space,
+                    close_fingers_func, CFG.pybullet_max_vel_norm,
                     PyBulletShelfEnv.grasp_tol),
                 # Move back up.
                 cls._create_move_to_above_object_option(
@@ -101,14 +101,12 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
                     pybullet_robot=pybullet_robot,
                     option_types=option_types,
                     params_space=params_space),
-                # TODO
                 # Use motion planning to move to shelf pre-place pose.
-                # cls._create_move_to_shelf_place_option(
-                #     pybullet_robot=pybullet_robot,
-                #     collision_bodies=collision_bodies,
-                #     option_types=option_types,
-                #     params_space=params_space
-                # )
+                cls._create_move_to_shelf_place_option(
+                    pybullet_robot=pybullet_robot,
+                    collision_bodies=collision_bodies,
+                    option_types=option_types,
+                    params_space=params_space)
             ])
 
         return {PickPlace}
@@ -116,12 +114,12 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def _create_move_to_above_object_option(
             cls, name: str, z_func: Callable[[float], float],
-            finger_status: str,
-            pybullet_robot: SingleArmPyBulletRobot,
+            finger_status: str, pybullet_robot: SingleArmPyBulletRobot,
             option_types: Sequence[Type],
             params_space: Box) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         argument.
+
         The parameter z_func maps the object's z position to the target
         z position.
         """
@@ -131,9 +129,9 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
                 params: Array) -> Tuple[Pose3D, Pose3D, str]:
             assert not params
             robot, obj = objects
-            current_position = (state.get(robot,
-                                      "pose_x"), state.get(robot, "pose_y"),
-                            state.get(robot, "pose_z"))
+            current_position = (state.get(robot, "pose_x"),
+                                state.get(robot, "pose_y"),
+                                state.get(robot, "pose_z"))
             current_orn = (
                 state.get(robot, "pose_q0"),
                 state.get(robot, "pose_q1"),
@@ -141,8 +139,9 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
                 state.get(robot, "pose_q3"),
             )
             current_pose = Pose(current_position, current_orn)
-            target_position = (state.get(obj, "pose_x"), state.get(obj, "pose_y"),
-                           z_func(state.get(obj, "pose_z")))
+            target_position = (state.get(obj,
+                                         "pose_x"), state.get(obj, "pose_y"),
+                               z_func(state.get(obj, "pose_z")))
             target_orn = PyBulletShelfEnv.get_robot_ee_home_orn()
             target_pose = Pose(target_position, target_orn)
             return current_pose, target_pose, finger_status
@@ -154,10 +153,9 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
             cls._finger_action_nudge_magnitude)
 
     @classmethod
-    def _create_move_to_shelf_place_option(cls,
-            pybullet_robot: SingleArmPyBulletRobot,
-            collision_bodies: Set[int],
-            option_types: Sequence[Type],
+    def _create_move_to_shelf_place_option(
+            cls, pybullet_robot: SingleArmPyBulletRobot,
+            collision_bodies: Set[int], option_types: Sequence[Type],
             params_space: Box):
         name = "MoveToShelfPrePlace"
         finger_status = "closed"
@@ -183,26 +181,29 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
             assert not params
             robot, _ = objects
             current_pose = Pose(
-                (state.get(robot, "pose_x"),
-                state.get(robot, "pose_y"),
-                state.get(robot, "pose_z")),
-                (state.get(robot, "pose_q0"),
-                state.get(robot, "pose_q1"),
-                state.get(robot, "pose_q2"),
-                state.get(robot, "pose_q3")),
+                (state.get(robot, "pose_x"), state.get(
+                    robot, "pose_y"), state.get(robot, "pose_z")),
+                (state.get(robot, "pose_q0"), state.get(robot, "pose_q1"),
+                 state.get(robot, "pose_q2"), state.get(robot, "pose_q3")),
             )
             return current_pose, target_pose, finger_status
 
-        def _get_held_body_transform(state: State, objects: Sequence[Object]) -> Tuple[Pose3D, Pose3D, str]:
+        def _get_held_body_transform(
+                state: State,
+                objects: Sequence[Object]) -> Tuple[Pose3D, Pose3D, str]:
             # TODO
             return None
 
         # TODO: copy in "mode" thing
 
         return create_move_end_effector_to_pose_option(
-            pybullet_robot, name, option_types, params_space,
+            pybullet_robot,
+            name,
+            option_types,
+            params_space,
             _get_current_and_target_pose_and_finger_status,
-            cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            cls._move_to_pose_tol,
+            CFG.pybullet_max_vel_norm,
             cls._finger_action_nudge_magnitude,
             mode="motion_planning",
             get_collision_bodies=lambda _1, _2: collision_bodies,
