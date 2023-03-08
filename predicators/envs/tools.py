@@ -19,8 +19,8 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
+    Task, Type
 
 
 class ToolsEnv(BaseEnv):
@@ -210,11 +210,6 @@ class ToolsEnv(BaseEnv):
             self._nail_type, self._hammer_type, self._bolt_type,
             self._wrench_type, self._contraption_type
         }
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:

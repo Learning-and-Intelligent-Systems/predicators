@@ -17,8 +17,8 @@ from matplotlib import patches
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
+    Task, Type
 
 
 class PaintingEnv(BaseEnv):
@@ -294,11 +294,6 @@ class PaintingEnv(BaseEnv):
             self._obj_type, self._box_type, self._lid_type, self._shelf_type,
             self._robot_type
         }
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:

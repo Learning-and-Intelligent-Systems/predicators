@@ -1,6 +1,6 @@
 """A PyBullet version of Cover."""
 
-from typing import Any, ClassVar, Dict, List, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Tuple
 
 import numpy as np
 import pybullet as p
@@ -12,8 +12,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    State, Task
+from predicators.structs import Action, Array, Object, State, Task
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -46,11 +45,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # in step() without changing the "real" robot state.
         fk_physics_id = p.connect(p.DIRECT)
         self._pybullet_robot_fk = self._create_pybullet_robot(fk_physics_id)
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     def simulate(self, state: State, action: Action) -> State:
         # To implement this, need to handle resetting to states where the
