@@ -451,6 +451,9 @@ class GlobalSettings:
     implicit_mlp_regressor_derivative_free_shrink_scale = 0.5
     implicit_mlp_regressor_grid_num_ticks_per_dim = 100
 
+    # ml training parameters
+    pytorch_train_print_every = 1000
+
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100

@@ -132,7 +132,8 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                  clip_value: float,
                  learning_rate: float,
                  weight_decay: float = 0,
-                 use_torch_gpu: bool = False) -> None:
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000) -> None:
         torch.manual_seed(seed)
         _NormalizingRegressor.__init__(self, seed)
         nn.Module.__init__(self)  # type: ignore
@@ -142,6 +143,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         self._learning_rate = learning_rate
         self._weight_decay = weight_decay
         self._device = _get_torch_device(use_torch_gpu)
+        self._train_print_every = train_print_every
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -184,6 +186,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              optimizer,
                              batch_generator,
                              device=self._device,
+                             print_every=self._train_print_every,
                              max_train_iters=self._max_train_iters,
                              dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
@@ -360,7 +363,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                  n_reinitialize_tries: int,
                  weight_init: str,
                  weight_decay: float = 0,
-                 use_torch_gpu: bool = False) -> None:
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000) -> None:
         torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
@@ -371,6 +375,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         self._n_reinitialize_tries = n_reinitialize_tries
         self._weight_init = weight_init
         self._device = _get_torch_device(use_torch_gpu)
+        self._train_print_every = train_print_every
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -443,6 +448,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                 optimizer,
                 batch_generator,
                 device=self._device,
+                print_every=self._train_print_every,
                 max_train_iters=self._max_train_iters,
                 dataset_size=X.shape[0],
                 n_iter_no_change=self._n_iter_no_change)
@@ -484,14 +490,16 @@ class MLPRegressor(PyTorchRegressor):
                  clip_value: float,
                  learning_rate: float,
                  weight_decay: float = 0,
-                 use_torch_gpu: bool = False) -> None:
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000) -> None:
         super().__init__(seed,
                          max_train_iters,
                          clip_gradients,
                          clip_value,
                          learning_rate,
                          weight_decay=weight_decay,
-                         use_torch_gpu=use_torch_gpu)
+                         use_torch_gpu=use_torch_gpu,
+                         train_print_every=train_print_every)
         self._hid_sizes = hid_sizes
         # Set in fit().
         self._linears = nn.ModuleList()
@@ -570,6 +578,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                  inference_method: str,
                  weight_decay: float = 0,
                  use_torch_gpu: bool = False,
+                 train_print_every: int = 1000,
                  derivative_free_num_iters: Optional[int] = None,
                  derivative_free_sigma_init: Optional[float] = None,
                  derivative_free_shrink_scale: Optional[float] = None,
@@ -580,7 +589,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                          clip_value,
                          learning_rate,
                          weight_decay=weight_decay,
-                         use_torch_gpu=use_torch_gpu)
+                         use_torch_gpu=use_torch_gpu,
+                         train_print_every=train_print_every)
         self._inference_method = inference_method
         self._derivative_free_num_iters = derivative_free_num_iters
         self._derivative_free_sigma_init = derivative_free_sigma_init
@@ -803,7 +813,8 @@ class CNNRegressor(PyTorchRegressor):
                  clip_value: float,
                  learning_rate: float,
                  weight_decay: float = 0,
-                 use_torch_gpu: bool = False) -> None:
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000) -> None:
         """Create a CNNRegressor.
 
         conv_channel_nums and conv_kernel_sizes define the sizes of the
@@ -816,7 +827,8 @@ class CNNRegressor(PyTorchRegressor):
                          clip_value,
                          learning_rate,
                          weight_decay=weight_decay,
-                         use_torch_gpu=use_torch_gpu)
+                         use_torch_gpu=use_torch_gpu,
+                         train_print_every=train_print_every)
         assert len(conv_channel_nums) == len(conv_kernel_sizes)
         self._conv_channel_nums = conv_channel_nums
         self._conv_kernel_sizes = conv_kernel_sizes
@@ -878,14 +890,16 @@ class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
                  clip_value: float,
                  learning_rate: float,
                  weight_decay: float = 0,
-                 use_torch_gpu: bool = False) -> None:
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000) -> None:
         super().__init__(seed,
                          max_train_iters,
                          clip_gradients,
                          clip_value,
                          learning_rate,
                          weight_decay=weight_decay,
-                         use_torch_gpu=use_torch_gpu)
+                         use_torch_gpu=use_torch_gpu,
+                         train_print_every=train_print_every)
         self._hid_sizes = hid_sizes
         # Set in fit().
         self._linears = nn.ModuleList()
@@ -1001,7 +1015,8 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
                  n_reinitialize_tries: int,
                  weight_init: str,
                  weight_decay: float = 0,
-                 use_torch_gpu: bool = False) -> None:
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000) -> None:
         super().__init__(seed,
                          balance_data,
                          max_train_iters,
@@ -1010,7 +1025,8 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
                          n_reinitialize_tries,
                          weight_init,
                          weight_decay=weight_decay,
-                         use_torch_gpu=use_torch_gpu)
+                         use_torch_gpu=use_torch_gpu,
+                         train_print_every=train_print_every)
         self._hid_sizes = hid_sizes
         # Set in fit().
         self._linears = nn.ModuleList()
@@ -1136,7 +1152,7 @@ def _train_pytorch_model(model: nn.Module,
                          max_train_iters: MaxTrainIters,
                          dataset_size: int,
                          device: torch.device,
-                         print_every: int = 10,
+                         print_every: int = 1000,
                          clip_gradients: bool = False,
                          clip_value: float = 5,
                          n_iter_no_change: int = 10000000) -> float:
