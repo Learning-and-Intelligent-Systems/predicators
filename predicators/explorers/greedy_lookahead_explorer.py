@@ -1,6 +1,6 @@
 """An explorer that performs a lookahead to maximize a state score function."""
 
-from typing import Callable, List, Optional, Sequence, Set
+from typing import Callable, List, Set
 
 import numpy as np
 from gym.spaces import Box
@@ -57,15 +57,15 @@ class GreedyLookaheadExplorer(BaseExplorer):
             total_score = 0.0
             while trajectory_length < CFG.greedy_lookahead_max_traj_length:
                 # Check that sampling for an NSRT is feasible.
-                ground_nsrt = self._sample_applicable_ground_nsrt(
-                    state, ground_nsrts)
+                ground_nsrt = utils.sample_applicable_ground_nsrt(
+                    state, ground_nsrts, self._predicates, self._rng)
                 if ground_nsrt is None:  # No applicable NSRTs
                     break
                 for _ in range(CFG.greedy_lookahead_max_num_resamples):
                     # Sample an NSRT that has preconditions satisfied in the
                     # current state.
-                    ground_nsrt = self._sample_applicable_ground_nsrt(
-                        state, ground_nsrts)
+                    ground_nsrt = utils.sample_applicable_ground_nsrt(
+                        state, ground_nsrts, self._predicates, self._rng)
                     assert ground_nsrt
                     assert all(a.holds for a in ground_nsrt.preconditions)
                     # Sample an option. Note that goal is assumed not used.
@@ -104,16 +104,3 @@ class GreedyLookaheadExplorer(BaseExplorer):
         termination_function = lambda s: False
 
         return act_policy, termination_function
-
-    def _sample_applicable_ground_nsrt(
-            self, state: State,
-            ground_nsrts: Sequence[_GroundNSRT]) -> Optional[_GroundNSRT]:
-        """Choose uniformly among the ground NSRTs that are applicable in the
-        state."""
-        atoms = utils.abstract(state, self._predicates)
-        applicable_nsrts = sorted(
-            utils.get_applicable_operators(ground_nsrts, atoms))
-        if len(applicable_nsrts) == 0:
-            return None
-        idx = self._rng.choice(len(applicable_nsrts))
-        return applicable_nsrts[idx]

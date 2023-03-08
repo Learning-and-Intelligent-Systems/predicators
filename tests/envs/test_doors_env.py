@@ -67,7 +67,9 @@ def test_doors():
     top_left_obstacles = [o for o in obstacles if "-0-0-obstacle" in o.name]
     assert len(top_left_obstacles) == 1
     top_left_obstacle = top_left_obstacles[0]
-    state = State({o: state[o] for o in state if o != top_left_obstacle})
+    state = utils.StateWithCache(
+        {o: state[o]
+         for o in state if o != top_left_obstacle}, state.cache)
     # Put the robot in the middle of the top left room.
     top_left_room, top_right_room, _, bottom_right_room = sorted(rooms)
     room_cx = state.get(top_left_room, "x") + env.room_size / 2
@@ -90,7 +92,7 @@ def test_doors():
     # wrong. Make a new env to be safe.
     env = DoorsEnv()
     # Since we removed the obstacle, there should be no collisions.
-    assert not env._state_has_collision(state)  # pylint: disable=protected-access
+    assert not env.state_has_collision(state)
     assert GroundAtom(InRoom, [robot, top_left_room]).holds(state)
     assert GroundAtom(InMainRoom, [robot, top_left_room]).holds(state)
     # Create a task with a goal to move to the bottom right room.

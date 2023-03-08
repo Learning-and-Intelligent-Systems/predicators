@@ -16,11 +16,13 @@ def test_random_options_explorer():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    task = train_tasks[0]
+    task_idx = 0
+    task = train_tasks[task_idx]
     explorer = create_explorer("random_options", env.predicates,
                                get_gt_options(env.get_name()), env.types,
                                env.action_space, train_tasks)
-    policy, termination_function = explorer.get_exploration_strategy(task, 500)
+    policy, termination_function = explorer.get_exploration_strategy(
+        task_idx, 500)
     assert not termination_function(task.init)
     for _ in range(10):
         act = policy(task.init)
@@ -32,7 +34,7 @@ def test_random_options_explorer():
                                     opt.terminal)
     explorer = create_explorer("random_options", env.predicates, {dummy_opt},
                                env.types, env.action_space, train_tasks)
-    policy, _ = explorer.get_exploration_strategy(task, 500)
+    policy, _ = explorer.get_exploration_strategy(task_idx, 500)
     with pytest.raises(utils.RequestActPolicyFailure) as e:
         policy(task.init)
     assert "Random option sampling failed!" in str(e)
