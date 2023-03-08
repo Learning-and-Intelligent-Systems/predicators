@@ -30,12 +30,14 @@ class SingleArmPyBulletRobot(abc.ABC):
             ee_home_pose: Pose,
             physics_client_id: int,
             base_pose: Pose = Pose.identity(),
+            control_mode: str = "position",
     ) -> None:
         # The home positions and orientations should be "reasonable" because
         # IK will always reset to home before starting. Bad home poses will
         # lead to IK failure cases in some situations.
         self._ee_home_pose = ee_home_pose
         self.physics_client_id = physics_client_id
+        self._control_mode = control_mode
 
         # Pose of base of robot.
         self._base_pose = base_pose
@@ -316,7 +318,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         assert len(joint_positions) == len(self.arm_joints)
 
         # Set arm joint motors.
-        if CFG.pybullet_control_mode == "position":
+        if self._control_mode == "position":
             p.setJointMotorControlArray(
                 bodyUniqueId=self.robot_id,
                 jointIndices=self.arm_joints,
@@ -324,11 +326,11 @@ class SingleArmPyBulletRobot(abc.ABC):
                 targetPositions=joint_positions,
                 physicsClientId=self.physics_client_id,
             )
-        elif CFG.pybullet_control_mode == "reset":
+        elif self._control_mode == "reset":
             self.set_joints(joint_positions)
         else:
             raise NotImplementedError("Unrecognized pybullet_control_mode: "
-                                      f"{CFG.pybullet_control_mode}")
+                                      f"{self._control_mode}")
 
     def go_home(self) -> None:
         """Move the robot to its home end-effector pose."""

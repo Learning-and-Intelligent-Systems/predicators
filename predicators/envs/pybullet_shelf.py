@@ -285,7 +285,8 @@ class PyBulletShelfEnv(PyBulletEnv):
             # p.getQuaternionFromEuler([3.0, -1.0, 0.0])
         )
         robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                 physics_client_id, ee_home)
+                                                 physics_client_id, ee_home,
+                                                 control_mode="reset")
         # import time
         # while True:
         #     p.stepSimulation(physics_client_id)

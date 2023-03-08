@@ -27,6 +27,7 @@ def create_single_arm_pybullet_robot(
     robot_name: str,
     physics_client_id: int,
     ee_home_pose: Optional[Pose] = None,
+    control_mode: Optional[str] = None,
 ) -> SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name not in _ROBOT_TO_CLS:
@@ -39,6 +40,9 @@ def create_single_arm_pybullet_robot(
         ee_home_pose = Pose(_DEFAULT_EE_HOME_POSITION, ee_orientation)
     assert robot_name in _ROBOT_TO_BASE_POSE, \
         f"Base pose not specified for robot {robot_name}."
+    if control_mode is None:
+        control_mode = CFG.pybullet_control_mode
     base_pose = _ROBOT_TO_BASE_POSE[robot_name]
     cls = _ROBOT_TO_CLS[robot_name]
-    return cls(ee_home_pose, physics_client_id, base_pose=base_pose)
+    return cls(ee_home_pose, physics_client_id, base_pose=base_pose,
+               control_mode=control_mode)
