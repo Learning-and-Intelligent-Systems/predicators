@@ -6,8 +6,7 @@ for placing into the box. The box has a lid which may need to be opened;
 this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, \
-    Union
+from typing import Any, ClassVar, List, Optional, Sequence, Set, Tuple, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -18,7 +17,7 @@ from matplotlib import patches
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
+from predicators.structs import Action, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -98,51 +97,6 @@ class PaintingEnv(BaseEnv):
                                   self._IsDirty_holds)
         self._IsClean = Predicate("IsClean", [self._obj_type],
                                   self._IsClean_holds)
-        # Options
-        self._Pick = utils.SingletonParameterizedOption(
-            # variables: [robot, object to pick]
-            # params: [grasp]
-            "Pick",
-            self._Pick_policy,
-            types=[self._robot_type, self._obj_type],
-            params_space=Box(np.array([-0.01], dtype=np.float32),
-                             np.array([1.01], dtype=np.float32)))
-        self._Wash = utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: []
-            "Wash",
-            self._Wash_policy,
-            types=[self._robot_type])
-        self._Dry = utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: []
-            "Dry",
-            self._Dry_policy,
-            types=[self._robot_type])
-        self._Paint = utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: [new color]
-            "Paint",
-            self._Paint_policy,
-            types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1, )))
-        self._Place = utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: [absolute x, absolute y, absolute z]
-            "Place",
-            self._Place_policy,
-            types=[self._robot_type],
-            params_space=Box(
-                np.array([self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2],
-                         dtype=np.float32),
-                np.array([self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2],
-                         dtype=np.float32)))
-        self._OpenLid = utils.SingletonParameterizedOption(
-            # variables: [robot, lid]
-            # params: []
-            "OpenLid",
-            self._OpenLid_policy,
-            types=[self._robot_type, self._lid_type])
         # Static objects (always exist no matter the settings).
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
@@ -342,11 +296,9 @@ class PaintingEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._Pick, self._Wash, self._Dry, self._Paint, self._Place,
-            self._OpenLid
-        }
+    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
+        raise NotImplementedError(
+            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -572,67 +524,6 @@ class PaintingEnv(BaseEnv):
                     for other_y in existing_ys):
                 return (self.obj_x, this_y,
                         self.table_height + self.obj_height / 2)
-
-    def _Pick_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        _, obj = objects
-        obj_x = state.get(obj, "pose_x")
-        obj_y = state.get(obj, "pose_y")
-        obj_z = state.get(obj, "pose_z")
-        grasp, = params
-        arr = np.array([obj_x, obj_y, obj_z, grasp, 1.0, 0.0, 0.0, 0.0],
-                       dtype=np.float32)
-        # The grasp could cause the action to go out of bounds, so we clip
-        # it back into the bounds for safety.
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _Wash_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects, params  # unused
-        arr = np.array(
-            [self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 1.0, 0.0, 0.0],
-            dtype=np.float32)
-        return Action(arr)
-
-    def _Dry_policy(self, state: State, memory: Dict,
-                    objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects, params  # unused
-        arr = np.array(
-            [self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, 1.0, 0.0],
-            dtype=np.float32)
-        return Action(arr)
-
-    def _Paint_policy(self, state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        new_color, = params
-        new_color = min(max(new_color, 0.0), 1.0)
-        arr = np.array([
-            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, 0.0,
-            new_color
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> Action:
-        del state, memory, objects  # unused
-        x, y, z = params
-        arr = np.array([x, y, z, 0.5, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-        return Action(arr)
-
-    def _OpenLid_policy(self, state: State, memory: Dict,
-                        objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects, params  # unused
-        arr = np.array([
-            self.obj_x, (self.box_lb + self.box_ub) / 2, self.obj_z, 0.0, 1.0,
-            0.0, 0.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
 
     def _InBox_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, _ = objects

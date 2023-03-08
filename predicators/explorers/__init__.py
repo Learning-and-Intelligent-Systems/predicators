@@ -59,6 +59,11 @@ def create_explorer(
                 assert option_model is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks, nsrts, option_model)
+            # Random NSRTs explorer uses NSRTs, but not an option model
+            elif name == "random_nsrts":
+                assert nsrts is not None
+                explorer = cls(initial_predicates, initial_options, types,
+                               action_space, train_tasks, nsrts)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks)
