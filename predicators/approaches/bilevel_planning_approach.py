@@ -55,7 +55,7 @@ class BilevelPlanningApproach(BaseApproach):
         self._last_plan = plan
         option_policy = utils.option_plan_to_policy(plan)
 
-        if CFG.env == "realworld_spot":
+        if CFG.env == "realworld_spot":  # pragma: no cover
             spot_controllers = SpotControllers()
             for op in plan:
                 if op.name == 'MoveToSurface':
