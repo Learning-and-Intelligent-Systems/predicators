@@ -36,25 +36,10 @@ class PyBulletShelfEnv(PyBulletEnv):
     _y_lb: ClassVar[float] = 0.4
     _y_ub: ClassVar[float] = 1.1
 
-    # Option parameters.
-    _offset_z: ClassVar[float] = 0.01
-    _pick_z: ClassVar[float] = 0.75
-
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
-    _table_height: ClassVar[float] = 0.2
-
-    # Shelf parameters.
-    _shelf_width: ClassVar[float] = (_x_ub - _x_lb) * 0.4
-    _shelf_length: ClassVar[float] = (_y_ub - _y_lb) * 0.6
-    _shelf_base_height: ClassVar[float] = _pick_z * 0.8
-    _shelf_ceiling_height: ClassVar[float] = _pick_z * 0.2
-    _shelf_ceiling_thickness: ClassVar[float] = 0.01
-    _shelf_pole_diam: ClassVar[float] = 0.01
-    _shelf_color: ClassVar[RGBA] = (0.5, 0.3, 0.05, 1.0)
-    _shelf_x: ClassVar[float] = _x_ub - _shelf_width / 2
-    _shelf_y: ClassVar[float] = _y_lb + _shelf_length / 2
+    table_height: ClassVar[float] = 0.2
 
     # Wall parameters.
     _wall_thickness: ClassVar[float] = 0.01
@@ -63,17 +48,27 @@ class PyBulletShelfEnv(PyBulletEnv):
 
     # Block parameters.
     _block_color: ClassVar[RGBA] = (1.0, 0.0, 0.0, 1.0)
-    _block_size: ClassVar[float] = 0.05
-    _block_x_lb: ClassVar[float] = _x_lb + _block_size
-    _block_x_ub: ClassVar[float] = _x_ub - _block_size
-    _block_y_lb: ClassVar[float] = _y_ub - _block_size
-    _block_y_ub: ClassVar[float] = _y_ub - _block_size / 2
+    block_size: ClassVar[float] = 0.05
+    _block_x_lb: ClassVar[float] = _x_lb + block_size
+    _block_x_ub: ClassVar[float] = _x_ub - block_size
+    _block_y_lb: ClassVar[float] = _y_ub - block_size
+    _block_y_ub: ClassVar[float] = _y_ub - block_size / 2
 
     # Robot parameters.
     _robot_init_x: ClassVar[float] = (_block_x_lb + _block_x_ub) / 2
     _robot_init_y: ClassVar[float] = (_block_y_lb + _block_y_ub) / 2
-    _robot_init_z: ClassVar[float] = _pick_z
-    _move_to_pose_tol: ClassVar[float] = 1e-4
+    _robot_init_z: ClassVar[float] = 0.75
+
+    # Shelf parameters.
+    _shelf_width: ClassVar[float] = (_x_ub - _x_lb) * 0.4
+    _shelf_length: ClassVar[float] = (_y_ub - _y_lb) * 0.6
+    shelf_base_height: ClassVar[float] = _robot_init_z * 0.8
+    _shelf_ceiling_height: ClassVar[float] = _robot_init_z * 0.2
+    _shelf_ceiling_thickness: ClassVar[float] = 0.01
+    _shelf_pole_diam: ClassVar[float] = 0.01
+    _shelf_color: ClassVar[RGBA] = (0.5, 0.3, 0.05, 1.0)
+    shelf_x: ClassVar[float] = _x_ub - _shelf_width / 2
+    shelf_y: ClassVar[float] = _y_lb + _shelf_length / 2
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -137,13 +132,13 @@ class PyBulletShelfEnv(PyBulletEnv):
         # Create shelf.
         color = cls._shelf_color
         orientation = cls._default_orn
-        base_pose = (cls._shelf_x, cls._shelf_y,
-                     cls._table_height + cls._shelf_base_height / 2)
+        base_pose = (cls.shelf_x, cls.shelf_y,
+                     cls.table_height + cls.shelf_base_height / 2)
         # Shelf base.
         # Create the collision shape.
         base_half_extents = [
             cls._shelf_width / 2, cls._shelf_length / 2,
-            cls._shelf_base_height / 2
+            cls.shelf_base_height / 2
         ]
         base_collision_id = p.createCollisionShape(
             p.GEOM_BOX,
@@ -160,7 +155,7 @@ class PyBulletShelfEnv(PyBulletEnv):
         link_visual_shape_indices = []
         pose = (
             0, 0,
-            cls._shelf_base_height / 2 + cls._shelf_ceiling_height - \
+            cls.shelf_base_height / 2 + cls._shelf_ceiling_height - \
                 cls._shelf_ceiling_thickness / 2
         )
         link_positions.append(pose)
@@ -183,7 +178,7 @@ class PyBulletShelfEnv(PyBulletEnv):
             for y_sign in [-1, 1]:
                 pose = (x_sign * (cls._shelf_width - cls._shelf_pole_diam) / 2,
                         y_sign * (cls._shelf_length - cls._shelf_pole_diam) /
-                        2, cls._shelf_base_height / 2 +
+                        2, cls.shelf_base_height / 2 +
                         cls._shelf_ceiling_height / 2)
                 link_positions.append(pose)
                 half_extents = [
@@ -235,7 +230,7 @@ class PyBulletShelfEnv(PyBulletEnv):
         color = cls._shelf_color
         orientation = cls._default_orn
         pose = (cls._wall_x, (cls._y_lb + cls._y_ub) / 2,
-                cls._table_height + cls._wall_height / 2)
+                cls.table_height + cls._wall_height / 2)
         # Create the collision shape.
         half_extents = [
             cls._wall_thickness / 2, (cls._y_ub - cls._y_lb) / 2,
@@ -259,8 +254,8 @@ class PyBulletShelfEnv(PyBulletEnv):
 
         # Create block.
         color = cls._block_color
-        half_extents = (cls._block_size / 2.0, cls._block_size / 2.0,
-                        cls._block_size / 2.0)
+        half_extents = (cls.block_size / 2.0, cls.block_size / 2.0,
+                        cls.block_size / 2.0)
         block_id = create_pybullet_block(color, half_extents, cls._obj_mass,
                                          cls._obj_friction, cls._default_orn,
                                          physics_client_id)
@@ -296,6 +291,7 @@ class PyBulletShelfEnv(PyBulletEnv):
         return robot
 
     def _extract_robot_state(self, state: State) -> Array:
+        fingers = self.fingers_state_to_joint(self._pybullet_robot, state.get(self._robot, "fingers"))
         return np.array([
             state.get(self._robot, "pose_x"),
             state.get(self._robot, "pose_y"),
@@ -304,7 +300,7 @@ class PyBulletShelfEnv(PyBulletEnv):
             state.get(self._robot, "pose_q1"),
             state.get(self._robot, "pose_q2"),
             state.get(self._robot, "pose_q3"),
-            self._fingers_state_to_joint(state.get(self._robot, "fingers")),
+            fingers,
         ],
                         dtype=np.float32)
 
@@ -355,8 +351,8 @@ class PyBulletShelfEnv(PyBulletEnv):
 
         # Get the shelf state.
         state_dict[self._shelf] = {
-            "pose_x": self._shelf_x,
-            "pose_y": self._shelf_y,
+            "pose_x": self.shelf_x,
+            "pose_y": self.shelf_y,
         }
 
         # Get block state.
@@ -378,10 +374,10 @@ class PyBulletShelfEnv(PyBulletEnv):
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
 
-        import time
-        while True:
-            p.stepSimulation(self._physics_client_id)
-            time.sleep(0.001)
+        # import time
+        # while True:
+        #     p.stepSimulation(self._physics_client_id)
+        #     time.sleep(0.001)
 
         return state
 
@@ -393,7 +389,7 @@ class PyBulletShelfEnv(PyBulletEnv):
             # The only variation is in the position of the block.
             x = rng.uniform(self._block_x_lb, self._block_x_ub)
             y = rng.uniform(self._block_y_lb, self._block_y_ub)
-            z = self._table_height + self._block_size / 2
+            z = self.table_height + self.block_size / 2
             held = 0.0
             state_dict[self._block] = {
                 "pose_x": x,
@@ -402,8 +398,8 @@ class PyBulletShelfEnv(PyBulletEnv):
                 "held": held,
             }
             state_dict[self._shelf] = {
-                "pose_x": self._shelf_x,
-                "pose_y": self._shelf_y
+                "pose_x": self.shelf_x,
+                "pose_y": self.shelf_y
             }
             home_orn = self.get_robot_ee_home_orn()
             state_dict[self._robot] = {
@@ -443,16 +439,18 @@ class PyBulletShelfEnv(PyBulletEnv):
             self._pybullet_robot.right_finger_id: -1 * normal,
         }
 
-    def _fingers_state_to_joint(self, fingers_state: float) -> float:
+    @classmethod
+    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
+                               fingers_state: float) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.
 
         The fingers in the State are either 0 or 1. Transform them to be
-        either self._pybullet_robot.closed_fingers or
-        self._pybullet_robot.open_fingers.
+        either pybullet_robot.closed_fingers or
+        pybullet_robot.open_fingers.
         """
         assert fingers_state in (0.0, 1.0)
-        open_f = self._pybullet_robot.open_fingers
-        closed_f = self._pybullet_robot.closed_fingers
+        open_f = pybullet_robot.open_fingers
+        closed_f = pybullet_robot.closed_fingers
         return closed_f if fingers_state == 0.0 else open_f
 
     def _fingers_joint_to_state(self, fingers_joint: float) -> float:
