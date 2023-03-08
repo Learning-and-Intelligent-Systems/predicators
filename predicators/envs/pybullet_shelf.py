@@ -81,8 +81,10 @@ class PyBulletShelfEnv(PyBulletEnv):
             "pose_q3", "fingers"
         ])
         self._shelf_type = Type("shelf", ["pose_x", "pose_y"])
-        self._block_type = Type("block",
-                                ["pose_x", "pose_y", "pose_z", "held"])
+        self._block_type = Type("block", [
+            "pose_x", "pose_y", "pose_z", "pose_q0", "pose_q1", "pose_q2",
+            "pose_q3", "held"
+        ])
 
         self._InShelf = Predicate("InShelf",
                                   [self._block_type, self._shelf_type],
@@ -319,9 +321,12 @@ class PyBulletShelfEnv(PyBulletEnv):
         x = state.get(self._block, "pose_x")
         y = state.get(self._block, "pose_y")
         z = state.get(self._block, "pose_z")
+        q0 = state.get(self._block, "pose_q0")
+        q1 = state.get(self._block, "pose_q1")
+        q2 = state.get(self._block, "pose_q2")
+        q3 = state.get(self._block, "pose_q3")
         p.resetBasePositionAndOrientation(
-            self._block_id, [x, y, z],
-            self._default_orn,
+            self._block_id, [x, y, z], [q0, q1, q2, q3],
             physicsClientId=self._physics_client_id)
 
         # Assert that the state was properly reconstructed.
@@ -360,13 +365,17 @@ class PyBulletShelfEnv(PyBulletEnv):
         }
 
         # Get block state.
-        (bx, by, bz), _ = p.getBasePositionAndOrientation(
+        (bx, by, bz), (q0, q1, q2, q3) = p.getBasePositionAndOrientation(
             self._block_id, physicsClientId=self._physics_client_id)
         held = (self._block_id == self._held_obj_id)
         state_dict[self._block] = {
             "pose_x": bx,
             "pose_y": by,
             "pose_z": bz,
+            "pose_q0": q0,
+            "pose_q1": q1,
+            "pose_q2": q2,
+            "pose_q3": q3,
             "held": held,
         }
 
@@ -394,11 +403,16 @@ class PyBulletShelfEnv(PyBulletEnv):
             x = rng.uniform(self._block_x_lb, self._block_x_ub)
             y = rng.uniform(self._block_y_lb, self._block_y_ub)
             z = self.table_height + self.block_size / 2
+            q0, q1, q2, q3 = self._default_orn
             held = 0.0
             state_dict[self._block] = {
                 "pose_x": x,
                 "pose_y": y,
                 "pose_z": z,
+                "pose_q0": q0,
+                "pose_q1": q1,
+                "pose_q2": q2,
+                "pose_q3": q3,
                 "held": held,
             }
             state_dict[self._shelf] = {
@@ -473,7 +487,8 @@ class PyBulletShelfEnv(PyBulletEnv):
         ds = ["x", "y"]
         sizes = [self._shelf_width, self._shelf_length]
         # TODO factor out
-        if not self._object_contained_in_object(block, shelf, state, ds, sizes):
+        if not self._object_contained_in_object(block, shelf, state, ds,
+                                                sizes):
             return False
         min_z = self.table_height + self.shelf_base_height
         max_z = min_z + self._shelf_ceiling_height + self.block_size / 2

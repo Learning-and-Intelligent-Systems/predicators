@@ -32,6 +32,8 @@ def create_move_end_effector_to_pose_option(
     mode: str = "direct",  #  "direct" or "motion_planning"
     get_collision_bodies: Optional[Callable[[State, Sequence[Object]],
                                             Set[int]]] = None,
+    get_held_object_id: Optional[Callable[[State, Sequence[Object]],
+                                          Optional[int]]] = None,
     get_held_body_transform: Optional[Callable[
         [State, Sequence[Object]], Optional[Tuple[int, NDArray]]]] = None,
 ) -> ParameterizedOption:
@@ -71,6 +73,13 @@ def create_move_end_effector_to_pose_option(
             return True
         # Run motion planning.
         initial_positions = state.simulator_state
+        if get_held_body_transform is not None:
+            assert get_held_object_id is not None
+            held_object_id = get_held_object_id(state, objects)
+            base_link_to_held_obj = get_held_body_transform(state, objects)
+        else:
+            held_object_id = None
+            base_link_to_held_obj = None
         # Assume that the target pose won't change during execution.
         _, target_pose, _ = get_current_and_target_pose_and_finger_status(
             state, objects, params)
@@ -80,6 +89,8 @@ def create_move_end_effector_to_pose_option(
                                    initial_positions,
                                    target_positions,
                                    collision_bodies,
+                                   held_object=held_object_id,
+                                   base_link_to_held_obj=base_link_to_held_obj,
                                    seed=CFG.seed,
                                    physics_client_id=robot.physics_client_id)
         if plan is None:

@@ -3,6 +3,7 @@
 from typing import Callable, ClassVar, Dict, Sequence, Set, Tuple
 
 import numpy as np
+import pybullet as p
 from gym.spaces import Box
 
 from predicators import utils
@@ -38,6 +39,7 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
         _, pybullet_robot, bodies = \
             PyBulletShelfEnv.initialize_pybullet(using_gui=False)
         collision_bodies = {bodies["table_id"], bodies["shelf_id"]}
+        block_id = bodies["block_id"]
 
         robot_type = types["robot"]
         block_type = types["block"]
@@ -104,6 +106,7 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
                 # Use motion planning to move to shelf pre-place pose.
                 cls._create_move_to_shelf_place_option(
                     pybullet_robot=pybullet_robot,
+                    block_id=block_id,
                     collision_bodies=collision_bodies,
                     option_types=option_types,
                     params_space=params_space)
@@ -154,7 +157,7 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _create_move_to_shelf_place_option(
-            cls, pybullet_robot: SingleArmPyBulletRobot,
+            cls, pybullet_robot: SingleArmPyBulletRobot, block_id: int,
             collision_bodies: Set[int], option_types: Sequence[Type],
             params_space: Box):
         name = "MoveToShelfPrePlace"
@@ -191,10 +194,26 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _get_held_body_transform(
                 state: State,
                 objects: Sequence[Object]) -> Tuple[Pose3D, Pose3D, str]:
-            # TODO
-            return None
-
-        # TODO: copy in "mode" thing
+            robot, block = objects
+            world_to_base_link = Pose(
+                (state.get(robot, "pose_x"), state.get(
+                    robot, "pose_y"), state.get(robot, "pose_z")),
+                (state.get(robot, "pose_q0"), state.get(robot, "pose_q1"),
+                 state.get(robot, "pose_q2"), state.get(robot, "pose_q3")),
+            )
+            base_link_to_world = np.r_[p.invertTransform(
+                world_to_base_link.position, world_to_base_link.orientation)]
+            world_to_obj = Pose(
+                (state.get(block, "pose_x"), state.get(
+                    block, "pose_y"), state.get(block, "pose_z")),
+                (state.get(block, "pose_q0"), state.get(block, "pose_q1"),
+                 state.get(block, "pose_q2"), state.get(block, "pose_q3")),
+            )
+            held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
+                base_link_to_world[:3], base_link_to_world[3:],
+                world_to_obj.position, world_to_obj.orientation))
+            base_link_to_held_obj = p.invertTransform(*held_obj_to_base_link)
+            return base_link_to_held_obj
 
         return create_move_end_effector_to_pose_option(
             pybullet_robot,
@@ -207,4 +226,5 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
             cls._finger_action_nudge_magnitude,
             mode="motion_planning",
             get_collision_bodies=lambda _1, _2: collision_bodies,
+            get_held_object_id=lambda _1, _2: block_id,
             get_held_body_transform=_get_held_body_transform)
