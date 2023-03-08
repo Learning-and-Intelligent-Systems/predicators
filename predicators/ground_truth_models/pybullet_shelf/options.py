@@ -37,7 +37,8 @@ class PyBulletShelfGroundTruthOptionFactory(GroundTruthOptionFactory):
                     action_space: Box) -> Set[ParameterizedOption]:
 
         _, pybullet_robot, bodies = \
-            PyBulletShelfEnv.initialize_pybullet(using_gui=False)
+            PyBulletShelfEnv.initialize_pybullet(using_gui=False,
+                control_mode="reset")
         collision_bodies = {bodies["table_id"], bodies["shelf_id"]}
         block_id = bodies["block_id"]
 

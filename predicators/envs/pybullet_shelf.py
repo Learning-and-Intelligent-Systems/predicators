@@ -7,7 +7,7 @@ involve changing the end-effector orientation.
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Sequence, Set, Tuple
+from typing import Any, Callable, ClassVar, Dict, List, Sequence, Set, Tuple, Optional
 
 import numpy as np
 import pybullet as p
@@ -119,11 +119,11 @@ class PyBulletShelfEnv(PyBulletEnv):
 
     @classmethod
     def initialize_pybullet(
-            cls, using_gui: bool
+            cls, using_gui: bool, control_mode: Optional[str] = None,
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Run super(), then handle cover-specific initialization."""
         physics_client_id, pybullet_robot, bodies = super(
-        ).initialize_pybullet(using_gui)
+        ).initialize_pybullet(using_gui, control_mode=control_mode)
 
         table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
                               useFixedBase=True,
@@ -275,7 +275,8 @@ class PyBulletShelfEnv(PyBulletEnv):
 
     @classmethod
     def _create_pybullet_robot(
-            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
+            cls, physics_client_id: int,
+            control_mode: Optional[str] = None) -> SingleArmPyBulletRobot:
         ee_home = Pose(
             (cls._robot_init_x, cls._robot_init_y, cls._robot_init_z),
             cls.get_robot_ee_home_orn()
@@ -286,7 +287,7 @@ class PyBulletShelfEnv(PyBulletEnv):
         )
         robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                  physics_client_id, ee_home,
-                                                 control_mode="reset")
+                                                 control_mode=control_mode)
         # import time
         # while True:
         #     p.stepSimulation(physics_client_id)

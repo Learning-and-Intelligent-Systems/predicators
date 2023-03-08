@@ -68,7 +68,8 @@ class PyBulletEnv(BaseEnv):
 
     @classmethod
     def initialize_pybullet(
-            cls, using_gui: bool
+            cls, using_gui: bool,
+            control_mode: Optional[str] = None,
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Returns physics client ID, robot, and dictionary containing other
         object IDs and any other info from pybullet that needs to be tracked.
@@ -97,7 +98,8 @@ class PyBulletEnv(BaseEnv):
                    physicsClientId=physics_client_id)
 
         # Load robot.
-        pybullet_robot = cls._create_pybullet_robot(physics_client_id)
+        pybullet_robot = cls._create_pybullet_robot(physics_client_id,
+                control_mode=control_mode)
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=physics_client_id)
@@ -117,7 +119,8 @@ class PyBulletEnv(BaseEnv):
     @classmethod
     @abc.abstractmethod
     def _create_pybullet_robot(
-            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
+            cls, physics_client_id: int,
+            control_mode: Optional[str] = None) -> SingleArmPyBulletRobot:
         """Make and return a PyBullet robot object in the given
         physics_client_id."""
         raise NotImplementedError("Override me!")
