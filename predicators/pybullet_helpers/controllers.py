@@ -48,8 +48,7 @@ def create_move_end_effector_to_pose_option(
             get_current_and_target_pose_and_finger_status(
             state, objects, params)
         # This option currently assumes a fixed end effector orientation.
-        assert np.allclose(current_pose.orientation, target_pose.orientation)
-        orn = current_pose.orientation
+        orn = target_pose.orientation
         current = current_pose.position
         target = target_pose.position
         # Run IK to determine the target joint positions.
@@ -103,8 +102,7 @@ def create_move_end_effector_to_pose_option(
         current_pose, target_pose, _ = \
             get_current_and_target_pose_and_finger_status(
                 state, objects, params)
-        # This option currently assumes a fixed end effector orientation.
-        assert np.allclose(current_pose.orientation, target_pose.orientation)
+
         current = current_pose.position
         target = target_pose.position
         squared_dist = np.sum(np.square(np.subtract(current, target)))
