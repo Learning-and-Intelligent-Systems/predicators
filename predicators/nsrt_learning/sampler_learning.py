@@ -163,6 +163,9 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         balance_data=CFG.mlp_classifier_balance_data,
         max_train_iters=CFG.sampler_mlp_classifier_max_itr,
         learning_rate=CFG.learning_rate,
+        weight_decay=CFG.weight_decay,
+        use_torch_gpu=CFG.use_torch_gpu,
+        train_print_every=CFG.pytorch_train_print_every,
         n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
         hid_sizes=CFG.mlp_classifier_hid_sizes,
         n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
@@ -200,7 +203,10 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             max_train_iters=CFG.neural_gaus_regressor_max_itr,
             clip_gradients=CFG.mlp_regressor_clip_gradients,
             clip_value=CFG.mlp_regressor_gradient_clip_value,
-            learning_rate=CFG.learning_rate)
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every)
     else:
         assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
         regressor = DegenerateMLPDistributionRegressor(
@@ -209,7 +215,10 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             max_train_iters=CFG.mlp_regressor_max_itr,
             clip_gradients=CFG.mlp_regressor_clip_gradients,
             clip_value=CFG.mlp_regressor_gradient_clip_value,
-            learning_rate=CFG.learning_rate)
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every)
 
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
