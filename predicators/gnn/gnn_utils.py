@@ -5,7 +5,7 @@ from __future__ import division
 import collections
 import logging
 import time
-from typing import Any, Callable, Dict, List, OrderedDict, Tuple
+from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple
 
 import numpy as np
 import torch
@@ -16,10 +16,11 @@ from predicators.structs import Array
 
 def train_model(model: Any, dataloaders: Dict,
                 optimizer: torch.optim.Optimizer,
-                criterion: Callable[[torch.Tensor, torch.Tensor],
-                                    torch.Tensor],
-                global_criterion: Callable[[torch.Tensor, torch.Tensor],
-                                           torch.Tensor], num_epochs: int,
+                criterion: Optional[Callable[[torch.Tensor, torch.Tensor],
+                                             torch.Tensor]],
+                global_criterion: Optional[Callable[
+                    [torch.Tensor, torch.Tensor], torch.Tensor]],
+                num_epochs: int,
                 do_validation: bool) -> OrderedDict[str, torch.Tensor]:
     """Optimize the model and save checkpoints."""
     since = time.perf_counter()
@@ -32,7 +33,7 @@ def train_model(model: Any, dataloaders: Dict,
 
     for epoch in range(num_epochs):
         if epoch % 100 == 0:
-            logging.info(f'Epoch {epoch}/{num_epochs-1}')
+            logging.info(f'Epoch {epoch}/{num_epochs - 1}')
             logging.info('-' * 10)
         # Each epoch has a training and validation phase
         if epoch % 100 == 0 and do_validation:
@@ -84,7 +85,7 @@ def train_model(model: Any, dataloaders: Dict,
             logging.info(f"running_loss: {running_loss}")
 
             if do_validation and \
-               running_loss['val'] < best_seen_running_validation_loss:
+                    running_loss['val'] < best_seen_running_validation_loss:
                 best_seen_running_validation_loss = running_loss['val']
                 best_seen_model_weights = model.state_dict()
                 best_seen_model_train_loss = running_loss['train']
@@ -364,17 +365,17 @@ def _create_super_graph(batches: List[Dict]) -> Dict:
 
     return {
         'n_node':
-        torch.from_numpy(num_nodes),
+            torch.from_numpy(num_nodes),
         'n_edge':
-        torch.from_numpy(num_edges),
+            torch.from_numpy(num_edges),
         'nodes':
-        torch.from_numpy(nodes).float().requires_grad_(),
+            torch.from_numpy(nodes).float().requires_grad_(),
         'edges':
-        torch.from_numpy(edges).float().requires_grad_(),
+            torch.from_numpy(edges).float().requires_grad_(),
         'receivers':
-        torch.LongTensor(list(map(int, receivers))),
+            torch.LongTensor(list(map(int, receivers))),
         'senders':
-        torch.LongTensor(list(map(int, senders))),
+            torch.LongTensor(list(map(int, senders))),
         'globals': (torch.from_numpy(globals_).float().requires_grad_()
                     if globals_ is not None else None),
     }
