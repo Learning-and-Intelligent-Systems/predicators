@@ -1858,6 +1858,7 @@ def all_ground_nsrts_fd_translator(
     dom_str = create_pddl_domain(nsrts, predicates, types, "mydomain")
     prob_str = create_pddl_problem(objects, init_atoms, goal, "mydomain",
                                    "myproblem")
+    # import ipdb; ipdb.set_trace()
     with nostdout():
         sas_task = downward_translate(dom_str, prob_str)
     for operator in sas_task.operators:

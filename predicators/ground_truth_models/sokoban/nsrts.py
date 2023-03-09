@@ -35,7 +35,8 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Predicates
         At = predicates["At"]
         GoalCovered = predicates["GoalCovered"]
-        LocFree = predicates["Free"]
+        IsLoc = predicates["Loc"]
+        NoBoxAtLoc = predicates["NoBoxAtLoc"]
         Above = predicates["Above"]
         Below = predicates["Below"]
         RightOf = predicates["RightOf"]
@@ -68,9 +69,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj1, obj2, obj3]
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
-            LiftedAtom(LocFree, [obj3]),
-            LiftedAtom(LocFree, [obj2]),
-            LiftedAtom(Above, [obj2, obj3]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj2]),
+            LiftedAtom(NoBoxAtLoc, [obj3]),
+            LiftedAtom(Above, [obj3, obj2]),
             LiftedAtom(At, [obj1, obj2]),
         }
         add_effects = {LiftedAtom(At, [obj1, obj3])}
@@ -87,9 +89,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj1, obj2, obj3]
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
-            LiftedAtom(LocFree, [obj3]),
-            LiftedAtom(LocFree, [obj2]),
-            LiftedAtom(Below, [obj2, obj3]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj2]),
+            LiftedAtom(NoBoxAtLoc, [obj3]),
+            LiftedAtom(Below, [obj3, obj2]),
             LiftedAtom(At, [obj1, obj2]),
         }
         add_effects = {LiftedAtom(At, [obj1, obj3])}
@@ -106,9 +109,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj1, obj2, obj3]
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
-            LiftedAtom(LocFree, [obj3]),
-            LiftedAtom(LocFree, [obj2]),
-            LiftedAtom(RightOf, [obj2, obj3]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj2]),
+            LiftedAtom(NoBoxAtLoc, [obj3]),
+            LiftedAtom(RightOf, [obj3, obj2]),
             LiftedAtom(At, [obj1, obj2]),
         }
         add_effects = {LiftedAtom(At, [obj1, obj3])}
@@ -125,9 +129,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj1, obj2, obj3]
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
-            LiftedAtom(LocFree, [obj3]),
-            LiftedAtom(LocFree, [obj2]),
-            LiftedAtom(LeftOf, [obj2, obj3]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj2]),
+            LiftedAtom(NoBoxAtLoc, [obj3]),
+            LiftedAtom(LeftOf, [obj3, obj2]),
             LiftedAtom(At, [obj1, obj2]),
         }
         add_effects = {LiftedAtom(At, [obj1, obj3])}
@@ -145,8 +150,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
             LiftedAtom(IsBox, [obj2]),
-            LiftedAtom(LocFree, [obj3]),
-            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj4]),
+            LiftedAtom(IsLoc, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(Above, [obj4, obj3]),
@@ -155,13 +162,13 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
             LiftedAtom(At, [obj1, obj4]),
-            LiftedAtom(LocFree, [obj4])
+            LiftedAtom(NoBoxAtLoc, [obj4]),
         }
         delete_effects = {
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
-            LiftedAtom(LocFree, [obj5]),
-            LiftedAtom(GoalCovered, [obj4])
+            LiftedAtom(GoalCovered, [obj4]),
+            LiftedAtom(NoBoxAtLoc, [obj5])
         }
         option = PushUp
         option_vars = []  # dummy - not used
@@ -176,8 +183,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
             LiftedAtom(IsBox, [obj2]),
-            LiftedAtom(LocFree, [obj3]),
-            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj4]),
+            LiftedAtom(IsLoc, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(Below, [obj4, obj3]),
@@ -186,13 +195,13 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
             LiftedAtom(At, [obj1, obj4]),
-            LiftedAtom(LocFree, [obj4])
+            LiftedAtom(NoBoxAtLoc, [obj4]),
         }
         delete_effects = {
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
-            LiftedAtom(LocFree, [obj5]),
-            LiftedAtom(GoalCovered, [obj4])
+            LiftedAtom(GoalCovered, [obj4]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
         }
         option = PushDown
         option_vars = []  # dummy - not used
@@ -207,8 +216,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
             LiftedAtom(IsBox, [obj2]),
-            LiftedAtom(LocFree, [obj3]),
-            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj4]),
+            LiftedAtom(IsLoc, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(RightOf, [obj4, obj3]),
@@ -217,15 +228,15 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
             LiftedAtom(At, [obj1, obj4]),
-            LiftedAtom(LocFree, [obj4])
+            LiftedAtom(NoBoxAtLoc, [obj4]),
         }
         delete_effects = {
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
-            LiftedAtom(LocFree, [obj5]),
-            LiftedAtom(GoalCovered, [obj4])
+            LiftedAtom(GoalCovered, [obj4]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
         }
-        option = PushUp
+        option = PushRight
         option_vars = []  # dummy - not used
         push_right_nsrt = NSRT("PushRight", parameters, preconditions,
                                add_effects, delete_effects, set(), option,
@@ -238,8 +249,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
             LiftedAtom(IsBox, [obj2]),
-            LiftedAtom(LocFree, [obj3]),
-            LiftedAtom(LocFree, [obj5]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj4]),
+            LiftedAtom(IsLoc, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(LeftOf, [obj4, obj3]),
@@ -248,15 +261,15 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
             LiftedAtom(At, [obj1, obj4]),
-            LiftedAtom(LocFree, [obj4])
+            LiftedAtom(NoBoxAtLoc, [obj4]),
         }
         delete_effects = {
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
-            LiftedAtom(LocFree, [obj5]),
-            LiftedAtom(GoalCovered, [obj4])
+            LiftedAtom(GoalCovered, [obj4]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
         }
-        option = PushUp
+        option = PushLeft
         option_vars = []  # dummy - not used
         push_left_nsrt = NSRT("PushLeft", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
@@ -269,8 +282,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
             LiftedAtom(IsBox, [obj2]),
-            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj4]),
             LiftedAtom(IsGoal, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(Above, [obj4, obj3]),
@@ -279,14 +294,14 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
             LiftedAtom(At, [obj1, obj4]),
-            LiftedAtom(LocFree, [obj4]),
-            LiftedAtom(GoalCovered, [obj5])
+            LiftedAtom(GoalCovered, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj4]),
         }
         delete_effects = {
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
-            LiftedAtom(LocFree, [obj5]),
-            LiftedAtom(GoalCovered, [obj4])
+            LiftedAtom(GoalCovered, [obj4]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
         }
         option = PushUp
         option_vars = []  # dummy - not used
@@ -301,8 +316,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
             LiftedAtom(IsBox, [obj2]),
-            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj4]),
             LiftedAtom(IsGoal, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(Below, [obj4, obj3]),
@@ -311,14 +328,14 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
             LiftedAtom(At, [obj1, obj4]),
-            LiftedAtom(LocFree, [obj4]),
-            LiftedAtom(GoalCovered, [obj5])
+            LiftedAtom(GoalCovered, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj4]),
         }
         delete_effects = {
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
-            LiftedAtom(LocFree, [obj5]),
-            LiftedAtom(GoalCovered, [obj4])
+            LiftedAtom(GoalCovered, [obj4]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
         }
         option = PushDown
         option_vars = []  # dummy - not used
@@ -333,8 +350,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
             LiftedAtom(IsBox, [obj2]),
-            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj4]),
             LiftedAtom(IsGoal, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(RightOf, [obj4, obj3]),
@@ -343,14 +362,14 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
             LiftedAtom(At, [obj1, obj4]),
-            LiftedAtom(LocFree, [obj4]),
-            LiftedAtom(GoalCovered, [obj5])
+            LiftedAtom(GoalCovered, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj4]),
         }
         delete_effects = {
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
-            LiftedAtom(LocFree, [obj5]),
-            LiftedAtom(GoalCovered, [obj4])
+            LiftedAtom(GoalCovered, [obj4]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
         }
         option = PushRight
         option_vars = []  # dummy - not used
@@ -365,8 +384,10 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(IsPlayer, [obj1]),
             LiftedAtom(IsBox, [obj2]),
-            LiftedAtom(LocFree, [obj3]),
+            LiftedAtom(IsLoc, [obj3]),
+            LiftedAtom(IsLoc, [obj4]),
             LiftedAtom(IsGoal, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(LeftOf, [obj4, obj3]),
@@ -375,14 +396,14 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
             LiftedAtom(At, [obj1, obj4]),
-            LiftedAtom(LocFree, [obj4]),
-            LiftedAtom(GoalCovered, [obj5])
+            LiftedAtom(GoalCovered, [obj5]),
+            LiftedAtom(NoBoxAtLoc, [obj4]),
         }
         delete_effects = {
             LiftedAtom(At, [obj1, obj3]),
             LiftedAtom(At, [obj2, obj4]),
-            LiftedAtom(LocFree, [obj5]),
-            LiftedAtom(GoalCovered, [obj4])
+            LiftedAtom(GoalCovered, [obj4]),
+            LiftedAtom(NoBoxAtLoc, [obj5]),
         }
         option = PushLeft
         option_vars = []  # dummy - not used

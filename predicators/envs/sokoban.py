@@ -43,8 +43,10 @@ class SokobanEnv(BaseEnv):
         # Predicates
         self._At = Predicate("At", [self._object_type, self._object_type],
                              self._At_holds)
-        self._LocFree = Predicate("Free", [self._object_type],
-                                  self._IsFree_holds)
+        self._IsLoc = Predicate("Loc", [self._object_type],
+                                  self._IsLoc_holds)
+        self._NoBoxAtLoc = Predicate("NoBoxAtLoc", [self._object_type],
+                                  self._NoBoxAtLoc_holds)
         self._Above = Predicate("Above",
                                 [self._object_type, self._object_type],
                                 self._Above_holds)
@@ -106,9 +108,9 @@ class SokobanEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._At, self._GoalCovered, self._LocFree, self._Above,
+            self._At, self._GoalCovered, self._IsLoc, self._Above,
             self._Below, self._RightOf, self._LeftOf, self._IsBox,
-            self._IsPlayer, self._IsGoal
+            self._IsPlayer, self._NoBoxAtLoc, self._IsGoal
         }
 
     @property
@@ -142,12 +144,14 @@ class SokobanEnv(BaseEnv):
             assert state.allclose(self.get_state())
         state.simulator_state = orig_simulator_state
         next_state = self.step(action)
-        # Now, we need to do correct object tracking by finding the difference
-        # between the current state and the next state.
-        for obj in state:
-            if (state.data[obj] != next_state.data[obj]).any():
-                print(obj)
-        import ipdb; ipdb.set_trace()
+        # # Now, we need to do correct object tracking by finding the difference
+        # # between the current state and the next state.
+        # for obj in state:
+        #     if (state.data[obj] != next_state.data[obj]).any():
+        #         print(obj)
+        # import ipdb; ipdb.set_trace()
+        # if action.arr[-1] == 1:
+        #     import ipdb; ipdb.set_trace()
         return next_state
 
     def step(self, action: Action) -> State:
@@ -212,19 +216,24 @@ class SokobanEnv(BaseEnv):
         state.simulator_state = seed
         return state
 
-    def _IsFree_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # A location is 'free' if it has type 'free' and there is no
-        # box covering it.
+    def _IsLoc_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        # A location is 'free' if it has type 'free'.
         loc, = objects
         loc_type = state.get(loc, "type")
-        if not (loc_type == self._type_to_enum["free"]):
+        return loc_type == self._type_to_enum["free"]
+        
+    def _NoBoxAtLoc_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        # Only holds if the the object has a 'loc' type.
+        if not (self._IsLoc_holds(state, objects) or self._IsGoal_holds(state, objects)):
             return False
+        loc, = objects
         loc_r = state.get(loc, "row")
         loc_c = state.get(loc, "column")
         boxes = [
             o for o in state
             if state.get(o, "type") == self._type_to_enum["box"]
         ]
+        # If any box is at this location, return False.
         for box in boxes:
             r = state.get(box, "row")
             c = state.get(box, "column")
@@ -263,7 +272,7 @@ class SokobanEnv(BaseEnv):
         obj1_c = state.get(obj1, "column")
         obj2_r = state.get(obj2, "row")
         obj2_c = state.get(obj2, "column")
-        return (obj1_r == obj2_r) and ((obj1_c + 1) == obj2_c)
+        return ((obj1_r + 1) == obj2_r) and (obj1_c == obj2_c)
 
     @staticmethod
     def _Below_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -272,7 +281,7 @@ class SokobanEnv(BaseEnv):
         obj1_c = state.get(obj1, "column")
         obj2_r = state.get(obj2, "row")
         obj2_c = state.get(obj2, "column")
-        return (obj1_r == obj2_r) and ((obj1_c - 1) == obj2_c)
+        return ((obj1_r - 1) == obj2_r) and (obj1_c == obj2_c)
 
     @staticmethod
     def _RightOf_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -281,7 +290,7 @@ class SokobanEnv(BaseEnv):
         obj1_c = state.get(obj1, "column")
         obj2_r = state.get(obj2, "row")
         obj2_c = state.get(obj2, "column")
-        return ((obj1_r + 1) == obj2_r) and (obj1_c == obj2_c)
+        return (obj1_r == obj2_r) and ((obj1_c - 1) == obj2_c)
 
     @staticmethod
     def _LeftOf_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -290,7 +299,7 @@ class SokobanEnv(BaseEnv):
         obj1_c = state.get(obj1, "column")
         obj2_r = state.get(obj2, "row")
         obj2_c = state.get(obj2, "column")
-        return ((obj1_r - 1) == obj2_r) and (obj1_c == obj2_c)
+        return (obj1_r == obj2_r) and ((obj1_c + 1) == obj2_c)
 
     def _GoalCovered_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:

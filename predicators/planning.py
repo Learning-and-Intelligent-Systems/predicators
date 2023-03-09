@@ -245,7 +245,7 @@ def filter_nsrts(
     allow_noops: bool = False,
 ) -> List[_GroundNSRT]:
     """Helper function for _sesame_plan_with_astar(); optionally filter out
-    NSRTs with empty effectws and/or those that are unreachable."""
+    NSRTs with empty effects and/or those that are unreachable."""
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts
         if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
@@ -592,7 +592,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                         if cur_idx == len(skeleton):
                             return plan, True  # success!
                     else:
-                        import ipdb; ipdb.set_trace()
+                        # import ipdb; ipdb.set_trace()
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to

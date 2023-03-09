@@ -168,8 +168,11 @@ class State:
         objects are the same, and the features are close."""
         if self.simulator_state is not None or \
            other.simulator_state is not None:
-            raise NotImplementedError("Cannot use allclose when "
-                                      "simulator_state is not None.")
+            if CFG.env == "sokoban":
+                pass
+            else:
+                raise NotImplementedError("Cannot use allclose when "
+                                        "simulator_state is not None.")
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
