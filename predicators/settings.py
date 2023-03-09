@@ -308,6 +308,7 @@ class GlobalSettings:
     gnn_num_message_passing = 3
     gnn_layer_size = 16
     gnn_learning_rate = 1e-3
+    gnn_weight_decay = 0
     gnn_num_epochs = 25000
     gnn_batch_size = 128
     gnn_do_normalization = False  # performs worse in Cover when True

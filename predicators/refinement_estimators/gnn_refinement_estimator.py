@@ -7,7 +7,7 @@ import functools
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple
 
 import dill as pkl
 import numpy as np
@@ -112,6 +112,10 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
             num_validation = max(1, int(len(graph_inputs) * 0.1))
         else:
             num_validation = 0
+        # Shuffle and split data
+        shuffled_indices = np.random.permutation(len(graph_inputs))
+        graph_inputs = [graph_inputs[i] for i in shuffled_indices]
+        graph_targets = [graph_targets[i] for i in shuffled_indices]
         train_inputs = graph_inputs[num_validation:]
         train_targets = graph_targets[num_validation:]
         val_inputs = graph_inputs[:num_validation]
@@ -124,10 +128,11 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                                     layer_size=CFG.gnn_layer_size).to(device)
         # Set up Adam optimizer and dataloaders.
         optimizer = torch.optim.Adam(self._gnn.parameters(),
-                                     lr=CFG.gnn_learning_rate)
+                                     lr=CFG.gnn_learning_rate,
+                                     weight_decay=CFG.gnn_weight_decay)
         train_dataloader = DataLoader(train_dataset,
                                       batch_size=CFG.gnn_batch_size,
-                                      shuffle=False,
+                                      shuffle=True,
                                       num_workers=0,
                                       collate_fn=graph_batch_collate)
         val_dataloader = DataLoader(val_dataset,
@@ -176,7 +181,10 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                 node_features[obj_index, feat_index] = val
 
         # Initialize feature vectors for nullary/binary predicates
-        edge_features_dict = defaultdict(lambda: np.zeros(num_edge_features))
+        edge_features_dict: DefaultDict[Tuple[int, int],
+                                        np.ndarray] = defaultdict(
+            lambda: np.zeros(num_edge_features)
+        )
         atoms_globals = np.zeros(len(self._nullary_predicates), dtype=np.int64)
         goal_globals = np.zeros(len(self._nullary_predicates), dtype=np.int64)
 
