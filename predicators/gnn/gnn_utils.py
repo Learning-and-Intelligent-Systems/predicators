@@ -18,9 +18,9 @@ def train_model(model: Any, dataloaders: Dict,
                 optimizer: torch.optim.Optimizer,
                 criterion: Optional[Callable[[torch.Tensor, torch.Tensor],
                                              torch.Tensor]],
-                global_criterion: Optional[Callable[
-                    [torch.Tensor, torch.Tensor], torch.Tensor]],
-                num_epochs: int,
+                global_criterion: Optional[
+                    Callable[[torch.Tensor, torch.Tensor],
+                             torch.Tensor]], num_epochs: int,
                 do_validation: bool) -> OrderedDict[str, torch.Tensor]:
     """Optimize the model and save checkpoints."""
     since = time.perf_counter()
@@ -365,17 +365,17 @@ def _create_super_graph(batches: List[Dict]) -> Dict:
 
     return {
         'n_node':
-            torch.from_numpy(num_nodes),
+        torch.from_numpy(num_nodes),
         'n_edge':
-            torch.from_numpy(num_edges),
+        torch.from_numpy(num_edges),
         'nodes':
-            torch.from_numpy(nodes).float().requires_grad_(),
+        torch.from_numpy(nodes).float().requires_grad_(),
         'edges':
-            torch.from_numpy(edges).float().requires_grad_(),
+        torch.from_numpy(edges).float().requires_grad_(),
         'receivers':
-            torch.LongTensor(list(map(int, receivers))),
+        torch.LongTensor(list(map(int, receivers))),
         'senders':
-            torch.LongTensor(list(map(int, senders))),
+        torch.LongTensor(list(map(int, senders))),
         'globals': (torch.from_numpy(globals_).float().requires_grad_()
                     if globals_ is not None else None),
     }

@@ -521,8 +521,7 @@ def run_low_level_search(
     plan: List[_Option] = [DummyOption for _ in skeleton]
     # If refinement_time list is passed, record the refinement time
     # distributed across each step of the skeleton
-    do_time_refinement = refinement_time is not None
-    if do_time_refinement:
+    if refinement_time is not None:
         assert len(refinement_time) == 0
         for _ in skeleton:
             refinement_time.append(0)
@@ -536,6 +535,7 @@ def run_low_level_search(
     discovered_failures: List[Optional[_DiscoveredFailure]] = [
         None for _ in skeleton
     ]
+    plan_found = False
     while cur_idx < len(skeleton):
         if time.perf_counter() - start_time > timeout:
             return longest_failed_refinement, False
@@ -604,11 +604,7 @@ def run_low_level_search(
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
-                            if do_time_refinement:
-                                refinement_time[cur_idx -
-                                                1] += (time.perf_counter() -
-                                                       try_start_time)
-                            return plan, True  # success!
+                            plan_found = True
                     else:
                         can_continue_on = False
                 else:
@@ -617,18 +613,17 @@ def run_low_level_search(
                     can_continue_on = True
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
-                            if do_time_refinement:
-                                refinement_time[cur_idx -
-                                                1] += (time.perf_counter() -
-                                                       try_start_time)
-                            return plan, True  # success!
-                        can_continue_on = False
+                            plan_found = True
+                        else:
+                            can_continue_on = False
         else:
             # The option is not initiable.
             can_continue_on = False
-        if do_time_refinement:
+        if refinement_time is not None:
             try_end_time = time.perf_counter()
             refinement_time[cur_idx - 1] += try_end_time - try_start_time
+        if plan_found:
+            return plan, True  # success!
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
             # Update the longest_failed_refinement found so far.
             if cur_idx > len(longest_failed_refinement):

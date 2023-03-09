@@ -19,11 +19,11 @@ from predicators.gnn.gnn import EncodeProcessDecode, setup_graph_net
 from predicators.gnn.gnn_utils import GraphDictDataset, compute_normalizers, \
     get_single_model_prediction, graph_batch_collate, normalize_graph, \
     train_model
-from predicators.ground_truth_models import get_gt_options, get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, Predicate, RefinementDatapoint, \
-    State, Task, NSRT, _GroundNSRT
+from predicators.structs import NSRT, GroundAtom, Predicate, \
+    RefinementDatapoint, State, Task, _GroundNSRT
 
 device = torch.device(
     "cuda:0" if CFG.use_torch_gpu and torch.cuda.is_available() else "cpu")
@@ -88,8 +88,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                     value += CFG.refinement_data_failed_refinement_penalty
                 # Convert input and target to graphs
                 graph_inputs.append(
-                    self._graphify_single_input(state, atoms, goal, action)
-                )
+                    self._graphify_single_input(state, atoms, goal, action))
                 graph_targets.append(self._graphify_single_target(value))
         self._data_exemplar = (graph_inputs[0], graph_targets[0])
 
@@ -185,8 +184,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         for atom in atoms:
             arity = atom.predicate.arity
             if arity == 0:
-                atoms_globals[
-                    self._nullary_predicates.index(atom.predicate)] = 1
+                atoms_globals[self._nullary_predicates.index(
+                    atom.predicate)] = 1
                 continue
             obj0_index = object_to_node[atom.objects[0]]
             if arity == 1:
@@ -203,8 +202,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         for atom in goal:
             arity = atom.predicate.arity
             if arity == 0:
-                goal_globals[
-                    self._nullary_predicates.index(atom.predicate)] = 1
+                goal_globals[self._nullary_predicates.index(
+                    atom.predicate)] = 1
                 continue
             obj0_index = object_to_node[atom.objects[0]]
             if arity == 1:
@@ -252,8 +251,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         return graph
 
     def _setup_fields(self) -> None:
-        """Assign indices to each node and edge feature, and also identify
-        list of nullary predicates."""
+        """Assign indices to each node and edge feature, and also identify list
+        of nullary predicates."""
         self._node_feature_to_index = {}
         self._edge_feature_to_index = {}
         node_feature_index = 0
@@ -284,8 +283,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                     self._node_feature_to_index[feature] = node_feature_index
                     node_feature_index += 1
             elif arity == 2:
-                for feature in (predicate, R(predicate),
-                                G(predicate), G(R(predicate))):
+                for feature in (predicate, R(predicate), G(predicate),
+                                G(R(predicate))):
                     self._edge_feature_to_index[feature] = edge_feature_index
                     edge_feature_index += 1
 
