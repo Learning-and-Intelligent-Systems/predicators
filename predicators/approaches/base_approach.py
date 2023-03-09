@@ -10,7 +10,8 @@ from gym.spaces import Box
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, InteractionRequest, \
     InteractionResult, Metrics, ParameterizedOption, Predicate, State, Task, \
-    Type
+    Type, Observation
+from predicators.perception import create_perception_module
 from predicators.utils import ExceptionWithInfo
 
 
@@ -58,9 +59,10 @@ class BaseApproach(abc.ABC):
         Checks that actions are in the action space.
         """
         pi = self._solve(task, timeout)
+        perception_module = create_perception_module()
 
-        def _policy(state: State) -> Action:
-            assert isinstance(state, State)
+        def _policy(observation: Observation) -> Action:
+            state = perception_module.observe(observation)
             act = pi(state)
             assert self._action_space.contains(act.arr)
             return act
