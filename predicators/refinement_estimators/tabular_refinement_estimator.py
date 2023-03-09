@@ -31,7 +31,7 @@ class TabularRefinementEstimator(PerSkeletonRefinementEstimator[float]):
         for _, skeleton, atoms_sequence, succeeded, refinement_time in data:
             # Convert skeleton and atoms_sequence into an immutable dict key
             key = self._immutable_model_dict_key(skeleton, atoms_sequence)
-            value = refinement_time
+            value = sum(refinement_time)
             # Add failed refinement penalty to the value if failure occurred
             if not succeeded:
                 value += CFG.refinement_data_failed_refinement_penalty

@@ -486,11 +486,17 @@ def _skeleton_generator(
     raise _SkeletonSearchTimeout
 
 
-def run_low_level_search(task: Task, option_model: _OptionModelBase,
-                         skeleton: List[_GroundNSRT],
-                         atoms_sequence: List[Set[GroundAtom]], seed: int,
-                         timeout: float, metrics: Metrics,
-                         max_horizon: int) -> Tuple[List[_Option], bool]:
+def run_low_level_search(
+    task: Task,
+    option_model: _OptionModelBase,
+    skeleton: List[_GroundNSRT],
+    atoms_sequence: List[Set[GroundAtom]],
+    seed: int,
+    timeout: float,
+    metrics: Metrics,
+    max_horizon: int,
+    refinement_time: Optional[List[float]] = None
+) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -513,6 +519,13 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
     ]
     plan: List[_Option] = [DummyOption for _ in skeleton]
+    # If refinement_time list is passed, record the refinement time
+    # distributed across each step of the skeleton
+    do_time_refinement = refinement_time is not None
+    if do_time_refinement:
+        assert len(refinement_time) == 0
+        for _ in skeleton:
+            refinement_time.append(0)
     # The number of actions taken by each option in the plan. This is to
     # make sure that we do not exceed the task horizon.
     num_actions_per_option = [0 for _ in plan]
@@ -527,6 +540,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         if time.perf_counter() - start_time > timeout:
             return longest_failed_refinement, False
         assert num_tries[cur_idx] < max_tries[cur_idx]
+        try_start_time = time.perf_counter()
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
@@ -590,6 +604,10 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
+                            if do_time_refinement:
+                                refinement_time[cur_idx -
+                                                1] += (time.perf_counter() -
+                                                       try_start_time)
                             return plan, True  # success!
                     else:
                         can_continue_on = False
@@ -599,11 +617,18 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     can_continue_on = True
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
+                            if do_time_refinement:
+                                refinement_time[cur_idx -
+                                                1] += (time.perf_counter() -
+                                                       try_start_time)
                             return plan, True  # success!
                         can_continue_on = False
         else:
             # The option is not initiable.
             can_continue_on = False
+        if do_time_refinement:
+            try_end_time = time.perf_counter()
+            refinement_time[cur_idx - 1] += try_end_time - try_start_time
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
             # Update the longest_failed_refinement found so far.
             if cur_idx > len(longest_failed_refinement):
@@ -614,7 +639,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
             # the longest_failed_refinement first.
             possible_failure = discovered_failures[cur_idx - 1]
             if possible_failure is not None and \
-               CFG.sesame_propagate_failures == "immediately":
+                CFG.sesame_propagate_failures == "immediately":
                 raise _DiscoveredFailureException(
                     "Discovered a failure", possible_failure,
                     {"longest_failed_refinement": longest_failed_refinement})
@@ -636,7 +661,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     # high-level search continues.
                     for possible_failure in discovered_failures:
                         if possible_failure is not None and \
-                           CFG.sesame_propagate_failures == "after_exhaust":
+                            CFG.sesame_propagate_failures == "after_exhaust":
                             raise _DiscoveredFailureException(
                                 "Discovered a failure", possible_failure, {
                                     "longest_failed_refinement":
@@ -729,7 +754,7 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                 assert line.isdigit()
                 num_variables = int(line)
                 # Change num variables
-                new_sas_file_lines.append(f"{num_variables+1}\n")
+                new_sas_file_lines.append(f"{num_variables + 1}\n")
             elif "end_variable" in line:
                 count_variables += 1
                 new_sas_file_lines.append(line)
@@ -818,7 +843,7 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                 # Append preconditions
                 if operator_str.replace("\n", "") == ground_op_str:
                     new_sas_file_lines.append(
-                        f"{num_precondition_conditons+1}\n")
+                        f"{num_precondition_conditons + 1}\n")
                     new_sas_file_lines.append(
                         f"{num_variables} 0\n")  # additional precondition
                 else:
@@ -829,7 +854,7 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                                                         j])
                 # Append effects
                 if obj.name.lower() in operator_str:
-                    new_sas_file_lines.append(f"{num_effects+1}\n")
+                    new_sas_file_lines.append(f"{num_effects + 1}\n")
                     new_sas_file_lines.append(
                         f"0 {num_variables} -1 0\n")  # additional effect
                 else:

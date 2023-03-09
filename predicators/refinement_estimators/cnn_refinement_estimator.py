@@ -42,7 +42,7 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
             img = self._get_rendered_initial_state(task)
             grouped_input_imgs[key].append(img)
             # Compute target value from refinement time and possible failure
-            value = refinement_time
+            value = sum(refinement_time)
             if not succeeded:
                 value += CFG.refinement_data_failed_refinement_penalty
             grouped_targets[key].append([value])

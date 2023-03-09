@@ -219,20 +219,27 @@ def _collect_refinement_data_for_task(task: Task,
         for skeleton, atoms_sequence in gen:
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)
-            refinement_start_time = time.perf_counter()
+            # This list will be mutated by run_low_level_search to record
+            # the refinement time for each step of the skeleton
+            refinement_time_list: List[float] = []
             _, suc = run_low_level_search(
-                task, option_model, skeleton, necessary_atoms_seq, seed,
-                CFG.refinement_data_low_level_search_timeout, metrics,
-                CFG.horizon)
-            # Calculate time taken for refinement.
-            refinement_time = time.perf_counter() - refinement_start_time
+                task,
+                option_model,
+                skeleton,
+                necessary_atoms_seq,
+                seed,
+                CFG.refinement_data_low_level_search_timeout,
+                metrics,
+                CFG.horizon,
+                refinement_time=refinement_time_list)
+            assert len(refinement_time_list) == len(skeleton)
             # Add datapoint to dataset
             data.append((
                 task,
                 skeleton,
                 atoms_sequence,
                 suc,
-                refinement_time,
+                refinement_time_list,
             ))
     except _MaxSkeletonsFailure:
         # Done finding skeletons

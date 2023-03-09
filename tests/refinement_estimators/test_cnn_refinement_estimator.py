@@ -31,7 +31,7 @@ def test_cnn_refinement_estimator():
         sample_task = NarrowPassageEnv().get_train_tasks()[0]
         estimator.get_cost(sample_task, [], [])
     # Check that train actually runs
-    sample_data = [(sample_task, [], [], False, 5)]
+    sample_data = [(sample_task, [], [], False, [])]
     estimator.train(sample_data)
     # Check that get_cost works now that the estimator is trained
     estimator.get_cost(sample_task, [], [])
@@ -91,10 +91,10 @@ def test_narrow_passage_cnn_refinement_estimator():
 
     # Create sample data to train using
     sample_data = [
-        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, 4),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, [4]),
         (sample_task, move_through_door_skeleton, move_through_door_atoms_seq,
-         True, 2),
-        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, 5),
+         True, [0.5, 1.5]),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, [5]),
     ]
     estimator.train(sample_data)
 

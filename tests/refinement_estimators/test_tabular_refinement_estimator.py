@@ -23,12 +23,12 @@ def test_tabular_refinement_estimator():
         sample_task = NarrowPassageEnv().get_train_tasks()[0]
         estimator.get_cost(sample_task, [], [])
     # Check that train actually runs
-    sample_data = [(sample_task, [], [], False, 5)]
+    sample_data = [(sample_task, [], [], False, [])]
     estimator.train(sample_data)
     # Check that the resulting dictionary is correct
     cost_dict = estimator._model_dict  # pylint: disable=protected-access
-    assert cost_dict == {(tuple(), tuple()): 8}
-    assert estimator.get_cost(sample_task, [], []) == 8
+    assert cost_dict == {(tuple(), tuple()): 3}
+    assert estimator.get_cost(sample_task, [], []) == 3
 
 
 def test_narrow_passage_tabular_refinement_estimator():
@@ -78,17 +78,17 @@ def test_narrow_passage_tabular_refinement_estimator():
 
     # Create sample data to train using
     sample_data = [
-        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, 4),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, [4]),
         (sample_task, move_through_door_skeleton, move_through_door_atoms_seq,
-         True, 2),
-        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, 5),
+         True, [0.5, 1.5]),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, [5]),
     ]
     estimator.train(sample_data)
 
     # Test direct MoveToTarget skeleton
     move_direct_cost = estimator.get_cost(sample_task, move_direct_skeleton,
                                           move_direct_atoms_seq)
-    assert move_direct_cost == 6  # average of 2 samples: 4 and 5 + 3
+    assert move_direct_cost == 6  # average of 2 samples: 4 and (5 + 3)
 
     # Test open door then move skeleton
     move_through_door_cost = estimator.get_cost(sample_task,
