@@ -1,0 +1,1 @@
+{"objects": {"counter": "flat_surface", "snack_table": "flat_surface", "soda_can": "soda_can", "spot": "robot"}, "init": {"counter": {}, "snack_table": {}, "soda_can": {}, "spot": {}}, "init_preds": {"On": [["soda_can", "counter"]], "HandEmpty": [["spot"]]}, "goal": {"On": [["soda_can", "snack_table"]]}}

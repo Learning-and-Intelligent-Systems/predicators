@@ -5,8 +5,10 @@ then Execution.
 """
 
 import abc
+import logging
 from typing import Any, Callable, List, Set, Tuple
 
+import bosdyn
 from gym.spaces import Box
 
 from predicators import utils
@@ -56,16 +58,19 @@ class BilevelPlanningApproach(BaseApproach):
         option_policy = utils.option_plan_to_policy(plan)
 
         if CFG.env == "realworld_spot":  # pragma: no cover
-            spot_controllers = SpotControllers()
-            for op in plan:
-                if op.name == 'MoveToSurface':
-                    spot_controllers.navigateToController(op.objects)
-                elif op.name == 'MoveToCan':
-                    spot_controllers.navigateToController(op.objects)
-                elif op.name == 'GraspCan':
-                    spot_controllers.graspController(op.objects)
-                elif op.name == 'PlaceCanOntop':
-                    spot_controllers.placeOntopController(op.objects)
+            try:
+                spot_controllers = SpotControllers()
+                for op in plan:
+                    if op.name == 'MoveToSurface':
+                        spot_controllers.navigateToController(op.objects)
+                    elif op.name == 'MoveToCan':
+                        spot_controllers.navigateToController(op.objects)
+                    elif op.name == 'GraspCan':
+                        spot_controllers.graspController(op.objects)
+                    elif op.name == 'PlaceCanOntop':
+                        spot_controllers.placeOntopController(op.objects)
+            except bosdyn.client.exceptions.ProxyConnectionError:
+                logging.info("Could not connect to Spot!")
 
         def _policy(s: State) -> Action:
             try:

@@ -173,11 +173,9 @@ class SpotEnv(BaseEnv):
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
-        # If we couldn't turn this action into a ground operator, noop.
-        if ground_op is None:
-            return state.copy()
         # If the operator is not applicable in this state, noop.
-        if not ground_op.preconditions.issubset(ground_atoms):
+        if ground_op is None or not ground_op.preconditions.issubset(
+                ground_atoms):
             return state.copy()
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
@@ -309,7 +307,7 @@ class SpotEnv(BaseEnv):
         if "goal" in json_dict:
             goal = self._parse_goal_from_json(json_dict["goal"],
                                               object_name_to_object)
-        else:
+        else:  # pragma: no cover
             assert "language_goal" in json_dict
             goal = self._parse_language_goal_from_json(
                 json_dict["language_goal"], object_name_to_object)
