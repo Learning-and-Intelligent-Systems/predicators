@@ -97,7 +97,11 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
             # Update normalization constants. Note that we do this for both
             # the input graph and the target graph.
             self._input_normalizers = compute_normalizers(graph_inputs)
-            self._target_normalizers = compute_normalizers(graph_targets)
+            self._target_normalizers = compute_normalizers(
+                graph_targets,
+                normalize_nodes=False,
+                normalize_edges=False,
+            )
             graph_inputs = [
                 normalize_graph(g, self._input_normalizers)
                 for g in graph_inputs
@@ -333,5 +337,6 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                                     num_steps=CFG.gnn_num_message_passing,
                                     layer_size=CFG.gnn_layer_size)
         self._gnn.load_state_dict(info["state_dict"])
+        self._gnn.to(device)
         self._input_normalizers = info["input_normalizers"]
         self._target_normalizers = info["target_normalizers"]

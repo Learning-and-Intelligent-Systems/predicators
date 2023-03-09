@@ -111,7 +111,11 @@ def train_model(model: Any, dataloaders: Dict,
     return best_seen_model_weights
 
 
-def compute_normalizers(data: List[Dict]) -> Dict[str, Tuple[Array, Array]]:
+def compute_normalizers(data: List[Dict],
+                        normalize_nodes: bool = True,
+                        normalize_edges: bool = True,
+                        normalize_globals: bool = True,
+                        ) -> Dict[str, Tuple[Array, Array]]:
     """Compute the normalizers of the given list of graphs.
 
     These can be passed into normalize_graph.
@@ -124,14 +128,17 @@ def compute_normalizers(data: List[Dict]) -> Dict[str, Tuple[Array, Array]]:
     node_data = np.array(node_data_lst)
     edge_data = np.array(edge_data_lst)
     global_data = np.array(global_data_lst)
-    node_normalizers = _compute_normalizer_array(node_data)
-    edge_normalizers = _compute_normalizer_array(edge_data)
-    global_normalizers = _compute_normalizer_array(global_data)
-    return {
-        "nodes": node_normalizers,
-        "edges": edge_normalizers,
-        "globals": global_normalizers
-    }
+    normalizers = {}
+    if normalize_nodes:
+        node_normalizers = _compute_normalizer_array(node_data)
+        normalizers["nodes"] = node_normalizers
+    if normalize_edges:
+        edge_normalizers = _compute_normalizer_array(edge_data)
+        normalizers["edges"] = edge_normalizers
+    if normalize_globals:
+        global_normalizers = _compute_normalizer_array(global_data)
+        normalizers["globals"] = global_normalizers
+    return normalizers
 
 
 def _compute_normalizer_array(array_data: Array) -> Tuple[Array, Array]:
@@ -158,7 +165,7 @@ def normalize_graph(graph: Dict,
         if k in normalizers:
             new_graph[k] = transform(graph[k], normalizers[k])
         else:
-            assert k in ['n_node', 'n_edge', 'senders', 'receivers']
+            # assert k in ['n_node', 'n_edge', 'senders', 'receivers']
             new_graph[k] = graph[k]
     return new_graph
 
