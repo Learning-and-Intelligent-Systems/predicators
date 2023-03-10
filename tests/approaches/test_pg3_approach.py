@@ -1,5 +1,6 @@
 """Test cases for the PG3 approach."""
 import os
+import tempfile
 
 import pytest
 
@@ -97,6 +98,34 @@ def test_pg3_approach(approach_name, approach_cls):
     act = policy(task.init)
     option = act.get_option()
     assert option.name == "pick-up"
+
+    # Test loading from a saved init policy file.
+    if approach_name == "pg3":
+        pg3_init_file = tempfile.NamedTemporaryFile().name
+        with open(pg3_init_file, "w", encoding="utf-8") as f:
+            # Write the good policy to a file.
+            f.write(str(ldl))
+        # Create a new approach.
+        utils.reset_config({
+            "env": env_name,
+            "approach": approach_name,
+            "num_train_tasks": 1,
+            "num_test_tasks": 1,
+            "strips_learner": "oracle",
+            "pg3_heuristic": "demo_plan_comparison",  # faster for tests
+            "pg3_search_method": "hill_climbing",
+            "pg3_hc_enforced_depth": 0,
+            "pg3_init_policy": pg3_init_file,
+        })
+        new_approach = approach_cls(env.predicates,
+                                    get_gt_options(env.get_name()), env.types,
+                                    env.action_space, train_tasks)
+        new_approach._nsrts = nsrts  # pylint: disable=protected-access
+        recovered_ldls = new_approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
+        assert len(recovered_ldls) == 1
+        recovered_ldl = recovered_ldls[0]
+        assert len(recovered_ldl.rules) == len(ldl.rules)
+
     # Test case where low-level search fails in PG3.
     if approach_name == "pg3":
         approach._option_model = _MockOptionModel(env.simulate)  # pylint: disable=protected-access
