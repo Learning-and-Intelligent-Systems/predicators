@@ -65,6 +65,8 @@ class SokobanEnv(BaseEnv):
                                    self._IsPlayer_holds)
         self._IsGoal = Predicate("IsGoal", [self._object_type],
                                  self._IsGoal_holds)
+        self._NotIsGoal = Predicate("NotIsGoal", [self._object_type],
+                                    self._NotIsGoal_holds)
         self._GoalCovered = Predicate("GoalCovered", [self._object_type],
                                       self._GoalCovered_holds)
 
@@ -110,7 +112,8 @@ class SokobanEnv(BaseEnv):
         return {
             self._At, self._GoalCovered, self._IsLoc, self._Above,
             self._Below, self._RightOf, self._LeftOf, self._IsBox,
-            self._IsPlayer, self._NoBoxAtLoc, self._IsGoal
+            self._IsPlayer, self._NoBoxAtLoc, self._IsGoal,
+            self._NotIsGoal
         }
 
     @property
@@ -159,7 +162,8 @@ class SokobanEnv(BaseEnv):
         discrete_action = np.argmax(action.arr)
         self._gym_env.step(discrete_action)
         obs = self._gym_env.render(mode='raw')
-        return self._observation_to_state(obs)
+        self._current_state = self._observation_to_state(obs)
+        return self._current_state.copy()
 
     @property
     def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
@@ -193,7 +197,7 @@ class SokobanEnv(BaseEnv):
 
         walls, goals, boxes, player = obs
         type_to_mask = {
-            "free": np.logical_not(walls),
+            "free": np.logical_not(walls | goals),
             "goal": goals,
             "box": boxes,
             "player": player
@@ -204,7 +208,12 @@ class SokobanEnv(BaseEnv):
             enum = self._type_to_enum[type_name]
             i = 0
             for r, c in np.argwhere(mask):
-                obj = Object(f"{type_name}_{i}", self._object_type)
+                # Put the location of the free spaces in the name for easier
+                # debugging.
+                if type_name == "free":
+                    obj = Object(f"{type_name}_{r}_{c}", self._object_type)
+                else:
+                    obj = Object(f"{type_name}_{i}", self._object_type)
                 state_dict[obj] = {
                     "row": r,
                     "column": c,
@@ -220,7 +229,7 @@ class SokobanEnv(BaseEnv):
         # A location is 'free' if it has type 'free'.
         loc, = objects
         loc_type = state.get(loc, "type")
-        return loc_type == self._type_to_enum["free"]
+        return loc_type in {self._type_to_enum["free"], self._type_to_enum["goal"]}
         
     def _NoBoxAtLoc_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # Only holds if the the object has a 'loc' type.
@@ -250,6 +259,10 @@ class SokobanEnv(BaseEnv):
         obj, = objects
         obj_type = state.get(obj, "type")
         return obj_type == self._type_to_enum["goal"]
+
+    def _NotIsGoal_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        return self._IsLoc_holds(state, objects) and not \
+            self._IsGoal_holds(state, objects)
 
     def _IsPlayer_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects

@@ -44,6 +44,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         IsBox = predicates["IsBox"]
         IsPlayer = predicates["IsPlayer"]
         IsGoal = predicates["IsGoal"]
+        NotIsGoal = predicates["NotIsGoal"]
 
         # Options
         PushUp = options["PushUp"]
@@ -158,6 +159,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(Above, [obj4, obj3]),
             LiftedAtom(Above, [obj5, obj4]),
+            LiftedAtom(NotIsGoal, [obj5]),
         }
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
@@ -191,6 +193,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(Below, [obj4, obj3]),
             LiftedAtom(Below, [obj5, obj4]),
+            LiftedAtom(NotIsGoal, [obj5]),
         }
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
@@ -224,6 +227,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(RightOf, [obj4, obj3]),
             LiftedAtom(RightOf, [obj5, obj4]),
+            LiftedAtom(NotIsGoal, [obj5]),
         }
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
@@ -257,6 +261,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(LeftOf, [obj4, obj3]),
             LiftedAtom(LeftOf, [obj5, obj4]),
+            LiftedAtom(NotIsGoal, [obj5]),
         }
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
