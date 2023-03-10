@@ -7,7 +7,8 @@ import pytest
 
 import predicators.envs.pddl_env
 from predicators import utils
-from predicators.approaches.base_approach import ApproachFailure
+from predicators.approaches.base_approach import ApproachFailure, \
+    ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
@@ -36,7 +37,8 @@ from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, ParameterizedOption, Variable
+from predicators.structs import NSRT, Action, ParameterizedOption, Task, \
+    Variable
 
 _PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 
@@ -295,6 +297,22 @@ def test_planning_without_sim():
     with pytest.raises(ApproachFailure) as e:
         _policy_solves_task(policy, task, env.simulate)
     assert "Greedy option plan exhausted." in str(e)
+
+    # Test timeout.
+    with pytest.raises(ApproachTimeout) as e:
+        approach.solve(task, timeout=0)
+
+    # Test planning failure.
+    objects = set(task.init)
+    blocks = sorted(o for o in objects if o.type.name == "block")
+    block0, block1 = blocks[:2]
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+    on = pred_name_to_pred["on"]
+    impossible_goal = {on([block0, block1]), on([block1, block0])}
+    new_task = Task(task.init, impossible_goal)
+    with pytest.raises(ApproachFailure) as e:
+        approach.solve(new_task, timeout=500)
+
     # Cover case where the option is not initiable.
     utils.reset_config({
         "env": "cover",
