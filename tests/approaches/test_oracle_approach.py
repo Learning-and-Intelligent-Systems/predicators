@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.approaches.base_approach import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
@@ -34,8 +33,7 @@ from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, ParameterizedOption, Variable
-
+from predicators.structs import Action, Variable
 
 ENV_NAME_AND_CLS = [
     ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),

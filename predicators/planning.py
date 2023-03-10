@@ -16,8 +16,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+from typing import Collection, Dict, FrozenSet, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 
 import numpy as np
 
@@ -264,7 +264,7 @@ def filter_nsrts(
 def task_plan_grounding(
     init_atoms: Set[GroundAtom],
     objects: Set[Object],
-    nsrts: Sequence[NSRT],
+    nsrts: Collection[NSRT],
     allow_noops: bool = False,
 ) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
