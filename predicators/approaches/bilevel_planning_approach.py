@@ -56,10 +56,10 @@ class BilevelPlanningApproach(BaseApproach):
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:
-            task_plan, metrics = self._run_task_plan(task, nsrts, preds,
+            nsrt_plan, metrics = self._run_task_plan(task, nsrts, preds,
                                                      timeout, seed)
             self._save_metrics(metrics, nsrts, preds)
-            return self._task_plan_to_greedy_policy(task_plan, task.goal)
+            return self._task_plan_to_greedy_policy(nsrt_plan, task.goal)
 
         # Run full bilevel planning.
         plan, metrics = self._run_sesame_plan(task,
@@ -134,7 +134,7 @@ class BilevelPlanningApproach(BaseApproach):
                           ground_nsrts,
                           reachable_atoms,
                           heuristic,
-                          CFG.seed,
+                          seed,
                           timeout,
                           max_skeletons_optimized=1,
                           use_visited_state_set=True,
@@ -198,12 +198,12 @@ class BilevelPlanningApproach(BaseApproach):
         return self._last_plan
 
     def _task_plan_to_greedy_policy(
-            self, task_plan: Sequence[_GroundNSRT],
+            self, nsrt_plan: Sequence[_GroundNSRT],
             goal: Set[GroundAtom]) -> Callable[[State], Action]:
 
         cur_nsrt: Optional[_GroundNSRT] = None
         cur_option = DummyOption
-        nsrt_queue = list(task_plan)
+        nsrt_queue = list(nsrt_plan)
 
         def _policy(state: State) -> Action:
             nonlocal cur_nsrt, cur_option
