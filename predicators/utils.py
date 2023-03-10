@@ -1878,7 +1878,7 @@ def all_ground_nsrts(nsrt: NSRT,
     """Get all possible groundings of the given NSRT with the given objects."""
     types = [p.type for p in nsrt.parameters]
     for choice in get_object_combinations(objects, types):
-        yield nsrt.ground(choice)
+        yield nsrt.ground(tuple(choice))
 
 
 def all_ground_nsrts_fd_translator(
