@@ -135,6 +135,36 @@ class SokobanEnv(BaseEnv):
     def get_state(self) -> State:
         obs = self._gym_env.render(mode='raw')
         return self._observation_to_state(obs)
+    
+    # def _fix_object_tracking_errors(self, state: State, next_state: State) -> State:
+    #     # First, get a list of all the boxes that have changed their position.
+    #     changed_boxes = []
+    #     for obj in state:
+    #         if (state.data[obj] != next_state.data[obj]).any() and state.get(obj, 'type') == self._type_to_enum['box']:
+    #             changed_boxes.append(obj)
+    #     # If this list has length greater than 1, there is an object-tracking issue
+    #     # (since two boxes cannot change position simultaneously).
+    #     if len(changed_boxes) <= 1:
+    #         return next_state
+    #     # This object-tracking issue can only happen when two boxes are confused
+    #     # for one another.
+    #     assert len(changed_boxes) == 2
+    #     box0 = changed_boxes[0]
+    #     box1 = changed_boxes[1]
+    #     box0_final = next_state.data[box0]
+    #     box1_final = next_state.data[box1]
+    #     # We simply need to swap the data of these two boxes to make the
+    #     # correction to the state!
+    #     next_state.data[box0] = box1_final
+    #     next_state.data[box1] = box0_final
+    #     # We can now explicitly assert that this swapping works.
+    #     new_changed_boxes = []
+    #     for box in changed_boxes:
+    #         if (state.data[box] != next_state.data[box]).any() and state.get(box, 'type') == self._type_to_enum['box']:
+    #             new_changed_boxes.append(box)
+    #     assert len(new_changed_boxes) == 1
+    #     return next_state
+
 
     def simulate(self, state: State, action: Action) -> State:
         orig_simulator_state = state.simulator_state
@@ -142,20 +172,33 @@ class SokobanEnv(BaseEnv):
         if not state.allclose(self.get_state()):
             # If this check fails, then we've switched tasks
             # and need to reset our simulator to its original state.
-            assert orig_simulator_state is not None
+            try:
+                assert orig_simulator_state is not None
+            except AssertionError:
+                # TODO: need to fix object tracking between current state
+                # and get_state()!
+                import ipdb; ipdb.set_trace()
             self._reset_initial_state_from_seed(orig_simulator_state)
             assert state.allclose(self.get_state())
         state.simulator_state = orig_simulator_state
         next_state = self.step(action)
-        # # Now, we need to do correct object tracking by finding the difference
-        # # between the current state and the next state.
-        # for obj in state:
-        #     if (state.data[obj] != next_state.data[obj]).any():
-        #         print(obj)
-        # import ipdb; ipdb.set_trace()
-        # if action.arr[-1] == 1:
-        #     import ipdb; ipdb.set_trace()
         return next_state
+
+    # def simulate(self, state: State, action: Action) -> State:
+    #     next_state = self.step(action)
+    #     return next_state
+
+    def reset(self, train_or_test: str, task_idx: int) -> State:
+        """Resets the current state to the train or test task initial state."""
+        self._current_task = self.get_task(train_or_test, task_idx)
+        self._current_state = self._current_task.init
+        # We now need to reset the underlying gym environment to the correct
+        # state.
+        seed_offset = 0
+        if train_or_test == "test":
+            seed_offset = CFG.test_env_seed_offset
+        self._reset_initial_state_from_seed(seed_offset + task_idx)
+        return self._current_state.copy()
 
     def step(self, action: Action) -> State:
         # Convert our actions to their discrete action space.
