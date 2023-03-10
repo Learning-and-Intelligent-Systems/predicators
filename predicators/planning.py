@@ -869,7 +869,8 @@ def task_plan_with_option_plan_constraint(
     If no goal-achieving sequence of ground NSRTs corresponds to
     the option plan, return None.
     """
-    dummy_nsrts = sorted(utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs))
+    dummy_nsrts = sorted(
+        utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs))
     ground_nsrts, _ = task_plan_grounding(init_atoms,
                                           objects,
                                           dummy_nsrts,

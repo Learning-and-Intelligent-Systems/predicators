@@ -147,9 +147,6 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         logging.info("Computing sidelining objective value...")
         start_time = time.perf_counter()
         preds = self._get_current_predicates()
-        strips_ops = [nsrt.op for nsrt in self._nsrts]
-        option_specs = [(nsrt.option, list(nsrt.option_vars))
-                        for nsrt in self._nsrts]
         # Calculate first term in objective. This is a sum over the training
         # tasks of the number of possible task plans up to the demo length.
         num_plans_up_to_n = 0
@@ -160,11 +157,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             init_atoms = utils.abstract(task.init, preds)
             objects = set(task.init)
             ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms,
-                objects,
-                strips_ops,
-                option_specs,
-                allow_noops=True)
+                init_atoms, objects, sorted(self._nsrts), allow_noops=True)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
                 ground_nsrts, preds, objects)
@@ -185,8 +178,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         # Calculate second term in objective. This is the complexity of the
         # operator set, measured as the sum of all operator complexities.
         complexity = 0.0
-        for op in strips_ops:
-            complexity += op.get_complexity()
+        for nsrt in self._nsrts:
+            complexity += nsrt.op.get_complexity()
         time_taken = time.perf_counter() - start_time
         self._metrics["sidelining_obj_num_plans_up_to_n"] = num_plans_up_to_n
         self._metrics["sidelining_obj_complexity"] = complexity
