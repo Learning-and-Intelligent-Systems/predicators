@@ -245,7 +245,7 @@ def filter_nsrts(
     allow_noops: bool = False,
 ) -> List[_GroundNSRT]:
     """Helper function for _sesame_plan_with_astar(); optionally filter out
-    NSRTs with empty effectws and/or those that are unreachable."""
+    NSRTs with empty effects and/or those that are unreachable."""
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts
         if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
@@ -264,8 +264,7 @@ def filter_nsrts(
 def task_plan_grounding(
     init_atoms: Set[GroundAtom],
     objects: Set[Object],
-    strips_ops: Sequence[STRIPSOperator],
-    option_specs: Sequence[OptionSpec],
+    nsrts: Sequence[NSRT],
     allow_noops: bool = False,
 ) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
@@ -276,7 +275,6 @@ def task_plan_grounding(
 
     See the task_plan docstring for usage instructions.
     """
-    nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts = []
     for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
@@ -871,10 +869,10 @@ def task_plan_with_option_plan_constraint(
     If no goal-achieving sequence of ground NSRTs corresponds to
     the option plan, return None.
     """
+    dummy_nsrts = sorted(utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs))
     ground_nsrts, _ = task_plan_grounding(init_atoms,
                                           objects,
-                                          strips_ops,
-                                          option_specs,
+                                          dummy_nsrts,
                                           allow_noops=True)
     heuristic = utils.create_task_planning_heuristic(
         CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
