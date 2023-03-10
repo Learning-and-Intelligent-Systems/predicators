@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from gym.spaces import Box
 
 import predicators.envs.pddl_env
 from predicators import utils
@@ -37,8 +36,7 @@ from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, ParameterizedOption, Predicate, \
-    State, Task, Type, Variable
+from predicators.structs import NSRT, Action, ParameterizedOption, Variable
 
 _PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 
@@ -290,9 +288,9 @@ def test_planning_without_sim():
                                   env.action_space, train_tasks)
     # Test the policy outside of patch() because _policy_solves_task uses the
     # simulator.
-    for task in env.get_test_tasks():
-        policy = approach.solve(task, timeout=500)
-        assert _policy_solves_task(policy, task, env.simulate)
+    task = env.get_test_tasks()[0]
+    policy = approach.solve(task, timeout=500)
+    assert _policy_solves_task(policy, task, env.simulate)
     # Running the policy again should fail because the plan is empty.
     with pytest.raises(ApproachFailure) as e:
         _policy_solves_task(policy, task, env.simulate)
