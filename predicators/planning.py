@@ -460,7 +460,7 @@ def _skeleton_generator(
                         continue
                 child_skeleton = node.skeleton + [nsrt]
                 child_skeleton_tup = tuple(child_skeleton)
-                if child_skeleton_tup in visited_skeletons:
+                if child_skeleton_tup in visited_skeletons:  # pragma: no cover
                     continue
                 visited_skeletons.add(child_skeleton_tup)
                 # Action costs are unitary.

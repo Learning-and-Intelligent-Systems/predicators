@@ -157,7 +157,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             init_atoms = utils.abstract(task.init, preds)
             objects = set(task.init)
             ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, sorted(self._nsrts), allow_noops=True)
+                init_atoms, objects, self._nsrts, allow_noops=True)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
                 ground_nsrts, preds, objects)
