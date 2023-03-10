@@ -163,8 +163,8 @@ def _skeleton_based_score_function(
         train_task = train_tasks[traj.train_task_idx]
         init_atoms = utils.abstract(traj.states[0], current_predicate_set)
         objects = set(traj.states[0])
-        dummy_nsrts = sorted(
-            utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs))
+        dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
+            strips_ops, option_specs)
         ground_nsrts, reachable_atoms = task_plan_grounding(
             init_atoms, objects, dummy_nsrts)
         heuristic = utils.create_task_planning_heuristic(

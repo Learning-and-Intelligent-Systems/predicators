@@ -271,17 +271,17 @@ def test_planning_without_sim():
     # Test planning in a PDDL environment, which should succeed without
     # simulation.
     utils.reset_config({
-        "env": "pddl_easy_delivery_procedural_tasks",
+        "env": "pddl_blocks_procedural_tasks",
         "num_train_tasks": 0,
         "num_test_tasks": 2,
         "bilevel_plan_without_sim": True,
     })
     simulate_path_str = \
-        f"{_PDDL_ENV_MODULE_PATH}.ProceduralTasksEasyDeliveryPDDLEnv.simulate"
+        f"{_PDDL_ENV_MODULE_PATH}.ProceduralTasksBlocksPDDLEnv.simulate"
     with patch(simulate_path_str) as mock_simulate:
         # Raise an error (and fail the test) if simulate is called.
         mock_simulate.side_effect = AssertionError("Simulate called.")
-        env = ProceduralTasksEasyDeliveryPDDLEnv(use_gui=False)
+        env = ProceduralTasksBlocksPDDLEnv(use_gui=False)
         train_tasks = env.get_train_tasks()
         approach = OracleApproach(env.predicates,
                                   get_gt_options(env.get_name()), env.types,
