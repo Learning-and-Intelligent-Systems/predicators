@@ -372,12 +372,6 @@ class GlobalSettings:
     sesame_check_static_object_changes = False
     # Warning: making this tolerance any lower breaks pybullet_blocks.
     sesame_static_object_change_tol = 1e-3
-    # If True, then bilevel planning approaches will run task planning only,
-    # and then greedily sample and execute in the environment. This avoids the
-    # need for a simulator. In the future, we could check to see if the
-    # observed states match (at the abstract level) the expected states, and
-    # replan if not. But for now, we just execute each step without checking.
-    bilevel_plan_without_sim = False
 
     # evaluation parameters
     log_dir = "logs"
