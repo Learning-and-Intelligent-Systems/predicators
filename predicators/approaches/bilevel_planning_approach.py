@@ -62,12 +62,8 @@ class BilevelPlanningApproach(BaseApproach):
             return self._task_plan_to_greedy_policy(nsrt_plan, task.goal)
 
         # Run full bilevel planning.
-        plan, metrics = self._run_sesame_plan(task,
-                                              nsrts,
-                                              preds,
-                                              timeout,
-                                              seed,
-                                              with_sim=True)
+        plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
+                                              seed)
         self._save_metrics(metrics, nsrts, preds)
         self._last_plan = plan
         option_policy = utils.option_plan_to_policy(plan)

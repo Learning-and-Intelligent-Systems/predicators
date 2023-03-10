@@ -1,10 +1,14 @@
 """Test cases for the oracle approach class."""
 from typing import Any, Dict, List, Set
+from unittest.mock import patch
 
 import numpy as np
 import pytest
+from gym.spaces import Box
 
+import predicators.envs.pddl_env
 from predicators import utils
+from predicators.approaches.base_approach import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
@@ -33,7 +37,10 @@ from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
 from predicators.settings import CFG
-from predicators.structs import Action, Variable
+from predicators.structs import NSRT, Action, ParameterizedOption, Predicate, \
+    State, Task, Type, Variable
+
+_PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 
 ENV_NAME_AND_CLS = [
     ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),
@@ -259,6 +266,81 @@ def test_oracle_approach(env_name, env_cls):
             assert _policy_solves_task(policy, task, env.simulate)
     # Tests if OracleApproach can load _OracleOptionModel
     assert isinstance(approach.get_option_model(), _OracleOptionModel)
+
+
+def test_planning_without_sim():
+    """Tests the oracle approach in an environment with no simulator."""
+    # Test planning in a PDDL environment, which should succeed without
+    # simulation.
+    utils.reset_config({
+        "env": "pddl_easy_delivery_procedural_tasks",
+        "num_train_tasks": 0,
+        "num_test_tasks": 2,
+        "bilevel_plan_without_sim": True,
+    })
+    simulate_path_str = \
+        f"{_PDDL_ENV_MODULE_PATH}.ProceduralTasksEasyDeliveryPDDLEnv.simulate"
+    with patch(simulate_path_str) as mock_simulate:
+        # Raise an error (and fail the test) if simulate is called.
+        mock_simulate.side_effect = AssertionError("Simulate called.")
+        env = ProceduralTasksEasyDeliveryPDDLEnv(use_gui=False)
+        train_tasks = env.get_train_tasks()
+        approach = OracleApproach(env.predicates,
+                                  get_gt_options(env.get_name()), env.types,
+                                  env.action_space, train_tasks)
+    # Test the policy outside of patch() because _policy_solves_task uses the
+    # simulator.
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert _policy_solves_task(policy, task, env.simulate)
+    # Running the policy again should fail because the plan is empty.
+    with pytest.raises(ApproachFailure) as e:
+        _policy_solves_task(policy, task, env.simulate)
+    assert "Greedy option plan exhausted." in str(e)
+    # Cover case where the option is not initiable.
+    utils.reset_config({
+        "env": "cover",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "bilevel_plan_without_sim": True,
+    })
+    env = CoverEnv(use_gui=False)
+    train_tasks = env.get_train_tasks()
+
+    # Force options to be non-initiable.
+    options = get_gt_options(env.get_name())
+    approach = OracleApproach(env.predicates, options, env.types,
+                              env.action_space, train_tasks)
+
+    assert len(options) == 1
+    option = next(iter(options))
+    new_option = ParameterizedOption(option.name, option.types,
+                                     option.params_space, option.policy,
+                                     lambda _1, _2, _3, _4: False,
+                                     option.terminal)
+    nsrts = approach._nsrts  # pylint: disable=protected-access
+    new_nsrts = set()
+    for nsrt in nsrts:
+        new_nsrt = NSRT(
+            nsrt.name,
+            nsrt.parameters,
+            nsrt.preconditions,
+            nsrt.add_effects,
+            nsrt.delete_effects,
+            nsrt.ignore_effects,
+            new_option,
+            nsrt.option_vars,
+            nsrt._sampler,  # pylint: disable=protected-access
+        )
+        new_nsrts.add(new_nsrt)
+    approach._nsrts = new_nsrts  # pylint: disable=protected-access
+
+    task = env.get_test_tasks()[0]
+
+    policy = approach.solve(task, timeout=500)
+    with pytest.raises(ApproachFailure) as e:
+        policy(task.init)
+    assert "Greedy option not initiable." in str(e)
 
 
 def test_get_gt_nsrts():
