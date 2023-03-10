@@ -194,9 +194,9 @@ class SokobanEnv(BaseEnv):
         self._current_state = self._current_task.init
         # We now need to reset the underlying gym environment to the correct
         # state.
-        seed_offset = 0
+        seed_offset = CFG.seed
         if train_or_test == "test":
-            seed_offset = CFG.test_env_seed_offset
+            seed_offset += CFG.test_env_seed_offset
         self._reset_initial_state_from_seed(seed_offset + task_idx)
         return self._current_state.copy()
 
@@ -216,7 +216,7 @@ class SokobanEnv(BaseEnv):
     def _get_tasks(self, num: int, seed_offset: int) -> List[Task]:
         tasks = []
         for i in range(num):
-            seed = i + seed_offset
+            seed = i + seed_offset + CFG.seed
             obs = self._reset_initial_state_from_seed(seed)
             init_state = self._observation_to_state(obs, seed)
             # The goal is always for all goal objects to be covered.
