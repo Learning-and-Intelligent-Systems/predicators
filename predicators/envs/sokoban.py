@@ -43,10 +43,9 @@ class SokobanEnv(BaseEnv):
         # Predicates
         self._At = Predicate("At", [self._object_type, self._object_type],
                              self._At_holds)
-        self._IsLoc = Predicate("Loc", [self._object_type],
-                                  self._IsLoc_holds)
+        self._IsLoc = Predicate("Loc", [self._object_type], self._IsLoc_holds)
         self._NoBoxAtLoc = Predicate("NoBoxAtLoc", [self._object_type],
-                                  self._NoBoxAtLoc_holds)
+                                     self._NoBoxAtLoc_holds)
         self._Above = Predicate("Above",
                                 [self._object_type, self._object_type],
                                 self._Above_holds)
@@ -110,10 +109,9 @@ class SokobanEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._At, self._GoalCovered, self._IsLoc, self._Above,
-            self._Below, self._RightOf, self._LeftOf, self._IsBox,
-            self._IsPlayer, self._NoBoxAtLoc, self._IsGoal,
-            self._NotIsGoal
+            self._At, self._GoalCovered, self._IsLoc, self._Above, self._Below,
+            self._RightOf, self._LeftOf, self._IsBox, self._IsPlayer,
+            self._NoBoxAtLoc, self._IsGoal, self._NotIsGoal
         }
 
     @property
@@ -135,7 +133,7 @@ class SokobanEnv(BaseEnv):
     def get_state(self) -> State:
         obs = self._gym_env.render(mode='raw')
         return self._observation_to_state(obs)
-    
+
     # def _fix_object_tracking_errors(self, state: State, next_state: State) -> State:
     #     # First, get a list of all the boxes that have changed their position.
     #     changed_boxes = []
@@ -165,7 +163,6 @@ class SokobanEnv(BaseEnv):
     #     assert len(new_changed_boxes) == 1
     #     return next_state
 
-
     def simulate(self, state: State, action: Action) -> State:
         orig_simulator_state = state.simulator_state
         state.simulator_state = None
@@ -177,7 +174,8 @@ class SokobanEnv(BaseEnv):
             except AssertionError:
                 # TODO: need to fix object tracking between current state
                 # and get_state()!
-                import ipdb; ipdb.set_trace()
+                import ipdb
+                ipdb.set_trace()
             self._reset_initial_state_from_seed(orig_simulator_state)
             assert state.allclose(self.get_state())
         state.simulator_state = orig_simulator_state
@@ -234,7 +232,9 @@ class SokobanEnv(BaseEnv):
         self._gym_env.reset()
         return self._gym_env.render(mode='raw')
 
-    def _observation_to_state(self, obs: _Observation, seed: Optional[int] = None) -> State:
+    def _observation_to_state(self,
+                              obs: _Observation,
+                              seed: Optional[int] = None) -> State:
         """Extract a State from a self._gym_env observation."""
         state_dict = {}
 
@@ -272,11 +272,15 @@ class SokobanEnv(BaseEnv):
         # A location is 'free' if it has type 'free'.
         loc, = objects
         loc_type = state.get(loc, "type")
-        return loc_type in {self._type_to_enum["free"], self._type_to_enum["goal"]}
-        
-    def _NoBoxAtLoc_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        return loc_type in {
+            self._type_to_enum["free"], self._type_to_enum["goal"]
+        }
+
+    def _NoBoxAtLoc_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
         # Only holds if the the object has a 'loc' type.
-        if not (self._IsLoc_holds(state, objects) or self._IsGoal_holds(state, objects)):
+        if not (self._IsLoc_holds(state, objects)
+                or self._IsGoal_holds(state, objects)):
             return False
         loc, = objects
         loc_r = state.get(loc, "row")
@@ -303,7 +307,8 @@ class SokobanEnv(BaseEnv):
         obj_type = state.get(obj, "type")
         return obj_type == self._type_to_enum["goal"]
 
-    def _NotIsGoal_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _NotIsGoal_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         return self._IsLoc_holds(state, objects) and not \
             self._IsGoal_holds(state, objects)
 

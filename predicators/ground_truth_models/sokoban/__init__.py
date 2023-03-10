@@ -1,4 +1,4 @@
-from .options import SokobanGroundTruthOptionFactory
 from .nsrts import SokobanGroundTruthNSRTFactory
+from .options import SokobanGroundTruthOptionFactory
 
 __all__ = ["SokobanGroundTruthOptionFactory", "SokobanGroundTruthNSRTFactory"]

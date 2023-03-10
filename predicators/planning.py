@@ -589,7 +589,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     # utils.abstract(traj[cur_idx], predicates).
                     # TODO: add back the expected atoms check here after the
                     # object tracking issue is fixed.
-                    if True: #all(a.holds(traj[cur_idx]) for a in expected_atoms):
+                    if True:  #all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
                             return plan, True  # success!

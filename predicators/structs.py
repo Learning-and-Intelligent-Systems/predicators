@@ -172,7 +172,7 @@ class State:
                 pass
             else:
                 raise NotImplementedError("Cannot use allclose when "
-                                        "simulator_state is not None.")
+                                          "simulator_state is not None.")
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
