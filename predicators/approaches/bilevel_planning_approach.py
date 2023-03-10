@@ -5,7 +5,8 @@ then Execution.
 """
 
 import abc
-from typing import Any, Callable, List, Set, Tuple
+import time
+from typing import Any, Callable, List, Optional, Sequence, Set, Tuple
 
 from gym.spaces import Box
 
@@ -13,10 +14,12 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach
 from predicators.option_model import _OptionModelBase, create_option_model
-from predicators.planning import PlanningFailure, PlanningTimeout, sesame_plan
+from predicators.planning import PlanningFailure, PlanningTimeout, \
+    sesame_plan, task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, Metrics, ParameterizedOption, \
-    Predicate, State, Task, Type, _Option
+from predicators.structs import NSRT, Action, DummyOption, GroundAtom, \
+    Metrics, ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
+    _Option
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -38,6 +41,7 @@ class BilevelPlanningApproach(BaseApproach):
             max_skeletons_optimized = CFG.sesame_max_skeletons_optimized
         self._task_planning_heuristic = task_planning_heuristic
         self._max_skeletons_optimized = max_skeletons_optimized
+        self._plan_without_sim = CFG.bilevel_plan_without_sim
         self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
         self._last_plan: List[_Option] = []
@@ -48,6 +52,16 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
+
+        # Run task planning only and then greedily sample and execute in the
+        # policy.
+        if self._plan_without_sim:
+            nsrt_plan, metrics = self._run_task_plan(task, nsrts, preds,
+                                                     timeout, seed)
+            self._save_metrics(metrics, nsrts, preds)
+            return self._task_plan_to_greedy_policy(nsrt_plan, task.goal)
+
+        # Run full bilevel planning.
         plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
                                               seed)
         self._save_metrics(metrics, nsrts, preds)
@@ -84,6 +98,43 @@ class BilevelPlanningApproach(BaseApproach):
                 allow_noops=CFG.sesame_allow_noops,
                 use_visited_state_set=CFG.sesame_use_visited_state_set,
                 **kwargs)
+        except PlanningFailure as e:
+            raise ApproachFailure(e.args[0], e.info)
+        except PlanningTimeout as e:
+            raise ApproachTimeout(e.args[0], e.info)
+
+        return plan, metrics
+
+    def _run_task_plan(self, task: Task, nsrts: Set[NSRT],
+                       preds: Set[Predicate], timeout: float, seed: int,
+                       **kwargs: Any) -> Tuple[List[_GroundNSRT], Metrics]:
+
+        init_atoms = utils.abstract(task.init, preds)
+        goal = task.goal
+        objects = set(task.init)
+
+        try:
+            start_time = time.perf_counter()
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms, objects, nsrts)
+            heuristic = utils.create_task_planning_heuristic(
+                self._task_planning_heuristic, init_atoms, goal, ground_nsrts,
+                preds, objects)
+            duration = time.perf_counter() - start_time
+            timeout -= duration
+
+            plan, _, metrics = next(
+                task_plan(init_atoms,
+                          goal,
+                          ground_nsrts,
+                          reachable_atoms,
+                          heuristic,
+                          seed,
+                          timeout,
+                          max_skeletons_optimized=1,
+                          use_visited_state_set=True,
+                          **kwargs))
+
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
@@ -140,3 +191,25 @@ class BilevelPlanningApproach(BaseApproach):
         whether that policy is actually a plan under the hood."""
         assert self.get_name() == "oracle"
         return self._last_plan
+
+    def _task_plan_to_greedy_policy(
+            self, nsrt_plan: Sequence[_GroundNSRT],
+            goal: Set[GroundAtom]) -> Callable[[State], Action]:
+
+        cur_nsrt: Optional[_GroundNSRT] = None
+        cur_option = DummyOption
+        nsrt_queue = list(nsrt_plan)
+
+        def _policy(state: State) -> Action:
+            nonlocal cur_nsrt, cur_option
+            if cur_option is DummyOption or cur_option.terminal(state):
+                if not nsrt_queue:
+                    raise ApproachFailure("Greedy option plan exhausted.")
+                cur_nsrt = nsrt_queue.pop(0)
+                cur_option = cur_nsrt.sample_option(state, goal, self._rng)
+                if not cur_option.initiable(state):
+                    raise ApproachFailure("Greedy option not initiable.")
+            act = cur_option.policy(state)
+            return act
+
+        return _policy

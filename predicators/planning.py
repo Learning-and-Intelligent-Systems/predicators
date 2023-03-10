@@ -16,8 +16,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+from typing import Collection, Dict, FrozenSet, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 
 import numpy as np
 
@@ -264,8 +264,7 @@ def filter_nsrts(
 def task_plan_grounding(
     init_atoms: Set[GroundAtom],
     objects: Set[Object],
-    strips_ops: Sequence[STRIPSOperator],
-    option_specs: Sequence[OptionSpec],
+    nsrts: Collection[NSRT],
     allow_noops: bool = False,
 ) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
@@ -276,7 +275,6 @@ def task_plan_grounding(
 
     See the task_plan docstring for usage instructions.
     """
-    nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts = []
     for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
@@ -462,7 +460,7 @@ def _skeleton_generator(
                         continue
                 child_skeleton = node.skeleton + [nsrt]
                 child_skeleton_tup = tuple(child_skeleton)
-                if child_skeleton_tup in visited_skeletons:
+                if child_skeleton_tup in visited_skeletons:  # pragma: no cover
                     continue
                 visited_skeletons.add(child_skeleton_tup)
                 # Action costs are unitary.
@@ -874,10 +872,10 @@ def task_plan_with_option_plan_constraint(
     If no goal-achieving sequence of ground NSRTs corresponds to
     the option plan, return None.
     """
+    dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts, _ = task_plan_grounding(init_atoms,
                                           objects,
-                                          strips_ops,
-                                          option_specs,
+                                          dummy_nsrts,
                                           allow_noops=True)
     heuristic = utils.create_task_planning_heuristic(
         CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
