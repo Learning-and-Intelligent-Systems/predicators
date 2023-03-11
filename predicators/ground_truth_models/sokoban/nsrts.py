@@ -1,11 +1,10 @@
 """Ground-truth NSRTs for the cover environment."""
 
-from typing import Dict, Sequence, Set
+from typing import Dict, Sequence, Set, List
 
 import numpy as np
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 
@@ -30,7 +29,6 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         obj3 = Variable("?obj3", object_type)
         obj4 = Variable("?obj4", object_type)
         obj5 = Variable("?obj5", object_type)
-        obj6 = Variable("?obj6", object_type)
 
         # Predicates
         At = predicates["At"]
@@ -61,7 +59,8 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def dummy_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            return np.zeros(1)
+            del state, goal, rng, objs  # unused.
+            return np.zeros(1, dtype=np.float32)
 
         nsrts = set()
 
@@ -79,7 +78,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {LiftedAtom(At, [obj1, obj3])}
         delete_effects = {LiftedAtom(At, [obj1, obj2])}
         option = MoveUp
-        option_vars = []  # dummy - not used
+        option_vars: List[Variable] = []  # dummy - not used
         move_up_nsrt = NSRT("MoveUp", parameters, preconditions, add_effects,
                             delete_effects, set(), option, option_vars,
                             dummy_sampler)

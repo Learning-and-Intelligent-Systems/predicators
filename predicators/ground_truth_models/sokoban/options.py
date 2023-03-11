@@ -6,7 +6,6 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.envs.screws import ScrewsEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
@@ -31,7 +30,7 @@ class SokobanGroundTruthOptionFactory(GroundTruthOptionFactory):
             "MoveDown", "MoveLeft", "MoveRight"
         ]
 
-        options = {
+        options: Set[ParameterizedOption] = {
             utils.SingletonParameterizedOption(
                 name, cls._create_policy(discrete_action=(i + 1)))
             for i, name in enumerate(discrete_action_names)
@@ -44,6 +43,7 @@ class SokobanGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
+            del state, memory, objects, params  # unused.
             arr = np.zeros(9, dtype=np.float32)
             arr[discrete_action] = 1
             return Action(arr)
