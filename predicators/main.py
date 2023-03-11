@@ -249,6 +249,19 @@ def _generate_interaction_results(
 
 
 def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
+    # The agent is a wrapper around the approach that handles perception and
+    # execution monitoring. The approach assumes that the state is fully
+    # observed and object-centric and that transitions are deterministic. The
+    # agent gives us some ability to weaken those assumptions. Currently we
+    # create the agent on-the-fly during test time, but in the future we may
+    # want to create one agent and have the agent manage learning, exploration,
+    # and so on. The only reason to delay this change is that it would be a big
+    # undertaking to refactor the code this way.
+    # TODO: the agent should get the policy from the approach, but also should
+    # ask the approach for an execution monitor which it uses to determine when
+    # to re-call the approach (replan). The only other thing that the agent does
+    # is handle perception.
+    agent = Agent(approach)
     test_tasks = env.get_test_tasks()
     num_found_policy = 0
     num_solved = 0
@@ -264,10 +277,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     curr_num_nodes_created = 0.0
     curr_num_nodes_expanded = 0.0
     for test_task_idx, task in enumerate(test_tasks):
-        # Run the approach's solve() method to get a policy for this task.
         solve_start = time.perf_counter()
         try:
-            policy = approach.solve(task, timeout=CFG.timeout)
+            # Run the approach's solve() method.
+            agent.reset(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
@@ -304,9 +317,9 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             monitor = None
         try:
-            # Now, measure success by running the policy in the environment.
-            traj, execution_metrics = utils.run_policy(
-                policy,
+            # Now, measure success by running the agent in the environment.
+            traj, execution_metrics = utils.run_agent(
+                agent,
                 env,
                 "test",
                 test_task_idx,

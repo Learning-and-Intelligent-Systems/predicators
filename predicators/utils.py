@@ -919,6 +919,63 @@ class Monitor(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
+def run_agent(
+        agent: Agent,
+        env: BaseEnv,
+        train_or_test: str,
+        task_idx: int,
+        termination_function: Callable[[State], bool],
+        max_num_steps: int,
+        do_state_reset: bool = True,
+        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+        monitor: Optional[Monitor] = None
+) -> Tuple[LowLevelTrajectory, Metrics]:
+    """TODO: factor out common stuff with run_policy or something...
+    """
+    obs = env.get_last_observation()
+    if do_state_reset:
+        obs = env.reset(train_or_test, task_idx)
+    observations = [obs]
+    actions: List[Action] = []
+    metrics: Metrics = defaultdict(float)
+    metrics["policy_call_time"] = 0.0
+    exception_raised_in_step = False
+    # TODO: not sure what to do about termination
+    if not termination_function(...):
+        for _ in range(max_num_steps):
+            monitor_observed = False
+            exception_raised_in_step = False
+            try:
+                start_time = time.perf_counter()
+                act = agent.step(obs)
+                metrics["policy_call_time"] += time.perf_counter() - start_time
+                # Note: it's important to call monitor.observe() before
+                # env.step(), because the monitor may use the environment's
+                # internal state.
+                if monitor is not None:
+                    monitor.observe(obs, act)
+                    monitor_observed = True
+                obs = env.step(act)
+                actions.append(act)
+                observations.append(obs)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    if monitor_observed:
+                        exception_raised_in_step = True
+                    break
+                if monitor is not None and not monitor_observed:
+                    monitor.observe(obs, None)
+                raise e
+            # TODO: not sure what to do about termination
+            if termination_function(...):
+                break
+    if monitor is not None and not exception_raised_in_step:
+        monitor.observe(obs, None)
+    # TODO: we probably don't need to return this...
+    traj = LowLevelTrajectory(states, actions)
+    return traj, metrics
+
 def run_policy(
         policy: Callable[[State], Action],
         env: BaseEnv,
