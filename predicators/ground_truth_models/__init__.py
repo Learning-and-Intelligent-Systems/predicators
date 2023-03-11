@@ -59,10 +59,9 @@ def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
             options = factory.get_options(env_name, types, predicates,
                                           env.action_space)
             break
-    else:
-        # In the final version of this function, we will instead raise an
-        # error in this case.
-        options = env.options  # pragma: no cover
+    else:  # pragma: no cover
+        raise NotImplementedError("Ground-truth options not implemented for "
+                                  f"env: {env_name}")
     # Seed the options for reproducibility.
     for option in options:
         option.params_space.seed(CFG.seed)
