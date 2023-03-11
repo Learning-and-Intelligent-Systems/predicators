@@ -77,16 +77,8 @@ def test_task_plan():
     task = env.get_train_tasks()[0]
     init_atoms = utils.abstract(task.init, env.predicates)
     objects = set(task.init)
-    strips_ops = []
-    option_specs = []
-    for nsrt in nsrts:
-        strips_ops.append(
-            STRIPSOperator(nsrt.name, nsrt.parameters, nsrt.preconditions,
-                           nsrt.add_effects, nsrt.delete_effects,
-                           nsrt.ignore_effects))
-        option_specs.append((nsrt.option, nsrt.option_vars))
     ground_nsrts, reachable_atoms = task_plan_grounding(
-        init_atoms, objects, strips_ops, option_specs)
+        init_atoms, objects, nsrts)
     heuristic = utils.create_task_planning_heuristic("hadd", init_atoms,
                                                      task.goal, ground_nsrts,
                                                      env.predicates, objects)
@@ -480,8 +472,6 @@ def test_planning_determinism():
     # Check that task_plan is deterministic, over both NSRTs and objects.
     predicates = {asleep, cried}
     init_atoms = set()
-    option_specs = [(sleep_nsrt.option, sleep_nsrt.option_vars),
-                    (cry_nsrt.option, cry_nsrt.option_vars)]
     nsrt_orders = [[sleep_op, cry_op], [cry_op, sleep_op]]
     object_orders = [[robby, robin], [robin, robby]]
 
@@ -489,7 +479,7 @@ def test_planning_determinism():
     for nsrts in nsrt_orders:
         for objects in object_orders:
             ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, nsrts, option_specs)
+                init_atoms, objects, sorted(nsrts))
             heuristic = utils.create_task_planning_heuristic(
                 "hadd", init_atoms, goal, ground_nsrts, predicates, objects)
             skeleton, _, _ = next(
