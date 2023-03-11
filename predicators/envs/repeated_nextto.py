@@ -13,8 +13,8 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, Array, GroundAtom, Object, Predicate, \
+    State, Task, Type
 
 
 class RepeatedNextToEnv(BaseEnv):
@@ -90,11 +90,6 @@ class RepeatedNextToEnv(BaseEnv):
     @property
     def types(self) -> Set[Type]:
         return {self._robot_type, self._dot_type}
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:

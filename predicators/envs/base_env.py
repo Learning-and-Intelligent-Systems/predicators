@@ -14,8 +14,7 @@ from predicators import utils
 from predicators.llm_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, DefaultTask, \
-    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
-    Video
+    GroundAtom, Object, Predicate, State, Task, Type, Video
 
 
 class BaseEnv(abc.ABC):
@@ -80,13 +79,6 @@ class BaseEnv(abc.ABC):
     @abc.abstractmethod
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment."""
-        raise NotImplementedError("Override me!")
-
-    @property
-    @abc.abstractmethod
-    def options(self) -> Set[ParameterizedOption]:
-        """Get the set of parameterized options that are given with this
-        environment."""
         raise NotImplementedError("Override me!")
 
     @property

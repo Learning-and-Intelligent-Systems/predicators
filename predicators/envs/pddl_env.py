@@ -28,8 +28,8 @@ from predicators.envs.pddl_procedural_generation import \
     create_spanner_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
-    STRIPSOperator, Task, Type, Variable, Video, _GroundSTRIPSOperator
+    PDDLProblemGenerator, Predicate, State, STRIPSOperator, Task, Type, \
+    Variable, Video, _GroundSTRIPSOperator
 
 ###############################################################################
 #                                Base Classes                                 #
@@ -176,11 +176,6 @@ class _PDDLEnv(BaseEnv):
     @property
     def types(self) -> Set[Type]:
         return self._types
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:

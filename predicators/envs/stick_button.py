@@ -11,8 +11,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
+    Task, Type
 from predicators.utils import _Geom2D
 
 
@@ -190,11 +190,6 @@ class StickButtonEnv(BaseEnv):
             self._holder_type, self._robot_type, self._stick_type,
             self._button_type
         }
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
