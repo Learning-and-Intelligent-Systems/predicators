@@ -1,13 +1,18 @@
 """Ground-truth options for the cover environment."""
 
-from typing import Dict, Sequence, Set
+from typing import ClassVar, Dict, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.cover import CoverMultistepOptions
+from predicators.envs.pybullet_cover import PyBulletCoverEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.pybullet_helpers.controllers import \
+    create_change_fingers_option, create_move_end_effector_to_pose_option
+from predicators.pybullet_helpers.geometry import Pose
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
@@ -244,3 +249,109 @@ class CoverMultiStepOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(np.array([0., delta_y, 1.0], dtype=np.float32))
 
         return policy
+
+
+class PyBulletCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the pybullet_cover environment."""
+
+    # Robot parameters.
+    _move_to_pose_tol: ClassVar[float] = 1e-4
+    _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"pybullet_cover"}
+
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
+
+        _, pybullet_robot, _ = \
+            PyBulletCoverEnv.initialize_pybullet(using_gui=False)
+
+        # Note: this isn't exactly correct because the first argument should be
+        # the current finger joint value, which we don't have in the State `s`.
+        # This could lead to slippage or bad grasps, but we haven't seen this
+        # in practice, so we'll leave it as is instead of changing the State.
+        HandEmpty = predicates["HandEmpty"]
+        toggle_fingers_func = lambda s, _1, _2: (
+            (pybullet_robot.open_fingers, pybullet_robot.closed_fingers)
+            if HandEmpty.holds(s, []) else
+            (pybullet_robot.closed_fingers, pybullet_robot.open_fingers))
+
+        PickPlace = utils.LinearChainParameterizedOption(
+            "PickPlace",
+            [
+                # Move to far above the location we will pick/place at.
+                cls._create_cover_move_option(
+                    name="MoveEndEffectorToPrePose",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.workspace_z,
+                    predicates=predicates,
+                    types=types),
+                # Move down to pick/place.
+                cls._create_cover_move_option(
+                    name="MoveEndEffectorToPose",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.pickplace_z,
+                    predicates=predicates,
+                    types=types),
+                # Toggle fingers.
+                create_change_fingers_option(
+                    pybullet_robot, "ToggleFingers", [], Box(
+                        0, 1, (1, )), toggle_fingers_func,
+                    CFG.pybullet_max_vel_norm, PyBulletCoverEnv.grasp_tol),
+                # Move back up.
+                cls._create_cover_move_option(
+                    name="MoveEndEffectorBackUp",
+                    pybullet_robot=pybullet_robot,
+                    target_z=PyBulletCoverEnv.workspace_z,
+                    predicates=predicates,
+                    types=types)
+            ])
+
+        return {PickPlace}
+
+    @classmethod
+    def _create_cover_move_option(
+            cls, name: str, pybullet_robot: SingleArmPyBulletRobot,
+            target_z: float, predicates: Dict[str, Predicate],
+            types: Dict[str, Type]) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a pose in Cover."""
+        option_types: Sequence[Type] = []
+        params_space = Box(0, 1, (1, ))
+        HandEmpty = predicates["HandEmpty"]
+        robot_type = types["robot"]
+        home_orn = PyBulletCoverEnv.get_robot_ee_home_orn()
+
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose, Pose, str]:
+            assert not objects
+            robot, = state.get_objects(robot_type)
+            hand = state.get(robot, "hand")
+            # De-normalize hand feature to actual table coordinates.
+            current_y = PyBulletCoverEnv.y_lb + (PyBulletCoverEnv.y_ub -
+                                                 PyBulletCoverEnv.y_lb) * hand
+            current_position = (state.get(robot, "pose_x"), current_y,
+                                state.get(robot, "pose_z"))
+            current_pose = Pose(current_position, home_orn)
+            y_norm, = params
+            # De-normalize parameter to actual table coordinates.
+            target_y = PyBulletCoverEnv.y_lb + (PyBulletCoverEnv.y_ub -
+                                                PyBulletCoverEnv.y_lb) * y_norm
+            target_position = (PyBulletCoverEnv.workspace_x, target_y,
+                               target_z)
+            target_pose = Pose(target_position, home_orn)
+            if HandEmpty.holds(state, []):
+                finger_status = "open"
+            else:
+                finger_status = "closed"
+            return current_pose, target_pose, finger_status
+
+        return create_move_end_effector_to_pose_option(
+            pybullet_robot, name, option_types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            cls._move_to_pose_tol, CFG.pybullet_max_vel_norm,
+            cls._finger_action_nudge_magnitude)

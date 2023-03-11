@@ -62,7 +62,7 @@ def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
     else:
         # In the final version of this function, we will instead raise an
         # error in this case.
-        options = env.options
+        options = env.options  # pragma: no cover
     # Seed the options for reproducibility.
     for option in options:
         option.params_space.seed(CFG.seed)
