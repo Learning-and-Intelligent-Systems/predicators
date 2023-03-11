@@ -696,7 +696,10 @@ class _DirectBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
                             max_train_iters=CFG.mlp_regressor_max_itr,
                             clip_gradients=CFG.mlp_regressor_clip_gradients,
                             clip_value=CFG.mlp_regressor_gradient_clip_value,
-                            learning_rate=CFG.learning_rate)
+                            learning_rate=CFG.learning_rate,
+                            weight_decay=CFG.weight_decay,
+                            use_torch_gpu=CFG.use_torch_gpu,
+                            train_print_every=CFG.pytorch_train_print_every)
 
 
 class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
@@ -717,6 +720,9 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
             clip_gradients=CFG.mlp_regressor_clip_gradients,
             clip_value=CFG.mlp_regressor_gradient_clip_value,
             learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every,
             num_negative_data_per_input=num_neg,
             num_samples_per_inference=num_sam,
             temperature=CFG.implicit_mlp_regressor_temperature,

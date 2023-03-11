@@ -1583,14 +1583,14 @@ def test_nsrt_methods():
     ground_nsrts = sorted(utils.all_ground_nsrts(nsrt, objects))
     assert len(ground_nsrts) == 8
     all_obj = [nsrt.objects for nsrt in ground_nsrts]
-    assert [cup1, plate1, plate1] in all_obj
-    assert [cup1, plate2, plate1] in all_obj
-    assert [cup2, plate1, plate1] in all_obj
-    assert [cup2, plate2, plate1] in all_obj
-    assert [cup1, plate1, plate2] in all_obj
-    assert [cup1, plate2, plate2] in all_obj
-    assert [cup2, plate1, plate2] in all_obj
-    assert [cup2, plate2, plate2] in all_obj
+    assert (cup1, plate1, plate1) in all_obj
+    assert (cup1, plate2, plate1) in all_obj
+    assert (cup2, plate1, plate1) in all_obj
+    assert (cup2, plate2, plate1) in all_obj
+    assert (cup1, plate1, plate2) in all_obj
+    assert (cup1, plate2, plate2) in all_obj
+    assert (cup2, plate1, plate2) in all_obj
+    assert (cup2, plate2, plate2) in all_obj
     preds, types = utils.extract_preds_and_types({nsrt})
     assert preds == {"NotOn": not_on, "On": on}
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
@@ -1901,8 +1901,8 @@ def test_nsrt_application():
         utils.get_applicable_operators(ground_nsrts, {pred1([cup1, plate1])}))
     assert len(applicable) == 2
     all_obj = [(nsrt.name, nsrt.objects) for nsrt in applicable]
-    assert ("Pick", [cup1, plate1]) in all_obj
-    assert ("Place", [cup1, plate1]) in all_obj
+    assert ("Pick", (cup1, plate1)) in all_obj
+    assert ("Place", (cup1, plate1)) in all_obj
     next_atoms = [
         utils.apply_operator(nsrt, {pred1([cup1, plate1])})
         for nsrt in applicable
