@@ -936,7 +936,7 @@ def generate_sas_file_for_fd(
         task: Task, nsrts: Set[NSRT], predicates: Set[Predicate],
         types: Set[Type], timeout: float, timeout_cmd: str, alias_flag: str,
         exec_str: str, objects: List[Object],
-        init_atoms: Set[GroundAtom]) -> str: # pragma: no cover
+        init_atoms: Set[GroundAtom]) -> str:  # pragma: no cover
     """Generates a SAS file for a particular PDDL planning problem so that FD
     can be used for search."""
     # Create the domain and problem strings, then write them to tempfiles.

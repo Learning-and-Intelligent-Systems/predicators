@@ -1,6 +1,6 @@
 """Ground-truth NSRTs for the cover environment."""
 
-from typing import Dict, Sequence, Set, List
+from typing import Dict, List, Sequence, Set
 
 import numpy as np
 
