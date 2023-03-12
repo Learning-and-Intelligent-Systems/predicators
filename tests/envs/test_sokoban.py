@@ -1,4 +1,7 @@
 """Test cases for the sokoban environment."""
+
+import pytest
+
 from predicators import utils
 from predicators.envs.sokoban import SokobanEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
@@ -88,3 +91,13 @@ def test_sokoban():
     atoms = utils.abstract(state, env.predicates)
     # Now one of the goals should be covered.
     assert len({a for a in atoms if a.predicate == GoalCovered}) == 1
+    # Cover not implemented methods.
+    with pytest.raises(NotImplementedError) as e:
+        env.render_state_plt(state, task)
+    assert "This env does not use Matplotlib" in str(e)
+    with pytest.raises(NotImplementedError) as e:
+        env.render_state(state, task)
+    assert "A gym environment cannot render arbitrary states." in str(e)
+    with pytest.raises(NotImplementedError) as e:
+        env.simulate(state, action)
+    assert "Simulate not implemented for gym envs." in str(e)
