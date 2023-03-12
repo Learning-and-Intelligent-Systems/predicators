@@ -32,7 +32,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Predicates
         At = predicates["At"]
         GoalCovered = predicates["GoalCovered"]
-        IsLoc = predicates["Loc"]
+        IsLoc = predicates["IsLoc"]
         NoBoxAtLoc = predicates["NoBoxAtLoc"]
         Above = predicates["Above"]
         Below = predicates["Below"]

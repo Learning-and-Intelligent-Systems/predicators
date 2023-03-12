@@ -38,7 +38,8 @@ class SokobanEnv(BaseEnv):
         # Predicates
         self._At = Predicate("At", [self._object_type, self._object_type],
                              self._At_holds)
-        self._IsLoc = Predicate("Loc", [self._object_type], self._IsLoc_holds)
+        self._IsLoc = Predicate("IsLoc", [self._object_type],
+                                self._IsLoc_holds)
         self._NoBoxAtLoc = Predicate("NoBoxAtLoc", [self._object_type],
                                      self._NoBoxAtLoc_holds)
         self._Above = Predicate("Above",
@@ -66,7 +67,7 @@ class SokobanEnv(BaseEnv):
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
-        self._gym_env = gym.make("Sokoban-v0")
+        self._gym_env = gym.make(CFG.sokoban_gym_name)
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, seed_offset=0)
