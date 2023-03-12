@@ -142,6 +142,9 @@ class SokobanEnv(BaseEnv):
         self._reset_initial_state_from_seed(seed_offset + task_idx)
         return self._current_state.copy()
 
+    def simulate(self, state: State, action: Action) -> State:
+        raise NotImplementedError
+
     def step(self, action: Action) -> State:
         # Convert our actions to their discrete action space.
         discrete_action = np.argmax(action.arr)
