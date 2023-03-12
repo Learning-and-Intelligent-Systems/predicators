@@ -966,7 +966,8 @@ def fd_plan_from_sas_file(
     sas_file: str, timeout_cmd: str, timeout: float, exec_str: str,
     alias_flag: str, start_time: float, objects: List[Object],
     init_atoms: Set[GroundAtom], nsrts: Set[NSRT], max_horizon: int
-) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]: # pragma: no cover
+) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]],
+           Metrics]:  # pragma: no cover
     """Given a SAS file, runs search on it to generate a plan."""
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
     output = subprocess.getoutput(cmd_str)

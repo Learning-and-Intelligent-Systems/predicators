@@ -135,7 +135,7 @@ class BilevelPlanningApproach(BaseApproach):
                               max_skeletons_optimized=1,
                               use_visited_state_set=True,
                               **kwargs))
-            elif "fd" in CFG.sesame_task_planner: # pragma: no cover
+            elif "fd" in CFG.sesame_task_planner:  # pragma: no cover
                 fd_exec_path = os.environ["FD_EXEC_PATH"]
                 exec_str = os.path.join(fd_exec_path, "fast-downward.py")
                 timeout_cmd = "gtimeout" if sys.platform == "darwin" \

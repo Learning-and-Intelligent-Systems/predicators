@@ -376,7 +376,6 @@ def test_planning_without_sim():
     assert "Greedy option not initiable." in str(e)
 
 
-
 def test_get_gt_nsrts():
     """Test get_gt_nsrts alone."""
     with pytest.raises(NotImplementedError):
