@@ -655,8 +655,6 @@ def test_sesame_plan_fast_downward():
             "num_test_tasks": 50,
             "sesame_task_planner": sesame_task_planner,
         })
-        # Test on the repeated_nextto_single_option env, which requires ignore
-        # effects.
         env = ClutteredTableEnv()
         nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                              get_gt_options(env.get_name()))
