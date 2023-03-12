@@ -297,6 +297,11 @@ class GlobalSettings:
     satellites_num_sat_test = [3, 4]
     satellites_num_obj_test = [4, 5]
 
+    # sokoban env parameters
+    # use Sokoban-huge-v0 to show-off, the bottleneck is just the gym env
+    # initialization and resetting. use Sokoban-small-v0 for tests
+    sokoban_gym_name = "Sokoban-v0"
+
     # parameters for random options approach
     random_options_max_tries = 100
 
