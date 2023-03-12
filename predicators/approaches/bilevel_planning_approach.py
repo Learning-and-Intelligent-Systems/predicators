@@ -118,15 +118,15 @@ class BilevelPlanningApproach(BaseApproach):
 
         try:
             start_time = time.perf_counter()
-            ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, nsrts)
-            heuristic = utils.create_task_planning_heuristic(
-                self._task_planning_heuristic, init_atoms, goal, ground_nsrts,
-                preds, objects)
-            duration = time.perf_counter() - start_time
-            timeout -= duration
 
             if CFG.sesame_task_planner == "astar":
+                ground_nsrts, reachable_atoms = task_plan_grounding(
+                    init_atoms, objects, nsrts)
+                heuristic = utils.create_task_planning_heuristic(
+                    self._task_planning_heuristic, init_atoms, goal,
+                    ground_nsrts, preds, objects)
+                duration = time.perf_counter() - start_time
+                timeout -= duration
                 plan, _, metrics = next(
                     task_plan(init_atoms,
                               goal,
