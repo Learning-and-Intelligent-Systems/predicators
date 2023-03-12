@@ -655,11 +655,9 @@ def test_sesame_plan_fast_downward():
             "num_test_tasks": 50,
             "sesame_task_planner": sesame_task_planner,
         })
-        # Test on the repeated_nextto_single_option env, which requires ignore
-        # effects.
         env = ClutteredTableEnv()
         nsrts = get_gt_nsrts(env.get_name(), env.predicates,
-                             get_gt_options(env.get_name()))
+                            get_gt_options(env.get_name()))
         task = env.get_test_tasks()[0]
         option_model = create_option_model(CFG.option_model_name)
         try:
@@ -677,7 +675,7 @@ def test_sesame_plan_fast_downward():
             )
             # We only get to these lines if FD is installed.
             assert all(isinstance(act, _Option)
-                       for act in plan)  # pragma: no cover
+                    for act in plan)  # pragma: no cover
             assert metrics["num_nodes_created"] >= \
                 metrics["num_nodes_expanded"]  # pragma: no cover
         except AssertionError as e:
