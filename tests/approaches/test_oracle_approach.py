@@ -298,7 +298,24 @@ def test_planning_without_sim():
         _policy_solves_task(policy, task, env.simulate)
     assert "Greedy option plan exhausted." in str(e)
 
+    # Cover case where unknown task planner is used.
+    utils.reset_config({
+        "env": "cover",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "bilevel_plan_without_sim": True,
+        "sesame_task_planner": "not-a-real-planner"
+    })
+    with pytest.raises(ValueError):
+        policy = approach.solve(task, timeout=500)
+
     # Test timeout.
+    utils.reset_config({
+        "env": "pddl_blocks_procedural_tasks",
+        "num_train_tasks": 0,
+        "num_test_tasks": 2,
+        "bilevel_plan_without_sim": True,
+    })
     with pytest.raises(ApproachTimeout) as e:
         approach.solve(task, timeout=0)
 
@@ -357,6 +374,7 @@ def test_planning_without_sim():
     with pytest.raises(ApproachFailure) as e:
         policy(task.init)
     assert "Greedy option not initiable." in str(e)
+
 
 
 def test_get_gt_nsrts():
