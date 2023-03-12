@@ -153,11 +153,6 @@ class SokobanEnv(BaseEnv):
         self._current_state = self._observation_to_state(obs)
         return self._current_state.copy()
 
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
-
     def _get_tasks(self, num: int, seed_offset: int) -> List[Task]:
         tasks = []
         for i in range(num):
