@@ -11,8 +11,8 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type, Video
+from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
+    Task, Type, Video
 
 # Free, goals, boxes, player masks.
 _Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8],
@@ -22,7 +22,7 @@ _Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8],
 class SokobanEnv(BaseEnv):
     """Sokoban environment wrapping gym-sokoban."""
 
-    _type_to_enum: ClassVar[Dict[str, int]] = {
+    _name_to_enum: ClassVar[Dict[str, int]] = {
         "free": 0,
         "goal": 1,
         "box": 2,
@@ -59,8 +59,8 @@ class SokobanEnv(BaseEnv):
                                    self._IsPlayer_holds)
         self._IsGoal = Predicate("IsGoal", [self._object_type],
                                  self._IsGoal_holds)
-        self._NotIsGoal = Predicate("NotIsGoal", [self._object_type],
-                                    self._NotIsGoal_holds)
+        self._IsNonGoalLoc = Predicate("IsNonGoalLoc", [self._object_type],
+                                       self._IsNonGoalLoc_holds)
         self._GoalCovered = Predicate("GoalCovered", [self._object_type],
                                       self._GoalCovered_holds)
 
@@ -107,7 +107,7 @@ class SokobanEnv(BaseEnv):
         return {
             self._At, self._GoalCovered, self._IsLoc, self._Above, self._Below,
             self._RightOf, self._LeftOf, self._IsBox, self._IsPlayer,
-            self._NoBoxAtLoc, self._IsGoal, self._NotIsGoal
+            self._NoBoxAtLoc, self._IsGoal, self._IsNonGoalLoc
         }
 
     @property
@@ -140,10 +140,11 @@ class SokobanEnv(BaseEnv):
         if train_or_test == "test":
             seed_offset += CFG.test_env_seed_offset
         self._reset_initial_state_from_seed(seed_offset + task_idx)
+        assert self.get_state().allclose(self._current_state)
         return self._current_state.copy()
 
     def simulate(self, state: State, action: Action) -> State:
-        raise NotImplementedError
+        raise NotImplementedError("Simulate not implemented for gym envs.")
 
     def step(self, action: Action) -> State:
         # Convert our actions to their discrete action space.
@@ -158,12 +159,9 @@ class SokobanEnv(BaseEnv):
         for i in range(num):
             seed = i + seed_offset + CFG.seed
             obs = self._reset_initial_state_from_seed(seed)
-            init_state = self._observation_to_state(obs, seed)
+            init_state = self._observation_to_state(obs)
             # The goal is always for all goal objects to be covered.
-            goal_objs = [
-                o for o in init_state
-                if init_state.get(o, "type") == self._type_to_enum["goal"]
-            ]
+            goal_objs = self._get_objects_of_enum(init_state, "goal")
             goal = {GroundAtom(self._GoalCovered, [o]) for o in goal_objs}
             task = Task(init_state, goal)
             tasks.append(task)
@@ -174,10 +172,15 @@ class SokobanEnv(BaseEnv):
         self._gym_env.reset()
         return self._gym_env.render(mode='raw')
 
-    def _observation_to_state(self,
-                              obs: _Observation,
-                              seed: Optional[int] = None) -> State:
-        """Extract a State from a self._gym_env observation."""
+    def _observation_to_state(self, obs: _Observation) -> State:
+        """Extract a State from an _Observation."""
+
+        # NOTE: there is no guarantee that object tracking is "correct". The
+        # names of boxes in particular will flip unintuitively. For now, we
+        # don't care, because we are simply task planning and then executing
+        # the task plan open-loop. But if we were to plan monitor or do full
+        # bilevel planning, we would need to track objects correctly.
+
         state_dict = {}
 
         walls, goals, boxes, player = obs
@@ -187,15 +190,15 @@ class SokobanEnv(BaseEnv):
             "box": boxes,
             "player": player
         }
-        assert set(type_to_mask) == set(self._type_to_enum)
+        assert set(type_to_mask) == set(self._name_to_enum)
 
         for type_name, mask in type_to_mask.items():
-            enum = self._type_to_enum[type_name]
+            enum = self._name_to_enum[type_name]
             i = 0
             for r, c in np.argwhere(mask):
-                # Put the location of the free spaces in the name for easier
-                # debugging.
-                if type_name == "free":
+                # Put the location of the static objects in their names for
+                # easier debugging.
+                if type_name in {"free", "goal"}:
                     obj = Object(f"{type_name}_{r}_{c}", self._object_type)
                 else:
                     obj = Object(f"{type_name}_{i}", self._object_type)
@@ -207,30 +210,25 @@ class SokobanEnv(BaseEnv):
                 i += 1
 
         state = utils.create_state_from_dict(state_dict)
-        state.simulator_state = seed
         return state
 
     def _IsLoc_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        # A location is 'free' if it has type 'free'.
+        # Free spaces and goals are locations.
         loc, = objects
-        loc_type = state.get(loc, "type")
-        return loc_type in {
-            self._type_to_enum["free"], self._type_to_enum["goal"]
+        obj_type = state.get(loc, "type")
+        return obj_type in {
+            self._name_to_enum["free"], self._name_to_enum["goal"]
         }
 
     def _NoBoxAtLoc_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
         # Only holds if the the object has a 'loc' type.
-        if not (self._IsLoc_holds(state, objects)
-                or self._IsGoal_holds(state, objects)):
+        if not self._IsLoc_holds(state, objects):
             return False
         loc, = objects
         loc_r = state.get(loc, "row")
         loc_c = state.get(loc, "column")
-        boxes = [
-            o for o in state
-            if state.get(o, "type") == self._type_to_enum["box"]
-        ]
+        boxes = self._get_objects_of_enum(state, "box")
         # If any box is at this location, return False.
         for box in boxes:
             r = state.get(box, "row")
@@ -239,70 +237,42 @@ class SokobanEnv(BaseEnv):
                 return False
         return True
 
-    def _IsBox_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        obj_type = state.get(obj, "type")
-        return obj_type == self._type_to_enum["box"]
+    @classmethod
+    def _IsBox_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return cls._check_enum(state, objects, "box")
 
-    def _IsGoal_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        obj_type = state.get(obj, "type")
-        return obj_type == self._type_to_enum["goal"]
+    @classmethod
+    def _IsGoal_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return cls._check_enum(state, objects, "goal")
 
-    def _NotIsGoal_holds(self, state: State,
-                         objects: Sequence[Object]) -> bool:
-        return self._IsLoc_holds(state, objects) and not \
-            self._IsGoal_holds(state, objects)
+    @classmethod
+    def _IsPlayer_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return cls._check_enum(state, objects, "player")
 
-    def _IsPlayer_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        obj_type = state.get(obj, "type")
-        return obj_type == self._type_to_enum["player"]
+    @classmethod
+    def _IsNonGoalLoc_holds(cls, state: State,
+                            objects: Sequence[Object]) -> bool:
+        return cls._check_enum(state, objects, "free")
 
-    @staticmethod
-    def _At_holds(state: State, objects: Sequence[Object]) -> bool:
-        obj, loc, = objects
-        obj_r = state.get(obj, "row")
-        loc_r = state.get(loc, "row")
-        obj_c = state.get(obj, "column")
-        loc_c = state.get(loc, "column")
-        return obj_r == loc_r and obj_c == loc_c
+    @classmethod
+    def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return cls._check_spatial_relation(state, objects, 0, 0)
 
-    @staticmethod
-    def _Above_holds(state: State, objects: Sequence[Object]) -> bool:
-        obj1, obj2, = objects
-        obj1_r = state.get(obj1, "row")
-        obj1_c = state.get(obj1, "column")
-        obj2_r = state.get(obj2, "row")
-        obj2_c = state.get(obj2, "column")
-        return ((obj1_r + 1) == obj2_r) and (obj1_c == obj2_c)
+    @classmethod
+    def _Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return cls._check_spatial_relation(state, objects, 1, 0)
 
-    @staticmethod
-    def _Below_holds(state: State, objects: Sequence[Object]) -> bool:
-        obj1, obj2, = objects
-        obj1_r = state.get(obj1, "row")
-        obj1_c = state.get(obj1, "column")
-        obj2_r = state.get(obj2, "row")
-        obj2_c = state.get(obj2, "column")
-        return ((obj1_r - 1) == obj2_r) and (obj1_c == obj2_c)
+    @classmethod
+    def _Below_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return cls._check_spatial_relation(state, objects, -1, 0)
 
-    @staticmethod
-    def _RightOf_holds(state: State, objects: Sequence[Object]) -> bool:
-        obj1, obj2, = objects
-        obj1_r = state.get(obj1, "row")
-        obj1_c = state.get(obj1, "column")
-        obj2_r = state.get(obj2, "row")
-        obj2_c = state.get(obj2, "column")
-        return (obj1_r == obj2_r) and ((obj1_c - 1) == obj2_c)
+    @classmethod
+    def _RightOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return cls._check_spatial_relation(state, objects, 0, -1)
 
-    @staticmethod
-    def _LeftOf_holds(state: State, objects: Sequence[Object]) -> bool:
-        obj1, obj2, = objects
-        obj1_r = state.get(obj1, "row")
-        obj1_c = state.get(obj1, "column")
-        obj2_r = state.get(obj2, "row")
-        obj2_c = state.get(obj2, "column")
-        return (obj1_r == obj2_r) and ((obj1_c + 1) == obj2_c)
+    @classmethod
+    def _LeftOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return cls._check_spatial_relation(state, objects, 0, 1)
 
     def _GoalCovered_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
@@ -311,13 +281,35 @@ class SokobanEnv(BaseEnv):
             return False
         goal_r = state.get(goal, "row")
         goal_c = state.get(goal, "column")
-        boxes = [
-            o for o in state
-            if state.get(o, "type") == self._type_to_enum["box"]
-        ]
+        boxes = self._get_objects_of_enum(state, "box")
         for box in boxes:
             r = state.get(box, "row")
             c = state.get(box, "column")
             if r == goal_r and c == goal_c:
                 return True
         return False
+
+    def _get_objects_of_enum(self, state: State,
+                             enum_name: str) -> Set[Object]:
+        return {
+            o
+            for o in state
+            if state.get(o, "type") == self._name_to_enum[enum_name]
+        }
+
+    @staticmethod
+    def _check_spatial_relation(state: State, objects: Sequence[Object],
+                                dr: int, dc: int) -> bool:
+        obj1, obj2 = objects
+        obj1_r = state.get(obj1, "row")
+        obj1_c = state.get(obj1, "column")
+        obj2_r = state.get(obj2, "row")
+        obj2_c = state.get(obj2, "column")
+        return ((obj1_r + dr) == obj2_r) and ((obj1_c + dc) == obj2_c)
+
+    @classmethod
+    def _check_enum(cls, state: State, objects: Sequence[Object],
+                    enum_name: str) -> bool:
+        obj, = objects
+        obj_type = state.get(obj, "type")
+        return obj_type == cls._name_to_enum[enum_name]

@@ -1,12 +1,11 @@
 """Ground-truth NSRTs for the cover environment."""
 
-from typing import Dict, List, Sequence, Set
-
-import numpy as np
+from typing import Dict, List, Set
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, Type, Variable
+from predicators.structs import NSRT, LiftedAtom, ParameterizedOption, \
+    Predicate, Type, Variable
+from predicators.utils import null_sampler
 
 
 class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
@@ -42,7 +41,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         IsBox = predicates["IsBox"]
         IsPlayer = predicates["IsPlayer"]
         IsGoal = predicates["IsGoal"]
-        NotIsGoal = predicates["NotIsGoal"]
+        IsNonGoalLoc = predicates["IsNonGoalLoc"]
 
         # Options
         PushUp = options["PushUp"]
@@ -53,14 +52,6 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         MoveDown = options["MoveDown"]
         MoveLeft = options["MoveLeft"]
         MoveRight = options["MoveRight"]
-
-        # All options in the discrete version of this env use a dummy
-        # sampler whose output isn't really used.
-        def dummy_sampler(state: State, goal: Set[GroundAtom],
-                          rng: np.random.Generator,
-                          objs: Sequence[Object]) -> Array:
-            del state, goal, rng, objs  # unused.
-            return np.zeros(1, dtype=np.float32)
 
         nsrts = set()
 
@@ -81,7 +72,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars: List[Variable] = []  # dummy - not used
         move_up_nsrt = NSRT("MoveUp", parameters, preconditions, add_effects,
                             delete_effects, set(), option, option_vars,
-                            dummy_sampler)
+                            null_sampler)
         nsrts.add(move_up_nsrt)
 
         # MoveDown
@@ -101,7 +92,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         move_down_nsrt = NSRT("MoveDown", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
-                              option_vars, dummy_sampler)
+                              option_vars, null_sampler)
         nsrts.add(move_down_nsrt)
 
         # MoveRight
@@ -121,7 +112,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         move_right_nsrt = NSRT("MoveRight", parameters, preconditions,
                                add_effects, delete_effects, set(), option,
-                               option_vars, dummy_sampler)
+                               option_vars, null_sampler)
         nsrts.add(move_right_nsrt)
 
         # MoveLeft
@@ -141,7 +132,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         move_left_nsrt = NSRT("MoveLeft", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
-                              option_vars, dummy_sampler)
+                              option_vars, null_sampler)
         nsrts.add(move_left_nsrt)
 
         # PushUp
@@ -158,7 +149,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(Above, [obj4, obj3]),
             LiftedAtom(Above, [obj5, obj4]),
-            LiftedAtom(NotIsGoal, [obj5]),
+            LiftedAtom(IsNonGoalLoc, [obj5]),
         }
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
@@ -175,7 +166,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         push_up_nsrt = NSRT("PushUp", parameters, preconditions, add_effects,
                             delete_effects, set(), option, option_vars,
-                            dummy_sampler)
+                            null_sampler)
         nsrts.add(push_up_nsrt)
 
         # PushDown
@@ -192,7 +183,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(Below, [obj4, obj3]),
             LiftedAtom(Below, [obj5, obj4]),
-            LiftedAtom(NotIsGoal, [obj5]),
+            LiftedAtom(IsNonGoalLoc, [obj5]),
         }
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
@@ -209,7 +200,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         push_down_nsrt = NSRT("PushDown", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
-                              option_vars, dummy_sampler)
+                              option_vars, null_sampler)
         nsrts.add(push_down_nsrt)
 
         # PushRight
@@ -226,7 +217,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(RightOf, [obj4, obj3]),
             LiftedAtom(RightOf, [obj5, obj4]),
-            LiftedAtom(NotIsGoal, [obj5]),
+            LiftedAtom(IsNonGoalLoc, [obj5]),
         }
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
@@ -243,7 +234,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         push_right_nsrt = NSRT("PushRight", parameters, preconditions,
                                add_effects, delete_effects, set(), option,
-                               option_vars, dummy_sampler)
+                               option_vars, null_sampler)
         nsrts.add(push_right_nsrt)
 
         # PushLeft
@@ -260,7 +251,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(At, [obj2, obj4]),
             LiftedAtom(LeftOf, [obj4, obj3]),
             LiftedAtom(LeftOf, [obj5, obj4]),
-            LiftedAtom(NotIsGoal, [obj5]),
+            LiftedAtom(IsNonGoalLoc, [obj5]),
         }
         add_effects = {
             LiftedAtom(At, [obj2, obj5]),
@@ -277,7 +268,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         push_left_nsrt = NSRT("PushLeft", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
-                              option_vars, dummy_sampler)
+                              option_vars, null_sampler)
         nsrts.add(push_left_nsrt)
 
         # PushUpGoal
@@ -311,7 +302,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         push_up_goal_nsrt = NSRT("PushUpGoal", parameters,
                                  preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars, dummy_sampler)
+                                 set(), option, option_vars, null_sampler)
         nsrts.add(push_up_goal_nsrt)
 
         # PushDownGoal
@@ -345,7 +336,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         push_down_goal_nsrt = NSRT("PushDownGoal", parameters,
                                    preconditions, add_effects, delete_effects,
-                                   set(), option, option_vars, dummy_sampler)
+                                   set(), option, option_vars, null_sampler)
         nsrts.add(push_down_goal_nsrt)
 
         # PushRightGoal
@@ -379,7 +370,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         push_right_goal_nsrt = NSRT("PushRightGoal", parameters,
                                     preconditions, add_effects, delete_effects,
-                                    set(), option, option_vars, dummy_sampler)
+                                    set(), option, option_vars, null_sampler)
         nsrts.add(push_right_goal_nsrt)
 
         # PushLeftGoal
@@ -413,7 +404,7 @@ class SokobanGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = []  # dummy - not used
         push_left_goal_nsrt = NSRT("PushLeftGoal", parameters,
                                    preconditions, add_effects, delete_effects,
-                                   set(), option, option_vars, dummy_sampler)
+                                   set(), option, option_vars, null_sampler)
         nsrts.add(push_left_goal_nsrt)
 
         return nsrts

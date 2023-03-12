@@ -4,6 +4,7 @@ from typing import Dict, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
+from gym_sokoban.envs.sokoban_env import ACTION_LOOKUP as SOKOBAN_ACTION_LOOKUP
 
 from predicators import utils
 from predicators.ground_truth_models import GroundTruthOptionFactory
@@ -23,17 +24,14 @@ class SokobanGroundTruthOptionFactory(GroundTruthOptionFactory):
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 
-        # Reference for discrete actions:
-        # https://github.com/mpSchrader/gym-sokoban
-        discrete_action_names = [
-            "PushUp", "PushDown", "PushLeft", "PushRight", "MoveUp",
-            "MoveDown", "MoveLeft", "MoveRight"
-        ]
+        # Reformat names for consistency with other option naming.
+        def _format_name(name: str) -> str:
+            return "".join([n.capitalize() for n in name.split(" ")])
 
         options: Set[ParameterizedOption] = {
             utils.SingletonParameterizedOption(
-                name, cls._create_policy(discrete_action=(i + 1)))
-            for i, name in enumerate(discrete_action_names)
+                _format_name(name), cls._create_policy(discrete_action=i))
+            for i, name in SOKOBAN_ACTION_LOOKUP.items()
         }
 
         return options
