@@ -111,9 +111,11 @@ class BilevelPlanningApproach(BaseApproach):
     def _run_task_plan(self, task: Task, nsrts: Set[NSRT],
                        preds: Set[Predicate], timeout: float, seed: int,
                        **kwargs: Any) -> Tuple[List[_GroundNSRT], Metrics]:
+
         init_atoms = utils.abstract(task.init, preds)
         goal = task.goal
         objects = set(task.init)
+
         try:
             start_time = time.perf_counter()
             ground_nsrts, reachable_atoms = task_plan_grounding(
@@ -123,6 +125,7 @@ class BilevelPlanningApproach(BaseApproach):
                 preds, objects)
             duration = time.perf_counter() - start_time
             timeout -= duration
+
             if CFG.sesame_task_planner == "astar":
                 plan, _, metrics = next(
                     task_plan(init_atoms,
@@ -163,6 +166,7 @@ class BilevelPlanningApproach(BaseApproach):
             else:
                 raise ValueError("Unrecognized sesame_task_planner: "
                                  f"{CFG.sesame_task_planner}")
+
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
