@@ -5,6 +5,8 @@ then Execution.
 """
 
 import abc
+import os
+import sys
 import time
 from typing import Any, Callable, List, Optional, Sequence, Set, Tuple
 
@@ -15,7 +17,8 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach
 from predicators.option_model import _OptionModelBase, create_option_model
 from predicators.planning import PlanningFailure, PlanningTimeout, \
-    sesame_plan, task_plan, task_plan_grounding
+    fd_plan_from_sas_file, generate_sas_file_for_fd, sesame_plan, task_plan, \
+    task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DummyOption, GroundAtom, \
     Metrics, ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
@@ -123,17 +126,46 @@ class BilevelPlanningApproach(BaseApproach):
             duration = time.perf_counter() - start_time
             timeout -= duration
 
-            plan, _, metrics = next(
-                task_plan(init_atoms,
-                          goal,
-                          ground_nsrts,
-                          reachable_atoms,
-                          heuristic,
-                          seed,
-                          timeout,
-                          max_skeletons_optimized=1,
-                          use_visited_state_set=True,
-                          **kwargs))
+            if CFG.sesame_task_planner == "astar":
+                plan, _, metrics = next(
+                    task_plan(init_atoms,
+                              goal,
+                              ground_nsrts,
+                              reachable_atoms,
+                              heuristic,
+                              seed,
+                              timeout,
+                              max_skeletons_optimized=1,
+                              use_visited_state_set=True,
+                              **kwargs))
+            elif "fd" in CFG.sesame_task_planner:  # pragma: no cover
+                fd_exec_path = os.environ["FD_EXEC_PATH"]
+                exec_str = os.path.join(fd_exec_path, "fast-downward.py")
+                timeout_cmd = "gtimeout" if sys.platform == "darwin" \
+                    else "timeout"
+                # Run Fast Downward followed by cleanup. Capture the output.
+                assert "FD_EXEC_PATH" in os.environ, \
+                    "Please follow instructions in the docstring of the" +\
+                    "_sesame_plan_with_fast_downward method in planning.py"
+                if CFG.sesame_task_planner == "fdopt":
+                    alias_flag = "--alias seq-opt-lmcut"
+                elif CFG.sesame_task_planner == "fdsat":
+                    alias_flag = "--alias lama-first"
+                else:
+                    raise ValueError("Unrecognized sesame_task_planner: "
+                                     f"{CFG.sesame_task_planner}")
+
+                sas_file = generate_sas_file_for_fd(task, nsrts, preds,
+                                                    self._types, timeout,
+                                                    timeout_cmd,
+                                                    alias_flag, exec_str,
+                                                    list(objects), init_atoms)
+                plan, _, metrics = fd_plan_from_sas_file(
+                    sas_file, timeout_cmd, timeout, exec_str, alias_flag,
+                    start_time, list(objects), init_atoms, nsrts, CFG.horizon)
+            else:
+                raise ValueError("Unrecognized sesame_task_planner: "
+                                 f"{CFG.sesame_task_planner}")
 
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)

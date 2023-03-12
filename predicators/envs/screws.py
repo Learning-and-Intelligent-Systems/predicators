@@ -10,8 +10,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
+    Task, Type
 
 
 class ScrewsEnv(BaseEnv):
@@ -156,11 +156,6 @@ class ScrewsEnv(BaseEnv):
     @property
     def types(self) -> Set[Type]:
         return {self._screw_type, self._gripper_type, self._receptacle_type}
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:

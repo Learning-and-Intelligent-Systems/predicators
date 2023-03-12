@@ -2,243 +2,134 @@
 
 import logging
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, List, Sequence, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Tuple
 
 import numpy as np
 import pybullet as p
-from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
-from predicators.pybullet_helpers.controllers import \
-    create_change_fingers_option, create_move_end_effector_to_pose_option
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, Object, ParameterizedOption, State, Task
+from predicators.structs import Array, Object, State, Task
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     """PyBullet Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
 
-    # Option parameters.
-    _offset_z: ClassVar[float] = 0.01
-
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
-    # Robot parameters.
-    _move_to_pose_tol: ClassVar[float] = 1e-4
-
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-
-        # Override options, keeping the types and parameter spaces the same.
-        open_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
-            s.get(self._robot, "fingers")), self._pybullet_robot.open_fingers)
-        close_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
-            s.get(self._robot, "fingers")), self._pybullet_robot.closed_fingers
-                                                )
-
-        ## Pick option
-        types = [self._robot_type, self._block_type]
-        params_space = Box(0, 1, (0, ))
-        self._Pick: ParameterizedOption = utils.LinearChainParameterizedOption(
-            "Pick",
-            [
-                # Move to far above the block which we will grasp.
-                self._create_blocks_move_to_above_block_option(
-                    name="MoveEndEffectorToPreGrasp",
-                    z_func=lambda _: self.pick_z,
-                    finger_status="open"),
-                # Open fingers.
-                create_change_fingers_option(
-                    self._pybullet_robot_sim, "OpenFingers", types,
-                    params_space, open_fingers_func, self._max_vel_norm,
-                    self._grasp_tol),
-                # Move down to grasp.
-                self._create_blocks_move_to_above_block_option(
-                    name="MoveEndEffectorToGrasp",
-                    z_func=lambda block_z: (block_z + self._offset_z),
-                    finger_status="open"),
-                # Close fingers.
-                create_change_fingers_option(
-                    self._pybullet_robot_sim, "CloseFingers", types,
-                    params_space, close_fingers_func, self._max_vel_norm,
-                    self._grasp_tol),
-                # Move back up.
-                self._create_blocks_move_to_above_block_option(
-                    name="MoveEndEffectorBackUp",
-                    z_func=lambda _: self.pick_z,
-                    finger_status="closed"),
-            ])
-
-        ## Stack option
-        types = [self._robot_type, self._block_type]
-        params_space = Box(0, 1, (0, ))
-        self._Stack: ParameterizedOption = \
-            utils.LinearChainParameterizedOption("Stack",
-            [
-                # Move to above the block on which we will stack.
-                self._create_blocks_move_to_above_block_option(
-                    name="MoveEndEffectorToPreStack",
-                    z_func=lambda _: self.pick_z,
-                    finger_status="closed"),
-                # Move down to place.
-                self._create_blocks_move_to_above_block_option(
-                    name="MoveEndEffectorToStack",
-                    z_func=lambda block_z: (
-                        block_z + self._block_size + self._offset_z),
-                    finger_status="closed"),
-                # Open fingers.
-                create_change_fingers_option(self._pybullet_robot_sim,
-                    "OpenFingers", types, params_space, open_fingers_func,
-                    self._max_vel_norm, self._grasp_tol),
-                # Move back up.
-                self._create_blocks_move_to_above_block_option(
-                    name="MoveEndEffectorBackUp",
-                    z_func=lambda _: self.pick_z,
-                    finger_status="open"),
-            ])
-
-        ## PutOnTable option
-        types = [self._robot_type]
-        params_space = Box(0, 1, (2, ))
-        place_z = self.table_height + self._block_size / 2 + self._offset_z
-        self._PutOnTable: ParameterizedOption = \
-            utils.LinearChainParameterizedOption("PutOnTable",
-            [
-                # Move to above the table at the (x, y) where we will place.
-                self._create_blocks_move_to_above_table_option(
-                    name="MoveEndEffectorToPrePutOnTable",
-                    z=self.pick_z,
-                    finger_status="closed"),
-                # Move down to place.
-                self._create_blocks_move_to_above_table_option(
-                    name="MoveEndEffectorToPutOnTable",
-                    z=place_z,
-                    finger_status="closed"),
-                # Open fingers.
-                create_change_fingers_option(self._pybullet_robot_sim,
-                    "OpenFingers", types, params_space, open_fingers_func,
-                    self._max_vel_norm, self._grasp_tol),
-                # Move back up.
-                self._create_blocks_move_to_above_table_option(
-                    name="MoveEndEffectorBackUp", z=self.pick_z,
-                    finger_status="open"),
-            ])
 
         # We track the correspondence between PyBullet object IDs and Object
         # instances for blocks. This correspondence changes with the task.
         self._block_id_to_block: Dict[int, Object] = {}
 
-    @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Stack, self._PutOnTable}
-
-    def _initialize_pybullet(self) -> None:
+    @classmethod
+    def initialize_pybullet(
+            cls, using_gui: bool
+    ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
         """Run super(), then handle blocks-specific initialization."""
-        super()._initialize_pybullet()
+        physics_client_id, pybullet_robot, bodies = super(
+        ).initialize_pybullet(using_gui)
 
-        # Load table in both the main client and the copy.
-        self._table_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/table.urdf"),
-            useFixedBase=True,
-            physicsClientId=self._physics_client_id)
-        p.resetBasePositionAndOrientation(
-            self._table_id,
-            self._table_pose,
-            self._table_orientation,
-            physicsClientId=self._physics_client_id)
-        p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
-                   useFixedBase=True,
-                   physicsClientId=self._physics_client_id2)
-        p.resetBasePositionAndOrientation(
-            self._table_id,
-            self._table_pose,
-            self._table_orientation,
-            physicsClientId=self._physics_client_id2)
+        table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
+                              useFixedBase=True,
+                              physicsClientId=physics_client_id)
+        p.resetBasePositionAndOrientation(table_id,
+                                          cls._table_pose,
+                                          cls._table_orientation,
+                                          physicsClientId=physics_client_id)
+        bodies["table_id"] = table_id
 
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert self.using_gui, \
+            assert using_gui, \
                 "using_gui must be True to use pybullet_draw_debug."
             # Draw the workspace on the table for clarity.
-            p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
-                               [self.x_ub, self.y_lb, self.table_height],
+            p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.table_height],
+                               [cls.x_ub, cls.y_lb, cls.table_height],
                                [1.0, 0.0, 0.0],
                                lineWidth=5.0,
-                               physicsClientId=self._physics_client_id)
-            p.addUserDebugLine([self.x_lb, self.y_ub, self.table_height],
-                               [self.x_ub, self.y_ub, self.table_height],
+                               physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_lb, cls.y_ub, cls.table_height],
+                               [cls.x_ub, cls.y_ub, cls.table_height],
                                [1.0, 0.0, 0.0],
                                lineWidth=5.0,
-                               physicsClientId=self._physics_client_id)
-            p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
-                               [self.x_lb, self.y_ub, self.table_height],
+                               physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_lb, cls.y_lb, cls.table_height],
+                               [cls.x_lb, cls.y_ub, cls.table_height],
                                [1.0, 0.0, 0.0],
                                lineWidth=5.0,
-                               physicsClientId=self._physics_client_id)
-            p.addUserDebugLine([self.x_ub, self.y_lb, self.table_height],
-                               [self.x_ub, self.y_ub, self.table_height],
+                               physicsClientId=physics_client_id)
+            p.addUserDebugLine([cls.x_ub, cls.y_lb, cls.table_height],
+                               [cls.x_ub, cls.y_ub, cls.table_height],
                                [1.0, 0.0, 0.0],
                                lineWidth=5.0,
-                               physicsClientId=self._physics_client_id)
+                               physicsClientId=physics_client_id)
             # Draw coordinate frame labels for reference.
             p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0],
-                               physicsClientId=self._physics_client_id)
+                               physicsClientId=physics_client_id)
             p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0],
-                               physicsClientId=self._physics_client_id)
+                               physicsClientId=physics_client_id)
             p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
-                               physicsClientId=self._physics_client_id)
+                               physicsClientId=physics_client_id)
             # Draw the pick z location at the x/y midpoint.
-            mid_x = (self.x_ub + self.x_lb) / 2
-            mid_y = (self.y_ub + self.y_lb) / 2
-            p.addUserDebugText("*", [mid_x, mid_y, self.pick_z],
+            mid_x = (cls.x_ub + cls.x_lb) / 2
+            mid_y = (cls.y_ub + cls.y_lb) / 2
+            p.addUserDebugText("*", [mid_x, mid_y, cls.pick_z],
                                [1.0, 0.0, 0.0],
-                               physicsClientId=self._physics_client_id)
+                               physicsClientId=physics_client_id)
 
         # Create blocks. Note that we create the maximum number once, and then
         # later on, in reset_state(), we will remove blocks from the workspace
         # (teleporting them far away) based on which ones are in the state.
         num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
-        self._block_ids = []
+        block_ids = []
+        block_size = CFG.blocks_block_size
         for i in range(num_blocks):
-            color = self._obj_colors[i % len(self._obj_colors)]
-            half_extents = (self._block_size / 2.0, self._block_size / 2.0,
-                            self._block_size / 2.0)
-            self._block_ids.append(
-                create_pybullet_block(color, half_extents, self._obj_mass,
-                                      self._obj_friction, self._default_orn,
-                                      self._physics_client_id))
+            color = cls._obj_colors[i % len(cls._obj_colors)]
+            half_extents = (block_size / 2.0, block_size / 2.0,
+                            block_size / 2.0)
+            block_ids.append(
+                create_pybullet_block(color, half_extents, cls._obj_mass,
+                                      cls._obj_friction, cls._default_orn,
+                                      physics_client_id))
+        bodies["block_ids"] = block_ids
 
+        return physics_client_id, pybullet_robot, bodies
+
+    def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
+        self._table_id = pybullet_bodies["table_id"]
+        self._block_ids = pybullet_bodies["block_ids"]
+
+    @classmethod
     def _create_pybullet_robot(
-            self, physics_client_id: int) -> SingleArmPyBulletRobot:
-        robot_ee_orn = self._robot_ee_home_orn
-        ee_home = Pose(
-            (self.robot_init_x, self.robot_init_y, self.robot_init_z),
-            robot_ee_orn)
+            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
+        robot_ee_orn = cls.get_robot_ee_home_orn()
+        ee_home = Pose((cls.robot_init_x, cls.robot_init_y, cls.robot_init_z),
+                       robot_ee_orn)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                 physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
         # The orientation is fixed in this environment.
-        qx, qy, qz, qw = self._robot_ee_home_orn
+        qx, qy, qz, qw = self.get_robot_ee_home_orn()
+        f = self.fingers_state_to_joint(self._pybullet_robot,
+                                        state.get(self._robot, "fingers"))
         return np.array([
             state.get(self._robot, "pose_x"),
             state.get(self._robot, "pose_y"),
-            state.get(self._robot, "pose_z"),
-            qx,
-            qy,
-            qz,
-            qw,
-            self._fingers_state_to_joint(state.get(self._robot, "fingers")),
+            state.get(self._robot, "pose_z"), qx, qy, qz, qw, f
         ],
                         dtype=np.float32)
 
@@ -374,81 +265,18 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         self._held_obj_id = block_id
         self._create_grasp_constraint()
 
-    def _create_blocks_move_to_above_block_option(
-            self, name: str, z_func: Callable[[float], float],
-            finger_status: str) -> ParameterizedOption:
-        """Creates a ParameterizedOption for moving to a pose above that of the
-        block argument.
-
-        The parameter z_func maps the block's z position to the target z
-        position.
-        """
-        types = [self._robot_type, self._block_type]
-        params_space = Box(0, 1, (0, ))
-
-        def _get_current_and_target_pose_and_finger_status(
-                state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose, Pose, str]:
-            assert not params
-            robot, block = objects
-            current_position = (state.get(robot, "pose_x"),
-                                state.get(robot, "pose_y"),
-                                state.get(robot, "pose_z"))
-            current_pose = Pose(current_position, self._robot_ee_home_orn)
-            target_position = (state.get(block,
-                                         "pose_x"), state.get(block, "pose_y"),
-                               z_func(state.get(block, "pose_z")))
-            target_pose = Pose(target_position, self._robot_ee_home_orn)
-            return current_pose, target_pose, finger_status
-
-        return create_move_end_effector_to_pose_option(
-            self._pybullet_robot_sim, name, types, params_space,
-            _get_current_and_target_pose_and_finger_status,
-            self._move_to_pose_tol, self._max_vel_norm,
-            self._finger_action_nudge_magnitude)
-
-    def _create_blocks_move_to_above_table_option(
-            self, name: str, z: float,
-            finger_status: str) -> ParameterizedOption:
-        """Creates a ParameterizedOption for moving to a pose above that of the
-        table.
-
-        The z position of the target pose must be provided.
-        """
-        types = [self._robot_type]
-        params_space = Box(0, 1, (2, ))
-
-        def _get_current_and_target_pose_and_finger_status(
-                state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose, Pose, str]:
-            robot, = objects
-            current_position = (state.get(robot, "pose_x"),
-                                state.get(robot, "pose_y"),
-                                state.get(robot, "pose_z"))
-            current_pose = Pose(current_position, self._robot_ee_home_orn)
-            # De-normalize parameters to actual table coordinates.
-            x_norm, y_norm = params
-            target_position = (self.x_lb + (self.x_ub - self.x_lb) * x_norm,
-                               self.y_lb + (self.y_ub - self.y_lb) * y_norm, z)
-            target_pose = Pose(target_position, self._robot_ee_home_orn)
-            return current_pose, target_pose, finger_status
-
-        return create_move_end_effector_to_pose_option(
-            self._pybullet_robot_sim, name, types, params_space,
-            _get_current_and_target_pose_and_finger_status,
-            self._move_to_pose_tol, self._max_vel_norm,
-            self._finger_action_nudge_magnitude)
-
-    def _fingers_state_to_joint(self, fingers_state: float) -> float:
+    @classmethod
+    def fingers_state_to_joint(cls, pybullet_robot: SingleArmPyBulletRobot,
+                               fingers_state: float) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.
 
         The fingers in the State are either 0 or 1. Transform them to be
-        either self._pybullet_robot.closed_fingers or
-        self._pybullet_robot.open_fingers.
+        either pybullet_robot.closed_fingers or
+        pybullet_robot.open_fingers.
         """
         assert fingers_state in (0.0, 1.0)
-        open_f = self._pybullet_robot.open_fingers
-        closed_f = self._pybullet_robot.closed_fingers
+        open_f = pybullet_robot.open_fingers
+        closed_f = pybullet_robot.closed_fingers
         return closed_f if fingers_state == 0.0 else open_f
 
     def _fingers_joint_to_state(self, fingers_joint: float) -> float:
