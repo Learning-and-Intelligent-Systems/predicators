@@ -61,21 +61,22 @@ class BilevelPlanningApproach(BaseApproach):
         if self._plan_without_sim:
             nsrt_plan, metrics = self._run_task_plan(task, nsrts, preds,
                                                      timeout, seed)
-            self._save_metrics(metrics, nsrts, preds)
             self._last_nsrt_plan = nsrt_plan
-            return utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
-                                                    self._rng)
+            policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
+                                                      self._rng)
 
         # Run full bilevel planning.
-        plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
-                                              seed)
+        else:
+            plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
+                                                  seed)
+            self._last_plan = plan
+            policy = utils.option_plan_to_policy(plan)
+
         self._save_metrics(metrics, nsrts, preds)
-        self._last_plan = plan
-        option_policy = utils.option_plan_to_policy(plan)
 
         def _policy(s: State) -> Action:
             try:
-                return option_policy(s)
+                return policy(s)
             except utils.OptionExecutionFailure as e:
                 raise ApproachFailure(e.args[0], e.info)
 

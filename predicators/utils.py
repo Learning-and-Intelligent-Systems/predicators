@@ -1111,8 +1111,11 @@ def nsrt_plan_to_greedy_policy(
         nsrt_plan: Sequence[_GroundNSRT], goal: Set[GroundAtom],
         rng: np.random.Generator) -> Callable[[State], Action]:
     """Greedily execute an NSRT plan, assuming downward refinability and that
-    any sample will work. If an option is not initiable or if the plan runs
-    out, an OptionExecutionFailure is raised."""
+    any sample will work.
+
+    If an option is not initiable or if the plan runs out, an
+    OptionExecutionFailure is raised.
+    """
     cur_nsrt: Optional[_GroundNSRT] = None
     cur_option = DummyOption
     nsrt_queue = list(nsrt_plan)
