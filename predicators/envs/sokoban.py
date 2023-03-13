@@ -281,26 +281,39 @@ class SokobanEnv(BaseEnv):
 
     @classmethod
     def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        return cls._check_spatial_relation(state,
-                                           objects,
-                                           0,
-                                           0,
-                                           check_if_locs=False)
+        obj1, obj2 = objects
+        if not cls._is_dynamic(obj1, state):
+            return False
+        if not cls._is_static(obj2, state):
+            return False
+        return cls._check_spatial_relation(state, objects, 0, 0)
 
     @classmethod
     def _Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not (cls._is_static(obj1, state) and cls._is_static(obj2, state)):
+            return False
         return cls._check_spatial_relation(state, objects, 1, 0)
 
     @classmethod
     def _Below_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not (cls._is_static(obj1, state) and cls._is_static(obj2, state)):
+            return False
         return cls._check_spatial_relation(state, objects, -1, 0)
 
     @classmethod
     def _RightOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not (cls._is_static(obj1, state) and cls._is_static(obj2, state)):
+            return False
         return cls._check_spatial_relation(state, objects, 0, -1)
 
     @classmethod
     def _LeftOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not (cls._is_static(obj1, state) and cls._is_static(obj2, state)):
+            return False
         return cls._check_spatial_relation(state, objects, 0, 1)
 
     def _GoalCovered_holds(self, state: State,
@@ -327,17 +340,9 @@ class SokobanEnv(BaseEnv):
         }
 
     @classmethod
-    def _check_spatial_relation(cls,
-                                state: State,
-                                objects: Sequence[Object],
-                                dr: int,
-                                dc: int,
-                                check_if_locs: bool = True) -> bool:
+    def _check_spatial_relation(cls, state: State, objects: Sequence[Object],
+                                dr: int, dc: int) -> bool:
         obj1, obj2 = objects
-        # Only apply spatial relations to static objects.
-        if check_if_locs and (not cls._IsLoc_holds(state, [obj1]) or \
-                              not cls._IsLoc_holds(state, [obj2])):
-            return False
         obj1_r = state.get(obj1, "row")
         obj1_c = state.get(obj1, "column")
         obj2_r = state.get(obj2, "row")
@@ -350,3 +355,12 @@ class SokobanEnv(BaseEnv):
         obj, = objects
         obj_type = state.get(obj, "type")
         return obj_type == cls._name_to_enum[enum_name]
+
+    @classmethod
+    def _is_static(cls, obj: Object, state: State) -> bool:
+        return cls._IsGoal_holds(state, [obj]) or \
+               cls._IsNonGoalLoc_holds(state, [obj])
+
+    @classmethod
+    def _is_dynamic(cls, obj: Object, state: State) -> bool:
+        return not cls._is_static(obj, state)
