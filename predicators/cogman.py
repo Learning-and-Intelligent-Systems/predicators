@@ -8,7 +8,7 @@ whether to re-query the approach at each time step based on the states.
 
 The name "CogMan" is due to Leslie Kaelbling.
 """
-from typing import Callable, Optional, Set
+from typing import Callable, List, Optional, Set
 
 from predicators.approaches import BaseApproach
 from predicators.execution_monitoring import create_execution_monitor

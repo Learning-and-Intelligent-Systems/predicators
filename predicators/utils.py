@@ -910,8 +910,8 @@ class Monitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
     @abc.abstractmethod
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        """Record a state and the action that is about to be taken.
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        """Record an observation and the action that is about to be taken.
 
         On the last timestep of a trajectory, no action is taken, so
         action is None.
@@ -951,7 +951,6 @@ def run_policy(
     obs = env.get_observation()
     assert isinstance(obs, State)
     state = obs
-    assert env.get_state().allclose(state)
     states = [state]
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
