@@ -1107,6 +1107,31 @@ def option_plan_to_policy(
     return _policy
 
 
+def nsrt_plan_to_greedy_policy(
+        nsrt_plan: Sequence[_GroundNSRT], goal: Set[GroundAtom],
+        rng: np.random.Generator) -> Callable[[State], Action]:
+    """Greedily execute an NSRT plan, assuming downward refinability and that
+    any sample will work. If an option is not initiable or if the plan runs
+    out, an OptionExecutionFailure is raised."""
+    cur_nsrt: Optional[_GroundNSRT] = None
+    cur_option = DummyOption
+    nsrt_queue = list(nsrt_plan)
+
+    def _policy(state: State) -> Action:
+        nonlocal cur_nsrt, cur_option
+        if cur_option is DummyOption or cur_option.terminal(state):
+            if not nsrt_queue:
+                raise OptionExecutionFailure("Greedy option plan exhausted.")
+            cur_nsrt = nsrt_queue.pop(0)
+            cur_option = cur_nsrt.sample_option(state, goal, rng)
+            if not cur_option.initiable(state):
+                raise OptionExecutionFailure("Greedy option not initiable.")
+        act = cur_option.policy(state)
+        return act
+
+    return _policy
+
+
 def create_random_option_policy(
         options: Collection[ParameterizedOption], rng: np.random.Generator,
         fallback_policy: Callable[[State],
