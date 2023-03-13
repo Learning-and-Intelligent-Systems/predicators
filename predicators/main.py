@@ -54,8 +54,8 @@ from predicators.envs import BaseEnv, create_new_env
 from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
 from predicators.settings import CFG
-from predicators.structs import Dataset, InteractionRequest, \
-    InteractionResult, LowLevelTrajectory, Metrics, Observation, Task
+from predicators.structs import Action, Dataset, InteractionRequest, \
+    InteractionResult, Metrics, Observation, Task
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -327,7 +327,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                                                    task.goal_holds,
                                                    max_num_steps=CFG.horizon,
                                                    monitor=monitor)
-            solved = task.goal_holds(traj.states[-1])
+            traj_observations, _ = traj
+            solved = task.goal_holds(traj_observations[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
             # Save the successful trajectory, e.g., for playback on a robot.
@@ -413,7 +414,7 @@ def _run_episode(
     do_env_reset: bool = True,
     exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
     monitor: Optional[utils.Monitor] = None
-) -> Tuple[LowLevelTrajectory, Metrics]:
+) -> Tuple[Tuple[List[Observation], List[Action]], Metrics]:
     """Execute cogman starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
 
@@ -434,6 +435,8 @@ def _run_episode(
     if do_env_reset:
         env.reset(train_or_test, task_idx)
     obs = env.get_observation()
+    observations = [obs]
+    actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
     metrics["policy_call_time"] = 0.0
     exception_raised_in_step = False
@@ -452,6 +455,8 @@ def _run_episode(
                     monitor.observe(obs, act)
                     monitor_observed = True
                 obs = env.step(act)
+                actions.append(act)
+                observations.append(obs)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
@@ -465,8 +470,7 @@ def _run_episode(
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(obs, None)
-    cogman.finish(obs)
-    traj = cogman.get_history_trajectory()
+    traj = (observations, actions)
     return traj, metrics
 
 

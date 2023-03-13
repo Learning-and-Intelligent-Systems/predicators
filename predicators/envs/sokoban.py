@@ -1,14 +1,12 @@
 """A Sokoban environment wrapping https://github.com/mpSchrader/gym-sokoban."""
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Optional, Sequence, Set
 
 import gym
 import gym_sokoban  # pylint:disable=unused-import
 import matplotlib
 import numpy as np
 from gym.spaces import Box
-from numpy.typing import NDArray
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, Object, Observation, \
@@ -41,15 +39,12 @@ class SokobanEnv(BaseEnv):
         # Predicates
         self._At = Predicate("At", [self.object_type, self.object_type],
                              self._At_holds)
-        self._IsLoc = Predicate("IsLoc", [self.object_type],
-                                self._IsLoc_holds)
+        self._IsLoc = Predicate("IsLoc", [self.object_type], self._IsLoc_holds)
         self._NoBoxAtLoc = Predicate("NoBoxAtLoc", [self.object_type],
                                      self._NoBoxAtLoc_holds)
-        self._Above = Predicate("Above",
-                                [self.object_type, self.object_type],
+        self._Above = Predicate("Above", [self.object_type, self.object_type],
                                 self._Above_holds)
-        self._Below = Predicate("Below",
-                                [self.object_type, self.object_type],
+        self._Below = Predicate("Below", [self.object_type, self.object_type],
                                 self._Below_holds)
         self._RightOf = Predicate("RightOf",
                                   [self.object_type, self.object_type],
@@ -57,8 +52,7 @@ class SokobanEnv(BaseEnv):
         self._LeftOf = Predicate("LeftOf",
                                  [self.object_type, self.object_type],
                                  self._LeftOf_holds)
-        self._IsBox = Predicate("IsBox", [self.object_type],
-                                self._IsBox_holds)
+        self._IsBox = Predicate("IsBox", [self.object_type], self._IsBox_holds)
         self._IsPlayer = Predicate("IsPlayer", [self.object_type],
                                    self._IsPlayer_holds)
         self._IsGoal = Predicate("IsGoal", [self.object_type],
@@ -164,10 +158,13 @@ class SokobanEnv(BaseEnv):
 
             # TODO: this is quite awkward... we need to figure out a way to
             # avoid agreement on object names between env and agent...
-            goal_objs = {Object(f"goal_{r}_{c}", self.object_type) for r, c in np.argwhere(init_obs[1])}
+            goal_objs = {
+                Object(f"goal_{r}_{c}", self.object_type)
+                for r, c in np.argwhere(init_obs[1])
+            }
             goal = {GroundAtom(self._GoalCovered, [o]) for o in goal_objs}
 
-            task = SokobanTask(init_obs, goal)
+            task: Task = SokobanTask(init_obs, goal)
             tasks.append(task)
         return tasks
 
@@ -181,9 +178,7 @@ class SokobanEnv(BaseEnv):
         # Free spaces and goals are locations.
         loc, = objects
         obj_type = state.get(loc, "type")
-        return obj_type in {
-            cls.name_to_enum["free"], cls.name_to_enum["goal"]
-        }
+        return obj_type in {cls.name_to_enum["free"], cls.name_to_enum["goal"]}
 
     def _NoBoxAtLoc_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:

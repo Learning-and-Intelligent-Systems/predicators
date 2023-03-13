@@ -409,7 +409,6 @@ class Task:
     def goal_holds(self, obs: Observation) -> bool:
         """Return whether the goal of this task holds in the given state."""
         # Environments with non-state observations should override this.
-        # TODO: do this in sokoban.
         assert isinstance(obs, State)
         return all(goal_atom.holds(obs) for goal_atom in self.goal)
 
