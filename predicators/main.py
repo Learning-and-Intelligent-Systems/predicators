@@ -47,6 +47,7 @@ import dill as pkl
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
+from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
 from predicators.ground_truth_models import get_gt_options, \
@@ -249,6 +250,16 @@ def _generate_interaction_results(
 
 
 def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
+    # Cogman is a wrapper around the approach that handles perception and
+    # execution monitoring. The approach assumes that the state is fully
+    # observed and object-centric and that transitions are deterministic. The
+    # cogman gives us some ability to weaken those assumptions. Currently we
+    # create the cogman on-the-fly during test time, but in the future we may
+    # want to create one cogman and have the cogman manage learning,
+    # exploration, and so on. The only reason to delay this change is that it
+    # would be a big undertaking to refactor the code this way.
+    cogman = CogMan(approach)
+
     test_tasks = env.get_test_tasks()
     num_found_policy = 0
     num_solved = 0
@@ -267,7 +278,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         # Run the approach's solve() method to get a policy for this task.
         solve_start = time.perf_counter()
         try:
-            policy = approach.solve(task, timeout=CFG.timeout)
+            # We call reset here, outside of run_episode, so that we can log
+            # planning failures, timeouts, etc. This is mostly for legacy
+            # reasons (before cogman existed separately from approaches).
+            cogman.reset(task.init, task.goal)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
@@ -305,8 +319,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            traj, execution_metrics = utils.run_policy(
-                policy,
+            traj, execution_metrics = utils.run_episode(
+                cogman,
                 env,
                 "test",
                 test_task_idx,
