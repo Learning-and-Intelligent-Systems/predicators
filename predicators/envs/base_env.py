@@ -180,6 +180,12 @@ class BaseEnv(abc.ABC):
                 self._test_tasks = self._generate_test_tasks()
         return self._test_tasks
 
+    @property
+    def _current_state(self) -> State:
+        """Default for environments where states are observations."""
+        assert isinstance(self._current_observation, State)
+        return self._current_observation
+
     def _load_task_from_json(self, json_file: Path) -> Task:
         """Create a task from a JSON file.
 

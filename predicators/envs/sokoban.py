@@ -11,8 +11,8 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type, Video
+from predicators.structs import Action, GroundAtom, Object, Observation, \
+    Predicate, State, Task, Type, Video
 
 # Free, goals, boxes, player masks.
 _Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8],
@@ -135,29 +135,29 @@ class SokobanEnv(BaseEnv):
         obs = self._gym_env.render(mode='raw')
         return self._observation_to_state(obs)
 
-    def reset(self, train_or_test: str, task_idx: int) -> State:
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""
         self._current_task = self.get_task(train_or_test, task_idx)
-        self._current_state = self._current_task.init
+        self._current_observation = self._current_task.init
         # We now need to reset the underlying gym environment to the correct
         # state.
         seed_offset = CFG.seed
         if train_or_test == "test":
             seed_offset += CFG.test_env_seed_offset
         self._reset_initial_state_from_seed(seed_offset + task_idx)
-        assert self.get_state().allclose(self._current_state)
-        return self._current_state.copy()
+        assert self.get_state().allclose(self._current_observation)
+        return self._current_observation.copy()
 
     def simulate(self, state: State, action: Action) -> State:
         raise NotImplementedError("Simulate not implemented for gym envs.")
 
-    def step(self, action: Action) -> State:
+    def step(self, action: Action) -> Observation:
         # Convert our actions to their discrete action space.
         discrete_action = np.argmax(action.arr)
         self._gym_env.step(discrete_action)
         obs = self._gym_env.render(mode='raw')
-        self._current_state = self._observation_to_state(obs)
-        return self._current_state.copy()
+        self._current_observation = self._observation_to_state(obs)
+        return self._current_observation.copy()
 
     def _get_tasks(self, num: int, seed_offset: int) -> List[Task]:
         tasks = []

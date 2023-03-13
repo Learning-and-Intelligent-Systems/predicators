@@ -397,19 +397,21 @@ class GroundAtom(_Atom):
 
 @dataclass(frozen=True, eq=False)
 class Task:
-    """Struct defining a task, which is a pair of initial state and goal."""
-    init: State
+    """Struct defining a task, which is an initial observation and goal."""
+    init: Observation
     goal: Set[GroundAtom]
 
     def __post_init__(self) -> None:
         # Verify types.
-        assert isinstance(self.init, State)
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 
-    def goal_holds(self, state: State) -> bool:
+    def goal_holds(self, obs: Observation) -> bool:
         """Return whether the goal of this task holds in the given state."""
-        return all(goal_atom.holds(state) for goal_atom in self.goal)
+        # Environments with non-state observations should override this.
+        # TODO: do this in sokoban.
+        assert isinstance(obs, State)
+        return all(goal_atom.holds(obs) for goal_atom in self.goal)
 
 
 DefaultTask = Task(DefaultState, set())
