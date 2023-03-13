@@ -69,6 +69,10 @@ class SokobanEnv(BaseEnv):
         # into gym.make here.
         self._gym_env = gym.make(CFG.sokoban_gym_name)
 
+        # Used for object tracking of the boxes, which are the only objects
+        # with ambiguity. The keys are the object names.
+        self._box_loc_to_name: Dict[Tuple[int, int], str] = {}
+
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, seed_offset=0)
 
@@ -171,17 +175,11 @@ class SokobanEnv(BaseEnv):
     def _reset_initial_state_from_seed(self, seed: int) -> _Observation:
         self._gym_env.seed(seed)
         self._gym_env.reset()
+        self._box_loc_to_name.clear()  # reset the object tracking dictionary
         return self._gym_env.render(mode='raw')
 
     def _observation_to_state(self, obs: _Observation) -> State:
         """Extract a State from an _Observation."""
-
-        # NOTE: there is no guarantee that object tracking is "correct". The
-        # names of boxes in particular will flip unintuitively. For now, we
-        # don't care, because we are simply task planning and then executing
-        # the task plan open-loop. But if we were to plan monitor or do full
-        # bilevel planning, we would need to track objects correctly.
-
         state_dict = {}
 
         walls, goals, boxes, player = obs
@@ -193,16 +191,41 @@ class SokobanEnv(BaseEnv):
         }
         assert set(type_to_mask) == set(self._name_to_enum)
 
+        # Handle moving boxes.
+        new_locs = set((r, c) for r, c in np.argwhere(boxes))
+        if not self._box_loc_to_name:
+            # First time, so name the boxes arbitrarily.
+            for i, (r, c) in enumerate(sorted(new_locs)):
+                self._box_loc_to_name[(r, c)] = f"box_{i}"
+        else:
+            # Assume that at most one box has changed.
+            old_locs = set(self._box_loc_to_name)
+            changed_new_locs = new_locs - old_locs
+            changed_old_locs = old_locs - new_locs
+            if changed_new_locs:
+                assert len(changed_new_locs) == 1
+                assert len(changed_old_locs) == 1
+                new_loc, = changed_new_locs
+                old_loc, = changed_old_locs
+                moved_box_name = self._box_loc_to_name.pop(old_loc)
+                self._box_loc_to_name[new_loc] = moved_box_name
+
+        def _get_object_name(r: int, c: int, type_name: str) -> str:
+            # Put the location of the static objects in their names for easier
+            # debugging.
+            if type_name in {"free", "goal"}:
+                return f"{type_name}_{r}_{c}"
+            if type_name == "player":
+                return "player"
+            assert type_name == "box"
+            return self._box_loc_to_name[(r, c)]
+
         for type_name, mask in type_to_mask.items():
             enum = self._name_to_enum[type_name]
             i = 0
             for r, c in np.argwhere(mask):
-                # Put the location of the static objects in their names for
-                # easier debugging.
-                if type_name in {"free", "goal"}:
-                    obj = Object(f"{type_name}_{r}_{c}", self._object_type)
-                else:
-                    obj = Object(f"{type_name}_{i}", self._object_type)
+                object_name = _get_object_name(r, c, type_name)
+                obj = Object(object_name, self._object_type)
                 state_dict[obj] = {
                     "row": r,
                     "column": c,
@@ -213,12 +236,13 @@ class SokobanEnv(BaseEnv):
         state = utils.create_state_from_dict(state_dict)
         return state
 
-    def _IsLoc_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @classmethod
+    def _IsLoc_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         # Free spaces and goals are locations.
         loc, = objects
         obj_type = state.get(loc, "type")
         return obj_type in {
-            self._name_to_enum["free"], self._name_to_enum["goal"]
+            cls._name_to_enum["free"], cls._name_to_enum["goal"]
         }
 
     def _NoBoxAtLoc_holds(self, state: State,
@@ -257,22 +281,39 @@ class SokobanEnv(BaseEnv):
 
     @classmethod
     def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not cls._is_dynamic(obj1, state):
+            return False
+        if not cls._is_static(obj2, state):
+            return False
         return cls._check_spatial_relation(state, objects, 0, 0)
 
     @classmethod
     def _Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not (cls._is_static(obj1, state) and cls._is_static(obj2, state)):
+            return False
         return cls._check_spatial_relation(state, objects, 1, 0)
 
     @classmethod
     def _Below_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not (cls._is_static(obj1, state) and cls._is_static(obj2, state)):
+            return False
         return cls._check_spatial_relation(state, objects, -1, 0)
 
     @classmethod
     def _RightOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not (cls._is_static(obj1, state) and cls._is_static(obj2, state)):
+            return False
         return cls._check_spatial_relation(state, objects, 0, -1)
 
     @classmethod
     def _LeftOf_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        if not (cls._is_static(obj1, state) and cls._is_static(obj2, state)):
+            return False
         return cls._check_spatial_relation(state, objects, 0, 1)
 
     def _GoalCovered_holds(self, state: State,
@@ -298,8 +339,8 @@ class SokobanEnv(BaseEnv):
             if state.get(o, "type") == self._name_to_enum[enum_name]
         }
 
-    @staticmethod
-    def _check_spatial_relation(state: State, objects: Sequence[Object],
+    @classmethod
+    def _check_spatial_relation(cls, state: State, objects: Sequence[Object],
                                 dr: int, dc: int) -> bool:
         obj1, obj2 = objects
         obj1_r = state.get(obj1, "row")
@@ -314,3 +355,12 @@ class SokobanEnv(BaseEnv):
         obj, = objects
         obj_type = state.get(obj, "type")
         return obj_type == cls._name_to_enum[enum_name]
+
+    @classmethod
+    def _is_static(cls, obj: Object, state: State) -> bool:
+        return cls._IsGoal_holds(state, [obj]) or \
+               cls._IsNonGoalLoc_holds(state, [obj])
+
+    @classmethod
+    def _is_dynamic(cls, obj: Object, state: State) -> bool:
+        return not cls._is_static(obj, state)
