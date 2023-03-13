@@ -14,64 +14,63 @@ from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, Object, Observation, \
     Predicate, State, Task, Type, Video
 
-# Free, goals, boxes, player masks.
-_Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8],
-                     NDArray[np.uint8]]
+
+class SokobanTask(Task):
+    """Sokoban tasks have a non-default goal check."""
+
+    def goal_holds(self, obs: Observation) -> bool:
+        _, goals, boxes, _ = obs
+        return not np.any(boxes & np.logical_not(goals))
 
 
 class SokobanEnv(BaseEnv):
     """Sokoban environment wrapping gym-sokoban."""
 
-    _name_to_enum: ClassVar[Dict[str, int]] = {
+    name_to_enum: ClassVar[Dict[str, int]] = {
         "free": 0,
         "goal": 1,
         "box": 2,
         "player": 3
     }
 
+    object_type = Type("obj", ["row", "column", "type"])
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        self._object_type = Type("obj", ["row", "column", "type"])
-
         # Predicates
-        self._At = Predicate("At", [self._object_type, self._object_type],
+        self._At = Predicate("At", [self.object_type, self.object_type],
                              self._At_holds)
-        self._IsLoc = Predicate("IsLoc", [self._object_type],
+        self._IsLoc = Predicate("IsLoc", [self.object_type],
                                 self._IsLoc_holds)
-        self._NoBoxAtLoc = Predicate("NoBoxAtLoc", [self._object_type],
+        self._NoBoxAtLoc = Predicate("NoBoxAtLoc", [self.object_type],
                                      self._NoBoxAtLoc_holds)
         self._Above = Predicate("Above",
-                                [self._object_type, self._object_type],
+                                [self.object_type, self.object_type],
                                 self._Above_holds)
         self._Below = Predicate("Below",
-                                [self._object_type, self._object_type],
+                                [self.object_type, self.object_type],
                                 self._Below_holds)
         self._RightOf = Predicate("RightOf",
-                                  [self._object_type, self._object_type],
+                                  [self.object_type, self.object_type],
                                   self._RightOf_holds)
         self._LeftOf = Predicate("LeftOf",
-                                 [self._object_type, self._object_type],
+                                 [self.object_type, self.object_type],
                                  self._LeftOf_holds)
-        self._IsBox = Predicate("IsBox", [self._object_type],
+        self._IsBox = Predicate("IsBox", [self.object_type],
                                 self._IsBox_holds)
-        self._IsPlayer = Predicate("IsPlayer", [self._object_type],
+        self._IsPlayer = Predicate("IsPlayer", [self.object_type],
                                    self._IsPlayer_holds)
-        self._IsGoal = Predicate("IsGoal", [self._object_type],
+        self._IsGoal = Predicate("IsGoal", [self.object_type],
                                  self._IsGoal_holds)
-        self._IsNonGoalLoc = Predicate("IsNonGoalLoc", [self._object_type],
+        self._IsNonGoalLoc = Predicate("IsNonGoalLoc", [self.object_type],
                                        self._IsNonGoalLoc_holds)
-        self._GoalCovered = Predicate("GoalCovered", [self._object_type],
+        self._GoalCovered = Predicate("GoalCovered", [self.object_type],
                                       self._GoalCovered_holds)
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
         self._gym_env = gym.make(CFG.sokoban_gym_name)
-
-        # Used for object tracking of the boxes, which are the only objects
-        # with ambiguity. The keys are the object names.
-        self._box_loc_to_name: Dict[Tuple[int, int], str] = {}
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, seed_offset=0)
@@ -83,6 +82,9 @@ class SokobanEnv(BaseEnv):
     @classmethod
     def get_name(cls) -> str:
         return "sokoban"
+
+    def get_observation(self) -> Observation:
+        return self._copy_observation(self._current_observation)
 
     def render_state_plt(
             self,
@@ -121,7 +123,7 @@ class SokobanEnv(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._object_type}
+        return {self.object_type}
 
     @property
     def action_space(self) -> Box:
@@ -130,10 +132,6 @@ class SokobanEnv(BaseEnv):
         lowers = np.zeros(9, dtype=np.float32)
         uppers = np.ones(9, dtype=np.float32)
         return Box(lowers, uppers)
-
-    def get_state(self) -> State:
-        obs = self._gym_env.render(mode='raw')
-        return self._observation_to_state(obs)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""
@@ -145,8 +143,7 @@ class SokobanEnv(BaseEnv):
         if train_or_test == "test":
             seed_offset += CFG.test_env_seed_offset
         self._reset_initial_state_from_seed(seed_offset + task_idx)
-        assert self.get_state().allclose(self._current_observation)
-        return self._current_observation.copy()
+        return self._copy_observation(self._current_observation)
 
     def simulate(self, state: State, action: Action) -> State:
         raise NotImplementedError("Simulate not implemented for gym envs.")
@@ -155,86 +152,29 @@ class SokobanEnv(BaseEnv):
         # Convert our actions to their discrete action space.
         discrete_action = np.argmax(action.arr)
         self._gym_env.step(discrete_action)
-        obs = self._gym_env.render(mode='raw')
-        self._current_observation = self._observation_to_state(obs)
-        return self._current_observation.copy()
+        self._current_observation = self._gym_env.render(mode='raw')
+        return self._copy_observation(self._current_observation)
 
     def _get_tasks(self, num: int, seed_offset: int) -> List[Task]:
         tasks = []
         for i in range(num):
             seed = i + seed_offset + CFG.seed
-            obs = self._reset_initial_state_from_seed(seed)
-            init_state = self._observation_to_state(obs)
+            init_obs = self._reset_initial_state_from_seed(seed)
             # The goal is always for all goal objects to be covered.
-            goal_objs = self._get_objects_of_enum(init_state, "goal")
+
+            # TODO: this is quite awkward... we need to figure out a way to
+            # avoid agreement on object names between env and agent...
+            goal_objs = {Object(f"goal_{r}_{c}", self.object_type) for r, c in np.argwhere(init_obs[1])}
             goal = {GroundAtom(self._GoalCovered, [o]) for o in goal_objs}
-            task = Task(init_state, goal)
+
+            task = SokobanTask(init_obs, goal)
             tasks.append(task)
         return tasks
 
-    def _reset_initial_state_from_seed(self, seed: int) -> _Observation:
+    def _reset_initial_state_from_seed(self, seed: int) -> Observation:
         self._gym_env.seed(seed)
         self._gym_env.reset()
-        self._box_loc_to_name.clear()  # reset the object tracking dictionary
         return self._gym_env.render(mode='raw')
-
-    def _observation_to_state(self, obs: _Observation) -> State:
-        """Extract a State from an _Observation."""
-        state_dict = {}
-
-        walls, goals, boxes, player = obs
-        type_to_mask = {
-            "free": np.logical_not(walls | goals),
-            "goal": goals,
-            "box": boxes,
-            "player": player
-        }
-        assert set(type_to_mask) == set(self._name_to_enum)
-
-        # Handle moving boxes.
-        new_locs = set((r, c) for r, c in np.argwhere(boxes))
-        if not self._box_loc_to_name:
-            # First time, so name the boxes arbitrarily.
-            for i, (r, c) in enumerate(sorted(new_locs)):
-                self._box_loc_to_name[(r, c)] = f"box_{i}"
-        else:
-            # Assume that at most one box has changed.
-            old_locs = set(self._box_loc_to_name)
-            changed_new_locs = new_locs - old_locs
-            changed_old_locs = old_locs - new_locs
-            if changed_new_locs:
-                assert len(changed_new_locs) == 1
-                assert len(changed_old_locs) == 1
-                new_loc, = changed_new_locs
-                old_loc, = changed_old_locs
-                moved_box_name = self._box_loc_to_name.pop(old_loc)
-                self._box_loc_to_name[new_loc] = moved_box_name
-
-        def _get_object_name(r: int, c: int, type_name: str) -> str:
-            # Put the location of the static objects in their names for easier
-            # debugging.
-            if type_name in {"free", "goal"}:
-                return f"{type_name}_{r}_{c}"
-            if type_name == "player":
-                return "player"
-            assert type_name == "box"
-            return self._box_loc_to_name[(r, c)]
-
-        for type_name, mask in type_to_mask.items():
-            enum = self._name_to_enum[type_name]
-            i = 0
-            for r, c in np.argwhere(mask):
-                object_name = _get_object_name(r, c, type_name)
-                obj = Object(object_name, self._object_type)
-                state_dict[obj] = {
-                    "row": r,
-                    "column": c,
-                    "type": enum,
-                }
-                i += 1
-
-        state = utils.create_state_from_dict(state_dict)
-        return state
 
     @classmethod
     def _IsLoc_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -242,7 +182,7 @@ class SokobanEnv(BaseEnv):
         loc, = objects
         obj_type = state.get(loc, "type")
         return obj_type in {
-            cls._name_to_enum["free"], cls._name_to_enum["goal"]
+            cls.name_to_enum["free"], cls.name_to_enum["goal"]
         }
 
     def _NoBoxAtLoc_holds(self, state: State,
@@ -336,7 +276,7 @@ class SokobanEnv(BaseEnv):
         return {
             o
             for o in state
-            if state.get(o, "type") == self._name_to_enum[enum_name]
+            if state.get(o, "type") == self.name_to_enum[enum_name]
         }
 
     @classmethod
@@ -354,7 +294,7 @@ class SokobanEnv(BaseEnv):
                     enum_name: str) -> bool:
         obj, = objects
         obj_type = state.get(obj, "type")
-        return obj_type == cls._name_to_enum[enum_name]
+        return obj_type == cls.name_to_enum[enum_name]
 
     @classmethod
     def _is_static(cls, obj: Object, state: State) -> bool:
@@ -364,3 +304,6 @@ class SokobanEnv(BaseEnv):
     @classmethod
     def _is_dynamic(cls, obj: Object, state: State) -> bool:
         return not cls._is_static(obj, state)
+
+    def _copy_observation(self, obs: Observation) -> Observation:
+        return tuple(m.copy() for m in obs)
