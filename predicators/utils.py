@@ -45,7 +45,7 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, OptionSpec, \
+    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
     Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
     _GroundSTRIPSOperator, _Option, _TypedEntity
@@ -919,34 +919,38 @@ class Monitor(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-def run_episode(
-        cogman: "CogMan",  # avoid circular import
+def run_policy(
+        policy: Callable[[State], Action],
         env: BaseEnv,
         train_or_test: str,
         task_idx: int,
         termination_function: Callable[[State], bool],
         max_num_steps: int,
-        do_state_reset: bool = True,
+        do_env_reset: bool = True,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
         monitor: Optional[Monitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
-    """Execute cogman starting from the initial state of a train or test task
+    """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
 
-    Note that the environment and cogman internal states are updated.
+    Note that the environment internal state is updated.
 
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
-    (3) cogman or env raise an exception of type in exceptions_to_break_on
+    (3) policy() or step() raise an exception of type in exceptions_to_break_on
 
     Note that in the case where the exception is raised in step, we exclude the
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
+
+    NOTE: this may be deprecated in the future in favor of run_episode.
     """
-    state = env.get_state()  # TODO change to observations
-    if do_state_reset:
-        state = env.reset(train_or_test, task_idx)
+    if do_env_reset:
+        env.reset(train_or_test, task_idx)
+    obs = env.get_observation()
+    assert isinstance(obs, State)
+    state = obs
     assert env.get_state().allclose(state)
     states = [state]
     actions: List[Action] = []
@@ -959,7 +963,7 @@ def run_episode(
             exception_raised_in_step = False
             try:
                 start_time = time.perf_counter()
-                act = cogman.step(state)  # TODO change to observations
+                act = policy(state)
                 metrics["policy_call_time"] += time.perf_counter() - start_time
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may use the environment's
@@ -967,7 +971,7 @@ def run_episode(
                 if monitor is not None:
                     monitor.observe(state, act)
                     monitor_observed = True
-                state = env.step(act)  # TODO change to observations
+                state = env.step(act)
                 actions.append(act)
                 states.append(state)
             except Exception as e:
@@ -983,7 +987,6 @@ def run_episode(
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
-    # TODO: get this from cogman?? Why do we need the trajectory anyway?
     traj = LowLevelTrajectory(states, actions)
     return traj, metrics
 
@@ -2611,8 +2614,8 @@ class VideoMonitor(Monitor):
     _render_fn: Callable[[Optional[Action], Optional[str]], Video]
     _video: Video = field(init=False, default_factory=list)
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        del state  # unused
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        del obs  # unused
         self._video.extend(self._render_fn(action, None))
 
     def get_video(self) -> Video:
@@ -2631,8 +2634,9 @@ class SimulateVideoMonitor(Monitor):
     _render_state_fn: Callable[[State, Task, Optional[Action]], Video]
     _video: Video = field(init=False, default_factory=list)
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        self._video.extend(self._render_state_fn(state, self._task, action))
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        assert isinstance(obs, State)
+        self._video.extend(self._render_state_fn(obs, self._task, action))
 
     def get_video(self) -> Video:
         """Return the video."""

@@ -14,7 +14,7 @@ from predicators import utils
 from predicators.llm_interface import OpenAILLM
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, DefaultTask, \
-    GroundAtom, Object, Predicate, State, Task, Type, Video
+    GroundAtom, Object, Observation, Predicate, State, Task, Type, Video
 
 
 class BaseEnv(abc.ABC):
@@ -335,6 +335,6 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("This environment did not implement an "
                                   "interface for human demonstrations!")
 
-    def get_state(self) -> State:
-        """Get the current state of this environment."""
+    def get_observation(self) -> Observation:
+        """Get the current observation of this environment."""
         return self._current_state.copy()

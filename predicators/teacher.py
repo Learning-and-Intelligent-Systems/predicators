@@ -17,7 +17,7 @@ from predicators.ground_truth_models import _get_options_by_names, \
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    InteractionRequest, LowLevelTrajectory, PathToStateQuery, \
+    InteractionRequest, LowLevelTrajectory, Observation, PathToStateQuery, \
     PathToStateResponse, Query, Response, State, Task
 
 
@@ -187,8 +187,10 @@ class TeacherInteractionMonitor(utils.Monitor):
                                                  default_factory=list)
     _query_cost: float = field(init=False, default=0.0)
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
         del action  # unused
+        assert isinstance(obs, State)
+        state = obs
         query = self._request.query_policy(state)
         if query is None:
             self._responses.append(None)
@@ -215,7 +217,9 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
     The render_fn is generally env.render.
     """
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        assert isinstance(obs, State)
+        state = obs
         query = self._request.query_policy(state)
         if query is None:
             response = None

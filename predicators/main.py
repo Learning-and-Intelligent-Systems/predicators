@@ -40,7 +40,8 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Set, Tuple
+from typing import Type as TypingType
 
 import dill as pkl
 
@@ -54,7 +55,7 @@ from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
 from predicators.settings import CFG
 from predicators.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Task
+    InteractionResult, LowLevelTrajectory, Metrics, Observation, Task
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -229,7 +230,7 @@ def _generate_interaction_results(
             request.train_task_idx,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
-            do_state_reset=(not CFG.online_learning_lifelong),
+            do_env_reset=(not CFG.online_learning_lifelong),
             exceptions_to_break_on={
                 utils.EnvironmentFailure, utils.OptionExecutionFailure,
                 utils.RequestActPolicyFailure
@@ -319,14 +320,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            traj, execution_metrics = utils.run_episode(
-                cogman,
-                env,
-                "test",
-                test_task_idx,
-                task.goal_holds,
-                max_num_steps=CFG.horizon,
-                monitor=monitor)
+            traj, execution_metrics = _run_episode(cogman,
+                                                   env,
+                                                   "test",
+                                                   test_task_idx,
+                                                   task.goal_holds,
+                                                   max_num_steps=CFG.horizon,
+                                                   monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
@@ -401,6 +401,73 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         metrics[f"avg_{metric_name}"] = (
             total / num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics
+
+
+def _run_episode(
+    cogman: CogMan,
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    termination_function: Callable[[Observation], bool],
+    max_num_steps: int,
+    do_env_reset: bool = True,
+    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+    monitor: Optional[utils.Monitor] = None
+) -> Tuple[LowLevelTrajectory, Metrics]:
+    """Execute cogman starting from the initial state of a train or test task
+    in the environment. The task's goal is not used.
+
+    Note that the environment and cogman internal states are updated.
+
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True
+    (2) max_num_steps is reached
+    (3) cogman or env raise an exception of type in exceptions_to_break_on
+
+    Note that in the case where the exception is raised in step, we exclude the
+    last action from the returned trajectory to maintain the invariant that
+    the trajectory states are of length one greater than the actions.
+
+    This is defined here mostly to avoid circular import issues for cogman.
+    We may want to move it eventually.
+    """
+    if do_env_reset:
+        env.reset(train_or_test, task_idx)
+    obs = env.get_observation()
+    metrics: Metrics = defaultdict(float)
+    metrics["policy_call_time"] = 0.0
+    exception_raised_in_step = False
+    if not termination_function(obs):
+        for _ in range(max_num_steps):
+            monitor_observed = False
+            exception_raised_in_step = False
+            try:
+                start_time = time.perf_counter()
+                act = cogman.step(obs)
+                metrics["policy_call_time"] += time.perf_counter() - start_time
+                # Note: it's important to call monitor.observe() before
+                # env.step(), because the monitor may use the environment's
+                # internal state.
+                if monitor is not None:
+                    monitor.observe(obs, act)
+                    monitor_observed = True
+                obs = env.step(act)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    if monitor_observed:
+                        exception_raised_in_step = True
+                    break
+                if monitor is not None and not monitor_observed:
+                    monitor.observe(obs, None)
+                raise e
+            if termination_function(obs):
+                break
+    if monitor is not None and not exception_raised_in_step:
+        monitor.observe(obs, None)
+    cogman.finish(obs)
+    traj = cogman.get_history_trajectory()
+    return traj, metrics
 
 
 def _save_test_results(results: Metrics,
