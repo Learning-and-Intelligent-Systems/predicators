@@ -1548,6 +1548,7 @@ class LiftedDecisionList:
 
 
 # Convenience higher-order types useful throughout the code
+Observation = Any
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
