@@ -69,6 +69,10 @@ class SokobanEnv(BaseEnv):
         # into gym.make here.
         self._gym_env = gym.make(CFG.sokoban_gym_name)
 
+        # Used for object tracking of the boxes, which are the only objects
+        # with ambiguity. The keys are the object names.
+        self._box_loc_to_name: Dict[Tuple[int, int], str] = {}
+
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, seed_offset=0)
 
@@ -171,17 +175,11 @@ class SokobanEnv(BaseEnv):
     def _reset_initial_state_from_seed(self, seed: int) -> _Observation:
         self._gym_env.seed(seed)
         self._gym_env.reset()
+        self._box_loc_to_name.clear()  # reset the object tracking dictionary
         return self._gym_env.render(mode='raw')
 
     def _observation_to_state(self, obs: _Observation) -> State:
         """Extract a State from an _Observation."""
-
-        # NOTE: there is no guarantee that object tracking is "correct". The
-        # names of boxes in particular will flip unintuitively. For now, we
-        # don't care, because we are simply task planning and then executing
-        # the task plan open-loop. But if we were to plan monitor or do full
-        # bilevel planning, we would need to track objects correctly.
-
         state_dict = {}
 
         walls, goals, boxes, player = obs
@@ -193,16 +191,41 @@ class SokobanEnv(BaseEnv):
         }
         assert set(type_to_mask) == set(self._name_to_enum)
 
+        # Handle moving boxes.
+        new_locs = set((r, c) for r, c in np.argwhere(boxes))
+        if not self._box_loc_to_name:
+            # First time, so name the boxes arbitrarily.
+            for i, (r, c) in enumerate(sorted(new_locs)):
+                self._box_loc_to_name[(r, c)] = f"box_{i}"
+        else:
+            # Assume that at most one box has changed.
+            old_locs = set(self._box_loc_to_name)
+            changed_new_locs = new_locs - old_locs
+            changed_old_locs = old_locs - new_locs
+            if changed_new_locs:
+                assert len(changed_new_locs) == 1
+                assert len(changed_old_locs) == 1
+                new_loc, = changed_new_locs
+                old_loc, = changed_old_locs
+                moved_box_name = self._box_loc_to_name.pop(old_loc)
+                self._box_loc_to_name[new_loc] = moved_box_name
+
+        def _get_object_name(r: int, c: int, type_name: str) -> str:
+            # Put the location of the static objects in their names for easier
+            # debugging.
+            if type_name in {"free", "goal"}:
+                return f"{type_name}_{r}_{c}"
+            if type_name == "player":
+                return "player"
+            assert type_name == "box"
+            return self._box_loc_to_name[(r, c)]
+
         for type_name, mask in type_to_mask.items():
             enum = self._name_to_enum[type_name]
             i = 0
             for r, c in np.argwhere(mask):
-                # Put the location of the static objects in their names for
-                # easier debugging.
-                if type_name in {"free", "goal"}:
-                    obj = Object(f"{type_name}_{r}_{c}", self._object_type)
-                else:
-                    obj = Object(f"{type_name}_{i}", self._object_type)
+                object_name = _get_object_name(r, c, type_name)
+                obj = Object(object_name, self._object_type)
                 state_dict[obj] = {
                     "row": r,
                     "column": c,
