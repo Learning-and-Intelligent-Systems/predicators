@@ -160,8 +160,9 @@ class PyBulletEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         # Optimization: check if we're already in the right state.
-        if not state.allclose(self._current_state):
-            self._current_state = state
+        assert isinstance(self._current_observation, State)
+        if not state.allclose(self._current_observation):
+            self._current_observation = state
             self._reset_state(state)
         return self.step(action)
 
