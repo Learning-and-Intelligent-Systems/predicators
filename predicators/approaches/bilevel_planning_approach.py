@@ -8,7 +8,7 @@ import abc
 import os
 import sys
 import time
-from typing import Any, Callable, List, Optional, Sequence, Set, Tuple
+from typing import Any, Callable, List, Set, Tuple
 
 from gym.spaces import Box
 
@@ -20,9 +20,8 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
     fd_plan_from_sas_file, generate_sas_file_for_fd, sesame_plan, task_plan, \
     task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, DummyOption, GroundAtom, \
-    Metrics, ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
-    _Option
+from predicators.structs import NSRT, Action, Metrics, ParameterizedOption, \
+    Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -47,7 +46,8 @@ class BilevelPlanningApproach(BaseApproach):
         self._plan_without_sim = CFG.bilevel_plan_without_sim
         self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
-        self._last_plan: List[_Option] = []
+        self._last_plan: List[_Option] = []  # used if plan WITH sim
+        self._last_nsrt_plan: List[_GroundNSRT] = []  # plan WITHOUT sim
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
@@ -61,19 +61,22 @@ class BilevelPlanningApproach(BaseApproach):
         if self._plan_without_sim:
             nsrt_plan, metrics = self._run_task_plan(task, nsrts, preds,
                                                      timeout, seed)
-            self._save_metrics(metrics, nsrts, preds)
-            return self._task_plan_to_greedy_policy(nsrt_plan, task.goal)
+            self._last_nsrt_plan = nsrt_plan
+            policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
+                                                      self._rng)
 
         # Run full bilevel planning.
-        plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
-                                              seed)
+        else:
+            plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
+                                                  seed)
+            self._last_plan = plan
+            policy = utils.option_plan_to_policy(plan)
+
         self._save_metrics(metrics, nsrts, preds)
-        self._last_plan = plan
-        option_policy = utils.option_plan_to_policy(plan)
 
         def _policy(s: State) -> Action:
             try:
-                return option_policy(s)
+                return policy(s)
             except utils.OptionExecutionFailure as e:
                 raise ApproachFailure(e.args[0], e.info)
 
@@ -222,26 +225,15 @@ class BilevelPlanningApproach(BaseApproach):
         since solve() returns a policy, which abstracts away the details of
         whether that policy is actually a plan under the hood."""
         assert self.get_name() == "oracle"
+        assert not self._plan_without_sim
         return self._last_plan
 
-    def _task_plan_to_greedy_policy(
-            self, nsrt_plan: Sequence[_GroundNSRT],
-            goal: Set[GroundAtom]) -> Callable[[State], Action]:
+    def get_last_nsrt_plan(self) -> List[_GroundNSRT]:
+        """Similar to get_last_plan() in that only oracle should use this.
 
-        cur_nsrt: Optional[_GroundNSRT] = None
-        cur_option = DummyOption
-        nsrt_queue = list(nsrt_plan)
-
-        def _policy(state: State) -> Action:
-            nonlocal cur_nsrt, cur_option
-            if cur_option is DummyOption or cur_option.terminal(state):
-                if not nsrt_queue:
-                    raise ApproachFailure("Greedy option plan exhausted.")
-                cur_nsrt = nsrt_queue.pop(0)
-                cur_option = cur_nsrt.sample_option(state, goal, self._rng)
-                if not cur_option.initiable(state):
-                    raise ApproachFailure("Greedy option not initiable.")
-            act = cur_option.policy(state)
-            return act
-
-        return _policy
+        And this will only be used when bilevel_plan_without_sim is
+        True.
+        """
+        assert self.get_name() == "oracle"
+        assert self._plan_without_sim
+        return self._last_nsrt_plan
