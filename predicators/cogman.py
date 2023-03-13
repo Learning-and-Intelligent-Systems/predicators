@@ -1,6 +1,6 @@
 """Cognitive manager (CogMan).
 
-A wrapper around an approach that managers interaction with the environment.
+A wrapper around an approach that manages interaction with the environment.
 
 Implements a perception module, which produces a State at each time step based
 on the history of observations, and an execution monitor, which determines
