@@ -159,6 +159,21 @@ def test_demo_dataset():
     assert len(dataset.trajectories) == 1
     assert os.path.exists(video_file)
     shutil.rmtree(video_dir)
+    # Test demo collection with bilevel_plan_without_sim.
+    utils.reset_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "num_train_tasks": 5,
+        "option_learner": "arbitrary_dummy",
+        "bilevel_plan_without_sim": True,
+    })
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    options = parse_config_included_options(env)
+    dataset = create_dataset(env, train_tasks, options)
+    assert len(dataset.trajectories) > 0
 
 
 @pytest.mark.parametrize(
