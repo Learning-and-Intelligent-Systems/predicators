@@ -236,12 +236,13 @@ class SokobanEnv(BaseEnv):
         state = utils.create_state_from_dict(state_dict)
         return state
 
-    def _IsLoc_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @classmethod
+    def _IsLoc_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         # Free spaces and goals are locations.
         loc, = objects
         obj_type = state.get(loc, "type")
         return obj_type in {
-            self._name_to_enum["free"], self._name_to_enum["goal"]
+            cls._name_to_enum["free"], cls._name_to_enum["goal"]
         }
 
     def _NoBoxAtLoc_holds(self, state: State,
@@ -280,7 +281,11 @@ class SokobanEnv(BaseEnv):
 
     @classmethod
     def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        return cls._check_spatial_relation(state, objects, 0, 0)
+        return cls._check_spatial_relation(state,
+                                           objects,
+                                           0,
+                                           0,
+                                           check_if_locs=False)
 
     @classmethod
     def _Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -321,10 +326,18 @@ class SokobanEnv(BaseEnv):
             if state.get(o, "type") == self._name_to_enum[enum_name]
         }
 
-    @staticmethod
-    def _check_spatial_relation(state: State, objects: Sequence[Object],
-                                dr: int, dc: int) -> bool:
+    @classmethod
+    def _check_spatial_relation(cls,
+                                state: State,
+                                objects: Sequence[Object],
+                                dr: int,
+                                dc: int,
+                                check_if_locs: bool = True) -> bool:
         obj1, obj2 = objects
+        # Only apply spatial relations to static objects.
+        if check_if_locs and (not cls._IsLoc_holds(state, [obj1]) or \
+                              not cls._IsLoc_holds(state, [obj2])):
+            return False
         obj1_r = state.get(obj1, "row")
         obj1_c = state.get(obj1, "column")
         obj2_r = state.get(obj2, "row")
