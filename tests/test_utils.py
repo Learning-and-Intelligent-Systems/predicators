@@ -566,7 +566,7 @@ def test_run_policy():
         def __init__(self):
             self.num_observations = 0
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             self.num_observations += 1
 
     with pytest.raises(ValueError) as e:
@@ -702,7 +702,7 @@ def test_run_policy_with_simulator():
     # Test with monitor.
     class _NullMonitor(utils.Monitor):
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             pass
 
     monitor = _NullMonitor()
@@ -721,7 +721,7 @@ def test_run_policy_with_simulator():
         def __init__(self):
             self.num_observations = 0
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             self.num_observations += 1
 
     def _policy(_):

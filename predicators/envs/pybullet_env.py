@@ -18,7 +18,8 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Observation, EnvironmentTask, State, Video
+from predicators.structs import Action, Array, EnvironmentTask, Observation, \
+    State, Video
 
 
 class PyBulletEnv(BaseEnv):

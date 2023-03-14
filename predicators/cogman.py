@@ -14,7 +14,8 @@ from predicators.approaches import BaseApproach
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.perception import create_perceiver
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Observation, State, Task
+from predicators.structs import Action, EnvironmentTask, GroundAtom, \
+    Observation, State, Task
 
 
 class CogMan:
@@ -27,11 +28,10 @@ class CogMan:
         self._current_policy: Optional[Callable[[State], Action]] = None
         self._current_goal: Optional[Set[GroundAtom]] = None
 
-    def reset(self, observation: Observation, goal: Set[GroundAtom]) -> None:
+    def reset(self, env_task: EnvironmentTask) -> None:
         """Start a new episode of environment interaction."""
-        state = self._perceiver.reset(observation)
-        self._current_goal = goal
-        task = Task(state, self._current_goal)
+        task = self._perceiver.reset(env_task)
+        self._current_goal = task.goal
         self._current_policy = self._approach.solve(task, timeout=CFG.timeout)
         self._exec_monitor.reset(task)
 

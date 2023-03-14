@@ -40,7 +40,7 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import dill as pkl
@@ -327,15 +327,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            traj, execution_metrics = _run_episode(cogman,
-                                                   env,
-                                                   "test",
-                                                   test_task_idx,
-                                                   task.goal_holds,
-                                                   max_num_steps=CFG.horizon,
-                                                   monitor=monitor)
-            traj_observations, _ = traj
-            solved = task.goal_holds(traj_observations[-1])
+            traj, solved, execution_metrics = _run_episode(
+                cogman,
+                env,
+                "test",
+                test_task_idx,
+                max_num_steps=CFG.horizon,
+                monitor=monitor)
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
             # Save the successful trajectory, e.g., for playback on a robot.
@@ -343,7 +341,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
             # Include the original task too so we know the goal.
             traj_data = {
-                "task": task,
+                "task": env_task,
                 "trajectory": traj,
                 "pybullet_robot": CFG.pybullet_robot
             }
@@ -416,14 +414,13 @@ def _run_episode(
     env: BaseEnv,
     train_or_test: str,
     task_idx: int,
-    termination_function: Callable[[Observation], bool],
     max_num_steps: int,
     do_env_reset: bool = True,
     exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
     monitor: Optional[utils.Monitor] = None
-) -> Tuple[Tuple[List[Observation], List[Action]], Metrics]:
+) -> Tuple[Tuple[List[Observation], List[Action]], bool, Metrics]:
     """Execute cogman starting from the initial state of a train or test task
-    in the environment. The task's goal is not used.
+    in the environment.
 
     Note that the environment and cogman internal states are updated.
 
@@ -447,7 +444,7 @@ def _run_episode(
     metrics: Metrics = defaultdict(float)
     metrics["policy_call_time"] = 0.0
     exception_raised_in_step = False
-    if not termination_function(obs):
+    if not env.goal_reached():
         for _ in range(max_num_steps):
             monitor_observed = False
             exception_raised_in_step = False
@@ -473,12 +470,13 @@ def _run_episode(
                 if monitor is not None and not monitor_observed:
                     monitor.observe(obs, None)
                 raise e
-            if termination_function(obs):
+            if env.goal_reached():
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(obs, None)
     traj = (observations, actions)
-    return traj, metrics
+    solved = env.goal_reached()
+    return traj, solved, metrics
 
 
 def _save_test_results(results: Metrics,

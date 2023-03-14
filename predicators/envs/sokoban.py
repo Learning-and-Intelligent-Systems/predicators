@@ -9,9 +9,8 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Predicate, State, Type, Video, Observation
-
+from predicators.structs import Action, EnvironmentTask, Object, \
+    Observation, Predicate, State, Type, Video
 
 
 class SokobanEnv(BaseEnv):
@@ -52,12 +51,17 @@ class SokobanEnv(BaseEnv):
                                  self._IsGoal_holds)
         self._IsNonGoalLoc = Predicate("IsNonGoalLoc", [self.object_type],
                                        self._IsNonGoalLoc_holds)
-        self._GoalCovered = Predicate("GoalCovered", [self.object_type],
-                                      self._GoalCovered_holds)
+        self._GoalCovered = self.get_goal_covered_predicate()
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
         self._gym_env = gym.make(CFG.sokoban_gym_name)
+
+    @classmethod
+    def get_goal_covered_predicate(cls) -> Predicate:
+        """Defined public so that the perceiver can use it."""
+        return Predicate("GoalCovered", [cls.object_type],
+                         cls._GoalCovered_holds)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, seed_offset=0)
@@ -142,13 +146,17 @@ class SokobanEnv(BaseEnv):
         self._current_observation = self._gym_env.render(mode='raw')
         return self._copy_observation(self._current_observation)
 
+    def goal_reached(self) -> bool:
+        _, goals, boxes, _ = self._current_observation
+        return not np.any(boxes & np.logical_not(goals))
+
     def _get_tasks(self, num: int, seed_offset: int) -> List[EnvironmentTask]:
         tasks = []
         for i in range(num):
             seed = i + seed_offset + CFG.seed
             init_obs = self._reset_initial_state_from_seed(seed)
             goal_description = "Cover all the goals with boxes"
-            task = EnvironmentTask(init_state, goal_description)
+            task = EnvironmentTask(init_obs, goal_description)
             tasks.append(task)
         return tasks
 
@@ -235,14 +243,15 @@ class SokobanEnv(BaseEnv):
             return False
         return cls._check_spatial_relation(state, objects, 0, 1)
 
-    def _GoalCovered_holds(self, state: State,
+    @classmethod
+    def _GoalCovered_holds(cls, state: State,
                            objects: Sequence[Object]) -> bool:
         goal, = objects
-        if not self._IsGoal_holds(state, objects):
+        if not cls._IsGoal_holds(state, objects):
             return False
         goal_r = state.get(goal, "row")
         goal_c = state.get(goal, "column")
-        boxes = self._get_objects_of_enum(state, "box")
+        boxes = cls._get_objects_of_enum(state, "box")
         for box in boxes:
             r = state.get(box, "row")
             c = state.get(box, "column")
@@ -250,12 +259,12 @@ class SokobanEnv(BaseEnv):
                 return True
         return False
 
-    def _get_objects_of_enum(self, state: State,
-                             enum_name: str) -> Set[Object]:
+    @classmethod
+    def _get_objects_of_enum(cls, state: State, enum_name: str) -> Set[Object]:
         return {
             o
             for o in state
-            if state.get(o, "type") == self.name_to_enum[enum_name]
+            if state.get(o, "type") == cls.name_to_enum[enum_name]
         }
 
     @classmethod

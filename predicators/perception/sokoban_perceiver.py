@@ -7,7 +7,8 @@ import numpy as np
 from predicators import utils
 from predicators.envs.sokoban import SokobanEnv
 from predicators.perception.base_perceiver import BasePerceiver
-from predicators.structs import Object, Observation, State
+from predicators.structs import EnvironmentTask, GroundAtom, Object, \
+    Observation, State, Task
 
 # Each observation is a tuple of four 2D boolean masks (numpy arrays).
 # The order is: free, goals, boxes, player.
@@ -26,9 +27,15 @@ class SokobanPerceiver(BasePerceiver):
     def get_name(cls) -> str:
         return "sokoban"
 
-    def reset(self, observation: Observation) -> State:
+    def reset(self, env_task: EnvironmentTask) -> Task:
         self._box_loc_to_name.clear()  # reset the object tracking dictionary
-        return self._observation_to_state(observation)
+        state = self._observation_to_state(env_task.init_obs)
+        assert env_task.goal_description == "Cover all the goals with boxes"
+        GoalCovered = SokobanEnv.get_goal_covered_predicate()
+        box_names = set(self._box_loc_to_name.values())
+        boxes = {o for o in state if o.name in box_names}
+        goal = {GroundAtom(GoalCovered, [b]) for b in boxes}
+        return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
         return self._observation_to_state(observation)

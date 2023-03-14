@@ -2,7 +2,7 @@
 
 import abc
 
-from predicators.structs import Observation, State
+from predicators.structs import EnvironmentTask, Observation, State, Task
 
 
 class BasePerceiver(abc.ABC):
@@ -14,7 +14,7 @@ class BasePerceiver(abc.ABC):
         """Get the unique name of this perceiver."""
 
     @abc.abstractmethod
-    def reset(self, observation: Observation) -> State:
+    def reset(self, env_task: EnvironmentTask) -> Task:
         """Start a new episode of environment interaction."""
 
     @abc.abstractmethod

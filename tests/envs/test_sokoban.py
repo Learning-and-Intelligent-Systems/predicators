@@ -68,7 +68,7 @@ def test_sokoban():
     assert len(test_tasks) == 2
     task = test_tasks[1]
     state = env.reset("test", 1)
-    assert state.allclose(task.init)
+    assert all(m1.allclose(m2) for m1, m2 in zip(state, task.init_obs))
     imgs = env.render()
     assert len(imgs) == 1
     atoms = utils.abstract(state, env.predicates)

@@ -13,15 +13,16 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.llm_interface import OpenAILLM
 from predicators.settings import CFG
-from predicators.structs import Action, DefaultTask, GroundAtom, Object, \
-    Observation, Predicate, State, Type, Video, EnvironmentTask, DefaultEnvironmentTask
+from predicators.structs import Action, DefaultEnvironmentTask, \
+    EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
+    Video
 
 
 class BaseEnv(abc.ABC):
     """Base environment."""
 
     def __init__(self, use_gui: bool = True) -> None:
-        self._current_state = DefaultState  # set in reset
+        self._current_observation: Observation = None  # set in reset
         self._current_task = DefaultEnvironmentTask  # set in reset
         self._set_seed(CFG.seed)
         # These are generated lazily when get_train_tasks or get_test_tasks is
@@ -186,7 +187,14 @@ class BaseEnv(abc.ABC):
         assert isinstance(self._current_observation, State)
         return self._current_observation
 
-    def _load_task_from_json(self, json_file: Path) -> Task:
+    def goal_reached(self) -> bool:
+        """Default implementation assumes environment tasks are tasks.
+
+        Subclasses may override.
+        """
+        return self._current_task.task.goal_holds(self._current_state)
+
+    def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         """Create a task from a JSON file.
 
         By default, we assume JSON files are in the following format:
