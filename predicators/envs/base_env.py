@@ -13,8 +13,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.llm_interface import OpenAILLM
 from predicators.settings import CFG
-from predicators.structs import Action, DefaultState, DefaultEnvironmentTask, \
-    GroundAtom, Object, Predicate, State, EnvironmentTask, Type, Video
+from predicators.structs import Action, DefaultEnvironmentTask, DefaultState, \
+    EnvironmentTask, GroundAtom, Object, Predicate, State, Type, Video
 
 
 class BaseEnv(abc.ABC):

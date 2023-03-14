@@ -7,7 +7,7 @@ import pytest
 from predicators import utils
 from predicators.envs.stick_button import StickButtonEnv
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, GroundAtom, EnvironmentTask
+from predicators.structs import Action, EnvironmentTask, GroundAtom
 
 
 def test_stick_button():

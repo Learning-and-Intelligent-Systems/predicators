@@ -12,7 +12,8 @@ import matplotlib
 
 from predicators.envs.painting import PaintingEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Object, Predicate, State, EnvironmentTask
+from predicators.structs import Action, EnvironmentTask, Object, Predicate, \
+    State
 
 
 class RepeatedNextToPaintingEnv(PaintingEnv):

@@ -4,7 +4,8 @@ import numpy as np
 from predicators import utils
 from predicators.envs.doors import DoorsEnv
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, GroundAtom, Object, State, EnvironmentTask
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    State
 
 
 def test_doors():

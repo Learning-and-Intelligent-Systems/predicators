@@ -14,8 +14,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, Predicate, \
-    State, EnvironmentTask, Type
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class CoverEnv(BaseEnv):
@@ -238,7 +238,8 @@ class CoverEnv(BaseEnv):
             targets.append(Object(f"target{i}", self._target_type))
         return blocks, targets
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         # Create blocks and targets.
         blocks, targets = self._create_blocks_and_targets()

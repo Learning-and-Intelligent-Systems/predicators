@@ -11,8 +11,8 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    EnvironmentTask, Type, Video
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type, Video
 
 # Free, goals, boxes, player masks.
 _Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8],

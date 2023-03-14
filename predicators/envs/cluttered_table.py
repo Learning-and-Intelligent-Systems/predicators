@@ -14,8 +14,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, Predicate, \
-    State, EnvironmentTask, Type
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class ClutteredTableEnv(BaseEnv):
@@ -155,7 +155,8 @@ class ClutteredTableEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, train_or_test: str) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int,
+                   train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
         cans = []
         for i in range(
@@ -165,7 +166,8 @@ class ClutteredTableEnv(BaseEnv):
         goal = {GroundAtom(self._Holding, [cans[0]])}
         for _ in range(num):
             tasks.append(
-                EnvironmentTask(self._create_initial_state(cans, train_or_test), goal))
+                EnvironmentTask(
+                    self._create_initial_state(cans, train_or_test), goal))
         return tasks
 
     def _create_initial_state(self, cans: List[Object],

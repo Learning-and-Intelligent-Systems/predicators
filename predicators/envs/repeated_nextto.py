@@ -13,8 +13,8 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, Predicate, \
-    State, EnvironmentTask, Type
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class RepeatedNextToEnv(BaseEnv):
@@ -127,7 +127,8 @@ class RepeatedNextToEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         dots = []
         for i in range(CFG.repeated_nextto_num_dots):

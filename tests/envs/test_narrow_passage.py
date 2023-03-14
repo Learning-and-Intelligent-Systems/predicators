@@ -4,7 +4,7 @@ import numpy as np
 from predicators import utils
 from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, GroundAtom, EnvironmentTask
+from predicators.structs import Action, EnvironmentTask, GroundAtom
 
 
 def test_narrow_passage_properties():

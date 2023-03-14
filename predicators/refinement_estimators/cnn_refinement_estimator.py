@@ -12,7 +12,8 @@ from predicators.ml_models import CNNRegressor
 from predicators.refinement_estimators.per_skeleton_estimator import \
     PerSkeletonRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import ImageInput, RefinementDatapoint, Task, EnvironmentTask
+from predicators.structs import EnvironmentTask, ImageInput, \
+    RefinementDatapoint, Task
 
 
 class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):

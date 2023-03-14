@@ -14,7 +14,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, Object, State, EnvironmentTask
+from predicators.structs import Array, EnvironmentTask, Object, State
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):

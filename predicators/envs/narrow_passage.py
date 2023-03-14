@@ -10,8 +10,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    EnvironmentTask, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 from predicators.utils import _Geom2D
 
 
@@ -172,7 +172,8 @@ class NarrowPassageEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment.
         goal_atom = GroundAtom(self._TouchedGoal, [self._robot, self._target])
         goal = {goal_atom}

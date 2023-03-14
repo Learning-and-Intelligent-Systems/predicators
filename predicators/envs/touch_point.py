@@ -11,8 +11,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    EnvironmentTask, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class TouchPointEnv(BaseEnv):
@@ -115,7 +115,8 @@ class TouchPointEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment.
         goal_atom = GroundAtom(self._Touched, [self._robot, self._target])
         goal = {goal_atom}
@@ -312,7 +313,8 @@ class TouchOpenEnv(TouchPointEnvParam):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         goal_atom1 = GroundAtom(self._TouchingDoor, [self._robot, self._door])
         goal_atom2 = GroundAtom(self._DoorIsOpen, [self._door])
         goal1 = {goal_atom1, goal_atom2}

@@ -13,8 +13,8 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    EnvironmentTask, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 from predicators.utils import Rectangle, StateWithCache, _Geom2D
 
 
@@ -217,7 +217,8 @@ class DoorsEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         for _ in range(num):
             # Sample a room map.

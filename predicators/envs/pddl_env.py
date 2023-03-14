@@ -27,9 +27,9 @@ from predicators.envs.pddl_procedural_generation import \
     create_gripper_pddl_generator, create_miconic_pddl_generator, \
     create_spanner_pddl_generator
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, LiftedAtom, Object, \
-    PDDLProblemGenerator, Predicate, State, STRIPSOperator, EnvironmentTask, Type, \
-    Variable, Video, _GroundSTRIPSOperator
+from predicators.structs import Action, EnvironmentTask, GroundAtom, \
+    LiftedAtom, Object, PDDLProblemGenerator, Predicate, State, \
+    STRIPSOperator, Type, Variable, Video, _GroundSTRIPSOperator
 
 ###############################################################################
 #                                Base Classes                                 #
@@ -100,7 +100,10 @@ class _PDDLEnv(BaseEnv):
             self._test_rng)
         # Determine the goal predicates from the tasks.
         tasks = self._pregenerated_train_tasks + self._pregenerated_test_tasks
-        self._goal_predicates = {a.predicate for t in tasks for a in t.task.goal}
+        self._goal_predicates = {
+            a.predicate
+            for t in tasks for a in t.task.goal
+        }
 
     @classmethod
     @abc.abstractmethod

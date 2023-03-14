@@ -18,7 +18,7 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, State, EnvironmentTask, Video
+from predicators.structs import Action, Array, EnvironmentTask, State, Video
 
 
 class PyBulletEnv(BaseEnv):
@@ -386,7 +386,8 @@ class PyBulletEnv(BaseEnv):
         target = action.arr[-1]
         return target - finger_position
 
-    def _add_pybullet_state_to_tasks(self, tasks: List[EnvironmentTask]) -> List[EnvironmentTask]:
+    def _add_pybullet_state_to_tasks(
+            self, tasks: List[EnvironmentTask]) -> List[EnvironmentTask]:
         """Converts the task initial states into PyBulletStates."""
         pybullet_tasks = []
         for task in tasks:
