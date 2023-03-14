@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from operator import le
 from typing import Callable, Dict, FrozenSet, Iterator, List, Sequence, Set, \
-    Tuple
+    Tuple, Any
 
 from gym.spaces import Box
 
@@ -165,6 +165,19 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
         body_str = (f"({name}.{self.attribute_name} "
                     f"{self.compare_str} {self.constant:.3})")
         return vars_str, body_str
+    
+    def copy_with(self, **kwargs: Any) -> _SingleAttributeCompareClassifier:
+        
+        default_kwargs = dict(object_index = self.object_index,
+                            object_type = self.object_type,
+                            attribute_name = self.attribute_name,
+                            constant = self.constant,
+                            constant_idx = self.constant_idx,
+                            compare = self.compare,
+                            compare_str = self.compare_str)
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        return _SingleAttributeCompareClassifier(**default_kwargs)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -208,6 +221,21 @@ class _AttributeDiffCompareClassifier(_BinaryClassifier):
                     f"{name2}.{self.attribute2_name}| "
                     f"{self.compare_str} {self.constant:.3})")
         return vars_str, body_str
+    
+    def copy_with(self, **kwargs: Any) -> _SingleAttributeCompareClassifier:
+        default_kwargs = dict(object1_index = self.object1_index,
+                            object1_type = self.object1_type,
+                            attribute1_name = self.attribute1_name,
+                            object2_index = self.object2_index,
+                            object2_type = self.object2_type,
+                            attribute2_name = self.attribute2_name,
+                            constant = self.constant,
+                            constant_idx = self.constant_idx,
+                            compare = self.compare,
+                            compare_str = self.compare_str,)
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        return _AttributeDiffCompareClassifier(**default_kwargs)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -449,6 +477,8 @@ def _halving_constant_generator(
         yield l
         yield r
 
+# TODO: Maybe define an "PredicateWithBlanks" class that's just a predicate
+# without constants? We then fill in the blanks later?
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):

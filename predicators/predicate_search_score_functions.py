@@ -11,6 +11,7 @@ from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
     Set, Tuple
 
 import numpy as np
+import scipy
 
 from predicators import utils
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -124,6 +125,44 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     """A score function that learns operators given the set of predicates."""
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
+        preds_with_constants = []
+        preds_without_constants = []
+        x0 = []
+        for pred in candidate_predicates:
+            if 'constant' in dir(pred._classifier): # This is an ordinary pred.
+                preds_with_constants.append(pred)
+                x0.append(pred._classifier.constant)
+            else:
+                assert 'body' in  dir(pred._classifier) # this must be a not or forall pred
+                if 'constant' in dir(pred._classifier.body._classifier):
+                    preds_with_constants.append(pred)
+                    x0.append(pred._classifier.body._classifier.constant)
+                else:
+                    preds_without_constants.append(pred)
+
+        assert len(preds_with_constants) == len(x0)
+        assert len(preds_with_constants) + len(preds_without_constants) == len(candidate_predicates)
+
+        def obj_to_optimize(x):
+            new_preds = []
+            for i, x_i in enumerate(x):
+                if 'constant' in dir(preds_with_constants[i]._classifier):
+                    new_classifier = preds_with_constants[i]._classifier
+                else: # must be a not or forall
+                    new_classifier = preds_with_constants[i]._classifier.body._classifier                
+                new_classifier = new_classifier.copy_with(constant = x_i)
+                new_pred = Predicate(preds_with_constants[i].name, preds_with_constants[i].types, new_classifier)
+                new_preds.append(new_pred)
+            import ipdb; ipdb.set_trace()
+            return self._evaluate(frozenset(new_preds + preds_without_constants))
+
+        if len(preds_with_constants) > 0:
+            ret = scipy.optimize.basinhopping(obj_to_optimize, x0)
+            import ipdb; ipdb.set_trace()
+
+        return self._evaluate(candidate_predicates)
+
+    def _evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         total_cost = sum(self._candidates[pred]
                          for pred in candidate_predicates)
         logging.info(f"Evaluating predicates: {candidate_predicates}, with "
