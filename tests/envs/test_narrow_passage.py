@@ -129,7 +129,7 @@ def test_narrow_passage_collisions():
     door_type, _, robot_type, _, _ = sorted(env.types)
 
     # Test robot should not be able to walk through each wall nor the door
-    sample_task = env.get_train_tasks()[0]
+    sample_task = env.get_train_tasks()[0].task
     test_robot_xs = [0.1, 0.35, 0.7, 0.9]
     y_midpoint = env.y_lb + (env.y_ub - env.y_lb) / 2
     down_action = Action(np.array([0, -0.08, 0]).astype(np.float32))
@@ -176,7 +176,7 @@ def test_narrow_passage_options():
     MoveAndOpenDoor, MoveToTarget = sorted(get_gt_options(env.get_name()))
     door_type, _, robot_type, target_type, _ = sorted(env.types)
 
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     door, = state.get_objects(door_type)
     robot, = state.get_objects(robot_type)
