@@ -1,7 +1,7 @@
 ---
 APPROACHES:
-  # oracle:
-  #   NAME: "oracle"
+  oracle:
+    NAME: "oracle"
   nsrt_learning-25:
     NAME: "nsrt_learning"
     FLAGS:
@@ -38,11 +38,11 @@ ENVS:
   #     sesame_task_planner: "fdopt"
   #     bilevel_plan_without_sim: "True"
   #     disable_harmlessness_check: "True"
-  sokoban-normal:
+  sokoban-v2:
     NAME: "sokoban"
     FLAGS:
-      sokoban_gym_name: "Sokoban-v0"
-      sesame_task_planner: "fdopt"
+      sokoban_gym_name: "Sokoban-v2"
+      sesame_task_planner: "fdsat"
       bilevel_plan_without_sim: "True"
       disable_harmlessness_check: "True"
     ARGS:
