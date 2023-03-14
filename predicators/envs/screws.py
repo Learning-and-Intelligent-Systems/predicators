@@ -120,8 +120,8 @@ class ScrewsEnv(BaseEnv):
                  color="black")
 
         # Find which object is the goal screw.
-        assert len(task.task.goal) == 1
-        goal_pred = list(task.task.goal)[0]
+        assert len(task.goal) == 1
+        goal_pred = list(task.goal)[0]
         goal_screw = goal_pred.objects[0]
 
         # Draw screws.

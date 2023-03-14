@@ -526,9 +526,9 @@ class BlocksEnv(BaseEnv):
                 task_spec["language_goal"], id_to_obj)
         else:
             raise ValueError("JSON task spec must include 'goal'.")
-        task = EnvironmentTask(init_state, goal)
-        assert not task.task.goal_holds(init_state)
-        return task
+        env_task = EnvironmentTask(init_state, goal)
+        assert not env_task.task.goal_holds(init_state)
+        return env_task
 
     def _get_language_goal_prompt_prefix(self,
                                          object_names: Collection[str]) -> str:

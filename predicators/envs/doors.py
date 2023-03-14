@@ -164,7 +164,7 @@ class DoorsEnv(BaseEnv):
         default_room_color = "lightgray"
         in_room_color = "lightsteelblue"
         goal_room_color = "khaki"
-        goal_room = next(iter(task.task.goal)).objects[1]
+        goal_room = next(iter(task.goal)).objects[1]
         for room in state.get_objects(self._room_type):
             room_geom = self.object_to_geom(room, state)
             if room == goal_room:

@@ -430,11 +430,22 @@ class EnvironmentTask:
 
     @cached_property
     def task(self) -> Task:
+        """Convenience method for environment tasks that are fully observed."""
+        return Task(self.init, self.goal)
+
+    @cached_property
+    def init(self) -> State:
+        """Convenience method for environment tasks that are fully observed."""
         assert isinstance(self.init_obs, State)
+        return self.init_obs
+
+    @cached_property
+    def goal(self) -> Set[GroundAtom]:
+        """Convenience method for environment tasks that are fully observed."""
         assert isinstance(self.goal_description, set)
         assert not self.goal_description or isinstance(
             next(iter(self.goal_description)), GroundAtom)
-        return Task(self.init_obs, self.goal_description)
+        return set(self.goal_description)
 
 
 DefaultEnvironmentTask = EnvironmentTask(DefaultState, set())

@@ -391,13 +391,13 @@ class PyBulletEnv(BaseEnv):
         pybullet_tasks = []
         for task in tasks:
             # Reset the robot.
-            init = task.task.init
+            init = task.init
             self._pybullet_robot.reset_state(self._extract_robot_state(init))
             # Extract the joints.
             joint_positions = self._pybullet_robot.get_joints()
             pybullet_init = utils.PyBulletState(
                 init.data.copy(), simulator_state=joint_positions)
-            pybullet_task = EnvironmentTask(pybullet_init, task.task.goal)
+            pybullet_task = EnvironmentTask(pybullet_init, task.goal)
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks
 

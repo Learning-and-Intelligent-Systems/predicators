@@ -111,8 +111,8 @@ class ClutteredTableEnv(BaseEnv):
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
-        assert len(task.task.goal) == 1
-        goal_atom = next(iter(task.task.goal))
+        assert len(task.goal) == 1
+        goal_atom = next(iter(task.goal))
         assert goal_atom.predicate == self._Holding
         assert len(goal_atom.objects) == 1
         goal_can = goal_atom.objects[0]

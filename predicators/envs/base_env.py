@@ -306,7 +306,7 @@ class BaseEnv(abc.ABC):
         """Resets the current state to the train or test task initial state."""
         self._current_task = self.get_task(train_or_test, task_idx)
         # NOTE: current_state will be deprecated soon in favor of current_obs.
-        self._current_state = self._current_task.task.init
+        self._current_state = self._current_task.init
         # Copy to prevent external changes to the environment's state.
         return self._current_state.copy()
 

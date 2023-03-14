@@ -139,7 +139,7 @@ class SokobanEnv(BaseEnv):
         """Resets the current state to the train or test task initial state."""
         self._current_task = self.get_task(train_or_test, task_idx)
         # NOTE: current_state will be deprecated soon in favor of current_obs.
-        self._current_state = self._current_task.task.init
+        self._current_state = self._current_task.init
         # We now need to reset the underlying gym environment to the correct
         # state.
         seed_offset = CFG.seed
