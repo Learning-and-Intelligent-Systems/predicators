@@ -408,7 +408,8 @@ _DEBUG_PREDICATE_PREFIXES = {
         "NOT-((0:block).pose_z<=[idx 0]",  # Holding
     ],
     "repeated_nextto_single_option": [
-        "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
+        # "(|(0:dot).x - (1:robot).x|<=[idx 7]6.25)",  # NextTo
+        "(|(0:dot).x - (1:robot).x|<=[idx 0]50.0)", # TESTING!
     ],
     "unittest": [
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
@@ -800,7 +801,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Create the score function that will be used to guide search.
         score_function = create_score_function(
             CFG.grammar_search_score_function, self._initial_predicates,
-            atom_dataset, candidates, self._train_tasks)
+            atom_dataset, candidates, self._train_tasks, dataset)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(

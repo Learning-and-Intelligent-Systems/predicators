@@ -8,7 +8,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
-    Set, Tuple
+    Set, Tuple, Optional
 
 import numpy as np
 import scipy
@@ -21,24 +21,24 @@ from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
 from predicators.settings import CFG
 from predicators.structs import GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \
-    STRIPSOperator, Task, _GroundSTRIPSOperator
+    STRIPSOperator, Task, _GroundSTRIPSOperator, Dataset
 
 
 def create_score_function(
         score_function_name: str, initial_predicates: Set[Predicate],
         atom_dataset: List[GroundAtomTrajectory], candidates: Dict[Predicate,
                                                                    float],
-        train_tasks: List[Task]) -> _PredicateSearchScoreFunction:
+        train_tasks: List[Task], dataset: Dataset) -> _PredicateSearchScoreFunction:
     """Public method for creating a score function object."""
     if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
-                                             candidates, train_tasks)
+                                             candidates, train_tasks, dataset)
     if score_function_name == "branching_factor":
         return _BranchingFactorScoreFunction(initial_predicates, atom_dataset,
-                                             candidates, train_tasks)
+                                             candidates, train_tasks, dataset)
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
-            initial_predicates, atom_dataset, candidates, train_tasks,
+            initial_predicates, atom_dataset, candidates, train_tasks, dataset,
             ["hadd"])
     match = re.match(r"([a-z\,]+)_(\w+)_lookaheaddepth(\d+)",
                      score_function_name)
@@ -60,6 +60,7 @@ def create_score_function(
                 atom_dataset,
                 candidates,
                 train_tasks,
+                dataset,
                 heuristic_names,
                 lookahead_depth=lookahead_depth)
         assert score_name == "count"
@@ -68,22 +69,25 @@ def create_score_function(
             atom_dataset,
             candidates,
             train_tasks,
+            dataset,
             heuristic_names,
             lookahead_depth=lookahead_depth,
             demos_only=False)
     if score_function_name == "exact_energy":
         return _ExactHeuristicEnergyBasedScoreFunction(initial_predicates,
                                                        atom_dataset,
-                                                       candidates, train_tasks)
+                                                       candidates, train_tasks,
+                                                       dataset)
     if score_function_name == "exact_count":
         return _ExactHeuristicCountBasedScoreFunction(initial_predicates,
                                                       atom_dataset,
                                                       candidates,
                                                       train_tasks,
+                                                      dataset,
                                                       demos_only=False)
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
-                                          candidates, train_tasks)
+                                          candidates, train_tasks, dataset)
     match = re.match(r"expected_nodes_(\w+)", score_function_name)
     if match is not None:
         # can be either expected_nodes_created or expected_nodes_expanded
@@ -91,7 +95,7 @@ def create_score_function(
         assert created_or_expanded in ("created", "expanded")
         metric_name = f"num_nodes_{created_or_expanded}"
         return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
-                                           candidates, train_tasks,
+                                           candidates, train_tasks, dataset,
                                            metric_name)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
@@ -104,6 +108,7 @@ class _PredicateSearchScoreFunction(abc.ABC):
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
     _train_tasks: List[Task]  # all of the train tasks
+    _dataset: Optional[List[Dataset]]
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         """Get the score for the given set of candidate predicates.
@@ -151,26 +156,28 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                 else: # must be a not or forall
                     new_classifier = preds_with_constants[i]._classifier.body._classifier                
                 new_classifier = new_classifier.copy_with(constant = x_i)
-                new_pred = Predicate(preds_with_constants[i].name, preds_with_constants[i].types, new_classifier)
+                new_pred = Predicate(str(new_classifier), preds_with_constants[i].types, new_classifier)
                 new_preds.append(new_pred)
-            import ipdb; ipdb.set_trace()
             return self._evaluate(frozenset(new_preds + preds_without_constants))
 
         if len(preds_with_constants) > 0:
-            ret = scipy.optimize.basinhopping(obj_to_optimize, x0)
+            ret = scipy.optimize.basinhopping(obj_to_optimize, [20.0], niter=25)
             import ipdb; ipdb.set_trace()
 
         return self._evaluate(candidate_predicates)
 
     def _evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
-        total_cost = sum(self._candidates[pred]
-                         for pred in candidate_predicates)
-        logging.info(f"Evaluating predicates: {candidate_predicates}, with "
-                     f"total cost {total_cost}")
+        # total_cost = sum(self._candidates[pred]
+        #                  for pred in candidate_predicates)
+        # logging.info(f"Evaluating predicates: {candidate_predicates}, with "
+        #              f"total cost {total_cost}")
+        logging.info(f"Evaluating predicates: {candidate_predicates}")
+        pruned_atom_data = utils.create_ground_atom_dataset(self._dataset.trajectories, candidate_predicates | self._initial_predicates)
+        # import ipdb; ipdb.set_trace()
         start_time = time.perf_counter()
-        pruned_atom_data = utils.prune_ground_atom_dataset(
-            self._atom_dataset,
-            candidate_predicates | self._initial_predicates)
+        # pruned_atom_data = utils.prune_ground_atom_dataset(
+        #     self._atom_dataset,
+        #     candidate_predicates | self._initial_predicates)
         segmented_trajs = [
             segment_trajectory(traj) for traj in pruned_atom_data
         ]
@@ -198,9 +205,10 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                                                 low_level_trajs,
                                                 segmented_trajs, strips_ops,
                                                 option_specs)
-        pred_penalty = self._get_predicate_penalty(candidate_predicates)
+        # REMOVING FOR NOW!
+        # pred_penalty = self._get_predicate_penalty(candidate_predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
-        total_score = op_score + pred_penalty + op_penalty
+        total_score = op_score + op_penalty # + pred_penalty
         logging.info(f"\tTotal score: {total_score} computed in "
                      f"{time.perf_counter()-start_time:.3f} seconds")
         return total_score
