@@ -94,7 +94,14 @@ def main() -> None:
     assert env.goal_predicates.issubset(env.predicates)
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
-    train_tasks = env.get_train_tasks()
+    env_train_tasks = env.get_train_tasks()
+    # This is a placeholder for a forthcoming perception API. However, we will
+    # make the assumption for the foreseeable future that a train Task can be
+    # constructed from a train EnvironmentTask. In other words, the initial obs
+    # is assumed to contain enough information to determine all of the objects
+    # and their initial states. We only make this assumption for the training
+    # tasks, we don't need to make it for the test tasks.
+    train_tasks = [t.task for t in env_train_tasks]
     # If train tasks have goals that involve excluded predicates, strip those
     # predicate classifiers to prevent leaking information to the approaches.
     stripped_train_tasks = [
@@ -275,14 +282,14 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics: Metrics = defaultdict(float)
     curr_num_nodes_created = 0.0
     curr_num_nodes_expanded = 0.0
-    for test_task_idx, task in enumerate(test_tasks):
+    for test_task_idx, env_task in enumerate(test_tasks):
         # Run the approach's solve() method to get a policy for this task.
         solve_start = time.perf_counter()
         try:
             # We call reset here, outside of run_episode, so that we can log
             # planning failures, timeouts, etc. This is mostly for legacy
             # reasons (before cogman existed separately from approaches).
-            cogman.reset(task.init, task.goal)
+            cogman.reset(env_task)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")

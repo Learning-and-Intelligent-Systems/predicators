@@ -105,7 +105,7 @@ def test_interaction():
         "max_num_steps_interaction_request": 3,
     })
     env = create_new_env("cover")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = _MockApproach(env.predicates, get_gt_options(env.get_name()),
                              env.types, env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))

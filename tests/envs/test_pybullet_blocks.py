@@ -564,7 +564,7 @@ def test_pybullet_blocks_load_task_from_json():
         })
 
         env = PyBulletBlocksEnv(use_gui=False)
-        test_tasks = env.get_test_tasks()
+        test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]

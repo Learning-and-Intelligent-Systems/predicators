@@ -18,7 +18,7 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Observation, State, Task, Video
+from predicators.structs import Action, Array, Observation, EnvironmentTask, State, Video
 
 
 class PyBulletEnv(BaseEnv):
@@ -168,14 +168,14 @@ class PyBulletEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
 
     def render_state(self,
                      state: State,
-                     task: Task,
+                     task: EnvironmentTask,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> Video:
         raise NotImplementedError("A PyBullet environment cannot render "
@@ -387,7 +387,8 @@ class PyBulletEnv(BaseEnv):
         target = action.arr[-1]
         return target - finger_position
 
-    def _add_pybullet_state_to_tasks(self, tasks: List[Task]) -> List[Task]:
+    def _add_pybullet_state_to_tasks(
+            self, tasks: List[EnvironmentTask]) -> List[EnvironmentTask]:
         """Converts the task initial states into PyBulletStates."""
         pybullet_tasks = []
         for task in tasks:
@@ -398,7 +399,7 @@ class PyBulletEnv(BaseEnv):
             joint_positions = self._pybullet_robot.get_joints()
             pybullet_init = utils.PyBulletState(
                 init.data.copy(), simulator_state=joint_positions)
-            pybullet_task = Task(pybullet_init, task.goal)
+            pybullet_task = EnvironmentTask(pybullet_init, task.goal)
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks
 

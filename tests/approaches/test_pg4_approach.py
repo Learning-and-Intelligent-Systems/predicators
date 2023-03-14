@@ -24,7 +24,7 @@ def test_pg4_approach():
         "cover_initial_holding_prob": 1.0,
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = PG4Approach(env.predicates, get_gt_options(env.get_name()),
                            env.types, env.action_space, train_tasks)
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,

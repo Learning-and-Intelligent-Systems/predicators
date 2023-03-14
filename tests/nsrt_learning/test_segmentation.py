@@ -174,7 +174,7 @@ def test_segment_trajectory():
         "offline_data_method": "demo",
     })
     env = create_new_env("cover_multistep_options", do_cache=False)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
     dataset = create_dataset(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -215,7 +215,7 @@ def test_contact_based_segmentation(env):
         "excluded_predicates": "all",
     })
     env = create_new_env(env, do_cache=False)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     ground_atom_dataset = utils.create_ground_atom_dataset(

@@ -10,8 +10,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 from predicators.utils import _Geom2D
 
 
@@ -98,10 +98,10 @@ class NarrowPassageEnv(BaseEnv):
             next_state.set(self._robot, "y", y)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -133,7 +133,7 @@ class NarrowPassageEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -172,7 +172,8 @@ class NarrowPassageEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment.
         goal_atom = GroundAtom(self._TouchedGoal, [self._robot, self._target])
         goal = {goal_atom}
@@ -183,7 +184,7 @@ class NarrowPassageEnv(BaseEnv):
         y_mid = (self.y_ub - self.y_lb) / 2 + self.y_lb
         margin = self.wall_thickness_half + self.init_pos_margin
 
-        tasks: List[Task] = []
+        tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             # Door width is generated randomly per task
             door_width_padding = rng.uniform(
@@ -241,7 +242,7 @@ class NarrowPassageEnv(BaseEnv):
             assert not goal_atom.holds(
                 state
             ), "Error: goal is already satisfied in this state initialization"
-            tasks.append(Task(state, goal))
+            tasks.append(EnvironmentTask(state, goal))
         return tasks
 
     def _TouchedGoal_holds(self, state: State,
