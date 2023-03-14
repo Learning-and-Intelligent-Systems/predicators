@@ -9,8 +9,8 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, Object, \
-    Observation, Predicate, State, Type, Video
+from predicators.structs import Action, EnvironmentTask, Object, Observation, \
+    Predicate, State, Type, Video
 
 
 class SokobanEnv(BaseEnv):
@@ -180,7 +180,7 @@ class SokobanEnv(BaseEnv):
         loc, = objects
         loc_r = state.get(loc, "row")
         loc_c = state.get(loc, "column")
-        boxes = self._get_objects_of_enum(state, "box")
+        boxes = self.get_objects_of_enum(state, "box")
         # If any box is at this location, return False.
         for box in boxes:
             r = state.get(box, "row")
@@ -251,7 +251,7 @@ class SokobanEnv(BaseEnv):
             return False
         goal_r = state.get(goal, "row")
         goal_c = state.get(goal, "column")
-        boxes = cls._get_objects_of_enum(state, "box")
+        boxes = cls.get_objects_of_enum(state, "box")
         for box in boxes:
             r = state.get(box, "row")
             c = state.get(box, "column")
@@ -260,7 +260,8 @@ class SokobanEnv(BaseEnv):
         return False
 
     @classmethod
-    def _get_objects_of_enum(cls, state: State, enum_name: str) -> Set[Object]:
+    def get_objects_of_enum(cls, state: State, enum_name: str) -> Set[Object]:
+        """Made public for use by perceiver."""
         return {
             o
             for o in state

@@ -95,6 +95,7 @@ def main() -> None:
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
     env_train_tasks = env.get_train_tasks()
+    # TODO: put perceiver here, build cogman at the end of this function.
     # This is a placeholder for a forthcoming perception API. However, we will
     # make the assumption for the foreseeable future that a train Task can be
     # constructed from a train EnvironmentTask. In other words, the initial obs

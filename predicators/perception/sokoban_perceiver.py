@@ -32,9 +32,8 @@ class SokobanPerceiver(BasePerceiver):
         state = self._observation_to_state(env_task.init_obs)
         assert env_task.goal_description == "Cover all the goals with boxes"
         GoalCovered = SokobanEnv.get_goal_covered_predicate()
-        box_names = set(self._box_loc_to_name.values())
-        boxes = {o for o in state if o.name in box_names}
-        goal = {GroundAtom(GoalCovered, [b]) for b in boxes}
+        goal_objs = SokobanEnv.get_objects_of_enum(state, "goal")
+        goal = {GroundAtom(GoalCovered, [b]) for b in goal_objs}
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:
