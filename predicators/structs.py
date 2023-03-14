@@ -445,7 +445,7 @@ class EnvironmentTask:
         assert isinstance(self.goal_description, set)
         assert not self.goal_description or isinstance(
             next(iter(self.goal_description)), GroundAtom)
-        return set(self.goal_description)
+        return self.goal_description
 
 
 DefaultEnvironmentTask = EnvironmentTask(DefaultState, set())
