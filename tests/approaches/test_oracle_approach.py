@@ -428,7 +428,7 @@ def test_cover_get_gt_nsrts():
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     assert pick_nsrt.name == "Pick"
     assert place_nsrt.name == "Place"
-    train_task = env.get_train_tasks()[0]
+    train_task = env.get_train_tasks()[0].task
     state = train_task.init
     block0, _, _, target0, _ = list(state)
     assert block0.name == "block0"
