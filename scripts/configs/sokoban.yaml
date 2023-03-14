@@ -45,7 +45,8 @@ ENVS:
       - "load_approach"
       - "load_data"
 ARGS: []
-FLAGS: {}
+FLAGS: 
+  timeout: 60
 START_SEED: 456
 NUM_SEEDS: 5
 ...
