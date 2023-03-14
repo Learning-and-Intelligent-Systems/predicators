@@ -47,12 +47,14 @@ import dill as pkl
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
-    BaseApproach, create_approach
+    create_approach
 from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
+from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, InteractionRequest, \
     InteractionResult, Metrics, Observation, Task
@@ -95,14 +97,13 @@ def main() -> None:
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
     env_train_tasks = env.get_train_tasks()
-    # TODO: put perceiver here, build cogman at the end of this function.
-    # This is a placeholder for a forthcoming perception API. However, we will
-    # make the assumption for the foreseeable future that a train Task can be
-    # constructed from a train EnvironmentTask. In other words, the initial obs
-    # is assumed to contain enough information to determine all of the objects
-    # and their initial states. We only make this assumption for the training
-    # tasks, we don't need to make it for the test tasks.
-    train_tasks = [t.task for t in env_train_tasks]
+    # We assume that a train Task can be constructed from a EnvironmentTask.
+    # In other words, the initial obs is assumed to contain enough information
+    # to determine all of the objects and their initial states. We only make
+    # this assumption for the training tasks, we don't need to make it for the
+    # test tasks. It is also something we can weaken later if needed.
+    perceiver = create_perceiver(CFG.perceiver)
+    train_tasks = [perceiver.reset(t) for t in env_train_tasks]
     # If train tasks have goals that involve excluded predicates, strip those
     # predicate classifiers to prevent leaking information to the approaches.
     stripped_train_tasks = [
@@ -125,39 +126,42 @@ def main() -> None:
         offline_dataset = create_dataset(env, train_tasks, options)
     else:
         offline_dataset = None
+    # Create the cognitive manager.
+    execution_monitor = create_execution_monitor(CFG.execution_monitor)
+    cogman = CogMan(approach, perceiver, execution_monitor)
     # Run the full pipeline.
-    _run_pipeline(env, approach, stripped_train_tasks, offline_dataset)
+    _run_pipeline(env, cogman, stripped_train_tasks, offline_dataset)
     script_time = time.perf_counter() - script_start
     logging.info(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
 def _run_pipeline(env: BaseEnv,
-                  approach: BaseApproach,
+                  cogman: CogMan,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
     # If agent is learning-based, allow the agent to learn from the generated
     # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
-    if approach.is_learning_based:
+    if cogman.is_learning_based:
         assert offline_dataset is not None, "Missing offline dataset"
         num_offline_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
         num_online_transitions = 0
         total_query_cost = 0.0
         if CFG.load_approach:
-            approach.load(online_learning_cycle=None)
+            cogman.load(online_learning_cycle=None)
             learning_time = 0.0  # ignore loading time
         else:
             learning_start = time.perf_counter()
-            approach.learn_from_offline_dataset(offline_dataset)
+            cogman.learn_from_offline_dataset(offline_dataset)
             learning_time = time.perf_counter() - learning_start
         offline_learning_metrics = {
             f"offline_learning_{k}": v
-            for k, v in approach.metrics.items()
+            for k, v in cogman.metrics.items()
         }
         # Run evaluation once before online learning starts.
         if CFG.skip_until_cycle < 0:
-            results = _run_testing(env, approach)
+            results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
@@ -175,7 +179,7 @@ def _run_pipeline(env: BaseEnv,
                 logging.info("Reached online_learning_max_transitions, "
                              "terminating")
                 break
-            interaction_requests = approach.get_interaction_requests()
+            interaction_requests = cogman.get_interaction_requests()
             if not interaction_requests:
                 logging.info("Did not receive any interaction requests, "
                              "terminating")
@@ -187,15 +191,15 @@ def _run_pipeline(env: BaseEnv,
             total_query_cost += query_cost
             logging.info(f"Query cost incurred this cycle: {query_cost}")
             if CFG.load_approach:
-                approach.load(online_learning_cycle=i)
+                cogman.load(online_learning_cycle=i)
                 learning_time += 0.0  # ignore loading time
             else:
                 learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
-                approach.learn_from_interaction_results(interaction_results)
+                cogman.learn_from_interaction_results(interaction_results)
                 learning_time += time.perf_counter() - learning_start
             # Evaluate approach after every online learning cycle.
-            results = _run_testing(env, approach)
+            results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
@@ -203,7 +207,7 @@ def _run_pipeline(env: BaseEnv,
             results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=i)
     else:
-        results = _run_testing(env, approach)
+        results = _run_testing(env, cogman)
         results["num_offline_transitions"] = 0
         results["num_online_transitions"] = 0
         results["query_cost"] = 0.0
@@ -258,21 +262,11 @@ def _generate_interaction_results(
     return results, query_cost
 
 
-def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
-    # Cogman is a wrapper around the approach that handles perception and
-    # execution monitoring. The approach assumes that the state is fully
-    # observed and object-centric and that transitions are deterministic. The
-    # cogman gives us some ability to weaken those assumptions. Currently we
-    # create the cogman on-the-fly during test time, but in the future we may
-    # want to create one cogman and have the cogman manage learning,
-    # exploration, and so on. The only reason to delay this change is that it
-    # would be a big undertaking to refactor the code this way.
-    cogman = CogMan(approach)
-
+def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = env.get_test_tasks()
     num_found_policy = 0
     num_solved = 0
-    approach.reset_metrics()
+    cogman.reset_metrics()
     total_suc_time = 0.0
     total_num_solve_timeouts = 0
     total_num_solve_failures = 0
@@ -284,7 +278,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     curr_num_nodes_created = 0.0
     curr_num_nodes_expanded = 0.0
     for test_task_idx, env_task in enumerate(test_tasks):
-        # Run the approach's solve() method to get a policy for this task.
         solve_start = time.perf_counter()
         try:
             # We call reset here, outside of run_episode, so that we can log
@@ -310,13 +303,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         solve_time = time.perf_counter() - solve_start
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
         metrics[
-            f"PER_TASK_task{test_task_idx}_nodes_created"] = approach.metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_created"] = cogman.metrics[
                 "total_num_nodes_created"] - curr_num_nodes_created
         metrics[
-            f"PER_TASK_task{test_task_idx}_nodes_expanded"] = approach.metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_expanded"] = cogman.metrics[
                 "total_num_nodes_expanded"] - curr_num_nodes_expanded
-        curr_num_nodes_created = approach.metrics["total_num_nodes_created"]
-        curr_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
+        curr_num_nodes_created = cogman.metrics["total_num_nodes_created"]
+        curr_num_nodes_expanded = cogman.metrics["total_num_nodes_expanded"]
 
         num_found_policy += 1
         make_video = False
@@ -382,20 +375,20 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
-    metrics["min_num_samples"] = approach.metrics[
-        "min_num_samples"] if approach.metrics["min_num_samples"] < float(
+    metrics["min_num_samples"] = cogman.metrics[
+        "min_num_samples"] if cogman.metrics["min_num_samples"] < float(
             "inf") else 0
-    metrics["max_num_samples"] = approach.metrics["max_num_samples"]
-    metrics["min_skeletons_optimized"] = approach.metrics[
-        "min_num_skeletons_optimized"] if approach.metrics[
+    metrics["max_num_samples"] = cogman.metrics["max_num_samples"]
+    metrics["min_skeletons_optimized"] = cogman.metrics[
+        "min_num_skeletons_optimized"] if cogman.metrics[
             "min_num_skeletons_optimized"] < float("inf") else 0
-    metrics["max_skeletons_optimized"] = approach.metrics[
+    metrics["max_skeletons_optimized"] = cogman.metrics[
         "max_num_skeletons_optimized"]
     metrics["num_solve_timeouts"] = total_num_solve_timeouts
     metrics["num_solve_failures"] = total_num_solve_failures
     metrics["num_execution_timeouts"] = total_num_execution_timeouts
     metrics["num_execution_failures"] = total_num_execution_failures
-    # Handle computing averages of total approach metrics wrt the
+    # Handle computing averages of total cogman metrics wrt the
     # number of found policies. Note: this is different from computing
     # an average wrt the number of solved tasks, which might be more
     # appropriate for some metrics, e.g. avg_suc_time above.
@@ -404,7 +397,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
             "num_failures_discovered"
     ]:
-        total = approach.metrics[f"total_{metric_name}"]
+        total = cogman.metrics[f"total_{metric_name}"]
         metrics[f"avg_{metric_name}"] = (
             total / num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics

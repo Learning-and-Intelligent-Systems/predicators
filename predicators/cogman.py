@@ -8,23 +8,24 @@ whether to re-query the approach at each time step based on the states.
 
 The name "CogMan" is due to Leslie Kaelbling.
 """
-from typing import Callable, Optional, Set
+from typing import Callable, List, Optional, Sequence, Set
 
 from predicators.approaches import BaseApproach
-from predicators.execution_monitoring import create_execution_monitor
-from predicators.perception import create_perceiver
+from predicators.execution_monitoring import BaseExecutionMonitor
+from predicators.perception import BasePerceiver
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, \
-    Observation, State, Task
+from predicators.structs import Action, Dataset, EnvironmentTask, GroundAtom, \
+    InteractionRequest, InteractionResult, Metrics, Observation, State, Task
 
 
 class CogMan:
     """Cognitive manager."""
 
-    def __init__(self, approach: BaseApproach) -> None:
+    def __init__(self, approach: BaseApproach, perceiver: BasePerceiver,
+                 execution_monitor: BaseExecutionMonitor) -> None:
         self._approach = approach
-        self._perceiver = create_perceiver(CFG.perceiver)
-        self._exec_monitor = create_execution_monitor(CFG.execution_monitor)
+        self._perceiver = perceiver
+        self._exec_monitor = execution_monitor
         self._current_policy: Optional[Callable[[State], Action]] = None
         self._current_goal: Optional[Set[GroundAtom]] = None
 
@@ -48,3 +49,36 @@ class CogMan:
         assert self._current_policy is not None
         act = self._current_policy(state)
         return act
+
+    # The methods below provide an interface to the approach.
+
+    @property
+    def is_learning_based(self) -> bool:
+        """See BaseApproach docstring."""
+        return self._approach.is_learning_based
+
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        """See BaseApproach docstring."""
+        return self._approach.learn_from_offline_dataset(dataset)
+
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        """See BaseApproach docstring."""
+        return self._approach.load(online_learning_cycle)
+
+    def get_interaction_requests(self) -> List[InteractionRequest]:
+        """See BaseApproach docstring."""
+        return self._approach.get_interaction_requests()
+
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
+        """See BaseApproach docstring."""
+        return self._approach.learn_from_interaction_results(results)
+
+    @property
+    def metrics(self) -> Metrics:
+        """See BaseApproach docstring."""
+        return self._approach.metrics
+
+    def reset_metrics(self) -> None:
+        """See BaseApproach docstring."""
+        return self._approach.reset_metrics()
