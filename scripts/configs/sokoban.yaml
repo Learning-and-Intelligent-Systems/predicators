@@ -1,23 +1,27 @@
 ---
 APPROACHES:
-  oracle:
-    NAME: "oracle"
+  # oracle:
+  #   NAME: "oracle"
   nsrt_learning-25:
     NAME: "nsrt_learning"
     FLAGS:
       num_train_tasks: 25
+      load_experiment_id: "sokoban-nsrt_learning-25"
   nsrt_learning-50:
     NAME: "nsrt_learning"
     FLAGS:
       num_train_tasks: 50
+      load_experiment_id: "sokoban-nsrt_learning-50"
   nsrt_learning-100:
     NAME: "nsrt_learning"
     FLAGS:
       num_train_tasks: 100
+      load_experiment_id: "sokoban-nsrt_learning-100"
   nsrt_learning-250:
     NAME: "nsrt_learning"
     FLAGS:
       num_train_tasks: 250
+      load_experiment_id: "sokoban-nsrt_learning-250"
   # nsrt_learning-500:
   #   NAME: "nsrt_learning"
   #   FLAGS:
