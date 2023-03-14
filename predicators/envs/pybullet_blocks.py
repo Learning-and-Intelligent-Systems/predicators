@@ -14,7 +14,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, Object, State, Task
+from predicators.structs import Array, Object, State, EnvironmentTask
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -227,11 +227,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return state
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = super()._get_tasks(num_tasks, possible_num_blocks, rng)
         return self._add_pybullet_state_to_tasks(tasks)
 
-    def _load_task_from_json(self, json_file: Path) -> Task:
+    def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         task = super()._load_task_from_json(json_file)
         return self._add_pybullet_state_to_tasks([task])[0]
 

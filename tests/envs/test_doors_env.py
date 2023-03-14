@@ -4,7 +4,7 @@ import numpy as np
 from predicators import utils
 from predicators.envs.doors import DoorsEnv
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, GroundAtom, Object, State, Task
+from predicators.structs import Action, GroundAtom, Object, State, EnvironmentTask
 
 
 def test_doors():
@@ -98,7 +98,7 @@ def test_doors():
     # Create a task with a goal to move to the bottom right room.
     goal_atom = GroundAtom(InRoom, [robot, bottom_right_room])
     goal = {goal_atom}
-    task = Task(state, goal)
+    task = EnvironmentTask(state, goal)
     env.render_state(state, task)
 
     ## Test simulate ##

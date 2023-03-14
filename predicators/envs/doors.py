@@ -14,7 +14,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type
+    EnvironmentTask, Type
 from predicators.utils import Rectangle, StateWithCache, _Geom2D
 
 
@@ -111,10 +111,10 @@ class DoorsEnv(BaseEnv):
                     next_state.set(door, "open", 1.0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -153,7 +153,7 @@ class DoorsEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
@@ -164,7 +164,7 @@ class DoorsEnv(BaseEnv):
         default_room_color = "lightgray"
         in_room_color = "lightsteelblue"
         goal_room_color = "khaki"
-        goal_room = next(iter(task.goal)).objects[1]
+        goal_room = next(iter(task.task.goal)).objects[1]
         for room in state.get_objects(self._room_type):
             room_geom = self.object_to_geom(room, state)
             if room == goal_room:
@@ -217,8 +217,8 @@ class DoorsEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
-        tasks: List[Task] = []
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
+        tasks: List[EnvironmentTask] = []
         for _ in range(num):
             # Sample a room map.
             room_map = self._sample_room_map(rng)
@@ -234,7 +234,7 @@ class DoorsEnv(BaseEnv):
             goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
             goal = {goal_atom}
             assert not goal_atom.holds(state)
-            tasks.append(Task(state, goal))
+            tasks.append(EnvironmentTask(state, goal))
         return tasks
 
     def _sample_initial_state_from_map(self, room_map: NDArray,

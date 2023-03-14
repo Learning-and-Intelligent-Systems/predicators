@@ -15,7 +15,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, Predicate, \
-    State, Task, Type
+    State, EnvironmentTask, Type
 
 
 class CoverEnv(BaseEnv):
@@ -112,10 +112,10 @@ class CoverEnv(BaseEnv):
                 next_state.set(held_block, "grasp", -1)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -140,7 +140,7 @@ class CoverEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
@@ -238,7 +238,7 @@ class CoverEnv(BaseEnv):
             targets.append(Object(f"target{i}", self._target_type))
         return blocks, targets
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         # Create blocks and targets.
         blocks, targets = self._create_blocks_and_targets()
@@ -257,7 +257,7 @@ class CoverEnv(BaseEnv):
             init = self._create_initial_state(blocks, targets, rng)
             assert init.get_objects(self._block_type) == blocks
             assert init.get_objects(self._target_type) == targets
-            tasks.append(Task(init, goals[i % len(goals)]))
+            tasks.append(EnvironmentTask(init, goals[i % len(goals)]))
         return tasks
 
     def _create_initial_state(self, blocks: List[Object],
@@ -712,7 +712,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         # Need to override rendering to account for new state features.

@@ -12,7 +12,7 @@ from predicators import utils
 from predicators.envs.blocks import BlocksEnv, BlocksEnvClear
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, Predicate, \
-    State, Task, Type
+    State, EnvironmentTask, Type
 
 
 class PlayroomSimpleEnv(BlocksEnv):
@@ -161,7 +161,7 @@ class PlayroomSimpleEnv(BlocksEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         r = self._block_size * 0.5  # block radius
@@ -348,7 +348,7 @@ class PlayroomSimpleEnv(BlocksEnv):
         return fig
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         # Initial states vary by block placement, and light is randomly on/off.
         # Goals involve goal piles and light different from the initial state.
         tasks = []
@@ -361,7 +361,7 @@ class PlayroomSimpleEnv(BlocksEnv):
                 goal = self._sample_goal(num_blocks, piles, light_is_on, rng)
                 if not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
-            tasks.append(Task(init_state, goal))
+            tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
     def _sample_state_from_piles(self, piles: List[List[Object]],

@@ -12,7 +12,7 @@ from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Object, State, Task
+from predicators.structs import Action, Array, Object, State, EnvironmentTask
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -297,6 +297,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def get_name(cls) -> str:
         return "pybullet_cover"
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = super()._get_tasks(num, rng)
         return self._add_pybullet_state_to_tasks(tasks)

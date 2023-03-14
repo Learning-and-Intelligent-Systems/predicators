@@ -12,7 +12,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import RGBA, Action, GroundAtom, Object, Predicate, \
-    State, Task, Type
+    State, EnvironmentTask, Type
 from predicators.utils import _Geom2D
 
 
@@ -241,12 +241,12 @@ class SandwichEnv(BaseEnv):
             next_state.set(ing, "clear", 1.0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                num_ingredients=self._num_ingredients_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                num_ingredients=self._num_ingredients_test,
                                rng=self._test_rng)
@@ -285,7 +285,7 @@ class SandwichEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
 
@@ -398,7 +398,7 @@ class SandwichEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num_tasks: int, num_ingredients: Dict[str, List[int]],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for _ in range(num_tasks):
             ing_to_num: Dict[str, int] = {}
@@ -409,7 +409,7 @@ class SandwichEnv(BaseEnv):
             goal = self._sample_goal(init_state, rng)
             goal_holds = all(goal_atom.holds(init_state) for goal_atom in goal)
             assert not goal_holds
-            tasks.append(Task(init_state, goal))
+            tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
     def _sample_initial_state(self, ingredient_to_num: Dict[str, int],

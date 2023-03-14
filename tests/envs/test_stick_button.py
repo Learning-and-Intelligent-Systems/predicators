@@ -7,7 +7,7 @@ import pytest
 from predicators import utils
 from predicators.envs.stick_button import StickButtonEnv
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, GroundAtom, Task
+from predicators.structs import Action, GroundAtom, EnvironmentTask
 
 
 def test_stick_button():
@@ -62,7 +62,7 @@ def test_stick_button():
     state.set(stick, "x", stick_x)
     state.set(stick, "y", (env.rz_y_ub + env.rz_y_lb) / 4)
     state.set(stick, "theta", np.pi / 4)
-    task = Task(state, task.goal)
+    task = EnvironmentTask(state, task.goal)
     env.render_state(state, task)
     assert GroundAtom(AboveNoButton, []).holds(state)
 

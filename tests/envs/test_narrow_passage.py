@@ -4,7 +4,7 @@ import numpy as np
 from predicators import utils
 from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, GroundAtom, Task
+from predicators.structs import Action, GroundAtom, EnvironmentTask
 
 
 def test_narrow_passage_properties():
@@ -61,7 +61,7 @@ def test_narrow_passage_actions():
     target, = state.get_objects(target_type)
     state.set(target, "x", 0.5)
     state.set(target, "y", 0.2)
-    task = Task(state, goal)
+    task = EnvironmentTask(state, goal)
 
     # Fixed action sequences to test (each is a list of action arrays)
     # Move to within range of door and open it
@@ -249,7 +249,7 @@ def test_narrow_passage_options():
     robot, = state.get_objects(robot_type)
     state.set(robot, "x", 0.25)
     state.set(robot, "y", 0.7)
-    fixed_task = Task(state, goal)
+    fixed_task = EnvironmentTask(state, goal)
     option_plan = [
         MoveAndOpenDoor.ground([robot, door], [0.1]),
     ]

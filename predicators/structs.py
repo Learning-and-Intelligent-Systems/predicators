@@ -416,6 +416,31 @@ DefaultTask = Task(DefaultState, set())
 
 
 @dataclass(frozen=True, eq=False)
+class EnvironmentTask:
+    """An initial observation and goal description.
+    
+    Environments produce environment tasks and agents produce and solve tasks.
+    
+    In fully observed settings, the init_obs will be a State and the
+    goal_description will be a Set[GroundAtom]. For convenience, we can convert
+    an EnvironmentTask into a Task in those cases.
+    """
+    init_obs: Observation
+    goal_description: GoalDescription
+
+    @cached_property
+    def task(self) -> Task:
+        assert isinstance(self.init_obs, State)
+        assert isinstance(self.goal_description, set)
+        assert not self.goal_description or isinstance(
+            next(iter(self.goal_description)), GroundAtom)
+        return Task(self.init_obs, self.goal_description)
+
+
+DefaultEnvironmentTask = EnvironmentTask(DefaultState, set())
+
+
+@dataclass(frozen=True, eq=False)
 class ParameterizedOption:
     """Struct defining a parameterized option, which has a parameter space and
     can be ground into an Option, given parameter values.
@@ -1548,6 +1573,8 @@ class LiftedDecisionList:
 
 
 # Convenience higher-order types useful throughout the code
+Observation = Any
+GoalDescription = Any
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]

@@ -11,7 +11,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type
+    EnvironmentTask, Type
 
 
 class ScrewsEnv(BaseEnv):
@@ -67,12 +67,12 @@ class ScrewsEnv(BaseEnv):
         self._robot = Object("robby", self._gripper_type)
         self._receptacle = Object("receptacle", self._receptacle_type)
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                possible_num_screws=self.num_screws_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_screws=self.num_screws_test,
                                rng=self._test_rng)
@@ -84,7 +84,7 @@ class ScrewsEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
@@ -120,8 +120,8 @@ class ScrewsEnv(BaseEnv):
                  color="black")
 
         # Find which object is the goal screw.
-        assert len(task.goal) == 1
-        goal_pred = list(task.goal)[0]
+        assert len(task.task.goal) == 1
+        goal_pred = list(task.task.goal)[0]
         goal_screw = goal_pred.objects[0]
 
         # Draw screws.
@@ -175,7 +175,7 @@ class ScrewsEnv(BaseEnv):
         return self._transition_demagnetize(state_after_move)
 
     def _get_tasks(self, num_tasks: int, possible_num_screws: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
 
         for _ in range(num_tasks):
@@ -206,7 +206,7 @@ class ScrewsEnv(BaseEnv):
 
     def _get_single_task(self, screw_name_to_pos: Dict[str, Tuple[float,
                                                                   float]],
-                         rng: np.random.Generator) -> Task:
+                         rng: np.random.Generator) -> EnvironmentTask:
         state_dict = {}
         goal_atoms: Set[GroundAtom] = set()
         # Select a random screw that needs to be in the receptacle as the goal
@@ -245,7 +245,7 @@ class ScrewsEnv(BaseEnv):
 
         init_state = utils.create_state_from_dict(state_dict)
         assert len(goal_atoms) == 1
-        task = Task(init_state, goal_atoms)
+        task = EnvironmentTask(init_state, goal_atoms)
         return task
 
     def _surface_xy_is_valid(self, x: float, y: float,
