@@ -18,22 +18,32 @@ APPROACHES:
     NAME: "nsrt_learning"
     FLAGS:
       num_train_tasks: 250
-  nsrt_learning-500:
-    NAME: "nsrt_learning"
-    FLAGS:
-      num_train_tasks: 500
-  nsrt_learning-1000:
-    NAME: "nsrt_learning"
-    FLAGS:
-      num_train_tasks: 1000
+  # nsrt_learning-500:
+  #   NAME: "nsrt_learning"
+  #   FLAGS:
+  #     num_train_tasks: 500
+  # nsrt_learning-1000:
+  #   NAME: "nsrt_learning"
+  #   FLAGS:
+  #     num_train_tasks: 1000
 ENVS:
-  sokoban:
+  # sokoban:
+  #   NAME: "sokoban"
+  #   FLAGS:
+  #     sokoban_gym_name: "Sokoban-small-v0"
+  #     sesame_task_planner: "fdopt"
+  #     bilevel_plan_without_sim: "True"
+  #     disable_harmlessness_check: "True"
+  sokoban-normal:
     NAME: "sokoban"
     FLAGS:
-      sokoban_gym_name: "Sokoban-small-v0"
+      sokoban_gym_name: "Sokoban-v0"
       sesame_task_planner: "fdopt"
       bilevel_plan_without_sim: "True"
       disable_harmlessness_check: "True"
+    ARGS:
+      - "load_approach"
+      - "load_data"
 ARGS: []
 FLAGS: {}
 START_SEED: 456
