@@ -15,7 +15,7 @@ def test_create_explorer():
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     # Greedy lookahead explorer.
     state_score_fn = lambda _1, _2: 0.0
     name = "greedy_lookahead"

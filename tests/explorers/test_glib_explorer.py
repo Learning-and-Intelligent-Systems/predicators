@@ -20,7 +20,7 @@ def test_glib_explorer(target_predicate):
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     # For testing purposes, score everything except target predicate low.
     score_fn = lambda atoms: target_predicate in str(atoms)
     explorer = create_explorer("glib",
@@ -88,7 +88,7 @@ def test_glib_explorer_failure_cases():
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     score_fn = lambda _: 0.0
     task_idx = 0
 

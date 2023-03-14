@@ -21,7 +21,7 @@ def test_greedy_lookahead_explorer(target_predicate):
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     # For testing purposes, score everything except target predicate low.
     score_fn = lambda atoms, _: target_predicate in str(atoms)
     explorer = create_explorer("greedy_lookahead",
@@ -66,7 +66,7 @@ def test_greedy_lookahead_explorer_failure_cases():
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     state_score_fn = lambda _1, _2: 0.0
     task_idx = 0
     task = train_tasks[task_idx]

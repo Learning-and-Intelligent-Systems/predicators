@@ -48,7 +48,7 @@ def test_nsrt_reinforcement_learning_approach(nsrt_rl_reward_epsilon):
         "nsrt_rl_reward_epsilon": nsrt_rl_reward_epsilon,
     })
     env = CoverMultistepOptions()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     # Make the last train task have a trivial goal so that it can be solved by
     # get_interaction_requests() even though we're not learning good models.
     train_tasks[-1] = Task(train_tasks[-1].init, set())

@@ -84,7 +84,7 @@ def test_base_approach():
 def test_create_approach():
     """Tests for create_approach."""
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     for name in [
             "random_actions",
             "random_options",

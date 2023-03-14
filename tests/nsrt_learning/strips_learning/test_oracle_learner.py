@@ -22,7 +22,7 @@ def test_oracle_strips_learner():
     assert not pnads
     # With sufficiently representative data, all operators should be learned.
     env = create_new_env("blocks")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
@@ -69,7 +69,7 @@ def test_oracle_strips_learner():
         "segmenter": "atom_changes",
     })
     env = create_new_env("blocks")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)

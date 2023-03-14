@@ -40,7 +40,7 @@ def test_pg3_approach(approach_name, approach_cls):
         "pg3_hc_enforced_depth": 0,
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = approach_cls(env.predicates, get_gt_options(env.get_name()),
                             env.types, env.action_space, train_tasks)
     assert approach.get_name() == approach_name
@@ -187,7 +187,7 @@ def test_cluttered_table_pg3_approach():
         "sampler_learner": "oracle",
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = PG3Approach(env.predicates, get_gt_options(env.get_name()),
                            env.types, env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
