@@ -99,14 +99,14 @@ def test_narrow_passage_actions():
         s = env.simulate(s, Action(action))
     assert GroundAtom(TouchedGoal,
                       [robot, target]).holds(s)  # check touching goal
-    assert task.goal_holds(s)  # check task goal reached
+    assert task.task.goal_holds(s)  # check task goal reached
 
     # Test rendering entire plan
     policy = utils.action_arrs_to_policy(all_action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
-                                           task.goal_holds,
+                                           task.task.goal_holds,
                                            max_num_steps=len(all_action_arrs))
 
     # Render a state before door opens
