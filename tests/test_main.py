@@ -8,6 +8,9 @@ from typing import Callable
 import pytest
 
 import predicators.ground_truth_models
+from predicators.cogman import CogMan
+from predicators.perception import create_perceiver
+from predicators.execution_monitoring import create_execution_monitor
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
@@ -214,21 +217,30 @@ def test_bilevel_planning_approach_failure_and_timeout():
                                      get_gt_options(env.get_name()), env.types,
                                      env.action_space, train_tasks)
     assert not approach.is_learning_based
-    _run_testing(env, approach)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    _run_testing(env, cogman)
 
     approach = _DummySolveTimeoutApproach(env.predicates,
                                           get_gt_options(env.get_name()),
                                           env.types, env.action_space,
                                           train_tasks)
     assert not approach.is_learning_based
-    _run_testing(env, approach)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    _run_testing(env, cogman)
 
     approach = _DummyExecutionTimeoutApproach(env.predicates,
                                               get_gt_options(env.get_name()),
                                               env.types, env.action_space,
                                               train_tasks)
     assert not approach.is_learning_based
-    _run_testing(env, approach)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    _run_testing(env, cogman)
 
 
 def test_env_failure():
@@ -249,4 +261,7 @@ def test_env_failure():
     assert not approach.is_learning_based
     task = train_tasks[0]
     approach.solve(task, timeout=500)
-    _run_testing(env, approach)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    _run_testing(env, cogman)
