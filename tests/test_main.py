@@ -8,15 +8,15 @@ from typing import Callable
 import pytest
 
 import predicators.ground_truth_models
-from predicators.cogman import CogMan
-from predicators.perception import create_perceiver
-from predicators.execution_monitoring import create_execution_monitor
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
+from predicators.cogman import CogMan
 from predicators.envs.cover import CoverEnv
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _run_testing, main
+from predicators.perception import create_perceiver
 from predicators.structs import Action, State, Task
 
 _GROUND_TRUTH_MODULE_PATH = predicators.ground_truth_models.__name__

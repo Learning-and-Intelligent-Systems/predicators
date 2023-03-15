@@ -3,10 +3,13 @@ import pytest
 
 from predicators import utils
 from predicators.approaches import BaseApproach
+from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _run_pipeline
+from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, GroundAtomsHoldQuery, \
     InteractionRequest, InteractionResult, Predicate
@@ -108,8 +111,11 @@ def test_interaction():
     train_tasks = [t.task for t in env.get_train_tasks()]
     approach = _MockApproach(env.predicates, get_gt_options(env.get_name()),
                              env.types, env.action_space, train_tasks)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
-    _run_pipeline(env, approach, train_tasks, dataset)
+    _run_pipeline(env, cogman, train_tasks, dataset)
     utils.update_config({
         "approach": "nsrt_learning",
         "load_data": True,
@@ -117,11 +123,11 @@ def test_interaction():
     })
     # Invalid query type.
     with pytest.raises(AssertionError) as e:
-        _run_pipeline(env, approach, train_tasks, dataset)
+        _run_pipeline(env, cogman, train_tasks, dataset)
     assert "Disallowed query" in str(e)
     # Learning-based approaches expect a dataset.
     with pytest.raises(AssertionError) as e:
-        _run_pipeline(env, approach, train_tasks)
+        _run_pipeline(env, cogman, train_tasks)
     assert "Missing offline dataset" in str(e)
     # Test loading the approach.
     utils.update_config({
@@ -129,11 +135,11 @@ def test_interaction():
         "load_data": True,
         "load_approach": True
     })
-    _run_pipeline(env, approach, train_tasks, dataset)
+    _run_pipeline(env, cogman, train_tasks, dataset)
     # Should crash with a load failure.
     utils.update_config({"num_online_learning_cycles": 10})
     with pytest.raises(IndexError):
-        _run_pipeline(env, approach, train_tasks, dataset)
+        _run_pipeline(env, cogman, train_tasks, dataset)
     # Should succeed because all cycles are skipped. Note that we must
     # reset_config instead of update_config because of known issues with
     # update_config and default args.
@@ -149,7 +155,7 @@ def test_interaction():
         "make_interaction_videos": True,
         "max_num_steps_interaction_request": 3,
     })
-    _run_pipeline(env, approach, train_tasks, dataset)
+    _run_pipeline(env, cogman, train_tasks, dataset)
     # Tests for CFG.allow_interaction_in_demo_tasks. An error should be raised
     # because the agent makes a request about a task where a demonstration was
     # generated.
@@ -167,7 +173,7 @@ def test_interaction():
         "max_num_steps_interaction_request": 3,
     })
     with pytest.raises(RuntimeError) as e:
-        _run_pipeline(env, approach, train_tasks, dataset)
+        _run_pipeline(env, cogman, train_tasks, dataset)
     assert "Interaction requests cannot be on demo tasks" in str(e)
     # This should succeed since requests are about the last three train tasks.
     utils.reset_config({
@@ -183,4 +189,4 @@ def test_interaction():
         "make_interaction_videos": True,
         "max_num_steps_interaction_request": 3,
     })
-    _run_pipeline(env, approach, train_tasks, dataset)
+    _run_pipeline(env, cogman, train_tasks, dataset)
