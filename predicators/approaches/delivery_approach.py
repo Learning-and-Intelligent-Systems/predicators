@@ -29,6 +29,15 @@ class DeliverySpecificApproach(BaseApproach):
         self.home_base = None
         self.want_locations = None
 
+        def commit_action(state, action, object_args):
+            params = np.zeros(0, dtype=np.float32)
+            selected_option = action
+            ground_option = selected_option.ground(
+                object_args, params)
+
+            assert ground_option.initiable(state)
+            return ground_option.policy(state)
+
         def _policy(state: State) -> Action:
             # Extract the predicators and options from the state.
             options = {o.name: o for o in self._initial_options}
@@ -75,27 +84,11 @@ class DeliverySpecificApproach(BaseApproach):
 
                             # Pick-up paper if at home-base
                             if GroundAtom(unpacked, [paper]) in ground_atoms:
-                                pack = options["pick-up"]
-                                selected_option = pack
-                                object_args = [paper, loc]
-                                params = np.zeros(0, dtype=np.float32)
-                                ground_option = selected_option.ground(
-                                    object_args, params)
-
-                                assert ground_option.initiable(state)
-                                return ground_option.policy(state)
+                                return commit_action(state, options["pick-up"], [paper, loc])
 
                         # Once all papers picked, move to safe location that wants papers
                         loc_to_move = self.want_locations.pop(0)
-                        move = options["move"]
-                        object_args = [self.home_base, loc_to_move]
-                        params = np.zeros(0, dtype=np.float32)
-                        selected_option = move
-                        ground_option = selected_option.ground(
-                            object_args, params)
-
-                        assert ground_option.initiable(state)
-                        return ground_option.policy(state)
+                        return commit_action(state, options["move"], [self.home_base, loc_to_move])
 
                     # If location the robot is at wants paper
                     if GroundAtom(wants_paper, [loc]) in ground_atoms:
@@ -103,25 +96,12 @@ class DeliverySpecificApproach(BaseApproach):
 
                             # deliver paper
                             if GroundAtom(carrying, [paper]) in ground_atoms:
-                                deliver = options["deliver"]
-                                object_args = [paper, loc]
-                                params = np.zeros(0, dtype=np.float32)
-                                selected_option = deliver
-                                ground_option = selected_option.ground(
-                                    object_args, params)
-
-                                assert ground_option.initiable(state)
-                                return ground_option.policy(state)
+                                return commit_action(state, options["deliver"], [paper, loc])
 
                     # Else move to home_base
-                    move = options["move"]
-                    object_args = [loc, self.home_base]
-                    params = np.zeros(0, dtype=np.float32)
-                    selected_option = move
-                    ground_option = selected_option.ground(
-                        object_args, params)
+                    return commit_action(state, options["move"], [loc, self.home_base])
 
-                    assert ground_option.initiable(state)
-                    return ground_option.policy(state)
+            # Shouldn't reach here
+            return
 
         return _policy
