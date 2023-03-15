@@ -603,8 +603,8 @@ def test_run_policy():
             del action  # unused
             raise utils.EnvironmentFailure("mock failure")
 
-        def get_state(self):
-            """Gets currrent state in mock environment."""
+        def get_observation(self):
+            """Gets currrent observation in mock environment."""
             return DefaultState
 
     mock_env = _MockEnv()
