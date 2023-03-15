@@ -12,8 +12,7 @@ import matplotlib
 
 from predicators.envs.painting import PaintingEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Object, ParameterizedOption, \
-    Predicate, State, Task
+from predicators.structs import Action, Object, Predicate, State, Task
 
 
 class RepeatedNextToPaintingEnv(PaintingEnv):
@@ -92,11 +91,6 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         return super().predicates | {
             self._NextTo, self._NextToBox, self._NextToShelf, self._NextToTable
         }
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def _num_objects_train(self) -> List[int]:

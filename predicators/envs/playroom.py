@@ -11,8 +11,8 @@ from matplotlib import patches
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv, BlocksEnvClear
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, Array, GroundAtom, Object, Predicate, \
+    State, Task, Type
 
 
 class PlayroomSimpleEnv(BlocksEnv):
@@ -146,11 +146,6 @@ class PlayroomSimpleEnv(BlocksEnv):
     @property
     def types(self) -> Set[Type]:
         return {self._block_type, self._robot_type, self._dial_type}
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:
@@ -642,11 +637,6 @@ class PlayroomEnv(PlayroomSimpleEnv):
             self._block_type, self._robot_type, self._door_type,
             self._dial_type, self._region_type
         }
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     def _sample_state_from_piles(self, piles: List[List[Object]],
                                  rng: np.random.Generator) -> State:

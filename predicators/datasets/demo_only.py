@@ -9,6 +9,7 @@ from typing import Callable, List, Set
 import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
@@ -142,6 +143,7 @@ def _generate_demonstrations(
         event_to_action = env.get_event_to_action_fn()
     trajectories = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
+    rng = np.random.default_rng(CFG.seed)
     for idx, task in enumerate(train_tasks):
         if idx < train_tasks_start_idx:  # ignore demos before this index
             continue
@@ -160,8 +162,13 @@ def _generate_demonstrations(
                 # the policy is actually a plan under the hood, and we
                 # can retrieve it with get_last_plan(). We do this
                 # because we want to run the full plan.
-                last_plan = oracle_approach.get_last_plan()
-                policy = utils.option_plan_to_policy(last_plan)
+                if CFG.bilevel_plan_without_sim:
+                    last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
+                    policy = utils.nsrt_plan_to_greedy_policy(
+                        last_nsrt_plan, task.goal, rng)
+                else:
+                    last_plan = oracle_approach.get_last_plan()
+                    policy = utils.option_plan_to_policy(last_plan)
                 # We will stop run_policy() when OptionExecutionFailure()
                 # is hit, which should only happen when the goal has been
                 # reached, as verified by the assertion later.
