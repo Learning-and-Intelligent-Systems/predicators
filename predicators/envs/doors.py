@@ -13,8 +13,8 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
+    Task, Type
 from predicators.utils import Rectangle, StateWithCache, _Geom2D
 
 
@@ -139,11 +139,6 @@ class DoorsEnv(BaseEnv):
             self._robot_type, self._door_type, self._room_type,
             self._obstacle_type
         }
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
 
     @property
     def action_space(self) -> Box:

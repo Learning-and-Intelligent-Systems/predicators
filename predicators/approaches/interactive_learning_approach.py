@@ -114,7 +114,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     hid_sizes=CFG.mlp_classifier_hid_sizes,
                     n_reinitialize_tries=CFG.
                     predicate_mlp_classifier_n_reinitialize_tries,
-                    weight_init=CFG.predicate_mlp_classifier_init)
+                    weight_init=CFG.predicate_mlp_classifier_init,
+                    weight_decay=CFG.weight_decay,
+                    use_torch_gpu=CFG.use_torch_gpu,
+                    train_print_every=CFG.pytorch_train_print_every)
             elif CFG.predicate_classifier_model == "knn":
                 model = BinaryClassifierEnsemble(
                     seed=CFG.seed,

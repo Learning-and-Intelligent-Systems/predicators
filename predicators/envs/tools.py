@@ -11,17 +11,16 @@ predicate. Hammer sizes work the same way as screwdriver sizes. Wrench
 sizes don't matter.
 """
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+from typing import ClassVar, List, Optional, Sequence, Set
 
 import matplotlib
 import numpy as np
 from gym.spaces import Box
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
+    Task, Type
 
 
 class ToolsEnv(BaseEnv):
@@ -42,25 +41,21 @@ class ToolsEnv(BaseEnv):
     num_screwdrivers: ClassVar[int] = 3
     num_hammers: ClassVar[int] = 2
     num_wrenches: ClassVar[int] = 1
+    # Types
+    _robot_type = Type("robot", ["fingers"])
+    _screw_type = Type("screw",
+                       ["pose_x", "pose_y", "shape", "is_fastened", "is_held"])
+    _screwdriver_type = Type("screwdriver",
+                             ["pose_x", "pose_y", "shape", "size", "is_held"])
+    _nail_type = Type("nail", ["pose_x", "pose_y", "is_fastened", "is_held"])
+    _hammer_type = Type("hammer", ["pose_x", "pose_y", "size", "is_held"])
+    _bolt_type = Type("bolt", ["pose_x", "pose_y", "is_fastened", "is_held"])
+    _wrench_type = Type("wrench", ["pose_x", "pose_y", "size", "is_held"])
+    _contraption_type = Type("contraption", ["pose_lx", "pose_ly"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        self._robot_type = Type("robot", ["fingers"])
-        self._screw_type = Type(
-            "screw", ["pose_x", "pose_y", "shape", "is_fastened", "is_held"])
-        self._screwdriver_type = Type(
-            "screwdriver", ["pose_x", "pose_y", "shape", "size", "is_held"])
-        self._nail_type = Type("nail",
-                               ["pose_x", "pose_y", "is_fastened", "is_held"])
-        self._hammer_type = Type("hammer",
-                                 ["pose_x", "pose_y", "size", "is_held"])
-        self._bolt_type = Type("bolt",
-                               ["pose_x", "pose_y", "is_fastened", "is_held"])
-        self._wrench_type = Type("wrench",
-                                 ["pose_x", "pose_y", "size", "is_held"])
-        self._contraption_type = Type("contraption", ["pose_lx", "pose_ly"])
         # Predicates
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
@@ -98,86 +93,6 @@ class ToolsEnv(BaseEnv):
         self._HammerGraspable = Predicate("HammerGraspable",
                                           [self._hammer_type],
                                           self._HammerGraspable_holds)
-        # Options
-        self._PickScrew = utils.SingletonParameterizedOption(
-            # variables: [robot, screw to pick]
-            # params: []
-            "PickScrew",
-            self._Pick_policy,
-            types=[self._robot_type, self._screw_type])
-        self._PickScrewdriver = utils.SingletonParameterizedOption(
-            # variables: [robot, screwdriver to pick]
-            # params: []
-            "PickScrewdriver",
-            self._Pick_policy,
-            types=[self._robot_type, self._screwdriver_type])
-        self._PickNail = utils.SingletonParameterizedOption(
-            # variables: [robot, nail to pick]
-            # params: []
-            "PickNail",
-            self._Pick_policy,
-            types=[self._robot_type, self._nail_type])
-        self._PickHammer = utils.SingletonParameterizedOption(
-            # variables: [robot, hammer to pick]
-            # params: []
-            "PickHammer",
-            self._Pick_policy,
-            types=[self._robot_type, self._hammer_type])
-        self._PickBolt = utils.SingletonParameterizedOption(
-            # variables: [robot, bolt to pick]
-            # params: []
-            "PickBolt",
-            self._Pick_policy,
-            types=[self._robot_type, self._bolt_type])
-        self._PickWrench = utils.SingletonParameterizedOption(
-            # variables: [robot, wrench to pick]
-            # params: []
-            "PickWrench",
-            self._Pick_policy,
-            types=[self._robot_type, self._wrench_type])
-        self._Place = utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: [absolute x, absolute y]
-            "Place",
-            policy=self._Place_policy,
-            types=[self._robot_type],
-            params_space=Box(
-                np.array([self.table_lx, self.table_ly], dtype=np.float32),
-                np.array([self.table_ux, self.table_uy], dtype=np.float32)),
-        )
-        self._FastenScrewWithScrewdriver = utils.SingletonParameterizedOption(
-            # variables: [robot, screw, screwdriver, contraption]
-            # params: []
-            "FastenScrewWithScrewdriver",
-            self._Fasten_policy,
-            types=[
-                self._robot_type, self._screw_type, self._screwdriver_type,
-                self._contraption_type
-            ])
-        self._FastenScrewByHand = utils.SingletonParameterizedOption(
-            # variables: [robot, screw, contraption]
-            # params: []
-            "FastenScrewByHand",
-            self._Fasten_policy,
-            types=[self._robot_type, self._screw_type, self._contraption_type])
-        self._FastenNailWithHammer = utils.SingletonParameterizedOption(
-            # variables: [robot, nail, hammer, contraption]
-            # params: []
-            "FastenNailWithHammer",
-            self._Fasten_policy,
-            types=[
-                self._robot_type, self._nail_type, self._hammer_type,
-                self._contraption_type
-            ])
-        self._FastenBoltWithWrench = utils.SingletonParameterizedOption(
-            # variables: [robot, bolt, wrench, contraption]
-            # params: []
-            "FastenBoltWithWrench",
-            self._Fasten_policy,
-            types=[
-                self._robot_type, self._bolt_type, self._wrench_type,
-                self._contraption_type
-            ])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -192,7 +107,7 @@ class ToolsEnv(BaseEnv):
         if is_pick > 0.5 and is_place > 0.5:
             # Failure: both is_pick and is_place can't be on
             return next_state
-        held = self._get_held_item_or_tool(state)
+        held = self.get_held_item_or_tool(state)
         if is_place > 0.5:
             # Handle placing
             if held is None:
@@ -220,7 +135,7 @@ class ToolsEnv(BaseEnv):
             if contraption is None:
                 # Failure: trying to fasten, but not on a contraption
                 return next_state
-            assert self._is_item(target)  # tool can't be on contraption...
+            assert self.is_item(target)  # tool can't be on contraption...
             if target.type == self._screw_type:
                 if held != self._get_best_screwdriver_or_none(state, target):
                     # Failure: held object doesn't match desired screwdriver
@@ -244,7 +159,7 @@ class ToolsEnv(BaseEnv):
            state.get(target, "size") > 0.5:
             # Failure: screwdriver/hammer is not graspable
             return next_state
-        if self._is_item(target) and contraption is not None:
+        if self.is_item(target) and contraption is not None:
             # Failure: can't pick an item when it's on a contraption
             return next_state
         # Note: we don't update the pose of an object when it is
@@ -294,15 +209,6 @@ class ToolsEnv(BaseEnv):
             self._robot_type, self._screw_type, self._screwdriver_type,
             self._nail_type, self._hammer_type, self._bolt_type,
             self._wrench_type, self._contraption_type
-        }
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._PickScrew, self._PickScrewdriver, self._PickNail,
-            self._PickHammer, self._PickBolt, self._PickWrench, self._Place,
-            self._FastenScrewWithScrewdriver, self._FastenNailWithHammer,
-            self._FastenBoltWithWrench, self._FastenScrewByHand
         }
 
     @property
@@ -479,7 +385,7 @@ class ToolsEnv(BaseEnv):
         item, contraption = objects
         pose_x = state.get(item, "pose_x")
         pose_y = state.get(item, "pose_y")
-        return self._is_pose_on_contraption(state, pose_x, pose_y, contraption)
+        return self.is_pose_on_contraption(state, pose_x, pose_y, contraption)
 
     @staticmethod
     def _Fastened_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -498,51 +404,6 @@ class ToolsEnv(BaseEnv):
                                objects: Sequence[Object]) -> bool:
         hammer, = objects
         return state.get(hammer, "size") < 0.5
-
-    @staticmethod
-    def _Pick_policy(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> Action:
-        del memory  # unused
-        assert not params
-        _, item_or_tool = objects
-        pose_x = state.get(item_or_tool, "pose_x")
-        pose_y = state.get(item_or_tool, "pose_y")
-        arr = np.array([pose_x, pose_y, 1.0, 0.0], dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> Action:
-        del state, memory, objects  # unused
-        return Action(np.r_[params, 0.0, 1.0])
-
-    def _Fasten_policy(self, state: State, memory: Dict,
-                       objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        assert not params
-        if len(objects) == 3:
-            # Note that the FastenScrewByHand option has only 3 parameters,
-            # while all other Fasten options have 4 parameters.
-            _, item, contraption = objects
-            # For fastening by hand, we don't want to be holding any tool.
-            tool_is_correct = (self._get_held_item_or_tool(state) is None)
-        else:
-            _, item, tool, contraption = objects
-            # For fastening with a tool, we should be holding it.
-            tool_is_correct = (state.get(tool, "is_held") > 0.5)
-        assert self._is_item(item)
-        pose_x = state.get(item, "pose_x")
-        pose_y = state.get(item, "pose_y")
-        contraption_is_correct = self._is_pose_on_contraption(
-            state, pose_x, pose_y, contraption)
-        if not tool_is_correct or not contraption_is_correct:
-            # Simulate a noop by fastening at poses where there is guaranteed
-            # to be no contraption. We don't use an initiable() function here
-            # because we want replay data to be able to try this, in order
-            # to discover good operator preconditions.
-            pose_x, pose_y = self.table_ux, self.table_uy
-        arr = np.array([pose_x, pose_y, 0.0, 0.0], dtype=np.float32)
-        return Action(arr)
 
     def _get_closest_item_or_tool(self, state: State, x: float,
                                   y: float) -> Optional[Object]:
@@ -563,12 +424,14 @@ class ToolsEnv(BaseEnv):
                 closest_obj = obj
         return closest_obj
 
-    def _get_held_item_or_tool(self, state: State) -> Optional[Object]:
+    @classmethod
+    def get_held_item_or_tool(cls, state: State) -> Optional[Object]:
+        """Public for use by oracle options."""
         held_obj = None
         for obj in state:
-            if obj == self._robot:
+            if obj.type == cls._robot_type:
                 continue
-            if obj.type == self._contraption_type:
+            if obj.type == cls._contraption_type:
                 continue
             if state.get(obj, "is_held") > 0.5:
                 assert held_obj is None
@@ -580,24 +443,28 @@ class ToolsEnv(BaseEnv):
         for obj in state:
             if obj.type != self._contraption_type:
                 continue
-            if self._is_pose_on_contraption(state, x, y, obj):
+            if self.is_pose_on_contraption(state, x, y, obj):
                 return obj
         return None
 
-    def _is_pose_on_contraption(self, state: State, x: float, y: float,
-                                contraption: Object) -> bool:
+    @classmethod
+    def is_pose_on_contraption(cls, state: State, x: float, y: float,
+                               contraption: Object) -> bool:
+        """Public for use by oracle options."""
         pose_lx = state.get(contraption, "pose_lx")
         pose_ly = state.get(contraption, "pose_ly")
-        pose_ux = pose_lx + self.contraption_size
-        pose_uy = pose_ly + self.contraption_size
+        pose_ux = pose_lx + cls.contraption_size
+        pose_uy = pose_ly + cls.contraption_size
         return pose_lx < x < pose_ux and pose_ly < y < pose_uy
 
     def _is_tool(self, obj: Object) -> bool:
         return obj.type in (self._screwdriver_type, self._hammer_type,
                             self._wrench_type)
 
-    def _is_item(self, obj: Object) -> bool:
-        return obj.type in (self._screw_type, self._nail_type, self._bolt_type)
+    @classmethod
+    def is_item(cls, obj: Object) -> bool:
+        """Public for use by oracle options."""
+        return obj.type in (cls._screw_type, cls._nail_type, cls._bolt_type)
 
     def _is_screwdriver_or_hammer(self, obj: Object) -> bool:
         return obj.type in (self._screwdriver_type, self._hammer_type)
