@@ -69,7 +69,8 @@ class BilevelPlanningApproach(BaseApproach):
                         spot_controllers.graspController(op.objects)
                     elif op.name == 'PlaceCanOntop':
                         spot_controllers.placeOntopController(op.objects)
-            except bosdyn.client.exceptions.ProxyConnectionError:
+            except (bosdyn.client.exceptions.ProxyConnectionError,
+                    RuntimeError):
                 logging.info("Could not connect to Spot!")
 
         def _policy(s: State) -> Action:
