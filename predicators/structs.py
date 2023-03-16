@@ -398,7 +398,7 @@ class GroundAtom(_Atom):
 @dataclass(frozen=True, eq=False)
 class Task:
     """Struct defining a task, which is an initial observation and goal."""
-    init: Observation
+    init: State
     goal: Set[GroundAtom]
 
     def __post_init__(self) -> None:
