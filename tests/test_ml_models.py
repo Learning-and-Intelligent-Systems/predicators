@@ -181,8 +181,7 @@ def test_mlp_classifier():
                                 n_iter_no_change=-1,
                                 hid_sizes=[32, 32],
                                 n_reinitialize_tries=1,
-                                weight_init="default",
-                                train_print_every=1)
+                                weight_init="default")
     with patch.object(logging, "info", return_value=None) as mock_logging_info:
         model.fit(X, y)
     assert mock_logging_info.call_count < 5
