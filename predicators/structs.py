@@ -406,11 +406,9 @@ class Task:
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 
-    def goal_holds(self, obs: Observation) -> bool:
+    def goal_holds(self, state: State) -> bool:
         """Return whether the goal of this task holds in the given state."""
-        # Environments with non-state observations should override this.
-        assert isinstance(obs, State)
-        return all(goal_atom.holds(obs) for goal_atom in self.goal)
+        return all(goal_atom.holds(state) for goal_atom in self.goal)
 
 
 DefaultTask = Task(DefaultState, set())
