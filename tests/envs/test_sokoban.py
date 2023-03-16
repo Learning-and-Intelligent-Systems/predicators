@@ -24,6 +24,7 @@ def test_sokoban():
     env = SokobanEnv()
     perceiver = SokobanPerceiver()
     assert env.get_name() == "sokoban"
+    assert perceiver.get_name() == "sokoban"
     for env_task in env.get_train_tasks():
         task = perceiver.reset(env_task)
         for obj in task.init:
@@ -95,7 +96,11 @@ def test_sokoban():
         assert option.initiable(state)
         action = option.policy(state)
         obs = env.step(action)
+        recovered_obs = env.get_observation()
+        assert len(obs) == len(recovered_obs) == 4
+        assert (np.allclose(m1, m2) for m1, m2 in zip(obs, recovered_obs))
         state = perceiver.step(obs)
+        assert not env.goal_reached()
     atoms = utils.abstract(state, env.predicates)
     # Now one of the goals should be covered.
     assert len({a for a in atoms if a.predicate == GoalCovered}) == 1
