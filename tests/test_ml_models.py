@@ -209,12 +209,12 @@ def test_mlp_classifier():
                                 balance_data=True,
                                 max_train_iters=100000,
                                 learning_rate=1e-2,
-                                n_iter_no_change=1,
+                                n_iter_no_change=0,
                                 hid_sizes=[32, 32],
                                 n_reinitialize_tries=1,
                                 weight_init="default")
     model.fit(X, y)
-    assert time.perf_counter() - start_time < 3, "Didn't early stop"
+    assert time.perf_counter() - start_time < 1, "Didn't early stop"
     # Test with no positive examples.
     num_class_samples = 1000
     X = np.concatenate([
