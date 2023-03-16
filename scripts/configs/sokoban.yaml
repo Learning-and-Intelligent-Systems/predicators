@@ -1,56 +1,24 @@
 ---
 APPROACHES:
-  oracle:
-    NAME: "oracle"
-  nsrt_learning-25:
-    NAME: "nsrt_learning"
+  supervised-predicate-learning:
+    NAME: "interactive_learning"
     FLAGS:
-      num_train_tasks: 25
-      load_experiment_id: "sokoban-nsrt_learning-25"
-  nsrt_learning-50:
-    NAME: "nsrt_learning"
-    FLAGS:
-      num_train_tasks: 50
-      load_experiment_id: "sokoban-nsrt_learning-50"
-  nsrt_learning-100:
-    NAME: "nsrt_learning"
-    FLAGS:
+      excluded_predicates: "all-including-goals"
       num_train_tasks: 100
-      load_experiment_id: "sokoban-nsrt_learning-100"
-  nsrt_learning-250:
-    NAME: "nsrt_learning"
-    FLAGS:
-      num_train_tasks: 250
-      load_experiment_id: "sokoban-nsrt_learning-250"
-  # nsrt_learning-500:
-  #   NAME: "nsrt_learning"
-  #   FLAGS:
-  #     num_train_tasks: 500
-  # nsrt_learning-1000:
-  #   NAME: "nsrt_learning"
-  #   FLAGS:
-  #     num_train_tasks: 1000
+      interactive_num_ensemble_members: 1
 ENVS:
-  # sokoban:
-  #   NAME: "sokoban"
-  #   FLAGS:
-  #     sokoban_gym_name: "Sokoban-small-v0"
-  #     sesame_task_planner: "fdopt"
-  #     bilevel_plan_without_sim: "True"
-  #     disable_harmlessness_check: "True"
-  sokoban-v2:
+  sokoban:
     NAME: "sokoban"
     FLAGS:
-      sokoban_gym_name: "Sokoban-v2"
-      sesame_task_planner: "fdsat"
-      bilevel_plan_without_sim: "True"
-      disable_harmlessness_check: "True"
-    ARGS:
-      - "load_approach"
-      - "load_data"
+      sokoban_gym_name: "Sokoban-small-v0"
+      sesame_task_planner: "fdopt"
+      bilevel_plan_without_sim: True
+      disable_harmlessness_check: True
+      mlp_classifier_balance_data: False
+      teacher_dataset_num_examples: 100000000  # upper bound
 ARGS: []
 FLAGS: 
   timeout: 60
 START_SEED: 456
-NUM_SEEDS: 5
+NUM_SEEDS: 1
 ...

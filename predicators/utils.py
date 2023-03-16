@@ -2903,6 +2903,13 @@ def parse_config_excluded_predicates(
             }
             logging.info(f"All non-goal predicates excluded: {excluded_names}")
             included = env.goal_predicates
+        elif CFG.excluded_predicates == "all-including-goals":
+            excluded_names = {
+                pred.name
+                for pred in env.predicates
+            }
+            logging.info(f"ALL predicates excluded: {excluded_names}")
+            included = set()
         else:
             excluded_names = set(CFG.excluded_predicates.split(","))
             assert excluded_names.issubset(

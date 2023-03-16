@@ -49,12 +49,9 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
     for p in annotating_predicates:
         for examples, picks in zip((neg_examples, pos_examples),
                                    (neg_picks, pos_picks)):
-            if num_examples > len(examples[p]):
-                raise ValueError(
-                    f"Found fewer than {num_examples} examples to sample from!"
-                )
+            num_samples = min(len(examples[p]), num_examples)
             idxs = rng.choice(len(examples[p]),
-                              size=num_examples,
+                              size=num_samples,
                               replace=False)
             picks.extend([examples[p][idx] for idx in idxs])
     annotations: List[List[List[Set[GroundAtom]]]] = [[[
