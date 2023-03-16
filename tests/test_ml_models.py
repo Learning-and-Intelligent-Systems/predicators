@@ -204,7 +204,6 @@ def test_mlp_classifier():
     assert prediction
     assert model.predict_proba(np.ones(input_size)) > 0.5
     # Test for early stopping
-    start_time = time.perf_counter()
     model = MLPBinaryClassifier(seed=123,
                                 balance_data=True,
                                 max_train_iters=100000,
@@ -213,6 +212,7 @@ def test_mlp_classifier():
                                 hid_sizes=[32, 32],
                                 n_reinitialize_tries=1,
                                 weight_init="default")
+    start_time = time.perf_counter()
     model.fit(X, y)
     assert time.perf_counter() - start_time < 1, "Didn't early stop"
     # Test with no positive examples.
