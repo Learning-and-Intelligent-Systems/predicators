@@ -397,7 +397,7 @@ class GroundAtom(_Atom):
 
 @dataclass(frozen=True, eq=False)
 class Task:
-    """Struct defining a task, which is an initial observation and goal."""
+    """Struct defining a task, which is an initial state and goal."""
     init: State
     goal: Set[GroundAtom]
 
