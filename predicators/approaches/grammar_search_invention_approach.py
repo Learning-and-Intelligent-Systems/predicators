@@ -765,7 +765,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         x = []
         y = []
         import numpy as np 
-        for i in np.linspace(0, 15, 1000):
+        for t, i in enumerate(np.linspace(0, 15, 1000)):
+            print(f"Evaluating {t} out of 1000")
             predicate_to_add = env._create_NextTo_predicate(i)
             candidates = {predicate_to_add: 0}
 
@@ -779,6 +780,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             score = score_function.evaluate(candidates2)
             x.append(i)
             y.append(score)
+        print("x: ", x)
+        print("y: ", y)
         import matplotlib.pyplot as plt 
         plt.plot(x, y)
         plt.savefig("score_test.png")
