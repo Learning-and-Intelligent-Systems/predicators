@@ -756,6 +756,37 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Generate a candidate set of predicates.
         logging.info("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
+
+        ##### START OF INTERVENTION 
+        # import pdb; pdb.set_trace()
+        # define the predicate we want to test 
+        from predicators.envs.repeated_nextto import RepeatedNextToEnv
+        env = RepeatedNextToEnv()
+        x = []
+        y = []
+        import numpy as np 
+        for i in np.linspace(0, 15, 1000):
+            predicate_to_add = env._create_NextTo_predicate(i)
+            candidates = {predicate_to_add: 0}
+
+            atom_dataset = utils.create_ground_atom_dataset(
+                dataset.trajectories,
+                set(candidates) | self._initial_predicates)
+            score_function = create_score_function(
+                CFG.grammar_search_score_function, self._initial_predicates,
+                atom_dataset, candidates, self._train_tasks)
+            candidates2 = frozenset([predicate_to_add])
+            score = score_function.evaluate(candidates2)
+            x.append(i)
+            y.append(score)
+        import matplotlib.pyplot as plt 
+        plt.plot(x, y)
+        plt.savefig("score_test.png")
+        import pdb; pdb.set_trace()
+
+
+        ##### END OF INTERVENTION
+
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
         logging.info(f"Done: created {len(candidates)} candidates:")

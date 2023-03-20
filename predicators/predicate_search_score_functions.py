@@ -302,6 +302,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                 option_specs: List[OptionSpec]) -> float:
         assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
         score = 0.0
+        score2 = 0.0
         seen_demos = 0
         assert len(low_level_trajs) == len(segmented_trajs)
         for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
@@ -385,7 +386,9 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             expected_planning_time += refinable_skeleton_not_found_prob * ub
             # The score is simply the total expected planning time.
             score += expected_planning_time
-        return score
+            score2 = max(score2, expected_planning_time)
+        # return score
+        return score2
 
     @staticmethod
     def _get_refinement_prob(

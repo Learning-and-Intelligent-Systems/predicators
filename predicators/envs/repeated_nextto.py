@@ -159,6 +159,20 @@ class RepeatedNextToEnv(BaseEnv):
                 and abs(state.get(robot, "x") - state.get(dot, "x")) <
                 self._nextto_thresh)
 
+    from typing import Callable
+    @staticmethod
+    def _create_NextTo_holds(threshold: float) -> Callable[[State, Sequence[Object]], bool]:
+        def _NextTo_holds_custom(state: State, objects: Sequence[Object]) -> bool:
+            robot, dot = objects
+            return (state.get(dot, "grasped") < 0.5
+                    and abs(state.get(robot, "x") - state.get(dot, "x")) <
+                    threshold)
+        return _NextTo_holds_custom
+
+    def _create_NextTo_predicate(self, threshold: float) -> Predicate:
+        return Predicate("CustomNextTo", [self._robot_type, self._dot_type],
+                                 self._create_NextTo_holds(threshold))
+
     def _NextToNothing_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
         robot, = objects
