@@ -365,6 +365,13 @@ class SokobanEnv(BaseEnv):
     @staticmethod
     def _get_task_seed(train_or_test: str, task_idx: int) -> int:
         assert task_idx < CFG.test_env_seed_offset
+        # SeedSequence generates a sequence of random values given an integer
+        # "entropy". We use CFG.seed to define the "entropy" and then get the
+        # n^th generated random value and use that to seed the gym environment.
+        # This is all to avoid unintentional dependence between experiments
+        # that are conducted with consecutive random seeds. For example, if
+        # we used CFG.seed + task_idx to seed the gym environment, there would
+        # be overlap between experiments when CFG.seed = 1, CFG.seed = 2, etc.
         entropy = CFG.seed
         if train_or_test == "test":
             entropy += CFG.test_env_seed_offset
