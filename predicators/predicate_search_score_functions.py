@@ -12,6 +12,9 @@ from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
 
 import numpy as np
 import scipy
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 
 from predicators import utils
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -161,7 +164,19 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
             return self._evaluate(frozenset(new_preds + preds_without_constants))
 
         if len(preds_with_constants) > 0:
-            ret = scipy.optimize.basinhopping(obj_to_optimize, [20.0], niter=25)
+            # ret = scipy.optimize.basinhopping(obj_to_optimize, [50.0], niter=25, stepsize=5.0)
+            # import ipdb; ipdb.set_trace()
+            constant_vals = np.linspace(1.5, 13.5, 50)
+            obj_vals_for_const = []
+            for val in constant_vals:
+                curr_const_obj_val = obj_to_optimize([val])
+                print(curr_const_obj_val)
+                obj_vals_for_const.append(curr_const_obj_val)
+            obj_vals_for_const = np.array(obj_vals_for_const)
+            max_val = np.nanmax(obj_vals_for_const[obj_vals_for_const != np.inf])
+            obj_vals_for_const = np.nan_to_num(obj_vals_for_const, posinf=max_val)
+            plt.plot(constant_vals, obj_vals_for_const)
+            plt.show()
             import ipdb; ipdb.set_trace()
 
         return self._evaluate(candidate_predicates)
