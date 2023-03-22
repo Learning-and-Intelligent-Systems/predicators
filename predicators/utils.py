@@ -1706,31 +1706,40 @@ def run_policy_guided_astar(
     return state_seq, action_seq
 
 
-_BiRRTState = TypeVar("_BiRRTState")
+_RRTState = TypeVar("_RRTState")
 
 
-class BiRRT(Generic[_BiRRTState]):
-    """Bidirectional rapidly-exploring random tree."""
+class RRT(Generic[_RRTState]):
+    """Rapidly-exploring random tree."""
 
-    def __init__(self, sample_fn: Callable[[_BiRRTState], _BiRRTState],
-                 extend_fn: Callable[[_BiRRTState, _BiRRTState],
-                                     Iterator[_BiRRTState]],
-                 collision_fn: Callable[[_BiRRTState], bool],
-                 distance_fn: Callable[[_BiRRTState, _BiRRTState],
-                                       float], rng: np.random.Generator,
-                 num_attempts: int, num_iters: int, smooth_amt: int):
+    def __init__(self,
+                 sample_fn: Callable[[_RRTState], _RRTState],
+                 extend_fn: Callable[[_RRTState, _RRTState],
+                                     Iterator[_RRTState]],
+                 collision_fn: Callable[[_RRTState], bool],
+                 distance_fn: Callable[[_RRTState, _RRTState], float],
+                 rng: np.random.Generator,
+                 num_attempts: int,
+                 num_iters: int,
+                 smooth_amt: int,
+                 sample_goal_eps: float,
+                 goal_fn: Optional[Callable[[_RRTState], bool]] = None):
+        """Accepts an optional goal_fn; RRT will terminate successfully if it
+        reaches the target point OR goal_fn(state, target) is True."""
         self._sample_fn = sample_fn
         self._extend_fn = extend_fn
         self._collision_fn = collision_fn
         self._distance_fn = distance_fn
+        self._goal_fn = goal_fn
         self._rng = rng
         self._num_attempts = num_attempts
         self._num_iters = num_iters
         self._smooth_amt = smooth_amt
+        self._sample_goal_eps = sample_goal_eps
 
-    def query(self, pt1: _BiRRTState,
-              pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
-        """Query the BiRRT, to get a collision-free path from pt1 to pt2.
+    def query(self, pt1: _RRTState,
+              pt2: _RRTState) -> Optional[List[_RRTState]]:
+        """Query the RRT, to get a collision-free path from pt1 to pt2.
 
         If none is found, returns None.
         """
@@ -1745,8 +1754,8 @@ class BiRRT(Generic[_BiRRTState]):
                 return self._smooth_path(path)
         return None
 
-    def _try_direct_path(self, pt1: _BiRRTState,
-                         pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
+    def _try_direct_path(self, pt1: _RRTState,
+                         pt2: _RRTState) -> Optional[List[_RRTState]]:
         path = [pt1]
         for newpt in self._extend_fn(pt1, pt2):
             if self._collision_fn(newpt):
@@ -1754,45 +1763,40 @@ class BiRRT(Generic[_BiRRTState]):
             path.append(newpt)
         return path
 
-    def _rrt_connect(self, pt1: _BiRRTState,
-                     pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
-        root1, root2 = _BiRRTNode(pt1), _BiRRTNode(pt2)
-        nodes1, nodes2 = [root1], [root2]
-
-        def _get_pt_dist_to_node(pt: _BiRRTState,
-                                 node: _BiRRTNode[_BiRRTState]) -> float:
-            return self._distance_fn(pt, node.data)
+    def _rrt_connect(self, pt1: _RRTState,
+                     pt2: _RRTState) -> Optional[List[_RRTState]]:
+        root = _RRTNode(pt1)
+        nodes = [root]
 
         for _ in range(self._num_iters):
-            if len(nodes1) > len(nodes2):
-                nodes1, nodes2 = nodes2, nodes1
-            samp = self._sample_fn(pt1)
-            min_key1 = functools.partial(_get_pt_dist_to_node, samp)
-            nearest1 = min(nodes1, key=min_key1)
-            for newpt in self._extend_fn(nearest1.data, samp):
+            # Sample the goal with a small probability, otherwise randomly
+            # choose a point.
+            sample_goal = self._rng.random() < self._sample_goal_eps
+            samp = pt2 if sample_goal else self._sample_fn(pt1)
+            min_key = functools.partial(self._get_pt_dist_to_node, samp)
+            nearest = min(nodes, key=min_key)
+            for newpt in self._extend_fn(nearest.data, samp):
                 if self._collision_fn(newpt):
                     break
-                nearest1 = _BiRRTNode(newpt, parent=nearest1)
-                nodes1.append(nearest1)
-            min_key2 = functools.partial(_get_pt_dist_to_node, nearest1.data)
-            nearest2 = min(nodes2, key=min_key2)
-            for newpt in self._extend_fn(nearest2.data, nearest1.data):
-                if self._collision_fn(newpt):
-                    break
-                nearest2 = _BiRRTNode(newpt, parent=nearest2)
-                nodes2.append(nearest2)
+                nearest = _RRTNode(newpt, parent=nearest)
+                nodes.append(nearest)
             else:
-                path1 = nearest1.path_from_root()
-                path2 = nearest2.path_from_root()
-                # This is a tricky case to cover.
-                if path1[0] != root1:  # pragma: no cover
-                    path1, path2 = path2, path1
-                assert path1[0] == root1
-                path = path1[:-1] + path2[::-1]
+                # Managed to extend all the way to the sampled point
+                # Consider it a success if this was the target
+                if sample_goal:
+                    path = nearest.path_from_root()
+                    return [node.data for node in path]
+            # Check goal_fn if defined
+            if self._goal_fn is not None and self._goal_fn(nearest.data):
+                path = nearest.path_from_root()
                 return [node.data for node in path]
         return None
 
-    def _smooth_path(self, path: List[_BiRRTState]) -> List[_BiRRTState]:
+    def _get_pt_dist_to_node(self, pt: _RRTState,
+                             node: _RRTNode[_RRTState]) -> float:
+        return self._distance_fn(pt, node.data)
+
+    def _smooth_path(self, path: List[_RRTState]) -> List[_RRTState]:
         assert len(path) > 2
         for _ in range(self._smooth_amt):
             i = self._rng.integers(0, len(path) - 1)
@@ -1808,19 +1812,70 @@ class BiRRT(Generic[_BiRRTState]):
         return path
 
 
-class _BiRRTNode(Generic[_BiRRTState]):
-    """A node for BiRRT."""
+class BiRRT(RRT[_RRTState]):
+    """Bidirectional rapidly-exploring random tree."""
+
+    def __init__(self, sample_fn: Callable[[_RRTState], _RRTState],
+                 extend_fn: Callable[[_RRTState, _RRTState],
+                                     Iterator[_RRTState]],
+                 collision_fn: Callable[[_RRTState], bool],
+                 distance_fn: Callable[[_RRTState, _RRTState],
+                                       float], rng: np.random.Generator,
+                 num_attempts: int, num_iters: int, smooth_amt: int):
+        # _sample_goal_eps and _goal_fn aren't used in BiRRT so we just pass
+        # in dummy values for those parameters
+        super().__init__(sample_fn, extend_fn, collision_fn, distance_fn, rng,
+                         num_attempts, num_iters, smooth_amt, 0)
+
+    def _rrt_connect(self, pt1: _RRTState,
+                     pt2: _RRTState) -> Optional[List[_RRTState]]:
+        root1, root2 = _RRTNode(pt1), _RRTNode(pt2)
+        nodes1, nodes2 = [root1], [root2]
+
+        for _ in range(self._num_iters):
+            if len(nodes1) > len(nodes2):
+                nodes1, nodes2 = nodes2, nodes1
+            samp = self._sample_fn(pt1)
+            min_key1 = functools.partial(self._get_pt_dist_to_node, samp)
+            nearest1 = min(nodes1, key=min_key1)
+            for newpt in self._extend_fn(nearest1.data, samp):
+                if self._collision_fn(newpt):
+                    break
+                nearest1 = _RRTNode(newpt, parent=nearest1)
+                nodes1.append(nearest1)
+            min_key2 = functools.partial(self._get_pt_dist_to_node,
+                                         nearest1.data)
+            nearest2 = min(nodes2, key=min_key2)
+            for newpt in self._extend_fn(nearest2.data, nearest1.data):
+                if self._collision_fn(newpt):
+                    break
+                nearest2 = _RRTNode(newpt, parent=nearest2)
+                nodes2.append(nearest2)
+            else:
+                path1 = nearest1.path_from_root()
+                path2 = nearest2.path_from_root()
+                # This is a tricky case to cover.
+                if path1[0] != root1:  # pragma: no cover
+                    path1, path2 = path2, path1
+                assert path1[0] == root1
+                path = path1[:-1] + path2[::-1]
+                return [node.data for node in path]
+        return None
+
+
+class _RRTNode(Generic[_RRTState]):
+    """A node for RRT."""
 
     def __init__(self,
-                 data: _BiRRTState,
-                 parent: Optional[_BiRRTNode[_BiRRTState]] = None) -> None:
+                 data: _RRTState,
+                 parent: Optional[_RRTNode[_RRTState]] = None) -> None:
         self.data = data
         self.parent = parent
 
-    def path_from_root(self) -> List[_BiRRTNode[_BiRRTState]]:
+    def path_from_root(self) -> List[_RRTNode[_RRTState]]:
         """Return the path from the root to this node."""
         sequence = []
-        node: Optional[_BiRRTNode[_BiRRTState]] = self
+        node: Optional[_RRTNode[_RRTState]] = self
         while node is not None:
             sequence.append(node)
             node = node.parent

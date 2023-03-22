@@ -286,6 +286,17 @@ class GlobalSettings:
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
 
+    # exit_garage env parameters
+    exit_garage_pick_place_refine_penalty = 0.1
+    exit_garage_min_num_obstacles = 3
+    exit_garage_max_num_obstacles = 6
+    exit_garage_rrt_extend_fn_threshold = 1e-4
+    exit_garage_rrt_num_control_samples = 50
+    exit_garage_rrt_num_attempts = 10
+    exit_garage_rrt_num_iters = 100
+    exit_garage_rrt_smooth_amt = 50
+    exit_garage_rrt_sample_goal_eps = 0.1
+
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
