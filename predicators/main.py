@@ -447,10 +447,11 @@ def _run_episode(
                 act = cogman.step(obs)
                 metrics["policy_call_time"] += time.perf_counter() - start_time
                 # Note: it's important to call monitor.observe() before
-                # env.step(), because the monitor may use the environment's
-                # internal state. Note that the monitor is not part of the
-                # agent -- it's just meant to collect statistics -- so it's
-                # okay if it accesses environment internals.
+                # env.step(), because the monitor may, for example, call
+                # env.render(), which outputs images of the current env
+                # state. If we instead called env.step() first, we would
+                # mistakenly record images of the next time step instead of
+                # the current one.
                 if monitor is not None:
                     monitor.observe(obs, act)
                     monitor_observed = True

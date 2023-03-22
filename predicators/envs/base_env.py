@@ -192,7 +192,15 @@ class BaseEnv(abc.ABC):
 
         Subclasses may override.
         """
-        return self._current_task.task.goal_holds(self._current_state)
+        # NOTE: this is a convenience hack because most environments that are
+        # currently implemented have goal descriptions that are simply sets of
+        # ground atoms. In the future, it may be better to implement this on a
+        # per-environment basis anyway, to make clear that we do not need to
+        # make this assumption about goal descriptions in general.
+        goal = self._current_task.goal_description
+        assert isinstance(goal, set)
+        assert not goal or isinstance(next(iter(goal)), GroundAtom)
+        return all(goal_atom.holds(self._current_state) for goal_atom in goal)
 
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         """Create a task from a JSON file.
