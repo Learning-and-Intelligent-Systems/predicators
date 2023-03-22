@@ -98,7 +98,9 @@ def main() -> None:
     # constructed from a train EnvironmentTask. In other words, the initial obs
     # is assumed to contain enough information to determine all of the objects
     # and their initial states. We only make this assumption for the training
-    # tasks, we don't need to make it for the test tasks.
+    # tasks, we don't need to make it for the test tasks. We need to make it
+    # for training tasks because all of the data collection here is offline,
+    # so there would be no way for agent to gather information in training.
     train_tasks = [t.task for t in env_train_tasks]
     # If train tasks have goals that involve excluded predicates, strip those
     # predicate classifiers to prevent leaking information to the approaches.
