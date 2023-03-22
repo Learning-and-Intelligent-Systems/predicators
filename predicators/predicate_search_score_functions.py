@@ -331,6 +331,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # approximate this using node creations and by adding a penalty
             # for every skeleton after the first to account for backtracking.
             expected_planning_time = 0.0
+            expected_planning_time_list = []
             # Keep track of the probability that a refinable skeleton has still
             # not been found, updated after each new goal-reaching skeleton is
             # considered.
@@ -383,9 +384,11 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # soft assumption that some skeleton will eventually work.
             ub = CFG.grammar_search_expected_nodes_upper_bound
             expected_planning_time += refinable_skeleton_not_found_prob * ub
+            expected_planning_time_list += [expected_planning_time]
             # The score is simply the total expected planning time.
             score += expected_planning_time
         return score
+        # return max(expected_planning_time_list)
 
     @staticmethod
     def _get_refinement_prob(
