@@ -678,7 +678,7 @@ def test_sesame_plan_fast_downward():
                        for act in plan)  # pragma: no cover
             assert metrics["num_nodes_created"] >= \
                 metrics["num_nodes_expanded"]  # pragma: no cover
-        except AssertionError as e:
+        except AssertionError as e:  # pragma: no cover
             # If the FD_EXEC_PATH environment variable is not set, we should
             # crash in the planner.
             assert "Please follow the instructions" in str(e)
