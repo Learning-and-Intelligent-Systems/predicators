@@ -86,9 +86,7 @@ def test_sokoban():
     # Hardcode a sequence of actions to achieve one example of GoalCovered.
     # This is brittle, but we don't want to plan because it could be slow
     # without Fast Downward, which is not installed on the test server.
-    plan = [
-        "MoveDown", "MoveDown", "MoveLeft", "MoveLeft", "MoveUp", "PushRight"
-    ]
+    plan = ["PushUp", "PushUp"]
     option_names = {o.name: o for o in options}
     for name in plan:
         param_option = option_names[name]
