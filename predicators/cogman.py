@@ -50,7 +50,9 @@ class CogMan:
         act = self._current_policy(state)
         return act
 
-    # The methods below provide an interface to the approach.
+    # The methods below provide an interface to the approach. In the future,
+    # we may want to move some of these methods into cogman properly, e.g.,
+    # if we want the perceiver or execution monitor to learn from data.
 
     @property
     def is_learning_based(self) -> bool:

@@ -448,7 +448,9 @@ def _run_episode(
                 metrics["policy_call_time"] += time.perf_counter() - start_time
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may use the environment's
-                # internal state.
+                # internal state. Note that the monitor is not part of the
+                # agent -- it's just meant to collect statistics -- so it's
+                # okay if it accesses environment internals.
                 if monitor is not None:
                     monitor.observe(obs, act)
                     monitor_observed = True
