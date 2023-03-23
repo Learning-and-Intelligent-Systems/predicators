@@ -338,10 +338,35 @@ class CoverEnv(BaseEnv):
                 return False
         return True
 
+    from typing import Callable
+    @staticmethod
+    def _create_HandEmpty_holds(self, threshold: float) -> Callable[[State, Sequence[Object]], bool]:
+        def _HandEmpty_holds_custom(state: State, objects: Sequence[Object]) -> bool:
+            assert not objects
+            for obj in state:
+                if obj.is_instance(self._block_type) and \
+                   state.get(obj, "grasp") > threshold:
+                    return False
+            return True
+        return _HandEmpty_holds_custom
+
+    def _create_HandEmpty_predicate(self, threshold: float) -> Predicate:
+        return Predicate("CustomHandEmpty", [], self._create_HandEmpty_holds(self, threshold))
+
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return state.get(block, "grasp") != -1
+
+    @staticmethod
+    def _create_Holding_holds(threshold: float) -> Callable[[State, Sequence[Object]], bool]:
+        def _Holding_holds_custom(state: State, objects: Sequence[Object]) -> bool:
+            block, = objects
+            return state.get(block, "grasp") > threshold
+        return _Holding_holds_custom
+
+    def _create_Holding_predicate(self, threshold: float) -> Predicate:
+        return Predicate("CustomHolding", [self._block_type], self._create_Holding_holds(threshold))
 
     def _any_intersection(self,
                           pose: float,

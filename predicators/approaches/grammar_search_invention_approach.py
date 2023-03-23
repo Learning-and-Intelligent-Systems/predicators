@@ -757,38 +757,149 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         logging.info("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
 
-        ##### START OF INTERVENTION 
+        ##### START RNT TEST
         # import pdb; pdb.set_trace()
-        # define the predicate we want to test 
-        from predicators.envs.repeated_nextto import RepeatedNextToEnv
-        env = RepeatedNextToEnv()
-        x = []
-        y = []
-        import numpy as np 
-        for t, i in enumerate(np.linspace(0, 15, 1000)):
-            print(f"Evaluating {t} out of 1000")
-            predicate_to_add = env._create_NextTo_predicate(i)
-            candidates = {predicate_to_add: 0}
+        # from predicators.envs.repeated_nextto import RepeatedNextToEnv
+        # env = RepeatedNextToEnv()
+        # x = []
+        # y = []
+        # import numpy as np 
+        # for t, i in enumerate(np.linspace(0, 15, 1000)):
+        #     print(f"Evaluating {t} out of 1000")
+        #     predicate_to_add = env._create_NextTo_predicate(i)
+        #     candidates = {predicate_to_add: 0}
+        #     atom_dataset = utils.create_ground_atom_dataset(
+        #         dataset.trajectories,
+        #         set(candidates) | self._initial_predicates)
+        #     score_function = create_score_function(
+        #         CFG.grammar_search_score_function, self._initial_predicates,
+        #         atom_dataset, candidates, self._train_tasks)
+        #     candidates2 = frozenset([predicate_to_add])
+        #     score = score_function.evaluate(candidates2)
+        #     x.append(i)
+        #     y.append(score)
+        # print("x: ", x)
+        # print("y: ", y)
+        # import matplotlib.pyplot as plt 
+        # plt.plot(x, y)
+        # plt.savefig("score_test.png")
+        # import pdb; pdb.set_trace()
+        ##### END RNT TEST
 
-            atom_dataset = utils.create_ground_atom_dataset(
-                dataset.trajectories,
-                set(candidates) | self._initial_predicates)
-            score_function = create_score_function(
-                CFG.grammar_search_score_function, self._initial_predicates,
-                atom_dataset, candidates, self._train_tasks)
-            candidates2 = frozenset([predicate_to_add])
-            score = score_function.evaluate(candidates2)
-            x.append(i)
-            y.append(score)
-        print("x: ", x)
-        print("y: ", y)
+        #### START BLOCKS TEST 
+        # import matplotlib.pyplot as plt 
+        # from predicators.envs.blocks import BlocksEnv 
+        # granularity = 50
+        # env = BlocksEnv()
+        # x = []
+        # y = []
+        # import numpy as np 
+        # # we want to see what the monotonicity graph looks like 
+        # # each time we add a predicate, for all permutations of 
+        # # orders of adding predicates 
+        # # create all permutations of all four predicates 
+        # perms = list(itertools.permutations([1,2,3,4]))
+        # P2 = env._Clear
+        # P1_range = np.linspace(0, 5, granularity)
+        # P3_range = np.linspace(0, 5, granularity)
+        # P4_range = np.linspace(-2, 2, granularity)
+        # d = {
+        #     1: [0.875, P1_range, env._create_P1_predicate],
+        #     3: [0.875, P3_range, env._create_P3_predicate],
+        #     4: [0.5, P4_range, env._create_P4_predicate]
+        # }
+
+        # # now loop through perms 
+        # for perm in perms:
+        #     print(f"Permutation: {perm}.")
+        #     running_candidates = set()
+        #     for j in range(len(perm)):
+        #         i = perm[j]
+        #         so_far = perm[:j+1]
+        #         print(f"Evaluating {so_far} predicate set.")
+        #         if i == 2:
+        #             running_candidates.add(env._Clear)
+        #         else:
+        #             f = d[i][2] # function to create predicate 
+        #             r = d[i][1] # range to evaluate over 
+
+        #             # run evaluation 
+        #             temp_candidates = running_candidates
+        #             x = []
+        #             y = []
+        #             for t, x_ in enumerate(r):
+        #                 print(f"Evaluating {t} out of {granularity} for P{i}.")
+        #                 # create predicate 
+        #                 p = f(x_) 
+
+        #                 temp_candidates.add(p)
+        #                 candidates = {c: 0 for c in temp_candidates}
+        #                 atom_dataset = utils.create_ground_atom_dataset(
+        #                     dataset.trajectories, 
+        #                     set(candidates) | self._initial_predicates)
+        #                 score_function = create_score_function(
+        #                     CFG.grammar_search_score_function, 
+        #                     self._initial_predicates,
+        #                     atom_dataset, candidates, 
+        #                     self._train_tasks)
+        #                 candidates2 = frozenset(temp_candidates)
+        #                 score = score_function.evaluate(candidates2)
+        #                 x.append(x_)
+        #                 y.append(score)
+
+        #             # plot 
+        #             plt.xlabel(f"threshold for P{i}")
+        #             plt.ylabel("max ETPT across all demos")
+        #             plt.title(f"Evaluating {i} in perm {str(perm)}")
+        #             plt.plot(x, y) 
+        #             plt.savefig(f"max_test/{perm}_{i}")
+
+        #             # now we are done plotting, now add the predicate to running candidates 
+        #             val = d[i][0]
+        #             best_p = f(val)
+        #             running_candidates.add(best_p)
+        #     import pdb; pdb.set_trace()
+        # END BLOCKS TEST
+
+
+        #### START COVER TEST 
+        # from predicators.envs.cover import CoverEnvHandEmpty 
+        # env = CoverEnvHandEmpty()
+        from predicators.envs.blocks import BlocksEnv 
+        env = BlocksEnv()
+
+        x = [] 
+        y = [] 
+        import numpy as np 
+        # evaluate Holding() as the first predicate learned 
+        # it's a single feature inequality on the block object 
+        # for t, i in enumerate(np.linspace(-5, 5, 100)):
+            # print(f"Evaluating {t} out of 100")
+            # predicate_to_add = env._create_Holding_predicate(i)
+            # predicate_to_add = env._create_HandEmpty_predicate(i)
+        predicate_to_add = env._Clear
+        candidates = {predicate_to_add: 0}
+        atom_dataset = utils.create_ground_atom_dataset(
+            dataset.trajectories,
+            set(candidates) | self._initial_predicates)
+        score_function = create_score_function(
+            CFG.grammar_search_score_function, self._initial_predicates,
+            atom_dataset, candidates, self._train_tasks)
+        candidates2 = frozenset([predicate_to_add])
+        score = score_function.evaluate(candidates2)
+        print("SCORE: ", score)
+        import pdb; pdb.set_trace()
+        #     x.append(i)
+        #     y.append(score)
+        # print("x: ", x)
+        # print("y: ", y)
         import matplotlib.pyplot as plt 
+        plt.xlabel("threshold")
+        plt.ylabel("max ETPT across all demos")
         plt.plot(x, y)
         plt.savefig("score_test.png")
         import pdb; pdb.set_trace()
-
-
-        ##### END OF INTERVENTION
+        #### END COVER TEST 
 
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)

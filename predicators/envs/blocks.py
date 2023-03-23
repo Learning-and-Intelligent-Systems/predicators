@@ -421,6 +421,46 @@ class BlocksEnv(BaseEnv):
         assert rf in (0.0, 1.0)
         return rf == 1.0
 
+
+    #### ADDED PREDICATES 
+    from typing import Callable 
+    
+    @staticmethod
+    def _create_P4_holds(threshold: float) -> Callable[[State, Sequence[Object]], bool]:
+        def _P4_holds(state: State, objects: Sequence[Object]) -> bool:
+            robot, = objects
+            rf = state.get(robot, "fingers")
+            return rf > threshold
+        return _P4_holds
+
+    def _create_P4_predicate(self, threshold: float) -> Predicate:
+        return Predicate("P4", [self._robot_type], self._create_P4_holds(threshold))
+
+    @staticmethod
+    def _create_P1_holds(threshold: float) -> Callable[[State, Sequence[Object]], bool]:
+        def _P1_holds(state: State, objects: Sequence[Object]) -> bool:
+            block, = objects
+            z = state.get(block, "pose_z")
+            return z <= threshold
+        return _P1_holds
+
+    def _create_P1_predicate(self, threshold: float) -> Predicate:
+        return Predicate("P1", [self._block_type], self._create_P1_holds(threshold))
+
+
+    @staticmethod
+    def _create_P3_holds(threshold: float) -> Callable[[State, Sequence[Object]], bool]:
+        def _P3_holds(state: State, objects: Sequence[Object]) -> bool:
+            block, = objects
+            z = state.get(block, "pose_z")
+            return z > threshold
+        return _P3_holds
+
+    def _create_P3_predicate(self, threshold: float) -> Predicate:
+        return Predicate("P3", [self._block_type], self._create_P3_holds(threshold))
+    #### ADDED PREDICATES 
+
+
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return self._get_held_block(state) == block
