@@ -48,7 +48,7 @@ class ExitGarageEnv(BaseEnv):
     robot_starting_y: ClassVar[float] = 0.8
     obstacle_area_left_boundary: ClassVar[float] = 0.4
     obstacle_area_vertical_padding: ClassVar[float] = 0.1
-    car_starting_x: ClassVar[float] = 0.1
+    car_starting_x: ClassVar[float] = 0.15
     car_starting_y: ClassVar[float] = 0.3
 
     robot_action_magnitude: ClassVar[float] = 0.1
@@ -117,7 +117,7 @@ class ExitGarageEnv(BaseEnv):
             next_state.set(self._car, "theta", new_theta)
             # If this causes a collision, revert the movement
             if self.car_has_collision(next_state) or \
-                    self._coords_out_of_bounds(cx + dx, cy + dy):
+                    self.coords_out_of_bounds(cx + dx, cy + dy):
                 next_state.set(self._car, "x", cx)
                 next_state.set(self._car, "y", cy)
                 next_state.set(self._car, "theta", theta)
@@ -155,7 +155,7 @@ class ExitGarageEnv(BaseEnv):
         # of bounds
         new_rx = rx + robot_dx
         new_ry = ry + robot_dy
-        if not self._coords_out_of_bounds(new_rx, new_ry):
+        if not self.coords_out_of_bounds(new_rx, new_ry):
             next_state.set(self._robot, "x", new_rx)
             next_state.set(self._robot, "y", new_ry)
         return next_state
@@ -287,7 +287,7 @@ class ExitGarageEnv(BaseEnv):
             # Generate a random number of obstacles
             num_obstacles = rng.integers(
                 CFG.exit_garage_min_num_obstacles,
-                CFG.exit_garage_max_num_obstacles,
+                CFG.exit_garage_max_num_obstacles + 1,
             )
             # Randomly generate obstacle positions to avoid collisions
             obstacle_geoms: List[_Geom2D] = []
@@ -354,9 +354,9 @@ class ExitGarageEnv(BaseEnv):
         not_carried = state.get(obstacle, "carried") == 0
         return not_carried and not in_storage
 
-    def _coords_out_of_bounds(self, new_x: float, new_y: float) -> bool:
-        if (self.x_lb <= new_x <= self.x_ub) and (self.y_lb <= new_y <=
-                                                  self.y_ub):
+    @classmethod
+    def coords_out_of_bounds(cls, new_x: float, new_y: float) -> bool:
+        if (cls.x_lb <= new_x <= cls.x_ub) and (cls.y_lb <= new_y <= cls.y_ub):
             return False
         return True
 
@@ -416,8 +416,6 @@ class ExitGarageEnv(BaseEnv):
         anything).
         """
         robot, = state.get_objects(cls._robot_type)
-        if state.get(robot, "carrying") == 1:
-            return None  # already carrying something
         rx = state.get(robot, "x")
         ry = state.get(robot, "y")
         if ry > 1.0 - cls.storage_area_width:
@@ -451,7 +449,12 @@ class ExitGarageEnv(BaseEnv):
         # Car
         if obj.is_instance(cls._car_type):
             theta = state.get(obj, "theta")
-            return utils.Rectangle(x, y, cls.car_width, cls.car_length, theta)
+            # Need to rotate about the center of the car not the top corner
+            # so create the translated Rectangle without rotation, then rotate
+            geom = utils.Rectangle(x - cls.car_length / 2.0,
+                                   y - cls.car_width / 2.0, cls.car_length,
+                                   cls.car_width, 0)
+            return geom.rotate_about_point(x, y, theta)
         # Robot
         if obj.is_instance(cls._robot_type):
             return utils.Circle(x, y, cls.robot_radius)

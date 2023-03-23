@@ -16,7 +16,7 @@ from predicators.structs import Action, Array, Object, \
 
 class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the exit garage environment."""
-
+    
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {"exit_garage"}
@@ -32,9 +32,9 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         CarHasExited = predicates["CarHasExited"]
         CarryingObstacle = predicates["CarryingObstacle"]
+        NotCarryingObstacle = predicates["NotCarryingObstacle"]
         ObstacleCleared = predicates["ObstacleCleared"]
         ObstacleNotCleared = predicates["ObstacleNotCleared"]
-        NotCarryingObstacle = predicates["NotCarryingObstacle"]
 
         def _motion_plan_policy(state: State, memory: Dict,
                                 objects: Sequence[Object],
@@ -192,8 +192,10 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def _distance_fn(from_pt: Array, to_pt: Array) -> float:
             distance = np.sum(np.subtract(from_pt[:2], to_pt[:2])**2)
-            scaled_angle_dist = (from_pt[2] - to_pt[2]) / np.pi
-            scaled_angle_dist = (scaled_angle_dist + 1) % 2.0 - 1
+            angle_dist = (from_pt[2] - to_pt[2] + np.pi) % (2 * np.pi) - np.pi
+            # We need to scale the weight of the angle for the distance down
+            # because it should matter but not as much as the position diff
+            scaled_angle_dist = angle_dist / (10 * np.pi)
             distance += scaled_angle_dist**2
             return distance
 
@@ -223,9 +225,11 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def _collision_fn(pt: Array) -> bool:
             # Check for collision of car in non-holonomic case
+            x, y, theta = pt
+            if ExitGarageEnv.coords_out_of_bounds(x, y):
+                return True
             # Make a hypothetical state for the car at this point and check
             # if there would be collisions.
-            x, y, theta = pt
             s = state.copy()
             s.set(move_obj, "x", x)
             s.set(move_obj, "y", y)
@@ -302,8 +306,9 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
                 yield pt1 * (1 - i / num) + pt2 * i / num
 
         def _collision_fn(pt: Array) -> bool:
-            # For ceiling robot, there are no collisions
-            return False
+            # For ceiling robot, there are no collisions except out of bounds
+            x, y = pt
+            return ExitGarageEnv.coords_out_of_bounds(x, y)
 
         birrt = utils.BiRRT(_sample_fn,
                             _extend_fn,

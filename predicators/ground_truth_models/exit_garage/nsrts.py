@@ -24,14 +24,13 @@ class ExitGarageGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         car_type = types["car"]
         robot_type = types["robot"]
         obstacle_type = types["obstacle"]
-        storage_type = types["storage"]
 
         # Predicates
         CarHasExited = predicates["CarHasExited"]
         CarryingObstacle = predicates["CarryingObstacle"]
+        NotCarryingObstacle = predicates["NotCarryingObstacle"]
         ObstacleCleared = predicates["ObstacleCleared"]
         ObstacleNotCleared = predicates["ObstacleNotCleared"]
-        NotCarryingObstacle = predicates["NotCarryingObstacle"]
 
         # Options
         DriveCarToExit = options["DriveCarToExit"]
