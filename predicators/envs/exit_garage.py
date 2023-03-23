@@ -1,7 +1,6 @@
 """Environment for refinement cost learning with varying object counts."""
 
-import logging
-from typing import ClassVar, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -133,7 +132,6 @@ class ExitGarageEnv(BaseEnv):
             if carried_obstacle is None:
                 # Pick up an obstacle if robot is over one
                 object_to_pick = self._robot_picked_obstacle(state)
-                logging.info(object_to_pick)
                 if object_to_pick is not None:
                     next_state.set(object_to_pick, "carried", 1)
                     next_state.set(self._robot, "carrying", 1)
@@ -268,7 +266,7 @@ class ExitGarageEnv(BaseEnv):
 
         tasks: List[Task] = []
         while len(tasks) < num:
-            state_dict = {
+            state_dict: Dict[Object, Dict[str, float]] = {
                 self._car: {
                     "x": self.car_starting_x,
                     "y": self.car_starting_y,
@@ -356,6 +354,11 @@ class ExitGarageEnv(BaseEnv):
 
     @classmethod
     def coords_out_of_bounds(cls, new_x: float, new_y: float) -> bool:
+        """Checks if coordinates are out of the bounds of the environment.
+
+        This is made public because it is used both in simulate and in
+        the externally-defined ground-truth options.
+        """
         if (cls.x_lb <= new_x <= cls.x_ub) and (cls.y_lb <= new_y <= cls.y_ub):
             return False
         return True
@@ -401,9 +404,7 @@ class ExitGarageEnv(BaseEnv):
         for obstacle in state.get_objects(cls._obstacle_type):
             if state.get(obstacle, "carried") == 1:
                 return obstacle
-        # If we get here, there's an issue because the robot is carrying
-        # something, but nothing is marked as being carried
-        raise EnvironmentError("Can't determine carried obstacle")
+        raise EnvironmentError("Shouldn't get here")
 
     @classmethod
     def _robot_picked_obstacle(cls, state: State) -> Optional[Object]:

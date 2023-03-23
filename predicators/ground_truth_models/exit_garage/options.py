@@ -10,13 +10,13 @@ from predicators import utils
 from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Object, \
-    ParameterizedInitiable, ParameterizedOption, Predicate, State, Type
+from predicators.structs import Action, Array, Object, ParameterizedOption, \
+    Predicate, State, Type
 
 
 class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the exit garage environment."""
-    
+
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {"exit_garage"}
@@ -106,11 +106,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Set up the target input for the motion planner.
             target_x = state.get(obstacle, "x")
             target_y = state.get(obstacle, "y")
-            success = cls._run_birrt(state, memory, params, robot,
-                                     np.array([target_x, target_y]))
-            if not success:
-                # Failed to find motion plan, so option is not initiable
-                return False
+            cls._plan_direct(state, memory, params, robot,
+                             np.array([target_x, target_y]))
             # Append pickup action to memory action plan
             memory["action_plan"].append(
                 Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))
@@ -137,7 +134,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _StoreObstacle_initiable(state: State, memory: Dict,
                                      objects: Sequence[Object],
                                      params: Array) -> bool:
-            robot, target = objects
+            robot, _ = objects
             if not CarryingObstacle.holds(state, objects):
                 return False  # obstacle isn't being carried, so can't store
             storage, = state.get_objects(storage_type)
@@ -146,11 +143,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             target_x = (0.01 + ExitGarageEnv.obstacle_radius * 2) * num_stored
             target_x += ExitGarageEnv.obstacle_radius
             target_y = 1.0 - ExitGarageEnv.storage_area_width / 2
-            success = cls._run_birrt(state, memory, params, robot,
-                                     np.array([target_x, target_y]))
-            if not success:
-                # Failed to find motion plan, so option is not initiable
-                return False
+            cls._plan_direct(state, memory, params, robot,
+                             np.array([target_x, target_y]))
             # Append place action to memory action plan
             memory["action_plan"].append(
                 Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))
@@ -226,15 +220,14 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _collision_fn(pt: Array) -> bool:
             # Check for collision of car in non-holonomic case
             x, y, theta = pt
-            if ExitGarageEnv.coords_out_of_bounds(x, y):
-                return True
             # Make a hypothetical state for the car at this point and check
             # if there would be collisions.
             s = state.copy()
             s.set(move_obj, "x", x)
             s.set(move_obj, "y", y)
             s.set(move_obj, "theta", theta)
-            return ExitGarageEnv.car_has_collision(s)
+            return ExitGarageEnv.car_has_collision(
+                s) or ExitGarageEnv.coords_out_of_bounds(x, y)
 
         rrt = utils.RRT(_sample_fn,
                         _extend_fn,
@@ -243,7 +236,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
                         rng,
                         num_attempts=CFG.exit_garage_rrt_num_attempts,
                         num_iters=CFG.exit_garage_rrt_num_iters,
-                        smooth_amt=CFG.exit_garage_rrt_smooth_amt,
+                        smooth_amt=0,
                         sample_goal_eps=CFG.exit_garage_rrt_sample_goal_eps,
                         goal_fn=goal_fn)
         # Run planning.
@@ -277,26 +270,14 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
         return True
 
     @classmethod
-    def _run_birrt(cls, state: State, memory: Dict, params: Array,
-                   move_obj: Object, target_position: Array) -> bool:
-        """Runs BiRRT to motion plan from start to target positions, and store
-        the position and action plans in memory if successful.
+    def _plan_direct(cls, state: State, memory: Dict, params: Array,
+                     move_obj: Object, target_position: Array) -> None:
+        """Set position and action plans for a straight line from the
+        starting position to the target position.
 
-        Returns True if successful, else False
+        Returns True.
         """
-        rng = np.random.default_rng(int(params[0] * 1e4))
-
-        def _sample_fn(_: Array) -> Array:
-            # Sample a point in the environment
-            sample = [
-                rng.uniform(ExitGarageEnv.x_lb, ExitGarageEnv.x_ub),  # x
-                rng.uniform(ExitGarageEnv.y_lb, ExitGarageEnv.y_ub),  # y
-            ]
-            return np.array(sample, dtype=np.float32)
-
-        def _distance_fn(from_pt: Array, to_pt: Array) -> float:
-            distance = np.sum(np.subtract(from_pt[:2], to_pt[:2])**2)
-            return distance
+        del params  # unused
 
         def _extend_fn(pt1: Array, pt2: Array) -> Iterator[Array]:
             # Make sure that we obey the bounds on actions.
@@ -305,29 +286,14 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             for i in range(1, num + 1):
                 yield pt1 * (1 - i / num) + pt2 * i / num
 
-        def _collision_fn(pt: Array) -> bool:
-            # For ceiling robot, there are no collisions except out of bounds
-            x, y = pt
-            return ExitGarageEnv.coords_out_of_bounds(x, y)
-
-        birrt = utils.BiRRT(_sample_fn,
-                            _extend_fn,
-                            _collision_fn,
-                            _distance_fn,
-                            rng,
-                            num_attempts=CFG.exit_garage_rrt_num_attempts,
-                            num_iters=CFG.exit_garage_rrt_num_iters,
-                            smooth_amt=CFG.exit_garage_rrt_smooth_amt)
         # Run planning.
         start_pos_list = [
             state.get(move_obj, "x"),
             state.get(move_obj, "y"),
         ]
         start_position = np.array(start_pos_list)
-        position_plan = birrt.query(start_position, target_position)
-        # If motion planning fails, determine the option to be not initiable.
-        if position_plan is None:
-            return False
+        extender = _extend_fn(start_position, target_position)
+        position_plan = [start_position] + list(extender)
         # The position plan is used for the termination check, and possibly
         # can be used for debug drawing in the rendering in the future.
         memory["position_plan"] = position_plan
@@ -338,4 +304,3 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             for (dx, dy) in deltas
         ]
         memory["action_plan"] = action_plan
-        return True

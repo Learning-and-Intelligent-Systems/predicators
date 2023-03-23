@@ -294,7 +294,6 @@ class GlobalSettings:
     exit_garage_rrt_num_control_samples = 50
     exit_garage_rrt_num_attempts = 10
     exit_garage_rrt_num_iters = 100
-    exit_garage_rrt_smooth_amt = 50
     exit_garage_rrt_sample_goal_eps = 0.1
 
     # coffee env parameters

@@ -1775,19 +1775,17 @@ class RRT(Generic[_RRTState]):
             samp = pt2 if sample_goal else self._sample_fn(pt1)
             min_key = functools.partial(self._get_pt_dist_to_node, samp)
             nearest = min(nodes, key=min_key)
+            reached_goal = False
             for newpt in self._extend_fn(nearest.data, samp):
                 if self._collision_fn(newpt):
                     break
                 nearest = _RRTNode(newpt, parent=nearest)
                 nodes.append(nearest)
             else:
-                # Managed to extend all the way to the sampled point
-                # Consider it a success if this was the target
-                if sample_goal:
-                    path = nearest.path_from_root()
-                    return [node.data for node in path]
+                reached_goal = sample_goal
             # Check goal_fn if defined
-            if self._goal_fn is not None and self._goal_fn(nearest.data):
+            if reached_goal or self._goal_fn is not None and self._goal_fn(
+                    nearest.data):
                 path = nearest.path_from_root()
                 return [node.data for node in path]
         return None
