@@ -411,7 +411,7 @@ def _run_episode(
     max_num_steps: int,
     do_env_reset: bool = True,
     exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-    monitor: Optional[utils.Monitor] = None
+    monitor: Optional[utils.LoggingMonitor] = None
 ) -> Tuple[Tuple[List[Observation], List[Action]], bool, Metrics]:
     """Execute cogman starting from the initial state of a train or test task
     in the environment.

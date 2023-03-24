@@ -178,7 +178,7 @@ class Teacher:
 
 
 @dataclass
-class TeacherInteractionMonitor(utils.Monitor):
+class TeacherInteractionMonitor(utils.LoggingMonitor):
     """Wraps the interaction between agent and teacher to include generating
     and answering queries."""
     _request: InteractionRequest

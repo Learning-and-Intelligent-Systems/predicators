@@ -906,7 +906,7 @@ class StateWithCache(State):
         return StateWithCache(state_dict_copy, self.cache)
 
 
-class Monitor(abc.ABC):
+class LoggingMonitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
     @abc.abstractmethod
@@ -920,15 +920,15 @@ class Monitor(abc.ABC):
 
 
 def run_policy(
-        policy: Callable[[State], Action],
-        env: BaseEnv,
-        train_or_test: str,
-        task_idx: int,
-        termination_function: Callable[[State], bool],
-        max_num_steps: int,
-        do_env_reset: bool = True,
-        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-        monitor: Optional[Monitor] = None
+    policy: Callable[[State], Action],
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    termination_function: Callable[[State], bool],
+    max_num_steps: int,
+    do_env_reset: bool = True,
+    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+    monitor: Optional[LoggingMonitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
@@ -997,7 +997,7 @@ def run_policy_with_simulator(
         termination_function: Callable[[State], bool],
         max_num_steps: int,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-        monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+        monitor: Optional[LoggingMonitor] = None) -> LowLevelTrajectory:
     """Execute a policy from a given initial state, using a simulator.
 
     *** This function should not be used with any core code, because we want
@@ -2603,7 +2603,7 @@ def create_pddl_problem(objects: Collection[Object],
 
 
 @dataclass
-class VideoMonitor(Monitor):
+class VideoMonitor(LoggingMonitor):
     """A monitor that renders each state and action encountered.
 
     The render_fn is generally env.render. Note that the state is unused
@@ -2623,7 +2623,7 @@ class VideoMonitor(Monitor):
 
 
 @dataclass
-class SimulateVideoMonitor(Monitor):
+class SimulateVideoMonitor(LoggingMonitor):
     """A monitor that calls render_state on each state and action seen.
 
     This monitor is meant for use with run_policy_with_simulator, as

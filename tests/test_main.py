@@ -307,7 +307,7 @@ def test_run_episode():
             del task, timeout  # unused
             return self._policy
 
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0

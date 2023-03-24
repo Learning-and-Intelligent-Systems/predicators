@@ -561,7 +561,7 @@ def test_run_policy():
     def _policy(_):
         raise ValueError("mock error")
 
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0
@@ -700,7 +700,7 @@ def test_run_policy_with_simulator():
     assert len(traj.actions) == 3
 
     # Test with monitor.
-    class _NullMonitor(utils.Monitor):
+    class _NullMonitor(utils.LoggingMonitor):
 
         def observe(self, obs, action):
             pass
@@ -716,7 +716,7 @@ def test_run_policy_with_simulator():
     assert len(traj.actions) == 3
 
     # Test with monitor in case where an uncaught exception is raised.
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0
