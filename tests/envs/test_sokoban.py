@@ -62,9 +62,9 @@ def test_sokoban():
     assert env.action_space.shape == (9, )
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     assert len(nsrts) == 12
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = test_tasks[1]
     state = env.reset("test", 1)

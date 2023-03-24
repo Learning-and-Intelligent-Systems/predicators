@@ -11,8 +11,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class TouchPointEnv(BaseEnv):
@@ -65,10 +65,10 @@ class TouchPointEnv(BaseEnv):
         next_state.set(self._robot, "y", new_y)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -91,7 +91,7 @@ class TouchPointEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -115,14 +115,15 @@ class TouchPointEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment.
         goal_atom = GroundAtom(self._Touched, [self._robot, self._target])
         goal = {goal_atom}
         # The initial positions of the robot and dot vary. The only constraint
         # is that the initial positions should be far enough away that the goal
         # is not initially satisfied.
-        tasks: List[Task] = []
+        tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             state = utils.create_state_from_dict({
                 self._robot: {
@@ -136,7 +137,7 @@ class TouchPointEnv(BaseEnv):
             })
             # Make sure goal is not satisfied.
             if not goal_atom.holds(state):
-                tasks.append(Task(state, goal))
+                tasks.append(EnvironmentTask(state, goal))
         return tasks
 
     def _Touched_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -281,7 +282,7 @@ class TouchOpenEnv(TouchPointEnvParam):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -312,14 +313,15 @@ class TouchOpenEnv(TouchPointEnvParam):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         goal_atom1 = GroundAtom(self._TouchingDoor, [self._robot, self._door])
         goal_atom2 = GroundAtom(self._DoorIsOpen, [self._door])
         goal1 = {goal_atom1, goal_atom2}
         # The initial positions of the robot and door vary. The only constraint
         # is that the initial positions should be far enough away that the goal
         # is not initially satisfied.
-        tasks: List[Task] = []
+        tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             flex = rng.uniform(0.0, 1.0)
             rot = rng.uniform(0.0, 1.0)
@@ -340,7 +342,7 @@ class TouchOpenEnv(TouchPointEnvParam):
             })
             # Make sure the goal is not satisfied.
             if not goal_atom1.holds(state) and not goal_atom2.holds(state):
-                tasks.append(Task(state, goal1))
+                tasks.append(EnvironmentTask(state, goal1))
         return tasks
 
     def _TouchingDoor_holds(self, state: State,

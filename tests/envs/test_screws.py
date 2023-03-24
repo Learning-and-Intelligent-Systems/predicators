@@ -11,7 +11,7 @@ def test_screws():
     """Tests for ScrewsEnv class."""
     utils.reset_config({"seed": 0})
     env = ScrewsEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     task = train_tasks[0]
     env.render_state(task.init, task)
     # Goal predicates should be {ScrewInReceptacle}.

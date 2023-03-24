@@ -156,7 +156,7 @@ def test_pddlenv(domain_str, problem_strs):
     assert eat_fish_operator.delete_effects == set()
 
     # Problem creation checks.
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
     train_task = train_tasks[0]
     init = train_task.init
@@ -178,7 +178,7 @@ def test_pddlenv(domain_str, problem_strs):
         isRipe([ban1]), IsPink([salmon1])
     }
     assert train_task.goal == {ate([fish1]), ate([ban1]), ate([salmon1])}
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 1
     test_task = test_tasks[0]
     init = test_task.init
@@ -278,11 +278,11 @@ def test_fixed_tasks_pddlenv(domain_str, problem_strs):
 
     # Just check that the correspondence is correct. Detailed testing is
     # covered by test_pddlenv.
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
     train_task = train_tasks[0]
     assert len(set(train_task.init)) == 3
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 1
     test_task = test_tasks[0]
     assert len(set(test_task.init)) == 4
@@ -310,9 +310,9 @@ def test_fixed_tasks_blocks_pddl_env():
     assert {o.name
             for o in env.strips_operators
             } == {"pick-up", "put-down", "stack", "unstack"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal} == {"on"}
@@ -339,9 +339,9 @@ def test_procedural_tasks_blocks_pddl_env():
     assert {o.name
             for o in env.strips_operators
             } == {"pick-up", "put-down", "stack", "unstack"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"on", "ontable"})
@@ -369,9 +369,9 @@ def test_procedural_tasks_delivery_pddl_env():
             } == {"pick-up", "move", "deliver"}
     assert {o.name
             for o in env.strips_operators} == {"pick-up", "move", "deliver"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"satisfied"})
@@ -400,9 +400,9 @@ def test_procedural_tasks_spanner_pddl_env():
     assert {o.name
             for o in env.strips_operators
             } == {"walk", "pickup_spanner", "tighten_nut"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"tightened"})
@@ -428,9 +428,9 @@ def test_procedural_tasks_forest_pddl_env():
     assert {o.name
             for o in get_gt_options(env.get_name())} == {"walk", "climb"}
     assert {o.name for o in env.strips_operators} == {"walk", "climb"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"at"})
@@ -457,9 +457,9 @@ def test_procedural_tasks_gripper_pddl_env():
             for o in get_gt_options(env.get_name())
             } == {"move", "pick", "drop"}
     assert {o.name for o in env.strips_operators} == {"move", "pick", "drop"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"at"})
@@ -487,9 +487,9 @@ def test_procedural_tasks_prefixed_gripper_pddl_env():
             for o in get_gt_options(env.get_name())
             } == {"move", "pick", "drop"}
     assert {o.name for o in env.strips_operators} == {"move", "pick", "drop"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"preat"})
@@ -517,9 +517,9 @@ def test_procedural_tasks_ferry_pddl_env():
             } == {"board", "sail", "debark"}
     assert {o.name
             for o in env.strips_operators} == {"board", "sail", "debark"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"at"})
@@ -546,9 +546,9 @@ def test_procedural_tasks_miconic_pddl_env():
     assert {o.name
             for o in env.strips_operators
             } == {"board", "depart", "up", "down"}
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 2
-    test_tasks = env.get_test_tasks()
+    test_tasks = [t.task for t in env.get_test_tasks()]
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"served"})

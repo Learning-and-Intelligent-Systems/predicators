@@ -177,7 +177,8 @@ def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
     })
     env = create_new_env(env_name)
     options = get_gt_options(env.get_name())
-    train_tasks = env.get_train_tasks()
+    env_train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env_train_tasks]
     dataset = create_dataset(env, train_tasks, options)
     start_time = time.perf_counter()
 

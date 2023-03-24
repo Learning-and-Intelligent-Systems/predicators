@@ -45,7 +45,8 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder, expectation,
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    task = env.get_test_tasks()[0]
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     with expectation as e:
         plan, metrics = sesame_plan(
@@ -74,7 +75,8 @@ def test_task_plan():
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    task = env.get_train_tasks()[0]
+    env_task = env.get_train_tasks()[0]
+    task = env_task.task
     init_atoms = utils.abstract(task.init, env.predicates)
     objects = set(task.init)
     ground_nsrts, reachable_atoms = task_plan_grounding(
@@ -123,7 +125,8 @@ def test_sesame_plan_failures():
     option_model = create_option_model(CFG.option_model_name)
     approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
                               env.types, env.action_space, train_tasks)
-    task = train_tasks[0]
+    env_task = train_tasks[0]
+    task = env_task.task
     trivial_task = Task(task.init, set())
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
@@ -239,7 +242,8 @@ def test_sesame_plan_failures():
     utils.reset_config({"env": "painting", "painting_num_objs_train": [10]})
     env = PaintingEnv()
     train_tasks = env.get_train_tasks()
-    task = train_tasks[0]
+    env_task = train_tasks[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
                               env.types, env.action_space, train_tasks)
@@ -269,7 +273,8 @@ def test_sesame_plan_uninitiable_option():
                  nsrt.preconditions, nsrt.add_effects, nsrt.delete_effects,
                  nsrt.ignore_effects, new_option, nsrt.option_vars,
                  nsrt._sampler))
-    task = env.get_train_tasks()[0]
+    env_task = env.get_train_tasks()[0]
+    task = env_task.task
     with pytest.raises(PlanningFailure) as e:
         # Planning should reach sesame_max_skeletons_optimized
         sesame_plan(
@@ -296,7 +301,8 @@ def test_sesame_check_static_object_changes():
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    task = env.get_test_tasks()[0]
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     # In Cover, the NSRTs do not contain the robot as an argument, so planning
     # is not possible if we are checking for static object changes.
@@ -324,7 +330,8 @@ def test_sesame_check_static_object_changes():
     env = BlocksEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    task = env.get_test_tasks()[0]
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     plan, _ = sesame_plan(
         task,
@@ -508,7 +515,8 @@ def test_policy_guided_sesame():
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    task = env.get_test_tasks()[0]
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     # With a trivial policy, we would expect the number of nodes to be the
     # same as it would be if we planned with no policy.
@@ -658,7 +666,8 @@ def test_sesame_plan_fast_downward():
         env = ClutteredTableEnv()
         nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                              get_gt_options(env.get_name()))
-        task = env.get_test_tasks()[0]
+        env_task = env.get_test_tasks()[0]
+        task = env_task.task
         option_model = create_option_model(CFG.option_model_name)
         try:
             plan, metrics = sesame_plan(

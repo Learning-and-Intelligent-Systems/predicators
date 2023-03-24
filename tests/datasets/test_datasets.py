@@ -29,7 +29,7 @@ def test_demo_dataset():
         "num_train_tasks": 7,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
     dataset = create_dataset(env, train_tasks, options)
     assert len(dataset.trajectories) == 7
@@ -49,7 +49,7 @@ def test_demo_dataset():
         "num_train_tasks": 7,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert len(dataset.trajectories) == 7
     assert len(dataset.trajectories[0].states) == 3
@@ -76,7 +76,7 @@ def test_demo_dataset():
     Pick, Place = sorted(get_gt_options(env.get_name()))
     assert Pick.name == "Pick"
     assert Place.name == "Place"
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
     assert options == {Pick}
     dataset = create_dataset(env, train_tasks, options)
@@ -103,7 +103,7 @@ def test_demo_dataset():
         "num_train_tasks": 7,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     init = train_tasks[0].init
     HandEmpty = [pred for pred in env.predicates
                  if pred.name == "HandEmpty"][0]
@@ -120,7 +120,7 @@ def test_demo_dataset():
         "max_initial_demos": 3,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 7
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert len(dataset.trajectories) == 3
@@ -153,7 +153,7 @@ def test_demo_dataset():
     })
     video_file = os.path.join(video_dir, "cover__123__demo__task0.mp4")
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert len(dataset.trajectories) == 1
@@ -170,7 +170,7 @@ def test_demo_dataset():
         "bilevel_plan_without_sim": True,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
     dataset = create_dataset(env, train_tasks, options)
     assert len(dataset.trajectories) > 0
@@ -200,7 +200,7 @@ def test_demo_dataset_loading(num_train_tasks, load_data, demonstrator,
     if do_wipe_data_dir:
         shutil.rmtree(CFG.data_dir)
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     with expectation as e:
         dataset = create_dataset(env, train_tasks,
                                  get_gt_options(env.get_name()))
@@ -233,7 +233,7 @@ def test_demo_dataset_loading_tricky_case(num_train_tasks, load_data,
     if do_wipe_data_dir:
         shutil.rmtree(CFG.data_dir)
     env = BlocksEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     # Note the use of <= here rather than ==.
     assert len(dataset.trajectories) <= num_train_tasks
@@ -255,7 +255,7 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert len(dataset.trajectories) == 5 + 3
     assert len(dataset.trajectories[-1].states) == 2
@@ -278,7 +278,7 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
     dataset = create_dataset(env, train_tasks, options)
     assert len(dataset.trajectories) == 5 + 3
@@ -307,7 +307,7 @@ def test_demo_replay_dataset():
     Pick, Place = sorted(get_gt_options(env.get_name()))
     assert Pick.name == "Pick"
     assert Place.name == "Place"
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
     assert options == {Pick}
     dataset = create_dataset(env, train_tasks, options)
@@ -333,7 +333,7 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = ClutteredTableEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert len(dataset.trajectories[-1].states) == 2
     assert len(dataset.trajectories[-1].actions) == 1
@@ -351,7 +351,7 @@ def test_dataset_with_annotations():
         "num_train_tasks": 5,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     trajectories = create_dataset(env, train_tasks,
                                   get_gt_options(env.get_name())).trajectories
     # The annotations and trajectories need to be the same length.
@@ -381,7 +381,7 @@ def test_ground_atom_dataset():
         "excluded_predicates": "Holding,Covers",
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert len(dataset.trajectories) == 15
     assert len(dataset.annotations) == 15
@@ -432,7 +432,7 @@ def test_ground_atom_dataset():
         "excluded_predicates": "Holding,Covers",
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     with pytest.raises(ValueError):
         create_dataset(env, train_tasks, get_gt_options(env.get_name()))
 
@@ -444,7 +444,7 @@ def test_empty_dataset():
         "offline_data_method": "empty",
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert len(dataset.trajectories) == 0
     with pytest.raises(AssertionError):

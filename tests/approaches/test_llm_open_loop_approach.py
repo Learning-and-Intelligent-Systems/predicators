@@ -28,7 +28,7 @@ def test_llm_open_loop_approach():
         "offline_data_num_replays": 3,
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = LLMOpenLoopApproach(env.predicates,
                                    get_gt_options(env.get_name()), env.types,
                                    env.action_space, train_tasks)

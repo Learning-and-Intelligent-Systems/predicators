@@ -191,7 +191,7 @@ def test_blocks_load_task_from_json():
         })
 
         env = BlocksEnv()
-        test_tasks = env.get_test_tasks()
+        test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]
@@ -335,7 +335,7 @@ robby              1.35      0.75       0.7          1
 {"On": [["red_block", "green_block"], ["green_block", "blue_block"]],
  "OnTable": [["blue_block"]]}"""
             ]
-            test_tasks = env.get_test_tasks()
+            test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]

@@ -36,8 +36,8 @@ def test_refinement_estimation_approach():
         args["num_test_tasks"] = 2
     utils.reset_config(args)
     env = NarrowPassageEnv(use_gui=False)
-    train_tasks = env.get_train_tasks()
-    test_tasks = env.get_test_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    test_tasks = [t.task for t in env.get_test_tasks()]
     approach = RefinementEstimationApproach(env.predicates,
                                             get_gt_options(env.get_name()),
                                             env.types, env.action_space,

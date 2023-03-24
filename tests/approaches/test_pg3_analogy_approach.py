@@ -30,7 +30,7 @@ def test_pg3_analogy_approach():
     env = create_new_env(env_name)
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
 
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
 
