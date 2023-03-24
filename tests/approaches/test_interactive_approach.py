@@ -46,7 +46,7 @@ def test_interactive_learning_approach(predicate_classifier_model,
         "interactive_score_function": "frequency",
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     initial_predicates = {
         p
         for p in env.predicates if p.name not in ["Covers", "Holding"]

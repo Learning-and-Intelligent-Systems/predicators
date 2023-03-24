@@ -11,8 +11,8 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type, Video
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type, Video
 
 # Free, goals, boxes, player masks.
 _Observation = Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8],
@@ -73,10 +73,10 @@ class SokobanEnv(BaseEnv):
         # with ambiguity. The keys are the object names.
         self._box_loc_to_name: Dict[Tuple[int, int], str] = {}
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, train_or_test="test")
 
     @classmethod
@@ -86,14 +86,14 @@ class SokobanEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
 
     def render_state(self,
                      state: State,
-                     task: Task,
+                     task: EnvironmentTask,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> Video:
         raise NotImplementedError("A gym environment cannot render "
@@ -137,6 +137,7 @@ class SokobanEnv(BaseEnv):
     def reset(self, train_or_test: str, task_idx: int) -> State:
         """Resets the current state to the train or test task initial state."""
         self._current_task = self.get_task(train_or_test, task_idx)
+        # NOTE: current_state will be deprecated soon in favor of current_obs.
         self._current_state = self._current_task.init
         # We now need to reset the underlying gym environment to the correct
         # state.
@@ -156,7 +157,8 @@ class SokobanEnv(BaseEnv):
         self._current_state = self._observation_to_state(obs)
         return self._current_state.copy()
 
-    def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
         for task_idx in range(num):
             seed = self._get_task_seed(train_or_test, task_idx)
@@ -165,7 +167,7 @@ class SokobanEnv(BaseEnv):
             # The goal is always for all goal objects to be covered.
             goal_objs = self._get_objects_of_enum(init_state, "goal")
             goal = {GroundAtom(self._GoalCovered, [o]) for o in goal_objs}
-            task = Task(init_state, goal)
+            task = EnvironmentTask(init_state, goal)
             tasks.append(task)
         return tasks
 

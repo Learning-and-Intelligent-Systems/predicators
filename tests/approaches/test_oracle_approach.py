@@ -253,7 +253,8 @@ def test_oracle_approach(env_name, env_cls):
             args["num_test_tasks"] = 2
         utils.reset_config(args)
         env = env_cls(use_gui=False)
-        train_tasks = env.get_train_tasks()
+        train_tasks = [t.task for t in env.get_train_tasks()]
+        test_tasks = [t.task for t in env.get_test_tasks()]
         approach = OracleApproach(env.predicates,
                                   get_gt_options(env.get_name()), env.types,
                                   env.action_space, train_tasks)
@@ -261,7 +262,7 @@ def test_oracle_approach(env_name, env_cls):
         for task in train_tasks:
             policy = approach.solve(task, timeout=500)
             assert _policy_solves_task(policy, task, env.simulate)
-        for task in env.get_test_tasks():
+        for task in test_tasks:
             policy = approach.solve(task, timeout=500)
             assert _policy_solves_task(policy, task, env.simulate)
     # Tests if OracleApproach can load _OracleOptionModel
@@ -284,13 +285,13 @@ def test_planning_without_sim():
         # Raise an error (and fail the test) if simulate is called.
         mock_simulate.side_effect = AssertionError("Simulate called.")
         env = ProceduralTasksBlocksPDDLEnv(use_gui=False)
-        train_tasks = env.get_train_tasks()
+        train_tasks = [t.task for t in env.get_train_tasks()]
         approach = OracleApproach(env.predicates,
                                   get_gt_options(env.get_name()), env.types,
                                   env.action_space, train_tasks)
     # Test the policy outside of patch() because _policy_solves_task uses the
     # simulator.
-    task = env.get_test_tasks()[0]
+    task = env.get_test_tasks()[0].task
     policy = approach.solve(task, timeout=500)
     assert _policy_solves_task(policy, task, env.simulate)
     # Running the policy again should fail because the plan is empty.
@@ -338,7 +339,7 @@ def test_planning_without_sim():
         "bilevel_plan_without_sim": True,
     })
     env = CoverEnv(use_gui=False)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
 
     # Force options to be non-initiable.
     options = get_gt_options(env.get_name())
@@ -428,7 +429,7 @@ def test_cover_get_gt_nsrts():
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     assert pick_nsrt.name == "Pick"
     assert place_nsrt.name == "Place"
-    train_task = env.get_train_tasks()[0]
+    train_task = env.get_train_tasks()[0].task
     state = train_task.init
     block0, _, _, target0, _ = list(state)
     assert block0.name == "block0"
@@ -490,7 +491,7 @@ def test_cluttered_table_get_gt_nsrts(place_version):
         grasp_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
         assert grasp_nsrt.name == "Grasp"
         assert place_nsrt.name == "Place"
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     for (i, task) in enumerate(train_tasks):
         if i < len(train_tasks) / 2:
             utils.reset_config(
@@ -597,7 +598,7 @@ def test_playroom_simple_get_gt_nsrts():
                          get_gt_options(env.get_name()))
     movetabletodial = [nsrt for nsrt in nsrts \
                        if nsrt.name == "MoveTableToDial"][0]
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     train_task = train_tasks[0]
     state = train_task.init
     objs = list(state)
@@ -627,7 +628,7 @@ def test_playroom_get_gt_nsrts():
                          get_gt_options(env.get_name()))
     movedialtodoor = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDialToDoor"][0]
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     train_task = train_tasks[0]
     state = train_task.init
     objs = list(state)

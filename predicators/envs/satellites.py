@@ -29,8 +29,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class SatellitesEnv(BaseEnv):
@@ -167,13 +167,13 @@ class SatellitesEnv(BaseEnv):
             next_state.set(sat, "theta", theta)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks,
                                num_sat_lst=CFG.satellites_num_sat_train,
                                num_obj_lst=CFG.satellites_num_obj_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
                                num_sat_lst=CFG.satellites_num_sat_test,
                                num_obj_lst=CFG.satellites_num_obj_test,
@@ -209,7 +209,7 @@ class SatellitesEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         figsize = (1, 1)
@@ -257,7 +257,7 @@ class SatellitesEnv(BaseEnv):
 
     def _get_tasks(self, num: int, num_sat_lst: List[int],
                    num_obj_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         radius = self.radius + self.init_padding
         for _ in range(num):
@@ -343,7 +343,7 @@ class SatellitesEnv(BaseEnv):
                 elif self._HasGeiger_holds(init_state, [sat]):
                     goal_pred = self._GeigerReadingTaken
                 goal.add(GroundAtom(goal_pred, [sat, goal_obj_for_sat]))
-            task = Task(init_state, goal)
+            task = EnvironmentTask(init_state, goal)
             tasks.append(task)
         return tasks
 
@@ -481,13 +481,13 @@ class SatellitesSimpleEnv(SatellitesEnv):
     def get_name(cls) -> str:
         return "satellites_simple"
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks,
                                num_sat_lst=CFG.satellites_num_sat_train,
                                num_obj_lst=[1],
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
                                num_sat_lst=CFG.satellites_num_sat_test,
                                num_obj_lst=[1],

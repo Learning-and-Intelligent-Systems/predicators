@@ -209,7 +209,7 @@ def test_bilevel_planning_approach_failure_and_timeout():
         "num_test_tasks": 1,
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = _DummyFailureApproach(env.predicates,
                                      get_gt_options(env.get_name()), env.types,
                                      env.action_space, train_tasks)
@@ -243,7 +243,7 @@ def test_env_failure():
     })
     cover_options = get_gt_options("cover")
     env = _DummyCoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = create_approach("random_actions", env.predicates, cover_options,
                                env.types, env.action_space, train_tasks)
     assert not approach.is_learning_based

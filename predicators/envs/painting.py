@@ -17,8 +17,8 @@ from matplotlib import patches
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class PaintingEnv(BaseEnv):
@@ -263,12 +263,12 @@ class PaintingEnv(BaseEnv):
     def _num_objects_test(self) -> List[int]:
         return CFG.painting_num_objs_test
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                num_objs_lst=self._num_objects_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                num_objs_lst=self._num_objects_test,
                                rng=self._test_rng)
@@ -317,7 +317,7 @@ class PaintingEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
@@ -417,7 +417,7 @@ class PaintingEnv(BaseEnv):
         return False
 
     def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
@@ -505,7 +505,7 @@ class PaintingEnv(BaseEnv):
                 if self._update_z_poses:
                     state.set(target_obj, "pose_z",
                               state.get(target_obj, "pose_z") + 1.0)
-            tasks.append(Task(state, goal))
+            tasks.append(EnvironmentTask(state, goal))
         return tasks
 
     def _sample_initial_object_pose(
