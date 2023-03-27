@@ -3,7 +3,10 @@
 import abc
 from typing import Callable, Set
 
-from predicators.structs import Action, State, _GroundNSRT
+import numpy as np
+
+from predicators.settings import CFG
+from predicators.structs import NSRT, Action, Predicate, State, _GroundNSRT
 
 
 class BridgePolicyDone(Exception):
@@ -12,6 +15,11 @@ class BridgePolicyDone(Exception):
 
 class BaseBridgePolicy(abc.ABC):
     """Base bridge policy."""
+
+    def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT]) -> None:
+        self._predicates = predicates
+        self._nsrts = nsrts
+        self._rng = np.random.default_rng(CFG.seed)
 
     @classmethod
     @abc.abstractmethod

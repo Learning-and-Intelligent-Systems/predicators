@@ -1,40 +1,28 @@
 """A hand-written bridge policy."""
 
 import logging
-from typing import Callable, Dict, List, Set
+from typing import Callable, Dict, Set
 
 import numpy as np
 
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
-from predicators.envs import BaseEnv, get_or_create_env
-from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, BridgePolicy, DummyOption, \
-    GroundAtom, Predicate, State, Task, _GroundNSRT, _Option
+    GroundAtom, Predicate, State, _GroundNSRT, _Option
 
 
 class OracleBridgePolicy(BaseBridgePolicy):
     """A hand-written bridge policy."""
 
-    def __init__(self) -> None:
-        # TODO initialize with predicates and NSRTs instead
-        super().__init__()
-        env = get_or_create_env(CFG.env)
-        options = get_gt_options(CFG.env)
-        self._predicates = set(env.predicates)
-        self._nsrts = get_gt_nsrts(CFG.env, self._predicates, options)
-        self._rng = np.random.default_rng(CFG.seed)
+    def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT]) -> None:
+        super().__init__(predicates, nsrts)
         self._oracle_bridge_policy = _create_oracle_bridge_policy(
             CFG.env, self._nsrts, self._predicates, self._rng)
 
     @classmethod
     def get_name(cls) -> str:
         return "oracle"
-
-    @property
-    def is_learning_based(self) -> bool:
-        return False
 
     def get_policy(self,
                    failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
@@ -49,7 +37,7 @@ class OracleBridgePolicy(BaseBridgePolicy):
                 cur_option = self._oracle_bridge_policy(
                     state, atoms, failed_nsrt)
                 if not cur_option.initiable(state):
-                    raise OptionExecutionFailure(
+                    raise utils.OptionExecutionFailure(
                         "Bridge option not initiable.")
             act = cur_option.policy(state)
             return act
@@ -81,8 +69,9 @@ def _create_painting_oracle_bridge_policy(
 
     def _bridge_policy(state: State, atoms: Set[GroundAtom],
                        failed_nsrt: _GroundNSRT) -> _Option:
+        del atoms  # not used
         assert failed_nsrt.name == "PlaceInBox"
-        held_obj, box, robot = failed_nsrt.objects
+        held_obj, _, robot = failed_nsrt.objects
         lid = next(o for o in state if o.type.name == "lid")
 
         # If the box lid is already open, the bridge policy is done.
@@ -97,7 +86,7 @@ def _create_painting_oracle_bridge_policy(
         logging.debug(f"Using NSRT {next_nsrt.name}{next_nsrt.objects} "
                       "from bridge policy.")
 
-        goal = set()  # goal assumed not used by sampler
+        goal: Set[GroundAtom] = set()  # goal assumed not used by sampler
         return next_nsrt.sample_option(state, goal, rng)
 
     return _bridge_policy

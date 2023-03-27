@@ -5,8 +5,8 @@ Like bilevel-planning-without-sim, the approach makes an abstract plan and then
 greedily samples and executes each skill in the abstract plan. If at any point
 the skill fails to achieve its operator effects, control switches to a bridge
 policy, which takes the current state (low-level and abstract) and the last
-failed skill identity and returns a ground option or "done" (DummyOption). If
-"done", control is given back to the planner, which replans. If the bridge
+failed skill identity and returns a ground option or raises BridgePolicyDone.
+If done, control is given back to the planner, which replans. If the bridge
 policy outputs a ground option, that ground option is executed until
 termination and then the bridge policy is called again.
 
@@ -15,8 +15,7 @@ plannability" in states where the planner has gotten stuck.
 """
 
 import logging
-from pathlib import Path
-from typing import Any, Callable, List, Set, Tuple
+from typing import Callable, List, Optional, Set
 
 from gym.spaces import Box
 
@@ -25,8 +24,8 @@ from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, DummyOption, Metrics, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
+from predicators.structs import Action, DummyOption, ParameterizedOption, \
+    Predicate, State, Task, Type, _GroundNSRT
 from predicators.utils import OptionExecutionFailure
 
 
@@ -44,7 +43,10 @@ class BridgePolicyApproach(OracleApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks, task_planning_heuristic,
                          max_skeletons_optimized)
-        self._bridge_policy = create_bridge_policy(CFG.bridge_policy)
+        predicates = self._get_current_predicates()
+        nsrts = self._get_current_nsrts()
+        self._bridge_policy = create_bridge_policy(CFG.bridge_policy,
+                                                   predicates, nsrts)
 
     @classmethod
     def get_name(cls) -> str:
@@ -65,18 +67,19 @@ class BridgePolicyApproach(OracleApproach):
                 return current_policy(s)
             except BridgePolicyDone:
                 assert current_control == "bridge"
+                failed_nsrt = None  # not used, but satisfy linting
             except OptionExecutionFailure as e:
-                failed_nsrt = e.info["last_failed_nsrt"]
+                failed_nsrt = e.info.get("last_failed_nsrt", None)
 
             # Switch control from planner to bridge.
             if current_control == "planner":
-                logging.debug(f"Failed NSRT: {failed_nsrt.name}"
-                              f"{failed_nsrt.objects}.")
-                logging.debug("Switching control from planner to bridge.")
                 # Planner failed on the first time step.
                 if failed_nsrt is None:
                     assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed in init state.")
+                logging.debug(f"Failed NSRT: {failed_nsrt.name}"
+                              f"{failed_nsrt.objects}.")
+                logging.debug("Switching control from planner to bridge.")
                 current_control = "bridge"
                 current_policy = self._bridge_policy.get_policy(failed_nsrt)
                 # Special case: bridge policy passes control immediately back
@@ -84,7 +87,7 @@ class BridgePolicyApproach(OracleApproach):
                 # step, then this approach would be performing MPC.
                 try:
                     return current_policy(s)
-                except OptionExecutionFailure as e:
+                except BridgePolicyDone:
                     pass
 
             # Switch control from bridge to planner.

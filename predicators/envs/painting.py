@@ -14,7 +14,6 @@ import numpy as np
 from gym.spaces import Box
 from matplotlib import patches
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
@@ -217,8 +216,7 @@ class PaintingEnv(BaseEnv):
             if CFG.painting_raise_environment_failure:
                 raise EnvironmentFailure("Box lid is closed.",
                                          {"offending_objects": {self._lid}})
-            else:
-                return next_state
+            return next_state
         # Detect top grasp vs side grasp
         grasp = state.get(held_obj, "grasp")
         if grasp > self.top_grasp_thresh:
