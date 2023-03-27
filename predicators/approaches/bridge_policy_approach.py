@@ -73,6 +73,7 @@ class BridgePolicyApproach(OracleApproach):
                     assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed in init state.")
                 current_control = "bridge"
+                atoms = utils.abstract(s, self._get_current_predicates())
                 current_policy = self._bridge_policy.get_policy(s, atoms, last_failed_nsrt)
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
@@ -104,18 +105,26 @@ class BridgePolicyApproach(OracleApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        nsrt_queue, _ = self._run_task_plan(task, nsrts, preds, timeout, seed)
+        nsrt_queue, atoms_seq, _ = self._run_task_plan(task, nsrts, preds, timeout, seed)
+        atoms_queue = utils.compute_necessary_atoms_seq(
+                nsrt_queue, atoms_seq, task.goal)[1:]
         cur_nsrt: Optional[_GroundNSRT] = None
         last_nsrt: Optional[_GroundNSRT] = None
         cur_option = DummyOption
 
         def _policy(state: State) -> Action:
-            nonlocal cur_nsrt, cur_option
+            nonlocal cur_nsrt, last_nsrt, cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
                 if not nsrt_queue:
                     raise OptionExecutionFailure("Greedy option plan exhausted.",
                         info={"last_failed_nsrt": last_nsrt})
                 last_nsrt = cur_nsrt
+                if last_nsrt is not None:
+                    expected_atoms = atoms_queue.pop(0)
+                    if not all(a.holds(state) for a in expected_atoms):
+                        raise OptionExecutionFailure("Executing the option "
+                            "failed to achieve the NSRT effects.",
+                            info={"last_failed_nsrt": last_nsrt})
                 cur_nsrt = nsrt_queue.pop(0)
                 cur_option = cur_nsrt.sample_option(state, task.goal, self._rng)
                 if not cur_option.initiable(state):
