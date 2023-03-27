@@ -3,7 +3,11 @@
 import abc
 from typing import Callable, Set
 
-from predicators.structs import GroundAtom, State, _GroundNSRT, _Option, Action
+from predicators.structs import State, _GroundNSRT, Action
+
+
+class BridgePolicyDone(Exception):
+    """Raised when a bridge policy is done executing."""
 
 
 class BaseBridgePolicy(abc.ABC):
@@ -17,7 +21,6 @@ class BaseBridgePolicy(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def get_policy(self, state: State, atoms: Set[GroundAtom],
-                 failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
+    def get_policy(self, failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
         """The main method creating the bridge policy."""
         raise NotImplementedError("Override me!")

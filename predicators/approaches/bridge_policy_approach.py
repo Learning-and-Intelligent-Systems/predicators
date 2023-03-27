@@ -23,7 +23,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
-from predicators.bridge_policies import create_bridge_policy
+from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DummyOption, Metrics, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
@@ -63,18 +63,19 @@ class BridgePolicyApproach(OracleApproach):
             # switch to the next option if it has terminated.
             try:
                 return current_policy(s)
+            except BridgePolicyDone:
+                assert current_control == "bridge"
             except OptionExecutionFailure as e:
-                last_failed_nsrt = e.info["last_failed_nsrt"]
+                failed_nsrt = e.info["last_failed_nsrt"]
 
             # Switch control from planner to bridge.
             if current_control == "planner":
                 # Planner failed on the first time step.
-                if last_failed_nsrt is None:
+                if failed_nsrt is None:
                     assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed in init state.")
                 current_control = "bridge"
-                atoms = utils.abstract(s, self._get_current_predicates())
-                current_policy = self._bridge_policy.get_policy(s, atoms, last_failed_nsrt)
+                current_policy = self._bridge_policy.get_policy(failed_nsrt)
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
                 # step, then this approach would be performing MPC.
@@ -89,7 +90,7 @@ class BridgePolicyApproach(OracleApproach):
             current_control = "planner"
             current_policy = self._get_policy_by_planning(current_task, timeout)
             try:
-                return current_option.policy(s)
+                return current_policy(s)
             except OptionExecutionFailure as e:
                 raise ApproachFailure(e.args[0], e.info)
 

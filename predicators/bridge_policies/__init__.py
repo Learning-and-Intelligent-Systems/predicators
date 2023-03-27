@@ -1,9 +1,9 @@
 """Handle creation of bridge policies."""
 
 from predicators import utils
-from predicators.bridge_policies.base_bridge_policy import BaseBridgePolicy
+from predicators.bridge_policies.base_bridge_policy import BaseBridgePolicy, BridgePolicyDone
 
-__all__ = ["BaseBridgePolicy", "create_bridge_policy"]
+__all__ = ["BaseBridgePolicy", "BridgePolicyDone", "create_bridge_policy"]
 
 # Find the subclasses.
 utils.import_submodules(__path__, __name__)
