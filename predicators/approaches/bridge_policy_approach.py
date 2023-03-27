@@ -106,7 +106,7 @@ class BridgePolicyApproach(OracleApproach):
 
     def _get_policy_by_planning(self, task: Task,
                                 timeout: float) -> Callable[[State], Action]:
-        """Raises an OptionExecutionFailure with the last_failured_nsrt in its
+        """Raises an OptionExecutionFailure with the last_failed_nsrt in its
         info dict in the case where execution fails."""
 
         # Ensure random over successive calls.
