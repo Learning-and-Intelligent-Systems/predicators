@@ -70,6 +70,9 @@ class BridgePolicyApproach(OracleApproach):
 
             # Switch control from planner to bridge.
             if current_control == "planner":
+                logging.debug(f"Failed NSRT: {failed_nsrt.name}"
+                              f"{failed_nsrt.objects}.")
+                logging.debug("Switching control from planner to bridge.")
                 # Planner failed on the first time step.
                 if failed_nsrt is None:
                     assert s.allclose(task.init)
@@ -85,6 +88,7 @@ class BridgePolicyApproach(OracleApproach):
                     pass
             
             # Switch control from bridge to planner.
+            logging.debug("Switching control from bridge to planner.")
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
@@ -116,10 +120,10 @@ class BridgePolicyApproach(OracleApproach):
         def _policy(state: State) -> Action:
             nonlocal cur_nsrt, last_nsrt, cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
+                last_nsrt = cur_nsrt
                 if not nsrt_queue:
                     raise OptionExecutionFailure("Greedy option plan exhausted.",
                         info={"last_failed_nsrt": last_nsrt})
-                last_nsrt = cur_nsrt
                 if last_nsrt is not None:
                     expected_atoms = atoms_queue.pop(0)
                     if not all(a.holds(state) for a in expected_atoms):
@@ -127,6 +131,8 @@ class BridgePolicyApproach(OracleApproach):
                             "failed to achieve the NSRT effects.",
                             info={"last_failed_nsrt": last_nsrt})
                 cur_nsrt = nsrt_queue.pop(0)
+                logging.debug(f"Using NSRT {cur_nsrt.name}{cur_nsrt.objects} "
+                               "from planner.")
                 cur_option = cur_nsrt.sample_option(state, task.goal, self._rng)
                 if not cur_option.initiable(state):
                     raise OptionExecutionFailure("Greedy option not initiable.",

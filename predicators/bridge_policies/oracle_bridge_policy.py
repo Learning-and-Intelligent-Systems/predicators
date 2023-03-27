@@ -1,5 +1,6 @@
 """A hand-written bridge policy."""
 
+import logging
 from typing import Callable, List, Set, Dict
 import numpy as np
 
@@ -79,6 +80,9 @@ def _create_painting_oracle_bridge_policy(nsrt_name_to_nsrt: Dict[str, NSRT], pr
             next_nsrt = OpenLid.ground([lid, robot])
         else:
             next_nsrt = PlaceOnTable.ground([held_obj, robot])
+
+        logging.debug(f"Using NSRT {next_nsrt.name}{next_nsrt.objects} "
+                      "from bridge policy.")
 
         goal = set()  # goal assumed not used by sampler
         return next_nsrt.sample_option(state, goal, rng)
