@@ -51,75 +51,42 @@ class BridgePolicyApproach(OracleApproach):
         return "bridge_policy"
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        goal = task.goal
-
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         current_control = "planner"
-        current_option, current_nsrt, remaining_nsrt_plan = \
-            self._get_next_option_by_planning(task, timeout)
-
-        # Used to detect if an NSRT has failed / is stuck.
-        state_history: List[State] = []
-        option_history: List[Tuple[_Option, int]] = []  # (option, init time)
+        current_policy = self._get_policy_by_planning(task, timeout)
 
         def _policy(s: State) -> Action:
-            nonlocal current_control, current_option, current_nsrt, remaining_nsrt_plan
-            current_task = Task(s, goal)
-            state_history.append(s)
+            nonlocal current_control, current_policy
 
-            # Try to execute the current option.
-            if not self._current_option_is_stuck(current_option, current_nsrt,
-                                                 state_history,
-                                                 option_history):
-                try:
-                    return current_option.policy(s)
-                except OptionExecutionFailure:
-                    # Something went wrong, so we need a new option.
-                    pass
+            # Normal execution. Either keep executing the current option, or
+            # switch to the next option if it has terminated.
+            try:
+                return current_policy(s)
+            except OptionExecutionFailure as e:
+                last_failed_nsrt = e.info["last_failed_nsrt"]
 
-            found_new_option = False
-
-            # Case 1: planner is in control and there is another NSRT in
-            # the queue.
-            if current_control == "planner" and remaining_nsrt_plan:
-                try:
-                    current_option, current_nsrt, remaining_nsrt_plan = \
-                        self._pop_option_from_nsrt_plan(remaining_nsrt_plan, current_task)
-                    found_new_option = True
-                except OptionExecutionFailure:
-                    # The next option in the queue failed to initiate. Go
-                    # on to Case 2.
-                    pass
-
-            # Case 2: planner is in control, but failed, so need to switch
-            # to bridge policy.
-            if current_control == "planner" and not found_new_option:
+            # Switch control from planner to bridge.
+            if current_control == "planner":
+                # Planner failed on the first time step.
+                if last_failed_nsrt is None:
+                    assert s.allclose(task.init)
+                    raise ApproachFailure("Planning failed in init state.")
                 current_control = "bridge"
-                atoms = utils.abstract(s, self._get_current_predicates())
-                current_option = self._bridge_policy(s, atoms, current_nsrt)
-                # If the bridge policy is done immediately, then we should
-                # attempt to replan.
-                if current_option is not DummyOption:
-                    found_new_option = True
-
-            # Case 3: bridge policy is in control, but just finished, so
-            # we need to switch back to the planner.
-            if current_control == "bridge" and not found_new_option:
-                assert current_option is DummyOption
-                current_control = "planner"
+                current_policy = self._bridge_policy.get_policy(s, atoms, last_failed_nsrt)
+                # Special case: bridge policy passes control immediately back
+                # to the planner. For example, if this happened on every time
+                # step, then this approach would be performing MPC.
                 try:
-                    current_option, current_nsrt, remaining_nsrt_plan = \
-                        self._get_next_option_by_planning(current_task, timeout)
-                    found_new_option = True
-                except OptionExecutionFailure:
-                    raise ApproachFailure("Bridge policy terminated and "
-                                          "then planning failed.")
-
-            assert found_new_option
-            t = len(state_history) - 1
-            option_history.append((current_option, t))
-
+                    return current_policy(s)
+                except OptionExecutionFailure as e:
+                    pass
+            
+            # Switch control from bridge to planner.
+            assert current_control == "bridge"
+            current_task = Task(s, task.goal)
+            current_control = "planner"
+            current_policy = self._get_policy_by_planning(current_task, timeout)
             try:
                 return current_option.policy(s)
             except OptionExecutionFailure as e:
@@ -127,17 +94,9 @@ class BridgePolicyApproach(OracleApproach):
 
         return _policy
 
-    def _current_option_is_stuck(
-            self, current_option: _Option, current_nsrt: _GroundNSRT,
-            state_history: List[State],
-            option_history: List[Tuple[_Option, int]]) -> bool:
-        # TODO!!!!
-        return False
-
-    def _get_next_option_by_planning(
-            self, task: Task,
-            timeout: float) -> Tuple[_Option, _GroundNSRT, List[_GroundNSRT]]:
-        """Returns an initiated option and the remainder of an option plan."""
+    def _get_policy_by_planning(self, task: Task, timeout: float) -> Callable[[State], Action]:
+        """Raises an OptionExecutionFailure with the last_failured_nsrt in its
+        info dict in the case where execution fails."""
 
         # Ensure random over successive calls.
         self._num_calls += 1
@@ -145,16 +104,25 @@ class BridgePolicyApproach(OracleApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        nsrt_plan, _ = self._run_task_plan(task, nsrts, preds, timeout, seed)
-        return self._pop_option_from_nsrt_plan(nsrt_plan, task)
+        nsrt_queue, _ = self._run_task_plan(task, nsrts, preds, timeout, seed)
+        cur_nsrt: Optional[_GroundNSRT] = None
+        last_nsrt: Optional[_GroundNSRT] = None
+        cur_option = DummyOption
 
-    def _pop_option_from_nsrt_plan(
-            self, nsrt_plan: List[_GroundNSRT],
-            task: Task) -> Tuple[_Option, _GroundNSRT, List[_GroundNSRT]]:
-        if not nsrt_plan:
-            raise ApproachFailure("Failed to find an initial abstract plan.")
-        nsrt = nsrt_plan.pop(0)
-        option = nsrt.sample_option(task.init, task.goal, self._rng)
-        if not option.initiable(task.init):
-            raise OptionExecutionFailure("Greedy option not initiable.")
-        return option, nsrt, nsrt_plan
+        def _policy(state: State) -> Action:
+            nonlocal cur_nsrt, cur_option
+            if cur_option is DummyOption or cur_option.terminal(state):
+                if not nsrt_queue:
+                    raise OptionExecutionFailure("Greedy option plan exhausted.",
+                        info={"last_failed_nsrt": last_nsrt})
+                last_nsrt = cur_nsrt
+                cur_nsrt = nsrt_queue.pop(0)
+                cur_option = cur_nsrt.sample_option(state, task.goal, self._rng)
+                if not cur_option.initiable(state):
+                    raise OptionExecutionFailure("Greedy option not initiable.",
+                        info={"last_failed_nsrt": last_nsrt})
+            act = cur_option.policy(state)
+            return act
+
+        return _policy
+    

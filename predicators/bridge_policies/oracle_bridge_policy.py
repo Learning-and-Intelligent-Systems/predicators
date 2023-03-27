@@ -5,7 +5,7 @@ from typing import Callable, List, Set
 from predicators.bridge_policies import BaseBridgePolicy
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, State, Task, _GroundNSRT, _Option
+from predicators.structs import GroundAtom, State, Task, _GroundNSRT, _Option, Action
 
 
 class OracleBridgePolicy(BaseBridgePolicy):
@@ -13,7 +13,7 @@ class OracleBridgePolicy(BaseBridgePolicy):
 
     def __init__(self) -> None:
         super().__init__()
-        self._oracle_policy = self._create_oracle_policy()
+        self._oracle_bridge_policy = self._create_oracle_bridge_policy()
 
     @classmethod
     def get_name(cls) -> str:
@@ -23,11 +23,13 @@ class OracleBridgePolicy(BaseBridgePolicy):
     def is_learning_based(self) -> bool:
         return False
 
-    def __call__(self, state: State, atoms: Set[GroundAtom],
-                 failed_nsrt: _GroundNSRT) -> _Option:
-        return self._oracle_policy(state, atoms, failed_nsrt)
+    def get_policy(self, state: State, atoms: Set[GroundAtom],
+                 failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
+        bridge_policy = self._oracle_bridge_policy(state, atoms, failed_nsrt)
+        # TODO: convert bridge policy into regular policy
+        import ipdb; ipdb.set_trace()
 
-    def _create_oracle_policy(
+    def _create_oracle_bridge_policy(
             self) -> Callable[[State, Set[GroundAtom], _GroundNSRT], _Option]:
         env_name = CFG.env
         if env_name == "painting":
