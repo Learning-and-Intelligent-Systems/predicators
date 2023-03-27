@@ -9,6 +9,7 @@ from predicators.bridge_policies.oracle_bridge_policy import \
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
+from predicators.structs import DummyOption
 
 
 def test_oracle_bridge_policy():
@@ -29,24 +30,22 @@ def test_oracle_bridge_policy():
     robot = next(o for o in state if o.type.name == "robot")
     failed_nsrt = nsrt_name_to_nsrt["PlaceInBox"].ground(
         [held_obj, box, robot])
-    invalid_nsrt = nsrt_name_to_nsrt["PickFromTop"].ground([held_obj, robot])
 
     # Test case where bridge policy returns an invalid option.
     def invalid_option_policy(s, a, failed_nsrt):
-        del a, failed_nsrt  # ununsed
-        option = invalid_nsrt.sample_option(s, set(), rng)
-        return option
+        del s, a, failed_nsrt  # ununsed
+        return DummyOption
 
     bridge_policy._oracle_bridge_policy = invalid_option_policy  # pylint: disable=protected-access
 
     policy = bridge_policy.get_policy(failed_nsrt)
-    traj = utils.run_policy_with_simulator(policy,
-                                           env.simulate,
-                                           task.init,
-                                           task.goal_holds,
-                                           max_num_steps=CFG.horizon)
-    # Goal not achieved, but should not crash.
-    assert not task.goal_holds(traj.states[-1])
+    with pytest.raises(utils.OptionExecutionFailure) as e:
+        utils.run_policy_with_simulator(policy,
+                                        env.simulate,
+                                        task.init,
+                                        task.goal_holds,
+                                        max_num_steps=CFG.horizon)
+    assert "Bridge option not initiable" in str(e)
 
     with pytest.raises(NotImplementedError):
         _create_oracle_bridge_policy("not a real env", nsrts, env.predicates,
