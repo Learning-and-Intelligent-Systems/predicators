@@ -1,7 +1,8 @@
 """Handle creation of bridge policies."""
 
 from predicators import utils
-from predicators.bridge_policies.base_bridge_policy import BaseBridgePolicy, BridgePolicyDone
+from predicators.bridge_policies.base_bridge_policy import BaseBridgePolicy, \
+    BridgePolicyDone
 
 __all__ = ["BaseBridgePolicy", "BridgePolicyDone", "create_bridge_policy"]
 

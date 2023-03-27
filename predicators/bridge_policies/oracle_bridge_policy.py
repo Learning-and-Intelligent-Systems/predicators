@@ -1,15 +1,17 @@
 """A hand-written bridge policy."""
 
 import logging
-from typing import Callable, List, Set, Dict
+from typing import Callable, Dict, List, Set
+
 import numpy as np
 
+from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.envs import BaseEnv, get_or_create_env
-from predicators.settings import CFG
-from predicators.structs import GroundAtom, State, Task, _GroundNSRT, _Option, Action, BridgePolicy, NSRT, DummyOption, Predicate
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
-from predicators import utils
+from predicators.settings import CFG
+from predicators.structs import NSRT, Action, BridgePolicy, DummyOption, \
+    GroundAtom, Predicate, State, Task, _GroundNSRT, _Option
 
 
 class OracleBridgePolicy(BaseBridgePolicy):
@@ -23,7 +25,8 @@ class OracleBridgePolicy(BaseBridgePolicy):
         self._predicates = set(env.predicates)
         self._nsrts = get_gt_nsrts(CFG.env, self._predicates, options)
         self._rng = np.random.default_rng(CFG.seed)
-        self._oracle_bridge_policy = _create_oracle_bridge_policy(CFG.env, self._nsrts, self._predicates, self._rng)
+        self._oracle_bridge_policy = _create_oracle_bridge_policy(
+            CFG.env, self._nsrts, self._predicates, self._rng)
 
     @classmethod
     def get_name(cls) -> str:
@@ -33,7 +36,8 @@ class OracleBridgePolicy(BaseBridgePolicy):
     def is_learning_based(self) -> bool:
         return False
 
-    def get_policy(self, failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
+    def get_policy(self,
+                   failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
 
         # Create action policy.
         cur_option = DummyOption
@@ -42,32 +46,41 @@ class OracleBridgePolicy(BaseBridgePolicy):
             nonlocal cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
                 atoms = utils.abstract(state, self._predicates)
-                cur_option = self._oracle_bridge_policy(state, atoms, failed_nsrt)
+                cur_option = self._oracle_bridge_policy(
+                    state, atoms, failed_nsrt)
                 if not cur_option.initiable(state):
-                    raise OptionExecutionFailure("Bridge option not initiable.")
+                    raise OptionExecutionFailure(
+                        "Bridge option not initiable.")
             act = cur_option.policy(state)
             return act
 
         return _policy
 
 
-def _create_oracle_bridge_policy(env_name: str, nsrts: Set[NSRT], predicates: Set[Predicate], rng: np.random.Generator) -> BridgePolicy:
+def _create_oracle_bridge_policy(env_name: str, nsrts: Set[NSRT],
+                                 predicates: Set[Predicate],
+                                 rng: np.random.Generator) -> BridgePolicy:
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     pred_name_to_pred = {p.name: p for p in predicates}
 
     if env_name == "painting":
-        return _create_painting_oracle_bridge_policy(nsrt_name_to_nsrt, pred_name_to_pred, rng)
+        return _create_painting_oracle_bridge_policy(nsrt_name_to_nsrt,
+                                                     pred_name_to_pred, rng)
     raise NotImplementedError(f"No oracle bridge policy for {env_name}")
 
 
-def _create_painting_oracle_bridge_policy(nsrt_name_to_nsrt: Dict[str, NSRT], pred_name_to_pred: Dict[str, Predicate], rng: np.random.Generator) -> BridgePolicy:
+def _create_painting_oracle_bridge_policy(
+        nsrt_name_to_nsrt: Dict[str, NSRT], pred_name_to_pred: Dict[str,
+                                                                    Predicate],
+        rng: np.random.Generator) -> BridgePolicy:
 
     PlaceOnTable = nsrt_name_to_nsrt["PlaceOnTable"]
     OpenLid = nsrt_name_to_nsrt["OpenLid"]
 
     GripperOpen = pred_name_to_pred["GripperOpen"]
 
-    def _bridge_policy(state: State, atoms: Set[GroundAtom], failed_nsrt: _GroundNSRT) -> _Option:
+    def _bridge_policy(state: State, atoms: Set[GroundAtom],
+                       failed_nsrt: _GroundNSRT) -> _Option:
         assert failed_nsrt.name == "PlaceInBox"
         held_obj, box, robot = failed_nsrt.objects
         lid = next(o for o in state if o.type.name == "lid")

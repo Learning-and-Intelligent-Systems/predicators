@@ -86,13 +86,14 @@ class BridgePolicyApproach(OracleApproach):
                     return current_policy(s)
                 except OptionExecutionFailure as e:
                     pass
-            
+
             # Switch control from bridge to planner.
             logging.debug("Switching control from bridge to planner.")
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
-            current_policy = self._get_policy_by_planning(current_task, timeout)
+            current_policy = self._get_policy_by_planning(
+                current_task, timeout)
             try:
                 return current_policy(s)
             except OptionExecutionFailure as e:
@@ -100,7 +101,8 @@ class BridgePolicyApproach(OracleApproach):
 
         return _policy
 
-    def _get_policy_by_planning(self, task: Task, timeout: float) -> Callable[[State], Action]:
+    def _get_policy_by_planning(self, task: Task,
+                                timeout: float) -> Callable[[State], Action]:
         """Raises an OptionExecutionFailure with the last_failured_nsrt in its
         info dict in the case where execution fails."""
 
@@ -110,9 +112,10 @@ class BridgePolicyApproach(OracleApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        nsrt_queue, atoms_seq, _ = self._run_task_plan(task, nsrts, preds, timeout, seed)
+        nsrt_queue, atoms_seq, _ = self._run_task_plan(task, nsrts, preds,
+                                                       timeout, seed)
         atoms_queue = utils.compute_necessary_atoms_seq(
-                nsrt_queue, atoms_seq, task.goal)[1:]
+            nsrt_queue, atoms_seq, task.goal)[1:]
         cur_nsrt: Optional[_GroundNSRT] = None
         last_nsrt: Optional[_GroundNSRT] = None
         cur_option = DummyOption
@@ -122,23 +125,26 @@ class BridgePolicyApproach(OracleApproach):
             if cur_option is DummyOption or cur_option.terminal(state):
                 last_nsrt = cur_nsrt
                 if not nsrt_queue:
-                    raise OptionExecutionFailure("Greedy option plan exhausted.",
+                    raise OptionExecutionFailure(
+                        "Greedy option plan exhausted.",
                         info={"last_failed_nsrt": last_nsrt})
                 if last_nsrt is not None:
                     expected_atoms = atoms_queue.pop(0)
                     if not all(a.holds(state) for a in expected_atoms):
-                        raise OptionExecutionFailure("Executing the option "
+                        raise OptionExecutionFailure(
+                            "Executing the option "
                             "failed to achieve the NSRT effects.",
                             info={"last_failed_nsrt": last_nsrt})
                 cur_nsrt = nsrt_queue.pop(0)
                 logging.debug(f"Using NSRT {cur_nsrt.name}{cur_nsrt.objects} "
-                               "from planner.")
-                cur_option = cur_nsrt.sample_option(state, task.goal, self._rng)
+                              "from planner.")
+                cur_option = cur_nsrt.sample_option(state, task.goal,
+                                                    self._rng)
                 if not cur_option.initiable(state):
-                    raise OptionExecutionFailure("Greedy option not initiable.",
+                    raise OptionExecutionFailure(
+                        "Greedy option not initiable.",
                         info={"last_failed_nsrt": last_nsrt})
             act = cur_option.policy(state)
             return act
 
         return _policy
-    
