@@ -6,16 +6,6 @@ from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 
 
-def _policy_solves_task(policy, task, simulator):
-    """Helper method used in this file, copied from test_oracle_approach.py."""
-    traj = utils.run_policy_with_simulator(policy,
-                                           simulator,
-                                           task.init,
-                                           task.goal_holds,
-                                           max_num_steps=CFG.horizon)
-    return task.goal_holds(traj.states[-1])
-
-
 def test_bridge_policy_approach():
     """Tests for BridgePolicyApproach class."""
     args = {
@@ -36,4 +26,9 @@ def test_bridge_policy_approach():
     assert approach.get_name() == "bridge_policy"
     for task in test_tasks:
         policy = approach.solve(task, timeout=500)
-        assert _policy_solves_task(policy, task, env.simulate)
+        traj = utils.run_policy_with_simulator(policy,
+                                               env.simulate,
+                                               task.init,
+                                               task.goal_holds,
+                                               max_num_steps=CFG.horizon)
+        assert task.goal_holds(traj.states[-1])

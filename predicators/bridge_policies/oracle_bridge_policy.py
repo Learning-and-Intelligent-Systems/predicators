@@ -54,6 +54,7 @@ def _create_oracle_bridge_policy(env_name: str, nsrts: Set[NSRT],
     if env_name == "painting":
         return _create_painting_oracle_bridge_policy(nsrt_name_to_nsrt,
                                                      pred_name_to_pred, rng)
+
     raise NotImplementedError(f"No oracle bridge policy for {env_name}")
 
 
