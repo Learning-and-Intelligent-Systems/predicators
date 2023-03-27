@@ -213,6 +213,8 @@ class PaintingEnv(BaseEnv):
             return next_state
         if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
+            import ipdb
+            ipdb.set_trace()
             raise utils.EnvironmentFailure("Box lid is closed.",
                                            {"offending_objects": {self._lid}})
         # Detect top grasp vs side grasp

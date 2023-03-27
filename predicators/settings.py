@@ -511,6 +511,9 @@ class GlobalSettings:
     cnn_refinement_estimator_crop_bounds = (320, 400, 100, 650)
     cnn_refinement_estimator_downsample = 2
 
+    # bridge policy parameters
+    bridge_policy = "oracle"  # default bridge policy
+
     # glib explorer parameters
     glib_min_goal_size = 1
     glib_max_goal_size = 1
