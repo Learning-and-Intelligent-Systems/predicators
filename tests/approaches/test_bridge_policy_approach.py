@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import pytest
+import numpy as np
 
 import predicators.approaches.bridge_policy_approach
 import predicators.bridge_policies.oracle_bridge_policy
@@ -12,6 +13,7 @@ from predicators.approaches.bridge_policy_approach import BridgePolicyApproach
 from predicators.bridge_policies import BridgePolicyDone
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_options
+from predicators.structs import DummyOption, STRIPSOperator
 from predicators.settings import CFG
 
 _APPROACH_PATH = predicators.approaches.bridge_policy_approach.__name__
@@ -82,3 +84,22 @@ def test_bridge_policy_approach():
                                             task.goal_holds,
                                             max_num_steps=CFG.horizon)
         assert "Second planning failed" in str(e)
+
+    # Test case where task planning returns a non-initiable option.
+    op = STRIPSOperator("Dummy", [], set(), set(), set(), set())
+    dummy_nsrt = op.make_nsrt(
+        DummyOption.parent,
+        [],  # dummy sampler
+        lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
+
+    path = f"{_APPROACH_PATH}.BridgePolicyApproach._run_task_plan"
+    with patch(path) as m:
+        m.return_value = ([dummy_nsrt.ground([])], [set(), set()], {})
+        policy = approach.solve(task, timeout=500)
+        with pytest.raises(ApproachFailure) as e:
+            utils.run_policy_with_simulator(policy,
+                                            env.simulate,
+                                            task.init,
+                                            task.goal_holds,
+                                            max_num_steps=CFG.horizon)
+        assert "Planning failed on init state" in str(e)

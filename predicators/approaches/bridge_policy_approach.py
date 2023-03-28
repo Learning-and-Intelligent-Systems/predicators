@@ -73,7 +73,10 @@ class BridgePolicyApproach(OracleApproach):
 
             # Switch control from planner to bridge.
             if current_control == "planner":
-                assert failed_nsrt is not None
+                # Planning failed on the first time step.
+                if failed_nsrt is None:
+                    assert s.allclose(task.init)
+                    raise ApproachFailure("Planning failed on init state.")
                 logging.debug(f"Failed NSRT: {failed_nsrt.name}"
                               f"{failed_nsrt.objects}.")
                 logging.debug("Switching control from planner to bridge.")
