@@ -513,7 +513,7 @@ class GlobalSettings:
     cnn_refinement_estimator_downsample = 2
 
     # bridge policy parameters
-    bridge_policy = "oracle"  # default bridge policy
+    bridge_policy = "macro_learning"  # default bridge policy
 
     # glib explorer parameters
     glib_min_goal_size = 1

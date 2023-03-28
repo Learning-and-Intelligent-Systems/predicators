@@ -24,6 +24,10 @@ class OracleBridgePolicy(BaseBridgePolicy):
     def get_name(cls) -> str:
         return "oracle"
 
+    @property
+    def is_learning_based(self) -> bool:
+        return False
+
     def get_policy(self,
                    failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
 

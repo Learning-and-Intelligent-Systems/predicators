@@ -28,6 +28,12 @@ class BaseBridgePolicy(abc.ABC):
         argument to `--bridge_policy`."""
         raise NotImplementedError("Override me!")
 
+    @property
+    @abc.abstractmethod
+    def is_learning_based(self) -> bool:
+        """Does the bridge policy learn from interaction data?"""
+        raise NotImplementedError("Override me!")
+
     @abc.abstractmethod
     def get_policy(self,
                    failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:

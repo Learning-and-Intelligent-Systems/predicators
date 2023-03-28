@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
+import itertools
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
@@ -1580,6 +1581,161 @@ class LiftedDecisionList:
     def __str__(self) -> str:
         rule_str = "\n  ".join(str(r) for r in self.rules)
         return f"(define (policy)\n  {rule_str}\n)"
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class _Macro:
+    """A macro is a sequence of NSRTs with shared variables.
+
+    The shared variables are defined by parameter_subs, which maps the
+    parameters of each NSRT in `nsrts` to the set of shared variables.
+    """
+    nsrts: Sequence[NSRT]
+    parameter_subs: Sequence[Dict[Variable, Variable]]
+
+    def __post_init__(self) -> None:
+        assert len(self.nsrts) == len(self.parameter_subs)
+        for nsrt, subs in zip(self.nsrts, self.parameter_subs):
+            assert set(nsrt.parameters) == set(subs)
+
+    @cached_property
+    def parameters(self) -> List[Variable]:
+        """Get the parameters for this _Macro."""
+        return sorted({v for s in self.parameter_subs for v in s.values()})
+
+    def ground(self, objects: Sequence[Object]) -> _GroundNSRT:
+        """Ground into a GroundMacro, given objects."""
+        assert len(objects) == len(self.parameters)
+        assert all(
+            o.is_instance(p.type) for o, p in zip(objects, self.parameters))
+        sub = dict(zip(self.parameters, objects))   # A -> B
+        ground_nsrts: Sequence[_GroundNSRT] = []
+        for nsrt, param_sub in zip(self.nsrts, self.parameter_subs):
+            # Parameter subs is C -> A.
+            nsrt_objs = [sub[param_sub[o]] for o in nsrt.parameters]
+            ground_nsrt = nsrt.ground(nsrt_objs)
+            ground_nsrts.append(ground_nsrt)
+        return GroundMacro(ground_nsrts)
+
+    @cached_property
+    def _str(self) -> str:
+        member_strs = []
+        for nsrt, sub in zip(self.nsrts, self.parameter_subs):
+            arg_str = ", ".join([sub[o].name for o in nsrt.parameters])
+            nsrt_str = f"{nsrt.name}({arg_str})"
+            member_strs.append(nsrt_str)
+        members_str = ", ".join(member_strs)
+        return f"_Macro[{members_str}]"
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    def __str__(self) -> str:
+        return self._str
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, _Macro)
+        return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _Macro)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _Macro)
+        return str(self) > str(other)
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class GroundMacro:
+    """A sequence of ground NSRTs with shared objects."""
+
+    ground_nsrts: Sequence[_GroundNSRT]
+
+    @cached_property
+    def parent(self) -> _Macro:
+        """Generate the parent macro of this ground macro."""
+        nsrts = [o.parent for o in self.ground_nsrts]
+        parameter_subs = []
+        obj_to_var = self.get_lift_mapping()
+        for nsrt in self.ground_nsrts:
+            parent_vars = [obj_to_var[o] for o in nsrt.objects]
+            nsrt_sub = dict(zip(nsrt.parent.parameters, parent_vars))
+            parameter_subs.append(nsrt_sub)
+        macro = _Macro(nsrts, parameter_subs)
+        return macro
+
+    @cached_property
+    def preconditions(self) -> Set[GroundAtom]:
+        """The preconditions of the ground macro."""
+        # TODO check this
+        assert len(self.ground_nsrts) > 0
+        preconditions = set(self.ground_nsrts[0].preconditions)
+        for nt, nt1 in zip(self.ground_nsrts[:-1], self.ground_nsrts[1:]):
+            preconditions |= (nt1.preconditions - nt.add_effects)
+        return preconditions
+
+    def get_lift_mapping(self) -> ObjToVarSub:
+        """Map objects in the ground macro to variables."""
+        obj_sub = {}
+        var_counter = itertools.count()
+        for nsrt in self.ground_nsrts:
+            for obj in nsrt.objects:
+                if obj not in obj_sub:
+                    new_var = Variable(f"?x{next(var_counter)}", obj.type)
+                    obj_sub[obj] = new_var
+        return obj_sub
+
+    def pop(self) -> Tuple[_GroundNSRT, GroundMacro]:
+        """Get the next ground NSRT and the remaining ground macro."""
+        new_ground_nsrts = list(self.ground_nsrts)
+        next_ground_nsrt = new_ground_nsrts.pop(0)
+        return next_ground_nsrt, GroundMacro(new_ground_nsrts)
+
+    @cached_property
+    def _str(self) -> str:
+        member_strs = []
+        for nsrt in self.ground_nsrts:
+            arg_str = ", ".join([o.name for o in nsrt.objects])
+            nsrt_str = f"{nsrt.name}({arg_str})"
+            member_strs.append(nsrt_str)
+        members_str = ", ".join(member_strs)
+        return f"Macro[{members_str}]"
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    def __str__(self) -> str:
+        return self._str
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, GroundMacro)
+        return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, GroundMacro)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, GroundMacro)
+        return str(self) > str(other)
+
+    def __len__(self) -> int:
+        return len(self.ground_nsrts)
 
 
 # Convenience higher-order types useful throughout the code

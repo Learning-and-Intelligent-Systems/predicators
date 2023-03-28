@@ -15,7 +15,7 @@ plannability" in states where the planner has gotten stuck.
 """
 
 import logging
-from typing import Callable, List, Optional, Set
+from typing import Callable, List, Optional, Set, Sequence
 
 from gym.spaces import Box
 
@@ -25,7 +25,7 @@ from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
 from predicators.structs import Action, DummyOption, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundNSRT
+    Predicate, State, Task, Type, _GroundNSRT, InteractionRequest, InteractionResult
 from predicators.utils import OptionExecutionFailure
 
 
@@ -51,6 +51,10 @@ class BridgePolicyApproach(OracleApproach):
     @classmethod
     def get_name(cls) -> str:
         return "bridge_policy"
+
+    @property
+    def is_learning_based(self) -> bool:
+        return True
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         # Start by planning. Note that we cannot start with the bridge policy
@@ -151,3 +155,27 @@ class BridgePolicyApproach(OracleApproach):
             return act
 
         return _policy
+
+
+    ########################### Active learning ###############################
+
+    def get_interaction_requests(self) -> List[InteractionRequest]:
+        requests = []
+        for train_task_idx in self._select_interaction_train_task_idxs():
+            import ipdb; ipdb.set_trace()
+            request = InteractionRequest(train_task_idx, act_policy,
+                                         query_policy, termination_fn)
+            requests.append(request)
+        assert len(requests) == CFG.interactive_num_requests_per_cycle
+        return requests
+
+    def _select_interaction_train_task_idxs(self) -> List[int]:
+        # At the moment, we select train task indices uniformly at
+        # random, with replacement. In the future, we may want to
+        # try other strategies.
+        return self._rng.choice(len(self._train_tasks),
+                                size=CFG.interactive_num_requests_per_cycle)
+    
+    def learn_from_interaction_results(
+        self, results: Sequence[InteractionResult]) -> None:
+        import ipdb; ipdb.set_trace()
