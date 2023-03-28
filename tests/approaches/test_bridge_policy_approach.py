@@ -2,8 +2,8 @@
 
 from unittest.mock import patch
 
-import pytest
 import numpy as np
+import pytest
 
 import predicators.approaches.bridge_policy_approach
 import predicators.bridge_policies.oracle_bridge_policy
@@ -13,8 +13,8 @@ from predicators.approaches.bridge_policy_approach import BridgePolicyApproach
 from predicators.bridge_policies import BridgePolicyDone
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import DummyOption, STRIPSOperator
 from predicators.settings import CFG
+from predicators.structs import DummyOption, STRIPSOperator
 
 _APPROACH_PATH = predicators.approaches.bridge_policy_approach.__name__
 _ORACLE_BRIDGE_PATH = predicators.bridge_policies.oracle_bridge_policy.__name__
