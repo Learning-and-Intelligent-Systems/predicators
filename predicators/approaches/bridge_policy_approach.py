@@ -25,7 +25,7 @@ from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
 from predicators.structs import Action, DummyOption, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundNSRT, InteractionRequest, InteractionResult
+    Predicate, State, Task, Type, _GroundNSRT, InteractionRequest, InteractionResult, Query, HumanNSRTDemoQuery
 from predicators.utils import OptionExecutionFailure
 
 
@@ -93,6 +93,8 @@ class BridgePolicyApproach(OracleApproach):
                     return current_policy(s)
                 except BridgePolicyDone:
                     pass
+                except OptionExecutionFailure as e:
+                    raise ApproachFailure(e.args[0], e.info)
 
             # Switch control from bridge to planner.
             logging.debug("Switching control from bridge to planner.")
@@ -161,10 +163,40 @@ class BridgePolicyApproach(OracleApproach):
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         requests = []
-        for train_task_idx in self._select_interaction_train_task_idxs():
-            import ipdb; ipdb.set_trace()
+
+        # TODO make less ugly
+        def create_interaction_request(train_task_idx):
+            task = self._train_tasks[train_task_idx]
+            planning_policy = self._get_policy_by_planning(task, timeout=CFG.timeout)
+
+            reached_stuck_state = False
+            failed_nsrt = None
+
+            def act_policy(s: State) -> Action:
+                nonlocal reached_stuck_state, failed_nsrt
+                try:
+                    return planning_policy(s)
+                except OptionExecutionFailure as e:
+                    reached_stuck_state = True
+                    failed_nsrt = e.info["last_failed_nsrt"]
+                    raise e
+
+            def termination_fn(s: State) -> bool:
+                return reached_stuck_state
+
+            def query_policy(s: State) -> Optional[Query]:
+                if not reached_stuck_state:
+                    return None
+                assert failed_nsrt is not None
+                return HumanNSRTDemoQuery(train_task_idx, failed_nsrt)
+
             request = InteractionRequest(train_task_idx, act_policy,
                                          query_policy, termination_fn)
+            
+            return request
+
+        for train_task_idx in self._select_interaction_train_task_idxs():
+            request = create_interaction_request(train_task_idx)
             requests.append(request)
         assert len(requests) == CFG.interactive_num_requests_per_cycle
         return requests
@@ -178,4 +210,17 @@ class BridgePolicyApproach(OracleApproach):
     
     def learn_from_interaction_results(
         self, results: Sequence[InteractionResult]) -> None:
-        import ipdb; ipdb.set_trace()
+
+        bridge_demos = []
+
+        for result in results:
+            response = result.responses[-1]
+            failed_nsrt = response.query.failed_nsrt
+            bridge_demos.append((
+                failed_nsrt,
+                response.ground_nsrts,
+                response.atoms,
+                response.states,
+            ))
+
+        return self._bridge_policy.learn_from_demos(bridge_demos)

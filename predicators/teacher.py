@@ -1,5 +1,5 @@
 """Contains classes defining a teacher that can supply additional, oracular
-information to assist an agent during online learning."""
+information to assist an agent duri`ng online learning."""
 
 from __future__ import annotations
 
@@ -18,7 +18,9 @@ from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
     InteractionRequest, LowLevelTrajectory, Observation, PathToStateQuery, \
-    PathToStateResponse, Query, Response, State, Task
+    PathToStateResponse, Query, Response, State, Task, HumanNSRTDemoQuery, \
+    HumanNSRTDemoResponse
+
 
 
 class Teacher:
@@ -38,6 +40,7 @@ class Teacher:
             task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
             max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
         self._simulator = env.simulate
+        self._rng = np.random.default_rng(CFG.seed)
 
     def answer_query(self, state: State, query: Query) -> Response:
         """The key method that the teacher defines."""
@@ -49,6 +52,8 @@ class Teacher:
             return self._answer_Demonstration_query(state, query)
         if isinstance(query, PathToStateQuery):
             return self._answer_PathToState_query(state, query)
+        if isinstance(query, HumanNSRTDemoQuery):
+            return self._answer_HumanNSRTDemoQuery(state, query)
         raise NotImplementedError(f"Unrecognized query: {query}.")
 
     def _answer_GroundAtomsHold_query(
@@ -84,6 +89,59 @@ class Teacher:
                                           _is_demo=True,
                                           _train_task_idx=query.train_task_idx)
         return DemonstrationResponse(query, teacher_traj)
+
+    def _answer_HumanNSRTDemoQuery(
+            self, state: State,
+            query: HumanNSRTDemoQuery) -> HumanNSRTDemoResponse:
+        # The query is asking for a demonstration from the current state to
+        # the goal from the train task.
+        goal = self._train_tasks[query.train_task_idx].goal
+        task = Task(state, goal)
+        preds = set(self._pred_name_to_pred.values())
+        atoms = utils.abstract(state, preds)
+        nsrts = set(self._oracle_approach._nsrts)
+        objects = set(state)
+        ground_nsrts = sorted(n for nsrt in nsrts for n in utils.all_ground_nsrts(nsrt, objects))
+        ground_nsrt_seq = []
+        atoms_seq = [atoms]
+        states_seq = [state]
+        while not goal.issubset(atoms):
+            print("Current state:")
+            print(state.pretty_str())
+            print("Current abstract state:")
+            print("\n".join(sorted(map(str, atoms))))
+            applicable_nsrts = dict(enumerate(utils.get_applicable_operators(ground_nsrts, atoms)))
+            print("Select an applicable NSRT:")
+            for i, ground_nsrt in applicable_nsrts.items():
+                print(f"{i}: {ground_nsrt.parent.name}{ground_nsrt.objects}")
+            selected_ground_nsrt = None
+            while True:
+                user_input = input("Input a number or 'd' for done: ")
+                if user_input == 'd':
+                    break
+                if user_input.isdigit():
+                    idx = int(user_input)
+                    if idx in applicable_nsrts:
+                        selected_ground_nsrt = applicable_nsrts[idx]
+                        break
+                print("Invalid input, try again.")
+            if selected_ground_nsrt is None:
+                break
+            ground_nsrt_seq.append(selected_ground_nsrt)
+            option = selected_ground_nsrt.sample_option(state, goal, self._rng)
+            assert option.initiable(state)
+            traj = utils.run_policy_with_simulator(
+                option.policy,
+                self._simulator,
+                state,
+                option.terminal,
+                max_num_steps=CFG.max_num_steps_option_rollout)
+            state = traj.states[-1]
+            states_seq.append(state)
+            atoms = utils.abstract(state, preds)
+            atoms_seq.append(atoms)
+            
+        return HumanNSRTDemoResponse(query, ground_nsrt_seq, atoms_seq, states_seq)
 
     def _answer_PathToState_query(
             self, state: State,

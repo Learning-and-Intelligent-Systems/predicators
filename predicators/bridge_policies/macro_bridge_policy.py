@@ -19,22 +19,22 @@ class MacroLearningBridgePolicy(BaseBridgePolicy):
         super().__init__(predicates, nsrts)
         self._macros: Dict[NSRT, Set[_Macro]] = {}  # failed NSRT to macros
 
-        # TODO: remove and learn instead!
-        nsrt_name_to_nsrt = {n.name: n for n in nsrts}
-        PlaceInBox = nsrt_name_to_nsrt["PlaceInBox"]
-        PlaceOnTable = nsrt_name_to_nsrt["PlaceOnTable"]
-        OpenLid = nsrt_name_to_nsrt["OpenLid"]
-        obj_var, robot_var = PlaceOnTable.parameters
-        lid_var, _ = OpenLid.parameters
-        held_obj = Object("held_obj", obj_var.type)
-        robot = Object("robot", robot_var.type)
-        lid = Object("lid", lid_var.type)
-        oracle_ground_macro = GroundMacro([
-            PlaceOnTable.ground([held_obj, robot]),
-            OpenLid.ground([lid, robot]),
-        ])
-        oracle_macro = oracle_ground_macro.parent
-        self._macros[PlaceInBox] = {oracle_macro}
+        # # TODO: remove and learn instead!
+        # nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+        # PlaceInBox = nsrt_name_to_nsrt["PlaceInBox"]
+        # PlaceOnTable = nsrt_name_to_nsrt["PlaceOnTable"]
+        # OpenLid = nsrt_name_to_nsrt["OpenLid"]
+        # obj_var, robot_var = PlaceOnTable.parameters
+        # lid_var, _ = OpenLid.parameters
+        # held_obj = Object("held_obj", obj_var.type)
+        # robot = Object("robot", robot_var.type)
+        # lid = Object("lid", lid_var.type)
+        # oracle_ground_macro = GroundMacro([
+        #     PlaceOnTable.ground([held_obj, robot]),
+        #     OpenLid.ground([lid, robot]),
+        # ])
+        # oracle_macro = oracle_ground_macro.parent
+        # self._macros[PlaceInBox] = {oracle_macro}
 
     @classmethod
     def get_name(cls) -> str:
@@ -86,3 +86,13 @@ class MacroLearningBridgePolicy(BaseBridgePolicy):
 
         raise utils.OptionExecutionFailure("No bridge macro found.")
 
+    def learn_from_demos(self, dataset) -> None:
+        """For learning-based approaches, learn whatever is needed from the
+        given dataset.
+        """
+        for failed_ground_nsrt, ground_nsrts, _, _ in dataset:
+            failed_nsrt = failed_ground_nsrt.parent
+            macro = GroundMacro(ground_nsrts).parent
+            if failed_nsrt not in self._macros:
+                self._macros[failed_nsrt] = set()
+            self._macros[failed_nsrt].add(macro)

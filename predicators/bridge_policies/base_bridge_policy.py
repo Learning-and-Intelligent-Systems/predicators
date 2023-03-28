@@ -39,3 +39,8 @@ class BaseBridgePolicy(abc.ABC):
                    failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
         """The main method creating the bridge policy."""
         raise NotImplementedError("Override me!")
+
+    def learn_from_demos(self, dataset) -> None:
+        """For learning-based approaches, learn whatever is needed from the
+        given dataset.
+        """
