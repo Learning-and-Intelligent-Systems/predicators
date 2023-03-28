@@ -2,15 +2,20 @@
 
 from unittest.mock import patch
 
+import pytest
+
+import predicators.approaches.bridge_policy_approach
 import predicators.bridge_policies.oracle_bridge_policy
 from predicators import utils
+from predicators.approaches import ApproachFailure
 from predicators.approaches.bridge_policy_approach import BridgePolicyApproach
 from predicators.bridge_policies import BridgePolicyDone
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 
-_MODULE_PATH = predicators.bridge_policies.oracle_bridge_policy.__name__
+_APPROACH_PATH = predicators.approaches.bridge_policy_approach.__name__
+_ORACLE_BRIDGE_PATH = predicators.bridge_policies.oracle_bridge_policy.__name__
 
 
 def test_bridge_policy_approach():
@@ -46,7 +51,7 @@ def test_bridge_policy_approach():
         del s  # ununsed
         raise BridgePolicyDone()
 
-    with patch(f"{_MODULE_PATH}.OracleBridgePolicy.get_policy") as m:
+    with patch(f"{_ORACLE_BRIDGE_PATH}.OracleBridgePolicy.get_policy") as m:
         m.return_value = done_option_policy
         policy = approach.solve(task, timeout=500)
         traj = utils.run_policy_with_simulator(policy,
@@ -55,5 +60,25 @@ def test_bridge_policy_approach():
                                                task.goal_holds,
                                                max_num_steps=25)
         assert not task.goal_holds(traj.states[-1])
-        for t in range(-1, -5, 1):
+        for t in range(-1, -5, -1):
             assert traj.actions[t].get_option().name == "Place"
+
+    # Test case where the second time that the planner is called, it returns
+    # an invalid option.
+    first_policy = approach._get_policy_by_planning(task, timeout=500)  # pylint: disable=protected-access
+
+    def second_policy(s):
+        del s  # unused
+        raise utils.OptionExecutionFailure("Second planning failed.")
+
+    path = f"{_APPROACH_PATH}.BridgePolicyApproach._get_policy_by_planning"
+    with patch(path) as m:
+        m.side_effect = [first_policy, second_policy]
+        policy = approach.solve(task, timeout=500)
+        with pytest.raises(ApproachFailure) as e:
+            utils.run_policy_with_simulator(policy,
+                                            env.simulate,
+                                            task.init,
+                                            task.goal_holds,
+                                            max_num_steps=CFG.horizon)
+        assert "Second planning failed" in str(e)
