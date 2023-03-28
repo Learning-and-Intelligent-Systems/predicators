@@ -71,13 +71,15 @@ def _create_painting_oracle_bridge_policy(
     def _bridge_policy(state: State, atoms: Set[GroundAtom],
                        failed_nsrt: _GroundNSRT) -> _Option:
         del atoms  # not used
-        assert failed_nsrt.name == "PlaceInBox"
-        held_obj, _, robot = failed_nsrt.objects
+
         lid = next(o for o in state if o.type.name == "lid")
 
         # If the box lid is already open, the bridge policy is done.
-        if state.get(lid, "is_open") > 0.5:
+        # Second case should only happen when the shelf placements fail.
+        if state.get(lid, "is_open") > 0.5 or failed_nsrt.name != "PlaceInBox":
             raise BridgePolicyDone()
+
+        held_obj, _, robot = failed_nsrt.objects
 
         if GripperOpen.holds(state, [robot]):
             next_nsrt = OpenLid.ground([lid, robot])
