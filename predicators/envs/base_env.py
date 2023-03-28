@@ -13,15 +13,16 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.llm_interface import OpenAILLM
 from predicators.settings import CFG
-from predicators.structs import Action, DefaultEnvironmentTask, DefaultState, \
-    EnvironmentTask, GroundAtom, Object, Predicate, State, Type, Video
+from predicators.structs import Action, DefaultEnvironmentTask, \
+    EnvironmentTask, GroundAtom, Object, Observation, Predicate, State, Type, \
+    Video
 
 
 class BaseEnv(abc.ABC):
     """Base environment."""
 
     def __init__(self, use_gui: bool = True) -> None:
-        self._current_state = DefaultState  # set in reset
+        self._current_observation: Observation = None  # set in reset
         self._current_task = DefaultEnvironmentTask  # set in reset
         self._set_seed(CFG.seed)
         # These are generated lazily when get_train_tasks or get_test_tasks is
@@ -143,8 +144,10 @@ class BaseEnv(abc.ABC):
         NOTE: Users of this method must remember to call `plt.close()`,
         because this method returns an active figure object!
         """
-        return self.render_state_plt(self._current_state, self._current_task,
-                                     action, caption)
+        assert isinstance(self._current_observation, State), \
+            "render_plt() only works in fully-observed environments."
+        return self.render_state_plt(self._current_observation,
+                                     self._current_task, action, caption)
 
     def render(self,
                action: Optional[Action] = None,
@@ -153,7 +156,9 @@ class BaseEnv(abc.ABC):
 
         By default, calls render_state, but subclasses may override.
         """
-        return self.render_state(self._current_state, self._current_task,
+        assert isinstance(self._current_observation, State), \
+            "render_state() only works in fully-observed environments."
+        return self.render_state(self._current_observation, self._current_task,
                                  action, caption)
 
     def get_train_tasks(self) -> List[EnvironmentTask]:
@@ -175,6 +180,27 @@ class BaseEnv(abc.ABC):
             else:
                 self._test_tasks = self._generate_test_tasks()
         return self._test_tasks
+
+    @property
+    def _current_state(self) -> State:
+        """Default for environments where states are observations."""
+        assert isinstance(self._current_observation, State)
+        return self._current_observation
+
+    def goal_reached(self) -> bool:
+        """Default implementation assumes environment tasks are tasks.
+
+        Subclasses may override.
+        """
+        # NOTE: this is a convenience hack because most environments that are
+        # currently implemented have goal descriptions that are simply sets of
+        # ground atoms. In the future, it may be better to implement this on a
+        # per-environment basis anyway, to make clear that we do not need to
+        # make this assumption about goal descriptions in general.
+        goal = self._current_task.goal_description
+        assert isinstance(goal, set)
+        assert not goal or isinstance(next(iter(goal)), GroundAtom)
+        return all(goal_atom.holds(self._current_state) for goal_atom in goal)
 
     def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         """Create a task from a JSON file.
@@ -302,16 +328,18 @@ class BaseEnv(abc.ABC):
         self._test_rng = np.random.default_rng(self._seed +
                                                CFG.test_env_seed_offset)
 
-    def reset(self, train_or_test: str, task_idx: int) -> State:
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""
         self._current_task = self.get_task(train_or_test, task_idx)
-        # NOTE: current_state will be deprecated soon in favor of current_obs.
-        self._current_state = self._current_task.init
+        self._current_observation = self._current_task.init_obs
         # Copy to prevent external changes to the environment's state.
-        return self._current_state.copy()
+        # This default implementation of reset assumes that observations are
+        # states. Subclasses with different states should override.
+        assert isinstance(self._current_observation, State)
+        return self._current_observation.copy()
 
-    def step(self, action: Action) -> State:
-        """Apply the action, and update and return the current state.
+    def step(self, action: Action) -> Observation:
+        """Apply the action, update the state, and return an observation.
 
         Note that this action is a low-level action (i.e., action.arr
         is a member of self.action_space), NOT an option.
@@ -320,9 +348,11 @@ class BaseEnv(abc.ABC):
         environments that maintain a more complicated internal state,
         or that don't implement simulate(), may override this method.
         """
-        self._current_state = self.simulate(self._current_state, action)
+        assert isinstance(self._current_observation, State)
+        self._current_observation = self.simulate(self._current_observation,
+                                                  action)
         # Copy to prevent external changes to the environment's state.
-        return self._current_state.copy()
+        return self._current_observation.copy()
 
     def get_event_to_action_fn(
             self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
@@ -336,6 +366,7 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("This environment did not implement an "
                                   "interface for human demonstrations!")
 
-    def get_state(self) -> State:
-        """Get the current state of this environment."""
-        return self._current_state.copy()
+    def get_observation(self) -> Observation:
+        """Get the current observation of this environment."""
+        assert isinstance(self._current_observation, State)
+        return self._current_observation.copy()

@@ -561,12 +561,12 @@ def test_run_policy():
     def _policy(_):
         raise ValueError("mock error")
 
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             self.num_observations += 1
 
     with pytest.raises(ValueError) as e:
@@ -603,8 +603,8 @@ def test_run_policy():
             del action  # unused
             raise utils.EnvironmentFailure("mock failure")
 
-        def get_state(self):
-            """Gets currrent state in mock environment."""
+        def get_observation(self):
+            """Gets currrent observation in mock environment."""
             return DefaultState
 
     mock_env = _MockEnv()
@@ -700,9 +700,9 @@ def test_run_policy_with_simulator():
     assert len(traj.actions) == 3
 
     # Test with monitor.
-    class _NullMonitor(utils.Monitor):
+    class _NullMonitor(utils.LoggingMonitor):
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             pass
 
     monitor = _NullMonitor()
@@ -716,12 +716,12 @@ def test_run_policy_with_simulator():
     assert len(traj.actions) == 3
 
     # Test with monitor in case where an uncaught exception is raised.
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             self.num_observations += 1
 
     def _policy(_):

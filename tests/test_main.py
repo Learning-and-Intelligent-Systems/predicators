@@ -3,18 +3,23 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from typing import Callable
 
+import numpy as np
 import pytest
 
 import predicators.ground_truth_models
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
+from predicators.cogman import CogMan
 from predicators.envs.cover import CoverEnv
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
-from predicators.main import _run_testing, main
-from predicators.structs import Action, State, Task
+from predicators.main import _run_episode, _run_testing, main
+from predicators.perception import create_perceiver
+from predicators.structs import Action, DefaultState, State, Task
 
 _GROUND_TRUTH_MODULE_PATH = predicators.ground_truth_models.__name__
 
@@ -214,21 +219,30 @@ def test_bilevel_planning_approach_failure_and_timeout():
                                      get_gt_options(env.get_name()), env.types,
                                      env.action_space, train_tasks)
     assert not approach.is_learning_based
-    _run_testing(env, approach)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    _run_testing(env, cogman)
 
     approach = _DummySolveTimeoutApproach(env.predicates,
                                           get_gt_options(env.get_name()),
                                           env.types, env.action_space,
                                           train_tasks)
     assert not approach.is_learning_based
-    _run_testing(env, approach)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    _run_testing(env, cogman)
 
     approach = _DummyExecutionTimeoutApproach(env.predicates,
                                               get_gt_options(env.get_name()),
                                               env.types, env.action_space,
                                               train_tasks)
     assert not approach.is_learning_based
-    _run_testing(env, approach)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    _run_testing(env, cogman)
 
 
 def test_env_failure():
@@ -249,4 +263,147 @@ def test_env_failure():
     assert not approach.is_learning_based
     task = train_tasks[0]
     approach.solve(task, timeout=500)
-    _run_testing(env, approach)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    _run_testing(env, cogman)
+
+
+def test_run_episode():
+    """Tests for _run_episode()."""
+    utils.reset_config({"env": "cover"})
+    env = CoverEnv()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    cover_options = get_gt_options(env.get_name())
+    task = env.get_task("test", 0)
+    approach = create_approach("random_actions", env.predicates, cover_options,
+                               env.types, env.action_space, train_tasks)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    cogman.reset(task)
+    (states, actions), solved, metrics = _run_episode(cogman,
+                                                      env,
+                                                      "test",
+                                                      0,
+                                                      max_num_steps=5)
+    assert not solved
+    assert len(states) == 6
+    assert len(actions) == 5
+    assert "policy_call_time" in metrics
+    assert metrics["policy_call_time"] > 0.0
+
+    # Test exceptions_to_break_on.
+    def _value_error_policy(_):
+        raise ValueError("mock error")
+
+    class _MockApproach:
+
+        def __init__(self, policy):
+            self._policy = policy
+
+        def solve(self, task, timeout):
+            """Just use the given policy."""
+            del task, timeout  # unused
+            return self._policy
+
+    class _CountingMonitor(utils.LoggingMonitor):
+
+        def __init__(self):
+            self.num_observations = 0
+
+        def observe(self, obs, action):
+            self.num_observations += 1
+
+    approach = _MockApproach(_value_error_policy)
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    cogman.reset(task)
+
+    with pytest.raises(ValueError) as e:
+        _, _, _ = _run_episode(cogman, env, "test", 0, max_num_steps=5)
+    assert "mock error" in str(e)
+
+    monitor = _CountingMonitor()
+    (states, _), _, _ = _run_episode(cogman,
+                                     env,
+                                     "test",
+                                     0,
+                                     max_num_steps=5,
+                                     exceptions_to_break_on={ValueError},
+                                     monitor=monitor)
+
+    assert len(states) == 1
+    assert monitor.num_observations == 1
+
+    class _MockEnv:
+
+        @staticmethod
+        def reset(train_or_test, task_idx):
+            """Reset the mock environment."""
+            del train_or_test, task_idx  # unused
+            return DefaultState
+
+        @staticmethod
+        def step(action):
+            """Step the mock environment."""
+            del action  # unused
+            raise utils.EnvironmentFailure("mock failure")
+
+        def get_observation(self):
+            """Gets currrent observation in mock environment."""
+            return DefaultState
+
+        def goal_reached(self):
+            """Goal never reached."""
+            return False
+
+    mock_env = _MockEnv()
+    ones_policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    approach = _MockApproach(ones_policy)
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    cogman.reset(task)
+    monitor = _CountingMonitor()
+    (states, actions), _, _ = _run_episode(
+        cogman,
+        mock_env,
+        "test",
+        0,
+        max_num_steps=5,
+        exceptions_to_break_on={utils.EnvironmentFailure},
+        monitor=monitor)
+    assert len(states) == 1
+    assert len(actions) == 0
+    assert monitor.num_observations == 1
+
+    # Test policy call time.
+    def _policy(_):
+        time.sleep(0.1)
+        return Action(env.action_space.sample())
+
+    approach = _MockApproach(_policy)
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    cogman.reset(task)
+
+    _, _, metrics = _run_episode(cogman, env, "test", 0, max_num_steps=3)
+    assert metrics["policy_call_time"] >= 3 * 0.1
+
+    # Test with monitor in case where an uncaught exception is raised.
+
+    def _policy(_):
+        raise ValueError("mock error")
+
+    monitor = _CountingMonitor()
+    approach = _MockApproach(_policy)
+    cogman = CogMan(approach, perceiver, exec_monitor)
+    cogman.reset(task)
+
+    try:
+        _run_episode(cogman,
+                     mock_env,
+                     "test",
+                     0,
+                     max_num_steps=3,
+                     monitor=monitor)
+    except ValueError:
+        pass
+    assert monitor.num_observations == 1
