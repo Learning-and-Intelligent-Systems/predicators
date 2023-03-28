@@ -397,13 +397,12 @@ class GroundAtom(_Atom):
 
 @dataclass(frozen=True, eq=False)
 class Task:
-    """Struct defining a task, which is a pair of initial state and goal."""
+    """Struct defining a task, which is an initial state and goal."""
     init: State
     goal: Set[GroundAtom]
 
     def __post_init__(self) -> None:
         # Verify types.
-        assert isinstance(self.init, State)
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 

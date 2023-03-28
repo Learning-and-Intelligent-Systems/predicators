@@ -68,7 +68,7 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         joint_positions = list(self._pybullet_robot.initial_joint_positions)
         state_with_sim = utils.PyBulletState(state.data,
                                              simulator_state=joint_positions)
-        self._current_state = state_with_sim
+        self._current_observation = state_with_sim
         self._current_task = None
         self._reset_state(state_with_sim)
 

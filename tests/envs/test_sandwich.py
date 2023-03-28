@@ -202,7 +202,7 @@ def test_sandwich_options(env_name):
     assert state.allclose(next_state)
 
     # Rendering with caption.
-    env.render(state, caption="Test caption")
+    env.render_state(state, task, caption="Test caption")
 
 
 def test_sandwich_load_task_from_json():
