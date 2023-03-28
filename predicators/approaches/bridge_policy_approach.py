@@ -211,16 +211,51 @@ class BridgePolicyApproach(OracleApproach):
     def learn_from_interaction_results(
         self, results: Sequence[InteractionResult]) -> None:
 
+        nsrts = self._get_current_nsrts()
+        preds = self._get_current_predicates()
+
         bridge_demos = []
 
         for result in results:
             response = result.responses[-1]
+            query = response.query
+            goal = self._train_tasks[response.query.train_task_idx].goal
             failed_nsrt = response.query.failed_nsrt
+            seq_len = len(response.atoms)
+            # Find the end of the bridge.
+            # The bridge is done if we can generate the remainder of the plan
+            # by ourselves, up to random tiebreaking, assuming optimal planning.
+            # Equivalently, the remainder of the plan looks rational -- the
+            # action selected has optimal cost-to-go.
+
+            # Start by computing the optimal costs to go for each state.
+            optimal_ctgs = []
+            for state in response.states:
+                task = Task(state, goal)
+                # Assuming optimal task planning here
+                nsrt_plan, _, _ = self._run_task_plan(task, nsrts, preds,
+                                                      CFG.timeout, self._seed)
+                ctg = len(nsrt_plan)
+                optimal_ctgs.append(ctg)
+
+            # Look for first time where the plan suffix decreases by 1.
+            bridge_end = seq_len - 1
+            for t in range(seq_len):
+                suffix = optimal_ctgs[t:]
+                decreasing_smoothly = True
+                for i, j in zip(suffix[:-1], suffix[1:]):
+                    if i != j + 1:
+                        decreasing_smoothly = False
+                        break
+                if decreasing_smoothly:
+                    bridge_end = t
+                    break
+
             bridge_demos.append((
                 failed_nsrt,
-                response.ground_nsrts,
-                response.atoms,
-                response.states,
+                response.ground_nsrts[:bridge_end],
+                response.atoms[:bridge_end+1],
+                response.states[:bridge_end+1],
             ))
 
         return self._bridge_policy.learn_from_demos(bridge_demos)
