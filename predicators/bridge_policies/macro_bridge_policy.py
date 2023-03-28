@@ -61,6 +61,7 @@ class MacroLearningBridgePolicy(BaseBridgePolicy):
                     raise BridgePolicyDone()
                 # Pop the next ground NSRT.
                 ground_nsrt, ground_macro = ground_macro.pop()
+                logging.debug(f"Using NSRT {ground_nsrt.name}{ground_nsrt.objects} from bridge policy.")
                 # Sample randomly, assuming goal not used by sampler.
                 goal: Set[GroundAtom] = set()
                 cur_option = ground_nsrt.sample_option(state, goal, self._rng)
