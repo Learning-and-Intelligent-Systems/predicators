@@ -174,7 +174,9 @@ def _generate_demonstrations(
                 # reached, as verified by the assertion later.
                 termination_function = lambda s: False
             else:  # pragma: no cover
-                policy = functools.partial(_human_demonstrator_policy, env,
+                caption = (f"Task {idx+1} / {num_tasks}\nPlease demonstrate "
+                   f"achieving the goal:\n{task.goal}")
+                policy = functools.partial(human_demonstrator_policy, env,
                                            idx, num_tasks, task,
                                            event_to_action)
                 termination_function = task.goal_holds
@@ -230,21 +232,18 @@ def _generate_demonstrations(
     return trajectories
 
 
-def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
+def human_demonstrator_policy(env: BaseEnv, caption: str,
                                task: Task, event_to_action: Callable[
                                    [State, matplotlib.backend_bases.Event],
                                    Action],
                                state: State) -> Action:  # pragma: no cover
-    # TODO: remove need for env, idx, and num_tasks
-    
+    """Collect actions from a human interacting with a GUI."""
     # Temporarily change the backend to one that supports a GUI.
     # We do this here because we don't want the rest of the codebase
     # to use GUI-based Matplotlib.
     cur_backend = matplotlib.get_backend()
     matplotlib.use("Qt5Agg")
     # Render the state.
-    caption = (f"Task {idx+1} / {num_tasks}\nPlease demonstrate "
-               f"achieving the goal:\n{task.goal}")
     fig = env.render_plt(caption=caption)
     container = {}
 

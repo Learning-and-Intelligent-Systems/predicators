@@ -11,7 +11,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from predicators import utils
-from predicators.datasets.demo_only import _human_demonstrator_policy
+from predicators.datasets.demo_only import human_demonstrator_policy
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import BaseEnv
@@ -111,9 +111,9 @@ class Teacher:
         goal = self._train_tasks[query.train_task_idx].goal
         task = Task(state, goal)
 
-        policy = functools.partial(_human_demonstrator_policy, self._env,
-                                    query.train_task_idx,
-                                    1, task,
+        caption = f"Please demonstrate achieving the goal:\n{goal}"
+        policy = functools.partial(human_demonstrator_policy, self._env,
+                                    caption, task,
                                     event_to_action)
         termination_function = task.goal_holds
 
