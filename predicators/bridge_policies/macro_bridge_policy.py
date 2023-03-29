@@ -9,7 +9,8 @@ from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, BridgePolicy, DummyOption, \
-    GroundAtom, Predicate, State, _GroundNSRT, _Option, GroundMacro, NSRT, _Macro, Object
+    GroundAtom, GroundMacro, Macro, Object, Predicate, State, _GroundNSRT, \
+    _Option
 
 
 class MacroLearningBridgePolicy(BaseBridgePolicy):
@@ -17,7 +18,7 @@ class MacroLearningBridgePolicy(BaseBridgePolicy):
 
     def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT]) -> None:
         super().__init__(predicates, nsrts)
-        self._macros: Dict[NSRT, Set[_Macro]] = {}  # failed NSRT to macros
+        self._macros: Dict[NSRT, Set[Macro]] = {}  # failed NSRT to macros
 
         # # TODO: remove and learn instead!
         # nsrt_name_to_nsrt = {n.name: n for n in nsrts}
@@ -61,7 +62,9 @@ class MacroLearningBridgePolicy(BaseBridgePolicy):
                     raise BridgePolicyDone()
                 # Pop the next ground NSRT.
                 ground_nsrt, ground_macro = ground_macro.pop()
-                logging.debug(f"Using NSRT {ground_nsrt.name}{ground_nsrt.objects} from bridge policy.")
+                logging.debug(
+                    f"Using NSRT {ground_nsrt.name}{ground_nsrt.objects} from bridge policy."
+                )
                 # Sample randomly, assuming goal not used by sampler.
                 goal: Set[GroundAtom] = set()
                 cur_option = ground_nsrt.sample_option(state, goal, self._rng)
@@ -73,7 +76,8 @@ class MacroLearningBridgePolicy(BaseBridgePolicy):
 
         return _policy
 
-    def _get_ground_macro(self, failed_nsrt: _GroundNSRT, state: State) -> GroundMacro:
+    def _get_ground_macro(self, failed_nsrt: _GroundNSRT,
+                          state: State) -> GroundMacro:
         failed_nsrt_macros = self._macros.get(failed_nsrt.parent, set())
         objects = set(state)
         atoms = utils.abstract(state, self._predicates)
@@ -89,11 +93,10 @@ class MacroLearningBridgePolicy(BaseBridgePolicy):
 
     def learn_from_demos(self, dataset) -> None:
         """For learning-based approaches, learn whatever is needed from the
-        given dataset.
-        """
+        given dataset."""
         for failed_ground_nsrt, ground_nsrts, _, _ in dataset:
             failed_nsrt = failed_ground_nsrt.parent
-            macro = GroundMacro(ground_nsrts).parent
+            macro = GroundMacro.from_ground_nsrts(ground_nsrts).parent
             if failed_nsrt not in self._macros:
                 self._macros[failed_nsrt] = set()
             self._macros[failed_nsrt].add(macro)

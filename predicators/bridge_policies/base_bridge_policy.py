@@ -42,5 +42,4 @@ class BaseBridgePolicy(abc.ABC):
 
     def learn_from_demos(self, dataset) -> None:
         """For learning-based approaches, learn whatever is needed from the
-        given dataset.
-        """
+        given dataset."""

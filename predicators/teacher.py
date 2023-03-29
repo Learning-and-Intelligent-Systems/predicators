@@ -17,10 +17,9 @@ from predicators.ground_truth_models import _get_options_by_names, \
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    InteractionRequest, LowLevelTrajectory, Observation, PathToStateQuery, \
-    PathToStateResponse, Query, Response, State, Task, HumanNSRTDemoQuery, \
-    HumanNSRTDemoResponse
-
+    HumanNSRTDemoQuery, HumanNSRTDemoResponse, InteractionRequest, \
+    LowLevelTrajectory, Observation, PathToStateQuery, PathToStateResponse, \
+    Query, Response, State, Task
 
 
 class Teacher:
@@ -101,7 +100,8 @@ class Teacher:
         atoms = utils.abstract(state, preds)
         nsrts = set(self._oracle_approach._nsrts)
         objects = set(state)
-        ground_nsrts = sorted(n for nsrt in nsrts for n in utils.all_ground_nsrts(nsrt, objects))
+        ground_nsrts = sorted(n for nsrt in nsrts
+                              for n in utils.all_ground_nsrts(nsrt, objects))
         ground_nsrt_seq = []
         atoms_seq = [atoms]
         states_seq = [state]
@@ -110,7 +110,8 @@ class Teacher:
             print(state.pretty_str())
             print("Current abstract state:")
             print("\n".join(sorted(map(str, atoms))))
-            applicable_nsrts = dict(enumerate(utils.get_applicable_operators(ground_nsrts, atoms)))
+            applicable_nsrts = dict(
+                enumerate(utils.get_applicable_operators(ground_nsrts, atoms)))
             print("Select an applicable NSRT:")
             for i, ground_nsrt in applicable_nsrts.items():
                 print(f"{i}: {ground_nsrt.parent.name}{ground_nsrt.objects}")
@@ -140,8 +141,9 @@ class Teacher:
             states_seq.append(state)
             atoms = utils.abstract(state, preds)
             atoms_seq.append(atoms)
-            
-        return HumanNSRTDemoResponse(query, ground_nsrt_seq, atoms_seq, states_seq)
+
+        return HumanNSRTDemoResponse(query, ground_nsrt_seq, atoms_seq,
+                                     states_seq)
 
     def _answer_PathToState_query(
             self, state: State,

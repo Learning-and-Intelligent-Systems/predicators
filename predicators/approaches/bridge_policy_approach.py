@@ -15,7 +15,7 @@ plannability" in states where the planner has gotten stuck.
 """
 
 import logging
-from typing import Callable, List, Optional, Set, Sequence
+from typing import Callable, List, Optional, Sequence, Set
 
 from gym.spaces import Box
 
@@ -24,8 +24,9 @@ from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
-from predicators.structs import Action, DummyOption, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundNSRT, InteractionRequest, InteractionResult, Query, HumanNSRTDemoQuery
+from predicators.structs import Action, DummyOption, HumanNSRTDemoQuery, \
+    InteractionRequest, InteractionResult, ParameterizedOption, Predicate, \
+    Query, State, Task, Type, _GroundNSRT
 from predicators.utils import OptionExecutionFailure
 
 
@@ -158,7 +159,6 @@ class BridgePolicyApproach(OracleApproach):
 
         return _policy
 
-
     ########################### Active learning ###############################
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
@@ -167,7 +167,8 @@ class BridgePolicyApproach(OracleApproach):
         # TODO make less ugly
         def create_interaction_request(train_task_idx):
             task = self._train_tasks[train_task_idx]
-            planning_policy = self._get_policy_by_planning(task, timeout=CFG.timeout)
+            planning_policy = self._get_policy_by_planning(task,
+                                                           timeout=CFG.timeout)
 
             reached_stuck_state = False
             failed_nsrt = None
@@ -192,7 +193,7 @@ class BridgePolicyApproach(OracleApproach):
 
             request = InteractionRequest(train_task_idx, act_policy,
                                          query_policy, termination_fn)
-            
+
             return request
 
         for train_task_idx in self._select_interaction_train_task_idxs():
@@ -207,9 +208,9 @@ class BridgePolicyApproach(OracleApproach):
         # try other strategies.
         return self._rng.choice(len(self._train_tasks),
                                 size=CFG.interactive_num_requests_per_cycle)
-    
+
     def learn_from_interaction_results(
-        self, results: Sequence[InteractionResult]) -> None:
+            self, results: Sequence[InteractionResult]) -> None:
 
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
@@ -254,8 +255,8 @@ class BridgePolicyApproach(OracleApproach):
             bridge_demos.append((
                 failed_nsrt,
                 response.ground_nsrts[:bridge_end],
-                response.atoms[:bridge_end+1],
-                response.states[:bridge_end+1],
+                response.atoms[:bridge_end + 1],
+                response.states[:bridge_end + 1],
             ))
 
         return self._bridge_policy.learn_from_demos(bridge_demos)
