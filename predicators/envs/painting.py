@@ -14,11 +14,11 @@ import numpy as np
 from gym.spaces import Box
 from matplotlib import patches
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
+from predicators.utils import EnvironmentFailure
 
 
 class PaintingEnv(BaseEnv):
@@ -213,8 +213,10 @@ class PaintingEnv(BaseEnv):
             return next_state
         if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
-            raise utils.EnvironmentFailure("Box lid is closed.",
-                                           {"offending_objects": {self._lid}})
+            if CFG.painting_raise_environment_failure:
+                raise EnvironmentFailure("Box lid is closed.",
+                                         {"offending_objects": {self._lid}})
+            return next_state
         # Detect top grasp vs side grasp
         grasp = state.get(held_obj, "grasp")
         if grasp > self.top_grasp_thresh:

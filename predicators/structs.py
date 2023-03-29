@@ -1806,3 +1806,4 @@ ParameterizedTerminal = Callable[[State, Dict, Sequence[Object], Array], bool]
 AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
 RGBA = Tuple[float, float, float, float]
+BridgePolicy = Callable[[State, Set[GroundAtom], _GroundNSRT], _Option]
