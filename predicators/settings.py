@@ -91,6 +91,7 @@ class GlobalSettings:
     painting_num_objs_test = [3, 4]
     painting_max_objs_in_goal = float("inf")
     painting_goal_receptacles = "box_and_shelf"  # box_and_shelf, box, shelf
+    painting_raise_environment_failure = True
 
     # repeated_nextto_painting (rnt_painting) env parameters
     rnt_painting_num_objs_train = [8, 9, 10]
@@ -510,6 +511,9 @@ class GlobalSettings:
     cnn_refinement_estimator_crop = False  # True
     cnn_refinement_estimator_crop_bounds = (320, 400, 100, 650)
     cnn_refinement_estimator_downsample = 2
+
+    # bridge policy parameters
+    bridge_policy = "oracle"  # default bridge policy
 
     # glib explorer parameters
     glib_min_goal_size = 1
