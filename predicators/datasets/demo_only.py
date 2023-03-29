@@ -175,10 +175,9 @@ def _generate_demonstrations(
                 termination_function = lambda s: False
             else:  # pragma: no cover
                 caption = (f"Task {idx+1} / {num_tasks}\nPlease demonstrate "
-                   f"achieving the goal:\n{task.goal}")
+                           f"achieving the goal:\n{task.goal}")
                 policy = functools.partial(human_demonstrator_policy, env,
-                                           idx, num_tasks, task,
-                                           event_to_action)
+                                           caption, event_to_action)
                 termination_function = task.goal_holds
 
             if CFG.make_demo_videos:
@@ -233,10 +232,10 @@ def _generate_demonstrations(
 
 
 def human_demonstrator_policy(env: BaseEnv, caption: str,
-                               task: Task, event_to_action: Callable[
-                                   [State, matplotlib.backend_bases.Event],
-                                   Action],
-                               state: State) -> Action:  # pragma: no cover
+                              event_to_action: Callable[
+                                  [State, matplotlib.backend_bases.Event],
+                                  Action],
+                              state: State) -> Action:  # pragma: no cover
     """Collect actions from a human interacting with a GUI."""
     # Temporarily change the backend to one that supports a GUI.
     # We do this here because we don't want the rest of the codebase

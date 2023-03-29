@@ -910,7 +910,7 @@ class LoggingMonitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
     def reset(self, train_or_test: str, task_idx: int) -> None:
-        """Called when the environment is reset."""
+        """Called when the monitor starts a new episode."""
 
     @abc.abstractmethod
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
@@ -951,7 +951,8 @@ def run_policy(
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
-        monitor.reset(train_or_test, task_idx)
+        if monitor is not None:
+            monitor.reset(train_or_test, task_idx)
     obs = env.get_observation()
     assert isinstance(obs, State)
     state = obs

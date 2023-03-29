@@ -3,6 +3,7 @@ information to assist an agent duri`ng online learning."""
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass, field
 import functools
 from typing import List, Optional, Sequence
@@ -14,7 +15,8 @@ from predicators import utils
 from predicators.datasets.demo_only import human_demonstrator_policy
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
-from predicators.envs import create_new_env, BaseEnv
+from predicators.datasets.demo_only import human_demonstrator_policy
+from predicators.envs import BaseEnv, create_new_env
 from predicators.ground_truth_models import _get_options_by_names, \
     _get_types_by_names, get_gt_options
 from predicators.settings import CFG, get_allowed_query_type_names
@@ -32,7 +34,10 @@ class Teacher:
         self._env = create_new_env(CFG.env)
         self._train_tasks = train_tasks
         env_options = get_gt_options(self._env.get_name())
-        self._pred_name_to_pred = {pred.name: pred for pred in self._env.predicates}
+        self._pred_name_to_pred = {
+            pred.name: pred
+            for pred in self._env.predicates
+        }
         self._allowed_query_type_names = get_allowed_query_type_names()
         self._oracle_approach = OracleApproach(
             self._env.predicates,
@@ -84,7 +89,7 @@ class Teacher:
             except (ApproachTimeout, ApproachFailure):
                 return DemonstrationResponse(query, teacher_traj=None)
 
-        else:
+        else:  # pragma: no cover
             assert CFG.demonstrator == "human"
             # Disable all built-in keyboard shortcuts.
             keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
@@ -95,8 +100,7 @@ class Teacher:
             event_to_action = self._env.get_event_to_action_fn()
             caption = f"Please demonstrate achieving the goal:\n{goal}"
             policy = functools.partial(human_demonstrator_policy, self._env,
-                                        caption, task,
-                                        event_to_action)
+                                       caption, event_to_action)
 
         traj, _ = utils.run_policy(
             policy,
@@ -109,112 +113,13 @@ class Teacher:
             exceptions_to_break_on={
                 utils.OptionExecutionFailure,
                 utils.HumanDemonstrationFailure,
-        })
+            })
 
         teacher_traj = LowLevelTrajectory(traj.states,
                                           traj.actions,
                                           _is_demo=True,
                                           _train_task_idx=query.train_task_idx)
         return DemonstrationResponse(query, teacher_traj)
-
-    # def _answer_HumanDemoQuery(
-    #         self, state: State,
-    #         query: HumanDemoQuery) -> HumanDemoResponse:
-    #     # The query is asking for a demonstration from the current state to
-    #     # the goal from the train task.
-        
-    #     # Disable all built-in keyboard shortcuts.
-    #     keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
-    #     for k in keymaps:
-    #         plt.rcParams[k].clear()
-    #     # Create the environment-specific method for turning events into
-    #     # actions. This should also log instructions.
-    #     event_to_action = self._env.get_event_to_action_fn()
-
-    #     goal = self._train_tasks[query.train_task_idx].goal
-    #     task = Task(state, goal)
-
-    #     caption = f"Please demonstrate achieving the goal:\n{goal}"
-    #     policy = functools.partial(human_demonstrator_policy, self._env,
-    #                                 caption, task,
-    #                                 event_to_action)
-    #     termination_function = task.goal_holds
-
-    #     # TODO what to do about this????
-    #     # Right now banking on the fact that self._env is the REAL env...
-    #     traj, _ = utils.run_policy(
-    #             policy,
-    #             self._env,
-    #             "train",
-    #             query.train_task_idx,
-    #             termination_function=termination_function,
-    #             max_num_steps=CFG.horizon,
-    #             do_env_reset=False,  # important!
-    #             exceptions_to_break_on={
-    #                 utils.OptionExecutionFailure,
-    #                 utils.HumanDemonstrationFailure,
-    #             })
-    #     teacher_traj = LowLevelTrajectory(traj.states,
-    #                                       traj.actions,
-    #                                       _is_demo=True,
-    #                                       _train_task_idx=query.train_task_idx)
-    #     return HumanDemoResponse(query, teacher_traj)
-
-    # def _answer_HumanNSRTDemoQuery(
-    #         self, state: State,
-    #         query: HumanNSRTDemoQuery) -> HumanNSRTDemoResponse:
-    #     # The query is asking for a demonstration from the current state to
-    #     # the goal from the train task.
-    #     goal = self._train_tasks[query.train_task_idx].goal
-    #     task = Task(state, goal)
-    #     preds = set(self._pred_name_to_pred.values())
-    #     atoms = utils.abstract(state, preds)
-    #     nsrts = set(self._oracle_approach._nsrts)
-    #     objects = set(state)
-    #     ground_nsrts = sorted(n for nsrt in nsrts
-    #                           for n in utils.all_ground_nsrts(nsrt, objects))
-    #     ground_nsrt_seq = []
-    #     atoms_seq = [atoms]
-    #     states_seq = [state]
-    #     while not goal.issubset(atoms):
-    #         print("Current state:")
-    #         print(state.pretty_str())
-    #         print("Current abstract state:")
-    #         print("\n".join(sorted(map(str, atoms))))
-    #         applicable_nsrts = dict(
-    #             enumerate(utils.get_applicable_operators(ground_nsrts, atoms)))
-    #         print("Select an applicable NSRT:")
-    #         for i, ground_nsrt in applicable_nsrts.items():
-    #             print(f"{i}: {ground_nsrt.parent.name}{ground_nsrt.objects}")
-    #         selected_ground_nsrt = None
-    #         while True:
-    #             user_input = input("Input a number or 'd' for done: ")
-    #             if user_input == 'd':
-    #                 break
-    #             if user_input.isdigit():
-    #                 idx = int(user_input)
-    #                 if idx in applicable_nsrts:
-    #                     selected_ground_nsrt = applicable_nsrts[idx]
-    #                     break
-    #             print("Invalid input, try again.")
-    #         if selected_ground_nsrt is None:
-    #             break
-    #         ground_nsrt_seq.append(selected_ground_nsrt)
-    #         option = selected_ground_nsrt.sample_option(state, goal, self._rng)
-    #         assert option.initiable(state)
-    #         traj = utils.run_policy_with_simulator(
-    #             option.policy,
-    #             self._simulator,
-    #             state,
-    #             option.terminal,
-    #             max_num_steps=CFG.max_num_steps_option_rollout)
-    #         state = traj.states[-1]
-    #         states_seq.append(state)
-    #         atoms = utils.abstract(state, preds)
-    #         atoms_seq.append(atoms)
-
-    #     return HumanNSRTDemoResponse(query, ground_nsrt_seq, atoms_seq,
-    #                                  states_seq)
 
     def _answer_PathToState_query(
             self, state: State,
@@ -320,13 +225,15 @@ class TeacherInteractionMonitor(utils.LoggingMonitor):
 
     @property
     def _teacher_env(self) -> BaseEnv:
-        return self._teacher._env
+        """Exposes the teacher's environment to this monitor."""
+        # This is a temporary hack. When issue #1433 is resolved, this can be
+        # removed. That issue will require a fairly significant amount of work.
+        return self._teacher._env  # pylint: disable=protected-access
 
     def reset(self, train_or_test: str, task_idx: int) -> None:
         self._teacher_env.reset(train_or_test, task_idx)
 
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
-        del action  # unused
         assert isinstance(obs, State)
         assert obs.allclose(self._teacher_env.get_observation())
         if action is not None:
