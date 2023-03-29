@@ -25,7 +25,7 @@ from predicators.approaches.oracle_approach import OracleApproach
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
-from predicators.structs import Action, DummyOption, HumanDemoQuery, \
+from predicators.structs import Action, DummyOption, DemonstrationQuery, \
     InteractionRequest, InteractionResult, ParameterizedOption, Predicate, \
     Query, State, Task, Type, _GroundNSRT
 from predicators.utils import OptionExecutionFailure
@@ -190,7 +190,9 @@ class BridgePolicyApproach(OracleApproach):
                 if not reached_stuck_state:
                     return None
                 assert failed_nsrt is not None
-                return HumanDemoQuery(train_task_idx, failed_nsrt)
+                return DemonstrationQuery(train_task_idx, {
+                    "failed_nsrt": failed_nsrt}
+                )
 
             request = InteractionRequest(train_task_idx, act_policy,
                                          query_policy, termination_fn)
@@ -222,7 +224,7 @@ class BridgePolicyApproach(OracleApproach):
             response = result.responses[-1]
             query = response.query
             goal = self._train_tasks[response.query.train_task_idx].goal
-            failed_nsrt = response.query.failed_nsrt
+            failed_nsrt = response.query.info["failed_nsrt"]
 
             # Abstract and segment the trajectory.
             traj = response.teacher_traj

@@ -1377,6 +1377,7 @@ class GroundAtomsHoldResponse(Response):
 class DemonstrationQuery(Query):
     """A query requesting a demonstration to finish a train task."""
     train_task_idx: int
+    info: Optional[Dict] = field(default=None)
 
     @property
     def cost(self) -> float:
