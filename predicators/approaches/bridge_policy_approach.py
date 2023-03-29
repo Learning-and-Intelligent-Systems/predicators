@@ -22,6 +22,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
+from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
 from predicators.structs import Action, DummyOption, HumanDemoQuery, \
@@ -222,7 +223,16 @@ class BridgePolicyApproach(OracleApproach):
             query = response.query
             goal = self._train_tasks[response.query.train_task_idx].goal
             failed_nsrt = response.query.failed_nsrt
-            seq_len = len(response.atoms)
+
+            # Abstract and segment the trajectory.
+            traj = response.teacher_traj
+            atom_traj = [utils.abstract(s, preds) for s in traj.states]
+            segmented_traj = segment_trajectory((traj, atom_traj))
+            states = utils.segment_trajectory_to_state_sequence(segmented_traj)
+            atoms = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
+            assert len(states) == len(atoms)
+            seq_len = len(atoms)
+
             # Find the end of the bridge.
             # The bridge is done if we can generate the remainder of the plan
             # by ourselves, up to random tiebreaking, assuming optimal planning.
@@ -231,7 +241,7 @@ class BridgePolicyApproach(OracleApproach):
 
             # Start by computing the optimal costs to go for each state.
             optimal_ctgs = []
-            for state in response.states:
+            for state in states:
                 task = Task(state, goal)
                 # Assuming optimal task planning here
                 nsrt_plan, _, _ = self._run_task_plan(task, nsrts, preds,

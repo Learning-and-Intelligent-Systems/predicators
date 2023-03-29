@@ -14,7 +14,7 @@ from predicators import utils
 from predicators.datasets.demo_only import _human_demonstrator_policy
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
-from predicators.envs import get_or_create_env
+from predicators.envs import BaseEnv
 from predicators.ground_truth_models import _get_options_by_names, \
     _get_types_by_names, get_gt_options
 from predicators.settings import CFG, get_allowed_query_type_names
@@ -28,9 +28,9 @@ from predicators.structs import Action, DemonstrationQuery, \
 class Teacher:
     """The teacher can respond to queries of various types."""
 
-    def __init__(self, train_tasks: Sequence[Task]) -> None:
+    def __init__(self, env: BaseEnv, train_tasks: Sequence[Task]) -> None:
+        self._env = env
         self._train_tasks = train_tasks
-        self._env = get_or_create_env(CFG.env)
         env_options = get_gt_options(self._env.get_name())
         self._pred_name_to_pred = {pred.name: pred for pred in self._env.predicates}
         self._allowed_query_type_names = get_allowed_query_type_names()
@@ -117,13 +117,20 @@ class Teacher:
                                     event_to_action)
         termination_function = task.goal_holds
 
-        traj = utils.run_policy_with_simulator(
-            policy,
-            self._simulator,
-            task.init,
-            task.goal_holds,
-            max_num_steps=CFG.max_num_steps_option_rollout)
-        assert task.goal_holds(traj.states[-1])
+        # TODO what to do about this????
+        # Right now banking on the fact that self._env is the REAL env...
+        traj, _ = utils.run_policy(
+                policy,
+                self._env,
+                "train",
+                query.train_task_idx,
+                termination_function=termination_function,
+                max_num_steps=CFG.horizon,
+                do_env_reset=False,  # important!
+                exceptions_to_break_on={
+                    utils.OptionExecutionFailure,
+                    utils.HumanDemonstrationFailure,
+                })
         teacher_traj = LowLevelTrajectory(traj.states,
                                           traj.actions,
                                           _is_demo=True,

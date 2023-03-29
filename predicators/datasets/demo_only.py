@@ -235,6 +235,8 @@ def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
                                    [State, matplotlib.backend_bases.Event],
                                    Action],
                                state: State) -> Action:  # pragma: no cover
+    # TODO: remove need for env, idx, and num_tasks
+    
     # Temporarily change the backend to one that supports a GUI.
     # We do this here because we don't want the rest of the codebase
     # to use GUI-based Matplotlib.

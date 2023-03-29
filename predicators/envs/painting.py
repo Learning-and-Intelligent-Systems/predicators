@@ -19,7 +19,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
     Predicate, State, Type
-from predicators.utils import EnvironmentFailure
+from predicators.utils import EnvironmentFailure, HumanDemonstrationFailure
 
 
 class PaintingEnv(BaseEnv):
@@ -666,48 +666,15 @@ class PaintingEnv(BaseEnv):
             "Press (b) to open the box lid.",
             "Press (s) to paint the held object the shelf color.",
             "Press (p) to paint the held object the box color.",
+            "Press (q) to quit.",
         ]
         logging.info("Controls: " + "\n - ".join(instructions))
 
-        # TODO remove this
-        # Actions are 8-dimensional vectors:
-        # [x, y, z, grasp, pickplace, water level, heat level, color]
-        # Note that pickplace is 1 for pick, -1 for place, and 0 otherwise,
-        # while grasp, water level, heat level, and color are in [0, 1].
-        # We set the lower bound for z to 0.0, rather than self.obj_z - 1e-2,
-        # because in RepeatedNextToPainting, we use this dimension to check
-        # affinity of the move action
-
         def _event_to_action(state: State,
                              event: matplotlib.backend_bases.Event) -> Action:
-            
-            held_obj = self._get_held_object(state)
-            y = event.xdata * (self.env_ub - self.env_lb) + self.env_lb
-            # Clicked z used to decide top or side grasp.
-            clicked_z = event.ydata * (self.env_ub - self.env_lb) + self.env_lb
-            x = self.obj_x
-            z = self.obj_z
-            # Use a generous tolerance.
-            clicked_obj = self._get_object_at_xyz(state, x, y, z, tol=1e-1)
 
-            # Place held object.
-            if event.key is None and held_obj is not None:
-                arr = np.array([x, y, z, 0.0, -1.0, 0.0, 0.0, 0.0])
-                return Action(np.array(arr, dtype=np.float32))
-
-            # Pick.
-            if held_obj is None and clicked_obj is not None:
-                # Set the y position to the object y position so that the
-                # pick is successfully executed.
-                y = state.get(clicked_obj, "pose_y")
-                # Side grasp.
-                if clicked_z <= self.obj_z + 2 * self.obj_height:
-                    grasp = self.side_grasp_thresh - 1e-3
-                # Top grasp.
-                else:
-                    grasp = self.top_grasp_thresh + 1e-3
-                arr = np.array([x, y, z, grasp, 1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-                return Action(arr)
+            if event.key == "q":
+                raise HumanDemonstrationFailure("Human quit.")
 
             # Wash held object.
             if event.key == "w":
@@ -751,6 +718,37 @@ class PaintingEnv(BaseEnv):
                     0.0, 0.0, 0.0, 0.0, box_color,
                 ],
                             dtype=np.float32)
+                return Action(arr)
+
+            # Only remaining actions are ones involving a click.
+            assert event.xdata is not None and event.ydata is not None
+
+            held_obj = self._get_held_object(state)
+            y = event.xdata * (self.env_ub - self.env_lb) + self.env_lb
+            # Clicked z used to decide top or side grasp.
+            clicked_z = event.ydata * (self.env_ub - self.env_lb) + self.env_lb
+            x = self.obj_x
+            z = self.obj_z
+            # Use a generous tolerance.
+            clicked_obj = self._get_object_at_xyz(state, x, y, z, tol=1e-1)
+
+            # Place held object.
+            if event.key is None and held_obj is not None:
+                arr = np.array([x, y, z, 0.0, -1.0, 0.0, 0.0, 0.0])
+                return Action(np.array(arr, dtype=np.float32))
+
+            # Pick.
+            if held_obj is None and clicked_obj is not None:
+                # Set the y position to the object y position so that the
+                # pick is successfully executed.
+                y = state.get(clicked_obj, "pose_y")
+                # Side grasp.
+                if clicked_z <= self.obj_z + 2 * self.obj_height:
+                    grasp = self.side_grasp_thresh - 1e-3
+                # Top grasp.
+                else:
+                    grasp = self.top_grasp_thresh + 1e-3
+                arr = np.array([x, y, z, grasp, 1.0, 0.0, 0.0, 0.0], dtype=np.float32)
                 return Action(arr)
 
             # Something went wrong.
