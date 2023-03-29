@@ -1612,11 +1612,11 @@ class Macro:
     """A macro is a sequence of NSRTs with shared parameters."""
     parameters: Sequence[Variable]
     nsrts: Sequence[NSRT]
-    nsrt_to_macro_params: Dict[NSRT, VarToVarSub]
+    nsrt_to_macro_params: Sequence[VarToVarSub]
 
     def __post_init__(self) -> None:
-        assert set(self.nsrts) == set(self.nsrt_to_macro_params)
-        for nsrt, subs in self.nsrt_to_macro_params.items():
+        assert len(self.nsrts) == len(self.nsrt_to_macro_params)
+        for nsrt, subs in zip(self.nsrts, self.nsrt_to_macro_params):
             assert set(nsrt.parameters) == set(subs)
             assert set(subs.values()).issubset(self.parameters)
             assert all(p1.type == p2.type for p1, p2 in subs.items())
@@ -1627,19 +1627,20 @@ class Macro:
         # Map all NSRT preconditions and effects to the macro parameter space.
         macro_param_preconds: List[Set[LiftedAtom]] = []
         macro_param_add_effects: List[Set[LiftedAtom]] = []
-        for nsrt in self.nsrts:
-            sub = self.nsrt_to_macro_params[nsrt]
+        for nsrt, sub in zip(self.nsrts, self.nsrt_to_macro_params):
             preconds = {a.substitute(sub) for a in nsrt.preconditions}
             macro_param_preconds.append(preconds)
             add_effects = {a.substitute(sub) for a in nsrt.add_effects}
             macro_param_add_effects.append(add_effects)
-        # Chain together the preconditions and add effects.
-        preconditions: Set[LiftedAtom] = set()
-        for t in range(len(self.nsrts) - 1):
-            pre_t1 = macro_param_preconds[t + 1]
-            add_t = macro_param_add_effects[t]
-            preconditions |= (pre_t1 - add_t)
-        return preconditions
+        # Chain together the preconditions and add effects backwards.
+        # To chain, shift the add effects back by one.
+        empty_adds: Set[LiftedAtom] = set()
+        macro_param_add_effects = [empty_adds] + macro_param_add_effects[:-1]
+        final_macro_preconditions: Set[LiftedAtom] = set()
+        while macro_param_preconds:
+            final_macro_preconditions |= macro_param_preconds.pop()
+            final_macro_preconditions -= macro_param_add_effects.pop()
+        return final_macro_preconditions
 
     def ground(self, objects: Sequence[Object]) -> GroundMacro:
         """Ground into a GroundMacro, given objects."""
@@ -1648,8 +1649,7 @@ class Macro:
     @cached_property
     def _str(self) -> str:
         member_strs = []
-        for nsrt in self.nsrts:
-            sub = self.nsrt_to_macro_params[nsrt]
+        for nsrt, sub in zip(self.nsrts, self.nsrt_to_macro_params):
             arg_str = ", ".join([sub[o].name for o in nsrt.parameters])
             nsrt_str = f"{nsrt.name}({arg_str})"
             member_strs.append(nsrt_str)
@@ -1699,7 +1699,7 @@ class GroundMacro:
         """Create a GroundMacro from a sequence of _GroundNSRTs."""
         obj_to_macro_param: ObjToVarSub = {}
         nsrts: List[NSRT] = []
-        nsrt_to_macro_params: Dict[NSRT, VarToVarSub] = {}
+        nsrt_to_macro_params: List[VarToVarSub] = []
         var_count = itertools.count()
         for ground_nsrt in ground_nsrts:
             nsrt = ground_nsrt.parent
@@ -1710,7 +1710,7 @@ class GroundMacro:
                     obj_to_macro_param[obj] = new_var
                 sub[nsrt_var] = obj_to_macro_param[obj]
             nsrts.append(nsrt)
-            nsrt_to_macro_params[nsrt] = sub
+            nsrt_to_macro_params.append(sub)
         parameters = sorted(obj_to_macro_param.values())
         macro = Macro(parameters, nsrts, nsrt_to_macro_params)
         macro_param_to_obj = {v: k for k, v in obj_to_macro_param.items()}
@@ -1729,11 +1729,10 @@ class GroundMacro:
     def ground_nsrts(self) -> List[_GroundNSRT]:
         """The _GroundNSRTs for this GroundMacro."""
         ground_nsrts: List[_GroundNSRT] = []
-        macro_param_to_obj = dict(zip(self.parent.parameters, self.objects))
-        for nsrt in self.parent.nsrts:
-            nsrt_to_macro_param = self.parent.nsrt_to_macro_params[nsrt]
-            objs = tuple(macro_param_to_obj[nsrt_to_macro_param[p]]
-                         for p in nsrt.parameters)
+        parent = self.parent
+        macro_param_to_obj = dict(zip(parent.parameters, self.objects))
+        for nsrt, sub in zip(parent.nsrts, parent.nsrt_to_macro_params):
+            objs = tuple(macro_param_to_obj[sub[p]] for p in nsrt.parameters)
             ground_nsrt = nsrt.ground(objs)
             ground_nsrts.append(ground_nsrt)
         return ground_nsrts
