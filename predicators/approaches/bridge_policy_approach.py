@@ -244,9 +244,13 @@ class BridgePolicyApproach(OracleApproach):
             for state in states:
                 task = Task(state, goal)
                 # Assuming optimal task planning here
-                nsrt_plan, _, _ = self._run_task_plan(task, nsrts, preds,
-                                                      CFG.timeout, self._seed)
-                ctg = len(nsrt_plan)
+                try:
+                    nsrt_plan, _, _ = self._run_task_plan(task, nsrts, preds,
+                                                        CFG.timeout, self._seed)
+                    ctg = len(nsrt_plan)
+                except ApproachFailure as e:
+                    # Planning failed... infinite ctg
+                    ctg = float("inf")
                 optimal_ctgs.append(ctg)
 
             # Look for first time where the plan suffix decreases by 1.
@@ -262,11 +266,29 @@ class BridgePolicyApproach(OracleApproach):
                     bridge_end = t
                     break
 
+            # Convert atom bridge into ground NSRT bridge.
+            atoms_bridge = atoms[:bridge_end + 1]
+            states_bridge = states[:bridge_end + 1]
+            ground_nsrt_bridge = []
+            objects = set(states[0])
+            effects_to_ground_nsrt = {}
+            for nsrt in nsrts:
+                for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                    add_atoms = frozenset(ground_nsrt.add_effects)
+                    effects_to_ground_nsrt[add_atoms] = ground_nsrt
+            
+            # Assume all atom changes were necessary... we don't know otherwise
+            for before_atoms, after_atoms in zip(atoms_bridge[:-1], atoms_bridge[1:]):
+                add_atoms = frozenset(after_atoms - before_atoms)
+                # TODO handle case where key doesn't exist
+                ground_nsrt = effects_to_ground_nsrt[add_atoms]
+                ground_nsrt_bridge.append(ground_nsrt)
+
             bridge_demos.append((
                 failed_nsrt,
-                response.ground_nsrts[:bridge_end],
-                response.atoms[:bridge_end + 1],
-                response.states[:bridge_end + 1],
+                ground_nsrt_bridge,
+                atoms_bridge,
+                states_bridge,
             ))
 
         return self._bridge_policy.learn_from_demos(bridge_demos)
