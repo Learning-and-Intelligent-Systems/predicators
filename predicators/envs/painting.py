@@ -416,7 +416,7 @@ class PaintingEnv(BaseEnv):
                  "yellow border = side grasp, orange border = top grasp")
         if caption is not None:
             title += f";\n{caption}"
-        plt.suptitle(title, fontsize=12, wrap=True)
+        plt.suptitle(title, fontsize=8, wrap=True)
         plt.tight_layout()
         return fig
 
