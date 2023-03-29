@@ -4,11 +4,14 @@ information to assist an agent duri`ng online learning."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import functools
 from typing import List, Optional, Sequence
 
 import numpy as np
+from matplotlib import pyplot as plt
 
 from predicators import utils
+from predicators.datasets.demo_only import _human_demonstrator_policy
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import get_or_create_env
@@ -19,7 +22,7 @@ from predicators.structs import Action, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
     HumanNSRTDemoQuery, HumanNSRTDemoResponse, InteractionRequest, \
     LowLevelTrajectory, Observation, PathToStateQuery, PathToStateResponse, \
-    Query, Response, State, Task
+    Query, Response, State, Task, HumanDemoQuery, HumanDemoResponse
 
 
 class Teacher:
@@ -27,18 +30,18 @@ class Teacher:
 
     def __init__(self, train_tasks: Sequence[Task]) -> None:
         self._train_tasks = train_tasks
-        env = get_or_create_env(CFG.env)
-        env_options = get_gt_options(env.get_name())
-        self._pred_name_to_pred = {pred.name: pred for pred in env.predicates}
+        self._env = get_or_create_env(CFG.env)
+        env_options = get_gt_options(self._env.get_name())
+        self._pred_name_to_pred = {pred.name: pred for pred in self._env.predicates}
         self._allowed_query_type_names = get_allowed_query_type_names()
         self._oracle_approach = OracleApproach(
-            env.predicates,
+            self._env.predicates,
             env_options,
-            env.types,
-            env.action_space, [],
+            self._env.types,
+            self._env.action_space, [],
             task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
             max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
-        self._simulator = env.simulate
+        self._simulator = self._env.simulate
         self._rng = np.random.default_rng(CFG.seed)
 
     def answer_query(self, state: State, query: Query) -> Response:
@@ -53,6 +56,8 @@ class Teacher:
             return self._answer_PathToState_query(state, query)
         if isinstance(query, HumanNSRTDemoQuery):
             return self._answer_HumanNSRTDemoQuery(state, query)
+        if isinstance(query, HumanDemoQuery):
+            return self._answer_HumanDemoQuery(state, query)
         raise NotImplementedError(f"Unrecognized query: {query}.")
 
     def _answer_GroundAtomsHold_query(
@@ -88,6 +93,42 @@ class Teacher:
                                           _is_demo=True,
                                           _train_task_idx=query.train_task_idx)
         return DemonstrationResponse(query, teacher_traj)
+
+    def _answer_HumanDemoQuery(
+            self, state: State,
+            query: HumanDemoQuery) -> HumanDemoResponse:
+        # The query is asking for a demonstration from the current state to
+        # the goal from the train task.
+        
+        # Disable all built-in keyboard shortcuts.
+        keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
+        for k in keymaps:
+            plt.rcParams[k].clear()
+        # Create the environment-specific method for turning events into
+        # actions. This should also log instructions.
+        event_to_action = self._env.get_event_to_action_fn()
+
+        goal = self._train_tasks[query.train_task_idx].goal
+        task = Task(state, goal)
+
+        policy = functools.partial(_human_demonstrator_policy, self._env,
+                                    query.train_task_idx,
+                                    1, task,
+                                    event_to_action)
+        termination_function = task.goal_holds
+
+        traj = utils.run_policy_with_simulator(
+            policy,
+            self._simulator,
+            task.init,
+            task.goal_holds,
+            max_num_steps=CFG.max_num_steps_option_rollout)
+        assert task.goal_holds(traj.states[-1])
+        teacher_traj = LowLevelTrajectory(traj.states,
+                                          traj.actions,
+                                          _is_demo=True,
+                                          _train_task_idx=query.train_task_idx)
+        return HumanDemoResponse(query, teacher_traj)
 
     def _answer_HumanNSRTDemoQuery(
             self, state: State,

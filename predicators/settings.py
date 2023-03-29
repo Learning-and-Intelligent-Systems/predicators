@@ -658,7 +658,7 @@ def get_allowed_query_type_names() -> Set[str]:
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
     if CFG.approach == "bridge_policy":
-        return {"HumanNSRTDemoQuery"}
+        return {"HumanDemoQuery"}
     if CFG.approach == "unittest":
         return {
             "GroundAtomsHoldQuery",

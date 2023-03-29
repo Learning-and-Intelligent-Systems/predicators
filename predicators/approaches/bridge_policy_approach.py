@@ -24,7 +24,7 @@ from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
-from predicators.structs import Action, DummyOption, HumanNSRTDemoQuery, \
+from predicators.structs import Action, DummyOption, HumanDemoQuery, \
     InteractionRequest, InteractionResult, ParameterizedOption, Predicate, \
     Query, State, Task, Type, _GroundNSRT
 from predicators.utils import OptionExecutionFailure
@@ -189,7 +189,7 @@ class BridgePolicyApproach(OracleApproach):
                 if not reached_stuck_state:
                     return None
                 assert failed_nsrt is not None
-                return HumanNSRTDemoQuery(train_task_idx, failed_nsrt)
+                return HumanDemoQuery(train_task_idx, failed_nsrt)
 
             request = InteractionRequest(train_task_idx, act_policy,
                                          query_policy, termination_fn)
