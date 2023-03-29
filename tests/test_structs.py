@@ -1181,13 +1181,14 @@ def test_macros():
         },
     ]
     macro = Macro(macro_parameters, macro_nsrts, nsrt_to_macro_params)
-    assert str(macro) == "Macro[Place(?mcup1, ?mplate, ?mrob), Pick(?mcup2, ?mrob), Place(?mcup2, ?mplate, ?mrob)]"  # pylint: disable=line-too-long
+    assert str(macro) == repr(macro) == "Macro[Place(?mcup1, ?mplate, ?mrob), Pick(?mcup2, ?mrob), Place(?mcup2, ?mplate, ?mrob)]"  # pylint: disable=line-too-long
     macro2 = Macro(macro_parameters, macro_nsrts, nsrt_to_macro_params)
     assert macro == macro2
     assert len({macro, macro2}) == 1
     macro3 = Macro(macro_parameters, macro_nsrts[1:], nsrt_to_macro_params[1:])
     assert macro != macro3
     assert macro3 < macro
+    assert macro > macro3
     # Note: even though free is a precond of pick, it is not a precond of this
     # macro because the first place NSRT has free as an add effect.
     expected_preconditions = {
@@ -1200,13 +1201,14 @@ def test_macros():
     cup_obj1 = cup_type("cup1")
     cup_obj2 = cup_type("cup2")
     ground_macro = macro.ground([plate_obj, robot_obj, cup_obj1, cup_obj2])
-    assert str(ground_macro) == "GroundMacro[Place(cup1, plate, robby), Pick(cup2, robby), Place(cup2, plate, robby)]"  # pylint: disable=line-too-long
+    assert str(ground_macro) == repr(ground_macro) == "GroundMacro[Place(cup1, plate, robby), Pick(cup2, robby), Place(cup2, plate, robby)]"  # pylint: disable=line-too-long
     ground_macro2 = macro2.ground([plate_obj, robot_obj, cup_obj1, cup_obj2])
     assert ground_macro == ground_macro2
     assert len({ground_macro, ground_macro2}) == 1
     ground_macro3 = macro3.ground([plate_obj, robot_obj, cup_obj1, cup_obj2])
     assert ground_macro != ground_macro3
     assert ground_macro3 < ground_macro
+    assert ground_macro > ground_macro3
     expected_preconditions = {
         holding([cup_obj1]),
         on_table([cup_obj2]),
