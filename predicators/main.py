@@ -171,7 +171,7 @@ def _run_pipeline(env: BaseEnv,
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=None)
-        teacher = Teacher(env, train_tasks)
+        teacher = Teacher(train_tasks)
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:

@@ -14,7 +14,7 @@ from predicators import utils
 from predicators.datasets.demo_only import human_demonstrator_policy
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
-from predicators.envs import BaseEnv
+from predicators.envs import create_new_env, BaseEnv
 from predicators.ground_truth_models import _get_options_by_names, \
     _get_types_by_names, get_gt_options
 from predicators.settings import CFG, get_allowed_query_type_names
@@ -28,8 +28,8 @@ from predicators.structs import Action, DemonstrationQuery, \
 class Teacher:
     """The teacher can respond to queries of various types."""
 
-    def __init__(self, env: BaseEnv, train_tasks: Sequence[Task]) -> None:
-        self._env = env
+    def __init__(self, train_tasks: Sequence[Task]) -> None:
+        self._env = create_new_env(CFG.env)
         self._train_tasks = train_tasks
         env_options = get_gt_options(self._env.get_name())
         self._pred_name_to_pred = {pred.name: pred for pred in self._env.predicates}
@@ -295,9 +295,19 @@ class TeacherInteractionMonitor(utils.LoggingMonitor):
                                                  default_factory=list)
     _query_cost: float = field(init=False, default=0.0)
 
+    @property
+    def _teacher_env(self) -> BaseEnv:
+        return self._teacher._env
+
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        self._teacher_env.reset(train_or_test, task_idx)
+
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
         del action  # unused
         assert isinstance(obs, State)
+        assert obs.allclose(self._teacher_env.get_observation())
+        if action is not None:
+            self._teacher_env.step(action)
         state = obs
         query = self._request.query_policy(state)
         if query is None:
@@ -326,7 +336,9 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
     """
 
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
-        assert isinstance(obs, State)
+        assert obs.allclose(self._teacher_env.get_observation())
+        if action is not None:
+            self._teacher_env.step(action)
         state = obs
         query = self._request.query_policy(state)
         if query is None:

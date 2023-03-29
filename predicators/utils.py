@@ -909,6 +909,9 @@ class StateWithCache(State):
 class LoggingMonitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        """Called when the environment is reset."""
+
     @abc.abstractmethod
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
         """Record an observation and the action that is about to be taken.
@@ -948,6 +951,7 @@ def run_policy(
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
+        monitor.reset(train_or_test, task_idx)
     obs = env.get_observation()
     assert isinstance(obs, State)
     state = obs
