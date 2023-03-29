@@ -219,7 +219,7 @@ class TeacherInteractionMonitor(utils.LoggingMonitor):
     @property
     def _teacher_env(self) -> BaseEnv:
         """Exposes the teacher's environment to this monitor."""
-        # This is a temporary hack. When issue #1433 is resolved, this can be
+        # This is a temporary hack. When issue #1443 is resolved, this can be
         # removed. That issue will require a fairly significant amount of work.
         return self._teacher._env  # pylint: disable=protected-access
 
