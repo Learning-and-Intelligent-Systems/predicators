@@ -297,7 +297,7 @@ def test_planning_without_sim():
     # Running the policy again should fail because the plan is empty.
     with pytest.raises(ApproachFailure) as e:
         _policy_solves_task(policy, task, env.simulate)
-    assert "Greedy option plan exhausted." in str(e)
+    assert "NSRT plan exhausted." in str(e)
 
     # Cover case where unknown task planner is used.
     utils.reset_config({
@@ -374,7 +374,7 @@ def test_planning_without_sim():
     policy = approach.solve(task, timeout=500)
     with pytest.raises(ApproachFailure) as e:
         policy(task.init)
-    assert "Greedy option not initiable." in str(e)
+    assert "Unsound option policy." in str(e)
 
 
 def test_get_gt_nsrts():
