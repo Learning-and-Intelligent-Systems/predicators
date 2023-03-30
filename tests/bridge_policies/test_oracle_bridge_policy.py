@@ -30,22 +30,26 @@ def test_oracle_bridge_policy():
     robot = next(o for o in state if o.type.name == "robot")
     failed_nsrt = nsrt_name_to_nsrt["PlaceInBox"].ground(
         [held_obj, box, robot])
+    failed_option = failed_nsrt.sample_option(state, task.goal, rng)
 
     # Test case where bridge policy returns an invalid option.
-    def invalid_option_policy(s, a, failed_nsrt):
-        del s, a, failed_nsrt  # ununsed
+    def invalid_option_policy(s, a, fo):
+        del s, a, fo  # ununsed
         return DummyOption
 
     bridge_policy._oracle_bridge_policy = invalid_option_policy  # pylint: disable=protected-access
 
-    policy = bridge_policy.get_policy(failed_nsrt)
+    bridge_policy.reset()
+    bridge_policy.record_failed_option(failed_option)
+    option_policy = bridge_policy.get_option_policy()
+    policy = utils.option_policy_to_policy(option_policy)
     with pytest.raises(utils.OptionExecutionFailure) as e:
         utils.run_policy_with_simulator(policy,
                                         env.simulate,
                                         task.init,
                                         task.goal_holds,
                                         max_num_steps=CFG.horizon)
-    assert "Bridge option not initiable" in str(e)
+    assert "Unsound option policy" in str(e)
 
     with pytest.raises(NotImplementedError):
         _create_oracle_bridge_policy("not a real env", nsrts, env.predicates,
