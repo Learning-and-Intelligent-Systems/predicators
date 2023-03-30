@@ -810,9 +810,10 @@ def test_option_plan_to_policy():
     option = parameterized_option.ground([], params)
     plan = [option]
     policy = utils.option_plan_to_policy(plan)
-    with pytest.raises(AssertionError):
+    with pytest.raises(utils.OptionExecutionFailure) as e:
         # option is not initiable from start state
         policy(state)
+    assert "Unsound option policy" in str(e)
     params = [0.5]
     option = parameterized_option.ground([], params)
     plan = [option]
