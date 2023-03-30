@@ -84,7 +84,8 @@ class BridgePolicyApproach(OracleApproach):
                 assert current_control == "bridge"
                 failed_option = None  # not used, but satisfy linting
             except OptionExecutionFailure as e:
-                failed_option = e.info.get("last_failed_option", None)
+                failed_option = e.info["last_failed_option"]
+                self._bridge_policy.record_failed_option(failed_option)
 
             # Switch control from planner to bridge.
             if current_control == "planner":
@@ -96,7 +97,6 @@ class BridgePolicyApproach(OracleApproach):
                               f"{failed_option.objects}.")
                 logging.debug("Switching control from planner to bridge.")
                 current_control = "bridge"
-                self._bridge_policy.record_failed_option(failed_option)
                 option_policy = self._bridge_policy.get_option_policy()
                 current_policy = utils.option_policy_to_policy(
                     option_policy,

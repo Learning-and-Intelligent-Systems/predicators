@@ -188,7 +188,7 @@ def _create_stick_button_oracle_bridge_policy(
                    nsrt)
     bridge_rules.append(rule)
 
-    name = "PickStickFromButtonkBeforePress"
+    name = "PickStickFromButtonBeforePress"
     nsrt = PickStickFromButton
     robot, stick, from_button = nsrt.parameters
     button = Variable("?to-button", button_type)
