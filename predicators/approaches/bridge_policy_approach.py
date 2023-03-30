@@ -12,6 +12,11 @@ termination and then the bridge policy is called again.
 
 The bridge policy is so named because it's meant to serve as a "bridge back to
 plannability" in states where the planner has gotten stuck.
+
+Example command:
+    python predicators/main.py --env painting --approach bridge_policy \
+        --seed 0 --painting_lid_open_prob 0.0 \
+        --painting_raise_environment_failure False --debug
 """
 
 import logging
@@ -25,7 +30,7 @@ from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
 from predicators.structs import Action, DummyOption, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundNSRT
+    Predicate, State, Task, Type, _GroundNSRT, _Option
 from predicators.utils import OptionExecutionFailure
 
 
@@ -56,7 +61,8 @@ class BridgePolicyApproach(OracleApproach):
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         current_control = "planner"
-        current_policy = self._get_policy_by_planning(task, timeout)
+        option_policy = self._get_option_policy_by_planning(task, timeout)
+        current_policy = self._option_policy_to_policy(option_policy)
 
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy
@@ -67,21 +73,22 @@ class BridgePolicyApproach(OracleApproach):
                 return current_policy(s)
             except BridgePolicyDone:
                 assert current_control == "bridge"
-                failed_nsrt = None  # not used, but satisfy linting
+                failed_option = None  # not used, but satisfy linting
             except OptionExecutionFailure as e:
-                failed_nsrt = e.info.get("last_failed_nsrt", None)
+                failed_option = e.info.get("last_failed_option", None)
 
             # Switch control from planner to bridge.
             if current_control == "planner":
                 # Planning failed on the first time step.
-                if failed_nsrt is None:
+                if failed_option is None:
                     assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed on init state.")
-                logging.debug(f"Failed NSRT: {failed_nsrt.name}"
-                              f"{failed_nsrt.objects}.")
+                logging.debug(f"Failed option: {failed_option.name}"
+                              f"{failed_option.objects}.")
                 logging.debug("Switching control from planner to bridge.")
                 current_control = "bridge"
-                current_policy = self._bridge_policy.get_policy(failed_nsrt)
+                option_policy = self._bridge_policy.get_policy(failed_option)
+                current_policy = self._option_policy_to_policy(option_policy)
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
                 # step, then this approach would be performing MPC.
@@ -95,8 +102,8 @@ class BridgePolicyApproach(OracleApproach):
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
-            current_policy = self._get_policy_by_planning(
-                current_task, timeout)
+            option_policy = self._get_option_policy_by_planning(current_task, timeout)
+            current_policy = self._option_policy_to_policy(option_policy)
             try:
                 return current_policy(s)
             except OptionExecutionFailure as e:
@@ -104,8 +111,24 @@ class BridgePolicyApproach(OracleApproach):
 
         return _policy
 
-    def _get_policy_by_planning(self, task: Task,
-                                timeout: float) -> Callable[[State], Action]:
+    def _option_policy_to_policy(self, option_policy: Callable[[State], _Option]) -> Callable[[State], Action]:
+        """Add the last failed option to option execution failures."""
+        last_option: Optional[_Option] = None
+        
+        def _option_policy(s: State) -> _Option:
+            nonlocal last_option
+            try:
+                next_option = option_policy(s)
+                last_option = next_option
+            except OptionExecutionFailure as e:
+                e.info["last_failed_option"] = last_option
+                raise e
+            return next_option
+
+        return utils.option_policy_to_policy(_option_policy)
+
+    def _get_option_policy_by_planning(self, task: Task,
+                                timeout: float) -> Callable[[State], _Option]:
         """Raises an OptionExecutionFailure with the last_failed_nsrt in its
         info dict in the case where execution fails."""
 
@@ -115,48 +138,8 @@ class BridgePolicyApproach(OracleApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        nsrt_queue, atoms_seq, _ = self._run_task_plan(task, nsrts, preds,
+        nsrt_plan, atoms_seq, _ = self._run_task_plan(task, nsrts, preds,
                                                        timeout, seed)
-        atoms_queue = utils.compute_necessary_atoms_seq(
-            nsrt_queue, atoms_seq, task.goal)[1:]
-        cur_nsrt: Optional[_GroundNSRT] = None
-        last_nsrt: Optional[_GroundNSRT] = None
-        cur_option = DummyOption
-        cur_option_num_steps = 0
-        last_state: Optional[State] = None
-
-        def _policy(s: State) -> Action:
-            nonlocal cur_nsrt, last_nsrt, cur_option, cur_option_num_steps, last_state
-
-            stuck = last_state is not None and last_state.allclose(s) or \
-                cur_option_num_steps >= CFG.max_num_steps_option_rollout
-            last_state = s
-
-            if cur_option is DummyOption or stuck or cur_option.terminal(s):
-                last_nsrt = cur_nsrt
-                if not nsrt_queue:
-                    raise OptionExecutionFailure(
-                        "Greedy option plan exhausted.",
-                        info={"last_failed_nsrt": last_nsrt})
-                if last_nsrt is not None:
-                    expected_atoms = atoms_queue.pop(0)
-                    if not all(a.holds(s) for a in expected_atoms):
-                        raise OptionExecutionFailure(
-                            "Executing the option "
-                            "failed to achieve the NSRT effects.",
-                            info={"last_failed_nsrt": last_nsrt})
-                cur_nsrt = nsrt_queue.pop(0)
-                logging.debug(f"Using NSRT {cur_nsrt.name}{cur_nsrt.objects} "
-                              "from planner.")
-                cur_option = cur_nsrt.sample_option(s, task.goal,
-                                                    self._rng)
-                cur_option_num_steps = 0
-                if not cur_option.initiable(s):
-                    raise OptionExecutionFailure(
-                        "Greedy option not initiable.",
-                        info={"last_failed_nsrt": last_nsrt})
-            act = cur_option.policy(s)
-            cur_option_num_steps += 1
-            return act
-
-        return _policy
+        return utils.nsrt_plan_to_greedy_option_policy(nsrt_plan, goal=task.goal,
+            rng=self._rng, necessary_atoms_seq=atoms_seq
+        )

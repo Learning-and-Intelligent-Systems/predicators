@@ -1092,22 +1092,66 @@ class EnvironmentFailure(ExceptionWithInfo):
         return repr(self)
 
 
-def option_plan_to_policy(
-        plan: Sequence[_Option]) -> Callable[[State], Action]:
-    """Create a policy that executes a sequence of options in order."""
-    queue = list(plan)  # don't modify plan, just in case
+def option_policy_to_policy(
+        option_policy: Callable[[State], _Option]) -> Callable[[State], Action]:
+    """Create a policy that executes a policy over options."""
     cur_option = DummyOption
 
     def _policy(state: State) -> Action:
         nonlocal cur_option
         if cur_option.terminal(state):
-            if not queue:
-                raise OptionExecutionFailure("Option plan exhausted!")
-            cur_option = queue.pop(0)
-            assert cur_option.initiable(state), "Unsound option plan"
+            cur_option = option_policy(state)
+            assert cur_option.initiable(state), "Unsound option policy"
         return cur_option.policy(state)
 
     return _policy
+
+
+def option_plan_to_policy(
+        plan: Sequence[_Option]) -> Callable[[State], Action]:
+    """Create a policy that executes a sequence of options in order."""
+    queue = list(plan)  # don't modify plan, just in case
+
+    def _option_policy(state: State) -> _Option:
+        if not queue:
+            raise OptionExecutionFailure("Option plan exhausted!")
+        return queue.pop(0)
+
+    return option_policy_to_policy(_option_policy)
+
+
+def nsrt_plan_to_greedy_option_policy(
+        nsrt_plan: Sequence[_GroundNSRT], goal: Set[GroundAtom],
+        rng: np.random.Generator,
+        necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+    ) -> Callable[[State], _Option]:
+    """Greedily execute an NSRT plan, assuming downward refinability and that
+    any sample will work.
+
+    If an option is not initiable or if the plan runs out, an
+    OptionExecutionFailure is raised.
+    """
+    cur_nsrt: Optional[_GroundNSRT] = None
+    nsrt_queue = list(nsrt_plan)
+    if necessary_atoms_seq is None:
+        empty_atoms: Set[GroundAtom] = []
+        necessary_atoms_seq = [empty_atoms for _ in range(len(nsrt_plan) + 1)]
+    assert len(necessary_atoms_seq) == len(nsrt_plan) + 1
+    necessary_atoms_queue = list(necessary_atoms_seq)
+
+    def _option_policy(state: State) -> _Option:
+        nonlocal cur_nsrt
+        if not nsrt_queue:
+            raise OptionExecutionFailure("NSRT plan exhausted.")
+        expected_atoms = necessary_atoms_queue.pop(0)
+        if not all(a.holds(state) for a in expected_atoms):
+            raise OptionExecutionFailure(
+                "Executing the NSRT failed to achieve the necessary atoms.")
+        cur_nsrt = nsrt_queue.pop(0)
+        cur_option = cur_nsrt.sample_option(state, goal, rng)
+        return cur_option
+
+    return _option_policy
 
 
 def nsrt_plan_to_greedy_policy(
@@ -1119,23 +1163,8 @@ def nsrt_plan_to_greedy_policy(
     If an option is not initiable or if the plan runs out, an
     OptionExecutionFailure is raised.
     """
-    cur_nsrt: Optional[_GroundNSRT] = None
-    cur_option = DummyOption
-    nsrt_queue = list(nsrt_plan)
-
-    def _policy(state: State) -> Action:
-        nonlocal cur_nsrt, cur_option
-        if cur_option is DummyOption or cur_option.terminal(state):
-            if not nsrt_queue:
-                raise OptionExecutionFailure("Greedy option plan exhausted.")
-            cur_nsrt = nsrt_queue.pop(0)
-            cur_option = cur_nsrt.sample_option(state, goal, rng)
-            if not cur_option.initiable(state):
-                raise OptionExecutionFailure("Greedy option not initiable.")
-        act = cur_option.policy(state)
-        return act
-
-    return _policy
+    option_policy = nsrt_plan_to_greedy_option_policy(nsrt_plan, goal, rng)
+    return option_policy_to_policy(option_policy)
 
 
 def create_random_option_policy(

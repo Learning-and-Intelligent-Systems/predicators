@@ -6,7 +6,7 @@ from typing import Callable, Set
 import numpy as np
 
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, Predicate, State, _GroundNSRT
+from predicators.structs import NSRT, _Option, Predicate, State, _GroundNSRT
 
 
 class BridgePolicyDone(Exception):
@@ -30,6 +30,6 @@ class BaseBridgePolicy(abc.ABC):
 
     @abc.abstractmethod
     def get_policy(self,
-                   failed_nsrt: _GroundNSRT) -> Callable[[State], Action]:
+                   failed_nsrt: _GroundNSRT) -> Callable[[State], _Option]:
         """The main method creating the bridge policy."""
         raise NotImplementedError("Override me!")
