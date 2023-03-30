@@ -20,7 +20,7 @@ Example commands:
         --painting_raise_environment_failure False --debug
 
     python predicators/main.py --env stick_button --approach bridge_policy \
-        --seed 0 --debug
+        --seed 0 --debug --horizon 10000
 """
 
 import logging
@@ -90,7 +90,7 @@ class BridgePolicyApproach(OracleApproach):
             if current_control == "planner":
                 # Planning failed on the first time step.
                 if failed_option is None:
-                    # assert s.allclose(task.init)
+                    assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed on init state.")
                 logging.debug(f"Failed option: {failed_option.name}"
                               f"{failed_option.objects}.")
