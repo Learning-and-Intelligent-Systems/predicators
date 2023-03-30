@@ -120,7 +120,11 @@ def _create_stick_button_oracle_bridge_policy(
 
         # If we haven't yet tried to directly press the button, try that first.
         if button not in failed_direct_press_buttons:
-            next_nsrt = RobotPressButtonFromNothing.ground([robot, button])
+            # If we're holding the stick, put it down first.
+            if Grasped.holds(state, [robot, stick]):
+                next_nsrt = PlaceStick.ground([robot, stick])
+            else:
+                next_nsrt = RobotPressButtonFromNothing.ground([robot, button])
         # If we have already tried to press both ways...
         elif button in failed_direct_press_buttons & failed_stick_press_buttons:
             # If we're already holding the stick, we need to regrasp.
