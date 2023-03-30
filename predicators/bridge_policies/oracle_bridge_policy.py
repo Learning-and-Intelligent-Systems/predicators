@@ -8,8 +8,8 @@ import numpy as np
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.settings import CFG
-from predicators.structs import NSRT, BridgePolicy, GroundAtom, Predicate, \
-    State, _Option, Variable, LiftedAtom, LDLRule, LiftedDecisionList
+from predicators.structs import NSRT, BridgePolicy, GroundAtom, LDLRule, \
+    LiftedAtom, LiftedDecisionList, Predicate, State, Variable, _Option
 
 
 class OracleBridgePolicy(BaseBridgePolicy):
@@ -108,10 +108,8 @@ def _create_stick_button_oracle_bridge_policy(
     PlaceStick = nsrt_name_to_nsrt["PlaceStick"]
 
     Grasped = pred_name_to_pred["Grasped"]
-    HandEmpty = pred_name_to_pred["HandEmpty"]
     Pressed = pred_name_to_pred["Pressed"]
     button_type = Pressed.types[0]
-    robot_type, stick_type = Grasped.types
 
     # "Failure" predicates.
     all_options = {n.option for n in nsrt_name_to_nsrt.values()}
@@ -120,13 +118,14 @@ def _create_stick_button_oracle_bridge_policy(
         # Just unary for now.
         for idx, t in enumerate(option.types):
             failure_pred = Predicate(f"{option.name}Failed-arg{idx}", [t],
-                _classifier=lambda s, o: False)
+                                     _classifier=lambda s, o: False)
             failure_preds[failure_pred.name] = failure_pred
 
     RobotPressButtonFailedButton = failure_preds["RobotPressButtonFailed-arg1"]
     StickPressButtonFailedButton = failure_preds["StickPressButtonFailed-arg2"]
 
     bridge_rules = []
+    goal_preconds: Set[LiftedAtom] = set()
 
     # We haven't tried to press the button yet, and we're holding a stick, so
     # we should put it down.
@@ -140,8 +139,8 @@ def _create_stick_button_oracle_bridge_policy(
         LiftedAtom(Pressed, [button]),
         LiftedAtom(RobotPressButtonFailedButton, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     # We haven't tried to press the button yet, and the hand is empty, so we
@@ -155,8 +154,8 @@ def _create_stick_button_oracle_bridge_policy(
         LiftedAtom(Pressed, [button]),
         LiftedAtom(RobotPressButtonFailedButton, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     name = "DirectPressFromButton"
@@ -168,8 +167,8 @@ def _create_stick_button_oracle_bridge_policy(
         LiftedAtom(Pressed, [button]),
         LiftedAtom(RobotPressButtonFailedButton, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     # We failed to press directly, but haven't yet tried to press with the
@@ -186,8 +185,8 @@ def _create_stick_button_oracle_bridge_policy(
         LiftedAtom(Pressed, [button]),
         LiftedAtom(StickPressButtonFailedButton, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     name = "PickStickFromButtonkBeforePress"
@@ -202,8 +201,8 @@ def _create_stick_button_oracle_bridge_policy(
         LiftedAtom(Pressed, [button]),
         LiftedAtom(StickPressButtonFailedButton, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     # We failed to press directly, but haven't yet tried to press with the
@@ -219,8 +218,8 @@ def _create_stick_button_oracle_bridge_policy(
         LiftedAtom(Pressed, [button]),
         LiftedAtom(StickPressButtonFailedButton, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     name = "PressWithStickFromButton"
@@ -234,8 +233,8 @@ def _create_stick_button_oracle_bridge_policy(
         LiftedAtom(Pressed, [button]),
         LiftedAtom(StickPressButtonFailedButton, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     # We've already tried to press both ways, and we're holding the stick, so
@@ -252,8 +251,8 @@ def _create_stick_button_oracle_bridge_policy(
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     # We've already tried to press both ways, and the hand is empty, so we
@@ -270,8 +269,8 @@ def _create_stick_button_oracle_bridge_policy(
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     name = "RegraspFromButton"
@@ -286,8 +285,8 @@ def _create_stick_button_oracle_bridge_policy(
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
     }
-    goal_preconds: Set[LiftedAtom] = set()
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds, nsrt)
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
     bridge_rules.append(rule)
 
     bridge_ldl = LiftedDecisionList(bridge_rules)
@@ -297,7 +296,8 @@ def _create_stick_button_oracle_bridge_policy(
 
         # Add failure atoms based on failed_options.
         atoms_with_failures = set(atoms)
-        failed_option_specs = {(o.parent, tuple(o.objects)) for o in failed_options}
+        failed_option_specs = {(o.parent, tuple(o.objects))
+                               for o in failed_options}
         for (param_opt, objs) in failed_option_specs:
             for i, obj in enumerate(objs):
                 pred = failure_preds[f"{param_opt.name}Failed-arg{i}"]
@@ -305,12 +305,12 @@ def _create_stick_button_oracle_bridge_policy(
                 atoms_with_failures.add(failure_atom)
 
         objects = set(state)
-        goal: Set[LiftedAtom] = set()  # task goal not used
-        next_nsrt = utils.query_ldl(bridge_ldl, atoms_with_failures, objects, goal)
+        goal: Set[GroundAtom] = set()  # task goal not used
+        next_nsrt = utils.query_ldl(bridge_ldl, atoms_with_failures, objects,
+                                    goal)
         if next_nsrt is None:
             raise BridgePolicyDone()
 
-        goal: Set[GroundAtom] = set()  # goal assumed not used by sampler
         return next_nsrt.sample_option(state, goal, rng)
 
     return _bridge_policy
