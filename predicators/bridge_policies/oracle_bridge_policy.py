@@ -107,7 +107,6 @@ def _create_stick_button_oracle_bridge_policy(
         "StickPressButtonFromButton"]
     PlaceStick = nsrt_name_to_nsrt["PlaceStick"]
 
-    Grasped = pred_name_to_pred["Grasped"]
     Pressed = pred_name_to_pred["Pressed"]
     button_type = Pressed.types[0]
 
