@@ -1139,7 +1139,10 @@ def option_policy_to_policy(
 
 
 def option_plan_to_policy(
-        plan: Sequence[_Option]) -> Callable[[State], Action]:
+        plan: Sequence[_Option],
+        max_option_steps: Optional[int] = None,
+        raise_error_on_repeated_state: bool = False
+) -> Callable[[State], Action]:
     """Create a policy that executes a sequence of options in order."""
     queue = list(plan)  # don't modify plan, just in case
 
@@ -1149,7 +1152,10 @@ def option_plan_to_policy(
             raise OptionExecutionFailure("Option plan exhausted!")
         return queue.pop(0)
 
-    return option_policy_to_policy(_option_policy)
+    return option_policy_to_policy(
+        _option_policy,
+        max_option_steps=max_option_steps,
+        raise_error_on_repeated_state=raise_error_on_repeated_state)
 
 
 def nsrt_plan_to_greedy_option_policy(
@@ -1188,15 +1194,19 @@ def nsrt_plan_to_greedy_option_policy(
 
 
 def nsrt_plan_to_greedy_policy(
-        nsrt_plan: Sequence[_GroundNSRT], goal: Set[GroundAtom],
-        rng: np.random.Generator) -> Callable[[State], Action]:
+    nsrt_plan: Sequence[_GroundNSRT],
+    goal: Set[GroundAtom],
+    rng: np.random.Generator,
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+) -> Callable[[State], Action]:
     """Greedily execute an NSRT plan, assuming downward refinability and that
     any sample will work.
 
     If an option is not initiable or if the plan runs out, an
     OptionExecutionFailure is raised.
     """
-    option_policy = nsrt_plan_to_greedy_option_policy(nsrt_plan, goal, rng)
+    option_policy = nsrt_plan_to_greedy_option_policy(
+        nsrt_plan, goal, rng, necessary_atoms_seq=necessary_atoms_seq)
     return option_policy_to_policy(option_policy)
 
 

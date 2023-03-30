@@ -139,10 +139,6 @@ class StickButtonEnv(BaseEnv):
             # Check for placing the stick.
             holder_rect = self.object_to_geom(self._holder, state)
             if stick_held and stick_rect.intersects(holder_rect):
-                # No-op in case of collision.
-                if robot_circ.intersects(holder_rect):
-                    return state.copy()
-
                 # Place the stick back on the holder.
                 next_state.set(self._stick, "held", 0.0)
 
