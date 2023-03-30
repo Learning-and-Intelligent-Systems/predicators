@@ -11,8 +11,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 from predicators.utils import _Geom2D
 
 
@@ -161,13 +161,13 @@ class StickButtonEnv(BaseEnv):
 
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num=CFG.num_train_tasks,
             num_button_lst=CFG.stick_button_num_buttons_train,
             rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num=CFG.num_test_tasks,
             num_button_lst=CFG.stick_button_num_buttons_test,
@@ -192,11 +192,6 @@ class StickButtonEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
-
-    @property
     def action_space(self) -> Box:
         # Normalized dx, dy, dtheta, press.
         return Box(low=-1., high=1., shape=(4, ), dtype=np.float32)
@@ -204,7 +199,7 @@ class StickButtonEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
@@ -257,7 +252,7 @@ class StickButtonEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num: int, num_button_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for _ in range(num):
             state_dict = {}
@@ -367,7 +362,7 @@ class StickButtonEnv(BaseEnv):
                 "theta": holder_rect.theta,
             }
             init_state = utils.create_state_from_dict(state_dict)
-            task = Task(init_state, goal)
+            task = EnvironmentTask(init_state, goal)
             tasks.append(task)
         return tasks
 

@@ -32,7 +32,7 @@ def test_online_nsrt_learning_approach():
         "online_learning_lifelong": True
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = OnlineNSRTLearningApproach(env.predicates,
                                           get_gt_options(env.get_name()),
                                           env.types, env.action_space,

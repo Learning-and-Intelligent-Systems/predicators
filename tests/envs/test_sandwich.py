@@ -202,7 +202,7 @@ def test_sandwich_options(env_name):
     assert state.allclose(next_state)
 
     # Rendering with caption.
-    env.render(state, caption="Test caption")
+    env.render_state(state, task, caption="Test caption")
 
 
 def test_sandwich_load_task_from_json():
@@ -380,7 +380,7 @@ def test_sandwich_load_task_from_json():
         })
 
         env = SandwichEnv()
-        test_tasks = env.get_test_tasks()
+        test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]
@@ -414,7 +414,7 @@ def test_sandwich_load_task_from_json():
 {"On": [["bread1", "cheese0"], ["cheese0", "bread0"]],
  "OnBoard": [["bread0", "board"]]}"""
             ]
-            test_tasks = env.get_test_tasks()
+            test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]

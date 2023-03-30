@@ -65,7 +65,7 @@ def _test_approach(env_name,
             "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     if option_learner == "no_learning":
         options = get_gt_options(env.get_name())
     else:
@@ -75,7 +75,7 @@ def _test_approach(env_name,
     dataset = create_dataset(env, train_tasks, options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
-    task = env.get_test_tasks()[0]
+    task = env.get_test_tasks()[0].task
     if try_solving:
         if solve_exceptions is not None:
             assert not check_solution

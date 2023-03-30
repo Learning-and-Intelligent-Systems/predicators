@@ -12,7 +12,7 @@ def test_random_actions_explorer():
         "explorer": "random_actions",
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     task_idx = 0
     task = train_tasks[task_idx]
     explorer = create_explorer("random_actions", env.predicates,

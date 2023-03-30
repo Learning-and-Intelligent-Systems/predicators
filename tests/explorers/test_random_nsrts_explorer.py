@@ -14,7 +14,7 @@ def test_random_nsrts_explorer():
         "explorer": "random_nsrts",
     })
     env = TouchOpenEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     task_idx = 0
     task = train_tasks[task_idx]
     options = get_gt_options(env.get_name())

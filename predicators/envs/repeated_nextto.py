@@ -13,8 +13,8 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class RepeatedNextToEnv(BaseEnv):
@@ -73,10 +73,10 @@ class RepeatedNextToEnv(BaseEnv):
             next_state.set(dot_to_grasp, "grasped", 1.0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -92,11 +92,6 @@ class RepeatedNextToEnv(BaseEnv):
         return {self._robot_type, self._dot_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
-
-    @property
     def action_space(self) -> Box:
         # First dimension is move (less than 0.5) or grasp (greater than 0.5).
         # Second dimension is normalized new robot x (if first dim is move).
@@ -107,7 +102,7 @@ class RepeatedNextToEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
@@ -132,7 +127,8 @@ class RepeatedNextToEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         dots = []
         for i in range(CFG.repeated_nextto_num_dots):
@@ -155,7 +151,7 @@ class RepeatedNextToEnv(BaseEnv):
                 data[dot] = np.array([dot_x, 0.0])
             robot_x = rng.uniform(self.env_lb, self.env_ub)
             data[self._robot] = np.array([robot_x])
-            tasks.append(Task(State(data), goals[i % len(goals)]))
+            tasks.append(EnvironmentTask(State(data), goals[i % len(goals)]))
         return tasks
 
     def _NextTo_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -197,18 +193,18 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
     def get_name(cls) -> str:
         return "repeated_nextto_ambiguous"
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks_ambiguous(num=CFG.num_train_tasks,
                                          rng=self._train_rng,
                                          are_train_tasks=True)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks_ambiguous(num=CFG.num_train_tasks,
                                          rng=self._train_rng,
                                          are_train_tasks=False)
 
     def _get_tasks_ambiguous(self, num: int, rng: np.random.Generator,
-                             are_train_tasks: bool) -> List[Task]:
+                             are_train_tasks: bool) -> List[EnvironmentTask]:
         assert self.env_ub - self.env_lb > self._nextto_thresh
         tasks = []
         dots = []
@@ -238,5 +234,5 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
                 data[dot] = np.array([dot_x, 0.0])
             robot_x = self.env_lb
             data[self._robot] = np.array([robot_x])
-            tasks.append(Task(State(data), goals[i % len(goals)]))
+            tasks.append(EnvironmentTask(State(data), goals[i % len(goals)]))
         return tasks

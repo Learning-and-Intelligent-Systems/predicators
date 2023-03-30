@@ -14,7 +14,7 @@ def test_no_explore_explorer():
         "explorer": "no_explore",
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     task_idx = 0
     task = train_tasks[task_idx]
     explorer = create_explorer("no_explore", env.predicates,

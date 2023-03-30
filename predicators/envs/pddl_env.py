@@ -27,9 +27,9 @@ from predicators.envs.pddl_procedural_generation import \
     create_gripper_pddl_generator, create_miconic_pddl_generator, \
     create_spanner_pddl_generator
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
-    STRIPSOperator, Task, Type, Variable, Video, _GroundSTRIPSOperator
+from predicators.structs import Action, EnvironmentTask, GroundAtom, \
+    LiftedAtom, Object, PDDLProblemGenerator, Predicate, State, \
+    STRIPSOperator, Type, Variable, Video, _GroundSTRIPSOperator
 
 ###############################################################################
 #                                Base Classes                                 #
@@ -100,7 +100,10 @@ class _PDDLEnv(BaseEnv):
             self._test_rng)
         # Determine the goal predicates from the tasks.
         tasks = self._pregenerated_train_tasks + self._pregenerated_test_tasks
-        self._goal_predicates = {a.predicate for t in tasks for a in t.goal}
+        self._goal_predicates = {
+            a.predicate
+            for t in tasks for a in t.task.goal
+        }
 
     @classmethod
     @abc.abstractmethod
@@ -148,15 +151,15 @@ class _PDDLEnv(BaseEnv):
                                                      ordered_objs)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._pregenerated_train_tasks
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._pregenerated_test_tasks
 
     def _generate_tasks(self, num_tasks: int,
                         problem_gen: PDDLProblemGenerator,
-                        rng: np.random.Generator) -> List[Task]:
+                        rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         domain_str = self.get_domain_str()
         for pddl_problem_str in problem_gen(num_tasks, rng):
@@ -178,11 +181,6 @@ class _PDDLEnv(BaseEnv):
         return self._types
 
     @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
-
-    @property
     def action_space(self) -> Box:
         # See class docstring for explanation.
         num_ops = len(self._strips_operators)
@@ -195,14 +193,14 @@ class _PDDLEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
 
     def render_state(self,
                      state: State,
-                     task: Task,
+                     task: EnvironmentTask,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> Video:
         raise NotImplementedError("Render not implemented for PDDLEnv.")
@@ -746,7 +744,7 @@ def _parse_pddl_domain(
 
 def _pddl_problem_str_to_task(pddl_problem_str: str, pddl_domain_str: str,
                               types: Set[Type],
-                              predicates: Set[Predicate]) -> Task:
+                              predicates: Set[Predicate]) -> EnvironmentTask:
     # Let pyperplan do most of the heavy lifting.
     # Pyperplan needs the domain to parse the problem. Note that this is
     # cached by lru_cache.
@@ -779,7 +777,7 @@ def _pddl_problem_str_to_task(pddl_problem_str: str, pddl_domain_str: str,
         for a in pyperplan_problem.goal
     }
     # Finalize the task.
-    task = Task(init, goal)
+    task = EnvironmentTask(init, goal)
     return task
 
 

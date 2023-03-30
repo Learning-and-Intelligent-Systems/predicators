@@ -22,8 +22,8 @@ from matplotlib import patches
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class BlocksEnv(BaseEnv):
@@ -178,12 +178,12 @@ class BlocksEnv(BaseEnv):
             next_state.set(other_block, "clear", 0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                possible_num_blocks=self._num_blocks_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self._num_blocks_test,
                                rng=self._test_rng)
@@ -206,11 +206,6 @@ class BlocksEnv(BaseEnv):
         return {self._block_type, self._robot_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
-
-    @property
     def action_space(self) -> Box:
         # dimensions: [x, y, z, fingers]
         lowers = np.array([self.x_lb, self.y_lb, 0.0, 0.0], dtype=np.float32)
@@ -220,7 +215,7 @@ class BlocksEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         r = self._block_size * 0.5  # block radius
@@ -287,7 +282,7 @@ class BlocksEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for _ in range(num_tasks):
             num_blocks = rng.choice(possible_num_blocks)
@@ -297,7 +292,7 @@ class BlocksEnv(BaseEnv):
                 goal = self._sample_goal_from_piles(num_blocks, piles, rng)
                 if not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
-            tasks.append(Task(init_state, goal))
+            tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
     def _sample_initial_piles(self, num_blocks: int,
@@ -484,7 +479,7 @@ class BlocksEnv(BaseEnv):
             return None
         return max(blocks_here, key=lambda x: x[1])[0]  # highest z
 
-    def _load_task_from_json(self, json_file: Path) -> Task:
+    def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         with open(json_file, "r", encoding="utf-8") as f:
             task_spec = json.load(f)
         # Create the initial state from the task spec.
@@ -531,9 +526,9 @@ class BlocksEnv(BaseEnv):
                 task_spec["language_goal"], id_to_obj)
         else:
             raise ValueError("JSON task spec must include 'goal'.")
-        task = Task(init_state, goal)
-        assert not task.goal_holds(init_state)
-        return task
+        env_task = EnvironmentTask(init_state, goal)
+        assert not env_task.task.goal_holds(init_state)
+        return env_task
 
     def _get_language_goal_prompt_prefix(self,
                                          object_names: Collection[str]) -> str:

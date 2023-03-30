@@ -17,7 +17,7 @@ def test_GroundAtomsHold():
     """Tests for answering queries of type GroundAtomsHoldQuery."""
     utils.reset_config({"env": "cover", "approach": "unittest"})
     env = create_new_env("cover")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     state = env.get_train_tasks()[0].init
     block_type = [t for t in env.types if t.name == "block"][0]
@@ -60,7 +60,7 @@ def test_DemonstrationQuery():
     """Tests for answering queries of type DemonstrationQuery."""
     utils.reset_config({"env": "cover", "approach": "unittest"})
     env = create_new_env("cover")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     train_task_idx = 0
     task = train_tasks[train_task_idx]
@@ -109,7 +109,7 @@ def test_PathToStateQuery():
     })
     # Test normal usage.
     env = create_new_env("cover_multistep_options")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     train_task_idx = 0
     task = train_tasks[train_task_idx]
@@ -173,7 +173,7 @@ def test_PathToStateQuery():
     # Test that an error is raised when an unsupported environment is used.
     utils.reset_config({"env": "painting", "approach": "unittest"})
     env = create_new_env("painting")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     task = train_tasks[0]
     state = task.init
@@ -201,7 +201,7 @@ def test_TeacherInteractionMonitor():
     termination_function = lambda s: True  # terminate immediately
     request = InteractionRequest(0, act_policy, query_policy,
                                  termination_function)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     monitor = TeacherInteractionMonitor(request, teacher)
     assert monitor.get_query_cost() == 0.0
@@ -223,7 +223,7 @@ def test_TeacherInteractionMonitor():
     termination_function = lambda s: True  # terminate immediately
     request = InteractionRequest(0, act_policy, query_policy,
                                  termination_function)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     monitor = TeacherInteractionMonitor(request, teacher)
     state = env.reset("train", 0)
@@ -250,7 +250,7 @@ def test_TeacherInteractionMonitorWithVideo():
     termination_function = lambda s: True  # terminate immediately
     request = InteractionRequest(0, act_policy, query_policy,
                                  termination_function)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     monitor = TeacherInteractionMonitorWithVideo(env.render, request, teacher)
     assert monitor.get_query_cost() == 0.0
@@ -270,7 +270,7 @@ def test_TeacherInteractionMonitorWithVideo():
     termination_function = lambda s: True  # terminate immediately
     request = InteractionRequest(0, act_policy, query_policy,
                                  termination_function)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     monitor = TeacherInteractionMonitorWithVideo(env.render, request, teacher)
     state = env.reset("train", 0)
@@ -282,7 +282,7 @@ def test_answer_query():
     """Tests for Teacher.answer_query()."""
     utils.reset_config({"env": "cover", "approach": "unittest"})
     env = create_new_env("cover")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     state = env.get_train_tasks()[0].init
 

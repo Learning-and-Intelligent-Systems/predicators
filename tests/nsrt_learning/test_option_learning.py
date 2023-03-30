@@ -39,7 +39,7 @@ def test_known_options_option_learner():
         "option_learner": "no_learning",
     })
     env = create_new_env("cover")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_demo_replay_data(env, train_tasks,
                                       get_gt_options(env.get_name()))
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -84,7 +84,7 @@ def test_oracle_option_learner_cover():
         "segmenter": "atom_changes",
     })
     env = create_new_env("cover")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_demo_replay_data(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
@@ -133,7 +133,7 @@ def test_oracle_option_learner_blocks():
         "blocks_num_blocks_test": [4],
     })
     env = create_new_env("blocks")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_demo_replay_data(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
@@ -310,7 +310,7 @@ def test_option_learning_approach_multistep_cover():
         "num_test_tasks": 10,
     })
     env = create_new_env("cover_multistep_options")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = create_approach("nsrt_learning", env.predicates,
                                get_gt_options(env.get_name()), env.types,
                                env.action_space, train_tasks)
@@ -347,7 +347,7 @@ def test_implicit_bc_option_learning_touch_point():
         "num_test_tasks": 10,
     })
     env = create_new_env("touch_point")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = create_approach("nsrt_learning", env.predicates,
                                get_gt_options(env.get_name()), env.types,
                                env.action_space, train_tasks)
@@ -400,7 +400,7 @@ def test_action_conversion():
     with patch(f"{_MODULE_PATH}.create_action_converter") as mocker:
         mocker.return_value = _ReverseOrderPadActionConverter()
         env = create_new_env("touch_point")
-        train_tasks = env.get_train_tasks()
+        train_tasks = [t.task for t in env.get_train_tasks()]
         approach = create_approach("nsrt_learning", env.predicates, set(),
                                    env.types, env.action_space, train_tasks)
         dataset = create_dataset(env, train_tasks, known_options=set())
