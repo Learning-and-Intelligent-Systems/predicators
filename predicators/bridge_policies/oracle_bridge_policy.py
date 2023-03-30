@@ -9,7 +9,7 @@ from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.settings import CFG
 from predicators.structs import NSRT, BridgePolicy, GroundAtom, Predicate, \
-    State, _Option
+    State, _Option, Variable, LiftedAtom
 
 
 class OracleBridgePolicy(BaseBridgePolicy):
@@ -99,65 +99,179 @@ def _create_stick_button_oracle_bridge_policy(
     RobotPressButtonFromNothing = nsrt_name_to_nsrt[
         "RobotPressButtonFromNothing"]
     PlaceStick = nsrt_name_to_nsrt["PlaceStick"]
+    StickPressButtonFromNothing = nsrt_name_to_nsrt[
+        "StickPressButtonFromNothing"]
 
     Grasped = pred_name_to_pred["Grasped"]
+    HandEmpty = pred_name_to_pred["HandEmpty"]
     Pressed = pred_name_to_pred["Pressed"]
+    button_type = Pressed.types[0]
+    robot_type, stick_type = Grasped.types
+
+    # "Failure" predicates.
+    all_options = {n.option for n in nsrt_name_to_nsrt.values()}
+    failure_preds: Dict[str, Predicate] = {}
+    for option in all_options:
+        # Just unary for now.
+        for idx, t in enumerate(option.types):
+            failure_pred = Predicate(f"{option.name}Failed-arg{idx}", [t],
+                _classifier=lambda s, o: False)
+            failure_preds[failure_pred.name] = failure_pred
+            not_failure_pred = Predicate(f"{option.name}Success-arg{idx}", [t],
+                _classifier=lambda s, o: False)
+            failure_preds[not_failure_pred.name] = not_failure_pred
+
+    RobotPressButtonFailedButton = failure_preds["RobotPressButtonFailed-arg1"]
+    StickPressButtonFailedButton = failure_preds["StickPressButtonFailed-arg2"]
+    RobotPressButtonSuccessButton = failure_preds["RobotPressButtonSuccess-arg1"]
+    NotStickPressButtonSuccessButton = failure_preds["StickPressButtonSuccess-arg2"]
+
+    # Create NSRTs with "failure" preconditions. Note that we don't need to
+    # use the NSRT effects because we're just going to invoke the NSRTs in a
+    # policy, rather than planning with them, so we don't even bother to write
+    # effects. Really this is an abuse of the NSRT data structure.
+    add_effects: Set[LiftedAtom] = set()
+    delete_effects: Set[LiftedAtom] = set()
+    ignore_effects: Set[Predicate] = set()
+
+    bridge_nsrts = set()
+
+    robot = Variable("?robot", robot_type)
+    stick = Variable("?stick", stick_type)
+    button = Variable("?button", button_type)
+
+    # We haven't tried to press the button yet, and we're holding a stick, so
+    # we should put it down.
+    name = "PlaceStickBeforeDirectPress"
+    parameters = [robot, stick, button]
+    option_vars = [robot, stick]
+    preconditions = {
+        LiftedAtom(RobotPressButtonSuccessButton, [button]),
+        LiftedAtom(Grasped, [robot, stick]),
+    }
+    option = PlaceStick.option
+    sampler = PlaceStick.sampler
+    nsrt = NSRT(name, parameters, preconditions,
+                add_effects, delete_effects, ignore_effects,
+                option, option_vars, sampler)
+    bridge_nsrts.add(nsrt)
+
+    # We haven't tried to press the button yet, and the hand is empty, so we
+    # should go to try the direct press.
+    name = "DirectPress"
+    parameters = [robot, button]
+    option_vars = [robot, button]
+    preconditions = {
+        LiftedAtom(RobotPressButtonSuccessButton, [button]),
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    option = RobotPressButtonFromNothing.option
+    sampler = RobotPressButtonFromNothing.sampler
+    nsrt = NSRT(name, parameters, preconditions,
+                add_effects, delete_effects, ignore_effects,
+                option, option_vars, sampler)
+    bridge_nsrts.add(nsrt)
+
+    # We failed to press directly, but haven't yet tried to press with the
+    # stick, and the hand is empty, so we should pick up the stick.
+    name = "PickStickBeforePress"
+    parameters = [robot, stick, button]
+    option_vars = [robot, stick]
+    preconditions = {
+        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(NotStickPressButtonSuccessButton, [button]),
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    option = PickStickFromNothing.option
+    sampler = PickStickFromNothing.sampler
+    nsrt = NSRT(name, parameters, preconditions,
+                add_effects, delete_effects, ignore_effects,
+                option, option_vars, sampler)
+    bridge_nsrts.add(nsrt)
+
+    # We failed to press directly, but haven't yet tried to press with the
+    # stick, and we're holding the stick, so we should try to press.
+    name = "PressWithStick"
+    parameters = [robot, stick, button]
+    option_vars = [robot, stick]
+    preconditions = {
+        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(NotStickPressButtonSuccessButton, [button]),
+        LiftedAtom(Grasped, [robot, stick]),
+    }
+    option = StickPressButtonFromNothing.option
+    sampler = StickPressButtonFromNothing.sampler
+    nsrt = NSRT(name, parameters, preconditions,
+                add_effects, delete_effects, ignore_effects,
+                option, option_vars, sampler)
+    bridge_nsrts.add(nsrt)
+
+    # We've already tried to press both ways, and we're holding the stick, so
+    # we should put it down in preparation for a regrasp.
+    name = "PlaceToRegrasp"
+    parameters = [robot, stick, button]
+    option_vars = [robot, stick]
+    preconditions = {
+        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(Grasped, [robot, stick]),
+    }
+    option = PlaceStick.option
+    sampler = PlaceStick.sampler
+    nsrt = NSRT(name, parameters, preconditions,
+                add_effects, delete_effects, ignore_effects,
+                option, option_vars, sampler)
+    bridge_nsrts.add(nsrt)
+
+    # We've already tried to press both ways, and the hand is empty, so we
+    # should go to pick up the stick.
+    name = "Regrasp"
+    parameters = [robot, stick, button]
+    option_vars = [robot, stick]
+    preconditions = {
+        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    option = PickStickFromNothing.option
+    sampler = PickStickFromNothing.sampler
+    nsrt = NSRT(name, parameters, preconditions,
+                add_effects, delete_effects, ignore_effects,
+                option, option_vars, sampler)
+    bridge_nsrts.add(nsrt)
 
     def _bridge_policy(state: State, atoms: Set[GroundAtom],
                        failed_options: List[_Option]) -> _Option:
 
-        robot = next(o for o in state if o.type.name == "robot")
-        stick = next(o for o in state if o.type.name == "stick")
-        pressed_buttons = {
-            a.objects[0]
-            for a in atoms if a.predicate == Pressed
-        }
-        failed_direct_buttons = {
-            o.objects[1]
-            for o in failed_options if o.name == "RobotPressButton"
-        }
-        failed_stick_buttons = {
-            o.objects[2]
-            for o in failed_options if o.name == "StickPressButton"
-        }
-        failed_buttons = failed_direct_buttons | failed_stick_buttons
+        # Add failure atoms based on failed_options.
+        atoms_with_failures = set(atoms)
+        failed_option_specs = {(o.parent, tuple(o.objects)) for o in failed_options}
+        objects = set(state)
+        all_option_specs = set()
+        for param_opt in all_options:
+            for o in utils.get_object_combinations(objects, param_opt.types):
+                all_option_specs.add((param_opt, tuple(o)))
+        assert failed_option_specs.issubset(all_option_specs)
+        for (param_opt, objs) in failed_option_specs:
+            for i, obj in enumerate(objs):
+                pred = failure_preds[f"{param_opt.name}Failed-arg{i}"]
+                failure_atom = GroundAtom(pred, [obj])
+                atoms_with_failures.add(failure_atom)
+        for (param_opt, objs) in all_option_specs - failed_option_specs:
+            for i, obj in enumerate(objs):
+                pred = failure_preds[f"{param_opt.name}Success-arg{i}"]
+                failure_atom = GroundAtom(pred, [obj])
+                atoms_with_failures.add(failure_atom)
 
-        # Terminate if all of the failed buttons have now been pressed.
-        if failed_buttons.issubset(pressed_buttons):
-            # TODO test coverage
-            import ipdb; ipdb.set_trace()
-            raise BridgePolicyDone()
+        ground_nsrts = sorted(n for nsrt in bridge_nsrts
+            for n in utils.all_ground_nsrts(nsrt, objects))
 
-        # Otherwise, find the next button to pursue.
-        button = sorted(failed_buttons - pressed_buttons)[0]
-
-        # If we haven't yet tried to directly press the button, try that first.
-        if button not in failed_direct_buttons:
-            # If we're holding the stick, put it down first.
-            if Grasped.holds(state, [robot, stick]):
-                # TODO test coverage
+        for ground_nsrt in ground_nsrts:
+            if ground_nsrt.preconditions.issubset(atoms_with_failures):
+                next_nsrt = ground_nsrt
+                print(next_nsrt.name, next_nsrt.objects)
                 import ipdb; ipdb.set_trace()
-                next_nsrt = PlaceStick.ground([robot, stick])
-            else:
-                # TODO test coverage
-                import ipdb; ipdb.set_trace()
-                next_nsrt = RobotPressButtonFromNothing.ground([robot, button])
-        # If we have already tried to press both ways...
-        elif button in failed_direct_buttons & failed_stick_buttons:
-            # If we're already holding the stick, we need to regrasp.
-            if Grasped.holds(state, [robot, stick]):
-                # TODO test coverage
-                import ipdb; ipdb.set_trace()
-                next_nsrt = PlaceStick.ground([robot, stick])
-            # Otherwise, grasp it.
-            else:
-                # TODO test coverage
-                import ipdb; ipdb.set_trace()
-                next_nsrt = PickStickFromNothing.ground([robot, stick])
-        # We haven't yet tried the stick, pick it up.
-        elif not Grasped.holds(state, [robot, stick]):
-            next_nsrt = PickStickFromNothing.ground([robot, stick])
-        # Otherwise, we should be holding the stick, give control back.
+                break
         else:
             raise BridgePolicyDone()
 
