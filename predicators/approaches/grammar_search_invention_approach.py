@@ -825,13 +825,14 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
 
     # Start the search with no candidates.
     curr_learned_preds: FrozenSet[Predicate] = frozenset()
-
     max_frontier_idx = max(len(traj[1]) for traj in atom_dataset)
+    num_candidates_per_frontier : List[Tuple[int, int]] = []
     
     for frontier_idx in range(1, max_frontier_idx):
         # First, update the candidates with the current frontier.
         curr_frontier_candidates = get_candidates_given_frontier(frontier_idx)
         logging.info(f"Evaluating frontier {frontier_idx} with {len(curr_frontier_candidates)} candidates.")
+        num_candidates_per_frontier.append((frontier_idx, len(curr_frontier_candidates.keys())))
         curr_frontier_pruned_atom_dataset = utils.prune_ground_atom_dataset(atom_dataset, set(curr_learned_preds) | initial_predicates | set(curr_frontier_candidates))
 
         learned_preds_dict = {pred: candidates[pred] for pred in curr_learned_preds}
@@ -873,6 +874,12 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
                 f"{CFG.grammar_search_search_algorithm}.")
         # Update the current predicate set with the learned predicates.
         curr_learned_preds = path[-1]
+    
+    logging.info("Completed learning!")
+    logging.info("Frontier Learning Summary:")
+    for elem in num_candidates_per_frontier:
+        logging.info(f"Evaluated {elem[1]} candidates for frontier {elem[0]}.")
+
 
     kept_predicates = curr_learned_preds
     # Filter out predicates that don't appear in some operator preconditions.
