@@ -197,9 +197,11 @@ class BridgePolicyApproach(OracleApproach):
                 raise e
 
         def _termination_fn(s: State) -> bool:
+            del s  # unused
             return reached_stuck_state
 
         def _query_policy(s: State) -> Optional[Query]:
+            del s  # unused
             if not reached_stuck_state:
                 return None
             assert failed_nsrt is not None
@@ -252,7 +254,7 @@ class BridgePolicyApproach(OracleApproach):
                     nsrt_plan, _, _ = self._run_task_plan(
                         task, nsrts, preds, CFG.timeout, self._seed)
                     ctg: float = len(nsrt_plan)
-                except ApproachFailure as e:
+                except ApproachFailure:
                     # Planning failed, put in infinite cost to go.
                     ctg = float("inf")
                 optimal_ctgs.append(ctg)

@@ -1397,42 +1397,6 @@ class DemonstrationResponse(Response):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class HumanDemoQuery(Query):
-    """TODO."""
-    train_task_idx: int
-    failed_nsrt: _GroundNSRT  # TODO: do we want to put this here?
-
-    @property
-    def cost(self) -> float:
-        return 1
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class HumanDemoResponse(Response):
-    """TODO."""
-    teacher_traj: Optional[LowLevelTrajectory]
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class HumanNSRTDemoQuery(Query):
-    """TODO (remove)."""
-    train_task_idx: int
-    failed_nsrt: _GroundNSRT  # TODO: do we want to put this here?
-
-    @property
-    def cost(self) -> float:
-        return 1
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class HumanNSRTDemoResponse(Response):
-    """TODO (remove)."""
-    ground_nsrts: List[_GroundNSRT]
-    atoms: List[Set[GroundAtom]]
-    states: List[State]
-
-
-@dataclass(frozen=True, eq=False, repr=False)
 class PathToStateQuery(Query):
     """A query requesting a trajectory that reaches a specific state."""
     goal_state: State

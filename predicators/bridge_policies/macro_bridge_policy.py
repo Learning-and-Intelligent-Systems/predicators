@@ -3,14 +3,10 @@
 import logging
 from typing import Callable, Dict, Set
 
-import numpy as np
-
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
-from predicators.settings import CFG
-from predicators.structs import NSRT, Action, BridgeDataset, BridgePolicy, \
-    DummyOption, GroundAtom, GroundMacro, Macro, Object, Predicate, State, \
-    _GroundNSRT, _Option
+from predicators.structs import NSRT, Action, BridgeDataset, DummyOption, \
+    GroundAtom, GroundMacro, Macro, Predicate, State, _GroundNSRT
 
 
 class MacroLearningBridgePolicy(BaseBridgePolicy):

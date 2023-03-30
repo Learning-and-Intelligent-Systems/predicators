@@ -20,10 +20,8 @@ from predicators.ground_truth_models import _get_options_by_names, \
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    HumanDemoQuery, HumanDemoResponse, HumanNSRTDemoQuery, \
-    HumanNSRTDemoResponse, InteractionRequest, LowLevelTrajectory, \
-    Observation, PathToStateQuery, PathToStateResponse, Query, Response, \
-    State, Task
+    InteractionRequest, LowLevelTrajectory, Observation, PathToStateQuery, \
+    PathToStateResponse, Query, Response, State, Task
 
 
 class Teacher:
