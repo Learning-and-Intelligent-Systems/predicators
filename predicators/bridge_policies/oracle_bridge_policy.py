@@ -1,18 +1,12 @@
 """A hand-written LDL bridge policy."""
 
-import logging
-from typing import Callable, Dict, List, Set
+from typing import Dict, Set
 
-import numpy as np
-
-from predicators import utils
-from predicators.bridge_policies import BridgePolicyDone
 from predicators.bridge_policies.ldl_bridge_policy import LDLBridgePolicy, \
     get_failure_predicate
 from predicators.settings import CFG
-from predicators.structs import NSRT, BridgePolicy, GroundAtom, LDLRule, \
-    LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, State, \
-    Variable, _Option
+from predicators.structs import NSRT, LDLRule, LiftedAtom, \
+    LiftedDecisionList, ParameterizedOption, Predicate, Variable
 
 
 class OracleBridgePolicy(LDLBridgePolicy):
@@ -22,7 +16,7 @@ class OracleBridgePolicy(LDLBridgePolicy):
                  options: Set[ParameterizedOption], nsrts: Set[NSRT]) -> None:
         super().__init__(predicates, options, nsrts)
         self._oracle_ldl = _create_oracle_ldl_bridge_policy(
-            CFG.env, self._nsrts, self._options, self._predicates, self._rng)
+            CFG.env, self._nsrts, self._options, self._predicates)
 
     @classmethod
     def get_name(cls) -> str:
@@ -34,19 +28,18 @@ class OracleBridgePolicy(LDLBridgePolicy):
 
 def _create_oracle_ldl_bridge_policy(
         env_name: str, nsrts: Set[NSRT], options: Set[ParameterizedOption],
-        predicates: Set[Predicate],
-        rng: np.random.Generator) -> LiftedDecisionList:
+        predicates: Set[Predicate]) -> LiftedDecisionList:
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     option_name_to_option = {o.name: o for o in options}
     pred_name_to_pred = {p.name: p for p in predicates}
 
     if env_name == "painting":
         return _create_painting_oracle_ldl_bridge_policy(
-            nsrt_name_to_nsrt, option_name_to_option, pred_name_to_pred, rng)
+            nsrt_name_to_nsrt, option_name_to_option, pred_name_to_pred)
 
     if env_name == "stick_button":
         return _create_stick_button_oracle_ldl_bridge_policy(
-            nsrt_name_to_nsrt, option_name_to_option, pred_name_to_pred, rng)
+            nsrt_name_to_nsrt, option_name_to_option, pred_name_to_pred)
 
     raise NotImplementedError(f"No oracle bridge policy for {env_name}")
 
@@ -54,15 +47,13 @@ def _create_oracle_ldl_bridge_policy(
 def _create_painting_oracle_ldl_bridge_policy(
         nsrt_name_to_nsrt: Dict[str, NSRT],
         option_name_to_option: Dict[str, ParameterizedOption],
-        pred_name_to_pred: Dict[str, Predicate],
-        rng: np.random.Generator) -> LiftedDecisionList:
+        pred_name_to_pred: Dict[str, Predicate]) -> LiftedDecisionList:
 
     PlaceOnTable = nsrt_name_to_nsrt["PlaceOnTable"]
     OpenLid = nsrt_name_to_nsrt["OpenLid"]
 
     Place = option_name_to_option["Place"]
 
-    Holding = pred_name_to_pred["Holding"]
     IsOpen = pred_name_to_pred["IsOpen"]
     lid_type, = IsOpen.types
 
@@ -107,8 +98,7 @@ def _create_painting_oracle_ldl_bridge_policy(
 def _create_stick_button_oracle_ldl_bridge_policy(
         nsrt_name_to_nsrt: Dict[str, NSRT],
         option_name_to_option: Dict[str, ParameterizedOption],
-        pred_name_to_pred: Dict[str, Predicate],
-        rng: np.random.Generator) -> LiftedDecisionList:
+        pred_name_to_pred: Dict[str, Predicate]) -> LiftedDecisionList:
 
     PickStickFromNothing = nsrt_name_to_nsrt["PickStickFromNothing"]
     PickStickFromButton = nsrt_name_to_nsrt["PickStickFromButton"]

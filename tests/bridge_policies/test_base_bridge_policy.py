@@ -14,8 +14,10 @@ def test_bridge_policy_creation():
     env = get_or_create_env("painting")
     options = get_gt_options("painting")
     nsrts = get_gt_nsrts("painting", env.predicates, options)
-    bridge_policy = create_bridge_policy("oracle", env.predicates, nsrts)
+    bridge_policy = create_bridge_policy("oracle", env.predicates, options,
+                                         nsrts)
     assert isinstance(bridge_policy, BaseBridgePolicy)
     assert bridge_policy.get_name() == "oracle"
     with pytest.raises(NotImplementedError):
-        create_bridge_policy("not a real bridge policy", env.predicates, nsrts)
+        create_bridge_policy("not a real bridge policy", env.predicates,
+                             options, nsrts)

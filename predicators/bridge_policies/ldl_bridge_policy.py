@@ -3,21 +3,18 @@
 import abc
 import functools
 import logging
-from typing import Callable, Dict, List, Set, Tuple
-
-import numpy as np
+from typing import Callable, List, Set, Tuple
 
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
-from predicators.settings import CFG
-from predicators.structs import NSRT, BridgePolicy, GroundAtom, LDLRule, \
-    LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, State, \
-    Variable, _Option
+from predicators.structs import GroundAtom, LiftedDecisionList, \
+    ParameterizedOption, Predicate, State, _Option
 
 
 @functools.lru_cache(maxsize=None)
 def get_failure_predicate(option: ParameterizedOption,
                           idxs: Tuple[int]) -> Predicate:
+    """Create a Failure predicate for a parameterized option."""
     idx_str = ",".join(map(str, idxs))
     arg_types = [option.types[i] for i in idxs]
     return Predicate(f"{option.name}Failed-arg{idx_str}",
