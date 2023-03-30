@@ -78,6 +78,7 @@ def main() -> None:
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
                         handlers=handlers)
+    logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
     if CFG.log_file:
         logging.info(f"Logging to {CFG.log_file}")
     logging.info(f"Running command: python {str_args}")

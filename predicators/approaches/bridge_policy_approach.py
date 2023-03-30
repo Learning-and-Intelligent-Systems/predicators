@@ -84,18 +84,18 @@ class BridgePolicyApproach(OracleApproach):
                 assert current_control == "bridge"
                 failed_option = None  # not used, but satisfy linting
             except OptionExecutionFailure as e:
-                failed_option = e.info["last_failed_option"]
-                self._bridge_policy.record_failed_option(failed_option)
-
-            # Switch control from planner to bridge.
-            if current_control == "planner":
-                # Planning failed on the first time step.
-                if failed_option is None:
-                    assert s.allclose(task.init)
+                failed_option = e.info.get("last_failed_option", None)
+                # If planner is in control and no failed option is found,
+                # give up, because bridge policy needs a failed option.
+                if current_control == "planner" and failed_option is None:
                     raise ApproachFailure("Planning failed on init state.")
                 logging.debug(f"Failed option: {failed_option.name}"
                               f"{failed_option.objects}.")
-                logging.debug("Switching control from planner to bridge.")
+                self._bridge_policy.record_failed_option(failed_option)
+
+            # Whenever there is any failure, give control to the bridge.
+            if failed_option is not None:
+                logging.debug("Giving control to bridge.")
                 current_control = "bridge"
                 option_policy = self._bridge_policy.get_option_policy()
                 current_policy = utils.option_policy_to_policy(
@@ -112,7 +112,7 @@ class BridgePolicyApproach(OracleApproach):
                     pass
 
             # Switch control from bridge to planner.
-            logging.debug("Switching control from bridge to planner.")
+            logging.debug("Giving control to planner.")
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
