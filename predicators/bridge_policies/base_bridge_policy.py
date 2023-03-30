@@ -6,7 +6,7 @@ from typing import Callable, Set
 import numpy as np
 
 from predicators.settings import CFG
-from predicators.structs import NSRT, _Option, Predicate, State, _GroundNSRT
+from predicators.structs import NSRT, Predicate, State, _GroundNSRT, _Option
 
 
 class BridgePolicyDone(Exception):

@@ -8,8 +8,8 @@ import numpy as np
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.settings import CFG
-from predicators.structs import NSRT, BridgePolicy, DummyOption, \
-    GroundAtom, Predicate, State, _GroundNSRT, _Option
+from predicators.structs import NSRT, BridgePolicy, DummyOption, GroundAtom, \
+    Predicate, State, _GroundNSRT, _Option
 
 
 class OracleBridgePolicy(BaseBridgePolicy):
@@ -24,15 +24,14 @@ class OracleBridgePolicy(BaseBridgePolicy):
     def get_name(cls) -> str:
         return "oracle"
 
-    def get_policy(self,failed_option: _Option) -> Callable[[State], _Option]:
+    def get_policy(self, failed_option: _Option) -> Callable[[State], _Option]:
 
         def _option_policy(state: State) -> _Option:
             atoms = utils.abstract(state, self._predicates)
             option = self._oracle_bridge_policy(state, atoms, failed_option)
             logging.debug(f"Using option {option.name}{option.objects} "
-                        "from bridge policy.")
+                          "from bridge policy.")
             return option
-
 
         return _option_policy
 
@@ -48,8 +47,8 @@ def _create_oracle_bridge_policy(env_name: str, nsrts: Set[NSRT],
                                                      pred_name_to_pred, rng)
 
     if env_name == "stick_button":
-        return _create_stick_button_oracle_bridge_policy(nsrt_name_to_nsrt,
-                                                     pred_name_to_pred, rng)
+        return _create_stick_button_oracle_bridge_policy(
+            nsrt_name_to_nsrt, pred_name_to_pred, rng)
 
     raise NotImplementedError(f"No oracle bridge policy for {env_name}")
 
@@ -106,7 +105,7 @@ def _create_stick_button_oracle_bridge_policy(
     Grasped = pred_name_to_pred["Grasped"]
 
     def _bridge_policy(state: State, atoms: Set[GroundAtom],
-                       failed_nsrt: _GroundNSRT) -> _Option:
+                       failed_option: _Option) -> _Option:
 
         robot = next(o for o in state if o.type.name == "robot")
         stick = next(o for o in state if o.type.name == "stick")

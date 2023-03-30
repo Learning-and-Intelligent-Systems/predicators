@@ -13,10 +13,14 @@ termination and then the bridge policy is called again.
 The bridge policy is so named because it's meant to serve as a "bridge back to
 plannability" in states where the planner has gotten stuck.
 
-Example command:
+Example commands:
+
     python predicators/main.py --env painting --approach bridge_policy \
         --seed 0 --painting_lid_open_prob 0.0 \
         --painting_raise_environment_failure False --debug
+
+    python predicators/main.py --env stick_button --approach bridge_policy \
+        --seed 0 --debug
 """
 
 import logging
@@ -62,7 +66,11 @@ class BridgePolicyApproach(OracleApproach):
         # because the bridge policy takes as input the last failed NSRT.
         current_control = "planner"
         option_policy = self._get_option_policy_by_planning(task, timeout)
-        current_policy = self._option_policy_to_policy(option_policy)
+        current_policy = utils.option_policy_to_policy(
+            option_policy,
+            max_option_steps=CFG.max_num_steps_option_rollout,
+            raise_error_on_repeated_state=True,
+        )
 
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy
@@ -88,7 +96,11 @@ class BridgePolicyApproach(OracleApproach):
                 logging.debug("Switching control from planner to bridge.")
                 current_control = "bridge"
                 option_policy = self._bridge_policy.get_policy(failed_option)
-                current_policy = self._option_policy_to_policy(option_policy)
+                current_policy = utils.option_policy_to_policy(
+                    option_policy,
+                    max_option_steps=CFG.max_num_steps_option_rollout,
+                    raise_error_on_repeated_state=True,
+                )
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
                 # step, then this approach would be performing MPC.
@@ -102,8 +114,13 @@ class BridgePolicyApproach(OracleApproach):
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
-            option_policy = self._get_option_policy_by_planning(current_task, timeout)
-            current_policy = self._option_policy_to_policy(option_policy)
+            option_policy = self._get_option_policy_by_planning(
+                current_task, timeout)
+            current_policy = utils.option_policy_to_policy(
+                option_policy,
+                max_option_steps=CFG.max_num_steps_option_rollout,
+                raise_error_on_repeated_state=True,
+            )
             try:
                 return current_policy(s)
             except OptionExecutionFailure as e:
@@ -111,24 +128,8 @@ class BridgePolicyApproach(OracleApproach):
 
         return _policy
 
-    def _option_policy_to_policy(self, option_policy: Callable[[State], _Option]) -> Callable[[State], Action]:
-        """Add the last failed option to option execution failures."""
-        last_option: Optional[_Option] = None
-        
-        def _option_policy(s: State) -> _Option:
-            nonlocal last_option
-            try:
-                next_option = option_policy(s)
-                last_option = next_option
-            except OptionExecutionFailure as e:
-                e.info["last_failed_option"] = last_option
-                raise e
-            return next_option
-
-        return utils.option_policy_to_policy(_option_policy)
-
-    def _get_option_policy_by_planning(self, task: Task,
-                                timeout: float) -> Callable[[State], _Option]:
+    def _get_option_policy_by_planning(
+            self, task: Task, timeout: float) -> Callable[[State], _Option]:
         """Raises an OptionExecutionFailure with the last_failed_nsrt in its
         info dict in the case where execution fails."""
 
@@ -139,7 +140,9 @@ class BridgePolicyApproach(OracleApproach):
         preds = self._get_current_predicates()
 
         nsrt_plan, atoms_seq, _ = self._run_task_plan(task, nsrts, preds,
-                                                       timeout, seed)
-        return utils.nsrt_plan_to_greedy_option_policy(nsrt_plan, goal=task.goal,
-            rng=self._rng, necessary_atoms_seq=atoms_seq
-        )
+                                                      timeout, seed)
+        return utils.nsrt_plan_to_greedy_option_policy(
+            nsrt_plan,
+            goal=task.goal,
+            rng=self._rng,
+            necessary_atoms_seq=atoms_seq)

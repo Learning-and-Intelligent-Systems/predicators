@@ -1093,15 +1093,42 @@ class EnvironmentFailure(ExceptionWithInfo):
 
 
 def option_policy_to_policy(
-        option_policy: Callable[[State], _Option]) -> Callable[[State], Action]:
+    option_policy: Callable[[State], _Option],
+    max_option_steps: Optional[int] = None,
+    raise_error_on_repeated_state: bool = False,
+) -> Callable[[State], Action]:
     """Create a policy that executes a policy over options."""
     cur_option = DummyOption
+    num_cur_option_steps = 0
+    last_state: Optional[State] = None
 
     def _policy(state: State) -> Action:
-        nonlocal cur_option
-        if cur_option.terminal(state):
+        nonlocal cur_option, num_cur_option_steps, last_state
+
+        if max_option_steps is not None and \
+            num_cur_option_steps >= max_option_steps:
+            raise OptionExecutionFailure(
+                "Exceeded max option steps.",
+                info={"last_failed_option": cur_option})
+
+        if last_state is not None and \
+            raise_error_on_repeated_state and state.allclose(last_state):
+            raise OptionExecutionFailure(
+                "Encountered repeated state.",
+                info={"last_failed_option": cur_option})
+        last_state = state
+
+        if cur_option is DummyOption or cur_option.terminal(state):
+            last_option = cur_option
             cur_option = option_policy(state)
-            assert cur_option.initiable(state), "Unsound option policy"
+            if not cur_option.initiable(state):
+                raise OptionExecutionFailure(
+                    "Unsound option policy.",
+                    info={"last_failed_option": last_option})
+            num_cur_option_steps = 0
+
+        num_cur_option_steps += 1
+
         return cur_option.policy(state)
 
     return _policy
@@ -1121,10 +1148,11 @@ def option_plan_to_policy(
 
 
 def nsrt_plan_to_greedy_option_policy(
-        nsrt_plan: Sequence[_GroundNSRT], goal: Set[GroundAtom],
-        rng: np.random.Generator,
-        necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
-    ) -> Callable[[State], _Option]:
+    nsrt_plan: Sequence[_GroundNSRT],
+    goal: Set[GroundAtom],
+    rng: np.random.Generator,
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+) -> Callable[[State], _Option]:
     """Greedily execute an NSRT plan, assuming downward refinability and that
     any sample will work.
 
