@@ -20,6 +20,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         return _segment_with_oracle(trajectory)
     if CFG.segmenter == "contacts":
         return _segment_with_contact_changes(trajectory)
+    if CFG.segmenter == "every_step":
+        return _segment_with_switch_function(trajectory, lambda _: True)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
 

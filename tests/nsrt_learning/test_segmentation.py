@@ -158,6 +158,10 @@ def test_segment_trajectory():
     assert not segment.has_option()
     assert segment.init_atoms == atoms0
     assert segment.final_atoms == atoms1
+    # Test segmenting at every step.
+    utils.reset_config({"segmenter": "every_step"})
+    every_step_segments = segment_trajectory(trajectory)
+    assert len(every_step_segments) == 5
     # Test oracle segmenter with unknown options. This segmenter uses the
     # ground truth NSRTs, so we need to use a real environment where those
     # are defined.
