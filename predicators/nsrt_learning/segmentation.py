@@ -21,7 +21,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     if CFG.segmenter == "contacts":
         return _segment_with_contact_changes(trajectory)
     if CFG.segmenter == "every_step":
-        return _segment_at_every_step(trajectory)
+        return _segment_with_switch_function(trajectory, lambda _: True)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
 
@@ -189,8 +189,3 @@ def _segment_with_switch_function(
     # Don't include the last segment because it didn't result in a switch.
     # E.g., with option_changes, the option may not have terminated.
     return segments
-
-
-def _segment_at_every_step(trajectory: GroundAtomTrajectory) -> List[Segment]:
-    """Segment a trajectory at every step."""
-    return _segment_with_switch_function(trajectory, lambda _: True)
