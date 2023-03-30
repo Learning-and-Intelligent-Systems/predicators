@@ -6,7 +6,8 @@ from typing import Callable, List, Set
 import numpy as np
 
 from predicators.settings import CFG
-from predicators.structs import NSRT, Predicate, State, _Option
+from predicators.structs import NSRT, ParameterizedOption, Predicate, State, \
+    _Option
 
 
 class BridgePolicyDone(Exception):
@@ -16,8 +17,10 @@ class BridgePolicyDone(Exception):
 class BaseBridgePolicy(abc.ABC):
     """Base bridge policy."""
 
-    def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT]) -> None:
+    def __init__(self, predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], nsrts: Set[NSRT]) -> None:
         self._predicates = predicates
+        self._options = options
         self._nsrts = nsrts
         self._rng = np.random.default_rng(CFG.seed)
         self._failed_options: List[_Option] = []

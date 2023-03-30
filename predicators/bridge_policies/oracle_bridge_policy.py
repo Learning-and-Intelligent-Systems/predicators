@@ -1,4 +1,4 @@
-"""A hand-written bridge policy."""
+"""A hand-written LDL bridge policy."""
 
 import logging
 from typing import Callable, Dict, List, Set
@@ -6,77 +6,68 @@ from typing import Callable, Dict, List, Set
 import numpy as np
 
 from predicators import utils
-from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
+from predicators.bridge_policies import BridgePolicyDone
+from predicators.bridge_policies.ldl_bridge_policy import LDLBridgePolicy, \
+    get_failure_predicate
 from predicators.settings import CFG
 from predicators.structs import NSRT, BridgePolicy, GroundAtom, LDLRule, \
-    LiftedAtom, LiftedDecisionList, Predicate, State, Variable, _Option
+    LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, State, \
+    Variable, _Option
 
 
-class OracleBridgePolicy(BaseBridgePolicy):
-    """A hand-written bridge policy."""
+class OracleBridgePolicy(LDLBridgePolicy):
+    """A hand-written LDL bridge policy."""
 
-    def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT]) -> None:
-        super().__init__(predicates, nsrts)
-        self._oracle_bridge_policy = _create_oracle_bridge_policy(
-            CFG.env, self._nsrts, self._predicates, self._rng)
+    def __init__(self, predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], nsrts: Set[NSRT]) -> None:
+        super().__init__(predicates, options, nsrts)
+        self._oracle_ldl = _create_oracle_ldl_bridge_policy(
+            CFG.env, self._nsrts, self._options, self._predicates, self._rng)
 
     @classmethod
     def get_name(cls) -> str:
         return "oracle"
 
-    def get_option_policy(self) -> Callable[[State], _Option]:
-
-        def _option_policy(state: State) -> _Option:
-            atoms = utils.abstract(state, self._predicates)
-            option = self._oracle_bridge_policy(state, atoms,
-                                                self._failed_options)
-            logging.debug(f"Using option {option.name}{option.objects} "
-                          "from bridge policy.")
-            return option
-
-        return _option_policy
+    def _get_current_ldl(self) -> LiftedDecisionList:
+        return self._oracle_ldl
 
 
-def _create_oracle_bridge_policy(env_name: str, nsrts: Set[NSRT],
-                                 predicates: Set[Predicate],
-                                 rng: np.random.Generator) -> BridgePolicy:
+def _create_oracle_ldl_bridge_policy(
+        env_name: str, nsrts: Set[NSRT], options: Set[ParameterizedOption],
+        predicates: Set[Predicate],
+        rng: np.random.Generator) -> LiftedDecisionList:
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    option_name_to_option = {o.name: o for o in options}
     pred_name_to_pred = {p.name: p for p in predicates}
 
     if env_name == "painting":
-        return _create_painting_oracle_bridge_policy(nsrt_name_to_nsrt,
-                                                     pred_name_to_pred, rng)
+        return _create_painting_oracle_ldl_bridge_policy(
+            nsrt_name_to_nsrt, option_name_to_option, pred_name_to_pred, rng)
 
     if env_name == "stick_button":
-        return _create_stick_button_oracle_bridge_policy(
-            nsrt_name_to_nsrt, pred_name_to_pred, rng)
+        return _create_stick_button_oracle_ldl_bridge_policy(
+            nsrt_name_to_nsrt, option_name_to_option, pred_name_to_pred, rng)
 
     raise NotImplementedError(f"No oracle bridge policy for {env_name}")
 
 
-def _create_painting_oracle_bridge_policy(
-        nsrt_name_to_nsrt: Dict[str, NSRT], pred_name_to_pred: Dict[str,
-                                                                    Predicate],
-        rng: np.random.Generator) -> BridgePolicy:
+def _create_painting_oracle_ldl_bridge_policy(
+        nsrt_name_to_nsrt: Dict[str, NSRT],
+        option_name_to_option: Dict[str, ParameterizedOption],
+        pred_name_to_pred: Dict[str, Predicate],
+        rng: np.random.Generator) -> LiftedDecisionList:
 
     PlaceOnTable = nsrt_name_to_nsrt["PlaceOnTable"]
     OpenLid = nsrt_name_to_nsrt["OpenLid"]
+
+    Place = option_name_to_option["Place"]
 
     Holding = pred_name_to_pred["Holding"]
     IsOpen = pred_name_to_pred["IsOpen"]
     lid_type, = IsOpen.types
 
     # "Failure" predicates.
-    all_options = {n.option for n in nsrt_name_to_nsrt.values()}
-    failure_preds: Dict[str, Predicate] = {}
-    for option in all_options:
-        # Just unary for now.
-        for idx, t in enumerate(option.types):
-            failure_pred = Predicate(f"{option.name}Failed-arg{idx}", [t],
-                                     _classifier=lambda s, o: False)
-            failure_preds[failure_pred.name] = failure_pred
-
-    PlaceFailed = failure_preds["PlaceFailed-arg0"]
+    PlaceFailed = get_failure_predicate(Place, (0, ))
 
     bridge_rules = []
     goal_preconds: Set[LiftedAtom] = set()
@@ -90,9 +81,7 @@ def _create_painting_oracle_bridge_policy(
     pos_preconds = set(nsrt.preconditions) | {
         LiftedAtom(PlaceFailed, [robot]),
     }
-    neg_preconds = {
-        LiftedAtom(IsOpen, [lid])
-    }
+    neg_preconds = {LiftedAtom(IsOpen, [lid])}
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
     bridge_rules.append(rule)
@@ -105,44 +94,21 @@ def _create_painting_oracle_bridge_policy(
     pos_preconds = set(nsrt.preconditions) | {
         LiftedAtom(PlaceFailed, [robot]),
     }
-    neg_preconds = {
-        LiftedAtom(IsOpen, [lid])
-    }
+    neg_preconds = {LiftedAtom(IsOpen, [lid])}
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
     bridge_rules.append(rule)
 
     bridge_ldl = LiftedDecisionList(bridge_rules)
 
-    def _bridge_policy(state: State, atoms: Set[GroundAtom],
-                       failed_options: List[_Option]) -> _Option:
-
-        # Add failure atoms based on failed_options.
-        atoms_with_failures = set(atoms)
-        failed_option_specs = {(o.parent, tuple(o.objects))
-                               for o in failed_options}
-        for (param_opt, objs) in failed_option_specs:
-            for i, obj in enumerate(objs):
-                pred = failure_preds[f"{param_opt.name}Failed-arg{i}"]
-                failure_atom = GroundAtom(pred, [obj])
-                atoms_with_failures.add(failure_atom)
-
-        objects = set(state)
-        goal: Set[GroundAtom] = set()  # task goal not used
-        next_nsrt = utils.query_ldl(bridge_ldl, atoms_with_failures, objects,
-                                    goal)
-        if next_nsrt is None:
-            raise BridgePolicyDone()
-
-        return next_nsrt.sample_option(state, goal, rng)
-
-    return _bridge_policy
+    return bridge_ldl
 
 
-def _create_stick_button_oracle_bridge_policy(
-        nsrt_name_to_nsrt: Dict[str, NSRT], pred_name_to_pred: Dict[str,
-                                                                    Predicate],
-        rng: np.random.Generator) -> BridgePolicy:
+def _create_stick_button_oracle_ldl_bridge_policy(
+        nsrt_name_to_nsrt: Dict[str, NSRT],
+        option_name_to_option: Dict[str, ParameterizedOption],
+        pred_name_to_pred: Dict[str, Predicate],
+        rng: np.random.Generator) -> LiftedDecisionList:
 
     PickStickFromNothing = nsrt_name_to_nsrt["PickStickFromNothing"]
     PickStickFromButton = nsrt_name_to_nsrt["PickStickFromButton"]
@@ -156,21 +122,15 @@ def _create_stick_button_oracle_bridge_policy(
         "StickPressButtonFromButton"]
     PlaceStick = nsrt_name_to_nsrt["PlaceStick"]
 
+    RobotPressButton = option_name_to_option["RobotPressButton"]
+    StickPressButton = option_name_to_option["StickPressButton"]
+
     Pressed = pred_name_to_pred["Pressed"]
     button_type = Pressed.types[0]
 
     # "Failure" predicates.
-    all_options = {n.option for n in nsrt_name_to_nsrt.values()}
-    failure_preds: Dict[str, Predicate] = {}
-    for option in all_options:
-        # Just unary for now.
-        for idx, t in enumerate(option.types):
-            failure_pred = Predicate(f"{option.name}Failed-arg{idx}", [t],
-                                     _classifier=lambda s, o: False)
-            failure_preds[failure_pred.name] = failure_pred
-
-    RobotPressButtonFailedButton = failure_preds["RobotPressButtonFailed-arg1"]
-    StickPressButtonFailedButton = failure_preds["StickPressButtonFailed-arg2"]
+    RobotPressFailedButton = get_failure_predicate(RobotPressButton, (1, ))
+    StickPressFailedButton = get_failure_predicate(StickPressButton, (2, ))
 
     bridge_rules = []
     goal_preconds: Set[LiftedAtom] = set()
@@ -185,7 +145,7 @@ def _create_stick_button_oracle_bridge_policy(
     pos_preconds = set(nsrt.preconditions)
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
     }
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
@@ -200,7 +160,7 @@ def _create_stick_button_oracle_bridge_policy(
     pos_preconds = set(nsrt.preconditions)
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
     }
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
@@ -213,7 +173,7 @@ def _create_stick_button_oracle_bridge_policy(
     pos_preconds = set(nsrt.preconditions)
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
     }
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
@@ -227,11 +187,11 @@ def _create_stick_button_oracle_bridge_policy(
     button = Variable("?button", button_type)
     parameters = [robot, stick, button]
     pos_preconds = set(nsrt.preconditions) | {
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
     }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
-        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(StickPressFailedButton, [button]),
     }
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
@@ -243,11 +203,11 @@ def _create_stick_button_oracle_bridge_policy(
     button = Variable("?to-button", button_type)
     parameters = [robot, stick, button, from_button]
     pos_preconds = set(nsrt.preconditions) | {
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
     }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
-        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(StickPressFailedButton, [button]),
     }
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
@@ -260,11 +220,11 @@ def _create_stick_button_oracle_bridge_policy(
     robot, stick, button = nsrt.parameters
     parameters = [robot, stick, button]
     pos_preconds = set(nsrt.preconditions) | {
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
     }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
-        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(StickPressFailedButton, [button]),
     }
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
@@ -275,11 +235,11 @@ def _create_stick_button_oracle_bridge_policy(
     robot, stick, button, from_button = nsrt.parameters
     parameters = [robot, stick, button, from_button]
     pos_preconds = set(nsrt.preconditions) | {
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
     }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
-        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(StickPressFailedButton, [button]),
     }
     rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
                    nsrt)
@@ -293,8 +253,8 @@ def _create_stick_button_oracle_bridge_policy(
     button = Variable("?button", button_type)
     parameters = [robot, stick, button]
     pos_preconds = set(nsrt.preconditions) | {
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
-        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
+        LiftedAtom(StickPressFailedButton, [button]),
     }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
@@ -311,8 +271,8 @@ def _create_stick_button_oracle_bridge_policy(
     button = Variable("?button", button_type)
     parameters = [robot, stick, button]
     pos_preconds = set(nsrt.preconditions) | {
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
-        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
+        LiftedAtom(StickPressFailedButton, [button]),
     }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
@@ -327,8 +287,8 @@ def _create_stick_button_oracle_bridge_policy(
     button = Variable("?to-button", button_type)
     parameters = [robot, stick, button, from_button]
     pos_preconds = set(nsrt.preconditions) | {
-        LiftedAtom(RobotPressButtonFailedButton, [button]),
-        LiftedAtom(StickPressButtonFailedButton, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
+        LiftedAtom(StickPressFailedButton, [button]),
     }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
@@ -339,26 +299,4 @@ def _create_stick_button_oracle_bridge_policy(
 
     bridge_ldl = LiftedDecisionList(bridge_rules)
 
-    def _bridge_policy(state: State, atoms: Set[GroundAtom],
-                       failed_options: List[_Option]) -> _Option:
-
-        # Add failure atoms based on failed_options.
-        atoms_with_failures = set(atoms)
-        failed_option_specs = {(o.parent, tuple(o.objects))
-                               for o in failed_options}
-        for (param_opt, objs) in failed_option_specs:
-            for i, obj in enumerate(objs):
-                pred = failure_preds[f"{param_opt.name}Failed-arg{i}"]
-                failure_atom = GroundAtom(pred, [obj])
-                atoms_with_failures.add(failure_atom)
-
-        objects = set(state)
-        goal: Set[GroundAtom] = set()  # task goal not used
-        next_nsrt = utils.query_ldl(bridge_ldl, atoms_with_failures, objects,
-                                    goal)
-        if next_nsrt is None:
-            raise BridgePolicyDone()
-
-        return next_nsrt.sample_option(state, goal, rng)
-
-    return _bridge_policy
+    return bridge_ldl

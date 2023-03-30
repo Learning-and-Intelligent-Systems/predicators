@@ -53,9 +53,10 @@ class BridgePolicyApproach(OracleApproach):
                          action_space, train_tasks, task_planning_heuristic,
                          max_skeletons_optimized)
         predicates = self._get_current_predicates()
+        options = initial_options
         nsrts = self._get_current_nsrts()
         self._bridge_policy = create_bridge_policy(CFG.bridge_policy,
-                                                   predicates, nsrts)
+                                                   predicates, options, nsrts)
 
     @classmethod
     def get_name(cls) -> str:

@@ -98,7 +98,7 @@ class PaintingEnv(BaseEnv):
         self._IsClean = Predicate("IsClean", [self._obj_type],
                                   self._IsClean_holds)
         self._IsOpen = Predicate("IsOpen", [self._lid_type],
-                                  self._IsOpen_holds)
+                                 self._IsOpen_holds)
         # Static objects (always exist no matter the settings).
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
