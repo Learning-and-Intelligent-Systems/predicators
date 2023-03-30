@@ -17,7 +17,7 @@ from predicators.settings import CFG
 from predicators.structs import DummyOption, STRIPSOperator
 
 _APPROACH_PATH = predicators.approaches.bridge_policy_approach.__name__
-_ORACLE_BRIDGE_PATH = predicators.bridge_policies.oracle_bridge_policy.__name__
+_ORACLE_PATH = predicators.bridge_policies.oracle_bridge_policy.__name__
 
 
 def test_bridge_policy_approach():
@@ -53,7 +53,7 @@ def test_bridge_policy_approach():
         del s  # ununsed
         raise BridgePolicyDone()
 
-    with patch(f"{_ORACLE_BRIDGE_PATH}.OracleBridgePolicy.get_policy") as m:
+    with patch(f"{_ORACLE_PATH}.OracleBridgePolicy.get_option_policy") as m:
         m.return_value = done_option_policy
         policy = approach.solve(task, timeout=500)
         traj = utils.run_policy_with_simulator(policy,
@@ -67,14 +67,14 @@ def test_bridge_policy_approach():
 
     # Test case where the second time that the planner is called, it returns
     # an invalid option.
-    first_policy = approach._get_policy_by_planning(task, timeout=500)  # pylint: disable=protected-access
+    first_policy = approach._get_option_policy_by_planning(task, timeout=500)  # pylint: disable=protected-access
 
     def second_policy(s):
         del s  # unused
         raise utils.OptionExecutionFailure("Second planning failed.")
 
-    path = f"{_APPROACH_PATH}.BridgePolicyApproach._get_policy_by_planning"
-    with patch(path) as m:
+    p = f"{_APPROACH_PATH}.BridgePolicyApproach._get_option_policy_by_planning"
+    with patch(p) as m:
         m.side_effect = [first_policy, second_policy]
         policy = approach.solve(task, timeout=500)
         with pytest.raises(ApproachFailure) as e:

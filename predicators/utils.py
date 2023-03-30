@@ -1105,21 +1105,25 @@ def option_policy_to_policy(
     def _policy(state: State) -> Action:
         nonlocal cur_option, num_cur_option_steps, last_state
 
+        if cur_option is DummyOption:
+            last_option: Optional[_Option] = None
+        else:
+            last_option = cur_option
+
         if max_option_steps is not None and \
             num_cur_option_steps >= max_option_steps:
             raise OptionExecutionFailure(
                 "Exceeded max option steps.",
-                info={"last_failed_option": cur_option})
+                info={"last_failed_option": last_option})
 
         if last_state is not None and \
             raise_error_on_repeated_state and state.allclose(last_state):
             raise OptionExecutionFailure(
                 "Encountered repeated state.",
-                info={"last_failed_option": cur_option})
+                info={"last_failed_option": last_option})
         last_state = state
 
         if cur_option is DummyOption or cur_option.terminal(state):
-            last_option = cur_option
             cur_option = option_policy(state)
             if not cur_option.initiable(state):
                 raise OptionExecutionFailure(
