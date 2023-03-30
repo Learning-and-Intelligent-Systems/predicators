@@ -124,6 +124,8 @@ def _create_stick_button_oracle_bridge_policy(
 
         # Terminate if all of the failed buttons have now been pressed.
         if failed_buttons.issubset(pressed_buttons):
+            # TODO test coverage
+            import ipdb; ipdb.set_trace()
             raise BridgePolicyDone()
 
         # Otherwise, find the next button to pursue.
@@ -133,16 +135,24 @@ def _create_stick_button_oracle_bridge_policy(
         if button not in failed_direct_buttons:
             # If we're holding the stick, put it down first.
             if Grasped.holds(state, [robot, stick]):
+                # TODO test coverage
+                import ipdb; ipdb.set_trace()
                 next_nsrt = PlaceStick.ground([robot, stick])
             else:
+                # TODO test coverage
+                import ipdb; ipdb.set_trace()
                 next_nsrt = RobotPressButtonFromNothing.ground([robot, button])
         # If we have already tried to press both ways...
         elif button in failed_direct_buttons & failed_stick_buttons:
             # If we're already holding the stick, we need to regrasp.
             if Grasped.holds(state, [robot, stick]):
+                # TODO test coverage
+                import ipdb; ipdb.set_trace()
                 next_nsrt = PlaceStick.ground([robot, stick])
             # Otherwise, grasp it.
             else:
+                # TODO test coverage
+                import ipdb; ipdb.set_trace()
                 next_nsrt = PickStickFromNothing.ground([robot, stick])
         # We haven't yet tried the stick, pick it up.
         elif not Grasped.holds(state, [robot, stick]):
