@@ -122,10 +122,17 @@ class BridgePolicyApproach(OracleApproach):
         cur_nsrt: Optional[_GroundNSRT] = None
         last_nsrt: Optional[_GroundNSRT] = None
         cur_option = DummyOption
+        cur_option_num_steps = 0
+        last_state: Optional[State] = None
 
-        def _policy(state: State) -> Action:
-            nonlocal cur_nsrt, last_nsrt, cur_option
-            if cur_option is DummyOption or cur_option.terminal(state):
+        def _policy(s: State) -> Action:
+            nonlocal cur_nsrt, last_nsrt, cur_option, cur_option_num_steps, last_state
+
+            stuck = last_state is not None and last_state.allclose(s) or \
+                cur_option_num_steps >= CFG.max_num_steps_option_rollout
+            last_state = s
+
+            if cur_option is DummyOption or stuck or cur_option.terminal(s):
                 last_nsrt = cur_nsrt
                 if not nsrt_queue:
                     raise OptionExecutionFailure(
@@ -133,7 +140,7 @@ class BridgePolicyApproach(OracleApproach):
                         info={"last_failed_nsrt": last_nsrt})
                 if last_nsrt is not None:
                     expected_atoms = atoms_queue.pop(0)
-                    if not all(a.holds(state) for a in expected_atoms):
+                    if not all(a.holds(s) for a in expected_atoms):
                         raise OptionExecutionFailure(
                             "Executing the option "
                             "failed to achieve the NSRT effects.",
@@ -141,13 +148,15 @@ class BridgePolicyApproach(OracleApproach):
                 cur_nsrt = nsrt_queue.pop(0)
                 logging.debug(f"Using NSRT {cur_nsrt.name}{cur_nsrt.objects} "
                               "from planner.")
-                cur_option = cur_nsrt.sample_option(state, task.goal,
+                cur_option = cur_nsrt.sample_option(s, task.goal,
                                                     self._rng)
-                if not cur_option.initiable(state):
+                cur_option_num_steps = 0
+                if not cur_option.initiable(s):
                     raise OptionExecutionFailure(
                         "Greedy option not initiable.",
                         info={"last_failed_nsrt": last_nsrt})
-            act = cur_option.policy(state)
+            act = cur_option.policy(s)
+            cur_option_num_steps += 1
             return act
 
         return _policy
