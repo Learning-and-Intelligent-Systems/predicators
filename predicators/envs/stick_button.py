@@ -136,6 +136,16 @@ class StickButtonEnv(BaseEnv):
             next_state.set(self._stick, "theta", stick_rect.theta)
 
         if press > 0:
+            # Check for placing the stick.
+            holder_rect = self.object_to_geom(self._holder, state)
+            if stick_held and stick_rect.intersects(holder_rect):
+                # No-op in case of collision.
+                if robot_circ.intersects(holder_rect):
+                    return state.copy()
+
+                # Place the stick back on the holder.
+                next_state.set(self._stick, "held", 0.0)
+
             # Check if the stick is now held for the first time.
             if not stick_held and stick_rect.intersects(robot_circ):
                 # Check for a collision with the stick holder. The reason that
@@ -144,7 +154,6 @@ class StickButtonEnv(BaseEnv):
                 # direction to pick up the stick, at which button it may
                 # collide with the stick holder. On other timesteps, the robot
                 # would be high enough above the holder to avoid collisions.
-                holder_rect = self.object_to_geom(self._holder, state)
                 if robot_circ.intersects(holder_rect):
                     # No-op in case of collision.
                     return state.copy()

@@ -38,6 +38,7 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         RobotPressButton = options["RobotPressButton"]
         PickStick = options["PickStick"]
         StickPressButton = options["StickPressButton"]
+        PlaceStick = options["PlaceStick"]
 
         nsrts = set()
 
@@ -189,5 +190,36 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                  ignore_effects, option, option_vars,
                                  null_sampler)
         nsrts.add(stick_button_nsrt)
+
+        # PlaceStick
+        robot = Variable("?robot", robot_type)
+        stick = Variable("?stick", stick_type)
+        parameters = [robot, stick]
+        option_vars = [robot, stick]
+        option = PlaceStick
+        preconditions = {
+            LiftedAtom(Grasped, [robot, stick]),
+        }
+        add_effects = {
+            LiftedAtom(HandEmpty, [robot]),
+            LiftedAtom(AboveNoButton, []),
+        }
+        delete_effects = {LiftedAtom(Grasped, [robot, stick])}
+        ignore_effects = set()
+
+        def place_stick_sampler(state: State, goal: Set[GroundAtom],
+                               rng: np.random.Generator,
+                               objs: Sequence[Object]) -> Array:
+            del state, goal, objs  # unused
+            # Normalized offset between hand and holder when placing.
+            place_pos = rng.uniform(-1, 1)
+            return np.array([place_pos], dtype=np.float32)
+
+        place_stick_nsrt = NSRT("PlaceStick", parameters,
+                               preconditions, add_effects, delete_effects,
+                               ignore_effects, option, option_vars,
+                               place_stick_sampler)
+        nsrts.add(place_stick_nsrt)
+
 
         return nsrts

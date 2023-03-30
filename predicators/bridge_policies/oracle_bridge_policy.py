@@ -94,16 +94,9 @@ def _create_stick_button_oracle_bridge_policy(
                                                                     Predicate],
         rng: np.random.Generator) -> BridgePolicy:
 
-    # TODO add to the state the history of failed NSRTs, and try to press
-    # each button individually before resorting to using the stick?
-    # Or, allow putting the stick down after it's grasped.
-    # Either way, we need to allow the bridge policy itself to fail I think...
-    # But then we need to commit to the bridge policy using NSRTs? Otherwise
-    # the last-failed-NSRT concept doesn't work...
-    # How much do we care about bridge-specific sampling?
-
     PickStickFromNothing = nsrt_name_to_nsrt["PickStickFromNothing"]
     RobotPressButtonFromNothing = nsrt_name_to_nsrt["RobotPressButtonFromNothing"]
+    PlaceStick = nsrt_name_to_nsrt["PlaceStick"]
 
     Grasped = pred_name_to_pred["Grasped"]
     Pressed = pred_name_to_pred["Pressed"]
@@ -113,27 +106,35 @@ def _create_stick_button_oracle_bridge_policy(
         
         robot = next(o for o in state if o.type.name == "robot")
         stick = next(o for o in state if o.type.name == "stick")
+        pressed_buttons = {a.objects[0] for a in atoms if a.predicate == Pressed}
+        failed_direct_press_buttons = {o.objects[1] for o in failed_options if o.name == "RobotPressButton"}
+        failed_stick_press_buttons = {o.objects[2] for o in failed_options if o.name == "StickPressButton"}
+        failed_buttons = failed_direct_press_buttons | failed_stick_press_buttons
 
-        if Grasped.holds(state, [robot, stick]):
+        # Terminate if all of the failed buttons have now been pressed.
+        if failed_buttons.issubset(pressed_buttons):
             raise BridgePolicyDone()
 
-        # First try to directly press a button that hasn't been tried yet.
-        buttons = {o for o in state if o.type.name == "button"}
-        # Discard any button that has already been pressed.
-        for a in atoms:
-            if a.predicate == Pressed:
-                buttons.remove(a.objects[0])
-        # Discard any button that has already been attempted.
-        for failed_option in failed_options:
-            if failed_option.name == "RobotPressButton":
-                buttons.discard(failed_option.objects[1])
+        # Otherwise, find the next button to pursue.
+        button = sorted(failed_buttons - pressed_buttons)[0]
 
-        if buttons:
-            next_button = sorted(buttons)[0]
-            next_nsrt = RobotPressButtonFromNothing.ground([robot, next_button])
-
-        else:
+        # If we haven't yet tried to directly press the button, try that first.
+        if button not in failed_direct_press_buttons:
+            next_nsrt = RobotPressButtonFromNothing.ground([robot, button])
+        # If we have already tried to press both ways...
+        elif button in failed_direct_press_buttons & failed_stick_press_buttons:
+            # If we're already holding the stick, we need to regrasp.
+            if Grasped.holds(state, [robot, stick]):
+                next_nsrt = PlaceStick.ground([robot, stick])
+            # Otherwise, grasp it.
+            else:
+                next_nsrt = PickStickFromNothing.ground([robot, stick])
+        # We haven't yet tried the stick, pick it up.
+        elif not Grasped.holds(state, [robot, stick]):
             next_nsrt = PickStickFromNothing.ground([robot, stick])
+        # Otherwise, we should be holding the stick, give control back.
+        else:
+            raise BridgePolicyDone()
 
         goal: Set[GroundAtom] = set()  # goal assumed not used by sampler
         return next_nsrt.sample_option(state, goal, rng)
