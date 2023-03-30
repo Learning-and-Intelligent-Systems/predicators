@@ -63,28 +63,77 @@ def _create_painting_oracle_bridge_policy(
     OpenLid = nsrt_name_to_nsrt["OpenLid"]
 
     Holding = pred_name_to_pred["Holding"]
+    IsOpen = pred_name_to_pred["IsOpen"]
+    lid_type, = IsOpen.types
+
+    # "Failure" predicates.
+    all_options = {n.option for n in nsrt_name_to_nsrt.values()}
+    failure_preds: Dict[str, Predicate] = {}
+    for option in all_options:
+        # Just unary for now.
+        for idx, t in enumerate(option.types):
+            failure_pred = Predicate(f"{option.name}Failed-arg{idx}", [t],
+                                     _classifier=lambda s, o: False)
+            failure_preds[failure_pred.name] = failure_pred
+
+    PlaceFailed = failure_preds["PlaceFailed-arg0"]
+
+    bridge_rules = []
+    goal_preconds: Set[LiftedAtom] = set()
+
+    # Place the held object on the table.
+    name = "PlaceHeldObjectOnTable"
+    nsrt = PlaceOnTable
+    held_obj, robot = nsrt.parameters
+    lid = Variable("?lid", lid_type)
+    parameters = [held_obj, robot, lid]
+    pos_preconds = set(nsrt.preconditions) | {
+        LiftedAtom(PlaceFailed, [robot]),
+    }
+    neg_preconds = {
+        LiftedAtom(IsOpen, [lid])
+    }
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
+    bridge_rules.append(rule)
+
+    # Open the box lid.
+    name = "OpenLid"
+    nsrt = OpenLid
+    lid, robot = nsrt.parameters
+    parameters = [lid, robot]
+    pos_preconds = set(nsrt.preconditions) | {
+        LiftedAtom(PlaceFailed, [robot]),
+    }
+    neg_preconds = {
+        LiftedAtom(IsOpen, [lid])
+    }
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
+    bridge_rules.append(rule)
+
+    bridge_ldl = LiftedDecisionList(bridge_rules)
 
     def _bridge_policy(state: State, atoms: Set[GroundAtom],
                        failed_options: List[_Option]) -> _Option:
 
-        last_failed = failed_options[-1]
-        lid = next(o for o in state if o.type.name == "lid")
+        # Add failure atoms based on failed_options.
+        atoms_with_failures = set(atoms)
+        failed_option_specs = {(o.parent, tuple(o.objects))
+                               for o in failed_options}
+        for (param_opt, objs) in failed_option_specs:
+            for i, obj in enumerate(objs):
+                pred = failure_preds[f"{param_opt.name}Failed-arg{i}"]
+                failure_atom = GroundAtom(pred, [obj])
+                atoms_with_failures.add(failure_atom)
 
-        # If the box lid is already open, the bridge policy is done.
-        # Second case should only happen when the shelf placements fail.
-        if state.get(lid, "is_open") > 0.5 or last_failed.name != "Place":
+        objects = set(state)
+        goal: Set[GroundAtom] = set()  # task goal not used
+        next_nsrt = utils.query_ldl(bridge_ldl, atoms_with_failures, objects,
+                                    goal)
+        if next_nsrt is None:
             raise BridgePolicyDone()
 
-        robot = last_failed.objects[0]
-        held_objs = {a.objects[0] for a in atoms if a.predicate == Holding}
-
-        if not held_objs:
-            next_nsrt = OpenLid.ground([lid, robot])
-        else:
-            held_obj = next(iter(held_objs))
-            next_nsrt = PlaceOnTable.ground([held_obj, robot])
-
-        goal: Set[GroundAtom] = set()  # goal assumed not used by sampler
         return next_nsrt.sample_option(state, goal, rng)
 
     return _bridge_policy
