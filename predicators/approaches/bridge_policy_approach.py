@@ -24,7 +24,7 @@ Example commands:
 """
 
 import logging
-from typing import Callable, List, Optional, Set
+from typing import Callable, List, Set
 
 from gym.spaces import Box
 
@@ -33,8 +33,8 @@ from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
-from predicators.structs import Action, DummyOption, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundNSRT, _Option
+from predicators.structs import Action, ParameterizedOption, Predicate, \
+    State, Task, Type, _Option
 from predicators.utils import OptionExecutionFailure
 
 

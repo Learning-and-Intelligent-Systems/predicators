@@ -1,12 +1,12 @@
 """Base class for a bridge policy."""
 
 import abc
-from typing import Callable, Set
+from typing import Callable, List, Set
 
 import numpy as np
 
 from predicators.settings import CFG
-from predicators.structs import NSRT, Predicate, State, _GroundNSRT, _Option
+from predicators.structs import NSRT, Predicate, State, _Option
 
 
 class BridgePolicyDone(Exception):
@@ -41,4 +41,3 @@ class BaseBridgePolicy(abc.ABC):
     def record_failed_option(self, failed_option: _Option) -> None:
         """Called when an option has failed."""
         self._failed_options.append(failed_option)
-    

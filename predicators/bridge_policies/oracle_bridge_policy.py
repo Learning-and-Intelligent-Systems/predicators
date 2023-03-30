@@ -8,8 +8,8 @@ import numpy as np
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.settings import CFG
-from predicators.structs import NSRT, BridgePolicy, DummyOption, GroundAtom, \
-    Predicate, State, _GroundNSRT, _Option
+from predicators.structs import NSRT, BridgePolicy, GroundAtom, Predicate, \
+    State, _Option
 
 
 class OracleBridgePolicy(BaseBridgePolicy):
@@ -28,7 +28,8 @@ class OracleBridgePolicy(BaseBridgePolicy):
 
         def _option_policy(state: State) -> _Option:
             atoms = utils.abstract(state, self._predicates)
-            option = self._oracle_bridge_policy(state, atoms, self._failed_options)
+            option = self._oracle_bridge_policy(state, atoms,
+                                                self._failed_options)
             logging.debug(f"Using option {option.name}{option.objects} "
                           "from bridge policy.")
             return option
@@ -95,7 +96,8 @@ def _create_stick_button_oracle_bridge_policy(
         rng: np.random.Generator) -> BridgePolicy:
 
     PickStickFromNothing = nsrt_name_to_nsrt["PickStickFromNothing"]
-    RobotPressButtonFromNothing = nsrt_name_to_nsrt["RobotPressButtonFromNothing"]
+    RobotPressButtonFromNothing = nsrt_name_to_nsrt[
+        "RobotPressButtonFromNothing"]
     PlaceStick = nsrt_name_to_nsrt["PlaceStick"]
 
     Grasped = pred_name_to_pred["Grasped"]
@@ -103,13 +105,22 @@ def _create_stick_button_oracle_bridge_policy(
 
     def _bridge_policy(state: State, atoms: Set[GroundAtom],
                        failed_options: List[_Option]) -> _Option:
-        
+
         robot = next(o for o in state if o.type.name == "robot")
         stick = next(o for o in state if o.type.name == "stick")
-        pressed_buttons = {a.objects[0] for a in atoms if a.predicate == Pressed}
-        failed_direct_press_buttons = {o.objects[1] for o in failed_options if o.name == "RobotPressButton"}
-        failed_stick_press_buttons = {o.objects[2] for o in failed_options if o.name == "StickPressButton"}
-        failed_buttons = failed_direct_press_buttons | failed_stick_press_buttons
+        pressed_buttons = {
+            a.objects[0]
+            for a in atoms if a.predicate == Pressed
+        }
+        failed_direct_buttons = {
+            o.objects[1]
+            for o in failed_options if o.name == "RobotPressButton"
+        }
+        failed_stick_buttons = {
+            o.objects[2]
+            for o in failed_options if o.name == "StickPressButton"
+        }
+        failed_buttons = failed_direct_buttons | failed_stick_buttons
 
         # Terminate if all of the failed buttons have now been pressed.
         if failed_buttons.issubset(pressed_buttons):
@@ -119,14 +130,14 @@ def _create_stick_button_oracle_bridge_policy(
         button = sorted(failed_buttons - pressed_buttons)[0]
 
         # If we haven't yet tried to directly press the button, try that first.
-        if button not in failed_direct_press_buttons:
+        if button not in failed_direct_buttons:
             # If we're holding the stick, put it down first.
             if Grasped.holds(state, [robot, stick]):
                 next_nsrt = PlaceStick.ground([robot, stick])
             else:
                 next_nsrt = RobotPressButtonFromNothing.ground([robot, button])
         # If we have already tried to press both ways...
-        elif button in failed_direct_press_buttons & failed_stick_press_buttons:
+        elif button in failed_direct_buttons & failed_stick_buttons:
             # If we're already holding the stick, we need to regrasp.
             if Grasped.holds(state, [robot, stick]):
                 next_nsrt = PlaceStick.ground([robot, stick])

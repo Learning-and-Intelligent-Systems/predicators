@@ -1140,6 +1140,7 @@ def option_plan_to_policy(
     queue = list(plan)  # don't modify plan, just in case
 
     def _option_policy(state: State) -> _Option:
+        del state  # not used
         if not queue:
             raise OptionExecutionFailure("Option plan exhausted!")
         return queue.pop(0)
@@ -1162,7 +1163,7 @@ def nsrt_plan_to_greedy_option_policy(
     cur_nsrt: Optional[_GroundNSRT] = None
     nsrt_queue = list(nsrt_plan)
     if necessary_atoms_seq is None:
-        empty_atoms: Set[GroundAtom] = []
+        empty_atoms: Set[GroundAtom] = set()
         necessary_atoms_seq = [empty_atoms for _ in range(len(nsrt_plan) + 1)]
     assert len(necessary_atoms_seq) == len(nsrt_plan) + 1
     necessary_atoms_queue = list(necessary_atoms_seq)

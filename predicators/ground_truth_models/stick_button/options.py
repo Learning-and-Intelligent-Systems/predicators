@@ -85,8 +85,8 @@ class StickButtonGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # PlaceStick
         def _PlaceStick_terminal(state: State, memory: Dict,
-                                objects: Sequence[Object],
-                                params: Array) -> bool:
+                                 objects: Sequence[Object],
+                                 params: Array) -> bool:
             del memory, params  # unused
             return not Grasped.holds(state, objects)
 
@@ -97,7 +97,7 @@ class StickButtonGroundTruthOptionFactory(GroundTruthOptionFactory):
             policy=cls._create_place_stick_policy(holder_type),
             initiable=lambda s, m, o, p: True,
             terminal=_PlaceStick_terminal,
-        )        
+        )
 
         return {RobotPressButton, PickStick, StickPressButton, PlaceStick}
 
@@ -197,14 +197,15 @@ class StickButtonGroundTruthOptionFactory(GroundTruthOptionFactory):
         return policy
 
     @classmethod
-    def _create_place_stick_policy(cls, holder_type: Type) -> ParameterizedPolicy:
+    def _create_place_stick_policy(cls,
+                                   holder_type: Type) -> ParameterizedPolicy:
 
         max_speed = StickButtonEnv.max_speed
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory  # unused
-            robot, stick = objects
+            robot, _ = objects
             holder = state.get_objects(holder_type)[0]
             norm_offset_y, = params
             offset_y = (StickButtonEnv.stick_width / 2) * norm_offset_y
