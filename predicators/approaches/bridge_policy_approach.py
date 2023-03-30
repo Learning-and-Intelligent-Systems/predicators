@@ -62,6 +62,7 @@ class BridgePolicyApproach(OracleApproach):
         return "bridge_policy"
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        self._bridge_policy.reset()
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         current_control = "planner"
@@ -95,7 +96,8 @@ class BridgePolicyApproach(OracleApproach):
                               f"{failed_option.objects}.")
                 logging.debug("Switching control from planner to bridge.")
                 current_control = "bridge"
-                option_policy = self._bridge_policy.get_policy(failed_option)
+                self._bridge_policy.record_failed_option(failed_option)
+                option_policy = self._bridge_policy.get_option_policy()
                 current_policy = utils.option_policy_to_policy(
                     option_policy,
                     max_option_steps=CFG.max_num_steps_option_rollout,

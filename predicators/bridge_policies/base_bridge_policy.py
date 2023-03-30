@@ -20,6 +20,7 @@ class BaseBridgePolicy(abc.ABC):
         self._predicates = predicates
         self._nsrts = nsrts
         self._rng = np.random.default_rng(CFG.seed)
+        self._failed_options: List[_Option] = []
 
     @classmethod
     @abc.abstractmethod
@@ -29,7 +30,15 @@ class BaseBridgePolicy(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def get_policy(self,
-                   failed_nsrt: _GroundNSRT) -> Callable[[State], _Option]:
+    def get_option_policy(self) -> Callable[[State], _Option]:
         """The main method creating the bridge policy."""
         raise NotImplementedError("Override me!")
+
+    def reset(self) -> None:
+        """Called at the beginning of a new task."""
+        self._failed_options = []
+
+    def record_failed_option(self, failed_option: _Option) -> None:
+        """Called when an option has failed."""
+        self._failed_options.append(failed_option)
+    

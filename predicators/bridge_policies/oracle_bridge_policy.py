@@ -1,7 +1,7 @@
 """A hand-written bridge policy."""
 
 import logging
-from typing import Callable, Dict, Set
+from typing import Callable, Dict, List, Set
 
 import numpy as np
 
@@ -24,11 +24,11 @@ class OracleBridgePolicy(BaseBridgePolicy):
     def get_name(cls) -> str:
         return "oracle"
 
-    def get_policy(self, failed_option: _Option) -> Callable[[State], _Option]:
+    def get_option_policy(self) -> Callable[[State], _Option]:
 
         def _option_policy(state: State) -> _Option:
             atoms = utils.abstract(state, self._predicates)
-            option = self._oracle_bridge_policy(state, atoms, failed_option)
+            option = self._oracle_bridge_policy(state, atoms, self._failed_options)
             logging.debug(f"Using option {option.name}{option.objects} "
                           "from bridge policy.")
             return option
@@ -64,15 +64,17 @@ def _create_painting_oracle_bridge_policy(
     Holding = pred_name_to_pred["Holding"]
 
     def _bridge_policy(state: State, atoms: Set[GroundAtom],
-                       failed_option: _Option) -> _Option:
+                       failed_options: List[_Option]) -> _Option:
+
+        last_failed = failed_options[-1]
         lid = next(o for o in state if o.type.name == "lid")
 
         # If the box lid is already open, the bridge policy is done.
         # Second case should only happen when the shelf placements fail.
-        if state.get(lid, "is_open") > 0.5 or failed_option.name != "Place":
+        if state.get(lid, "is_open") > 0.5 or last_failed.name != "Place":
             raise BridgePolicyDone()
 
-        robot = failed_option.objects[0]
+        robot = last_failed.objects[0]
         held_objs = {a.objects[0] for a in atoms if a.predicate == Holding}
 
         if not held_objs:
@@ -101,22 +103,37 @@ def _create_stick_button_oracle_bridge_policy(
     # How much do we care about bridge-specific sampling?
 
     PickStickFromNothing = nsrt_name_to_nsrt["PickStickFromNothing"]
+    RobotPressButtonFromNothing = nsrt_name_to_nsrt["RobotPressButtonFromNothing"]
 
     Grasped = pred_name_to_pred["Grasped"]
+    Pressed = pred_name_to_pred["Pressed"]
 
     def _bridge_policy(state: State, atoms: Set[GroundAtom],
-                       failed_option: _Option) -> _Option:
-
+                       failed_options: List[_Option]) -> _Option:
+        
         robot = next(o for o in state if o.type.name == "robot")
         stick = next(o for o in state if o.type.name == "stick")
 
         if Grasped.holds(state, [robot, stick]):
             raise BridgePolicyDone()
 
-        next_nsrt = PickStickFromNothing.ground([robot, stick])
+        # First try to directly press a button that hasn't been tried yet.
+        buttons = {o for o in state if o.type.name == "button"}
+        # Discard any button that has already been pressed.
+        for a in atoms:
+            if a.predicate == Pressed:
+                buttons.remove(a.objects[0])
+        # Discard any button that has already been attempted.
+        for failed_option in failed_options:
+            if failed_option.name == "RobotPressButton":
+                buttons.discard(failed_option.objects[1])
 
-        logging.debug(f"Using NSRT {next_nsrt.name}{next_nsrt.objects} "
-                      "from bridge policy.")
+        if buttons:
+            next_button = sorted(buttons)[0]
+            next_nsrt = RobotPressButtonFromNothing.ground([robot, next_button])
+
+        else:
+            next_nsrt = PickStickFromNothing.ground([robot, stick])
 
         goal: Set[GroundAtom] = set()  # goal assumed not used by sampler
         return next_nsrt.sample_option(state, goal, rng)
