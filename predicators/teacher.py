@@ -5,14 +5,12 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass, field
-import functools
 from typing import List, Optional, Sequence
 
 import numpy as np
 from matplotlib import pyplot as plt
 
 from predicators import utils
-from predicators.datasets.demo_only import human_demonstrator_policy
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.datasets.demo_only import human_demonstrator_policy
@@ -22,9 +20,10 @@ from predicators.ground_truth_models import _get_options_by_names, \
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    HumanNSRTDemoQuery, HumanNSRTDemoResponse, InteractionRequest, \
-    LowLevelTrajectory, Observation, PathToStateQuery, PathToStateResponse, \
-    Query, Response, State, Task, HumanDemoQuery, HumanDemoResponse
+    HumanDemoQuery, HumanDemoResponse, HumanNSRTDemoQuery, \
+    HumanNSRTDemoResponse, InteractionRequest, LowLevelTrajectory, \
+    Observation, PathToStateQuery, PathToStateResponse, Query, Response, \
+    State, Task
 
 
 class Teacher:
@@ -59,10 +58,6 @@ class Teacher:
             return self._answer_Demonstration_query(state, query)
         if isinstance(query, PathToStateQuery):
             return self._answer_PathToState_query(state, query)
-        if isinstance(query, HumanNSRTDemoQuery):
-            return self._answer_HumanNSRTDemoQuery(state, query)
-        if isinstance(query, HumanDemoQuery):
-            return self._answer_HumanDemoQuery(state, query)
         raise NotImplementedError(f"Unrecognized query: {query}.")
 
     def _answer_GroundAtomsHold_query(

@@ -22,12 +22,13 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
-from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
+from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
-from predicators.structs import Action, DummyOption, DemonstrationQuery, \
-    InteractionRequest, InteractionResult, ParameterizedOption, Predicate, \
-    Query, State, Task, Type, _GroundNSRT
+from predicators.structs import Action, BridgeDataset, DemonstrationQuery, \
+    DemonstrationResponse, DummyOption, InteractionRequest, \
+    InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
+    Type, _GroundNSRT
 from predicators.utils import OptionExecutionFailure
 
 
@@ -164,43 +165,8 @@ class BridgePolicyApproach(OracleApproach):
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         requests = []
-
-        # TODO make less ugly
-        def create_interaction_request(train_task_idx):
-            task = self._train_tasks[train_task_idx]
-            planning_policy = self._get_policy_by_planning(task,
-                                                           timeout=CFG.timeout)
-
-            reached_stuck_state = False
-            failed_nsrt = None
-
-            def act_policy(s: State) -> Action:
-                nonlocal reached_stuck_state, failed_nsrt
-                try:
-                    return planning_policy(s)
-                except OptionExecutionFailure as e:
-                    reached_stuck_state = True
-                    failed_nsrt = e.info["last_failed_nsrt"]
-                    raise e
-
-            def termination_fn(s: State) -> bool:
-                return reached_stuck_state
-
-            def query_policy(s: State) -> Optional[Query]:
-                if not reached_stuck_state:
-                    return None
-                assert failed_nsrt is not None
-                return DemonstrationQuery(train_task_idx, {
-                    "failed_nsrt": failed_nsrt}
-                )
-
-            request = InteractionRequest(train_task_idx, act_policy,
-                                         query_policy, termination_fn)
-
-            return request
-
         for train_task_idx in self._select_interaction_train_task_idxs():
-            request = create_interaction_request(train_task_idx)
+            request = self._create_interaction_request(train_task_idx)
             requests.append(request)
         assert len(requests) == CFG.interactive_num_requests_per_cycle
         return requests
@@ -212,22 +178,58 @@ class BridgePolicyApproach(OracleApproach):
         return self._rng.choice(len(self._train_tasks),
                                 size=CFG.interactive_num_requests_per_cycle)
 
+    def _create_interaction_request(self,
+                                    train_task_idx: int) -> InteractionRequest:
+        task = self._train_tasks[train_task_idx]
+        planning_policy = self._get_policy_by_planning(task,
+                                                       timeout=CFG.timeout)
+
+        reached_stuck_state = False
+        failed_nsrt = None
+
+        def _act_policy(s: State) -> Action:
+            nonlocal reached_stuck_state, failed_nsrt
+            try:
+                return planning_policy(s)
+            except OptionExecutionFailure as e:
+                reached_stuck_state = True
+                failed_nsrt = e.info["last_failed_nsrt"]
+                raise e
+
+        def _termination_fn(s: State) -> bool:
+            return reached_stuck_state
+
+        def _query_policy(s: State) -> Optional[Query]:
+            if not reached_stuck_state:
+                return None
+            assert failed_nsrt is not None
+            return DemonstrationQuery(train_task_idx,
+                                      {"failed_nsrt": failed_nsrt})
+
+        request = InteractionRequest(train_task_idx, _act_policy,
+                                     _query_policy, _termination_fn)
+
+        return request
+
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
 
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        bridge_demos = []
+        bridge_dataset: BridgeDataset = []
 
         for result in results:
             response = result.responses[-1]
+            assert isinstance(response, DemonstrationResponse)
             query = response.query
-            goal = self._train_tasks[response.query.train_task_idx].goal
-            failed_nsrt = response.query.info["failed_nsrt"]
+            assert isinstance(query, DemonstrationQuery)
+            goal = self._train_tasks[query.train_task_idx].goal
+            failed_nsrt = query.get_info("failed_nsrt")
 
             # Abstract and segment the trajectory.
             traj = response.teacher_traj
+            assert traj is not None
             atom_traj = [utils.abstract(s, preds) for s in traj.states]
             segmented_traj = segment_trajectory((traj, atom_traj))
             states = utils.segment_trajectory_to_state_sequence(segmented_traj)
@@ -242,16 +244,16 @@ class BridgePolicyApproach(OracleApproach):
             # action selected has optimal cost-to-go.
 
             # Start by computing the optimal costs to go for each state.
-            optimal_ctgs = []
+            optimal_ctgs: List[float] = []
             for state in states:
                 task = Task(state, goal)
-                # Assuming optimal task planning here
+                # Assuming optimal task planning here.
                 try:
-                    nsrt_plan, _, _ = self._run_task_plan(task, nsrts, preds,
-                                                        CFG.timeout, self._seed)
-                    ctg = len(nsrt_plan)
+                    nsrt_plan, _, _ = self._run_task_plan(
+                        task, nsrts, preds, CFG.timeout, self._seed)
+                    ctg: float = len(nsrt_plan)
                 except ApproachFailure as e:
-                    # Planning failed... infinite ctg
+                    # Planning failed, put in infinite cost to go.
                     ctg = float("inf")
                 optimal_ctgs.append(ctg)
 
@@ -261,7 +263,7 @@ class BridgePolicyApproach(OracleApproach):
                 suffix = optimal_ctgs[t:]
                 decreasing_smoothly = True
                 for i, j in zip(suffix[:-1], suffix[1:]):
-                    if i != j + 1:
+                    if int(i) != int(j + 1):
                         decreasing_smoothly = False
                         break
                 if decreasing_smoothly:
@@ -269,8 +271,6 @@ class BridgePolicyApproach(OracleApproach):
                     break
 
             # Convert atom bridge into ground NSRT bridge.
-            atoms_bridge = atoms[:bridge_end + 1]
-            states_bridge = states[:bridge_end + 1]
             ground_nsrt_bridge = []
             objects = set(states[0])
             effects_to_ground_nsrt = {}
@@ -278,19 +278,27 @@ class BridgePolicyApproach(OracleApproach):
                 for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
                     add_atoms = frozenset(ground_nsrt.add_effects)
                     effects_to_ground_nsrt[add_atoms] = ground_nsrt
-            
-            # Assume all atom changes were necessary... we don't know otherwise
-            for before_atoms, after_atoms in zip(atoms_bridge[:-1], atoms_bridge[1:]):
-                add_atoms = frozenset(after_atoms - before_atoms)
-                # TODO handle case where key doesn't exist
-                ground_nsrt = effects_to_ground_nsrt[add_atoms]
+
+            # Assume all atom changes were necessary; we don't know otherwise.
+            for t in range(bridge_end - 1):
+                add_atoms = frozenset(atoms[t + 1] - atoms[t])
+                # If no ground NSRT matches, terminate the bridge early because
+                # there's nothing we can do.
+                try:
+                    ground_nsrt = effects_to_ground_nsrt[add_atoms]
+                except KeyError:
+                    bridge_end = t
+                    break
                 ground_nsrt_bridge.append(ground_nsrt)
 
-            bridge_demos.append((
+            atoms_bridge = atoms[:bridge_end + 1]
+            states_bridge = states[:bridge_end + 1]
+
+            bridge_dataset.append((
                 failed_nsrt,
                 ground_nsrt_bridge,
                 atoms_bridge,
                 states_bridge,
             ))
 
-        return self._bridge_policy.learn_from_demos(bridge_demos)
+        return self._bridge_policy.learn_from_demos(bridge_dataset)

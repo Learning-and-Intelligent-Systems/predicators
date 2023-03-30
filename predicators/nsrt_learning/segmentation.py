@@ -191,7 +191,6 @@ def _segment_with_switch_function(
     return segments
 
 
-def _segment_at_every_step(
-        trajectory: GroundAtomTrajectory) -> List[Segment]:
+def _segment_at_every_step(trajectory: GroundAtomTrajectory) -> List[Segment]:
     """Segment a trajectory at every step."""
     return _segment_with_switch_function(trajectory, lambda _: True)

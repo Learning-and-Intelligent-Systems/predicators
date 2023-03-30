@@ -1383,6 +1383,11 @@ class DemonstrationQuery(Query):
     def cost(self) -> float:
         return 1
 
+    def get_info(self, key: Any) -> Any:
+        """Access key from query info."""
+        assert self.info is not None
+        return self.info[key]
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class DemonstrationResponse(Response):
@@ -1844,3 +1849,5 @@ AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
 RGBA = Tuple[float, float, float, float]
 BridgePolicy = Callable[[State, Set[GroundAtom], _GroundNSRT], _Option]
+BridgeDataset = List[Tuple[_GroundNSRT, List[_GroundNSRT],
+                           List[Set[GroundAtom]], List[State]]]

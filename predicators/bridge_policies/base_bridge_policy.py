@@ -6,7 +6,8 @@ from typing import Callable, Set
 import numpy as np
 
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, Predicate, State, _GroundNSRT
+from predicators.structs import NSRT, Action, BridgeDataset, Predicate, \
+    State, _GroundNSRT
 
 
 class BridgePolicyDone(Exception):
@@ -40,6 +41,10 @@ class BaseBridgePolicy(abc.ABC):
         """The main method creating the bridge policy."""
         raise NotImplementedError("Override me!")
 
-    def learn_from_demos(self, dataset) -> None:
+    def learn_from_demos(self, dataset: BridgeDataset) -> None:
         """For learning-based approaches, learn whatever is needed from the
-        given dataset."""
+        given dataset.
+
+        The dataset consists of tuples of failed_nsrt,
+        ground_nsrt_bridge, atoms_bridge, states_bridge.
+        """
