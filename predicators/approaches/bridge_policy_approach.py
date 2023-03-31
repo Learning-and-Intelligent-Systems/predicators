@@ -329,9 +329,6 @@ class BridgePolicyApproach(OracleApproach):
             atoms_bridge = atoms[:bridge_end + 1]
             states_bridge = states[:bridge_end + 1]
             # TODO: do we want this to ever change?
-            print("ALL FAILED OPTIONS:")
-            print(all_failed_options)
-            import ipdb; ipdb.set_trace()
             failed_options_bridge = [set(all_failed_options) for _ in range(len(ground_nsrt_bridge))]
 
             self._bridge_dataset.append((
