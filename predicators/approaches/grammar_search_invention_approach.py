@@ -841,11 +841,17 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
         new_pred_candidates = {}
         # First, we get the set of all atoms that change in this transition.
         transition_add_effs = transition[1] - transition[0]
-        # If we already have a predicate for these, then we're good, we skip
-        # this transition.
-        for atom in transition_add_effs:
-            if atom.predicate in curr_preds:
-                return new_pred_candidates
+
+        # NOTE: Debugging
+        # if "Forall[0:block].[NOT-Covers(0,1)]" in str(transition_add_effs):
+        #     import ipdb; ipdb.set_trace()
+
+        # # If we already have a predicate for these, then we're good, we skip
+        # # this transition.
+        # for atom in transition_add_effs:
+        #     if atom.predicate in curr_preds:
+        #         return new_pred_candidates
+
         # Otherwise, return all candidate predicates that change from false
         # to true in this transition.
         for atom in transition_add_effs:
@@ -873,6 +879,7 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
             total_num_candidates_evaled += len(curr_candidates.keys())
             num_candidates_for_curr_frontier += len(curr_candidates.keys())
             logging.info(f"Evaluating transition {idx} in frontier {frontier_idx} with {len(curr_candidates)} candidates.")
+            # import ipdb; ipdb.set_trace()
             curr_frontier_pruned_atom_dataset = utils.prune_ground_atom_dataset(atom_dataset, set(curr_learned_preds) | initial_predicates | set(curr_candidates))
 
             learned_preds_dict = {pred: candidates[pred] for pred in curr_learned_preds}
@@ -916,7 +923,12 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
             curr_learned_preds = path[-1]
         num_candidates_per_frontier.append((frontier_idx, num_candidates_for_curr_frontier))
 
-    logging.info("Completed learning!")
+    logging.info("Completed predicate invention!")
+    # NOTE: these candidates are just the total proposed that we decided to eval.
+    # These are NOT the actual metric we care about, which would be the total num
+    # evaluations: to get that, we'd have to get info out of the internals of the
+    # hill-climbing search.
+    logging.info(f"Evaluated {total_num_candidates_evaled} total candidates.")
     logging.info("Frontier Learning Summary:")
     for elem in num_candidates_per_frontier:
         logging.info(f"Evaluated {elem[1]} candidates for frontier {elem[0]}.")
