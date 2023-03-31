@@ -185,6 +185,9 @@ class BridgePolicyApproach(OracleApproach):
     def _create_interaction_request(self,
                                     train_task_idx: int) -> InteractionRequest:
         task = self._train_tasks[train_task_idx]
+
+        # TODO: change to allow the bridge policy to participate also, until
+        # the agent is truly stuck. This is necessary for stick button.
         option_policy = self._get_option_policy_by_planning(task, CFG.timeout)
         planning_policy = utils.option_policy_to_policy(
             option_policy,
@@ -303,9 +306,12 @@ class BridgePolicyApproach(OracleApproach):
 
             atoms_bridge = atoms[:bridge_end + 1]
             states_bridge = states[:bridge_end + 1]
+            # TODO: generalize to case with multiple failed options for
+            # stick button.
+            failed_options = [{failed_option} for _ in range(len(ground_nsrt_bridge))]
 
             bridge_dataset.append((
-                failed_option,
+                failed_options,
                 ground_nsrt_bridge,
                 atoms_bridge,
                 states_bridge,
