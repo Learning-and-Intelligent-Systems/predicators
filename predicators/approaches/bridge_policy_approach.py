@@ -75,6 +75,7 @@ class BridgePolicyApproach(OracleApproach):
         nsrts = self._get_current_nsrts()
         self._bridge_policy = create_bridge_policy(CFG.bridge_policy,
                                                    predicates, options, nsrts)
+        self._bridge_dataset: BridgeDataset = []
 
     @classmethod
     def get_name(cls) -> str:
@@ -137,7 +138,8 @@ class BridgePolicyApproach(OracleApproach):
                     return current_policy(s)
                 except BridgePolicyDone:
                     if last_bridge_policy_state.allclose(s):
-                        raise ApproachFailure("Loop detected, giving up.")
+                        raise ApproachFailure("Loop detected, giving up.",
+                            info={"last_failed_option": failed_option})
                 last_bridge_policy_state = s
 
             # Switch control from bridge to planner.
@@ -201,12 +203,13 @@ class BridgePolicyApproach(OracleApproach):
 
         # TODO: change to allow the bridge policy to participate also, until
         # the agent is truly stuck. This is necessary for stick button.
-        option_policy = self._get_option_policy_by_planning(task, CFG.timeout)
-        planning_policy = utils.option_policy_to_policy(
-            option_policy,
-            max_option_steps=CFG.max_num_steps_option_rollout,
-            raise_error_on_repeated_state=True,
-        )
+        # option_policy = self._get_option_policy_by_planning(task, CFG.timeout)
+        # planning_policy = utils.option_policy_to_policy(
+        #     option_policy,
+        #     max_option_steps=CFG.max_num_steps_option_rollout,
+        #     raise_error_on_repeated_state=True,
+        # )
+        policy = self._solve(task, timeout=CFG.timeout)
 
         reached_stuck_state = False
         failed_option = None
@@ -214,11 +217,12 @@ class BridgePolicyApproach(OracleApproach):
         def _act_policy(s: State) -> Action:
             nonlocal reached_stuck_state, failed_option
             try:
-                return planning_policy(s)
-            except OptionExecutionFailure as e:
+                return policy(s)
+            except ApproachFailure as e:
                 reached_stuck_state = True
                 failed_option = e.info["last_failed_option"]
-                raise e
+                # Approach failures not caught in interaction loop.
+                raise OptionExecutionFailure(e.args[0], e.info)
 
         def _termination_fn(s: State) -> bool:
             return reached_stuck_state or task.goal_holds(s)
@@ -241,7 +245,8 @@ class BridgePolicyApproach(OracleApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
-        bridge_dataset: BridgeDataset = []
+        if not results:
+            return
 
         for result in results:
             response = result.responses[-1]
@@ -329,11 +334,11 @@ class BridgePolicyApproach(OracleApproach):
             # stick button.
             failed_options = [{failed_option} for _ in range(len(ground_nsrt_bridge))]
 
-            bridge_dataset.append((
+            self._bridge_dataset.append((
                 failed_options,
                 ground_nsrt_bridge,
                 atoms_bridge,
                 states_bridge,
             ))
 
-        return self._bridge_policy.learn_from_demos(bridge_dataset)
+        return self._bridge_policy.learn_from_demos(self._bridge_dataset)
