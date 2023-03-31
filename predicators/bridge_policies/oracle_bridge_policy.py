@@ -22,6 +22,10 @@ class OracleBridgePolicy(LDLBridgePolicy):
     def get_name(cls) -> str:
         return "oracle"
 
+    @property
+    def is_learning_based(self) -> bool:
+        return False
+
     def _get_current_ldl(self) -> LiftedDecisionList:
         return self._oracle_ldl
 

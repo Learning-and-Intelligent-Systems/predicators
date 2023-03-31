@@ -6,8 +6,8 @@ from typing import Callable, List, Set
 import numpy as np
 
 from predicators.settings import CFG
-from predicators.structs import NSRT, ParameterizedOption, Predicate, State, \
-    _Option
+from predicators.structs import NSRT, BridgeDataset, ParameterizedOption, \
+    Predicate, State, _Option
 
 
 class BridgePolicyDone(Exception):
@@ -32,6 +32,12 @@ class BaseBridgePolicy(abc.ABC):
         argument to `--bridge_policy`."""
         raise NotImplementedError("Override me!")
 
+    @property
+    @abc.abstractmethod
+    def is_learning_based(self) -> bool:
+        """Does the bridge policy learn from interaction data?"""
+        raise NotImplementedError("Override me!")
+
     @abc.abstractmethod
     def get_option_policy(self) -> Callable[[State], _Option]:
         """The main method creating the bridge policy."""
@@ -44,3 +50,11 @@ class BaseBridgePolicy(abc.ABC):
     def record_failed_option(self, failed_option: _Option) -> None:
         """Called when an option has failed."""
         self._failed_options.append(failed_option)
+
+    def learn_from_demos(self, dataset: BridgeDataset) -> None:
+        """For learning-based approaches, learn whatever is needed from the
+        given dataset.
+
+        The dataset consists of tuples of failed_nsrt,
+        ground_nsrt_bridge, atoms_bridge, states_bridge.
+        """
