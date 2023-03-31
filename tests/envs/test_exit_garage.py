@@ -1,7 +1,6 @@
 """Test cases for the exit_garage environment."""
 
 import numpy as np
-import pytest
 
 from predicators import utils
 from predicators.envs.exit_garage import ExitGarageEnv
@@ -180,11 +179,6 @@ def test_exit_garage_actions():
     env.render_state(traj.states[6], task, caption="caption")  # after pickup
     env.render_state(traj.states[10], task)  # after store
     env.render_state(traj.states[-1], task)  # state at end
-
-    # Test failure case where robot is carrying an invalid thing
-    s.set(robot, "carrying", 1)
-    with pytest.raises(EnvironmentError):
-        env.simulate(s, Action(bad_robot_action))
 
 
 def test_exit_garage_collisions():

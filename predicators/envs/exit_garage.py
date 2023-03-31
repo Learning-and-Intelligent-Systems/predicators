@@ -41,11 +41,14 @@ class ExitGarageEnv(BaseEnv):
     car_width: ClassVar[float] = 0.12
     car_length: ClassVar[float] = 0.2
 
-    exit_width: ClassVar[float] = 0.2
-    storage_area_width: ClassVar[float] = 0.2
+    exit_height: ClassVar[float] = 0.2
+    exit_width: ClassVar[float] = 0.05
+    exit_top: ClassVar[float] = 0.4
+    storage_area_height: ClassVar[float] = 0.2
     robot_starting_x: ClassVar[float] = 0.1
     robot_starting_y: ClassVar[float] = 0.8
-    obstacle_area_left_boundary: ClassVar[float] = 0.4
+    obstacle_area_left_padding: ClassVar[float] = 0.4
+    obstacle_area_right_padding: ClassVar[float] = 0.1
     obstacle_area_vertical_padding: ClassVar[float] = 0.1
     car_starting_x: ClassVar[float] = 0.15
     car_starting_y: ClassVar[float] = 0.3
@@ -59,6 +62,8 @@ class ExitGarageEnv(BaseEnv):
     _robot_type = Type("robot", ["x", "y", "carrying"])  # carrying: bool
     _obstacle_type = Type("obstacle", ["x", "y", "carried"])  # carried: bool
     # Convenience type for storage area, storing number of obstacles in it
+    # This is used in the StoreObstacle option to calculate where to place the
+    # a new obstacle in the storage area.
     _storage_type = Type("storage", ["num_stored"])
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -87,10 +92,10 @@ class ExitGarageEnv(BaseEnv):
         self._obstacles: List[Object] = []
 
         # Static _Geom2D for collision checking/rendering for exit
-        self._exit_geom = utils.Rectangle(x=0.95,
-                                          y=0.4 - self.exit_width,
-                                          width=0.05,
-                                          height=self.exit_width,
+        self._exit_geom = utils.Rectangle(x=self.x_ub - self.exit_width,
+                                          y=self.exit_top - self.exit_height,
+                                          width=self.exit_width,
+                                          height=self.exit_height,
                                           theta=0)
 
     @classmethod
@@ -138,7 +143,7 @@ class ExitGarageEnv(BaseEnv):
             else:
                 # Place the current obstacle if in storage area and there is
                 # no collision caused by doing so
-                if ry > 1.0 - self.storage_area_width and not \
+                if ry > 1.0 - self.storage_area_height and not \
                         self._placed_object_collides(state, rx, ry):
                     next_state.set(carried_obstacle, "x", rx)
                     next_state.set(carried_obstacle, "y", ry)
@@ -190,12 +195,12 @@ class ExitGarageEnv(BaseEnv):
             -self.car_max_absolute_vel, -self.car_steering_omega_limit,
             -self.robot_action_magnitude, -self.robot_action_magnitude, -np.inf
         ],
-            dtype=np.float32)
+                      dtype=np.float32)
         ub = np.array([
             self.car_max_absolute_vel, self.car_steering_omega_limit,
             self.robot_action_magnitude, self.robot_action_magnitude, np.inf
         ],
-            dtype=np.float32)
+                      dtype=np.float32)
         return Box(lb, ub)
 
     def render_state_plt(
@@ -215,11 +220,6 @@ class ExitGarageEnv(BaseEnv):
         # Draw car, storage area, and exit
         car_geom = self._object_to_geom(self._car, state)
         car_geom.plot(ax, color=car_color)
-        # Marker to show where the origin of the car is...
-        car_x = state.get(self._car, "x")
-        car_y = state.get(self._car, "y")
-        origin_geom = utils.Circle(car_x, car_y, radius=0.02)
-        origin_geom.plot(ax, color="black")
         storage_geom = self._object_to_geom(self._storage, state)
         storage_geom.plot(ax, color=storage_color)
         self._exit_geom.plot(ax, color=exit_color)
@@ -259,10 +259,11 @@ class ExitGarageEnv(BaseEnv):
         goal = {goal_atom}
 
         def _sample_obstacle_position() -> Tuple[float, float]:
-            return (rng.uniform(self.obstacle_area_left_boundary, 0.9),
+            return (rng.uniform(self.x_lb + self.obstacle_area_left_padding,
+                                self.x_ub - self.obstacle_area_right_padding),
                     rng.uniform(
                         self.obstacle_area_vertical_padding,
-                        1.0 - self.storage_area_width -
+                        self.y_ub - self.storage_area_height -
                         self.obstacle_area_vertical_padding))
 
         tasks: List[EnvironmentTask] = []
@@ -289,7 +290,7 @@ class ExitGarageEnv(BaseEnv):
                 CFG.exit_garage_max_num_obstacles + 1,
             )
             # Randomly generate obstacle positions to avoid collisions
-            obstacle_geoms: List[_Geom2D] = []
+            obstacle_geoms: List[utils.Circle] = []
             for i in range(num_obstacles):
                 while True:
                     x, y = _sample_obstacle_position()
@@ -341,7 +342,8 @@ class ExitGarageEnv(BaseEnv):
                                objects: Sequence[Object]) -> bool:
         obstacle, = objects
         # Check obstacle is within storage area and is not being carried
-        in_storage = state.get(obstacle, "y") > 1.0 - self.storage_area_width
+        in_storage = state.get(obstacle,
+                               "y") > self.y_ub - self.storage_area_height
         not_carried = state.get(obstacle, "carried") == 0
         return not_carried and in_storage
 
@@ -349,7 +351,8 @@ class ExitGarageEnv(BaseEnv):
                                   objects: Sequence[Object]) -> bool:
         obstacle, = objects
         # Check obstacle is out of storage area and is not being carried
-        in_storage = state.get(obstacle, "y") > 1.0 - self.storage_area_width
+        in_storage = state.get(obstacle,
+                               "y") > self.y_ub - self.storage_area_height
         not_carried = state.get(obstacle, "carried") == 0
         return not_carried and not in_storage
 
@@ -400,12 +403,11 @@ class ExitGarageEnv(BaseEnv):
         """If the robot is currently carrying an obstacle, return it; else
         return None if the robot isn't carrying anything."""
         robot, = state.get_objects(cls._robot_type)
-        if state.get(robot, "carrying") == 0:
-            return None  # not carrying anything
         for obstacle in state.get_objects(cls._obstacle_type):
             if state.get(obstacle, "carried") == 1:
                 return obstacle
-        raise EnvironmentError("Shouldn't get here")
+        assert state.get(robot, "carrying") == 0
+        return None  # not carrying anything
 
     @classmethod
     def _robot_picked_obstacle(cls, state: State) -> Optional[Object]:
@@ -420,14 +422,14 @@ class ExitGarageEnv(BaseEnv):
         robot, = state.get_objects(cls._robot_type)
         rx = state.get(robot, "x")
         ry = state.get(robot, "y")
-        if ry > 1.0 - cls.storage_area_width:
+        if ry > cls.y_ub - cls.storage_area_height:
             return None  # robot in storage area
         object_to_pick: Optional[Object] = None
-        closest_distance = (cls.robot_radius + cls.obstacle_radius) ** 2
+        closest_distance = (cls.robot_radius + cls.obstacle_radius)**2
         for obstacle in state.get_objects(cls._obstacle_type):
             ox = state.get(obstacle, "x")
             oy = state.get(obstacle, "y")
-            squared_distance = (rx - ox) ** 2 + (ry - oy) ** 2
+            squared_distance = (rx - ox)**2 + (ry - oy)**2
             # Set current object_to_pick if within range of robot and is
             # closest object so far
             if squared_distance < closest_distance:
@@ -440,10 +442,10 @@ class ExitGarageEnv(BaseEnv):
         """Converts objects to _Geom2D for collision checking, rendering."""
         # Storage area has a static
         if obj.is_instance(cls._storage_type):
-            return utils.Rectangle(x=0,
-                                   y=1.0 - cls.storage_area_width,
-                                   width=1,
-                                   height=cls.storage_area_width,
+            return utils.Rectangle(x=cls.x_lb,
+                                   y=cls.y_ub - cls.storage_area_height,
+                                   width=cls.x_ub - cls.x_lb,
+                                   height=cls.storage_area_height,
                                    theta=0)
         # Everything else has x and y properties
         x = state.get(obj, "x")
@@ -454,8 +456,10 @@ class ExitGarageEnv(BaseEnv):
             # Need to rotate about the center of the car not the top corner
             # so create the translated Rectangle without rotation, then rotate
             geom = utils.Rectangle(x - cls.car_length / 2.0,
-                                   y - cls.car_width / 2.0, cls.car_length,
-                                   cls.car_width, theta=0)
+                                   y - cls.car_width / 2.0,
+                                   cls.car_length,
+                                   cls.car_width,
+                                   theta=0)
             return geom.rotate_about_point(x, y, theta)
         # Robot
         if obj.is_instance(cls._robot_type):

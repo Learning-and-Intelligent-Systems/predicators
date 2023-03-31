@@ -142,7 +142,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Set up the target input for the motion planner.
             target_x = (0.01 + ExitGarageEnv.obstacle_radius * 2) * num_stored
             target_x += ExitGarageEnv.obstacle_radius
-            target_y = 1.0 - ExitGarageEnv.storage_area_width / 2
+            target_y = 1.0 - ExitGarageEnv.storage_area_height / 2
             cls._plan_direct(state, memory, params, robot,
                              np.array([target_x, target_y]))
             # Append place action to memory action plan
@@ -229,16 +229,18 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             return ExitGarageEnv.car_has_collision(
                 s) or ExitGarageEnv.coords_out_of_bounds(x, y)
 
-        rrt = utils.RRT(_sample_fn,
-                        _extend_fn,
-                        _collision_fn,
-                        _distance_fn,
-                        rng,
-                        num_attempts=CFG.exit_garage_rrt_num_attempts,
-                        num_iters=CFG.exit_garage_rrt_num_iters,
-                        smooth_amt=0,
-                        sample_goal_eps=CFG.exit_garage_rrt_sample_goal_eps,
-                        goal_fn=goal_fn)
+        rrt = utils.RRT(
+            _sample_fn,
+            _extend_fn,
+            _collision_fn,
+            _distance_fn,
+            rng,
+            num_attempts=CFG.exit_garage_rrt_num_attempts,
+            num_iters=CFG.exit_garage_rrt_num_iters,
+            # No smoothing because of non-holonomic movement
+            smooth_amt=0,
+            sample_goal_eps=CFG.exit_garage_rrt_sample_goal_eps,
+            goal_fn=goal_fn)
         # Run planning.
         start_pos_list = [
             state.get(move_obj, "x"),
