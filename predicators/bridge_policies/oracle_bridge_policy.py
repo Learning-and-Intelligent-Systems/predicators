@@ -114,8 +114,7 @@ def _create_stick_button_oracle_ldl_bridge_policy(
         "StickPressButtonFromNothing"]
     StickPressButtonFromButton = nsrt_name_to_nsrt[
         "StickPressButtonFromButton"]
-    PlaceStickFromNothing = nsrt_name_to_nsrt["PlaceStickFromNothing"]
-    PlaceStickFromButton = nsrt_name_to_nsrt["PlaceStickFromButton"]
+    PlaceStick = nsrt_name_to_nsrt["PlaceStick"]
 
     RobotPressButton = option_name_to_option["RobotPressButton"]
     StickPressButton = option_name_to_option["StickPressButton"]
@@ -132,8 +131,8 @@ def _create_stick_button_oracle_ldl_bridge_policy(
 
     # We tried to press with the stick, but haven't tried to press the button
     # yet, and we're holding a stick, so we should put it down.
-    name = "PlaceStickBeforeDirectPressFromNothing"
-    nsrt = PlaceStickFromNothing
+    name = "PlaceStickBeforeDirectPress"
+    nsrt = PlaceStick
     robot, stick = nsrt.parameters
     button = Variable("?button", button_type)
     parameters = [robot, stick, button]
@@ -148,11 +147,12 @@ def _create_stick_button_oracle_ldl_bridge_policy(
                    nsrt)
     bridge_rules.append(rule)
 
-    name = "PlaceStickBeforeDirectPressFromButton"
-    nsrt = PlaceStickFromButton
-    robot, stick, from_button = nsrt.parameters
-    button = Variable("?button", button_type)
-    parameters = [robot, stick, from_button, button]
+    # We tried to press with the stick, but haven't tried to press the button
+    # yet, and the hand is empty, so we should go to try the direct press.
+    name = "DirectPressFromNothing"
+    nsrt = RobotPressButtonFromNothing
+    robot, button = nsrt.parameters
+    parameters = [robot, button]
     pos_preconds = set(nsrt.preconditions) | {
         LiftedAtom(StickPressFailedButton, [button]),
     }
@@ -164,35 +164,18 @@ def _create_stick_button_oracle_ldl_bridge_policy(
                    nsrt)
     bridge_rules.append(rule)
 
-    # # We tried to press with the stick, but haven't tried to press the button
-    # # yet, and the hand is empty, so we should go to try the direct press.
-    # name = "DirectPressFromNothing"
-    # nsrt = RobotPressButtonFromNothing
-    # robot, button = nsrt.parameters
-    # parameters = [robot, button]
-    # pos_preconds = set(nsrt.preconditions) | {
-    #     LiftedAtom(StickPressFailedButton, [button]),
-    # }
-    # neg_preconds = {
-    #     LiftedAtom(Pressed, [button]),
-    #     LiftedAtom(RobotPressFailedButton, [button]),
-    # }
-    # rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
-    #                nsrt)
-    # bridge_rules.append(rule)
-
-    # name = "DirectPressFromButton"
-    # nsrt = RobotPressButtonFromButton
-    # robot, button, from_button = nsrt.parameters
-    # parameters = [robot, button, from_button]
-    # pos_preconds = set(nsrt.preconditions)
-    # neg_preconds = {
-    #     LiftedAtom(Pressed, [button]),
-    #     LiftedAtom(RobotPressFailedButton, [button]),
-    # }
-    # rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
-    #                nsrt)
-    # bridge_rules.append(rule)
+    name = "DirectPressFromButton"
+    nsrt = RobotPressButtonFromButton
+    robot, button, from_button = nsrt.parameters
+    parameters = [robot, button, from_button]
+    pos_preconds = set(nsrt.preconditions)
+    neg_preconds = {
+        LiftedAtom(Pressed, [button]),
+        LiftedAtom(RobotPressFailedButton, [button]),
+    }
+    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
+                   nsrt)
+    bridge_rules.append(rule)
 
     # We failed to press directly, but haven't yet tried to press with the
     # stick, and the hand is empty, so we should pick up the stick.
@@ -262,27 +245,11 @@ def _create_stick_button_oracle_ldl_bridge_policy(
 
     # We've already tried to press both ways, and we're holding the stick, so
     # we should put it down in preparation for a regrasp.
-    name = "PlaceFromNothingToRegrasp"
-    nsrt = PlaceStickFromNothing
+    name = "PlaceToRegrasp"
+    nsrt = PlaceStick
     robot, stick = nsrt.parameters
     button = Variable("?button", button_type)
     parameters = [robot, stick, button]
-    pos_preconds = set(nsrt.preconditions) | {
-        LiftedAtom(RobotPressFailedButton, [button]),
-        LiftedAtom(StickPressFailedButton, [button]),
-    }
-    neg_preconds = {
-        LiftedAtom(Pressed, [button]),
-    }
-    rule = LDLRule(name, parameters, pos_preconds, neg_preconds, goal_preconds,
-                   nsrt)
-    bridge_rules.append(rule)
-
-    name = "PlaceFromButtonToRegrasp"
-    nsrt = PlaceStickFromButton
-    robot, stick, from_button = nsrt.parameters
-    button = Variable("?button", button_type)
-    parameters = [robot, stick, from_button, button]
     pos_preconds = set(nsrt.preconditions) | {
         LiftedAtom(RobotPressFailedButton, [button]),
         LiftedAtom(StickPressFailedButton, [button]),
