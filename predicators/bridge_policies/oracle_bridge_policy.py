@@ -129,14 +129,16 @@ def _create_stick_button_oracle_ldl_bridge_policy(
     bridge_rules = []
     goal_preconds: Set[LiftedAtom] = set()
 
-    # We haven't tried to press the button yet, and we're holding a stick, so
-    # we should put it down.
+    # We tried to press with the stick, but haven't tried to press the button
+    # yet, and we're holding a stick, so we should put it down.
     name = "PlaceStickBeforeDirectPress"
     nsrt = PlaceStick
     robot, stick = nsrt.parameters
     button = Variable("?button", button_type)
     parameters = [robot, stick, button]
-    pos_preconds = set(nsrt.preconditions)
+    pos_preconds = set(nsrt.preconditions) | {
+        LiftedAtom(StickPressFailedButton, [button]),
+    }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
         LiftedAtom(RobotPressFailedButton, [button]),
@@ -145,13 +147,15 @@ def _create_stick_button_oracle_ldl_bridge_policy(
                    nsrt)
     bridge_rules.append(rule)
 
-    # We haven't tried to press the button yet, and the hand is empty, so we
-    # should go to try the direct press.
+    # We tried to press with the stick, but haven't tried to press the button
+    # yet, and the hand is empty, so we should go to try the direct press.
     name = "DirectPressFromNothing"
     nsrt = RobotPressButtonFromNothing
     robot, button = nsrt.parameters
     parameters = [robot, button]
-    pos_preconds = set(nsrt.preconditions)
+    pos_preconds = set(nsrt.preconditions) | {
+        LiftedAtom(StickPressFailedButton, [button]),
+    }
     neg_preconds = {
         LiftedAtom(Pressed, [button]),
         LiftedAtom(RobotPressFailedButton, [button]),

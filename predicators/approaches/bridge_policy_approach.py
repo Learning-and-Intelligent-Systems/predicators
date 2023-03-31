@@ -29,7 +29,7 @@ Learned bridge policy in painting:
 
 Oracle bridge policy in stick button:
     python predicators/main.py --env stick_button --approach bridge_policy \
-        --seed 0 --bridge_policy oracle --debug --horizon 10000
+        --seed 0 --bridge_policy oracle --horizon 10000
 """
 
 import logging
@@ -106,6 +106,8 @@ class BridgePolicyApproach(OracleApproach):
                 failed_option = None  # not used, but satisfy linting
             except OptionExecutionFailure as e:
                 failed_option = e.info["last_failed_option"]
+                logging.debug(f"Failed option: {failed_option.name}"
+                              f"{failed_option.objects}.")
                 self._bridge_policy.record_failed_option(failed_option)
 
             # Switch control from planner to bridge.
@@ -114,11 +116,6 @@ class BridgePolicyApproach(OracleApproach):
                 if failed_option is None:
                     assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed on init state.")
-                if last_bridge_policy_state.allclose(s):
-                    raise ApproachFailure("Loop detected, giving up.")
-                last_bridge_policy_state = s
-                logging.debug(f"Failed option: {failed_option.name}"
-                              f"{failed_option.objects}.")
                 logging.debug("Switching control from planner to bridge.")
                 current_control = "bridge"
                 option_policy = self._bridge_policy.get_option_policy()
@@ -133,7 +130,10 @@ class BridgePolicyApproach(OracleApproach):
                 try:
                     return current_policy(s)
                 except BridgePolicyDone:
-                    pass
+                    if last_bridge_policy_state.allclose(s):
+                        raise ApproachFailure("Loop detected, giving up.")
+                last_bridge_policy_state = s
+
 
             # Switch control from bridge to planner.
             logging.debug("Switching control from bridge to planner.")
