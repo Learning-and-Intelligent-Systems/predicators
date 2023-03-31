@@ -29,6 +29,16 @@ class LDLBridgePolicy(BaseBridgePolicy):
     def _get_current_ldl(self) -> LiftedDecisionList:
         """Return the current lifted decision list policy."""
 
+    @property
+    def _failure_predicates(self) -> Set[Predicate]:
+        """Get all possible failure predicates."""
+        failure_preds: Set[Predicate] = set()
+        for param_opt in self._options:
+            for i in range(len(param_opt.types)):
+                # Only unary for now.
+                failure_preds.add(get_failure_predicate(param_opt, (i,)))
+        return failure_preds
+
     def _bridge_policy(self, state: State, atoms: Set[GroundAtom],
                        failed_options: List[_Option]) -> _Option:
 
