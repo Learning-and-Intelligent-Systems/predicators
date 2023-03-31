@@ -272,8 +272,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def _plan_direct(cls, state: State, memory: Dict, params: Array,
                      move_obj: Object, target_position: Array) -> None:
-        """Set position and action plans for a straight line from the
-        starting position to the target position.
+        """Set position and action plans for a straight line from the starting
+        position to the target position.
 
         Returns True.
         """
