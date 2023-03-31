@@ -45,7 +45,8 @@ from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
 from predicators.structs import Action, BridgeDataset, DemonstrationQuery, \
     DemonstrationResponse, InteractionRequest, InteractionResult, \
-    ParameterizedOption, Predicate, Query, State, Task, Type, _Option
+    ParameterizedOption, Predicate, Query, State, Task, Type, _Option, \
+    DefaultState
 from predicators.utils import OptionExecutionFailure
 
 
@@ -89,8 +90,12 @@ class BridgePolicyApproach(OracleApproach):
             raise_error_on_repeated_state=True,
         )
 
+        # Prevent infinite loops by detecting if the bridge policy is called
+        # twice with the same state.
+        last_bridge_policy_state = DefaultState
+
         def _policy(s: State) -> Action:
-            nonlocal current_control, current_policy
+            nonlocal current_control, current_policy, last_bridge_policy_state
 
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
@@ -109,6 +114,9 @@ class BridgePolicyApproach(OracleApproach):
                 if failed_option is None:
                     assert s.allclose(task.init)
                     raise ApproachFailure("Planning failed on init state.")
+                if last_bridge_policy_state.allclose(s):
+                    raise ApproachFailure("Loop detected, giving up.")
+                last_bridge_policy_state = s
                 logging.debug(f"Failed option: {failed_option.name}"
                               f"{failed_option.objects}.")
                 logging.debug("Switching control from planner to bridge.")
