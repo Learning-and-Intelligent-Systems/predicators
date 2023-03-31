@@ -134,7 +134,6 @@ class BridgePolicyApproach(OracleApproach):
                         raise ApproachFailure("Loop detected, giving up.")
                 last_bridge_policy_state = s
 
-
             # Switch control from bridge to planner.
             logging.debug("Switching control from bridge to planner.")
             assert current_control == "bridge"
