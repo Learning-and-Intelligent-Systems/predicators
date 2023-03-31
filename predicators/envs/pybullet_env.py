@@ -18,7 +18,8 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, State, Task, Video
+from predicators.structs import Action, Array, EnvironmentTask, Observation, \
+    State, Video
 
 
 class PyBulletEnv(BaseEnv):
@@ -160,33 +161,34 @@ class PyBulletEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         # Optimization: check if we're already in the right state.
-        if not state.allclose(self._current_state):
-            self._current_state = state
+        if self._current_observation is None or \
+            not state.allclose(self._current_state):
+            self._current_observation = state
             self._reset_state(state)
         return self.step(action)
 
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
 
     def render_state(self,
                      state: State,
-                     task: Task,
+                     task: EnvironmentTask,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> Video:
         raise NotImplementedError("A PyBullet environment cannot render "
                                   "arbitrary states.")
 
-    def reset(self, train_or_test: str, task_idx: int) -> State:
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
         # Converts the State into a PyBulletState.
-        self._current_state = self._get_state()
-        return self._current_state.copy()
+        self._current_observation = self._get_state()
+        return self._current_observation.copy()
 
     def _reset_state(self, state: State) -> None:
         """Helper for reset and testing."""
@@ -243,7 +245,7 @@ class PyBulletEnv(BaseEnv):
         rgb_array = rgb_array[:, :, :3]
         return [rgb_array]
 
-    def step(self, action: Action) -> State:
+    def step(self, action: Action) -> Observation:
         # Send the action to the robot.
         target_joint_positions = action.arr.tolist()
         self._pybullet_robot.set_motors(target_joint_positions)
@@ -292,8 +294,8 @@ class PyBulletEnv(BaseEnv):
             self._held_constraint_id = None
             self._held_obj_id = None
 
-        self._current_state = self._get_state()
-        return self._current_state.copy()
+        self._current_observation = self._get_state()
+        return self._current_observation.copy()
 
     def _detect_held_object(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists.
@@ -382,11 +384,13 @@ class PyBulletEnv(BaseEnv):
         return state.joint_positions[finger_joint_idx]
 
     def _action_to_finger_delta(self, action: Action) -> float:
-        finger_position = self._get_finger_position(self._current_state)
+        assert isinstance(self._current_observation, State)
+        finger_position = self._get_finger_position(self._current_observation)
         target = action.arr[-1]
         return target - finger_position
 
-    def _add_pybullet_state_to_tasks(self, tasks: List[Task]) -> List[Task]:
+    def _add_pybullet_state_to_tasks(
+            self, tasks: List[EnvironmentTask]) -> List[EnvironmentTask]:
         """Converts the task initial states into PyBulletStates."""
         pybullet_tasks = []
         for task in tasks:
@@ -397,7 +401,7 @@ class PyBulletEnv(BaseEnv):
             joint_positions = self._pybullet_robot.get_joints()
             pybullet_init = utils.PyBulletState(
                 init.data.copy(), simulator_state=joint_positions)
-            pybullet_task = Task(pybullet_init, task.goal)
+            pybullet_task = EnvironmentTask(pybullet_init, task.goal)
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks
 

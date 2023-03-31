@@ -397,13 +397,12 @@ class GroundAtom(_Atom):
 
 @dataclass(frozen=True, eq=False)
 class Task:
-    """Struct defining a task, which is a pair of initial state and goal."""
+    """Struct defining a task, which is an initial state and goal."""
     init: State
     goal: Set[GroundAtom]
 
     def __post_init__(self) -> None:
         # Verify types.
-        assert isinstance(self.init, State)
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 
@@ -413,6 +412,42 @@ class Task:
 
 
 DefaultTask = Task(DefaultState, set())
+
+
+@dataclass(frozen=True, eq=False)
+class EnvironmentTask:
+    """An initial observation and goal description.
+
+    Environments produce environment tasks and agents produce and solve tasks.
+
+    In fully observed settings, the init_obs will be a State and the
+    goal_description will be a Set[GroundAtom]. For convenience, we can convert
+    an EnvironmentTask into a Task in those cases.
+    """
+    init_obs: Observation
+    goal_description: GoalDescription
+
+    @cached_property
+    def task(self) -> Task:
+        """Convenience method for environment tasks that are fully observed."""
+        return Task(self.init, self.goal)
+
+    @cached_property
+    def init(self) -> State:
+        """Convenience method for environment tasks that are fully observed."""
+        assert isinstance(self.init_obs, State)
+        return self.init_obs
+
+    @cached_property
+    def goal(self) -> Set[GroundAtom]:
+        """Convenience method for environment tasks that are fully observed."""
+        assert isinstance(self.goal_description, set)
+        assert not self.goal_description or isinstance(
+            next(iter(self.goal_description)), GroundAtom)
+        return self.goal_description
+
+
+DefaultEnvironmentTask = EnvironmentTask(DefaultState, set())
 
 
 @dataclass(frozen=True, eq=False)
@@ -1548,6 +1583,8 @@ class LiftedDecisionList:
 
 
 # Convenience higher-order types useful throughout the code
+Observation = Any
+GoalDescription = Any
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
@@ -1586,3 +1623,4 @@ ParameterizedTerminal = Callable[[State, Dict, Sequence[Object], Array], bool]
 AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
 RGBA = Tuple[float, float, float, float]
+BridgePolicy = Callable[[State, Set[GroundAtom], _GroundNSRT], _Option]

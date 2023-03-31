@@ -1,10 +1,12 @@
 """Test cases for the sokoban environment."""
 
+import numpy as np
 import pytest
 
 from predicators import utils
 from predicators.envs.sokoban import SokobanEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
+from predicators.perception.sokoban_perceiver import SokobanPerceiver
 
 
 def test_sokoban():
@@ -20,11 +22,15 @@ def test_sokoban():
         "num_test_tasks": 2,
     })
     env = SokobanEnv()
+    perceiver = SokobanPerceiver()
     assert env.get_name() == "sokoban"
-    for task in env.get_train_tasks():
+    assert perceiver.get_name() == "sokoban"
+    for env_task in env.get_train_tasks():
+        task = perceiver.reset(env_task)
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    for task in env.get_test_tasks():
+    for env_task in env.get_test_tasks():
+        task = perceiver.reset(env_task)
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 12
@@ -62,15 +68,17 @@ def test_sokoban():
     assert env.action_space.shape == (9, )
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     assert len(nsrts) == 12
-    train_tasks = env.get_train_tasks()
-    assert len(train_tasks) == 1
-    test_tasks = env.get_test_tasks()
-    assert len(test_tasks) == 2
-    task = test_tasks[1]
-    state = env.reset("test", 1)
-    assert state.allclose(task.init)
+    env_train_tasks = env.get_train_tasks()
+    assert len(env_train_tasks) == 1
+    env_test_tasks = env.get_test_tasks()
+    assert len(env_test_tasks) == 2
+    env_task = env_test_tasks[1]
+    obs = env.reset("test", 1)
+    assert all(np.allclose(m1, m2) for m1, m2 in zip(obs, env_task.init_obs))
     imgs = env.render()
     assert len(imgs) == 1
+    task = perceiver.reset(env_task)
+    state = task.init
     atoms = utils.abstract(state, env.predicates)
     num_boxes = len({a for a in atoms if a.predicate == IsBox})
     num_goals = len({a for a in atoms if a.predicate == IsGoal})
@@ -85,17 +93,22 @@ def test_sokoban():
         option = param_option.ground([], [])
         assert option.initiable(state)
         action = option.policy(state)
-        state = env.step(action)
+        obs = env.step(action)
+        recovered_obs = env.get_observation()
+        assert len(obs) == len(recovered_obs) == 4
+        assert (np.allclose(m1, m2) for m1, m2 in zip(obs, recovered_obs))
+        state = perceiver.step(obs)
+        assert not env.goal_reached()
     atoms = utils.abstract(state, env.predicates)
     # Now one of the goals should be covered.
     assert len({a for a in atoms if a.predicate == GoalCovered}) == 1
     # Cover not implemented methods.
     with pytest.raises(NotImplementedError) as e:
-        env.render_state_plt(state, task)
+        env.render_state_plt(obs, task)
     assert "This env does not use Matplotlib" in str(e)
     with pytest.raises(NotImplementedError) as e:
-        env.render_state(state, task)
+        env.render_state(obs, task)
     assert "A gym environment cannot render arbitrary states." in str(e)
     with pytest.raises(NotImplementedError) as e:
-        env.simulate(state, action)
+        env.simulate(obs, action)
     assert "Simulate not implemented for gym envs." in str(e)

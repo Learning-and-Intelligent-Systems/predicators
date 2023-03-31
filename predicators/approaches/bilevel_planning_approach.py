@@ -20,8 +20,8 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
     fd_plan_from_sas_file, generate_sas_file_for_fd, sesame_plan, task_plan, \
     task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, Metrics, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundNSRT, _Option
+from predicators.structs import NSRT, Action, GroundAtom, Metrics, \
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -59,8 +59,8 @@ class BilevelPlanningApproach(BaseApproach):
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:
-            nsrt_plan, metrics = self._run_task_plan(task, nsrts, preds,
-                                                     timeout, seed)
+            nsrt_plan, _, metrics = self._run_task_plan(
+                task, nsrts, preds, timeout, seed)
             self._last_nsrt_plan = nsrt_plan
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
                                                       self._rng)
@@ -111,9 +111,10 @@ class BilevelPlanningApproach(BaseApproach):
 
         return plan, metrics
 
-    def _run_task_plan(self, task: Task, nsrts: Set[NSRT],
-                       preds: Set[Predicate], timeout: float, seed: int,
-                       **kwargs: Any) -> Tuple[List[_GroundNSRT], Metrics]:
+    def _run_task_plan(
+        self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+        timeout: float, seed: int, **kwargs: Any
+    ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
 
         init_atoms = utils.abstract(task.init, preds)
         goal = task.goal
@@ -130,7 +131,7 @@ class BilevelPlanningApproach(BaseApproach):
                     ground_nsrts, preds, objects)
                 duration = time.perf_counter() - start_time
                 timeout -= duration
-                plan, _, metrics = next(
+                plan, atoms_seq, metrics = next(
                     task_plan(init_atoms,
                               goal,
                               ground_nsrts,
@@ -163,7 +164,7 @@ class BilevelPlanningApproach(BaseApproach):
                                                     timeout_cmd,
                                                     alias_flag, exec_str,
                                                     list(objects), init_atoms)
-                plan, _, metrics = fd_plan_from_sas_file(
+                plan, atoms_seq, metrics = fd_plan_from_sas_file(
                     sas_file, timeout_cmd, timeout, exec_str, alias_flag,
                     start_time, list(objects), init_atoms, nsrts, CFG.horizon)
             else:
@@ -175,7 +176,7 @@ class BilevelPlanningApproach(BaseApproach):
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
 
-        return plan, metrics
+        return plan, atoms_seq, metrics
 
     def reset_metrics(self) -> None:
         super().reset_metrics()

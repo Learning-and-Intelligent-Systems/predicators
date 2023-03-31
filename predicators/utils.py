@@ -45,7 +45,7 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, OptionSpec, \
+    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
     Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
     _GroundSTRIPSOperator, _Option, _TypedEntity
@@ -906,12 +906,12 @@ class StateWithCache(State):
         return StateWithCache(state_dict_copy, self.cache)
 
 
-class Monitor(abc.ABC):
+class LoggingMonitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
     @abc.abstractmethod
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        """Record a state and the action that is about to be taken.
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        """Record an observation and the action that is about to be taken.
 
         On the last timestep of a trajectory, no action is taken, so
         action is None.
@@ -920,15 +920,15 @@ class Monitor(abc.ABC):
 
 
 def run_policy(
-        policy: Callable[[State], Action],
-        env: BaseEnv,
-        train_or_test: str,
-        task_idx: int,
-        termination_function: Callable[[State], bool],
-        max_num_steps: int,
-        do_state_reset: bool = True,
-        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-        monitor: Optional[Monitor] = None
+    policy: Callable[[State], Action],
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    termination_function: Callable[[State], bool],
+    max_num_steps: int,
+    do_env_reset: bool = True,
+    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+    monitor: Optional[LoggingMonitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
@@ -943,11 +943,14 @@ def run_policy(
     Note that in the case where the exception is raised in step, we exclude the
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
+
+    NOTE: this may be deprecated in the future in favor of run_episode.
     """
-    state = env.get_state()
-    if do_state_reset:
-        state = env.reset(train_or_test, task_idx)
-    assert env.get_state().allclose(state)
+    if do_env_reset:
+        env.reset(train_or_test, task_idx)
+    obs = env.get_observation()
+    assert isinstance(obs, State)
+    state = obs
     states = [state]
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
@@ -994,7 +997,7 @@ def run_policy_with_simulator(
         termination_function: Callable[[State], bool],
         max_num_steps: int,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-        monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+        monitor: Optional[LoggingMonitor] = None) -> LowLevelTrajectory:
     """Execute a policy from a given initial state, using a simulator.
 
     *** This function should not be used with any core code, because we want
@@ -2653,7 +2656,7 @@ def create_pddl_problem(objects: Collection[Object],
 
 
 @dataclass
-class VideoMonitor(Monitor):
+class VideoMonitor(LoggingMonitor):
     """A monitor that renders each state and action encountered.
 
     The render_fn is generally env.render. Note that the state is unused
@@ -2663,8 +2666,8 @@ class VideoMonitor(Monitor):
     _render_fn: Callable[[Optional[Action], Optional[str]], Video]
     _video: Video = field(init=False, default_factory=list)
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        del state  # unused
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        del obs  # unused
         self._video.extend(self._render_fn(action, None))
 
     def get_video(self) -> Video:
@@ -2673,7 +2676,7 @@ class VideoMonitor(Monitor):
 
 
 @dataclass
-class SimulateVideoMonitor(Monitor):
+class SimulateVideoMonitor(LoggingMonitor):
     """A monitor that calls render_state on each state and action seen.
 
     This monitor is meant for use with run_policy_with_simulator, as
@@ -2683,8 +2686,9 @@ class SimulateVideoMonitor(Monitor):
     _render_state_fn: Callable[[State, Task, Optional[Action]], Video]
     _video: Video = field(init=False, default_factory=list)
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        self._video.extend(self._render_state_fn(state, self._task, action))
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        assert isinstance(obs, State)
+        self._video.extend(self._render_state_fn(obs, self._task, action))
 
     def get_video(self) -> Video:
         """Return the video."""

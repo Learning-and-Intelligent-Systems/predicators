@@ -31,7 +31,7 @@ def test_online_pg3_approach():
         "pg3_gbfs_max_expansions": 1
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = OnlinePG3Approach(env.predicates,
                                  get_gt_options(env.get_name()), env.types,
                                  env.action_space, train_tasks)

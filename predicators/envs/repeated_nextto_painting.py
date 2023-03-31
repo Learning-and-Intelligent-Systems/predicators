@@ -12,7 +12,8 @@ import matplotlib
 
 from predicators.envs.painting import PaintingEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Object, Predicate, State, Task
+from predicators.structs import Action, EnvironmentTask, Object, Predicate, \
+    State
 
 
 class RepeatedNextToPaintingEnv(PaintingEnv):
@@ -111,7 +112,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         # List of NextTo objects to render

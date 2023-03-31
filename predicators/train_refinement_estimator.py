@@ -84,7 +84,8 @@ def _train_refinement_estimation_approach() -> None:
     preds, _ = utils.parse_config_excluded_predicates(env)
 
     # Create the train tasks.
-    train_tasks = env.get_train_tasks()
+    env_train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env_train_tasks]
     # Assume we're not doing option learning, pass in all the environment's
     # oracle options.
     assert CFG.option_learner == "no_learning"

@@ -40,20 +40,24 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Set, Tuple
+from typing import Type as TypingType
 
 import dill as pkl
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
-    BaseApproach, create_approach
+    create_approach
+from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
+from predicators.perception import create_perceiver
 from predicators.settings import CFG
-from predicators.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Task
+from predicators.structs import Action, Dataset, InteractionRequest, \
+    InteractionResult, Metrics, Observation, Task
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -92,7 +96,16 @@ def main() -> None:
     assert env.goal_predicates.issubset(env.predicates)
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
-    train_tasks = env.get_train_tasks()
+    env_train_tasks = env.get_train_tasks()
+    # We assume that a train Task can be constructed from a EnvironmentTask.
+    # In other words, the initial obs is assumed to contain enough information
+    # to determine all of the objects and their initial states. We only make
+    # this assumption for the training tasks, we don't need to make it for the
+    # test tasks. We need to make it for training tasks because all of the data
+    # collection here is offline, so there would be no way for agent to gather
+    # information in training.
+    perceiver = create_perceiver(CFG.perceiver)
+    train_tasks = [perceiver.reset(t) for t in env_train_tasks]
     # If train tasks have goals that involve excluded predicates, strip those
     # predicate classifiers to prevent leaking information to the approaches.
     stripped_train_tasks = [
@@ -115,39 +128,42 @@ def main() -> None:
         offline_dataset = create_dataset(env, train_tasks, options)
     else:
         offline_dataset = None
+    # Create the cognitive manager.
+    execution_monitor = create_execution_monitor(CFG.execution_monitor)
+    cogman = CogMan(approach, perceiver, execution_monitor)
     # Run the full pipeline.
-    _run_pipeline(env, approach, stripped_train_tasks, offline_dataset)
+    _run_pipeline(env, cogman, stripped_train_tasks, offline_dataset)
     script_time = time.perf_counter() - script_start
     logging.info(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
 def _run_pipeline(env: BaseEnv,
-                  approach: BaseApproach,
+                  cogman: CogMan,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
     # If agent is learning-based, allow the agent to learn from the generated
     # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
-    if approach.is_learning_based:
+    if cogman.is_learning_based:
         assert offline_dataset is not None, "Missing offline dataset"
         num_offline_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
         num_online_transitions = 0
         total_query_cost = 0.0
         if CFG.load_approach:
-            approach.load(online_learning_cycle=None)
+            cogman.load(online_learning_cycle=None)
             learning_time = 0.0  # ignore loading time
         else:
             learning_start = time.perf_counter()
-            approach.learn_from_offline_dataset(offline_dataset)
+            cogman.learn_from_offline_dataset(offline_dataset)
             learning_time = time.perf_counter() - learning_start
         offline_learning_metrics = {
             f"offline_learning_{k}": v
-            for k, v in approach.metrics.items()
+            for k, v in cogman.metrics.items()
         }
         # Run evaluation once before online learning starts.
         if CFG.skip_until_cycle < 0:
-            results = _run_testing(env, approach)
+            results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
@@ -165,7 +181,7 @@ def _run_pipeline(env: BaseEnv,
                 logging.info("Reached online_learning_max_transitions, "
                              "terminating")
                 break
-            interaction_requests = approach.get_interaction_requests()
+            interaction_requests = cogman.get_interaction_requests()
             if not interaction_requests:
                 logging.info("Did not receive any interaction requests, "
                              "terminating")
@@ -177,15 +193,15 @@ def _run_pipeline(env: BaseEnv,
             total_query_cost += query_cost
             logging.info(f"Query cost incurred this cycle: {query_cost}")
             if CFG.load_approach:
-                approach.load(online_learning_cycle=i)
+                cogman.load(online_learning_cycle=i)
                 learning_time += 0.0  # ignore loading time
             else:
                 learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
-                approach.learn_from_interaction_results(interaction_results)
+                cogman.learn_from_interaction_results(interaction_results)
                 learning_time += time.perf_counter() - learning_start
             # Evaluate approach after every online learning cycle.
-            results = _run_testing(env, approach)
+            results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
@@ -193,7 +209,7 @@ def _run_pipeline(env: BaseEnv,
             results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=i)
     else:
-        results = _run_testing(env, approach)
+        results = _run_testing(env, cogman)
         results["num_offline_transitions"] = 0
         results["num_online_transitions"] = 0
         results["query_cost"] = 0.0
@@ -228,7 +244,7 @@ def _generate_interaction_results(
             request.train_task_idx,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
-            do_state_reset=(not CFG.online_learning_lifelong),
+            do_env_reset=(not CFG.online_learning_lifelong),
             exceptions_to_break_on={
                 utils.EnvironmentFailure, utils.OptionExecutionFailure,
                 utils.RequestActPolicyFailure
@@ -248,11 +264,11 @@ def _generate_interaction_results(
     return results, query_cost
 
 
-def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
+def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     test_tasks = env.get_test_tasks()
     num_found_policy = 0
     num_solved = 0
-    approach.reset_metrics()
+    cogman.reset_metrics()
     total_suc_time = 0.0
     total_num_solve_timeouts = 0
     total_num_solve_failures = 0
@@ -263,11 +279,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics: Metrics = defaultdict(float)
     curr_num_nodes_created = 0.0
     curr_num_nodes_expanded = 0.0
-    for test_task_idx, task in enumerate(test_tasks):
-        # Run the approach's solve() method to get a policy for this task.
+    for test_task_idx, env_task in enumerate(test_tasks):
         solve_start = time.perf_counter()
         try:
-            policy = approach.solve(task, timeout=CFG.timeout)
+            # We call reset here, outside of run_episode, so that we can log
+            # planning failures, timeouts, etc. This is mostly for legacy
+            # reasons (before cogman existed separately from approaches).
+            cogman.reset(env_task)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
@@ -287,13 +305,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         solve_time = time.perf_counter() - solve_start
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
         metrics[
-            f"PER_TASK_task{test_task_idx}_nodes_created"] = approach.metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_created"] = cogman.metrics[
                 "total_num_nodes_created"] - curr_num_nodes_created
         metrics[
-            f"PER_TASK_task{test_task_idx}_nodes_expanded"] = approach.metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_expanded"] = cogman.metrics[
                 "total_num_nodes_expanded"] - curr_num_nodes_expanded
-        curr_num_nodes_created = approach.metrics["total_num_nodes_created"]
-        curr_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
+        curr_num_nodes_created = cogman.metrics["total_num_nodes_created"]
+        curr_num_nodes_expanded = cogman.metrics["total_num_nodes_expanded"]
 
         num_found_policy += 1
         make_video = False
@@ -305,15 +323,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            traj, execution_metrics = utils.run_policy(
-                policy,
+            traj, solved, execution_metrics = _run_episode(
+                cogman,
                 env,
                 "test",
                 test_task_idx,
-                task.goal_holds,
                 max_num_steps=CFG.horizon,
                 monitor=monitor)
-            solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
             # Save the successful trajectory, e.g., for playback on a robot.
@@ -321,7 +337,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
             # Include the original task too so we know the goal.
             traj_data = {
-                "task": task,
+                "task": env_task,
                 "trajectory": traj,
                 "pybullet_robot": CFG.pybullet_robot
             }
@@ -361,20 +377,20 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
-    metrics["min_num_samples"] = approach.metrics[
-        "min_num_samples"] if approach.metrics["min_num_samples"] < float(
+    metrics["min_num_samples"] = cogman.metrics[
+        "min_num_samples"] if cogman.metrics["min_num_samples"] < float(
             "inf") else 0
-    metrics["max_num_samples"] = approach.metrics["max_num_samples"]
-    metrics["min_skeletons_optimized"] = approach.metrics[
-        "min_num_skeletons_optimized"] if approach.metrics[
+    metrics["max_num_samples"] = cogman.metrics["max_num_samples"]
+    metrics["min_skeletons_optimized"] = cogman.metrics[
+        "min_num_skeletons_optimized"] if cogman.metrics[
             "min_num_skeletons_optimized"] < float("inf") else 0
-    metrics["max_skeletons_optimized"] = approach.metrics[
+    metrics["max_skeletons_optimized"] = cogman.metrics[
         "max_num_skeletons_optimized"]
     metrics["num_solve_timeouts"] = total_num_solve_timeouts
     metrics["num_solve_failures"] = total_num_solve_failures
     metrics["num_execution_timeouts"] = total_num_execution_timeouts
     metrics["num_execution_failures"] = total_num_execution_failures
-    # Handle computing averages of total approach metrics wrt the
+    # Handle computing averages of total cogman metrics wrt the
     # number of found policies. Note: this is different from computing
     # an average wrt the number of solved tasks, which might be more
     # appropriate for some metrics, e.g. avg_suc_time above.
@@ -383,10 +399,83 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
             "num_failures_discovered"
     ]:
-        total = approach.metrics[f"total_{metric_name}"]
+        total = cogman.metrics[f"total_{metric_name}"]
         metrics[f"avg_{metric_name}"] = (
             total / num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics
+
+
+def _run_episode(
+    cogman: CogMan,
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    max_num_steps: int,
+    do_env_reset: bool = True,
+    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+    monitor: Optional[utils.LoggingMonitor] = None
+) -> Tuple[Tuple[List[Observation], List[Action]], bool, Metrics]:
+    """Execute cogman starting from the initial state of a train or test task
+    in the environment.
+
+    Note that the environment and cogman internal states are updated.
+
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True
+    (2) max_num_steps is reached
+    (3) cogman or env raise an exception of type in exceptions_to_break_on
+
+    Note that in the case where the exception is raised in step, we exclude the
+    last action from the returned trajectory to maintain the invariant that
+    the trajectory states are of length one greater than the actions.
+
+    This is defined here mostly to avoid circular import issues for cogman.
+    We may want to move it eventually.
+    """
+    if do_env_reset:
+        env.reset(train_or_test, task_idx)
+    obs = env.get_observation()
+    observations = [obs]
+    actions: List[Action] = []
+    metrics: Metrics = defaultdict(float)
+    metrics["policy_call_time"] = 0.0
+    exception_raised_in_step = False
+    if not env.goal_reached():
+        for _ in range(max_num_steps):
+            monitor_observed = False
+            exception_raised_in_step = False
+            try:
+                start_time = time.perf_counter()
+                act = cogman.step(obs)
+                metrics["policy_call_time"] += time.perf_counter() - start_time
+                # Note: it's important to call monitor.observe() before
+                # env.step(), because the monitor may, for example, call
+                # env.render(), which outputs images of the current env
+                # state. If we instead called env.step() first, we would
+                # mistakenly record images of the next time step instead of
+                # the current one.
+                if monitor is not None:
+                    monitor.observe(obs, act)
+                    monitor_observed = True
+                obs = env.step(act)
+                actions.append(act)
+                observations.append(obs)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    if monitor_observed:
+                        exception_raised_in_step = True
+                    break
+                if monitor is not None and not monitor_observed:
+                    monitor.observe(obs, None)
+                raise e
+            if env.goal_reached():
+                break
+    if monitor is not None and not exception_raised_in_step:
+        monitor.observe(obs, None)
+    traj = (observations, actions)
+    solved = env.goal_reached()
+    return traj, solved, metrics
 
 
 def _save_test_results(results: Metrics,

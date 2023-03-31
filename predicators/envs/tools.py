@@ -19,8 +19,8 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class ToolsEnv(BaseEnv):
@@ -171,14 +171,14 @@ class ToolsEnv(BaseEnv):
         next_state.set(self._robot, "fingers", 0.0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num_tasks=CFG.num_train_tasks,
             num_items_lst=CFG.tools_num_items_train,
             num_contraptions_lst=CFG.tools_num_contraptions_train,
             rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num_tasks=CFG.num_test_tasks,
             num_items_lst=CFG.tools_num_items_test,
@@ -221,14 +221,14 @@ class ToolsEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError
 
     def _get_tasks(self, num_tasks: int, num_items_lst: List[int],
                    num_contraptions_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for i in range(num_tasks):
             num_items = num_items_lst[i % len(num_items_lst)]
@@ -366,7 +366,7 @@ class ToolsEnv(BaseEnv):
                 tools.append(tool)
                 data[tool] = np.array(feats, dtype=np.float32)
             state = State(data)
-            tasks.append(Task(state, goal))
+            tasks.append(EnvironmentTask(state, goal))
         return tasks
 
     @staticmethod

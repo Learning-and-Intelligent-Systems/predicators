@@ -14,8 +14,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, Predicate, \
-    State, Task, Type
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class ClutteredTableEnv(BaseEnv):
@@ -77,10 +77,10 @@ class ClutteredTableEnv(BaseEnv):
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, train_or_test="test")
 
     @property
@@ -106,7 +106,7 @@ class ClutteredTableEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
@@ -155,7 +155,8 @@ class ClutteredTableEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
         cans = []
         for i in range(
@@ -165,7 +166,8 @@ class ClutteredTableEnv(BaseEnv):
         goal = {GroundAtom(self._Holding, [cans[0]])}
         for _ in range(num):
             tasks.append(
-                Task(self._create_initial_state(cans, train_or_test), goal))
+                EnvironmentTask(
+                    self._create_initial_state(cans, train_or_test), goal))
         return tasks
 
     def _create_initial_state(self, cans: List[Object],

@@ -94,8 +94,8 @@ def create_states_cover(
     block_poses = [0.15, 0.605]
     target_poses = [0.375, 0.815]
     # State 0: no blocks overlap any targets
-    task = env.get_test_tasks()[0]
-    state = task.init
+    env_task = env.get_test_tasks()[0]
+    state = env_task.init
     block0 = [b for b in state if b.name == "block0"][0]
     block1 = [b for b in state if b.name == "block1"][0]
     target0 = [b for b in state if b.name == "target0"][0]

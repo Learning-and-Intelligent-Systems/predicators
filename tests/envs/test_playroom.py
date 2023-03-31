@@ -57,7 +57,7 @@ def test_playroom_failure_cases(env_name):
     block0 = block_type("block0")
     block1 = block_type("block1")
     block2 = block_type("block2")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     robot = None
@@ -155,7 +155,7 @@ def test_playroom_simulate_blocks(env_name):
     robot_type = [t for t in env.types if t.name == "robot"][0]
     block1 = block_type("block1")
     block2 = block_type("block2")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     robot = None
     for item in state:
@@ -209,7 +209,7 @@ def test_playroom_simulate_doors_and_dial():
     dial_type = [t for t in env.types if t.name == "dial"][0]
     door1 = door_type("door1")
     door6 = door_type("door6")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     robot = None
     dial = None
@@ -322,7 +322,7 @@ def test_playroom_simple_options():
     LightOn = [p for p in env.predicates if p.name == "LightOn"][0]
     robot = robot_type("robby")
     dial = dial_type("dial")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     # Run through a specific plan of options.
     MoveTableToDial = [
@@ -385,7 +385,7 @@ def test_playroom_options():
     region5 = region_type("region5")
     region6 = region_type("region6")
     region7 = region_type("region7")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     # Run through a specific plan of options.
     Pick = [o for o in get_gt_options(env.get_name()) if o.name == "Pick"][0]
@@ -474,7 +474,7 @@ def test_playroom_action_sequence_video():
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     # Run through a specific plan of low-level actions.
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     action_arrs = [
         # Pick up a block
         np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),
@@ -522,7 +522,7 @@ def test_playroom_hard():
     utils.reset_config({"env": "playroom_hard"})
     env = PlayroomHardEnv()
     dial_type = [t for t in env.types if t.name == "dial"][0]
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     dial = None
     for item in state:
