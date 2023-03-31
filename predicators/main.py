@@ -435,6 +435,8 @@ def _run_episode(
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
+        if monitor is not None:
+            monitor.reset(train_or_test, task_idx)
     obs = env.get_observation()
     observations = [obs]
     actions: List[Action] = []
