@@ -513,7 +513,7 @@ class GlobalSettings:
     cnn_refinement_estimator_downsample = 2
 
     # bridge policy parameters
-    bridge_policy = "oracle"  # default bridge policy
+    bridge_policy = "learned_ldl"  # default bridge policy
 
     # glib explorer parameters
     glib_min_goal_size = 1
@@ -657,6 +657,8 @@ def get_allowed_query_type_names() -> Set[str]:
         return {"PathToStateQuery"}
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
+    if CFG.approach == "bridge_policy":
+        return {"DemonstrationQuery"}
     if CFG.approach == "unittest":
         return {
             "GroundAtomsHoldQuery",

@@ -148,7 +148,7 @@ class BridgePolicyApproach(OracleApproach):
 
     def _get_option_policy_by_planning(
             self, task: Task, timeout: float) -> Callable[[State], _Option]:
-        """Raises an OptionExecutionFailure with the last_failed_nsrt in its
+        """Raises an OptionExecutionFailure with the last_failed_option in its
         info dict in the case where execution fails."""
 
         # Ensure random over successive calls.
@@ -193,15 +193,15 @@ class BridgePolicyApproach(OracleApproach):
         )
 
         reached_stuck_state = False
-        failed_nsrt = None
+        failed_option = None
 
         def _act_policy(s: State) -> Action:
-            nonlocal reached_stuck_state, failed_nsrt
+            nonlocal reached_stuck_state, failed_option
             try:
                 return planning_policy(s)
             except OptionExecutionFailure as e:
                 reached_stuck_state = True
-                failed_nsrt = e.info["last_failed_nsrt"]
+                failed_option = e.info["last_failed_option"]
                 raise e
 
         def _termination_fn(s: State) -> bool:
@@ -212,9 +212,9 @@ class BridgePolicyApproach(OracleApproach):
             del s  # unused
             if not reached_stuck_state:
                 return None
-            assert failed_nsrt is not None
+            assert failed_option is not None
             return DemonstrationQuery(train_task_idx,
-                                      {"failed_nsrt": failed_nsrt})
+                                      {"failed_option": failed_option})
 
         request = InteractionRequest(train_task_idx, _act_policy,
                                      _query_policy, _termination_fn)
@@ -235,7 +235,7 @@ class BridgePolicyApproach(OracleApproach):
             query = response.query
             assert isinstance(query, DemonstrationQuery)
             goal = self._train_tasks[query.train_task_idx].goal
-            failed_nsrt = query.get_info("failed_nsrt")
+            failed_option = query.get_info("failed_option")
 
             # Abstract and segment the trajectory.
             traj = response.teacher_traj
@@ -290,7 +290,7 @@ class BridgePolicyApproach(OracleApproach):
                     effects_to_ground_nsrt[add_atoms] = ground_nsrt
 
             # Assume all atom changes were necessary; we don't know otherwise.
-            for t in range(bridge_end - 1):
+            for t in range(bridge_end):
                 add_atoms = frozenset(atoms[t + 1] - atoms[t])
                 # If no ground NSRT matches, terminate the bridge early because
                 # there's nothing we can do.
@@ -305,7 +305,7 @@ class BridgePolicyApproach(OracleApproach):
             states_bridge = states[:bridge_end + 1]
 
             bridge_dataset.append((
-                failed_nsrt,
+                failed_option,
                 ground_nsrt_bridge,
                 atoms_bridge,
                 states_bridge,
