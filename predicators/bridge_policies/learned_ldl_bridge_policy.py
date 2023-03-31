@@ -1,14 +1,13 @@
 """Learn an LDL bridge policy from online demonstrations."""
 
 import logging
-from typing import Dict, Set, Tuple, List
+from typing import Dict, List, Set, Tuple
 
-from predicators.bridge_policies.ldl_bridge_policy import LDLBridgePolicy, \
-    get_failure_predicate
-from predicators.settings import CFG
-from predicators.structs import NSRT, LDLRule, LiftedAtom, \
-    LiftedDecisionList, ParameterizedOption, Predicate, Variable, BridgeDataset, GroundAtom, _GroundNSRT
 from predicators import utils
+from predicators.bridge_policies.ldl_bridge_policy import LDLBridgePolicy
+from predicators.structs import NSRT, BridgeDataset, GroundAtom, LDLRule, \
+    LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, \
+    _GroundNSRT
 
 
 class LearnedLDLBridgePolicy(LDLBridgePolicy):
@@ -50,16 +49,26 @@ class LearnedLDLBridgePolicy(LDLBridgePolicy):
         for ground_atoms, ground_nsrt in ground_atom_data:
             nsrt = ground_nsrt.parent
             sub = dict(zip(ground_nsrt.objects, nsrt.parameters))
-            pos_lifted_atoms = {a.lift(sub) for a in ground_atoms if all(o in sub for o in a.objects)}
+            pos_lifted_atoms = {
+                a.lift(sub)
+                for a in ground_atoms if all(o in sub for o in a.objects)
+            }
             if nsrt not in nsrt_to_pos_lifted_atoms:
                 nsrt_to_pos_lifted_atoms[nsrt] = []
             nsrt_to_pos_lifted_atoms[nsrt].append(pos_lifted_atoms)
-            univ = {p for pred in self._predicates | self._failure_predicates
-                    for p in utils.get_all_ground_atoms_for_predicate(pred, set(sub))}
+            univ = {
+                p
+                for pred in self._predicates | self._failure_predicates
+                for p in utils.get_all_ground_atoms_for_predicate(
+                    pred, set(sub))
+            }
             absent_atoms = univ - ground_atoms
             # Only consider negatives that were true at some point.
             absent_atoms &= all_seen_atoms
-            neg_lifted_atoms = {a.lift(sub) for a in absent_atoms if all(o in sub for o in a.objects)}
+            neg_lifted_atoms = {
+                a.lift(sub)
+                for a in absent_atoms if all(o in sub for o in a.objects)
+            }
             if nsrt not in nsrt_to_neg_lifted_atoms:
                 nsrt_to_neg_lifted_atoms[nsrt] = []
             nsrt_to_neg_lifted_atoms[nsrt].append(neg_lifted_atoms)
@@ -84,7 +93,7 @@ class LearnedLDLBridgePolicy(LDLBridgePolicy):
             name = nsrt.name
             pos_preconds = nsrt_to_pos_preconds[nsrt]
             neg_preconds = nsrt_to_neg_preconds[nsrt]
-            goal_preconds = set()  # not used
+            goal_preconds: Set[GroundAtom] = set()  # not used
             rule = LDLRule(name, nsrt.parameters, pos_preconds, neg_preconds,
                            goal_preconds, nsrt)
             ldl_rules.append(rule)

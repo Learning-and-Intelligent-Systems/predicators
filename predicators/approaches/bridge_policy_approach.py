@@ -49,10 +49,10 @@ from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
-from predicators.structs import Action, BridgeDataset, DemonstrationQuery, \
-    DemonstrationResponse, InteractionRequest, InteractionResult, \
-    ParameterizedOption, Predicate, Query, State, Task, Type, _Option, \
-    DefaultState
+from predicators.structs import Action, BridgeDataset, DefaultState, \
+    DemonstrationQuery, DemonstrationResponse, InteractionRequest, \
+    InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
+    Type, _Option
 from predicators.utils import OptionExecutionFailure
 
 
@@ -141,7 +141,8 @@ class BridgePolicyApproach(OracleApproach):
                     return current_policy(s)
                 except BridgePolicyDone:
                     if last_bridge_policy_state.allclose(s):
-                        raise ApproachFailure("Loop detected, giving up.",
+                        raise ApproachFailure(
+                            "Loop detected, giving up.",
                             info={"all_failed_options": all_failed_options})
                 last_bridge_policy_state = s
 
@@ -161,8 +162,8 @@ class BridgePolicyApproach(OracleApproach):
                 return current_policy(s)
             except OptionExecutionFailure as e:
                 all_failed_options.append(e.info["last_failed_option"])
-                raise ApproachFailure(e.args[0],
-                    info={"all_failed_options": all_failed_options})
+                raise ApproachFailure(
+                    e.args[0], info={"all_failed_options": all_failed_options})
 
         return _policy
 
@@ -227,8 +228,8 @@ class BridgePolicyApproach(OracleApproach):
             if not reached_stuck_state or task.goal_holds(s):
                 return None
             assert all_failed_options is not None
-            return DemonstrationQuery(train_task_idx,
-                                      {"all_failed_options": all_failed_options})
+            return DemonstrationQuery(
+                train_task_idx, {"all_failed_options": all_failed_options})
 
         request = InteractionRequest(train_task_idx, _act_policy,
                                      _query_policy, _termination_fn)
@@ -242,7 +243,7 @@ class BridgePolicyApproach(OracleApproach):
         preds = self._get_current_predicates()
 
         if not results:
-            return
+            return None
 
         for result in results:
             response = result.responses[-1]
@@ -261,15 +262,14 @@ class BridgePolicyApproach(OracleApproach):
             atom_traj = [utils.abstract(s, preds) for s in traj.states]
             segmented_traj = segment_trajectory((traj, atom_traj))
             if not segmented_traj:
-                try:
-                    assert len(atom_traj) == 1
-                except AssertionError:
-                    import ipdb; ipdb.set_trace()
+                assert len(atom_traj) == 1
                 states = [traj.states[0]]
                 atoms = atom_traj
             else:
-                states = utils.segment_trajectory_to_state_sequence(segmented_traj)
-                atoms = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
+                states = utils.segment_trajectory_to_state_sequence(
+                    segmented_traj)
+                atoms = utils.segment_trajectory_to_atoms_sequence(
+                    segmented_traj)
             assert len(states) == len(atoms)
             seq_len = len(atoms)
 
@@ -305,7 +305,7 @@ class BridgePolicyApproach(OracleApproach):
                     effects_to_ground_nsrt[add_atoms] = ground_nsrt
 
             # Look for first time where the plan suffix decreases by 1.
-            for t in range(seq_len-1):
+            for t in range(seq_len - 1):
                 # Step was rational, so skip it.
                 if optimal_ctgs[t] == optimal_ctgs[t + 1] + 1:
                     logging.debug(f"SKIPPING {t}")

@@ -7,8 +7,8 @@ from typing import Callable, Collection, List, Set, Tuple
 
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
-from predicators.structs import GroundAtom, LiftedDecisionList, ParameterizedOption, Predicate, \
-    State, _Option
+from predicators.structs import GroundAtom, LiftedDecisionList, \
+    ParameterizedOption, Predicate, State, _Option
 
 
 @functools.lru_cache(maxsize=None)
@@ -36,7 +36,7 @@ class LDLBridgePolicy(BaseBridgePolicy):
         for param_opt in self._options:
             for i in range(len(param_opt.types)):
                 # Only unary for now.
-                failure_preds.add(get_failure_predicate(param_opt, (i,)))
+                failure_preds.add(get_failure_predicate(param_opt, (i, )))
         return failure_preds
 
     def _bridge_policy(self, state: State, atoms: Set[GroundAtom],
@@ -66,7 +66,8 @@ class LDLBridgePolicy(BaseBridgePolicy):
 
         return _option_policy
 
-    def _get_failure_atoms(self, failed_options: Collection[_Option]) -> Set[GroundAtom]:
+    def _get_failure_atoms(
+            self, failed_options: Collection[_Option]) -> Set[GroundAtom]:
         failure_atoms: Set[GroundAtom] = set()
         failed_option_specs = {(o.parent, tuple(o.objects))
                                for o in failed_options}

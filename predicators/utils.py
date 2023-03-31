@@ -1313,7 +1313,7 @@ def get_variable_combinations(
 
 
 def get_all_ground_atoms_for_predicate(
-        predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
+        predicate: Predicate, objects: Collection[Object]) -> Set[GroundAtom]:
     """Get all groundings of the predicate given objects.
 
     Note: we don't want lru_cache() on this function because we might want
