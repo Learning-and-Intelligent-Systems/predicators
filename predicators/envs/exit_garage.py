@@ -10,8 +10,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, Predicate, State, \
-    Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 from predicators.utils import _Geom2D
 
 
@@ -158,10 +158,10 @@ class ExitGarageEnv(BaseEnv):
             next_state.set(self._robot, "y", new_ry)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -190,18 +190,18 @@ class ExitGarageEnv(BaseEnv):
             -self.car_max_absolute_vel, -self.car_steering_omega_limit,
             -self.robot_action_magnitude, -self.robot_action_magnitude, -np.inf
         ],
-                      dtype=np.float32)
+            dtype=np.float32)
         ub = np.array([
             self.car_max_absolute_vel, self.car_steering_omega_limit,
             self.robot_action_magnitude, self.robot_action_magnitude, np.inf
         ],
-                      dtype=np.float32)
+            dtype=np.float32)
         return Box(lb, ub)
 
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -252,7 +252,8 @@ class ExitGarageEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment.
         goal_atom = GroundAtom(self._CarHasExited, [self._car])
         goal = {goal_atom}
@@ -264,7 +265,7 @@ class ExitGarageEnv(BaseEnv):
                         1.0 - self.storage_area_width -
                         self.obstacle_area_vertical_padding))
 
-        tasks: List[Task] = []
+        tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             state_dict: Dict[Object, Dict[str, float]] = {
                 self._car: {
@@ -314,7 +315,7 @@ class ExitGarageEnv(BaseEnv):
             assert not goal_atom.holds(
                 state
             ), "Error: goal is already satisfied in this state initialization"
-            tasks.append(Task(state, goal))
+            tasks.append(EnvironmentTask(state, goal))
 
         return tasks
 
@@ -422,11 +423,11 @@ class ExitGarageEnv(BaseEnv):
         if ry > 1.0 - cls.storage_area_width:
             return None  # robot in storage area
         object_to_pick: Optional[Object] = None
-        closest_distance = (cls.robot_radius + cls.obstacle_radius)**2
+        closest_distance = (cls.robot_radius + cls.obstacle_radius) ** 2
         for obstacle in state.get_objects(cls._obstacle_type):
             ox = state.get(obstacle, "x")
             oy = state.get(obstacle, "y")
-            squared_distance = (rx - ox)**2 + (ry - oy)**2
+            squared_distance = (rx - ox) ** 2 + (ry - oy) ** 2
             # Set current object_to_pick if within range of robot and is
             # closest object so far
             if squared_distance < closest_distance:
@@ -454,7 +455,7 @@ class ExitGarageEnv(BaseEnv):
             # so create the translated Rectangle without rotation, then rotate
             geom = utils.Rectangle(x - cls.car_length / 2.0,
                                    y - cls.car_width / 2.0, cls.car_length,
-                                   cls.car_width, 0)
+                                   cls.car_width, theta=0)
             return geom.rotate_about_point(x, y, theta)
         # Robot
         if obj.is_instance(cls._robot_type):

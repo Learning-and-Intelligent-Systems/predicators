@@ -6,7 +6,7 @@ import pytest
 from predicators import utils
 from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, GroundAtom, Task
+from predicators.structs import Action, EnvironmentTask, GroundAtom
 
 
 def test_exit_garage_properties():
@@ -57,7 +57,7 @@ def test_exit_garage_actions():
     car_type, obstacle_type, robot_type, storage_type = sorted(env.types)
 
     # Create task with fixed initial state
-    sample_task = env.get_train_tasks()[0]
+    sample_task = env.get_train_tasks()[0].task
     state = sample_task.init.copy()
     goal = sample_task.goal
     car, = state.get_objects(car_type)
@@ -78,7 +78,7 @@ def test_exit_garage_actions():
     assert not GroundAtom(ObstacleCleared, [obstacle]).holds(state)
     assert GroundAtom(ObstacleNotCleared, [obstacle]).holds(state)
     assert GroundAtom(NotCarryingObstacle, [robot]).holds(state)
-    task = Task(state, goal)
+    task = EnvironmentTask(state, goal)
 
     # Fixed action sequences to test (each is a list of action arrays)
     # Move robot to obstacle and pickup
@@ -166,14 +166,14 @@ def test_exit_garage_actions():
     # Check that car had moved up at some point (rotation)
     assert s.get(car, "y") > 0.3
     assert GroundAtom(CarHasExited, [car]).holds(s)
-    assert task.goal_holds(s)  # check task goal reached
+    assert task.task.goal_holds(s)  # check task goal reached
 
     # Test running entire plan
     policy = utils.action_arrs_to_policy(all_action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
-                                           task.goal_holds,
+                                           task.task.goal_holds,
                                            max_num_steps=len(all_action_arrs))
     # Test rendering various states
     env.render_state(traj.states[0], task)  # at start
@@ -199,7 +199,7 @@ def test_exit_garage_collisions():
     car_type, obstacle_type, robot_type, _ = sorted(env.types)
 
     # Create sample state
-    sample_task = env.get_train_tasks()[0]
+    sample_task = env.get_train_tasks()[0].task
     state = sample_task.init.copy()
 
     # Car can't go out of bounds
@@ -267,7 +267,7 @@ def test_exit_garage_options():
     car_type, obstacle_type, robot_type, _ = sorted(env.types)
 
     # Create task with fixed initial state
-    sample_task = env.get_train_tasks()[0]
+    sample_task = env.get_train_tasks()[0].task
     state = sample_task.init.copy()
     goal = sample_task.goal
     car, = state.get_objects(car_type)
@@ -277,7 +277,7 @@ def test_exit_garage_options():
     state.set(obstacle1, "y", 0.3)
     state.set(obstacle2, "x", 0.8)
     state.set(obstacle2, "y", 0.1)
-    task = Task(state, goal)
+    task = EnvironmentTask(state, goal)
 
     # Test PickupObstacle, StoreObstacle, then DriveCarToExit
     option_plan = [
@@ -301,7 +301,7 @@ def test_exit_garage_options():
     assert GroundAtom(ObstacleCleared, [obstacle2]).holds(final_state)
     assert not GroundAtom(ObstacleNotCleared, [obstacle2]).holds(final_state)
     assert GroundAtom(NotCarryingObstacle, [robot]).holds(final_state)
-    assert task.goal_holds(final_state)
+    assert task.task.goal_holds(final_state)
 
     # Test scenarios where options shouldn't be initiable
 
@@ -346,7 +346,7 @@ def test_exit_garage_failed_rrt():
     car_type, obstacle_type, _, _ = sorted(env.types)
 
     # Create task with fixed initial state
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init.copy()
     car, = state.get_objects(car_type)
     # Block the car's drive using the obstacles to make motion planning fail
