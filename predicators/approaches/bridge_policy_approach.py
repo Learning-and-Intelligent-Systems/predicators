@@ -318,12 +318,9 @@ class BridgePolicyApproach(OracleApproach):
             for t in range(bridge_end):
                 add_atoms = frozenset(atoms[t + 1] - atoms[t])
                 # If no ground NSRT matches, terminate the bridge early because
-                # there's nothing we can do.
-                try:
-                    ground_nsrt = effects_to_ground_nsrt[add_atoms]
-                except KeyError:
-                    bridge_end = t
-                    break
+                # there's nothing we can do... but let's crash for now because
+                # this is annoying to catch.
+                ground_nsrt = effects_to_ground_nsrt[add_atoms]
                 ground_nsrt_bridge.append(ground_nsrt)
 
             atoms_bridge = atoms[:bridge_end + 1]
