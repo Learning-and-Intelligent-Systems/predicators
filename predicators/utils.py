@@ -452,8 +452,11 @@ class Rectangle(_Geom2D):
 
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         angle = self.theta * 180 / np.pi
-        patch = patches.Rectangle((self.x, self.y), self.width, self.height,
-                                  angle, **kwargs)
+        patch = patches.Rectangle((self.x, self.y),
+                                  self.width,
+                                  self.height,
+                                  angle=angle,
+                                  **kwargs)
         ax.add_patch(patch)
 
 
