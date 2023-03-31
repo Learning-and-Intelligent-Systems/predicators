@@ -96,6 +96,7 @@ class BridgePolicyApproach(OracleApproach):
             max_option_steps=CFG.max_num_steps_option_rollout,
             raise_error_on_repeated_state=True,
         )
+        all_failed_options: List[_Option] = []
 
         # Prevent infinite loops by detecting if the bridge policy is called
         # twice with the same state.
@@ -113,6 +114,7 @@ class BridgePolicyApproach(OracleApproach):
                 failed_option = None  # not used, but satisfy linting
             except OptionExecutionFailure as e:
                 failed_option = e.info["last_failed_option"]
+                all_failed_options.append(failed_option)
                 logging.debug(f"Failed option: {failed_option.name}"
                               f"{failed_option.objects}.")
                 self._bridge_policy.record_failed_option(failed_option)
@@ -139,7 +141,7 @@ class BridgePolicyApproach(OracleApproach):
                 except BridgePolicyDone:
                     if last_bridge_policy_state.allclose(s):
                         raise ApproachFailure("Loop detected, giving up.",
-                            info={"last_failed_option": failed_option})
+                            info={"all_failed_options": all_failed_options})
                 last_bridge_policy_state = s
 
             # Switch control from bridge to planner.
@@ -157,7 +159,9 @@ class BridgePolicyApproach(OracleApproach):
             try:
                 return current_policy(s)
             except OptionExecutionFailure as e:
-                raise ApproachFailure(e.args[0], e.info)
+                all_failed_options.append(e.info["last_failed_option"])
+                raise ApproachFailure(e.args[0],
+                    info={"all_failed_options": all_failed_options})
 
         return _policy
 
@@ -200,27 +204,18 @@ class BridgePolicyApproach(OracleApproach):
     def _create_interaction_request(self,
                                     train_task_idx: int) -> InteractionRequest:
         task = self._train_tasks[train_task_idx]
-
-        # TODO: change to allow the bridge policy to participate also, until
-        # the agent is truly stuck. This is necessary for stick button.
-        # option_policy = self._get_option_policy_by_planning(task, CFG.timeout)
-        # planning_policy = utils.option_policy_to_policy(
-        #     option_policy,
-        #     max_option_steps=CFG.max_num_steps_option_rollout,
-        #     raise_error_on_repeated_state=True,
-        # )
         policy = self._solve(task, timeout=CFG.timeout)
 
         reached_stuck_state = False
-        failed_option = None
+        all_failed_options = None
 
         def _act_policy(s: State) -> Action:
-            nonlocal reached_stuck_state, failed_option
+            nonlocal reached_stuck_state, all_failed_options
             try:
                 return policy(s)
             except ApproachFailure as e:
                 reached_stuck_state = True
-                failed_option = e.info["last_failed_option"]
+                all_failed_options = e.info["all_failed_options"]
                 # Approach failures not caught in interaction loop.
                 raise OptionExecutionFailure(e.args[0], e.info)
 
@@ -230,9 +225,9 @@ class BridgePolicyApproach(OracleApproach):
         def _query_policy(s: State) -> Optional[Query]:
             if not reached_stuck_state or task.goal_holds(s):
                 return None
-            assert failed_option is not None
+            assert all_failed_options is not None
             return DemonstrationQuery(train_task_idx,
-                                      {"failed_option": failed_option})
+                                      {"all_failed_options": all_failed_options})
 
         request = InteractionRequest(train_task_idx, _act_policy,
                                      _query_policy, _termination_fn)
@@ -257,7 +252,7 @@ class BridgePolicyApproach(OracleApproach):
             query = response.query
             assert isinstance(query, DemonstrationQuery)
             goal = self._train_tasks[query.train_task_idx].goal
-            failed_option = query.get_info("failed_option")
+            all_failed_options = query.get_info("all_failed_options")
 
             # Abstract and segment the trajectory.
             traj = response.teacher_traj
@@ -333,12 +328,14 @@ class BridgePolicyApproach(OracleApproach):
 
             atoms_bridge = atoms[:bridge_end + 1]
             states_bridge = states[:bridge_end + 1]
-            # TODO: generalize to case with multiple failed options for
-            # stick button.
-            failed_options = [{failed_option} for _ in range(len(ground_nsrt_bridge))]
+            # TODO: do we want this to ever change?
+            print("ALL FAILED OPTIONS:")
+            print(all_failed_options)
+            import ipdb; ipdb.set_trace()
+            failed_options_bridge = [set(all_failed_options) for _ in range(len(ground_nsrt_bridge))]
 
             self._bridge_dataset.append((
-                failed_options,
+                failed_options_bridge,
                 ground_nsrt_bridge,
                 atoms_bridge,
                 states_bridge,
