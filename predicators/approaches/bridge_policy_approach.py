@@ -34,7 +34,7 @@ Oracle bridge policy in stick button:
 Learned bridge policy in stick button:
     python predicators/main.py --env stick_button --approach bridge_policy \
         --seed 0 --horizon 10000 --max_initial_demos 0 \
-        --interactive_num_requests_per_cycle 3 --num_online_learning_cycles 1 \
+        --interactive_num_requests_per_cycle 3 --num_online_learning_cycles 3 \
         --debug --num_test_tasks 3 --segmenter contacts --demonstrator human
 """
 
@@ -265,7 +265,10 @@ class BridgePolicyApproach(OracleApproach):
             atom_traj = [utils.abstract(s, preds) for s in traj.states]
             segmented_traj = segment_trajectory((traj, atom_traj))
             if not segmented_traj:
-                assert len(atom_traj) == 1
+                try:
+                    assert len(atom_traj) == 1
+                except AssertionError:
+                    import ipdb; ipdb.set_trace()
                 states = [traj.states[0]]
                 atoms = atom_traj
             else:
