@@ -50,7 +50,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                                     action: Action) -> State:
         x, y, z, _ = action.arr[:4]
         next_state = super()._transition_pick_or_openlid(state, action)
-        target_obj = self._get_object_at_xyz(state, x, y, z)
+        target_obj = self._get_object_at_xyz(state, x, y, z, self.pick_tol)
         # In this environment, we disallow picking an object if the robot
         # is not currently next to it. To implement this, whenever the
         # parent class's pick is successful, we check the NextTo constraint,
