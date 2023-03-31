@@ -858,6 +858,10 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
         # after you confirm this works.
         for idx, curr_transition in enumerate(transitions_for_frontier):
             curr_candidates = get_candidates_for_transition(curr_transition, set(curr_learned_preds) | candidates_tried_this_frontier)
+            
+            if "Forall[0:block].[NOT-Covers(0,1)]" in str(curr_candidates):
+                import ipdb; ipdb.set_trace()
+
             candidates_tried_this_frontier |= set(curr_candidates.keys())
 
             if len(curr_candidates.keys()) == 0:
