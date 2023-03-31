@@ -1129,7 +1129,11 @@ def option_policy_to_policy(
         last_state = state
 
         if cur_option is DummyOption or cur_option.terminal(state):
-            cur_option = option_policy(state)
+            try:
+                cur_option = option_policy(state)
+            except OptionExecutionFailure as e:
+                e.info["last_failed_option"] = last_option
+                raise e
             if not cur_option.initiable(state):
                 raise OptionExecutionFailure(
                     "Unsound option policy.",

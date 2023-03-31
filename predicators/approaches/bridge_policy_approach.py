@@ -30,6 +30,12 @@ Learned bridge policy in painting:
 Oracle bridge policy in stick button:
     python predicators/main.py --env stick_button --approach bridge_policy \
         --seed 0 --bridge_policy oracle --horizon 10000
+
+Learned bridge policy in stick button:
+    python predicators/main.py --env stick_button --approach bridge_policy \
+        --seed 0 --horizon 10000 --max_initial_demos 0 \
+        --interactive_num_requests_per_cycle 3 --num_online_learning_cycles 1 \
+        --debug --num_test_tasks 3 --segmenter contacts --demonstrator human
 """
 
 import logging
@@ -215,12 +221,10 @@ class BridgePolicyApproach(OracleApproach):
                 raise e
 
         def _termination_fn(s: State) -> bool:
-            del s  # unused
-            return reached_stuck_state
+            return reached_stuck_state or task.goal_holds(s)
 
         def _query_policy(s: State) -> Optional[Query]:
-            del s  # unused
-            if not reached_stuck_state:
+            if not reached_stuck_state or task.goal_holds(s):
                 return None
             assert failed_option is not None
             return DemonstrationQuery(train_task_idx,
@@ -241,6 +245,9 @@ class BridgePolicyApproach(OracleApproach):
 
         for result in results:
             response = result.responses[-1]
+            # Interaction didn't involve any queries.
+            if response is None:
+                continue
             assert isinstance(response, DemonstrationResponse)
             query = response.query
             assert isinstance(query, DemonstrationQuery)
@@ -252,8 +259,13 @@ class BridgePolicyApproach(OracleApproach):
             assert traj is not None
             atom_traj = [utils.abstract(s, preds) for s in traj.states]
             segmented_traj = segment_trajectory((traj, atom_traj))
-            states = utils.segment_trajectory_to_state_sequence(segmented_traj)
-            atoms = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
+            if not segmented_traj:
+                assert len(atom_traj) == 1
+                states = [traj.states[0]]
+                atoms = atom_traj
+            else:
+                states = utils.segment_trajectory_to_state_sequence(segmented_traj)
+                atoms = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
             assert len(states) == len(atoms)
             seq_len = len(atoms)
 
