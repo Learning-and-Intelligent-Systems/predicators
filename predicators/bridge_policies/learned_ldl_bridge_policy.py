@@ -36,17 +36,11 @@ class LearnedLDLBridgePolicy(LDLBridgePolicy):
         ground_atom_data: List[Tuple[Set[GroundAtom], _GroundNSRT]] = []
         # Collect all seen atoms for later constructing negative preconds.
         all_seen_atoms: Set[GroundAtom] = set()
-        for failed_options, ground_nsrt_bridge, atoms_bridge, _ in dataset:
-            assert len(failed_options) == len(ground_nsrt_bridge)
-            assert len(atoms_bridge) == len(failed_options) + 1
-            for t in range(len(failed_options)):
-                failed_option_set = failed_options[t]
-                ground_nsrt = ground_nsrt_bridge[t]
-                ground_atoms = atoms_bridge[t]
-                # Add failure atoms.
-                ground_atoms |= self._get_failure_atoms(failed_option_set)
-                all_seen_atoms.update(ground_atoms)
-                ground_atom_data.append((ground_atoms, ground_nsrt))
+        for failed_option_set, ground_nsrt, ground_atoms, _ in dataset:
+            # Add failure atoms.
+            ground_atoms |= self._get_failure_atoms(failed_option_set)
+            all_seen_atoms.update(ground_atoms)
+            ground_atom_data.append((ground_atoms, ground_nsrt))
 
         # Convert dataset into NSRT: [lifted atoms] dataset where the
         # atoms are only over the objects in the NSRT. Do this for both

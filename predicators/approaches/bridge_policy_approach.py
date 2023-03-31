@@ -293,21 +293,10 @@ class BridgePolicyApproach(OracleApproach):
                     ctg = float("inf")
                 optimal_ctgs.append(ctg)
 
-            # Look for first time where the plan suffix decreases by 1.
-            bridge_end = seq_len - 1
-            for t in range(seq_len):
-                suffix = optimal_ctgs[t:]
-                decreasing_smoothly = True
-                for i, j in zip(suffix[:-1], suffix[1:]):
-                    if int(i) != int(j + 1):
-                        decreasing_smoothly = False
-                        break
-                if decreasing_smoothly:
-                    bridge_end = t
-                    break
+            logging.debug("**************** OPTIMAL CTG ******************")
+            logging.debug(optimal_ctgs)
 
-            # Convert atom bridge into ground NSRT bridge.
-            ground_nsrt_bridge = []
+            # For converting atoms into ground NSRTs.
             objects = set(states[0])
             effects_to_ground_nsrt = {}
             for nsrt in nsrts:
@@ -315,25 +304,25 @@ class BridgePolicyApproach(OracleApproach):
                     add_atoms = frozenset(ground_nsrt.add_effects)
                     effects_to_ground_nsrt[add_atoms] = ground_nsrt
 
-            # Assume all atom changes were necessary; we don't know otherwise.
-            for t in range(bridge_end):
+            # Look for first time where the plan suffix decreases by 1.
+            for t in range(seq_len-1):
+                # Step was rational, so skip it.
+                if optimal_ctgs[t] == optimal_ctgs[t + 1] + 1:
+                    logging.debug(f"SKIPPING {t}")
+                    continue
+                logging.debug(f"INCLUDING {t}")
+                # Step was irrational, so include it.
+                # Assume all changes were necessary; we don't know otherwise.
                 add_atoms = frozenset(atoms[t + 1] - atoms[t])
                 # If no ground NSRT matches, terminate the bridge early because
                 # there's nothing we can do... but let's crash for now because
                 # this is annoying to catch.
                 ground_nsrt = effects_to_ground_nsrt[add_atoms]
-                ground_nsrt_bridge.append(ground_nsrt)
-
-            atoms_bridge = atoms[:bridge_end + 1]
-            states_bridge = states[:bridge_end + 1]
-            # TODO: do we want this to ever change?
-            failed_options_bridge = [set(all_failed_options) for _ in range(len(ground_nsrt_bridge))]
-
-            self._bridge_dataset.append((
-                failed_options_bridge,
-                ground_nsrt_bridge,
-                atoms_bridge,
-                states_bridge,
-            ))
+                self._bridge_dataset.append((
+                    all_failed_options,
+                    ground_nsrt,
+                    atoms[t],
+                    states[t],
+                ))
 
         return self._bridge_policy.learn_from_demos(self._bridge_dataset)
