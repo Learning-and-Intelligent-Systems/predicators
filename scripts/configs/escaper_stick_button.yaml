@@ -36,7 +36,6 @@ ENVS:
 ARGS:
   - "debug"
 FLAGS:  # general flags
-  button_radius: 
   num_train_tasks: 0
   num_test_tasks: 10
   horizon: 100000
