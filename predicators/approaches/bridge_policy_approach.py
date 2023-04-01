@@ -42,9 +42,10 @@ import logging
 from typing import Callable, List, Optional, Sequence, Set
 
 from gym.spaces import Box
+import time
 
 from predicators import utils
-from predicators.approaches import ApproachFailure
+from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -102,8 +103,13 @@ class BridgePolicyApproach(OracleApproach):
         # twice with the same state.
         last_bridge_policy_state = DefaultState
 
+        start_time = time.perf_counter()
+
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy, last_bridge_policy_state
+
+            if time.perf_counter() - start_time > CFG.timeout:
+                raise ApproachTimeout("Ran out of time.")
 
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
