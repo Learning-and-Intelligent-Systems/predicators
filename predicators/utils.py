@@ -59,10 +59,10 @@ matplotlib.use("Agg")
 
 
 def count_positives_for_ops(
-        strips_ops: List[STRIPSOperator],
-        option_specs: List[OptionSpec],
-        segments: List[Segment],
-        max_groundings: Optional[int] = None,
+    strips_ops: List[STRIPSOperator],
+    option_specs: List[OptionSpec],
+    segments: List[Segment],
+    max_groundings: Optional[int] = None,
 ) -> Tuple[int, int, List[Set[int]], List[Set[int]]]:
     """Returns num true positives, num false positives, and for each strips op,
     lists of segment indices that contribute true or false positives.
@@ -295,7 +295,7 @@ class LineSegment(_Geom2D):
         eps = 1e-6
 
         def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
-            return np.sqrt((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2)
+            return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
 
         return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
 
@@ -312,7 +312,7 @@ class Circle(_Geom2D):
         ax.add_patch(patch)
 
     def contains_point(self, x: float, y: float) -> bool:
-        return (x - self.x) ** 2 + (y - self.y) ** 2 <= self.radius ** 2
+        return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
 
 
 @dataclass(frozen=True)
@@ -332,9 +332,9 @@ class Triangle(_Geom2D):
         ax.add_patch(patch)
 
     def __post_init__(self) -> None:
-        dist1 = np.sqrt((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2)
-        dist2 = np.sqrt((self.x2 - self.x3) ** 2 + (self.y2 - self.y3) ** 2)
-        dist3 = np.sqrt((self.x3 - self.x1) ** 2 + (self.y3 - self.y1) ** 2)
+        dist1 = np.sqrt((self.x1 - self.x2)**2 + (self.y1 - self.y2)**2)
+        dist2 = np.sqrt((self.x2 - self.x3)**2 + (self.y2 - self.y3)**2)
+        dist3 = np.sqrt((self.x3 - self.x1)**2 + (self.y3 - self.y1)**2)
         dists = sorted([dist1, dist2, dist3])
         assert dists[0] + dists[1] >= dists[2]
         if dists[0] + dists[1] == dists[2]:
@@ -414,7 +414,7 @@ class Rectangle(_Geom2D):
     def circumscribed_circle(self) -> Circle:
         """Returns x, y, radius."""
         x, y = self.center
-        radius = np.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2)
+        radius = np.sqrt((self.width / 2)**2 + (self.height / 2)**2)
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
@@ -501,7 +501,7 @@ def circles_intersect(circ1: Circle, circ2: Circle) -> bool:
     """Checks if two circles intersect."""
     x1, y1, r1 = circ1.x, circ1.y, circ1.radius
     x2, y2, r2 = circ2.x, circ2.y, circ2.radius
-    return (x1 - x2) ** 2 + (y1 - y2) ** 2 < (r1 + r2) ** 2
+    return (x1 - x2)**2 + (y1 - y2)**2 < (r1 + r2)**2
 
 
 def rectangles_intersect(rect1: Rectangle, rect2: Rectangle) -> bool:
@@ -828,18 +828,18 @@ class SingletonParameterizedOption(ParameterizedOption):
     """
 
     def __init__(
-            self,
-            name: str,
-            policy: Callable[[State, Dict, Sequence[Object], Array], Action],
-            types: Optional[Sequence[Type]] = None,
-            params_space: Optional[Box] = None,
-            initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
-                                         bool]] = None
+        self,
+        name: str,
+        policy: Callable[[State, Dict, Sequence[Object], Array], Action],
+        types: Optional[Sequence[Type]] = None,
+        params_space: Optional[Box] = None,
+        initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
+                                     bool]] = None
     ) -> None:
         if types is None:
             types = []
         if params_space is None:
-            params_space = Box(0, 1, (0,))
+            params_space = Box(0, 1, (0, ))
         if initiable is None:
             initiable = lambda _1, _2, _3, _4: True
 
@@ -923,15 +923,15 @@ class LoggingMonitor(abc.ABC):
 
 
 def run_policy(
-        policy: Callable[[State], Action],
-        env: BaseEnv,
-        train_or_test: str,
-        task_idx: int,
-        termination_function: Callable[[State], bool],
-        max_num_steps: int,
-        do_env_reset: bool = True,
-        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-        monitor: Optional[LoggingMonitor] = None
+    policy: Callable[[State], Action],
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    termination_function: Callable[[State], bool],
+    max_num_steps: int,
+    do_env_reset: bool = True,
+    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+    monitor: Optional[LoggingMonitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
@@ -1285,9 +1285,9 @@ def get_random_object_combination(
 
 
 def find_substitution(
-        super_atoms: Collection[LiftedOrGroundAtom],
-        sub_atoms: Collection[LiftedOrGroundAtom],
-        allow_redundant: bool = False,
+    super_atoms: Collection[LiftedOrGroundAtom],
+    sub_atoms: Collection[LiftedOrGroundAtom],
+    allow_redundant: bool = False,
 ) -> Tuple[bool, EntToEntSub]:
     """Find a substitution from the entities in super_atoms to the entities in
     sub_atoms s.t. sub_atoms is a subset of super_atoms.
@@ -1362,9 +1362,9 @@ def _substitution_consistent(
 
 
 def create_new_variables(
-        types: Sequence[Type],
-        existing_vars: Optional[Collection[Variable]] = None,
-        var_prefix: str = "?x",
+    types: Sequence[Type],
+    existing_vars: Optional[Collection[Variable]] = None,
+    var_prefix: str = "?x",
 ) -> List[Variable]:
     """Create new variables of the given types, avoiding name collisions with
     existing variables.
@@ -1524,15 +1524,15 @@ def run_astar(initial_state: _S,
 
 
 def run_hill_climbing(
-        initial_state: _S,
-        check_goal: Callable[[_S], bool],
-        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-        heuristic: Callable[[_S], float],
-        early_termination_heuristic_thresh: Optional[float] = None,
-        enforced_depth: int = 0,
-        parallelize: bool = False,
-        verbose: bool = True,
-        timeout: float = float('inf')
+    initial_state: _S,
+    check_goal: Callable[[_S], bool],
+    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+    heuristic: Callable[[_S], float],
+    early_termination_heuristic_thresh: Optional[float] = None,
+    enforced_depth: int = 0,
+    parallelize: bool = False,
+    verbose: bool = True,
+    timeout: float = float('inf')
 ) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
@@ -1791,11 +1791,11 @@ class RRT(Generic[_RRTState]):
         return path
 
     def _rrt_connect(
-            self,
-            pt1: _RRTState,
-            goal_sampler: Callable[[], _RRTState],
-            goal_fn: Optional[Callable[[_RRTState], bool]] = None,
-            sample_goal_eps: float = 0.0,
+        self,
+        pt1: _RRTState,
+        goal_sampler: Callable[[], _RRTState],
+        goal_fn: Optional[Callable[[_RRTState], bool]] = None,
+        sample_goal_eps: float = 0.0,
     ) -> Optional[List[_RRTState]]:
         root = _RRTNode(pt1)
         nodes = [root]
@@ -1853,11 +1853,11 @@ class BiRRT(RRT[_RRTState]):
         raise NotImplementedError("Can't query to goal function using BiRRT")
 
     def _rrt_connect(
-            self,
-            pt1: _RRTState,
-            goal_sampler: Callable[[], _RRTState],
-            goal_fn: Optional[Callable[[_RRTState], bool]] = None,
-            sample_goal_eps: float = 0.0,
+        self,
+        pt1: _RRTState,
+        goal_sampler: Callable[[], _RRTState],
+        goal_fn: Optional[Callable[[_RRTState], bool]] = None,
+        sample_goal_eps: float = 0.0,
     ) -> Optional[List[_RRTState]]:
         # goal_fn and sample_goal_eps are unused
         pt2 = goal_sampler()
@@ -2032,10 +2032,10 @@ def all_possible_ground_atoms(state: State,
 
 
 def all_ground_ldl_rules(
-        rule: LDLRule,
-        objects: Collection[Object],
-        static_predicates: Optional[Collection[Predicate]] = None,
-        init_atoms: Optional[Collection[GroundAtom]] = None
+    rule: LDLRule,
+    objects: Collection[Object],
+    static_predicates: Optional[Collection[Predicate]] = None,
+    init_atoms: Optional[Collection[GroundAtom]] = None
 ) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects.
 
@@ -2095,11 +2095,11 @@ def _cached_all_ground_ldl_rules(
             # Check the static conditions.
             binding_valid = True
             for pred in param_to_pos_preds[param]:
-                if (pred, (obj,)) not in init_atom_tups:
+                if (pred, (obj, )) not in init_atom_tups:
                     binding_valid = False
                     break
             for pred in param_to_neg_preds[param]:
-                if (pred, (obj,)) in init_atom_tups:
+                if (pred, (obj, )) in init_atom_tups:
                     binding_valid = False
                     break
             if binding_valid:
@@ -2180,7 +2180,7 @@ class _LDLParser:
                        pos_goals, nsrt)
 
     def _parse_lifted_atoms(
-            self, atoms_str: str, variable_name_to_variable: Dict[str, Variable]
+        self, atoms_str: str, variable_name_to_variable: Dict[str, Variable]
     ) -> Tuple[Set[LiftedAtom], Set[LiftedAtom]]:
         """Parse the given string (representing either preconditions or
         effects) into a set of positive lifted atoms and a set of negative
@@ -2273,8 +2273,8 @@ def create_dataset_filename_str(
         suffix_str += "__ground_atoms"
     suffix_str += ".data"
     dataset_fname_template = (
-            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+        f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+        f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
@@ -2307,7 +2307,7 @@ def prune_ground_atom_dataset(
 
 
 def extract_preds_and_types(
-        ops: Collection[NSRTOrSTRIPSOperator]
+    ops: Collection[NSRTOrSTRIPSOperator]
 ) -> Tuple[Dict[str, Predicate], Dict[str, Type]]:
     """Extract the predicates and types used in the given operators."""
     preds = {}
@@ -2456,12 +2456,12 @@ def ops_and_specs_to_dummy_nsrts(
 
 
 def create_task_planning_heuristic(
-        heuristic_name: str,
-        init_atoms: Set[GroundAtom],
-        goal: Set[GroundAtom],
-        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        predicates: Collection[Predicate],
-        objects: Collection[Object],
+    heuristic_name: str,
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
 ) -> _TaskPlanningHeuristic:
     """Create a task planning heuristic that consumes ground atoms and
     estimates the cost-to-go."""
@@ -2497,12 +2497,12 @@ class GoalCountHeuristic(_TaskPlanningHeuristic):
 
 
 def _create_pyperplan_heuristic(
-        heuristic_name: str,
-        init_atoms: Set[GroundAtom],
-        goal: Set[GroundAtom],
-        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        predicates: Collection[Predicate],
-        objects: Collection[Object],
+    heuristic_name: str,
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
 ) -> _PyperplanHeuristicWrapper:
     """Create a pyperplan heuristic that inherits from
     _TaskPlanningHeuristic."""
@@ -2573,12 +2573,12 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
 
 
 def _create_pyperplan_task(
-        init_atoms: Set[GroundAtom],
-        goal: Set[GroundAtom],
-        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        predicates: Collection[Predicate],
-        objects: Collection[Object],
-        static_atoms: Set[GroundAtom],
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
+    static_atoms: Set[GroundAtom],
 ) -> _PyperplanTask:
     """Helper glue for pyperplan heuristics."""
     all_atoms = set()
@@ -2727,12 +2727,12 @@ class SimulateVideoMonitor(LoggingMonitor):
 
 
 def create_video_from_partial_refinements(
-        partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
-                                            Sequence[_Option]]],
-        env: BaseEnv,
-        train_or_test: str,
-        task_idx: int,
-        max_num_steps: int,
+    partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
+                                        Sequence[_Option]]],
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    max_num_steps: int,
 ) -> Video:
     """Create a video from a list of skeletons and partial refinements.
 
@@ -2768,7 +2768,7 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int) -> Image:
     fig.set_dpi(dpi)
     fig.canvas.draw()
     data = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8).copy()
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4, ))
     data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
     return data
 
@@ -3057,12 +3057,12 @@ def nostdout() -> Generator[None, None, None]:
 
 
 def query_ldl(
-        ldl: LiftedDecisionList,
-        atoms: Set[GroundAtom],
-        objects: Set[Object],
-        goal: Set[GroundAtom],
-        static_predicates: Optional[Set[Predicate]] = None,
-        init_atoms: Optional[Collection[GroundAtom]] = None
+    ldl: LiftedDecisionList,
+    atoms: Set[GroundAtom],
+    objects: Set[Object],
+    goal: Set[GroundAtom],
+    static_predicates: Optional[Set[Predicate]] = None,
+    init_atoms: Optional[Collection[GroundAtom]] = None
 ) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 

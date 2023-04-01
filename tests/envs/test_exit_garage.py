@@ -321,6 +321,11 @@ def test_exit_garage_options():
     test_state.set(obstacle2, "y", 0.9)  # obstacle2 already in storage
     assert not pickup_obstacle.initiable(test_state)
 
+    # Test DriveCarToExit when car is already in collision for some reason
+    test_state.set(car, "x", 0.5)
+    test_state.set(car, "y", 0.3)
+    assert not DriveCarToExit.ground([car], [0.5]).initiable(test_state)
+
 
 def test_exit_garage_failed_rrt():
     """Tests that exit garage parametrized options are correctly un-initiable
