@@ -7,45 +7,41 @@ APPROACHES:
     FLAGS:
       bridge_policy: "oracle"
       painting_raise_environment_failure: False
-  # oracle-bridge-fd:
-  #   NAME: "bridge_policy"
-  #   FLAGS:
-  #     bridge_policy: "oracle"
-  #     painting_raise_environment_failure: False
-  #     sesame_task_planner: "fdsat"
-  # bilevel-planning-with-feedback:
-  #   NAME: "oracle"
-  #   FLAGS:
-  #     painting_raise_environment_failure: True
-  # bilevel-planning:
-  #   NAME: "oracle"
-  #   FLAGS:
-  #     painting_raise_environment_failure: False
+  oracle-bridge-fd:
+    NAME: "bridge_policy"
+    FLAGS:
+      bridge_policy: "oracle"
+      painting_raise_environment_failure: False
+      sesame_task_planner: "fdsat"
+  bilevel-planning-with-feedback:
+    NAME: "oracle"
+    FLAGS:
+      painting_raise_environment_failure: True
+  bilevel-planning:
+    NAME: "oracle"
+    FLAGS:
+      painting_raise_environment_failure: False
 ENVS:
-  # painting-2:
-  #   NAME: "painting"
-  #   FLAGS:
-  #     painting_num_objs_test: "[2]"
-  # painting-5:
-  #   NAME: "painting"
-  #   FLAGS:
-  #     painting_num_objs_test: "[5]"
-  painting-7:
+  painting-2:
     NAME: "painting"
     FLAGS:
-      painting_num_objs_test: "[7]"
-  # painting-10:
-  #   NAME: "painting"
-  #   FLAGS:
-  #     painting_num_objs_test: "[10]"
-  # painting-25:
-  #   NAME: "painting"
-  #   FLAGS:
-  #     painting_num_objs_test: "[25]"
-  # painting-50:
-  #   NAME: "painting"
-  #   FLAGS:
-  #     painting_num_objs_test: "[50]"
+      painting_num_objs_test: "[2]"
+  painting-5:
+    NAME: "painting"
+    FLAGS:
+      painting_num_objs_test: "[5]"
+  painting-10:
+    NAME: "painting"
+    FLAGS:
+      painting_num_objs_test: "[10]"
+  painting-25:
+    NAME: "painting"
+    FLAGS:
+      painting_num_objs_test: "[25]"
+  painting-50:
+    NAME: "painting"
+    FLAGS:
+      painting_num_objs_test: "[50]"
 ARGS:
   - "debug"
 FLAGS:  # general flags
