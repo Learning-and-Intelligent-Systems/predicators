@@ -17,7 +17,7 @@ def get_failure_predicate(option: ParameterizedOption,
     """Create a Failure predicate for a parameterized option."""
     idx_str = ",".join(map(str, idxs))
     arg_types = [option.types[i] for i in idxs]
-    return Predicate(f"{option.name}Failed-arg{idx_str}",
+    return Predicate(f"{option.name}Failed_arg{idx_str}",
                      arg_types,
                      _classifier=lambda s, o: False)
 

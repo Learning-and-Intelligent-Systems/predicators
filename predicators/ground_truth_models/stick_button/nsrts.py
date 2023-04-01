@@ -67,7 +67,7 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # RobotPressButtonFromButton
         robot = Variable("?robot", robot_type)
         button = Variable("?button", button_type)
-        from_button = Variable("?from-button", button_type)
+        from_button = Variable("?from_button", button_type)
         parameters = [robot, button, from_button]
         option_vars = [robot, button]
         option = RobotPressButton
@@ -121,7 +121,7 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # PickStickFromButton
         robot = Variable("?robot", robot_type)
         stick = Variable("?stick", stick_type)
-        button = Variable("?from-button", button_type)
+        button = Variable("?from_button", button_type)
         parameters = [robot, stick, button]
         option_vars = [robot, stick]
         option = PickStick
@@ -171,7 +171,7 @@ class StickButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         stick = Variable("?stick", stick_type)
         button = Variable("?button", button_type)
-        from_button = Variable("?from-button", button_type)
+        from_button = Variable("?from_button", button_type)
         parameters = [robot, stick, button, from_button]
         option_vars = [robot, stick, button]
         option = StickPressButton
