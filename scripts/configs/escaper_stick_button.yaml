@@ -33,6 +33,7 @@ ENVS:
     NAME: "stick_button"
     FLAGS:
       stick_button_num_buttons_test: "[25]"
+ARGS: []
 FLAGS:  # general flags
   num_train_tasks: 0
   num_test_tasks: 10
