@@ -238,9 +238,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             num_attempts=CFG.exit_garage_rrt_num_attempts,
             num_iters=CFG.exit_garage_rrt_num_iters,
             # No smoothing because of non-holonomic movement
-            smooth_amt=0,
-            sample_goal_eps=CFG.exit_garage_rrt_sample_goal_eps,
-            goal_fn=goal_fn)
+            smooth_amt=0)
         # Run planning.
         start_pos_list = [
             state.get(move_obj, "x"),
@@ -248,7 +246,12 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             state.get(move_obj, "theta"),
         ]
         start_position = np.array(start_pos_list)
-        position_plan = rrt.query(start_position, target_position)
+        position_plan = rrt.query_to_goal_fn(
+            start_position,
+            lambda: target_position,
+            goal_fn,
+            sample_goal_eps=CFG.exit_garage_rrt_sample_goal_eps,
+        )
         # If motion planning fails, determine the option to be not initiable.
         if position_plan is None:
             return False

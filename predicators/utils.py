@@ -59,10 +59,10 @@ matplotlib.use("Agg")
 
 
 def count_positives_for_ops(
-    strips_ops: List[STRIPSOperator],
-    option_specs: List[OptionSpec],
-    segments: List[Segment],
-    max_groundings: Optional[int] = None,
+        strips_ops: List[STRIPSOperator],
+        option_specs: List[OptionSpec],
+        segments: List[Segment],
+        max_groundings: Optional[int] = None,
 ) -> Tuple[int, int, List[Set[int]], List[Set[int]]]:
     """Returns num true positives, num false positives, and for each strips op,
     lists of segment indices that contribute true or false positives.
@@ -99,13 +99,13 @@ def count_positives_for_ops(
                     all_ground_operators_given_partial(op, objects,
                                                        option_var_to_obj)):
                 if max_groundings is not None and \
-                   grounding_idx > max_groundings:
+                        grounding_idx > max_groundings:
                     break
                 # Check the ground_op against the segment.
                 if not ground_op.preconditions.issubset(segment.init_atoms):
                     continue
                 if ground_op.add_effects == segment.add_effects and \
-                   ground_op.delete_effects == segment.delete_effects:
+                        ground_op.delete_effects == segment.delete_effects:
                     covered_by_some_op = True
                     true_positive_idxs[op_idx].add(seg_idx)
                 else:
@@ -114,7 +114,7 @@ def count_positives_for_ops(
         if covered_by_some_op:
             num_true_positives += 1
     return num_true_positives, num_false_positives, \
-        true_positive_idxs, false_positive_idxs
+           true_positive_idxs, false_positive_idxs
 
 
 def count_branching_factor(strips_ops: List[STRIPSOperator],
@@ -295,7 +295,7 @@ class LineSegment(_Geom2D):
         eps = 1e-6
 
         def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
-            return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
+            return np.sqrt((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2)
 
         return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
 
@@ -312,7 +312,7 @@ class Circle(_Geom2D):
         ax.add_patch(patch)
 
     def contains_point(self, x: float, y: float) -> bool:
-        return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
+        return (x - self.x) ** 2 + (y - self.y) ** 2 <= self.radius ** 2
 
 
 @dataclass(frozen=True)
@@ -332,9 +332,9 @@ class Triangle(_Geom2D):
         ax.add_patch(patch)
 
     def __post_init__(self) -> None:
-        dist1 = np.sqrt((self.x1 - self.x2)**2 + (self.y1 - self.y2)**2)
-        dist2 = np.sqrt((self.x2 - self.x3)**2 + (self.y2 - self.y3)**2)
-        dist3 = np.sqrt((self.x3 - self.x1)**2 + (self.y3 - self.y1)**2)
+        dist1 = np.sqrt((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2)
+        dist2 = np.sqrt((self.x2 - self.x3) ** 2 + (self.y2 - self.y3) ** 2)
+        dist3 = np.sqrt((self.x3 - self.x1) ** 2 + (self.y3 - self.y1) ** 2)
         dists = sorted([dist1, dist2, dist3])
         assert dists[0] + dists[1] >= dists[2]
         if dists[0] + dists[1] == dists[2]:
@@ -414,7 +414,7 @@ class Rectangle(_Geom2D):
     def circumscribed_circle(self) -> Circle:
         """Returns x, y, radius."""
         x, y = self.center
-        radius = np.sqrt((self.width / 2)**2 + (self.height / 2)**2)
+        radius = np.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2)
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
@@ -469,13 +469,13 @@ def line_segments_intersect(seg1: LineSegment, seg2: LineSegment) -> bool:
     """
 
     def _subtract(a: Tuple[float, float], b: Tuple[float, float]) \
-        -> Tuple[float, float]:
+            -> Tuple[float, float]:
         x1, y1 = a
         x2, y2 = b
         return (x1 - x2), (y1 - y2)
 
     def _cross_product(a: Tuple[float, float], b: Tuple[float, float]) \
-        -> float:
+            -> float:
         x1, y1 = b
         x2, y2 = a
         return x1 * y2 - x2 * y1
@@ -501,7 +501,7 @@ def circles_intersect(circ1: Circle, circ2: Circle) -> bool:
     """Checks if two circles intersect."""
     x1, y1, r1 = circ1.x, circ1.y, circ1.radius
     x2, y2, r2 = circ2.x, circ2.y, circ2.radius
-    return (x1 - x2)**2 + (y1 - y2)**2 < (r1 + r2)**2
+    return (x1 - x2) ** 2 + (y1 - y2) ** 2 < (r1 + r2) ** 2
 
 
 def rectangles_intersect(rect1: Rectangle, rect2: Rectangle) -> bool:
@@ -571,7 +571,7 @@ def line_segment_intersects_rectangle(seg: LineSegment,
     """Checks if a line segment intersects a rectangle."""
     # Case 1: one of the end points of the segment is in the rectangle.
     if rect.contains_point(seg.x1, seg.y1) or \
-       rect.contains_point(seg.x2, seg.y2):
+            rect.contains_point(seg.x2, seg.y2):
         return True
     # Case 2: the segment intersects with one of the rectangle sides.
     return any(line_segments_intersect(s, seg) for s in rect.line_segments)
@@ -828,18 +828,18 @@ class SingletonParameterizedOption(ParameterizedOption):
     """
 
     def __init__(
-        self,
-        name: str,
-        policy: Callable[[State, Dict, Sequence[Object], Array], Action],
-        types: Optional[Sequence[Type]] = None,
-        params_space: Optional[Box] = None,
-        initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
-                                     bool]] = None
+            self,
+            name: str,
+            policy: Callable[[State, Dict, Sequence[Object], Array], Action],
+            types: Optional[Sequence[Type]] = None,
+            params_space: Optional[Box] = None,
+            initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
+                                         bool]] = None
     ) -> None:
         if types is None:
             types = []
         if params_space is None:
-            params_space = Box(0, 1, (0, ))
+            params_space = Box(0, 1, (0,))
         if initiable is None:
             initiable = lambda _1, _2, _3, _4: True
 
@@ -923,15 +923,15 @@ class LoggingMonitor(abc.ABC):
 
 
 def run_policy(
-    policy: Callable[[State], Action],
-    env: BaseEnv,
-    train_or_test: str,
-    task_idx: int,
-    termination_function: Callable[[State], bool],
-    max_num_steps: int,
-    do_env_reset: bool = True,
-    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-    monitor: Optional[LoggingMonitor] = None
+        policy: Callable[[State], Action],
+        env: BaseEnv,
+        train_or_test: str,
+        task_idx: int,
+        termination_function: Callable[[State], bool],
+        max_num_steps: int,
+        do_env_reset: bool = True,
+        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+        monitor: Optional[LoggingMonitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
@@ -978,7 +978,7 @@ def run_policy(
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
+                        type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
@@ -1040,7 +1040,7 @@ def run_policy_with_simulator(
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
+                        type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
@@ -1285,9 +1285,9 @@ def get_random_object_combination(
 
 
 def find_substitution(
-    super_atoms: Collection[LiftedOrGroundAtom],
-    sub_atoms: Collection[LiftedOrGroundAtom],
-    allow_redundant: bool = False,
+        super_atoms: Collection[LiftedOrGroundAtom],
+        sub_atoms: Collection[LiftedOrGroundAtom],
+        allow_redundant: bool = False,
 ) -> Tuple[bool, EntToEntSub]:
     """Find a substitution from the entities in super_atoms to the entities in
     sub_atoms s.t. sub_atoms is a subset of super_atoms.
@@ -1362,9 +1362,9 @@ def _substitution_consistent(
 
 
 def create_new_variables(
-    types: Sequence[Type],
-    existing_vars: Optional[Collection[Variable]] = None,
-    var_prefix: str = "?x",
+        types: Sequence[Type],
+        existing_vars: Optional[Collection[Variable]] = None,
+        var_prefix: str = "?x",
 ) -> List[Variable]:
     """Create new variables of the given types, avoiding name collisions with
     existing variables.
@@ -1420,7 +1420,7 @@ def _run_heuristic_search(
     """
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
     state_to_best_path_cost: Dict[_S, float] = \
-        defaultdict(lambda : float("inf"))
+        defaultdict(lambda: float("inf"))
 
     root_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
         initial_state, 0, 0)
@@ -1434,7 +1434,7 @@ def _run_heuristic_search(
     start_time = time.perf_counter()
 
     while len(queue) > 0 and time.perf_counter() - start_time < timeout and \
-          num_expansions < max_expansions and num_evals < max_evals:
+            num_expansions < max_expansions and num_evals < max_evals:
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:
@@ -1524,15 +1524,15 @@ def run_astar(initial_state: _S,
 
 
 def run_hill_climbing(
-    initial_state: _S,
-    check_goal: Callable[[_S], bool],
-    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-    heuristic: Callable[[_S], float],
-    early_termination_heuristic_thresh: Optional[float] = None,
-    enforced_depth: int = 0,
-    parallelize: bool = False,
-    verbose: bool = True,
-    timeout: float = float('inf')
+        initial_state: _S,
+        check_goal: Callable[[_S], bool],
+        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+        heuristic: Callable[[_S], float],
+        early_termination_heuristic_thresh: Optional[float] = None,
+        enforced_depth: int = 0,
+        parallelize: bool = False,
+        verbose: bool = True,
+        timeout: float = float('inf')
 ) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
@@ -1559,7 +1559,7 @@ def run_hill_climbing(
 
         # Stops when heuristic reaches specified value.
         if early_termination_heuristic_thresh is not None \
-            and last_heuristic <= early_termination_heuristic_thresh:
+                and last_heuristic <= early_termination_heuristic_thresh:
             break
 
         if check_goal(cur_node.state):
@@ -1718,33 +1718,26 @@ _RRTState = TypeVar("_RRTState")
 class RRT(Generic[_RRTState]):
     """Rapidly-exploring random tree."""
 
-    def __init__(self,
-                 sample_fn: Callable[[_RRTState], _RRTState],
+    def __init__(self, sample_fn: Callable[[_RRTState], _RRTState],
                  extend_fn: Callable[[_RRTState, _RRTState],
                                      Iterator[_RRTState]],
                  collision_fn: Callable[[_RRTState], bool],
-                 distance_fn: Callable[[_RRTState, _RRTState], float],
-                 rng: np.random.Generator,
-                 num_attempts: int,
-                 num_iters: int,
-                 smooth_amt: int,
-                 sample_goal_eps: float,
-                 goal_fn: Optional[Callable[[_RRTState], bool]] = None):
-        """Accepts an optional goal_fn; RRT will terminate successfully if it
-        reaches the target point OR goal_fn(state, target) is True."""
+                 distance_fn: Callable[[_RRTState, _RRTState],
+                                       float], rng: np.random.Generator,
+                 num_attempts: int, num_iters: int, smooth_amt: int):
         self._sample_fn = sample_fn
         self._extend_fn = extend_fn
         self._collision_fn = collision_fn
         self._distance_fn = distance_fn
-        self._goal_fn = goal_fn
         self._rng = rng
         self._num_attempts = num_attempts
         self._num_iters = num_iters
         self._smooth_amt = smooth_amt
-        self._sample_goal_eps = sample_goal_eps
 
-    def query(self, pt1: _RRTState,
-              pt2: _RRTState) -> Optional[List[_RRTState]]:
+    def query(self,
+              pt1: _RRTState,
+              pt2: _RRTState,
+              sample_goal_eps: float = 0.0) -> Optional[List[_RRTState]]:
         """Query the RRT, to get a collision-free path from pt1 to pt2.
 
         If none is found, returns None.
@@ -1755,7 +1748,35 @@ class RRT(Generic[_RRTState]):
         if direct_path is not None:
             return direct_path
         for _ in range(self._num_attempts):
-            path = self._rrt_connect(pt1, pt2)
+            path = self._rrt_connect(pt1,
+                                     goal_sampler=lambda: pt2,
+                                     sample_goal_eps=sample_goal_eps)
+            if path is not None:
+                return self._smooth_path(path)
+        return None
+
+    def query_to_goal_fn(
+            self,
+            start: _RRTState,
+            goal_sampler: Callable[[], _RRTState],
+            goal_fn: Callable[[_RRTState], bool],
+            sample_goal_eps: float = 0.0) -> Optional[List[_RRTState]]:
+        """Query the RRT, to get a collision-free path from start to a point
+        such that goal_fn(point) is True. Uses goal_sampler to sample a target
+        for a direct path or with probability sample_goal_eps.
+
+        If none is found, returns None.
+        """
+        if self._collision_fn(start):
+            return None
+        direct_path = self._try_direct_path(start, goal_sampler())
+        if direct_path is not None:
+            return direct_path
+        for _ in range(self._num_attempts):
+            path = self._rrt_connect(start,
+                                     goal_sampler,
+                                     goal_fn,
+                                     sample_goal_eps=sample_goal_eps)
             if path is not None:
                 return self._smooth_path(path)
         return None
@@ -1769,16 +1790,21 @@ class RRT(Generic[_RRTState]):
             path.append(newpt)
         return path
 
-    def _rrt_connect(self, pt1: _RRTState,
-                     pt2: _RRTState) -> Optional[List[_RRTState]]:
+    def _rrt_connect(
+            self,
+            pt1: _RRTState,
+            goal_sampler: Callable[[], _RRTState],
+            goal_fn: Optional[Callable[[_RRTState], bool]] = None,
+            sample_goal_eps: float = 0.0,
+    ) -> Optional[List[_RRTState]]:
         root = _RRTNode(pt1)
         nodes = [root]
 
         for _ in range(self._num_iters):
             # Sample the goal with a small probability, otherwise randomly
             # choose a point.
-            sample_goal = self._rng.random() < self._sample_goal_eps
-            samp = pt2 if sample_goal else self._sample_fn(pt1)
+            sample_goal = self._rng.random() < sample_goal_eps
+            samp = goal_sampler() if sample_goal else self._sample_fn(pt1)
             min_key = functools.partial(self._get_pt_dist_to_node, samp)
             nearest = min(nodes, key=min_key)
             reached_goal = False
@@ -1790,8 +1816,7 @@ class RRT(Generic[_RRTState]):
             else:
                 reached_goal = sample_goal
             # Check goal_fn if defined
-            if reached_goal or self._goal_fn is not None and self._goal_fn(
-                    nearest.data):
+            if reached_goal or goal_fn is not None and goal_fn(nearest.data):
                 path = nearest.path_from_root()
                 return [node.data for node in path]
         return None
@@ -1810,8 +1835,8 @@ class RRT(Generic[_RRTState]):
             if j < i:
                 i, j = j, i
             shortcut = list(self._extend_fn(path[i], path[j]))
-            if len(shortcut) < j-i and \
-               all(not self._collision_fn(pt) for pt in shortcut):
+            if len(shortcut) < j - i and \
+                    all(not self._collision_fn(pt) for pt in shortcut):
                 path = path[:i + 1] + shortcut + path[j + 1:]
         return path
 
@@ -1819,20 +1844,23 @@ class RRT(Generic[_RRTState]):
 class BiRRT(RRT[_RRTState]):
     """Bidirectional rapidly-exploring random tree."""
 
-    def __init__(self, sample_fn: Callable[[_RRTState], _RRTState],
-                 extend_fn: Callable[[_RRTState, _RRTState],
-                                     Iterator[_RRTState]],
-                 collision_fn: Callable[[_RRTState], bool],
-                 distance_fn: Callable[[_RRTState, _RRTState],
-                                       float], rng: np.random.Generator,
-                 num_attempts: int, num_iters: int, smooth_amt: int):
-        # _sample_goal_eps and _goal_fn aren't used in BiRRT so we just pass
-        # in dummy values for those parameters
-        super().__init__(sample_fn, extend_fn, collision_fn, distance_fn, rng,
-                         num_attempts, num_iters, smooth_amt, 0)
+    def query_to_goal_fn(
+            self,
+            start: _RRTState,
+            goal_sampler: Callable[[], _RRTState],
+            goal_fn: Callable[[_RRTState], bool],
+            sample_goal_eps: float = 0.0) -> Optional[List[_RRTState]]:
+        raise NotImplementedError("Can't query to goal function using BiRRT")
 
-    def _rrt_connect(self, pt1: _RRTState,
-                     pt2: _RRTState) -> Optional[List[_RRTState]]:
+    def _rrt_connect(
+            self,
+            pt1: _RRTState,
+            goal_sampler: Callable[[], _RRTState],
+            goal_fn: Optional[Callable[[_RRTState], bool]] = None,
+            sample_goal_eps: float = 0.0,
+    ) -> Optional[List[_RRTState]]:
+        # goal_fn and sample_goal_eps are unused
+        pt2 = goal_sampler()
         root1, root2 = _RRTNode(pt1), _RRTNode(pt2)
         nodes1, nodes2 = [root1], [root2]
 
@@ -2004,10 +2032,10 @@ def all_possible_ground_atoms(state: State,
 
 
 def all_ground_ldl_rules(
-    rule: LDLRule,
-    objects: Collection[Object],
-    static_predicates: Optional[Collection[Predicate]] = None,
-    init_atoms: Optional[Collection[GroundAtom]] = None
+        rule: LDLRule,
+        objects: Collection[Object],
+        static_predicates: Optional[Collection[Predicate]] = None,
+        init_atoms: Optional[Collection[GroundAtom]] = None
 ) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects.
 
@@ -2067,11 +2095,11 @@ def _cached_all_ground_ldl_rules(
             # Check the static conditions.
             binding_valid = True
             for pred in param_to_pos_preds[param]:
-                if (pred, (obj, )) not in init_atom_tups:
+                if (pred, (obj,)) not in init_atom_tups:
                     binding_valid = False
                     break
             for pred in param_to_neg_preds[param]:
-                if (pred, (obj, )) in init_atom_tups:
+                if (pred, (obj,)) in init_atom_tups:
                     binding_valid = False
                     break
             if binding_valid:
@@ -2152,7 +2180,7 @@ class _LDLParser:
                        pos_goals, nsrt)
 
     def _parse_lifted_atoms(
-        self, atoms_str: str, variable_name_to_variable: Dict[str, Variable]
+            self, atoms_str: str, variable_name_to_variable: Dict[str, Variable]
     ) -> Tuple[Set[LiftedAtom], Set[LiftedAtom]]:
         """Parse the given string (representing either preconditions or
         effects) into a set of positive lifted atoms and a set of negative
@@ -2245,8 +2273,8 @@ def create_dataset_filename_str(
         suffix_str += "__ground_atoms"
     suffix_str += ".data"
     dataset_fname_template = (
-        f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-        f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
@@ -2279,7 +2307,7 @@ def prune_ground_atom_dataset(
 
 
 def extract_preds_and_types(
-    ops: Collection[NSRTOrSTRIPSOperator]
+        ops: Collection[NSRTOrSTRIPSOperator]
 ) -> Tuple[Dict[str, Predicate], Dict[str, Type]]:
     """Extract the predicates and types used in the given operators."""
     preds = {}
@@ -2428,12 +2456,12 @@ def ops_and_specs_to_dummy_nsrts(
 
 
 def create_task_planning_heuristic(
-    heuristic_name: str,
-    init_atoms: Set[GroundAtom],
-    goal: Set[GroundAtom],
-    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-    predicates: Collection[Predicate],
-    objects: Collection[Object],
+        heuristic_name: str,
+        init_atoms: Set[GroundAtom],
+        goal: Set[GroundAtom],
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+        predicates: Collection[Predicate],
+        objects: Collection[Object],
 ) -> _TaskPlanningHeuristic:
     """Create a task planning heuristic that consumes ground atoms and
     estimates the cost-to-go."""
@@ -2469,12 +2497,12 @@ class GoalCountHeuristic(_TaskPlanningHeuristic):
 
 
 def _create_pyperplan_heuristic(
-    heuristic_name: str,
-    init_atoms: Set[GroundAtom],
-    goal: Set[GroundAtom],
-    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-    predicates: Collection[Predicate],
-    objects: Collection[Object],
+        heuristic_name: str,
+        init_atoms: Set[GroundAtom],
+        goal: Set[GroundAtom],
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+        predicates: Collection[Predicate],
+        objects: Collection[Object],
 ) -> _PyperplanHeuristicWrapper:
     """Create a pyperplan heuristic that inherits from
     _TaskPlanningHeuristic."""
@@ -2545,12 +2573,12 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
 
 
 def _create_pyperplan_task(
-    init_atoms: Set[GroundAtom],
-    goal: Set[GroundAtom],
-    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-    predicates: Collection[Predicate],
-    objects: Collection[Object],
-    static_atoms: Set[GroundAtom],
+        init_atoms: Set[GroundAtom],
+        goal: Set[GroundAtom],
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+        predicates: Collection[Predicate],
+        objects: Collection[Object],
+        static_atoms: Set[GroundAtom],
 ) -> _PyperplanTask:
     """Helper glue for pyperplan heuristics."""
     all_atoms = set()
@@ -2699,12 +2727,12 @@ class SimulateVideoMonitor(LoggingMonitor):
 
 
 def create_video_from_partial_refinements(
-    partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
-                                        Sequence[_Option]]],
-    env: BaseEnv,
-    train_or_test: str,
-    task_idx: int,
-    max_num_steps: int,
+        partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
+                                            Sequence[_Option]]],
+        env: BaseEnv,
+        train_or_test: str,
+        task_idx: int,
+        max_num_steps: int,
 ) -> Video:
     """Create a video from a list of skeletons and partial refinements.
 
@@ -2740,7 +2768,7 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int) -> Image:
     fig.set_dpi(dpi)
     fig.canvas.draw()
     data = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8).copy()
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4, ))
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))
     data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
     return data
 
@@ -3029,12 +3057,12 @@ def nostdout() -> Generator[None, None, None]:
 
 
 def query_ldl(
-    ldl: LiftedDecisionList,
-    atoms: Set[GroundAtom],
-    objects: Set[Object],
-    goal: Set[GroundAtom],
-    static_predicates: Optional[Set[Predicate]] = None,
-    init_atoms: Optional[Collection[GroundAtom]] = None
+        ldl: LiftedDecisionList,
+        atoms: Set[GroundAtom],
+        objects: Set[Object],
+        goal: Set[GroundAtom],
+        static_predicates: Optional[Set[Predicate]] = None,
+        init_atoms: Optional[Collection[GroundAtom]] = None
 ) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
@@ -3053,8 +3081,8 @@ def query_ldl(
                 static_predicates=static_predicates,
                 init_atoms=init_atoms):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
-               not ground_rule.neg_state_preconditions & atoms and \
-               ground_rule.goal_preconditions.issubset(goal):
+                    not ground_rule.neg_state_preconditions & atoms and \
+                    ground_rule.goal_preconditions.issubset(goal):
                 return ground_rule.ground_nsrt
     return None
 
