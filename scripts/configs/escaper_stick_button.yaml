@@ -28,14 +28,10 @@ ENVS:
   #   NAME: "stick_button"
   #   FLAGS:
   #     stick_button_num_buttons_test: "[10]"
-  # stick_button-25:
-  #   NAME: "stick_button"
-  #   FLAGS:
-  #     stick_button_num_buttons_test: "[25]"
-  stick_button-50:
+  stick_button-25:
     NAME: "stick_button"
     FLAGS:
-      stick_button_num_buttons_test: "[50]"
+      stick_button_num_buttons_test: "[25]"
 ARGS:
   - "debug"
 FLAGS:  # general flags
