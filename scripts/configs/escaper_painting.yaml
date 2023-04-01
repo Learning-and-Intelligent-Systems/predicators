@@ -2,19 +2,25 @@
 # in the painting environment.
 ---
 APPROACHES:
-  bilevel-planning:
-    NAME: "oracle"
-    FLAGS:
-      painting_raise_environment_failure: False
   bilevel-planning-with-feedback:
     NAME: "oracle"
     FLAGS:
       painting_raise_environment_failure: True
+  bilevel-planning:
+    NAME: "oracle"
+    FLAGS:
+      painting_raise_environment_failure: False
   oracle-bridge:
     NAME: "bridge_policy"
     FLAGS:
       bridge_policy: "oracle"
       painting_raise_environment_failure: False
+  oracle-bridge-fd:
+    NAME: "bridge_policy"
+    FLAGS:
+      bridge_policy: "oracle"
+      painting_raise_environment_failure: False
+      sesame_task_planner: "fdopt"
 ENVS:
   painting-2:
     NAME: "painting"
