@@ -72,10 +72,10 @@ PLOT_GROUPS = {
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle-bridge-fd" in v)),
         ("Oracle Bridge", "o",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: v.endswith("oracle-bridge"))),
+        ("Bilevel (No Feedback)", ".",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v.endswith("bilevel-planning"))),
         ("Bilevel (Feedback)", "*",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "bilevel-planning-with-feedback" in v)),
-        ("Bilevel (No Feedback)", ".",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v.endswith("bilevel-planning")))
     ]
 }
 
