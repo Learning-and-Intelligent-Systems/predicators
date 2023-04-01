@@ -33,7 +33,7 @@ class StickButtonEnv(BaseEnv):
     max_speed: ClassVar[float] = 0.5  # shared by dx, dy
     max_angular_speed: ClassVar[float] = np.pi / 4
     robot_radius: ClassVar[float] = 0.1
-    button_radius: ClassVar[float] = 0.01
+    button_radius: ClassVar[float] = 0.1
     # Note that the stick_width is the longer dimension.
     stick_width: ClassVar[float] = 3.0
     stick_height: ClassVar[float] = 0.05
