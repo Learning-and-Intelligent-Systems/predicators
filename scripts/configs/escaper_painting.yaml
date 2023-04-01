@@ -13,14 +13,14 @@ APPROACHES:
       bridge_policy: "oracle"
       painting_raise_environment_failure: False
       sesame_task_planner: "fdopt"
-  # bilevel-planning-with-feedback:
-  #   NAME: "oracle"
-  #   FLAGS:
-  #     painting_raise_environment_failure: True
-  # bilevel-planning:
-  #   NAME: "oracle"
-  #   FLAGS:
-  #     painting_raise_environment_failure: False
+  bilevel-planning-with-feedback:
+    NAME: "oracle"
+    FLAGS:
+      painting_raise_environment_failure: True
+  bilevel-planning:
+    NAME: "oracle"
+    FLAGS:
+      painting_raise_environment_failure: False
 ENVS:
   painting-2:
     NAME: "painting"
@@ -30,6 +30,10 @@ ENVS:
     NAME: "painting"
     FLAGS:
       painting_num_objs_test: "[5]"
+  painting-8:
+    NAME: "painting"
+    FLAGS:
+      painting_num_objs_test: "[8]"
   painting-10:
     NAME: "painting"
     FLAGS:
