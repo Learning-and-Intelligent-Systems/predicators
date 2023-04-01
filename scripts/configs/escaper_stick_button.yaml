@@ -1,5 +1,6 @@
 # Comparing oracle bridge policy approach to oracle bilevel planning
-# in the painting environment.
+# in the stick button environment.
+# NOTE: button_radius in stick button environment manually changed to 0.01.
 ---
 APPROACHES:
   # oracle-bridge:
@@ -35,6 +36,7 @@ ENVS:
 ARGS:
   - "debug"
 FLAGS:  # general flags
+  button_radius: 
   num_train_tasks: 0
   num_test_tasks: 10
   horizon: 100000
