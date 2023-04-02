@@ -110,7 +110,7 @@ def test_train_refinement_estimator():
 
     # Test PlanningFailure if goal is not dr-reachable
     sample_env = NarrowPassageEnv()
-    sample_task = sample_env.get_train_tasks()[0]
+    sample_task = sample_env.get_train_tasks()[0].task
     sample_option_model = create_option_model("oracle")
     utils.reset_config_with_parser(parser)
     with pytest.raises(PlanningFailure):

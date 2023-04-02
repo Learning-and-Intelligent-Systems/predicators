@@ -9,7 +9,7 @@ from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
     CoverMultistepOptions
 from predicators.ground_truth_models import get_gt_options
-from predicators.structs import Action, Task
+from predicators.structs import Action, EnvironmentTask
 
 
 @pytest.mark.parametrize("env_name", ["cover", "cover_handempty"])
@@ -278,7 +278,7 @@ def test_cover_multistep_options():
         [0.17778981 - 0.05 / 2, 0.17778981 + 0.05 / 2])
     state.data[target1_hr] = np.array(
         [0.63629464 - 0.03 / 2, 0.63629464 + 0.03 / 2])
-    task = Task(state, task.goal)
+    task = EnvironmentTask(state, task.goal)
     action_arrs = [
         # Move to above block0
         np.array([0.05, 0., 0.], dtype=np.float32),

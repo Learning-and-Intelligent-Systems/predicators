@@ -24,7 +24,7 @@ def test_llm_bilevel_planning_approach():
         "strips_learner": "oracle",
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = LLMBilevelPlanningApproach(env.predicates,
                                           get_gt_options(env.get_name()),
                                           env.types, env.action_space,

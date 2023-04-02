@@ -12,7 +12,8 @@ from predicators.ml_models import CNNRegressor
 from predicators.refinement_estimators.per_skeleton_estimator import \
     PerSkeletonRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import ImageInput, RefinementDatapoint, Task
+from predicators.structs import EnvironmentTask, ImageInput, \
+    RefinementDatapoint, Task
 
 
 class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
@@ -82,7 +83,11 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
         """Render the initial state of the task using the given environment's
         method, and pre-process image as necessary."""
         # Render initial state
-        img = self._env.render_state(task.init, task)[0]
+        # Wrapping the task in an environment task to hack around the fact that
+        # render_state() expects an EnvironmentTask. Assuming that for the envs
+        # that we're using, the EnvironmentTasks will effectively be Tasks.
+        env_task = EnvironmentTask(task.init, task.goal)
+        img = self._env.render_state(task.init, env_task)[0]
 
         # Crop and downsample the image if needed
         if CFG.cnn_refinement_estimator_crop:

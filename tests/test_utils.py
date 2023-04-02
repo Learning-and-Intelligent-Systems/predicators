@@ -518,7 +518,7 @@ def test_run_policy():
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
     policy = lambda _: Action(env.action_space.sample())
-    task = env.get_task("test", 0)
+    task = env.get_task("test", 0).task
     traj, metrics = utils.run_policy(policy,
                                      env,
                                      "test",
@@ -561,12 +561,12 @@ def test_run_policy():
     def _policy(_):
         raise ValueError("mock error")
 
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             self.num_observations += 1
 
     with pytest.raises(ValueError) as e:
@@ -603,8 +603,8 @@ def test_run_policy():
             del action  # unused
             raise utils.EnvironmentFailure("mock failure")
 
-        def get_state(self):
-            """Gets currrent state in mock environment."""
+        def get_observation(self):
+            """Gets currrent observation in mock environment."""
             return DefaultState
 
     mock_env = _MockEnv()
@@ -700,9 +700,9 @@ def test_run_policy_with_simulator():
     assert len(traj.actions) == 3
 
     # Test with monitor.
-    class _NullMonitor(utils.Monitor):
+    class _NullMonitor(utils.LoggingMonitor):
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             pass
 
     monitor = _NullMonitor()
@@ -716,12 +716,12 @@ def test_run_policy_with_simulator():
     assert len(traj.actions) == 3
 
     # Test with monitor in case where an uncaught exception is raised.
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0
 
-        def observe(self, state, action):
+        def observe(self, obs, action):
             self.num_observations += 1
 
     def _policy(_):
@@ -1583,14 +1583,14 @@ def test_nsrt_methods():
     ground_nsrts = sorted(utils.all_ground_nsrts(nsrt, objects))
     assert len(ground_nsrts) == 8
     all_obj = [nsrt.objects for nsrt in ground_nsrts]
-    assert [cup1, plate1, plate1] in all_obj
-    assert [cup1, plate2, plate1] in all_obj
-    assert [cup2, plate1, plate1] in all_obj
-    assert [cup2, plate2, plate1] in all_obj
-    assert [cup1, plate1, plate2] in all_obj
-    assert [cup1, plate2, plate2] in all_obj
-    assert [cup2, plate1, plate2] in all_obj
-    assert [cup2, plate2, plate2] in all_obj
+    assert (cup1, plate1, plate1) in all_obj
+    assert (cup1, plate2, plate1) in all_obj
+    assert (cup2, plate1, plate1) in all_obj
+    assert (cup2, plate2, plate1) in all_obj
+    assert (cup1, plate1, plate2) in all_obj
+    assert (cup1, plate2, plate2) in all_obj
+    assert (cup2, plate1, plate2) in all_obj
+    assert (cup2, plate2, plate2) in all_obj
     preds, types = utils.extract_preds_and_types({nsrt})
     assert preds == {"NotOn": not_on, "On": on}
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
@@ -1901,8 +1901,8 @@ def test_nsrt_application():
         utils.get_applicable_operators(ground_nsrts, {pred1([cup1, plate1])}))
     assert len(applicable) == 2
     all_obj = [(nsrt.name, nsrt.objects) for nsrt in applicable]
-    assert ("Pick", [cup1, plate1]) in all_obj
-    assert ("Place", [cup1, plate1]) in all_obj
+    assert ("Pick", (cup1, plate1)) in all_obj
+    assert ("Place", (cup1, plate1)) in all_obj
     next_atoms = [
         utils.apply_operator(nsrt, {pred1([cup1, plate1])})
         for nsrt in applicable
@@ -2170,7 +2170,7 @@ def test_create_pddl():
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    train_task = env.get_train_tasks()[0]
+    train_task = env.get_train_tasks()[0].task
     state = train_task.init
     objects = list(state)
     init_atoms = utils.abstract(state, env.predicates)
@@ -2281,7 +2281,7 @@ def test_create_pddl():
   )
 )"""
 
-    train_task = env.get_train_tasks()[0]
+    train_task = env.get_train_tasks()[0].task
     state = train_task.init
     objects = list(state)
     init_atoms = utils.abstract(state, env.predicates)
@@ -2326,7 +2326,7 @@ def test_VideoMonitor():
     env = CoverMultistepOptions()
     monitor = utils.VideoMonitor(env.render)
     policy = lambda _: Action(env.action_space.sample())
-    task = env.get_task("test", 0)
+    task = env.get_task("test", 0).task
     traj, _ = utils.run_policy(policy,
                                env,
                                "test",
@@ -2347,7 +2347,7 @@ def test_VideoMonitor():
 def test_SimulateVideoMonitor():
     """Tests for SimulateVideoMonitor()."""
     env = CoverMultistepOptions()
-    task = env.get_task("test", 0)
+    task = env.get_task("test", 0).task
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
     policy = lambda _: Action(env.action_space.sample())
     traj, _ = utils.run_policy(policy,
@@ -3147,3 +3147,27 @@ def test_parse_ldl_from_str():
                          get_gt_options(env.get_name()))
     ldl = utils.parse_ldl_from_str(ldl_str, env.types, env.predicates, nsrts)
     assert str(ldl) == ldl_str
+
+
+def test_motion_planning():
+    """Basic assertion test for BiRRT."""
+    # Create dummy functions to pass into BiRRT.
+    dummy_sample_fn = lambda x: x
+    dummy_extend_fn = lambda x, y: [x, y]
+    dummy_collision_fn = lambda x: False
+    dummy_distance_fn = lambda x, y: 0.0
+
+    birrt = utils.BiRRT(
+        dummy_sample_fn,
+        dummy_extend_fn,
+        dummy_collision_fn,
+        dummy_distance_fn,
+        np.random.default_rng(0),
+        num_attempts=1,
+        num_iters=1,
+        smooth_amt=0,
+    )
+
+    # Test that query_to_goal_fn for BiRRT raises a NotImplementedError
+    with pytest.raises(NotImplementedError):
+        birrt.query_to_goal_fn(0, lambda: 1, lambda x: False)

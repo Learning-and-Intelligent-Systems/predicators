@@ -12,8 +12,8 @@ import matplotlib
 
 from predicators.envs.painting import PaintingEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Object, ParameterizedOption, \
-    Predicate, State, Task
+from predicators.structs import Action, EnvironmentTask, Object, Predicate, \
+    State
 
 
 class RepeatedNextToPaintingEnv(PaintingEnv):
@@ -50,7 +50,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                                     action: Action) -> State:
         x, y, z, _ = action.arr[:4]
         next_state = super()._transition_pick_or_openlid(state, action)
-        target_obj = self._get_object_at_xyz(state, x, y, z)
+        target_obj = self._get_object_at_xyz(state, x, y, z, self.pick_tol)
         # In this environment, we disallow picking an object if the robot
         # is not currently next to it. To implement this, whenever the
         # parent class's pick is successful, we check the NextTo constraint,
@@ -94,11 +94,6 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
-
-    @property
     def _num_objects_train(self) -> List[int]:
         return CFG.rnt_painting_num_objs_train
 
@@ -117,7 +112,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         # List of NextTo objects to render

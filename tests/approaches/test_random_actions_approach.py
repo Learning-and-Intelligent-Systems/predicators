@@ -13,7 +13,7 @@ def test_random_actions_approach():
         "approach": "random_actions",
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     task = train_tasks[0]
     approach = RandomActionsApproach(env.predicates,
                                      get_gt_options(env.get_name()), env.types,

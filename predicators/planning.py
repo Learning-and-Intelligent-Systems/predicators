@@ -16,8 +16,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+from typing import Collection, Dict, FrozenSet, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 
 import numpy as np
 
@@ -245,7 +245,7 @@ def filter_nsrts(
     allow_noops: bool = False,
 ) -> List[_GroundNSRT]:
     """Helper function for _sesame_plan_with_astar(); optionally filter out
-    NSRTs with empty effectws and/or those that are unreachable."""
+    NSRTs with empty effects and/or those that are unreachable."""
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts
         if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
@@ -264,8 +264,7 @@ def filter_nsrts(
 def task_plan_grounding(
     init_atoms: Set[GroundAtom],
     objects: Set[Object],
-    strips_ops: Sequence[STRIPSOperator],
-    option_specs: Sequence[OptionSpec],
+    nsrts: Collection[NSRT],
     allow_noops: bool = False,
 ) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
@@ -276,7 +275,6 @@ def task_plan_grounding(
 
     See the task_plan docstring for usage instructions.
     """
-    nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts = []
     for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
@@ -462,7 +460,7 @@ def _skeleton_generator(
                         continue
                 child_skeleton = node.skeleton + [nsrt]
                 child_skeleton_tup = tuple(child_skeleton)
-                if child_skeleton_tup in visited_skeletons:
+                if child_skeleton_tup in visited_skeletons:  # pragma: no cover
                     continue
                 visited_skeletons.add(child_skeleton_tup)
                 # Action costs are unitary.
@@ -891,10 +889,10 @@ def task_plan_with_option_plan_constraint(
     If no goal-achieving sequence of ground NSRTs corresponds to
     the option plan, return None.
     """
+    dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts, _ = task_plan_grounding(init_atoms,
                                           objects,
-                                          strips_ops,
-                                          option_specs,
+                                          dummy_nsrts,
                                           allow_noops=True)
     heuristic = utils.create_task_planning_heuristic(
         CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
@@ -954,6 +952,86 @@ def task_plan_with_option_plan_constraint(
     return action_seq
 
 
+def generate_sas_file_for_fd(
+        task: Task, nsrts: Set[NSRT], predicates: Set[Predicate],
+        types: Set[Type], timeout: float, timeout_cmd: str, alias_flag: str,
+        exec_str: str, objects: List[Object],
+        init_atoms: Set[GroundAtom]) -> str:  # pragma: no cover
+    """Generates a SAS file for a particular PDDL planning problem so that FD
+    can be used for search."""
+    # Create the domain and problem strings, then write them to tempfiles.
+    dom_str = utils.create_pddl_domain(nsrts, predicates, types, "mydomain")
+    prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
+                                         "mydomain", "myproblem")
+    dom_file = tempfile.NamedTemporaryFile(delete=False).name
+    with open(dom_file, "w", encoding="utf-8") as f:
+        f.write(dom_str)
+    prob_file = tempfile.NamedTemporaryFile(delete=False).name
+    with open(prob_file, "w", encoding="utf-8") as f:
+        f.write(prob_str)
+    # The SAS file is used when augmenting the grounded operators,
+    # during dicovered failures, and it's important that we give
+    # it a name, because otherwise Fast Downward uses a fixed
+    # default name, which will cause issues if you run multiple
+    # processes simultaneously.
+    sas_file = tempfile.NamedTemporaryFile(delete=False).name
+    # Run to generate sas
+    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
+               f"--sas-file {sas_file} {dom_file} {prob_file}")
+    subprocess.getoutput(cmd_str)
+    return sas_file
+
+
+def fd_plan_from_sas_file(
+    sas_file: str, timeout_cmd: str, timeout: float, exec_str: str,
+    alias_flag: str, start_time: float, objects: List[Object],
+    init_atoms: Set[GroundAtom], nsrts: Set[NSRT], max_horizon: int
+) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]],
+           Metrics]:  # pragma: no cover
+    """Given a SAS file, runs search on it to generate a plan."""
+    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
+    output = subprocess.getoutput(cmd_str)
+    cleanup_cmd_str = f"{exec_str} --cleanup"
+    subprocess.getoutput(cleanup_cmd_str)
+    if time.perf_counter() - start_time > timeout:
+        raise PlanningTimeout("Planning timed out in call to FD!")
+    # Parse and log metrics.
+    metrics: Metrics = defaultdict(float)
+    num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
+    num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
+    assert len(num_nodes_expanded) == 1
+    assert len(num_nodes_created) == 1
+    metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
+    metrics["num_nodes_created"] = float(num_nodes_created[0])
+    # Extract the skeleton from the output and compute the atoms_sequence.
+    if "Solution found!" not in output:
+        raise PlanningFailure(f"Plan not found with FD! Error: {output}")
+    if "Plan length: 0 step" in output:
+        # Handle the special case where the plan is found to be trivial.
+        skeleton_str = []
+    else:
+        skeleton_str = re.findall(r"(.+) \(\d+?\)", output)
+        if not skeleton_str:
+            raise PlanningFailure(f"Plan not found with FD! Error: {output}")
+    skeleton: List[_GroundNSRT] = []
+    atoms_sequence = [init_atoms]
+    nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+    obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
+    for nsrt_str in skeleton_str:
+        str_split = nsrt_str.split()
+        nsrt = nsrt_name_to_nsrt[str_split[0]]
+        objs = [obj_name_to_obj[obj_name] for obj_name in str_split[1:]]
+        ground_nsrt = nsrt.ground(objs)
+        skeleton.append(ground_nsrt)
+        atoms_sequence.append(
+            utils.apply_operator(ground_nsrt, atoms_sequence[-1]))
+    if len(skeleton) > max_horizon:
+        raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
+    metrics["num_skeletons_optimized"] = 1
+    metrics["num_failures_discovered"] = 0
+    return (skeleton, atoms_sequence, metrics)
+
+
 def _sesame_plan_with_fast_downward(
         task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
         predicates: Set[Predicate], types: Set[Type], timeout: float,
@@ -980,82 +1058,27 @@ def _sesame_plan_with_fast_downward(
     """
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
-    start_time = time.perf_counter()
-    # Create the domain and problem strings, then write them to tempfiles.
-    dom_str = utils.create_pddl_domain(nsrts, predicates, types, "mydomain")
-    prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
-                                         "mydomain", "myproblem")
-    dom_file = tempfile.NamedTemporaryFile(delete=False).name
-    with open(dom_file, "w", encoding="utf-8") as f:
-        f.write(dom_str)
-    prob_file = tempfile.NamedTemporaryFile(delete=False).name
-    with open(prob_file, "w", encoding="utf-8") as f:
-        f.write(prob_str)
-    # The SAS file is used when augmenting the grounded operators,
-    # during dicovered failures, and it's important that we give
-    # it a name, because otherwise Fast Downward uses a fixed
-    # default name, which will cause issues if you run multiple
-    # processes simultaneously.
-    sas_file = tempfile.NamedTemporaryFile(delete=False).name
-    # Run Fast Downward followed by cleanup. Capture the output.
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
     if optimal:
         alias_flag = "--alias seq-opt-lmcut"
     else:  # satisficing
         alias_flag = "--alias lama-first"
+    # Run Fast Downward followed by cleanup. Capture the output.
     assert "FD_EXEC_PATH" in os.environ, \
         "Please follow the instructions in the docstring of this method!"
     fd_exec_path = os.environ["FD_EXEC_PATH"]
     exec_str = os.path.join(fd_exec_path, "fast-downward.py")
-    # Run to generate sas
-    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
-               f"--sas-file {sas_file} {dom_file} {prob_file}")
-    output = subprocess.getoutput(cmd_str)
+    start_time = time.perf_counter()
+    sas_file = generate_sas_file_for_fd(task, nsrts, predicates, types,
+                                        timeout, timeout_cmd, alias_flag,
+                                        exec_str, objects, init_atoms)
+
     while True:
-        cmd_str = (
-            f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
-        output = subprocess.getoutput(cmd_str)
-        cleanup_cmd_str = f"{exec_str} --cleanup"
-        subprocess.getoutput(cleanup_cmd_str)
-        if time.perf_counter() - start_time > timeout:
-            raise PlanningTimeout("Planning timed out in call to FD!")
-        # Parse and log metrics.
-        metrics: Metrics = defaultdict(float)
-        num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
-        num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
-        assert len(num_nodes_expanded) == 1
-        assert len(num_nodes_created) == 1
-        metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
-        metrics["num_nodes_created"] = float(num_nodes_created[0])
-        # Extract the skeleton from the output and compute the atoms_sequence.
-        if "Solution found!" not in output:
-            raise PlanningFailure(f"Plan not found with FD! Error: {output}")
-        if "Plan length: 0 step" in output:
-            # Handle the special case where the plan is found to be trivial.
-            skeleton_str = []
-        else:
-            skeleton_str = re.findall(r"(.+) \(\d+?\)", output)
-            if not skeleton_str:
-                raise PlanningFailure(
-                    f"Plan not found with FD! Error: {output}")
-        skeleton = []
-        atoms_sequence = [init_atoms]
-        nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
-        obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
-        for nsrt_str in skeleton_str:
-            str_split = nsrt_str.split()
-            nsrt = nsrt_name_to_nsrt[str_split[0]]
-            objs = [obj_name_to_obj[obj_name] for obj_name in str_split[1:]]
-            ground_nsrt = nsrt.ground(objs)
-            skeleton.append(ground_nsrt)
-            atoms_sequence.append(
-                utils.apply_operator(ground_nsrt, atoms_sequence[-1]))
-        if len(skeleton) > max_horizon:
-            raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
+        skeleton, atoms_sequence, metrics = fd_plan_from_sas_file(
+            sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
+            objects, init_atoms, nsrts, max_horizon)
         # Run low-level search on this skeleton.
         low_level_timeout = timeout - (time.perf_counter() - start_time)
-        metrics["num_skeletons_optimized"] = 1
-        metrics["num_failures_discovered"] = 0
         try:
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)

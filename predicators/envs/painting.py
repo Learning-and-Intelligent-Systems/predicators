@@ -6,7 +6,9 @@ for placing into the box. The box has a lid which may need to be opened;
 this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import Any, ClassVar, List, Optional, Sequence, Set, Tuple, Union
+import logging
+from typing import Any, Callable, ClassVar, List, Optional, Sequence, Set, \
+    Tuple, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -14,11 +16,11 @@ import numpy as np
 from gym.spaces import Box
 from matplotlib import patches
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
+from predicators.utils import EnvironmentFailure, HumanDemonstrationFailure
 
 
 class PaintingEnv(BaseEnv):
@@ -144,7 +146,7 @@ class PaintingEnv(BaseEnv):
         if self.side_grasp_thresh < grasp < self.top_grasp_thresh:
             return next_state
         # Check if some object is close enough to (x, y, z)
-        target_obj = self._get_object_at_xyz(state, x, y, z)
+        target_obj = self._get_object_at_xyz(state, x, y, z, self.pick_tol)
         if target_obj is None:
             return next_state
         # Execute pick
@@ -213,8 +215,10 @@ class PaintingEnv(BaseEnv):
             return next_state
         if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
-            raise utils.EnvironmentFailure("Box lid is closed.",
-                                           {"offending_objects": {self._lid}})
+            if CFG.painting_raise_environment_failure:
+                raise EnvironmentFailure("Box lid is closed.",
+                                         {"offending_objects": {self._lid}})
+            return next_state
         # Detect top grasp vs side grasp
         grasp = state.get(held_obj, "grasp")
         if grasp > self.top_grasp_thresh:
@@ -228,7 +232,7 @@ class PaintingEnv(BaseEnv):
         if receptacle == "box" and top_or_side != "top":
             return next_state
         # Detect collisions
-        collider = self._get_object_at_xyz(state, x, y, z)
+        collider = self._get_object_at_xyz(state, x, y, z, self.pick_tol)
         if receptacle == "table" and \
            collider is not None and \
            collider != held_obj:
@@ -263,12 +267,12 @@ class PaintingEnv(BaseEnv):
     def _num_objects_test(self) -> List[int]:
         return CFG.painting_num_objs_test
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                num_objs_lst=self._num_objects_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                num_objs_lst=self._num_objects_test,
                                rng=self._test_rng)
@@ -296,11 +300,6 @@ class PaintingEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
-
-    @property
     def action_space(self) -> Box:
         # Actions are 8-dimensional vectors:
         # [x, y, z, grasp, pickplace, water level, heat level, color]
@@ -322,7 +321,7 @@ class PaintingEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
@@ -403,13 +402,21 @@ class PaintingEnv(BaseEnv):
                                      edgecolor=edgecolor,
                                      facecolor=facecolor)
             ax.add_patch(rect)
+            # Annotate the object with its name.
+            ax.text(y - r / 2,
+                    z + 2 * h,
+                    obj.name,
+                    fontsize="x-small",
+                    ha="center",
+                    va="center",
+                    bbox=dict(facecolor="white", edgecolor="black", alpha=0.5))
         ax.set_xlim(-0.1, 1.1)
         ax.set_ylim(0.6, 1.0)
         title = ("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
                  "yellow border = side grasp, orange border = top grasp")
         if caption is not None:
             title += f";\n{caption}"
-        plt.suptitle(title, fontsize=12, wrap=True)
+        plt.suptitle(title, fontsize=8, wrap=True)
         plt.tight_layout()
         return fig
 
@@ -422,7 +429,7 @@ class PaintingEnv(BaseEnv):
         return False
 
     def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
@@ -510,7 +517,7 @@ class PaintingEnv(BaseEnv):
                 if self._update_z_poses:
                     state.set(target_obj, "pose_z",
                               state.get(target_obj, "pose_z") + 1.0)
-            tasks.append(Task(state, goal))
+            tasks.append(EnvironmentTask(state, goal))
         return tasks
 
     def _sample_initial_object_pose(
@@ -630,8 +637,8 @@ class PaintingEnv(BaseEnv):
         assert is_held == (held_feat > 0.5)  # ensure redundancy
         return is_held
 
-    def _get_object_at_xyz(self, state: State, x: float, y: float,
-                           z: float) -> Optional[Object]:
+    def _get_object_at_xyz(self, state: State, x: float, y: float, z: float,
+                           tol: float) -> Optional[Object]:
         target_obj = None
         for obj in state:
             if obj.type != self._obj_type:
@@ -641,6 +648,126 @@ class PaintingEnv(BaseEnv):
                     state.get(obj, "pose_y"),
                     state.get(obj, "pose_z")
             ],
-                           atol=self.pick_tol):
+                           atol=tol):
                 target_obj = obj
         return target_obj
+
+    def get_event_to_action_fn(
+            self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+
+        instructions = [
+            "Click to place a held object.",
+            "Click ON an object to pick it with a side grasp.",
+            "Click ABOVE an object to pick it with a top grasp.",
+            "Press (w) to wash the held object.",
+            "Press (d) to dry the held object.",
+            "Press (b) to open the box lid.",
+            "Press (s) to paint the held object the shelf color.",
+            "Press (p) to paint the held object the box color.",
+            "Press (q) to quit.",
+        ]
+        instruction_str = "Controls: " + "\n - ".join(instructions)
+        logging.info(instruction_str)
+
+        def _event_to_action(state: State,
+                             event: matplotlib.backend_bases.Event) -> Action:
+
+            if event.key == "q":
+                raise HumanDemonstrationFailure("Human quit.")
+
+            # Wash held object.
+            if event.key == "w":
+                arr = np.array([
+                    self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 1.0, 0.0,
+                    0.0
+                ],
+                               dtype=np.float32)
+                return Action(arr)
+
+            # Dry held object.
+            if event.key == "d":
+                arr = np.array([
+                    self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, 1.0,
+                    0.0
+                ],
+                               dtype=np.float32)
+                return Action(arr)
+
+            # Open the box lid.
+            if event.key == "b":
+                arr = np.array([
+                    self.obj_x, (self.box_lb + self.box_ub) / 2, self.obj_z,
+                    0.0, 1.0, 0.0, 0.0, 0.0
+                ],
+                               dtype=np.float32)
+                return Action(arr)
+
+            # Paint shelf color.
+            if event.key == "s":
+                shelf_color = state.get(self._shelf, "color")
+                arr = np.array([
+                    self.obj_x,
+                    self.table_lb,
+                    self.obj_z,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    shelf_color,
+                ],
+                               dtype=np.float32)
+                return Action(arr)
+
+            # Paint box color.
+            if event.key == "p":
+                box_color = state.get(self._box, "color")
+                arr = np.array([
+                    self.obj_x,
+                    self.table_lb,
+                    self.obj_z,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    box_color,
+                ],
+                               dtype=np.float32)
+                return Action(arr)
+
+            # Only remaining actions are ones involving a click.
+            if event.xdata is None or event.ydata is None:
+                raise NotImplementedError("No valid action found.")
+
+            held_obj = self._get_held_object(state)
+            y = event.xdata * (self.env_ub - self.env_lb) + self.env_lb
+            # Clicked z used to decide top or side grasp.
+            clicked_z = event.ydata * (self.env_ub - self.env_lb) + self.env_lb
+            x = self.obj_x
+            z = self.obj_z
+            # Use a generous tolerance.
+            clicked_obj = self._get_object_at_xyz(state, x, y, z, tol=1e-1)
+
+            # Place held object.
+            if event.key is None and held_obj is not None:
+                arr = np.array([x, y, z, 0.0, -1.0, 0.0, 0.0, 0.0])
+                return Action(np.array(arr, dtype=np.float32))
+
+            # Pick.
+            if held_obj is None and clicked_obj is not None:
+                # Set the y position to the object y position so that the
+                # pick is successfully executed.
+                y = state.get(clicked_obj, "pose_y")
+                # Side grasp.
+                if clicked_z <= self.obj_z + 2 * self.obj_height:
+                    grasp = self.side_grasp_thresh - 1e-3
+                # Top grasp.
+                else:
+                    grasp = self.top_grasp_thresh + 1e-3
+                arr = np.array([x, y, z, grasp, 1.0, 0.0, 0.0, 0.0],
+                               dtype=np.float32)
+                return Action(arr)
+
+            # Something went wrong.
+            raise NotImplementedError("No valid action found.")
+
+        return _event_to_action

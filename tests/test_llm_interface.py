@@ -71,7 +71,7 @@ def test_openai_llm():
     """Tests for OpenAILLM()."""
     cache_dir = "_fake_llm_cache_dir"
     utils.reset_config({"llm_prompt_cache_dir": cache_dir})
-    if "OPENAI_API_KEY" not in os.environ:
+    if "OPENAI_API_KEY" not in os.environ:  # pragma: no cover
         os.environ["OPENAI_API_KEY"] = "dummy API key"
     # Create an OpenAILLM with the curie model.
     llm = OpenAILLM("text-curie-001")

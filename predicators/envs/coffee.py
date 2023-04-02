@@ -10,8 +10,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class CoffeeEnv(BaseEnv):
@@ -269,12 +269,12 @@ class CoffeeEnv(BaseEnv):
             next_state.set(self._jug, "is_filled", 1.0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks,
                                num_cups_lst=CFG.coffee_num_cups_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
                                num_cups_lst=CFG.coffee_num_cups_test,
                                rng=self._test_rng)
@@ -300,11 +300,6 @@ class CoffeeEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:  # pragma: no cover
-        raise NotImplementedError(
-            "This base class method will be deprecated soon!")
-
-    @property
     def action_space(self) -> Box:
         # Normalized dx, dy, dz, dtilt, dwrist, dfingers.
         return Box(low=-1., high=1., shape=(6, ), dtype=np.float32)
@@ -312,7 +307,7 @@ class CoffeeEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
@@ -443,7 +438,7 @@ class CoffeeEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         # Create the parts of the initial state that do not change between
         # tasks, which includes the robot and the machine.
@@ -524,7 +519,7 @@ class CoffeeEnv(BaseEnv):
                 "is_filled": 0.0  # jug starts off empty
             }
             init_state = utils.create_state_from_dict(state_dict)
-            task = Task(init_state, goal)
+            task = EnvironmentTask(init_state, goal)
             tasks.append(task)
         return tasks
 

@@ -91,6 +91,7 @@ class GlobalSettings:
     painting_num_objs_test = [3, 4]
     painting_max_objs_in_goal = float("inf")
     painting_goal_receptacles = "box_and_shelf"  # box_and_shelf, box, shelf
+    painting_raise_environment_failure = True
 
     # repeated_nextto_painting (rnt_painting) env parameters
     rnt_painting_num_objs_train = [8, 9, 10]
@@ -286,6 +287,16 @@ class GlobalSettings:
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
 
+    # exit_garage env parameters
+    exit_garage_pick_place_refine_penalty = 0.2
+    exit_garage_min_num_obstacles = 2
+    exit_garage_max_num_obstacles = 4  # inclusive
+    exit_garage_rrt_extend_fn_threshold = 1e-4
+    exit_garage_rrt_num_control_samples = 100
+    exit_garage_rrt_num_attempts = 10
+    exit_garage_rrt_num_iters = 100
+    exit_garage_rrt_sample_goal_eps = 0.1
+
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
@@ -296,6 +307,11 @@ class GlobalSettings:
     satellites_num_obj_train = [3, 4]
     satellites_num_sat_test = [3, 4]
     satellites_num_obj_test = [4, 5]
+
+    # sokoban env parameters
+    # use Sokoban-huge-v0 to show-off, the bottleneck is just the gym env
+    # initialization and resetting. use Sokoban-small-v0 for tests
+    sokoban_gym_name = "Sokoban-v0"
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -373,6 +389,12 @@ class GlobalSettings:
     sesame_check_static_object_changes = False
     # Warning: making this tolerance any lower breaks pybullet_blocks.
     sesame_static_object_change_tol = 1e-3
+    # If True, then bilevel planning approaches will run task planning only,
+    # and then greedily sample and execute in the environment. This avoids the
+    # need for a simulator. In the future, we could check to see if the
+    # observed states match (at the abstract level) the expected states, and
+    # replan if not. But for now, we just execute each step without checking.
+    bilevel_plan_without_sim = False
 
     # evaluation parameters
     log_dir = "logs"
@@ -488,10 +510,10 @@ class GlobalSettings:
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
-    refinement_estimation_num_skeletons_generated = 3
+    refinement_estimation_num_skeletons_generated = 8
 
     # refinement data collection parameters
-    refinement_data_num_skeletons = 3
+    refinement_data_num_skeletons = 8
     refinement_data_skeleton_generator_timeout = 20
     refinement_data_low_level_search_timeout = 5  # timeout for refinement try
     refinement_data_failed_refinement_penalty = 5  # added time on failure
@@ -500,6 +522,9 @@ class GlobalSettings:
     cnn_refinement_estimator_crop = False  # True
     cnn_refinement_estimator_crop_bounds = (320, 400, 100, 650)
     cnn_refinement_estimator_downsample = 2
+
+    # bridge policy parameters
+    bridge_policy = "oracle"  # default bridge policy
 
     # glib explorer parameters
     glib_min_goal_size = 1
@@ -611,6 +636,7 @@ class GlobalSettings:
                 {
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
+                    "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
                 })[args.get("env", "")],

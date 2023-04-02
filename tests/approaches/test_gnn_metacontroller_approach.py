@@ -58,7 +58,7 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
         "horizon": 10
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = create_approach("gnn_metacontroller", env.predicates,
                                get_gt_options(env.get_name()), env.types,
                                env.action_space, train_tasks)
