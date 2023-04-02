@@ -296,8 +296,8 @@ def test_stick_button():
 
     # Special test for PlaceStick NSRT because it's not used by oracle.
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
-    PlaceStick = next(iter(n for n in nsrts if n.name == "PlaceStick"))
-    ground_nsrt = PlaceStick.ground([robot, stick])
+    nsrt = next(iter(n for n in nsrts if n.name == "PlaceStickFromNothing"))
+    ground_nsrt = nsrt.ground([robot, stick])
     rng = np.random.default_rng(123)
     option = ground_nsrt.sample_option(state, set(), rng)
     assert -1 <= option.params[0] <= 1
