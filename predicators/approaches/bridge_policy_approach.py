@@ -106,7 +106,7 @@ class BridgePolicyApproach(OracleApproach):
                 if failed_option is not None:
                     all_failed_options.append(failed_option)
                     logging.debug(f"Failed option: {failed_option.name}"
-                                f"{failed_option.objects}.")
+                                  f"{failed_option.objects}.")
                     logging.debug(f"Error: {e.args[0]}")
                     self._bridge_policy.record_failed_option(failed_option)
 

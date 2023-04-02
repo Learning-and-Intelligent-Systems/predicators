@@ -38,6 +38,7 @@ def test_bridge_policy_approach():
                                     get_gt_options(env.get_name()), env.types,
                                     env.action_space, train_tasks)
     assert approach.get_name() == "bridge_policy"
+    assert not approach.is_learning_based
     task = test_tasks[0]
     policy = approach.solve(task, timeout=500)
     traj = utils.run_policy_with_simulator(policy,
@@ -58,10 +59,10 @@ def test_bridge_policy_approach():
         policy = approach.solve(task, timeout=500)
         with pytest.raises(ApproachFailure) as e:
             traj = utils.run_policy_with_simulator(policy,
-                                                env.simulate,
-                                                task.init,
-                                                task.goal_holds,
-                                                max_num_steps=25)
+                                                   env.simulate,
+                                                   task.init,
+                                                   task.goal_holds,
+                                                   max_num_steps=25)
         assert "Loop detected" in str(e)
 
     # Test case where the second time that the planner is called, it returns

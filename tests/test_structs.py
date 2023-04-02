@@ -887,8 +887,9 @@ def test_query():
     query = Query()
     with pytest.raises(NotImplementedError):
         _ = query.cost
-    demo_query = DemonstrationQuery(0)
+    demo_query = DemonstrationQuery(0, info={"hello": "world"})
     assert demo_query.cost == 1
+    assert demo_query.get_info("hello") == "world"
 
 
 def test_lifted_decision_lists():

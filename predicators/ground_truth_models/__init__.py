@@ -138,7 +138,6 @@ def get_gt_ldl_bridge_policy(env_name: str, types: Set[Type],
             factory = cls()
             return factory.get_ldl_bridge_policy(env_name, types, predicates,
                                                  options, nsrts)
-    # pragma: no cover
     raise NotImplementedError("Ground-truth bridge policy not implemented for "
                               f"env: {env_name}")
 
