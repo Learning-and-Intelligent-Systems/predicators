@@ -292,6 +292,11 @@ def test_stick_button():
     event.xdata = event.x
     event.ydata = event.y
     assert isinstance(event_to_action(state, event), Action)
+    # Test quitting.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "q")
+    with pytest.raises(utils.HumanDemonstrationFailure) as e:
+        event_to_action(state, event)
+    assert "Human quit" in str(e)
     plt.close()
 
     # Special test for PlaceStick NSRT because it's not used by oracle.
