@@ -48,7 +48,7 @@ def test_bridge_policy_approach():
     assert task.goal_holds(traj.states[-1])
 
     # Test case where bridge policy hands back control to planner immediately.
-    # The policy should get stuck and not achieve the goal, but not crash.
+    # The policy should get stuck and detect a loop.
     def done_option_policy(s):
         del s  # ununsed
         raise BridgePolicyDone()
@@ -56,14 +56,13 @@ def test_bridge_policy_approach():
     with patch(f"{_ORACLE_PATH}.OracleBridgePolicy.get_option_policy") as m:
         m.return_value = done_option_policy
         policy = approach.solve(task, timeout=500)
-        traj = utils.run_policy_with_simulator(policy,
-                                               env.simulate,
-                                               task.init,
-                                               task.goal_holds,
-                                               max_num_steps=25)
-        assert not task.goal_holds(traj.states[-1])
-        for t in range(-1, -5, -1):
-            assert traj.actions[t].get_option().name == "Place"
+        with pytest.raises(ApproachFailure) as e:
+            traj = utils.run_policy_with_simulator(policy,
+                                                env.simulate,
+                                                task.init,
+                                                task.goal_holds,
+                                                max_num_steps=25)
+        assert "Loop detected" in str(e)
 
     # Test case where the second time that the planner is called, it returns
     # an invalid option.
