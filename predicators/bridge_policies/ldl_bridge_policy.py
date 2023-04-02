@@ -1,43 +1,26 @@
 """A bridge policy that uses a lifted decision list with failure conditions."""
 
 import abc
-import functools
 import logging
-from typing import Callable, Collection, List, Set, Tuple
+from typing import Callable, Collection, List, Set
 
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
-from predicators.structs import GroundAtom, LiftedDecisionList, \
-    ParameterizedOption, Predicate, State, _Option
-
-
-@functools.lru_cache(maxsize=None)
-def get_failure_predicate(option: ParameterizedOption,
-                          idxs: Tuple[int]) -> Predicate:
-    """Create a Failure predicate for a parameterized option."""
-    idx_str = ",".join(map(str, idxs))
-    arg_types = [option.types[i] for i in idxs]
-    return Predicate(f"{option.name}Failed_arg{idx_str}",
-                     arg_types,
-                     _classifier=lambda s, o: False)
+from predicators.structs import NSRT, GroundAtom, LiftedDecisionList, \
+    ParameterizedOption, Predicate, State, Type, _Option
 
 
 class LDLBridgePolicy(BaseBridgePolicy):
     """A lifted decision list bridge policy with failure conditions."""
 
+    def __init__(self, types: Set[Type], predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], nsrts: Set[NSRT]) -> None:
+        super().__init__(types, predicates, options, nsrts)
+        self._failure_predicates = utils.get_all_failure_predicates(options)
+
     @abc.abstractmethod
     def _get_current_ldl(self) -> LiftedDecisionList:
         """Return the current lifted decision list policy."""
-
-    @property
-    def _failure_predicates(self) -> Set[Predicate]:
-        """Get all possible failure predicates."""
-        failure_preds: Set[Predicate] = set()
-        for param_opt in self._options:
-            for i in range(len(param_opt.types)):
-                # Only unary for now.
-                failure_preds.add(get_failure_predicate(param_opt, (i, )))
-        return failure_preds
 
     def _bridge_policy(self, state: State, atoms: Set[GroundAtom],
                        failed_options: List[_Option]) -> _Option:
@@ -75,7 +58,7 @@ class LDLBridgePolicy(BaseBridgePolicy):
             for i, obj in enumerate(objs):
                 # Just unary for now.
                 idxs = (i, )
-                pred = get_failure_predicate(param_opt, idxs)
+                pred = utils.get_failure_predicate(param_opt, idxs)
                 failure_atom = GroundAtom(pred, [obj])
                 failure_atoms.add(failure_atom)
         return failure_atoms

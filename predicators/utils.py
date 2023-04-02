@@ -2685,6 +2685,31 @@ def create_pddl_problem(objects: Collection[Object],
 """
 
 
+@functools.lru_cache(maxsize=None)
+def get_failure_predicate(option: ParameterizedOption,
+                          idxs: Tuple[int]) -> Predicate:
+    """Create a Failure predicate for a parameterized option."""
+    idx_str = ",".join(map(str, idxs))
+    arg_types = [option.types[i] for i in idxs]
+    return Predicate(f"{option.name}Failed_arg{idx_str}",
+                     arg_types,
+                     _classifier=lambda s, o: False)
+
+
+def get_all_failure_predicates(options: Set[ParameterizedOption],
+                               max_arity: int = 1) -> Set[Predicate]:
+    """Get all possible failure predicates."""
+    failure_preds: Set[Predicate] = set()
+    for param_opt in options:
+        num_types = len(param_opt.types)
+        max_num_idxs = min(max_arity, num_types)
+        all_idxs = list(range(num_types))
+        for arity in range(1, max_num_idxs + 1):
+            for idxs in itertools.combinations(all_idxs, arity):
+                failure_preds.add(get_failure_predicate(param_opt, idxs))
+    return failure_preds
+
+
 @dataclass
 class VideoMonitor(LoggingMonitor):
     """A monitor that renders each state and action encountered.

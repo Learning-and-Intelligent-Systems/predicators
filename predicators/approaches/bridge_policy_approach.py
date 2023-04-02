@@ -26,21 +26,18 @@ Oracle bridge policy in stick button:
 """
 
 import logging
-from typing import Callable, List, Optional, Sequence, Set
+import time
+from typing import Callable, List, Set
 
 from gym.spaces import Box
-import time
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
-from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
-from predicators.structs import Action, DefaultState, \
-    DemonstrationQuery, DemonstrationResponse, InteractionRequest, \
-    InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
-    Type, _Option
+from predicators.structs import Action, DefaultState, ParameterizedOption, \
+    Predicate, State, Task, Type, _Option
 from predicators.utils import OptionExecutionFailure
 
 
@@ -61,9 +58,8 @@ class BridgePolicyApproach(OracleApproach):
         predicates = self._get_current_predicates()
         options = initial_options
         nsrts = self._get_current_nsrts()
-        self._bridge_policy = create_bridge_policy(CFG.bridge_policy,
+        self._bridge_policy = create_bridge_policy(CFG.bridge_policy, types,
                                                    predicates, options, nsrts)
-        self._bridge_dataset: BridgeDataset = []
 
     @classmethod
     def get_name(cls) -> str:

@@ -7,8 +7,7 @@ import pytest
 
 import predicators.bridge_policies.ldl_bridge_policy
 from predicators import utils
-from predicators.bridge_policies.oracle_bridge_policy import \
-    OracleBridgePolicy, _create_oracle_ldl_bridge_policy
+from predicators.bridge_policies.oracle_bridge_policy import OracleBridgePolicy
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
@@ -23,7 +22,8 @@ def test_oracle_bridge_policy():
     env = get_or_create_env("painting")
     options = get_gt_options("painting")
     nsrts = get_gt_nsrts("painting", env.predicates, options)
-    bridge_policy = OracleBridgePolicy(env.predicates, options, nsrts)
+    bridge_policy = OracleBridgePolicy(env.types, env.predicates, options,
+                                       nsrts)
     rng = np.random.default_rng(123)
 
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
@@ -51,7 +51,3 @@ def test_oracle_bridge_policy():
                                             task.goal_holds,
                                             max_num_steps=CFG.horizon)
         assert "Unsound option policy" in str(e)
-
-    with pytest.raises(NotImplementedError):
-        _create_oracle_ldl_bridge_policy("not a real env", nsrts,
-                                         env.predicates, options)
