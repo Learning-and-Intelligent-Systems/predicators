@@ -23,7 +23,7 @@ _ORACLE_PATH = predicators.bridge_policies.oracle_bridge_policy.__name__
 def test_bridge_policy_approach():
     """Tests for BridgePolicyApproach class."""
     args = {
-        "refinement_estimator": "bridge_policy",
+        "approach": "bridge_policy",
         "env": "painting",
         "painting_lid_open_prob": 0.0,
         "painting_raise_environment_failure": False,
@@ -106,7 +106,7 @@ def test_bridge_policy_approach():
 
     # Test successful usage in stick button.
     args = {
-        "refinement_estimator": "bridge_policy",
+        "approach": "bridge_policy",
         "env": "stick_button",
         "num_train_tasks": 0,
         "num_test_tasks": 1,
