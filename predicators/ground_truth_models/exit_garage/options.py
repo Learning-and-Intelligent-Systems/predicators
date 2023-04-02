@@ -179,7 +179,9 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Sample a point in the environment
             sample = [
                 rng.uniform(ExitGarageEnv.x_lb, ExitGarageEnv.x_ub),  # x
-                rng.uniform(ExitGarageEnv.y_lb, ExitGarageEnv.y_ub),  # y
+                rng.uniform(
+                    ExitGarageEnv.y_lb, ExitGarageEnv.y_ub -
+                    ExitGarageEnv.storage_area_height),  # y
                 rng.uniform(-np.pi, np.pi),  # theta
             ]
             return np.array(sample, dtype=np.float32)

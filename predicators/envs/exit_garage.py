@@ -55,7 +55,7 @@ class ExitGarageEnv(BaseEnv):
 
     robot_action_magnitude: ClassVar[float] = 0.1
     car_max_absolute_vel: ClassVar[float] = 0.1
-    car_steering_omega_limit: ClassVar[float] = 1
+    car_steering_omega_limit: ClassVar[float] = 0.5
 
     # Types
     _car_type = Type("car", ["x", "y", "theta"])  # x, y, heading angle
