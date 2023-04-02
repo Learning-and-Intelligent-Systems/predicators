@@ -6,11 +6,11 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.structs import NSRT, PNAD, Action, DefaultState, \
-    DemonstrationQuery, DummyOption, GroundAtom, InteractionRequest, \
-    InteractionResult, LDLRule, LiftedAtom, LiftedDecisionList, \
-    LowLevelTrajectory, Object, ParameterizedOption, Predicate, Query, \
-    Segment, State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option
+    DemonstrationQuery, DummyOption, GroundAtom, GroundMacro, \
+    InteractionRequest, InteractionResult, LDLRule, LiftedAtom, \
+    LiftedDecisionList, LowLevelTrajectory, Macro, Object, \
+    ParameterizedOption, Predicate, Query, Segment, State, STRIPSOperator, \
+    Task, Type, Variable, _Atom, _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
@@ -1112,3 +1112,119 @@ def test_lifted_decision_lists():
 
     # Make sure lifted decision lists are hashable.
     assert len({ldl, ldl2}) == 1
+
+
+def test_macros():
+    """Tests for Macro and GroundMacro."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    robot_type = Type("robot_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    on_table = Predicate("OnTable", [cup_type], lambda s, o: True)
+    free = Predicate("Free", [robot_type], lambda s, o: True)
+    holding = Predicate("Holding", [cup_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    robot_var = robot_type("?robot")
+    pick_option = utils.SingletonParameterizedOption(
+        "Pick", lambda _1, _2, _3, _4: Action(np.zeros(1)))
+    place_option = utils.SingletonParameterizedOption(
+        "Place",
+        lambda _1, _2, _3, _4: Action(np.zeros(1)),
+        types=[plate_type])
+
+    pick_nsrt = NSRT("Pick",
+                     parameters=[cup_var, robot_var],
+                     preconditions={on_table([cup_var]),
+                                    free([robot_var])},
+                     add_effects={holding([cup_var])},
+                     delete_effects={on_table([cup_var]),
+                                     free([robot_var])},
+                     ignore_effects=set(),
+                     option=pick_option,
+                     option_vars=[],
+                     _sampler=utils.null_sampler)
+
+    place_nsrt = NSRT(
+        "Place",
+        parameters=[cup_var, plate_var, robot_var],
+        preconditions={holding([cup_var])},
+        add_effects={on([cup_var, plate_var]),
+                     free([robot_var])},
+        delete_effects={not_on([cup_var, plate_var])},
+        ignore_effects=set(),
+        option=place_option,
+        option_vars=[plate_var],
+        _sampler=utils.null_sampler)
+
+    m_plate_var = plate_type("?mplate")
+    m_robot_var = robot_type("?mrob")
+    m_cup_var1 = cup_type("?mcup1")
+    m_cup_var2 = cup_type("?mcup2")
+    macro_parameters = [m_plate_var, m_robot_var, m_cup_var1, m_cup_var2]
+    macro_nsrts = [place_nsrt, pick_nsrt, place_nsrt]
+    nsrt_to_macro_params = [
+        {
+            cup_var: m_cup_var1,
+            plate_var: m_plate_var,
+            robot_var: m_robot_var
+        },
+        {
+            cup_var: m_cup_var2,
+            robot_var: m_robot_var
+        },
+        {
+            cup_var: m_cup_var2,
+            plate_var: m_plate_var,
+            robot_var: m_robot_var
+        },
+    ]
+    macro = Macro(macro_parameters, macro_nsrts, nsrt_to_macro_params)
+    assert str(macro) == repr(macro) == "Macro[Place(?mcup1, ?mplate, ?mrob), Pick(?mcup2, ?mrob), Place(?mcup2, ?mplate, ?mrob)]"  # pylint: disable=line-too-long
+    macro2 = Macro(macro_parameters, macro_nsrts, nsrt_to_macro_params)
+    assert macro == macro2
+    assert len({macro, macro2}) == 1
+    macro3 = Macro(macro_parameters, macro_nsrts[1:], nsrt_to_macro_params[1:])
+    assert macro != macro3
+    assert macro3 < macro
+    assert macro > macro3
+    # Note: even though free is a precond of pick, it is not a precond of this
+    # macro because the first place NSRT has free as an add effect.
+    expected_preconditions = {
+        holding([m_cup_var1]),
+        on_table([m_cup_var2]),
+    }
+    assert macro.preconditions == expected_preconditions
+    plate_obj = plate_type("plate")
+    robot_obj = robot_type("robby")
+    cup_obj1 = cup_type("cup1")
+    cup_obj2 = cup_type("cup2")
+    ground_macro = macro.ground([plate_obj, robot_obj, cup_obj1, cup_obj2])
+    assert str(ground_macro) == repr(ground_macro) == "GroundMacro[Place(cup1, plate, robby), Pick(cup2, robby), Place(cup2, plate, robby)]"  # pylint: disable=line-too-long
+    ground_macro2 = macro2.ground([plate_obj, robot_obj, cup_obj1, cup_obj2])
+    assert ground_macro == ground_macro2
+    assert len({ground_macro, ground_macro2}) == 1
+    ground_macro3 = macro3.ground([plate_obj, robot_obj, cup_obj1, cup_obj2])
+    assert ground_macro != ground_macro3
+    assert ground_macro3 < ground_macro
+    assert ground_macro > ground_macro3
+    expected_preconditions = {
+        holding([cup_obj1]),
+        on_table([cup_obj2]),
+    }
+    assert ground_macro.preconditions == expected_preconditions
+    expected_ground_nsrts = [
+        place_nsrt.ground((cup_obj1, plate_obj, robot_obj)),
+        pick_nsrt.ground((cup_obj2, robot_obj)),
+        place_nsrt.ground((cup_obj2, plate_obj, robot_obj)),
+    ]
+    assert ground_macro.ground_nsrts == expected_ground_nsrts
+    remainder = ground_macro
+    while expected_ground_nsrts:
+        next_expected_ground_nsrt = expected_ground_nsrts.pop(0)
+        next_ground_nsrt, remainder = remainder.pop()
+        assert next_ground_nsrt == next_expected_ground_nsrt
+    assert len(remainder) == 0
+    ground_macro4 = GroundMacro.from_ground_nsrts(ground_macro2.ground_nsrts)
+    assert ground_macro4 == ground_macro2

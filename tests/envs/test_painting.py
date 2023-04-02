@@ -1,4 +1,6 @@
 """Test cases for the painting environment."""
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
@@ -12,6 +14,7 @@ def test_painting():
     """Tests for PaintingEnv class."""
     utils.reset_config({
         "env": "painting",
+        "painting_initial_holding_prob": 0.0,
     })
     env = PaintingEnv()
     for task in env.get_train_tasks():
@@ -58,6 +61,72 @@ def test_painting():
         if i < 3:
             # Test rendering
             env.render_state(state, task, caption="caption")
+
+    # Test interface for collecting human demonstrations.
+    event_to_action = env.get_event_to_action_fn()
+    fig = plt.figure()
+    for key in ["w", "d", "b", "s", "p"]:
+        event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, key)
+        assert isinstance(event_to_action(state, event), Action)
+    # Test picking with side grasp.
+    state = env.reset("test", 0)
+    obj = state.get_objects(obj_type)[0]
+    denom = (env.env_ub - env.env_lb)
+    plt_x = (state.get(obj, "pose_y") - env.env_lb) / denom
+    plt_y = -1000  # just needs to be lower than the object itself
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    side_grasp_action = event_to_action(state, event)
+    assert side_grasp_action.arr[3] < env.side_grasp_thresh
+    assert abs(side_grasp_action.arr[4] - 1.0) < 1e-5
+    # Test picking with top grasp.
+    plt_y = 1000  # just needs to be higher than the object itself
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    top_grasp_action = event_to_action(state, event)
+    assert top_grasp_action.arr[3] > env.top_grasp_thresh
+    assert abs(top_grasp_action.arr[4] - 1.0) < 1e-5
+    # Test placing (on table).
+    state2 = env.simulate(state, side_grasp_action)
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    place_action = event_to_action(state2, event)
+    assert abs(place_action.arr[4] - (-1.0)) < 1e-5
+    # Test quitting.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "q")
+    with pytest.raises(utils.HumanDemonstrationFailure) as e:
+        event_to_action(state, event)
+    assert "Human quit" in str(e)
+    # Test invalid action with no click.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "i")
+    with pytest.raises(NotImplementedError) as e:
+        event_to_action(state, event)
+    assert "No valid action found" in str(e)
+    # Test invalid action with click.
+    plt_x = -1000
+    plt_y = -1000
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    with pytest.raises(NotImplementedError) as e:
+        event_to_action(state, event)
+    assert "No valid action found" in str(e)
+    plt.close()
 
 
 def test_painting_goals():
