@@ -3,7 +3,7 @@
 import abc
 import functools
 import logging
-from typing import Callable, List, Set, Tuple
+from typing import Callable, Collection, List, Set, Tuple
 
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
@@ -17,7 +17,7 @@ def get_failure_predicate(option: ParameterizedOption,
     """Create a Failure predicate for a parameterized option."""
     idx_str = ",".join(map(str, idxs))
     arg_types = [option.types[i] for i in idxs]
-    return Predicate(f"{option.name}Failed-arg{idx_str}",
+    return Predicate(f"{option.name}Failed_arg{idx_str}",
                      arg_types,
                      _classifier=lambda s, o: False)
 
@@ -29,22 +29,23 @@ class LDLBridgePolicy(BaseBridgePolicy):
     def _get_current_ldl(self) -> LiftedDecisionList:
         """Return the current lifted decision list policy."""
 
+    @property
+    def _failure_predicates(self) -> Set[Predicate]:
+        """Get all possible failure predicates."""
+        failure_preds: Set[Predicate] = set()
+        for param_opt in self._options:
+            for i in range(len(param_opt.types)):
+                # Only unary for now.
+                failure_preds.add(get_failure_predicate(param_opt, (i, )))
+        return failure_preds
+
     def _bridge_policy(self, state: State, atoms: Set[GroundAtom],
                        failed_options: List[_Option]) -> _Option:
 
         ldl = self._get_current_ldl()
 
         # Add failure atoms based on failed_options.
-        atoms_with_failures = set(atoms)
-        failed_option_specs = {(o.parent, tuple(o.objects))
-                               for o in failed_options}
-        for (param_opt, objs) in failed_option_specs:
-            for i, obj in enumerate(objs):
-                # Just unary for now.
-                idxs = (i, )
-                pred = get_failure_predicate(param_opt, idxs)
-                failure_atom = GroundAtom(pred, [obj])
-                atoms_with_failures.add(failure_atom)
+        atoms_with_failures = atoms | self._get_failure_atoms(failed_options)
 
         objects = set(state)
         goal: Set[GroundAtom] = set()  # task goal not used
@@ -64,3 +65,17 @@ class LDLBridgePolicy(BaseBridgePolicy):
             return option
 
         return _option_policy
+
+    def _get_failure_atoms(
+            self, failed_options: Collection[_Option]) -> Set[GroundAtom]:
+        failure_atoms: Set[GroundAtom] = set()
+        failed_option_specs = {(o.parent, tuple(o.objects))
+                               for o in failed_options}
+        for (param_opt, objs) in failed_option_specs:
+            for i, obj in enumerate(objs):
+                # Just unary for now.
+                idxs = (i, )
+                pred = get_failure_predicate(param_opt, idxs)
+                failure_atom = GroundAtom(pred, [obj])
+                failure_atoms.add(failure_atom)
+        return failure_atoms

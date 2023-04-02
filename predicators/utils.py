@@ -909,6 +909,9 @@ class StateWithCache(State):
 class LoggingMonitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        """Called when the monitor starts a new episode."""
+
     @abc.abstractmethod
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
         """Record an observation and the action that is about to be taken.
@@ -948,6 +951,8 @@ def run_policy(
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
+        if monitor is not None:
+            monitor.reset(train_or_test, task_idx)
     obs = env.get_observation()
     assert isinstance(obs, State)
     state = obs
@@ -1124,7 +1129,11 @@ def option_policy_to_policy(
         last_state = state
 
         if cur_option is DummyOption or cur_option.terminal(state):
-            cur_option = option_policy(state)
+            try:
+                cur_option = option_policy(state)
+            except OptionExecutionFailure as e:
+                e.info["last_failed_option"] = last_option
+                raise e
             if not cur_option.initiable(state):
                 raise OptionExecutionFailure(
                     "Unsound option policy.",
@@ -1304,7 +1313,7 @@ def get_variable_combinations(
 
 
 def get_all_ground_atoms_for_predicate(
-        predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
+        predicate: Predicate, objects: Collection[Object]) -> Set[GroundAtom]:
     """Get all groundings of the predicate given objects.
 
     Note: we don't want lru_cache() on this function because we might want
@@ -2222,7 +2231,7 @@ class _LDLParser:
         # Validate parameters.
         variables = variable_name_to_variable.values()
         for v in nsrt.parameters:
-            assert v in variables, "NSRT parameter {v} missing from LDL rule"
+            assert v in variables, f"NSRT parameter {v} missing from LDL rule"
         return nsrt
 
 
