@@ -99,13 +99,13 @@ def count_positives_for_ops(
                     all_ground_operators_given_partial(op, objects,
                                                        option_var_to_obj)):
                 if max_groundings is not None and \
-                        grounding_idx > max_groundings:
+                    grounding_idx > max_groundings:
                     break
                 # Check the ground_op against the segment.
                 if not ground_op.preconditions.issubset(segment.init_atoms):
                     continue
                 if ground_op.add_effects == segment.add_effects and \
-                        ground_op.delete_effects == segment.delete_effects:
+                    ground_op.delete_effects == segment.delete_effects:
                     covered_by_some_op = True
                     true_positive_idxs[op_idx].add(seg_idx)
                 else:
@@ -114,7 +114,7 @@ def count_positives_for_ops(
         if covered_by_some_op:
             num_true_positives += 1
     return num_true_positives, num_false_positives, \
-           true_positive_idxs, false_positive_idxs
+        true_positive_idxs, false_positive_idxs
 
 
 def count_branching_factor(strips_ops: List[STRIPSOperator],
@@ -469,13 +469,13 @@ def line_segments_intersect(seg1: LineSegment, seg2: LineSegment) -> bool:
     """
 
     def _subtract(a: Tuple[float, float], b: Tuple[float, float]) \
-            -> Tuple[float, float]:
+        -> Tuple[float, float]:
         x1, y1 = a
         x2, y2 = b
         return (x1 - x2), (y1 - y2)
 
     def _cross_product(a: Tuple[float, float], b: Tuple[float, float]) \
-            -> float:
+        -> float:
         x1, y1 = b
         x2, y2 = a
         return x1 * y2 - x2 * y1
@@ -571,7 +571,7 @@ def line_segment_intersects_rectangle(seg: LineSegment,
     """Checks if a line segment intersects a rectangle."""
     # Case 1: one of the end points of the segment is in the rectangle.
     if rect.contains_point(seg.x1, seg.y1) or \
-            rect.contains_point(seg.x2, seg.y2):
+        rect.contains_point(seg.x2, seg.y2):
         return True
     # Case 2: the segment intersects with one of the rectangle sides.
     return any(line_segments_intersect(s, seg) for s in rect.line_segments)
@@ -978,7 +978,7 @@ def run_policy(
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                        type(e) in exceptions_to_break_on:
+                    type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
@@ -1040,7 +1040,7 @@ def run_policy_with_simulator(
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                        type(e) in exceptions_to_break_on:
+                    type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
@@ -1559,7 +1559,7 @@ def run_hill_climbing(
 
         # Stops when heuristic reaches specified value.
         if early_termination_heuristic_thresh is not None \
-                and last_heuristic <= early_termination_heuristic_thresh:
+            and last_heuristic <= early_termination_heuristic_thresh:
             break
 
         if check_goal(cur_node.state):

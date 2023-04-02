@@ -440,7 +440,7 @@ class ExitGarageEnv(BaseEnv):
     @classmethod
     def _object_to_geom(cls, obj: Object, state: State) -> _Geom2D:
         """Converts objects to _Geom2D for collision checking, rendering."""
-        # Storage area has a static
+        # Storage area has a static position
         if obj.is_instance(cls._storage_type):
             return utils.Rectangle(x=cls.x_lb,
                                    y=cls.y_ub - cls.storage_area_height,
