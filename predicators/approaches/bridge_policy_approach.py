@@ -70,6 +70,7 @@ class BridgePolicyApproach(OracleApproach):
         return self._bridge_policy.is_learning_based
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        start_time = time.perf_counter()
         self._bridge_policy.reset()
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
@@ -86,12 +87,10 @@ class BridgePolicyApproach(OracleApproach):
         # twice with the same state.
         last_bridge_policy_state = DefaultState
 
-        start_time = time.perf_counter()
-
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy, last_bridge_policy_state
 
-            if time.perf_counter() - start_time > CFG.timeout:
+            if time.perf_counter() - start_time > timeout:
                 raise ApproachTimeout("Bridge policy timed out.")
 
             # Normal execution. Either keep executing the current option, or
@@ -142,7 +141,7 @@ class BridgePolicyApproach(OracleApproach):
             current_task = Task(s, task.goal)
             current_control = "planner"
             duration = time.perf_counter() - start_time
-            remaining_time = CFG.timeout - duration
+            remaining_time = timeout - duration
             option_policy = self._get_option_policy_by_planning(
                 current_task, remaining_time)
             current_policy = utils.option_policy_to_policy(

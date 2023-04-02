@@ -8,7 +8,7 @@ import pytest
 import predicators.approaches.bridge_policy_approach
 import predicators.bridge_policies.oracle_bridge_policy
 from predicators import utils
-from predicators.approaches import ApproachFailure
+from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.bridge_policy_approach import BridgePolicyApproach
 from predicators.bridge_policies import BridgePolicyDone
 from predicators.envs import get_or_create_env
@@ -47,6 +47,13 @@ def test_bridge_policy_approach():
                                            task.goal_holds,
                                            max_num_steps=CFG.horizon)
     assert task.goal_holds(traj.states[-1])
+
+    # Test bridge policy timeout.
+    with patch(f"time.perf_counter") as m:
+        m.return_value = float("inf")
+        with pytest.raises(ApproachTimeout) as e:
+            policy(task.init)
+        assert "Bridge policy timed out" in str(e)
 
     # Test case where bridge policy hands back control to planner immediately.
     # The policy should get stuck and detect a loop.
