@@ -49,7 +49,7 @@ def test_bridge_policy_approach():
     assert task.goal_holds(traj.states[-1])
 
     # Test bridge policy timeout.
-    with patch(f"time.perf_counter") as m:
+    with patch("time.perf_counter") as m:
         m.return_value = float("inf")
         with pytest.raises(ApproachTimeout) as e:
             policy(task.init)
