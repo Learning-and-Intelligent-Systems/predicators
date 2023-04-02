@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Callable, Collection, List, Set
+from typing import Callable, List, Set
 
 from predicators import utils
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
@@ -28,7 +28,7 @@ class LDLBridgePolicy(BaseBridgePolicy):
         ldl = self._get_current_ldl()
 
         # Add failure atoms based on failed_options.
-        atoms_with_failures = atoms | self._get_failure_atoms(failed_options)
+        atoms_with_failures = atoms | utils.get_failure_atoms(failed_options)
 
         objects = set(state)
         goal: Set[GroundAtom] = set()  # task goal not used
@@ -48,17 +48,3 @@ class LDLBridgePolicy(BaseBridgePolicy):
             return option
 
         return _option_policy
-
-    def _get_failure_atoms(
-            self, failed_options: Collection[_Option]) -> Set[GroundAtom]:
-        failure_atoms: Set[GroundAtom] = set()
-        failed_option_specs = {(o.parent, tuple(o.objects))
-                               for o in failed_options}
-        for (param_opt, objs) in failed_option_specs:
-            for i, obj in enumerate(objs):
-                # Just unary for now.
-                idxs = (i, )
-                pred = utils.get_failure_predicate(param_opt, idxs)
-                failure_atom = GroundAtom(pred, [obj])
-                failure_atoms.add(failure_atom)
-        return failure_atoms

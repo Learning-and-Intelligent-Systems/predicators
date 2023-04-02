@@ -2696,18 +2696,44 @@ def get_failure_predicate(option: ParameterizedOption,
                      _classifier=lambda s, o: False)
 
 
+def _get_idxs_to_failure_predicate(
+        option: ParameterizedOption,
+        max_arity: int = 1) -> Dict[Tuple[int, ...], Predicate]:
+    """Helper for get_all_failure_predicates() and get_failure_atoms()."""
+    idxs_to_failure_predicate: Dict[Tuple[int, ...], Predicate] = {}
+    num_types = len(option.types)
+    max_num_idxs = min(max_arity, num_types)
+    all_idxs = list(range(num_types))
+    for arity in range(1, max_num_idxs + 1):
+        for idxs in itertools.combinations(all_idxs, arity):
+            pred = get_failure_predicate(option, idxs)
+            idxs_to_failure_predicate[idxs] = pred
+    return idxs_to_failure_predicate
+
+
 def get_all_failure_predicates(options: Set[ParameterizedOption],
                                max_arity: int = 1) -> Set[Predicate]:
     """Get all possible failure predicates."""
     failure_preds: Set[Predicate] = set()
     for param_opt in options:
-        num_types = len(param_opt.types)
-        max_num_idxs = min(max_arity, num_types)
-        all_idxs = list(range(num_types))
-        for arity in range(1, max_num_idxs + 1):
-            for idxs in itertools.combinations(all_idxs, arity):
-                failure_preds.add(get_failure_predicate(param_opt, idxs))
+        preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
+        failure_preds.update(preds.values())
     return failure_preds
+
+
+def get_failure_atoms(failed_options: Collection[_Option],
+                      max_arity: int = 1) -> Set[GroundAtom]:
+    """Get ground failure atoms for the collection of failure options."""
+    failure_atoms: Set[GroundAtom] = set()
+    failed_option_specs = {(o.parent, tuple(o.objects))
+                           for o in failed_options}
+    for (param_opt, objs) in failed_option_specs:
+        preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
+        for idxs, pred in preds.items():
+            obj_for_idxs = [objs[i] for i in idxs]
+            failure_atom = GroundAtom(pred, obj_for_idxs)
+            failure_atoms.add(failure_atom)
+    return failure_atoms
 
 
 @dataclass

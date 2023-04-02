@@ -92,7 +92,7 @@ class BridgePolicyApproach(OracleApproach):
             nonlocal current_control, current_policy, last_bridge_policy_state
 
             if time.perf_counter() - start_time > CFG.timeout:
-                raise ApproachTimeout("Ran out of time.")
+                raise ApproachTimeout("Bridge policy timed out.")
 
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
@@ -140,8 +140,10 @@ class BridgePolicyApproach(OracleApproach):
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
+            duration = time.perf_counter() - start_time
+            remaining_time = CFG.timeout - duration
             option_policy = self._get_option_policy_by_planning(
-                current_task, timeout)
+                current_task, remaining_time)
             current_policy = utils.option_policy_to_policy(
                 option_policy,
                 max_option_steps=CFG.max_num_steps_option_rollout,
