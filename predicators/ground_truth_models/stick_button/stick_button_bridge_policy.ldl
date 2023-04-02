@@ -11,16 +11,16 @@
     :goals ()
     :action (PickStickFromNothing ?robot ?stick)
   )
-  (:rule PlaceStick2
+  (:rule PlaceStickFromButton
     :parameters (?robot - robot ?stick - stick)
     :preconditions (and (Grasped ?robot ?stick) (RobotPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (AboveNoButton )) (not (HandEmpty ?robot)))
     :goals ()
-    :action (PlaceStick2 ?robot ?stick)
+    :action (PlaceStickFromButton ?robot ?stick)
   )
-  (:rule PlaceStick
+  (:rule PlaceStickFromNothing
     :parameters (?robot - robot ?stick - stick)
     :preconditions (and (AboveNoButton ) (Grasped ?robot ?stick) (RobotPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (HandEmpty ?robot)))
     :goals ()
-    :action (PlaceStick ?robot ?stick)
+    :action (PlaceStickFromNothing ?robot ?stick)
   )
 )
