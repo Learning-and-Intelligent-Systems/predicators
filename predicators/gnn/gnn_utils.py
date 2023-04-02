@@ -111,11 +111,12 @@ def train_model(model: Any, dataloaders: Dict,
     return best_seen_model_weights
 
 
-def compute_normalizers(data: List[Dict],
-                        normalize_nodes: bool = True,
-                        normalize_edges: bool = True,
-                        normalize_globals: bool = True,
-                        ) -> Dict[str, Tuple[Array, Array]]:
+def compute_normalizers(
+    data: List[Dict],
+    normalize_nodes: bool = True,
+    normalize_edges: bool = True,
+    normalize_globals: bool = True,
+) -> Dict[str, Tuple[Array, Array]]:
     """Compute the normalizers of the given list of graphs.
 
     These can be passed into normalize_graph.

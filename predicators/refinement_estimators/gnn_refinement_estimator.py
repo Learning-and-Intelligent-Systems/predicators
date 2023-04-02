@@ -22,7 +22,7 @@ from predicators.gnn.gnn_utils import GraphDictDataset, compute_normalizers, \
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import NSRT, GroundAtom, Predicate, \
+from predicators.structs import Array, NSRT, GroundAtom, Predicate, \
     RefinementDatapoint, State, Task, _GroundNSRT
 
 device = torch.device(
@@ -175,7 +175,9 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         R = functools.partial(utils.wrap_predicate, prefix="REV-")
 
         # Add 1 node per object and create node features array
-        graph = {"n_node": np.reshape(num_objects, [1]).astype(np.int64)}
+        graph: Dict[str, Array] = {
+            "n_node": np.reshape(num_objects, [1]).astype(np.int64)
+        }
         node_features = np.zeros((num_objects, num_node_features))
         # Handle each object's state features
         for obj in state:
@@ -185,10 +187,9 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                 node_features[obj_index, feat_index] = val
 
         # Initialize feature vectors for nullary/binary predicates
-        edge_features_dict: DefaultDict[Tuple[int, int],
-                                        np.ndarray] = defaultdict(
-            lambda: np.zeros(num_edge_features)
-        )
+        edge_features_dict: DefaultDict[
+            Tuple[int, int],
+            np.ndarray] = defaultdict(lambda: np.zeros(num_edge_features))
         atoms_globals = np.zeros(len(self._nullary_predicates), dtype=np.int64)
         goal_globals = np.zeros(len(self._nullary_predicates), dtype=np.int64)
 
@@ -233,7 +234,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         action_globals[self._nsrts.index(action.parent)] = 1
 
         # Organize
-        graph["nodes"] = node_features
+        graph["nodes"] = node_features.astype(np.float32)
         graph["globals"] = np.r_[atoms_globals, goal_globals, action_globals]
         senders, receivers, edges = [], [], []
         for (sender, receiver), edge in edge_features_dict.items():
@@ -320,7 +321,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
     def save_model(self, filepath: Path) -> None:
         info = {
             "exemplar": self._data_exemplar,
-            "state_dict": self._gnn.state_dict(),
+            "state_dict": self._gnn.state_dict() if self._gnn else None,
             "input_normalizers": self._input_normalizers,
             "target_normalizers": self._target_normalizers,
         }
@@ -336,7 +337,9 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         self._gnn = setup_graph_net(example_dataset,
                                     num_steps=CFG.gnn_num_message_passing,
                                     layer_size=CFG.gnn_layer_size)
-        self._gnn.load_state_dict(info["state_dict"])
+        state_dict = info["state_dict"]
+        if state_dict is not None:
+            self._gnn.load_state_dict(info["state_dict"])
         self._gnn.to(device)
         self._input_normalizers = info["input_normalizers"]
         self._target_normalizers = info["target_normalizers"]
