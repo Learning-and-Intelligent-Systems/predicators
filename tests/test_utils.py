@@ -566,6 +566,9 @@ def test_run_policy():
         def __init__(self):
             self.num_observations = 0
 
+        def reset(self, train_or_test, task_idx):
+            self.num_observations = 0
+
         def observe(self, obs, action):
             self.num_observations += 1
 
@@ -702,10 +705,14 @@ def test_run_policy_with_simulator():
     # Test with monitor.
     class _NullMonitor(utils.LoggingMonitor):
 
+        def reset(self, train_or_test, task_idx):
+            pass
+
         def observe(self, obs, action):
             pass
 
     monitor = _NullMonitor()
+    monitor.reset("train", 0)
     traj = utils.run_policy_with_simulator(_policy,
                                            _simulator,
                                            state,
@@ -721,6 +728,9 @@ def test_run_policy_with_simulator():
         def __init__(self):
             self.num_observations = 0
 
+        def reset(self, train_or_test, task_idx):
+            self.num_observations = 0
+
         def observe(self, obs, action):
             self.num_observations += 1
 
@@ -728,6 +738,7 @@ def test_run_policy_with_simulator():
         raise ValueError("mock error")
 
     monitor = _CountingMonitor()
+    monitor.reset("train", 0)
     try:
         utils.run_policy_with_simulator(_policy,
                                         _simulator,

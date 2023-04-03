@@ -913,6 +913,11 @@ class LoggingMonitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
     @abc.abstractmethod
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        """Called when the monitor starts a new episode."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
         """Record an observation and the action that is about to be taken.
 
@@ -951,6 +956,8 @@ def run_policy(
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
+        if monitor is not None:
+            monitor.reset(train_or_test, task_idx)
     obs = env.get_observation()
     assert isinstance(obs, State)
     state = obs
@@ -2697,6 +2704,9 @@ class VideoMonitor(LoggingMonitor):
     _render_fn: Callable[[Optional[Action], Optional[str]], Video]
     _video: Video = field(init=False, default_factory=list)
 
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        self._video = []
+
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
         del obs  # unused
         self._video.extend(self._render_fn(action, None))
@@ -2716,6 +2726,9 @@ class SimulateVideoMonitor(LoggingMonitor):
     _task: Task
     _render_state_fn: Callable[[State, Task, Optional[Action]], Video]
     _video: Video = field(init=False, default_factory=list)
+
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        self._video = []
 
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
         assert isinstance(obs, State)
