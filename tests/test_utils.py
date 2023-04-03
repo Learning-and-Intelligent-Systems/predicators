@@ -712,6 +712,7 @@ def test_run_policy_with_simulator():
             pass
 
     monitor = _NullMonitor()
+    monitor.reset("train", 0)
     traj = utils.run_policy_with_simulator(_policy,
                                            _simulator,
                                            state,
@@ -737,6 +738,7 @@ def test_run_policy_with_simulator():
         raise ValueError("mock error")
 
     monitor = _CountingMonitor()
+    monitor.reset("train", 0)
     try:
         utils.run_policy_with_simulator(_policy,
                                         _simulator,
