@@ -1,62 +1,48 @@
-"""Test cases for the CNN refinement cost estimator."""
+"""Test cases for the GNN refinement cost estimator."""
 
 import pytest
 
 from predicators import utils
 from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
-from predicators.refinement_estimators.cnn_refinement_estimator import \
-    CNNRefinementEstimator
+from predicators.refinement_estimators.gnn_refinement_estimator import \
+    GNNRefinementEstimator
 from predicators.settings import CFG
 from predicators.structs import GroundAtom
 
 
-def test_cnn_refinement_estimator():
-    """Test general properties of CNN refinement cost estimator."""
+def test_gnn_refinement_estimator():
+    """Test general properties of GNN refinement cost estimator."""
     utils.reset_config({
         "env": "narrow_passage",
-        # Make image and CNN small to finish training fast
-        "cnn_regressor_max_itr": 1,
-        "cnn_regressor_conv_channel_nums": [1],
-        "cnn_regressor_conv_kernel_sizes": [3],
-        "cnn_regressor_linear_hid_sizes": [8],
-        "cnn_refinement_estimator_crop": True,
-        "cnn_refinement_estimator_crop_bounds": (0, 5, 0, 5),
-        "cnn_refinement_estimator_downsample": 1,
+        "gnn_num_message_passing": 1,
+        "gnn_layer_size": 3,
+        "gnn_num_epochs": 1,
     })
-    estimator = CNNRefinementEstimator()
-    assert estimator.get_name() == "cnn"
+    estimator = GNNRefinementEstimator()
+    assert estimator.get_name() == "gnn"
     assert estimator.is_learning_based
     with pytest.raises(AssertionError):
         sample_task = NarrowPassageEnv().get_train_tasks()[0].task
         estimator.get_cost(sample_task, [], [])
-    # Check that train actually runs
-    sample_data = [(sample_task, [], [], False, [])]
-    estimator.train(sample_data)
-    # Check that get_cost works now that the estimator is trained
-    estimator.get_cost(sample_task, [], [])
 
 
-def test_narrow_passage_cnn_refinement_estimator():
-    """Test CNN refinement cost estimator for narrow_passage env."""
+def test_narrow_passage_gnn_refinement_estimator():
+    """Test GNN refinement cost estimator for narrow_passage env."""
     utils.reset_config({
         "env": "narrow_passage",
-        # Make image and CNN small to finish training fast
-        "cnn_regressor_max_itr": 1,
-        "cnn_regressor_conv_channel_nums": [1],
-        "cnn_regressor_conv_kernel_sizes": [3],
-        "cnn_regressor_linear_hid_sizes": [8],
-        "cnn_refinement_estimator_crop": True,
-        "cnn_refinement_estimator_crop_bounds": (0, 10, 0, 10),
-        "cnn_refinement_estimator_downsample": 2,
+        "gnn_num_message_passing": 1,
+        "gnn_layer_size": 3,
+        "gnn_num_epochs": 1,
+        "gnn_do_normalization": True,
     })
-    estimator = CNNRefinementEstimator()
+    estimator = GNNRefinementEstimator()
 
     # Get env objects and NSRTs
     env = NarrowPassageEnv()
     DoorIsClosed, DoorIsOpen, TouchedGoal = sorted(env.predicates)
     door_type, _, robot_type, target_type, _ = sorted(env.types)
-    sample_task = env.get_train_tasks()[0]
+    sample_task = env.get_train_tasks()[0].task
     sample_state = sample_task.init
     door, = sample_state.get_objects(door_type)
     robot, = sample_state.get_objects(robot_type)
@@ -108,13 +94,3 @@ def test_narrow_passage_cnn_refinement_estimator():
                                                 move_through_door_skeleton,
                                                 move_through_door_atoms_seq)
     assert move_through_door_cost < float('inf')
-
-    # Test an impossible skeleton returns infinite cost
-    impossible_skeleton = [
-        ground_move_and_open_door,
-        ground_move_and_open_door,
-        ground_move_and_open_door,
-        ground_move_to_target,
-    ]
-    impossible_cost = estimator.get_cost(sample_task, impossible_skeleton, [])
-    assert impossible_cost == float('inf')

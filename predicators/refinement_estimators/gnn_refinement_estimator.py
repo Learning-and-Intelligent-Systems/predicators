@@ -22,7 +22,7 @@ from predicators.gnn.gnn_utils import GraphDictDataset, compute_normalizers, \
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import Array, NSRT, GroundAtom, Predicate, \
+from predicators.structs import NSRT, Array, GroundAtom, Predicate, \
     RefinementDatapoint, State, Task, _GroundNSRT
 
 device = torch.device(
@@ -57,6 +57,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
 
     def get_cost(self, initial_task: Task, skeleton: List[_GroundNSRT],
                  atoms_sequence: List[Set[GroundAtom]]) -> float:
+        assert self._gnn is not None, "Need to train"
         cost = 0
         state, goal = initial_task.init, initial_task.goal
         # Run each step of the skeleton through the GNN model to estimate cost
@@ -90,6 +91,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                 graph_inputs.append(
                     self._graphify_single_input(state, atoms, goal, action))
                 graph_targets.append(self._graphify_single_target(value))
+        assert len(graph_inputs) and len(graph_targets), "No usable data"
         self._data_exemplar = (graph_inputs[0], graph_targets[0])
 
         # Normalize if needed
