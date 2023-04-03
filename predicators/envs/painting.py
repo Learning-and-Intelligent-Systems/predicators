@@ -99,6 +99,8 @@ class PaintingEnv(BaseEnv):
                                   self._IsDirty_holds)
         self._IsClean = Predicate("IsClean", [self._obj_type],
                                   self._IsClean_holds)
+        self._IsOpen = Predicate("IsOpen", [self._lid_type],
+                                 self._IsOpen_holds)
         # Static objects (always exist no matter the settings).
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
@@ -283,7 +285,7 @@ class PaintingEnv(BaseEnv):
             self._InBox, self._InShelf, self._IsBoxColor, self._IsShelfColor,
             self._GripperOpen, self._OnTable, self._NotOnTable,
             self._HoldingTop, self._HoldingSide, self._Holding, self._IsWet,
-            self._IsDry, self._IsDirty, self._IsClean
+            self._IsDry, self._IsDirty, self._IsClean, self._IsOpen
         }
 
     @property
@@ -616,6 +618,10 @@ class PaintingEnv(BaseEnv):
     def _IsClean_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         return not self._IsDirty_holds(state, [obj])
+
+    def _IsOpen_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        lid, = objects
+        return state.get(lid, "is_open") > 0.5
 
     def _get_held_object(self, state: State) -> Optional[Object]:
         for obj in state:
