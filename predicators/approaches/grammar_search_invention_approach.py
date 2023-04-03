@@ -805,27 +805,17 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
             # path).
             yield (None, frozenset(s | {predicate}), 1.0)
 
-    def get_transitions_in_frontier(frontier_idx: int) -> List[Tuple[Set[GroundAtom], Set[GroundAtom]]]:
-        transitions_in_frontier = []
-        for traj in atom_dataset:
-            ground_atom_states = traj[1]
-            if frontier_idx >= len(ground_atom_states):
-                # Skip trajs for which we're trying to get
-                # a frontier idx that would go beyond the
-                # initial state.
-                continue
-            preimage_state_idx = len(ground_atom_states) - 1 - frontier_idx
-            postimage_state_idx = preimage_state_idx + 1
-            transitions_in_frontier.append((ground_atom_states[preimage_state_idx], ground_atom_states[postimage_state_idx]))
-        return transitions_in_frontier
-
-    def get_candidates_for_transition(transition: Tuple[Set[GroundAtom], Set[GroundAtom]], curr_preds: Set[Predicate]) -> Dict[Predicate, float]:
+    def get_candidates_for_transition(
+            transition: Tuple[Set[GroundAtom], Set[GroundAtom]],
+            curr_preds: Set[Predicate]) -> Dict[Predicate, float]:
         new_pred_candidates = {}
         # First, we get the set of all atoms that change in this transition.
         transition_add_effs = transition[1] - transition[0]
 
         # # NOTE: Debugging
         # if "Forall[0:block].[NOT-Covers(0,1)]" in str(transition_add_effs):
+        #     import ipdb; ipdb.set_trace()
+        # if "Forall[0:block].[((0:block).grasp<=[idx 0]-0.489)(0)]" in str(transition_add_effs):
         #     import ipdb; ipdb.set_trace()
 
         # # If we already have a predicate for these, then we're good, we skip
@@ -838,20 +828,42 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
         # to true in this transition.
         for atom in transition_add_effs:
             if atom.predicate not in initial_predicates and atom.predicate not in curr_preds:
-                new_pred_candidates[atom.predicate] = candidates[atom.predicate]        
+                new_pred_candidates[atom.predicate] = candidates[
+                    atom.predicate]
         return new_pred_candidates
 
     # Start the search with no candidates.
     curr_learned_preds: FrozenSet[Predicate] = frozenset()
-    # import ipdb; ipdb.set_trace()
-    # TODO: The atom dataset seems to have the low-level actions, not the
-    # atoms only after each high-level action! Thus, this implementation is
-    # completely broken!
-    max_frontier_idx = max(len(traj[1]) for traj in atom_dataset)
-    num_candidates_per_frontier : List[Tuple[int, int]] = []
+
+    # We need to segment trajectories by option so we can backchain thru
+    # frontiers.
+    assert CFG.segmenter == "option_changes"
+    segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
+
+    def get_transitions_in_frontier(
+            frontier_idx: int
+    ) -> List[Tuple[Set[GroundAtom], Set[GroundAtom]]]:
+        assert frontier_idx > 0  # Cannot get transitions for the 0th index, since there's no postimage state.
+        transitions_in_frontier = []
+        for segmented_traj in segmented_trajs:
+            traj_len = len(segmented_traj)
+            if frontier_idx > traj_len:
+                # Skip trajs for which we're trying to get
+                # a frontier idx that would go beyond the
+                # initial state.
+                continue
+            init_atoms = segmented_traj[traj_len - frontier_idx].init_atoms
+            final_atoms = segmented_traj[traj_len - frontier_idx].final_atoms
+            transitions_in_frontier.append((init_atoms, final_atoms))
+
+        return transitions_in_frontier
+
+    max_frontier_idx = max(len(traj) for traj in segmented_trajs) + 1
+    
+    num_candidates_per_frontier: List[Tuple[int, int]] = []
     total_num_candidates_evaled = 0
     total_num_evals = 0
-    
+
     # We start at frontier 2 because 2 steps from the end is the preimage state
     # of the penultimate transition.
     for frontier_idx in range(2, max_frontier_idx):
@@ -861,10 +873,9 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
         # TODO: maybe implement a smart way to avoid repeating the same predicate evaluations
         # after you confirm this works.
         for idx, curr_transition in enumerate(transitions_for_frontier):
-            curr_candidates = get_candidates_for_transition(curr_transition, set(curr_learned_preds) | candidates_tried_this_frontier)
-            
-            # if "Forall[0:block].[NOT-Covers(0,1)]" in str(curr_candidates):
-            #     import ipdb; ipdb.set_trace()
+            curr_candidates = get_candidates_for_transition(
+                curr_transition,
+                set(curr_learned_preds) | candidates_tried_this_frontier)
 
             candidates_tried_this_frontier |= set(curr_candidates.keys())
 
@@ -872,13 +883,24 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
                 continue
             total_num_candidates_evaled += len(curr_candidates.keys())
             num_candidates_for_curr_frontier += len(curr_candidates.keys())
-            logging.info(f"Evaluating transition {idx} in frontier {frontier_idx} with {len(curr_candidates)} candidates.")
-            curr_frontier_pruned_atom_dataset = utils.prune_ground_atom_dataset(atom_dataset, set(curr_learned_preds) | initial_predicates | set(curr_candidates))
+            logging.info(
+                f"Evaluating transition {idx} in frontier {frontier_idx} with {len(curr_candidates)} candidates."
+            )
+            curr_frontier_pruned_atom_dataset = utils.prune_ground_atom_dataset(
+                atom_dataset,
+                set(curr_learned_preds) | initial_predicates
+                | set(curr_candidates))
 
-            learned_preds_dict = {pred: candidates[pred] for pred in curr_learned_preds}
+            learned_preds_dict = {
+                pred: candidates[pred]
+                for pred in curr_learned_preds
+            }
             score_function = create_score_function(
                 CFG.grammar_search_score_function, initial_predicates,
-                curr_frontier_pruned_atom_dataset, {**curr_candidates, **learned_preds_dict}, train_tasks)
+                curr_frontier_pruned_atom_dataset, {
+                    **curr_candidates,
+                    **learned_preds_dict
+                }, train_tasks)
 
             # Then, run optimization on these candidates + goal predicates + currently
             # learned predicates alone.
@@ -900,14 +922,15 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
                     h = heuristics[i]
                     prev_h = heuristics[i - 1]
                     logging.info(f"\tOn step {i}, added {new_addition}, with "
-                                f"heuristic {h:.3f} (an improvement of "
-                                f"{prev_h - h:.3f} over the previous step)")
+                                 f"heuristic {h:.3f} (an improvement of "
+                                 f"{prev_h - h:.3f} over the previous step)")
             elif CFG.grammar_search_search_algorithm == "gbfs":
-                path, _ = utils.run_gbfs(curr_learned_preds,
-                                        _check_goal,
-                                        _get_successors,
-                                        score_function.evaluate,
-                                        max_evals=CFG.grammar_search_gbfs_num_evals)
+                path, _ = utils.run_gbfs(
+                    curr_learned_preds,
+                    _check_goal,
+                    _get_successors,
+                    score_function.evaluate,
+                    max_evals=CFG.grammar_search_gbfs_num_evals)
             else:
                 raise NotImplementedError(
                     "Unrecognized grammar_search_search_algorithm: "
@@ -915,14 +938,16 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
             # Update the current predicate set with the learned predicates.
             curr_learned_preds = path[-1]
             total_num_evals += len(path) * len(curr_candidates.keys())
-        num_candidates_per_frontier.append((frontier_idx, num_candidates_for_curr_frontier))
+        num_candidates_per_frontier.append(
+            (frontier_idx, num_candidates_for_curr_frontier))
 
     logging.info("Completed predicate invention!")
-    logging.info(f"Evaluated {total_num_candidates_evaled} total candidates with {total_num_evals} predicate eval calls.")
+    logging.info(
+        f"Evaluated {total_num_candidates_evaled} total candidates with {total_num_evals} predicate eval calls."
+    )
     logging.info("Frontier Learning Summary:")
     for elem in num_candidates_per_frontier:
         logging.info(f"Evaluated {elem[1]} candidates for frontier {elem[0]}.")
-
 
     kept_predicates = curr_learned_preds
     # Filter out predicates that don't appear in some operator preconditions.
