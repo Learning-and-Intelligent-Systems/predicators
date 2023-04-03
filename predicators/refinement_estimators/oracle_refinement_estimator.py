@@ -27,6 +27,9 @@ class OracleRefinementEstimator(BaseRefinementEstimator):
             return narrow_passage_oracle_estimator(self._env,
                                                    initial_task.init, skeleton,
                                                    atoms_sequence)
+        if env_name == "exit_garage":
+            return exit_garage_oracle_estimator(self._env, initial_task.init,
+                                                skeleton, atoms_sequence)
 
         # Given environment doesn't have an implemented oracle estimator
         raise NotImplementedError(
@@ -62,4 +65,21 @@ def narrow_passage_oracle_estimator(
             cost += cost_of_open_door
         elif ground_nsrt.name == "MoveToTarget":
             cost += 1
+    return cost
+
+
+def exit_garage_oracle_estimator(
+    env: BaseEnv,
+    initial_state: State,
+    skeleton: List[_GroundNSRT],
+    atoms_sequence: List[Set[GroundAtom]],
+) -> float:
+    """Oracle refinement estimation function for exit_garage env."""
+    del env, initial_state, atoms_sequence  # unused
+
+    # Each picked-up obstacle decreases the refinement cost of DriveCarToExit
+    cost = 0
+    for ground_nsrt in skeleton:
+        if ground_nsrt.name == "PickupObstacle":
+            cost -= 1
     return cost

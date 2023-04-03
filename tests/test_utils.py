@@ -3147,3 +3147,27 @@ def test_parse_ldl_from_str():
                          get_gt_options(env.get_name()))
     ldl = utils.parse_ldl_from_str(ldl_str, env.types, env.predicates, nsrts)
     assert str(ldl) == ldl_str
+
+
+def test_motion_planning():
+    """Basic assertion test for BiRRT."""
+    # Create dummy functions to pass into BiRRT.
+    dummy_sample_fn = lambda x: x
+    dummy_extend_fn = lambda x, y: [x, y]
+    dummy_collision_fn = lambda x: False
+    dummy_distance_fn = lambda x, y: 0.0
+
+    birrt = utils.BiRRT(
+        dummy_sample_fn,
+        dummy_extend_fn,
+        dummy_collision_fn,
+        dummy_distance_fn,
+        np.random.default_rng(0),
+        num_attempts=1,
+        num_iters=1,
+        smooth_amt=0,
+    )
+
+    # Test that query_to_goal_fn for BiRRT raises a NotImplementedError
+    with pytest.raises(NotImplementedError):
+        birrt.query_to_goal_fn(0, lambda: 1, lambda x: False)
