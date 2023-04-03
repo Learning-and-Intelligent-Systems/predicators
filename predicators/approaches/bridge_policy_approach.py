@@ -25,7 +25,7 @@ Learned bridge policy in painting:
         --seed 0 --painting_lid_open_prob 0.0 \
         --painting_raise_environment_failure False --max_initial_demos 0 \
         --interactive_num_requests_per_cycle 1 --num_online_learning_cycles 1 \
-        --debug --num_test_tasks 1 --segmenter every_step --demonstrator human
+        --debug --num_test_tasks 1 --segmenter oracle --demonstrator human
 
 Oracle bridge policy in stick button:
     python predicators/main.py --env stick_button --approach bridge_policy \
@@ -34,8 +34,9 @@ Oracle bridge policy in stick button:
 Learned bridge policy in stick button:
     python predicators/main.py --env stick_button --approach bridge_policy \
         --seed 0 --horizon 10000 --max_initial_demos 0 \
-        --interactive_num_requests_per_cycle 3 --num_online_learning_cycles 3 \
-        --debug --num_test_tasks 3 --segmenter contacts --demonstrator human
+        --interactive_num_requests_per_cycle 1 \
+        --num_online_learning_cycles 100 \
+        --num_test_tasks 10 --segmenter contacts --demonstrator human
 """
 
 import logging
