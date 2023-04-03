@@ -843,6 +843,10 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
 
     # Start the search with no candidates.
     curr_learned_preds: FrozenSet[Predicate] = frozenset()
+    # import ipdb; ipdb.set_trace()
+    # TODO: The atom dataset seems to have the low-level actions, not the
+    # atoms only after each high-level action! Thus, this implementation is
+    # completely broken!
     max_frontier_idx = max(len(traj[1]) for traj in atom_dataset)
     num_candidates_per_frontier : List[Tuple[int, int]] = []
     total_num_candidates_evaled = 0
