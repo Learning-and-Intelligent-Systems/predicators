@@ -18,7 +18,7 @@ def test_repeated_nextto_painting():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 18
+    assert len(env.predicates) == 19
     assert {pred.name for pred in env.goal_predicates} == \
         {"InBox", "IsBoxColor", "InShelf", "IsShelfColor"}
     assert len(get_gt_options(env.get_name())) == 9

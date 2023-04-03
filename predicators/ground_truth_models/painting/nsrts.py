@@ -45,6 +45,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         IsDry = predicates["IsDry"]
         IsDirty = predicates["IsDirty"]
         IsClean = predicates["IsClean"]
+        IsOpen = predicates["IsOpen"]
 
         # Options
         Pick = options["Pick"]
@@ -332,7 +333,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = [robot, lid]
         option = OpenLid
         preconditions = {LiftedAtom(GripperOpen, [robot])}
-        add_effects = set()
+        add_effects = {LiftedAtom(IsOpen, [lid])}
         delete_effects = set()
 
         openlid_nsrt = NSRT("OpenLid", parameters, preconditions, add_effects,
