@@ -912,9 +912,6 @@ class StateWithCache(State):
 class LoggingMonitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
-    def reset(self, train_or_test: str, task_idx: int) -> None:
-        """Called when the monitor starts a new episode."""
-
     @abc.abstractmethod
     def reset(self, train_or_test: str, task_idx: int) -> None:
         """Called when the monitor starts a new episode."""
