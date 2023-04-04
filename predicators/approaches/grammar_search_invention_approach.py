@@ -803,48 +803,127 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # path).
                 yield (None, frozenset(s | {predicate}), 1.0)
 
-        # Start the search with no candidates.
-        init: FrozenSet[Predicate] = frozenset()
+        def get_candidates_for_transition(
+                transition: Tuple[Set[GroundAtom], Set[GroundAtom]],
+                curr_learned_preds: Set[Predicate]) -> Dict[Predicate, float]:
+            new_pred_candidates = {}
+            # First, we get the set of all atoms that change in this transition.
+            transition_add_effs = transition[1] - transition[0]
+            # Otherwise, return all candidate predicates that change from false
+            # to true in this transition.
+            for atom in transition_add_effs:
+                if atom.predicate not in initial_predicates and atom.predicate not in curr_learned_preds:
+                    new_pred_candidates[atom.predicate] = candidates[
+                        atom.predicate]
+            return new_pred_candidates
 
-        # Greedy local hill climbing search.
-        if CFG.grammar_search_search_algorithm == "hill_climbing":
-            path, _, heuristics = utils.run_hill_climbing(
-                init,
-                _check_goal,
-                _get_successors,
-                score_function.evaluate,
-                enforced_depth=CFG.grammar_search_hill_climbing_depth,
-                parallelize=CFG.grammar_search_parallelize_hill_climbing)
-            logging.info("\nHill climbing summary:")
-            for i in range(1, len(path)):
-                new_additions = path[i] - path[i - 1]
-                assert len(new_additions) == 1
-                new_addition = next(iter(new_additions))
-                h = heuristics[i]
-                prev_h = heuristics[i - 1]
-                logging.info(f"\tOn step {i}, added {new_addition}, with "
-                             f"heuristic {h:.3f} (an improvement of "
-                             f"{prev_h - h:.3f} over the previous step)")
-        elif CFG.grammar_search_search_algorithm == "gbfs":
-            path, _ = utils.run_gbfs(
-                init,
-                _check_goal,
-                _get_successors,
-                score_function.evaluate,
-                max_evals=CFG.grammar_search_gbfs_num_evals)
+        if CFG.grammar_search_strategy == "naive":
+            # Start the search with no candidates.
+            init: FrozenSet[Predicate] = frozenset()
+            path = _local_search_among_candidates(init, _check_goal,
+                                                  _get_successors,
+                                                  score_function)
+
+            # The total number of predicate sets evaluated is just the
+            # ((number of candidates selected) + 1) * total number of candidates.
+            # However, since 'path' always has length one more than the
+            # number of selected candidates (since it evaluates the empty
+            # predicate set first), we can just compute it as below.
+            assert self._metrics.get("total_num_predicate_evaluations") is None
+            self._metrics["total_num_predicate_evaluations"] = len(path) * len(
+                candidates)
+            kept_predicates = path[-1]
+
+        elif CFG.grammar_search_strategy == "dynamic_frontiers":
+            # Start the search with no learned predicates.
+            curr_learned_preds: FrozenSet[Predicate] = frozenset()
+            curr_candidates: Dict[Predicate, float] = {}
+
+            def _get_successors_from_curr_candidates(
+                s: FrozenSet[Predicate]
+            ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+                for predicate in sorted(set(curr_candidates) - s):  # determinism
+                    # Actions not needed. Frozensets for hashing. The cost of
+                    # 1.0 is irrelevant because we're doing GBFS / hill
+                    # climbing and not A* (because we don't care about the
+                    # path).
+                    yield (None, frozenset(s | {predicate}), 1.0)
+
+            # We need to segment trajectories by option so we can backchain
+            # through frontiers.
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in atom_dataset
+            ]
+
+            def _get_transitions_in_frontier(
+                frontier_idx: int
+            ) -> List[Tuple[Set[GroundAtom], Set[GroundAtom]]]:
+                # Cannot get transitions for the 0th index,
+                # since this is the final state.
+                assert frontier_idx > 0
+                transitions_in_frontier = []
+                for segmented_traj in segmented_trajs:
+                    traj_len = len(segmented_traj)
+                    if frontier_idx > traj_len:
+                        # Skip trajs for which we're trying to get
+                        # a frontier idx that would go beyond the
+                        # initial state.
+                        continue
+                    init_atoms = segmented_traj[traj_len -
+                                                frontier_idx].init_atoms
+                    final_atoms = segmented_traj[traj_len -
+                                                 frontier_idx].final_atoms
+                    transitions_in_frontier.append((init_atoms, final_atoms))
+                return transitions_in_frontier
+
+            max_frontier_idx = max(len(traj) for traj in segmented_trajs) + 1
+            total_num_evals = 0
+            # We start at frontier 2 because 2 steps from the end is the
+            # preimage state of the penultimate transition.
+            for frontier_idx in range(2, max_frontier_idx):
+                transitions_for_frontier = _get_transitions_in_frontier(
+                    frontier_idx)
+                for idx, curr_transition in enumerate(
+                        transitions_for_frontier):
+                    curr_candidates = get_candidates_for_transition(
+                        curr_transition, set(curr_learned_preds))
+                    if len(curr_candidates.keys()) == 0:
+                        continue
+                    logging.info(
+                        f"Evaluating transition {idx} in frontier " +
+                        f"{frontier_idx} with {len(curr_candidates)} " +
+                        "candidates."
+                    )
+                    curr_frontier_pruned_atom_dataset = \
+                        utils.prune_ground_atom_dataset(
+                        atom_dataset,
+                        set(curr_learned_preds) | initial_predicates
+                        | set(curr_candidates))
+                    learned_preds_dict = {
+                        pred: candidates[pred]
+                        for pred in curr_learned_preds
+                    }
+                    score_function = create_score_function(
+                        CFG.grammar_search_score_function, initial_predicates,
+                        curr_frontier_pruned_atom_dataset, {
+                            **curr_candidates,
+                            **learned_preds_dict
+                        }, train_tasks)
+                    path = _local_search_among_candidates(
+                        curr_learned_preds, _check_goal, _get_successors_from_curr_candidates,
+                        score_function)
+                    # Update the current predicate set with the learned
+                    # predicates.
+                    curr_learned_preds = path[-1]
+                    total_num_evals += len(path) * len(curr_candidates)
+            assert self._metrics.get("total_num_predicate_evaluations") is None
+            self._metrics["total_num_predicate_evaluations"] = total_num_evals
+            kept_predicates = curr_learned_preds
+
         else:
-            raise NotImplementedError(
-                "Unrecognized grammar_search_search_algorithm: "
-                f"{CFG.grammar_search_search_algorithm}.")
-        kept_predicates = path[-1]
-        # The total number of predicate sets evaluated is just the
-        # ((number of candidates selected) + 1) * total number of candidates.
-        # However, since 'path' always has length one more than the
-        # number of selected candidates (since it evaluates the empty
-        # predicate set first), we can just compute it as below.
-        assert self._metrics.get("total_num_predicate_evaluations") is None
-        self._metrics["total_num_predicate_evaluations"] = len(path) * len(
-            candidates)
+            raise NotImplementedError("Unrecognized grammar_search_strategy: "
+                                      f"{CFG.grammar_search_strategy}.")
 
         # Filter out predicates that don't appear in some operator
         # preconditions.
@@ -875,3 +954,43 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         score_function.evaluate(kept_predicates)  # log useful numbers
 
         return set(kept_predicates)
+
+
+def _local_search_among_candidates(
+    init_set: FrozenSet[Predicate],
+    check_goal: Callable[[FrozenSet[Predicate]], bool],
+    get_successors: Callable[[FrozenSet[Predicate]],
+                             Iterator[Tuple[None, FrozenSet[Predicate],
+                                            float]]],
+    score_function: _PredicateSearchScoreFunction
+) -> List[FrozenSet[Predicate]]:
+    # Greedy local hill climbing search.
+    if CFG.grammar_search_search_algorithm == "hill_climbing":
+        path, _, heuristics = utils.run_hill_climbing(
+            init_set,
+            check_goal,
+            get_successors,
+            score_function.evaluate,
+            enforced_depth=CFG.grammar_search_hill_climbing_depth,
+            parallelize=CFG.grammar_search_parallelize_hill_climbing)
+        logging.info("\nHill climbing summary:")
+        for i in range(1, len(path)):
+            new_additions = path[i] - path[i - 1]
+            assert len(new_additions) == 1
+            new_addition = next(iter(new_additions))
+            h = heuristics[i]
+            prev_h = heuristics[i - 1]
+            logging.info(f"\tOn step {i}, added {new_addition}, with "
+                         f"heuristic {h:.3f} (an improvement of "
+                         f"{prev_h - h:.3f} over the previous step)")
+    elif CFG.grammar_search_search_algorithm == "gbfs":
+        path, _ = utils.run_gbfs(init_set,
+                                 check_goal,
+                                 get_successors,
+                                 score_function.evaluate,
+                                 max_evals=CFG.grammar_search_gbfs_num_evals)
+    else:
+        raise NotImplementedError(
+            "Unrecognized grammar_search_search_algorithm: "
+            f"{CFG.grammar_search_search_algorithm}.")
+    return path

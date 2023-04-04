@@ -553,6 +553,7 @@ class GlobalSettings:
     grammar_search_max_nondemos = 50
     grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
+    grammar_search_strategy = "naive"
     grammar_search_search_algorithm = "hill_climbing"  # hill_climbing or gbfs
     grammar_search_hill_climbing_depth = 0
     grammar_search_parallelize_hill_climbing = False
