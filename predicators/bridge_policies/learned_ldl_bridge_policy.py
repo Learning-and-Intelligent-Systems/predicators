@@ -6,16 +6,16 @@ from typing import Dict, List, Set, Tuple
 from predicators import utils
 from predicators.bridge_policies.ldl_bridge_policy import LDLBridgePolicy
 from predicators.structs import NSRT, BridgeDataset, GroundAtom, LDLRule, \
-    LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, \
+    LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, Type, \
     _GroundNSRT
 
 
 class LearnedLDLBridgePolicy(LDLBridgePolicy):
     """A learned LDL bridge policy."""
 
-    def __init__(self, predicates: Set[Predicate],
+    def __init__(self, types: Set[Type], predicates: Set[Predicate],
                  options: Set[ParameterizedOption], nsrts: Set[NSRT]) -> None:
-        super().__init__(predicates, options, nsrts)
+        super().__init__(types, predicates, options, nsrts)
         self._current_ldl = LiftedDecisionList([])
 
     @classmethod
@@ -37,7 +37,7 @@ class LearnedLDLBridgePolicy(LDLBridgePolicy):
         all_seen_atoms: Set[GroundAtom] = set()
         for failed_option_set, ground_nsrt, ground_atoms, _ in dataset:
             # Add failure atoms.
-            ground_atoms |= self._get_failure_atoms(failed_option_set)
+            ground_atoms |= utils.get_failure_atoms(failed_option_set)
             all_seen_atoms.update(ground_atoms)
             ground_atom_data.append((ground_atoms, ground_nsrt))
 
@@ -93,7 +93,7 @@ class LearnedLDLBridgePolicy(LDLBridgePolicy):
             name = nsrt.name
             pos_preconds = nsrt_to_pos_preconds[nsrt]
             neg_preconds = nsrt_to_neg_preconds[nsrt]
-            goal_preconds: Set[GroundAtom] = set()  # not used
+            goal_preconds: Set[LiftedAtom] = set()  # not used
             rule = LDLRule(name, nsrt.parameters, pos_preconds, neg_preconds,
                            goal_preconds, nsrt)
             ldl_rules.append(rule)

@@ -8,7 +8,7 @@ import pytest
 import predicators.approaches.bridge_policy_approach
 import predicators.bridge_policies.oracle_bridge_policy
 from predicators import utils
-from predicators.approaches import ApproachFailure
+from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.bridge_policy_approach import BridgePolicyApproach
 from predicators.bridge_policies import BridgePolicyDone
 from predicators.envs import get_or_create_env
@@ -23,7 +23,7 @@ _ORACLE_PATH = predicators.bridge_policies.oracle_bridge_policy.__name__
 def test_bridge_policy_approach():
     """Tests for BridgePolicyApproach class."""
     args = {
-        "refinement_estimator": "bridge_policy",
+        "approach": "bridge_policy",
         "env": "painting",
         "painting_lid_open_prob": 0.0,
         "painting_raise_environment_failure": False,
@@ -38,6 +38,7 @@ def test_bridge_policy_approach():
                                     get_gt_options(env.get_name()), env.types,
                                     env.action_space, train_tasks)
     assert approach.get_name() == "bridge_policy"
+    assert not approach.is_learning_based
     task = test_tasks[0]
     policy = approach.solve(task, timeout=500)
     traj = utils.run_policy_with_simulator(policy,
@@ -47,8 +48,15 @@ def test_bridge_policy_approach():
                                            max_num_steps=CFG.horizon)
     assert task.goal_holds(traj.states[-1])
 
+    # Test bridge policy timeout.
+    with patch("time.perf_counter") as m:
+        m.return_value = float("inf")
+        with pytest.raises(ApproachTimeout) as e:
+            policy(task.init)
+        assert "Bridge policy timed out" in str(e)
+
     # Test case where bridge policy hands back control to planner immediately.
-    # The policy should get stuck and not achieve the goal, but not crash.
+    # The policy should get stuck and detect a loop.
     def done_option_policy(s):
         del s  # ununsed
         raise BridgePolicyDone()
@@ -56,14 +64,13 @@ def test_bridge_policy_approach():
     with patch(f"{_ORACLE_PATH}.OracleBridgePolicy.get_option_policy") as m:
         m.return_value = done_option_policy
         policy = approach.solve(task, timeout=500)
-        traj = utils.run_policy_with_simulator(policy,
-                                               env.simulate,
-                                               task.init,
-                                               task.goal_holds,
-                                               max_num_steps=25)
-        assert not task.goal_holds(traj.states[-1])
-        for t in range(-1, -5, -1):
-            assert traj.actions[t].get_option().name == "Place"
+        with pytest.raises(ApproachFailure) as e:
+            traj = utils.run_policy_with_simulator(policy,
+                                                   env.simulate,
+                                                   task.init,
+                                                   task.goal_holds,
+                                                   max_num_steps=25)
+        assert "Loop detected" in str(e)
 
     # Test case where the second time that the planner is called, it returns
     # an invalid option.
@@ -106,7 +113,7 @@ def test_bridge_policy_approach():
 
     # Test successful usage in stick button.
     args = {
-        "refinement_estimator": "bridge_policy",
+        "approach": "bridge_policy",
         "env": "stick_button",
         "num_train_tasks": 0,
         "num_test_tasks": 1,

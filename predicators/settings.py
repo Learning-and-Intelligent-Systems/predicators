@@ -287,6 +287,16 @@ class GlobalSettings:
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
 
+    # exit_garage env parameters
+    exit_garage_pick_place_refine_penalty = 0.2
+    exit_garage_min_num_obstacles = 2
+    exit_garage_max_num_obstacles = 4  # inclusive
+    exit_garage_rrt_extend_fn_threshold = 1e-4
+    exit_garage_rrt_num_control_samples = 100
+    exit_garage_rrt_num_attempts = 10
+    exit_garage_rrt_num_iters = 100
+    exit_garage_rrt_sample_goal_eps = 0.1
+
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
@@ -499,10 +509,10 @@ class GlobalSettings:
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
-    refinement_estimation_num_skeletons_generated = 3
+    refinement_estimation_num_skeletons_generated = 8
 
     # refinement data collection parameters
-    refinement_data_num_skeletons = 3
+    refinement_data_num_skeletons = 8
     refinement_data_skeleton_generator_timeout = 20
     refinement_data_low_level_search_timeout = 5  # timeout for refinement try
     refinement_data_failed_refinement_penalty = 5  # added time on failure
@@ -625,6 +635,7 @@ class GlobalSettings:
                 {
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
+                    "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
                 })[args.get("env", "")],

@@ -42,11 +42,11 @@ COLUMN_NAMES_AND_KEYS = [
     ("NUM_OBJECTS", "num_objects"),
 ]
 
-DERIVED_KEYS = [("perc_solved",
-                 lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
-                # ("num_objects", lambda r: r["painting_num_objs_test"][0])
-                ("num_objects", lambda r: r["stick_button_num_buttons_test"][0])
-               ]
+DERIVED_KEYS = [
+    ("perc_solved", lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
+    # ("num_objects", lambda r: r["painting_num_objs_test"][0])
+    ("num_objects", lambda r: r["stick_button_num_buttons_test"][0])
+]
 
 # The first element is the name of the metric that will be plotted on the
 # x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
@@ -69,12 +69,12 @@ Y_KEY_AND_LABEL = [
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
     "Stick Button (1 Seed)": [
-        ("Oracle Bridge (FD)", "s",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle-bridge-fd" in v)),
-        ("Oracle Bridge", "o",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v.endswith("oracle-bridge"))),
-        ("Bilevel (No Feedback)", ".",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v.endswith("bilevel-planning"))),
+        ("Oracle Bridge (FD)", "s", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "oracle-bridge-fd" in v)),
+        ("Oracle Bridge", "o", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: v.endswith("oracle-bridge"))),
+        ("Bilevel (No Feedback)", ".", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: v.endswith("bilevel-planning"))),
         # ("Bilevel (Feedback)", "*",
         #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "bilevel-planning-with-feedback" in v)),
     ]

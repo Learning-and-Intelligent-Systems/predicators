@@ -36,14 +36,15 @@ Learned bridge policy in stick button:
         --seed 0 --horizon 10000 --max_initial_demos 0 \
         --interactive_num_requests_per_cycle 1 \
         --num_online_learning_cycles 100 \
-        --num_test_tasks 10 --segmenter contacts --demonstrator human
+        --num_test_tasks 10 --segmenter contacts --demonstrator human \
+        --stick_button_num_buttons_train '[3,4]'
 """
 
 import logging
+import time
 from typing import Callable, List, Optional, Sequence, Set
 
 from gym.spaces import Box
-import time
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
@@ -75,7 +76,7 @@ class BridgePolicyApproach(OracleApproach):
         predicates = self._get_current_predicates()
         options = initial_options
         nsrts = self._get_current_nsrts()
-        self._bridge_policy = create_bridge_policy(CFG.bridge_policy,
+        self._bridge_policy = create_bridge_policy(CFG.bridge_policy, types,
                                                    predicates, options, nsrts)
         self._bridge_dataset: BridgeDataset = []
 
@@ -88,6 +89,7 @@ class BridgePolicyApproach(OracleApproach):
         return self._bridge_policy.is_learning_based
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        start_time = time.perf_counter()
         self._bridge_policy.reset()
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
@@ -121,11 +123,12 @@ class BridgePolicyApproach(OracleApproach):
                 failed_option = None  # not used, but satisfy linting
             except OptionExecutionFailure as e:
                 failed_option = e.info["last_failed_option"]
-                all_failed_options.append(failed_option)
-                logging.debug(f"Failed option: {failed_option.name}"
-                              f"{failed_option.objects}.")
-                logging.debug(f"Error: {e.args[0]}")
-                self._bridge_policy.record_failed_option(failed_option)
+                if failed_option is not None:
+                    all_failed_options.append(failed_option)
+                    logging.debug(f"Failed option: {failed_option.name}"
+                                  f"{failed_option.objects}.")
+                    logging.debug(f"Error: {e.args[0]}")
+                    self._bridge_policy.record_failed_option(failed_option)
 
             # Switch control from planner to bridge.
             if current_control == "planner":
@@ -158,8 +161,10 @@ class BridgePolicyApproach(OracleApproach):
             assert current_control == "bridge"
             current_task = Task(s, task.goal)
             current_control = "planner"
+            duration = time.perf_counter() - start_time
+            remaining_time = timeout - duration
             option_policy = self._get_option_policy_by_planning(
-                current_task, timeout)
+                current_task, remaining_time)
             current_policy = utils.option_policy_to_policy(
                 option_policy,
                 max_option_steps=CFG.max_num_steps_option_rollout,
