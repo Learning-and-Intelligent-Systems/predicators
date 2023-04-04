@@ -782,7 +782,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
     def _select_predicates_to_keep(self, candidates: Dict[
         Predicate, float], score_function: _PredicateSearchScoreFunction,
-                                   initial_predicates: set[Predicate],
+                                   initial_predicates: Set[Predicate],
                                    atom_dataset: List[GroundAtomTrajectory],
                                    train_tasks: List[Task]) -> Set[Predicate]:
         """Perform a greedy search over predicate sets."""
@@ -842,10 +842,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # However, since 'path' always has length one more than the
         # number of selected candidates (since it evaluates the empty
         # predicate set first), we can just compute it as below.
+        assert self._metrics.get("total_num_predicate_evaluations") is None
         self._metrics["total_num_predicate_evaluations"] = len(path) * len(
             candidates)
 
-        # Filter out predicates that don't appear in some operator preconditions.
+        # Filter out predicates that don't appear in some operator
+        # preconditions.
         logging.info("\nFiltering out predicates that don't appear in "
                      "preconditions...")
         pruned_atom_data = utils.prune_ground_atom_dataset(
