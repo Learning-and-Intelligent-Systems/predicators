@@ -283,13 +283,7 @@ class BridgePolicyApproach(OracleApproach):
             assert len(states) == len(atoms)
             seq_len = len(atoms)
 
-            # Find the end of the bridge.
-            # The bridge is done if we can generate the remainder of the plan
-            # by ourselves, up to random tiebreaking, assuming optimal planning.
-            # Equivalently, the remainder of the plan looks rational -- the
-            # action selected has optimal cost-to-go.
-
-            # Start by computing the optimal costs to go for each state.
+            # Prepare to excise the rational transitions.
             optimal_ctgs: List[float] = []
             for state in states:
                 task = Task(state, goal)
@@ -303,7 +297,7 @@ class BridgePolicyApproach(OracleApproach):
                     ctg = float("inf")
                 optimal_ctgs.append(ctg)
 
-            # For converting atoms into ground NSRTs.
+            # For later converting atoms into ground NSRTs.
             objects = set(states[0])
             effects_to_ground_nsrt = {}
             for nsrt in nsrts:
@@ -319,10 +313,12 @@ class BridgePolicyApproach(OracleApproach):
                 # Step was irrational, so include it.
                 # Assume all changes were necessary; we don't know otherwise.
                 add_atoms = frozenset(atoms[t + 1] - atoms[t])
-                # If no ground NSRT matches, terminate the bridge early because
-                # there's nothing we can do... but let's crash for now because
-                # this is annoying to catch.
-                ground_nsrt = effects_to_ground_nsrt[add_atoms]
+                try:
+                    ground_nsrt = effects_to_ground_nsrt[add_atoms]
+                except KeyError:
+                    logging.warning("WARNING: no NSRT found for add atoms "
+                                    f"{add_atoms}. Skipping transition.")
+                    continue
                 self._bridge_dataset.append((
                     all_failed_options,
                     ground_nsrt,

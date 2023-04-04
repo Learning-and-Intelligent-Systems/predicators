@@ -56,6 +56,5 @@ class BaseBridgePolicy(abc.ABC):
         """For learning-based approaches, learn whatever is needed from the
         given dataset.
 
-        The dataset consists of tuples of failed_nsrt,
-        ground_nsrt_bridge, atoms_bridge, states_bridge.
+        By default, nothing is learned. Subclasses may override.
         """
