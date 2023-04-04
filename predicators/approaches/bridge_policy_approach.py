@@ -307,7 +307,8 @@ class BridgePolicyApproach(OracleApproach):
                     add_atoms = frozenset(ground_nsrt.add_effects)
                     effects_to_ground_nsrt[add_atoms] = ground_nsrt
 
-            # Look for first time where the plan suffix decreases by 1.
+            # Collect the irrational transitions and turn atom changes into
+            # ground NSRTs.
             for t in range(seq_len - 1):
                 # Step was rational, so skip it.
                 if optimal_ctgs[t] == optimal_ctgs[t + 1] + 1:
