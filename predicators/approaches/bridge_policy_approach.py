@@ -13,16 +13,9 @@ termination and then the bridge policy is called again.
 The bridge policy is so named because it's meant to serve as a "bridge back to
 plannability" in states where the planner has gotten stuck.
 
-
-Oracle bridge policy in painting:
-    python predicators/main.py --env painting --approach bridge_policy \
-        --seed 0 --painting_lid_open_prob 0.0 \
-        --painting_raise_environment_failure False \
-        --bridge_policy oracle --debug
-
-Oracle bridge policy in stick button:
+Reece's command:
     python predicators/main.py --env stick_button --approach bridge_policy \
-        --seed 0 --bridge_policy oracle --horizon 10000
+        --seed 0 --bridge_policy reece_bridge_policy --horizon 10000
 """
 
 import logging
