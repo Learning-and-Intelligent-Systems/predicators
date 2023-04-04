@@ -106,13 +106,11 @@ class BridgePolicyApproach(OracleApproach):
         # twice with the same state.
         last_bridge_policy_state = DefaultState
 
-        start_time = time.perf_counter()
-
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy, last_bridge_policy_state
 
-            if time.perf_counter() - start_time > CFG.timeout:
-                raise ApproachTimeout("Ran out of time.")
+            if time.perf_counter() - start_time > timeout:
+                raise ApproachTimeout("Bridge policy timed out.")
 
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
@@ -305,9 +303,6 @@ class BridgePolicyApproach(OracleApproach):
                     ctg = float("inf")
                 optimal_ctgs.append(ctg)
 
-            logging.debug("**************** OPTIMAL CTG ******************")
-            logging.debug(optimal_ctgs)
-
             # For converting atoms into ground NSRTs.
             objects = set(states[0])
             effects_to_ground_nsrt = {}
@@ -320,9 +315,7 @@ class BridgePolicyApproach(OracleApproach):
             for t in range(seq_len - 1):
                 # Step was rational, so skip it.
                 if optimal_ctgs[t] == optimal_ctgs[t + 1] + 1:
-                    logging.debug(f"SKIPPING {t}")
                     continue
-                logging.debug(f"INCLUDING {t}")
                 # Step was irrational, so include it.
                 # Assume all changes were necessary; we don't know otherwise.
                 add_atoms = frozenset(atoms[t + 1] - atoms[t])
