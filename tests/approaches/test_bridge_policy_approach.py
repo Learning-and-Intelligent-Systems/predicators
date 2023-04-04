@@ -24,6 +24,7 @@ def test_bridge_policy_approach():
     """Tests for BridgePolicyApproach class."""
     args = {
         "approach": "bridge_policy",
+        "bridge_policy": "oracle",
         "env": "painting",
         "painting_lid_open_prob": 0.0,
         "painting_raise_environment_failure": False,
@@ -114,6 +115,7 @@ def test_bridge_policy_approach():
     # Test successful usage in stick button.
     args = {
         "approach": "bridge_policy",
+        "bridge_policy": "oracle",
         "env": "stick_button",
         "num_train_tasks": 0,
         "num_test_tasks": 1,
