@@ -2,7 +2,6 @@
 
 from typing import Set
 
-from predicators import utils
 from predicators.bridge_policies.ldl_bridge_policy import LDLBridgePolicy
 from predicators.ground_truth_models import get_gt_ldl_bridge_policy
 from predicators.settings import CFG
