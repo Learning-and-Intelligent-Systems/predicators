@@ -16,7 +16,8 @@ from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
 from predicators.settings import CFG
-from predicators.structs import Action, DummyOption, STRIPSOperator
+from predicators.structs import Action, DemonstrationResponse, DummyOption, \
+    InteractionResult, LowLevelTrajectory, STRIPSOperator
 from predicators.teacher import Teacher
 
 _APPROACH_PATH = predicators.approaches.bridge_policy_approach.__name__
@@ -193,8 +194,31 @@ def test_bridge_policy_approach():
         teacher = Teacher(train_tasks)
         interaction_results, _ = _generate_interaction_results(
             env, teacher, interaction_requests)
-
+    real_result = interaction_results[0]
+    # Add additional interaction result with no queries.
+    interaction_results.append(
+        InteractionResult(states=real_result.states[:1],
+                          actions=[],
+                          responses=[None]))
+    # Add additional interaction result where the demonstration has just one
+    # timestep in it (so segmentation is trivial).
+    real_query = real_result.responses[-1].query
+    real_teacher_traj = real_result.responses[-1].teacher_traj
+    one_step_teacher_traj = LowLevelTrajectory(
+        _states=real_teacher_traj.states[:1],
+        _actions=[],
+        _is_demo=True,
+        _train_task_idx=0)
+    interaction_results.append(
+        InteractionResult(states=real_result.states[-1:],
+                          actions=[],
+                          responses=[
+                              DemonstrationResponse(real_query,
+                                                    one_step_teacher_traj)
+                          ]))
     approach.learn_from_interaction_results(interaction_results)
+    # Cover learning from no additional interaction results.
+    approach.learn_from_interaction_results([])
     task = test_tasks[0]
     policy = approach.solve(task, timeout=500)
     traj = utils.run_policy_with_simulator(policy,

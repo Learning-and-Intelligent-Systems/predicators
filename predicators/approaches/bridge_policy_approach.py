@@ -252,6 +252,8 @@ class BridgePolicyApproach(OracleApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
+        # If we haven't collected any new results on this cycle, skip learning
+        # for efficiency.
         if not results:
             return None
 
@@ -292,7 +294,7 @@ class BridgePolicyApproach(OracleApproach):
                     nsrt_plan, _, _ = self._run_task_plan(
                         task, nsrts, preds, CFG.timeout, self._seed)
                     ctg: float = len(nsrt_plan)
-                except ApproachFailure:
+                except ApproachFailure:  # pragma: no cover
                     # Planning failed, put in infinite cost to go.
                     ctg = float("inf")
                 optimal_ctgs.append(ctg)
@@ -315,7 +317,7 @@ class BridgePolicyApproach(OracleApproach):
                 add_atoms = frozenset(atoms[t + 1] - atoms[t])
                 try:
                     ground_nsrt = effects_to_ground_nsrt[add_atoms]
-                except KeyError:
+                except KeyError:  # pragma: no cover
                     logging.warning("WARNING: no NSRT found for add atoms "
                                     f"{add_atoms}. Skipping transition.")
                     continue
