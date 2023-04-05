@@ -9,11 +9,13 @@ from typing import Callable, List, Set
 import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import BaseEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
@@ -122,9 +124,10 @@ def _generate_demonstrations(
     """Use the demonstrator to generate demonstrations, one per training task
     starting from train_tasks_start_idx."""
     if CFG.demonstrator == "oracle":
+        options = get_gt_options(env.get_name())
         oracle_approach = OracleApproach(
             env.predicates,
-            env.options,
+            options,
             env.types,
             env.action_space,
             train_tasks,
@@ -140,6 +143,7 @@ def _generate_demonstrations(
         event_to_action = env.get_event_to_action_fn()
     trajectories = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
+    rng = np.random.default_rng(CFG.seed)
     for idx, task in enumerate(train_tasks):
         if idx < train_tasks_start_idx:  # ignore demos before this index
             continue
@@ -158,16 +162,22 @@ def _generate_demonstrations(
                 # the policy is actually a plan under the hood, and we
                 # can retrieve it with get_last_plan(). We do this
                 # because we want to run the full plan.
-                last_plan = oracle_approach.get_last_plan()
-                policy = utils.option_plan_to_policy(last_plan)
+                if CFG.bilevel_plan_without_sim:
+                    last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
+                    policy = utils.nsrt_plan_to_greedy_policy(
+                        last_nsrt_plan, task.goal, rng)
+                else:
+                    last_plan = oracle_approach.get_last_plan()
+                    policy = utils.option_plan_to_policy(last_plan)
                 # We will stop run_policy() when OptionExecutionFailure()
                 # is hit, which should only happen when the goal has been
                 # reached, as verified by the assertion later.
                 termination_function = lambda s: False
             else:  # pragma: no cover
-                policy = functools.partial(_human_demonstrator_policy, env,
-                                           idx, num_tasks, task,
-                                           event_to_action)
+                caption = (f"Task {idx+1} / {num_tasks}\nPlease demonstrate "
+                           f"achieving the goal:\n{task.goal}")
+                policy = functools.partial(human_demonstrator_policy, env,
+                                           caption, event_to_action)
                 termination_function = task.goal_holds
 
             if CFG.make_demo_videos:
@@ -221,19 +231,18 @@ def _generate_demonstrations(
     return trajectories
 
 
-def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
-                               task: Task, event_to_action: Callable[
-                                   [State, matplotlib.backend_bases.Event],
-                                   Action],
-                               state: State) -> Action:  # pragma: no cover
+def human_demonstrator_policy(env: BaseEnv, caption: str,
+                              event_to_action: Callable[
+                                  [State, matplotlib.backend_bases.Event],
+                                  Action],
+                              state: State) -> Action:  # pragma: no cover
+    """Collect actions from a human interacting with a GUI."""
     # Temporarily change the backend to one that supports a GUI.
     # We do this here because we don't want the rest of the codebase
     # to use GUI-based Matplotlib.
     cur_backend = matplotlib.get_backend()
     matplotlib.use("Qt5Agg")
     # Render the state.
-    caption = (f"Task {idx+1} / {num_tasks}\nPlease demonstrate "
-               f"achieving the goal:\n{task.goal}")
     fig = env.render_plt(caption=caption)
     container = {}
 

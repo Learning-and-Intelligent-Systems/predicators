@@ -23,7 +23,7 @@ def test_predicate_grammar(segmenter):
     """Tests for _PredicateGrammar class."""
     utils.reset_config({"env": "cover", "segmenter": segmenter})
     env = CoverEnv()
-    train_task = env.get_train_tasks()[0]
+    train_task = env.get_train_tasks()[0].task
     state = train_task.init
     other_state = state.copy()
     robby = [o for o in state if o.type.name == "robot"][0]

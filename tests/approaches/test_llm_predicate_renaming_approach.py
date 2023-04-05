@@ -1,9 +1,9 @@
 """Test cases for the predicate-renaming open-loop LLM approach."""
-
 from predicators import utils
 from predicators.approaches.llm_predicate_renaming_approach import \
     LLMPredicateRenamingApproach
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 
 
 def test_llm_predicate_renaming_approach():
@@ -17,8 +17,9 @@ def test_llm_predicate_renaming_approach():
         "strips_learner": "oracle",
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
-    approach = LLMPredicateRenamingApproach(env.predicates, env.options,
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = LLMPredicateRenamingApproach(env.predicates,
+                                            get_gt_options(env.get_name()),
                                             env.types, env.action_space,
                                             train_tasks)
     assert approach.get_name() == "llm_predicate_renaming"

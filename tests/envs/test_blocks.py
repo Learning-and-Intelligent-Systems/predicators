@@ -1,5 +1,4 @@
 """Test cases for the blocks environment."""
-
 import json
 import tempfile
 from pathlib import Path
@@ -11,6 +10,7 @@ import pytest
 import predicators.envs.blocks
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv, BlocksEnvClear
+from predicators.ground_truth_models import get_gt_options
 
 _ENV_MODULE_PATH = predicators.envs.blocks.__name__
 _LLM_MODULE_PATH = predicators.llm_interface.__name__
@@ -29,7 +29,7 @@ def test_blocks():
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 5
     assert {pred.name for pred in env.goal_predicates} == {"On", "OnTable"}
-    assert len(env.options) == 3
+    assert len(get_gt_options(env.get_name())) == 3
     assert len(env.types) == 2
     block_type = [t for t in env.types if t.name == "block"][0]
     assert env.action_space.shape == (4, )
@@ -51,7 +51,9 @@ def test_blocks():
         assert robot is not None
         if i == 0:
             # Force initial pick to test rendering with holding
-            Pick = [o for o in env.options if o.name == "Pick"][0]
+            Pick = [
+                o for o in get_gt_options(env.get_name()) if o.name == "Pick"
+            ][0]
             block = sorted([o for o in state if o.type.name == "block" and \
                             clear(o, state)])[0]
             act = Pick.ground([robot, block], np.zeros(0)).policy(state)
@@ -73,9 +75,11 @@ def test_blocks_failure_cases():
     """Tests for the cases where simulate() is a noop."""
     utils.reset_config({"env": "blocks"})
     env = BlocksEnv()
-    Pick = [o for o in env.options if o.name == "Pick"][0]
-    Stack = [o for o in env.options if o.name == "Stack"][0]
-    PutOnTable = [o for o in env.options if o.name == "PutOnTable"][0]
+    Pick = [o for o in get_gt_options(env.get_name()) if o.name == "Pick"][0]
+    Stack = [o for o in get_gt_options(env.get_name()) if o.name == "Stack"][0]
+    PutOnTable = [
+        o for o in get_gt_options(env.get_name()) if o.name == "PutOnTable"
+    ][0]
     On = [o for o in env.predicates if o.name == "On"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     block_type = [t for t in env.types if t.name == "block"][0]
@@ -187,7 +191,7 @@ def test_blocks_load_task_from_json():
         })
 
         env = BlocksEnv()
-        test_tasks = env.get_test_tasks()
+        test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]
@@ -331,7 +335,7 @@ robby              1.35      0.75       0.7          1
 {"On": [["red_block", "green_block"], ["green_block", "blue_block"]],
  "OnTable": [["blue_block"]]}"""
             ]
-            test_tasks = env.get_test_tasks()
+            test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]

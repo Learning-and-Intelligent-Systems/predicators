@@ -1,9 +1,9 @@
 """Test cases for the random actions approach class."""
-
 from predicators import utils
 from predicators.approaches.random_actions_approach import \
     RandomActionsApproach
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 
 
 def test_random_actions_approach():
@@ -13,9 +13,10 @@ def test_random_actions_approach():
         "approach": "random_actions",
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     task = train_tasks[0]
-    approach = RandomActionsApproach(env.predicates, env.options, env.types,
+    approach = RandomActionsApproach(env.predicates,
+                                     get_gt_options(env.get_name()), env.types,
                                      env.action_space, train_tasks)
     assert not approach.is_learning_based
     policy = approach.solve(task, 500)

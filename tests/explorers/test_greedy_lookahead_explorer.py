@@ -1,11 +1,10 @@
 """Test cases for the greedy lookahead explorer class."""
-
 import pytest
 
 from predicators import utils
 from predicators.envs.cover import CoverEnv
 from predicators.explorers import create_explorer
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
 from predicators.structs import NSRT
 
@@ -19,14 +18,15 @@ def test_greedy_lookahead_explorer(target_predicate):
         "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     # For testing purposes, score everything except target predicate low.
     score_fn = lambda atoms, _: target_predicate in str(atoms)
     explorer = create_explorer("greedy_lookahead",
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -63,16 +63,17 @@ def test_greedy_lookahead_explorer_failure_cases():
         "explorer": "greedy_lookahead",
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     state_score_fn = lambda _1, _2: 0.0
     task_idx = 0
     task = train_tasks[task_idx]
     # Test case where we can't sample a ground NSRT.
     explorer = create_explorer("greedy_lookahead",
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -102,7 +103,7 @@ def test_greedy_lookahead_explorer_failure_cases():
         new_nsrts.add(new_nsrt)
     explorer = create_explorer("greedy_lookahead",
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -127,7 +128,7 @@ def test_greedy_lookahead_explorer_failure_cases():
         new_nsrts.add(new_nsrt)
     explorer = create_explorer("greedy_lookahead",
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,

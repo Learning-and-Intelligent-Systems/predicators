@@ -22,12 +22,12 @@ def test_env_creation():
         assert isinstance(env, BaseEnv)
         other_env = get_or_create_env(name)
         assert env is other_env
-        train_tasks = env.get_train_tasks()
+        train_tasks = [t.task for t in env.get_train_tasks()]
         for idx, train_task in enumerate(train_tasks):
             task = env.get_task("train", idx)
             assert train_task.init.allclose(task.init)
             assert train_task.goal == task.goal
-        test_tasks = env.get_test_tasks()
+        test_tasks = [t.task for t in env.get_test_tasks()]
         for idx, test_task in enumerate(test_tasks):
             task = env.get_task("test", idx)
             assert test_task.init.allclose(task.init)

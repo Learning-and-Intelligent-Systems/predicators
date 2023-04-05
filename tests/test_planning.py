@@ -1,5 +1,4 @@
 """Test cases for planning algorithms."""
-
 import time
 from contextlib import nullcontext as does_not_raise
 
@@ -14,7 +13,7 @@ from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.envs.cover import CoverEnv
 from predicators.envs.painting import PaintingEnv
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OptionModelBase, _OracleOptionModel, \
     create_option_model
 from predicators.planning import PlanningFailure, PlanningTimeout, \
@@ -44,8 +43,10 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder, expectation,
         "sesame_task_planner": "astar",
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    task = env.get_test_tasks()[0]
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     with expectation as e:
         plan, metrics = sesame_plan(
@@ -72,20 +73,14 @@ def test_task_plan():
     """Tests for task_plan()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    task = env.get_train_tasks()[0]
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    env_task = env.get_train_tasks()[0]
+    task = env_task.task
     init_atoms = utils.abstract(task.init, env.predicates)
     objects = set(task.init)
-    strips_ops = []
-    option_specs = []
-    for nsrt in nsrts:
-        strips_ops.append(
-            STRIPSOperator(nsrt.name, nsrt.parameters, nsrt.preconditions,
-                           nsrt.add_effects, nsrt.delete_effects,
-                           nsrt.ignore_effects))
-        option_specs.append((nsrt.option, nsrt.option_vars))
     ground_nsrts, reachable_atoms = task_plan_grounding(
-        init_atoms, objects, strips_ops, option_specs)
+        init_atoms, objects, nsrts)
     heuristic = utils.create_task_planning_heuristic("hadd", init_atoms,
                                                      task.goal, ground_nsrts,
                                                      env.predicates, objects)
@@ -128,9 +123,10 @@ def test_sesame_plan_failures():
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
     option_model = create_option_model(CFG.option_model_name)
-    approach = OracleApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
-    task = train_tasks[0]
+    approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
+                              env.types, env.action_space, train_tasks)
+    env_task = train_tasks[0]
+    task = env_task.task
     trivial_task = Task(task.init, set())
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
@@ -161,17 +157,18 @@ def test_sesame_plan_failures():
     old_max_skeletons = CFG.sesame_max_skeletons_optimized
     CFG.sesame_max_samples_per_step = 1
     CFG.sesame_max_skeletons_optimized = float("inf")
-    approach = OracleApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
+    approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
+                              env.types, env.action_space, train_tasks)
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=1)  # backtracking occurs
     CFG.sesame_max_skeletons_optimized = old_max_skeletons
-    approach = OracleApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
+    approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
+                              env.types, env.action_space, train_tasks)
     with pytest.raises(ApproachFailure):
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.sesame_max_samples_per_step = old_max_samples_per_step
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     # Test that no plan is found when the horizon is too short.
     with pytest.raises(PlanningFailure):
         sesame_plan(
@@ -245,10 +242,11 @@ def test_sesame_plan_failures():
     utils.reset_config({"env": "painting", "painting_num_objs_train": [10]})
     env = PaintingEnv()
     train_tasks = env.get_train_tasks()
-    task = train_tasks[0]
+    env_task = train_tasks[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
-    approach = OracleApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
+    approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
+                              env.types, env.action_space, train_tasks)
     with pytest.raises(ApproachTimeout):
         approach.solve(task, timeout=0.1)
 
@@ -261,8 +259,9 @@ def test_sesame_plan_uninitiable_option():
     env = CoverEnv()
     option_model = create_option_model(CFG.option_model_name)
     initiable = lambda s, m, o, p: False
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    old_option = next(iter(env.options))
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    old_option = next(iter(get_gt_options(env.get_name())))
     new_option = ParameterizedOption(old_option.name, old_option.types,
                                      old_option.params_space,
                                      old_option.policy, initiable,
@@ -274,7 +273,8 @@ def test_sesame_plan_uninitiable_option():
                  nsrt.preconditions, nsrt.add_effects, nsrt.delete_effects,
                  nsrt.ignore_effects, new_option, nsrt.option_vars,
                  nsrt._sampler))
-    task = env.get_train_tasks()[0]
+    env_task = env.get_train_tasks()[0]
+    task = env_task.task
     with pytest.raises(PlanningFailure) as e:
         # Planning should reach sesame_max_skeletons_optimized
         sesame_plan(
@@ -299,8 +299,10 @@ def test_sesame_check_static_object_changes():
         "sesame_static_object_change_tol": 1e-3,
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    task = env.get_test_tasks()[0]
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     # In Cover, the NSRTs do not contain the robot as an argument, so planning
     # is not possible if we are checking for static object changes.
@@ -326,8 +328,10 @@ def test_sesame_check_static_object_changes():
         "sesame_static_object_change_tol": 1e-3,
     })
     env = BlocksEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    task = env.get_test_tasks()[0]
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     plan, _ = sesame_plan(
         task,
@@ -388,6 +392,7 @@ def test_planning_determinism():
     goal = {asleep([robby]), asleep([robin]), cried([robby]), cried([robin])}
     task1 = Task(State({robby: [0, 0], robin: [0, 0]}), goal)
     task2 = Task(State({robin: [0, 0], robby: [0, 0]}), goal)
+    options = {sleep_option, cry_option}
 
     class _MockEnv:
 
@@ -405,13 +410,14 @@ def test_planning_determinism():
                 next_state[robby][1] = 1
             return next_state
 
-        @property
-        def options(self):
-            """Mock options."""
-            return {sleep_option, cry_option}
+    class _MockOracleOptionModel(_OracleOptionModel):
+
+        def __init__(self, env) -> None:  # pylint: disable=super-init-not-called
+            self._name_to_parameterized_option = {o.name: o for o in options}
+            self._simulator = env.simulate
 
     env = _MockEnv()
-    option_model = _OracleOptionModel(env)
+    option_model = _MockOracleOptionModel(env)
     # Check that sesame_plan is deterministic, over both NSRTs and objects.
     plan1 = [
         (act.name, act.objects) for act in sesame_plan(
@@ -473,8 +479,6 @@ def test_planning_determinism():
     # Check that task_plan is deterministic, over both NSRTs and objects.
     predicates = {asleep, cried}
     init_atoms = set()
-    option_specs = [(sleep_nsrt.option, sleep_nsrt.option_vars),
-                    (cry_nsrt.option, cry_nsrt.option_vars)]
     nsrt_orders = [[sleep_op, cry_op], [cry_op, sleep_op]]
     object_orders = [[robby, robin], [robin, robby]]
 
@@ -482,7 +486,7 @@ def test_planning_determinism():
     for nsrts in nsrt_orders:
         for objects in object_orders:
             ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, nsrts, option_specs)
+                init_atoms, objects, sorted(nsrts))
             heuristic = utils.create_task_planning_heuristic(
                 "hadd", init_atoms, goal, ground_nsrts, predicates, objects)
             skeleton, _, _ = next(
@@ -509,8 +513,10 @@ def test_policy_guided_sesame():
         "cover_initial_holding_prob": 0,
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    task = env.get_test_tasks()[0]
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     # With a trivial policy, we would expect the number of nodes to be the
     # same as it would be if we planned with no policy.
@@ -657,11 +663,11 @@ def test_sesame_plan_fast_downward():
             "num_test_tasks": 50,
             "sesame_task_planner": sesame_task_planner,
         })
-        # Test on the repeated_nextto_single_option env, which requires ignore
-        # effects.
         env = ClutteredTableEnv()
-        nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-        task = env.get_test_tasks()[0]
+        nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                             get_gt_options(env.get_name()))
+        env_task = env.get_test_tasks()[0]
+        task = env_task.task
         option_model = create_option_model(CFG.option_model_name)
         try:
             plan, metrics = sesame_plan(
@@ -681,7 +687,7 @@ def test_sesame_plan_fast_downward():
                        for act in plan)  # pragma: no cover
             assert metrics["num_nodes_created"] >= \
                 metrics["num_nodes_expanded"]  # pragma: no cover
-        except AssertionError as e:
+        except AssertionError as e:  # pragma: no cover
             # If the FD_EXEC_PATH environment variable is not set, we should
             # crash in the planner.
             assert "Please follow the instructions" in str(e)

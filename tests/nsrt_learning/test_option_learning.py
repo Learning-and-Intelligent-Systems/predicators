@@ -1,5 +1,4 @@
 """Tests for option learning."""
-
 import tempfile
 from unittest.mock import patch
 
@@ -15,7 +14,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
 from predicators.datasets import create_dataset
 from predicators.datasets.demo_replay import create_demo_replay_data
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.ml_models import MLPRegressor
 from predicators.nsrt_learning.option_learning import _ActionConverter, \
     _LearnedNeuralParameterizedOption, create_action_converter, \
@@ -40,8 +39,9 @@ def test_known_options_option_learner():
         "option_learner": "no_learning",
     })
     env = create_new_env("cover")
-    train_tasks = env.get_train_tasks()
-    dataset = create_demo_replay_data(env, train_tasks, env.options)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    dataset = create_demo_replay_data(env, train_tasks,
+                                      get_gt_options(env.get_name()))
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
@@ -61,8 +61,8 @@ def test_known_options_option_learner():
     option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 5
-    assert len(env.options) == 1
-    PickPlace = next(iter(env.options))
+    assert len(get_gt_options(env.get_name())) == 1
+    PickPlace = next(iter(get_gt_options(env.get_name())))
     assert option_specs == [(PickPlace, []) for _ in range(5)]
     for datastore, spec in zip(datastores, option_specs):
         for (segment, _) in datastore:
@@ -84,7 +84,7 @@ def test_oracle_option_learner_cover():
         "segmenter": "atom_changes",
     })
     env = create_new_env("cover")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_demo_replay_data(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
@@ -105,8 +105,8 @@ def test_oracle_option_learner_cover():
     option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 4
-    assert len(env.options) == 1
-    PickPlace = next(iter(env.options))
+    assert len(get_gt_options(env.get_name())) == 1
+    PickPlace = next(iter(get_gt_options(env.get_name())))
     assert option_specs == [(PickPlace, []) for _ in range(4)]
     for datastore, spec in zip(datastores, option_specs):
         for (segment, _) in datastore:
@@ -133,7 +133,7 @@ def test_oracle_option_learner_blocks():
         "blocks_num_blocks_test": [4],
     })
     env = create_new_env("blocks")
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_demo_replay_data(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
@@ -154,11 +154,18 @@ def test_oracle_option_learner_blocks():
     option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 4
-    assert len(env.options) == 3
-    Pick = [option for option in env.options if option.name == "Pick"][0]
-    Stack = [option for option in env.options if option.name == "Stack"][0]
+    assert len(get_gt_options(env.get_name())) == 3
+    Pick = [
+        option for option in get_gt_options(env.get_name())
+        if option.name == "Pick"
+    ][0]
+    Stack = [
+        option for option in get_gt_options(env.get_name())
+        if option.name == "Stack"
+    ][0]
     PutOnTable = [
-        option for option in env.options if option.name == "PutOnTable"
+        option for option in get_gt_options(env.get_name())
+        if option.name == "PutOnTable"
     ][0]
     param_opts = [spec[0] for spec in option_specs]
     assert param_opts.count(Pick) == 2
@@ -187,7 +194,8 @@ def test_learned_neural_parameterized_option():
     })
     action_converter = create_action_converter()
     env = create_new_env("cover_multistep_options")
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     assert len(nsrts) == 2
     pick_nsrt = min(nsrts, key=lambda o: o.name)
     pick_operator = STRIPSOperator(pick_nsrt.name, pick_nsrt.parameters,
@@ -302,9 +310,10 @@ def test_option_learning_approach_multistep_cover():
         "num_test_tasks": 10,
     })
     env = create_new_env("cover_multistep_options")
-    train_tasks = env.get_train_tasks()
-    approach = create_approach("nsrt_learning", env.predicates, env.options,
-                               env.types, env.action_space, train_tasks)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = create_approach("nsrt_learning", env.predicates,
+                               get_gt_options(env.get_name()), env.types,
+                               env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks, known_options=set())
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
@@ -338,9 +347,10 @@ def test_implicit_bc_option_learning_touch_point():
         "num_test_tasks": 10,
     })
     env = create_new_env("touch_point")
-    train_tasks = env.get_train_tasks()
-    approach = create_approach("nsrt_learning", env.predicates, env.options,
-                               env.types, env.action_space, train_tasks)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = create_approach("nsrt_learning", env.predicates,
+                               get_gt_options(env.get_name()), env.types,
+                               env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks, known_options=set())
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
@@ -390,7 +400,7 @@ def test_action_conversion():
     with patch(f"{_MODULE_PATH}.create_action_converter") as mocker:
         mocker.return_value = _ReverseOrderPadActionConverter()
         env = create_new_env("touch_point")
-        train_tasks = env.get_train_tasks()
+        train_tasks = [t.task for t in env.get_train_tasks()]
         approach = create_approach("nsrt_learning", env.predicates, set(),
                                    env.types, env.action_space, train_tasks)
         dataset = create_dataset(env, train_tasks, known_options=set())
