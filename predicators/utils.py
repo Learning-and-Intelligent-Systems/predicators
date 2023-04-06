@@ -1154,7 +1154,6 @@ def option_policy_to_policy(
                 try:
                     environment_failure_predictor(state, cur_option)
                 except EnvironmentFailure as e:
-                    print(state.pretty_str())
                     raise OptionExecutionFailure(
                         f"Environment failure predicted: {repr(e)}.",
                         info={

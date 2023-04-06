@@ -145,6 +145,7 @@ class BridgePolicyApproach(OracleApproach):
                             info={"all_failed_options": all_failed_options})
                 except OptionExecutionFailure as e:
                     # TODO ?????
+                    current_control = "planner"
                     all_failed_options.append(e.info["last_failed_option"])
                     return _policy(s)
                 last_bridge_policy_state = s
