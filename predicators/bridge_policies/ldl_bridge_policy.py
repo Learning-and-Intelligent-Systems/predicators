@@ -24,18 +24,14 @@ class LDLBridgePolicy(BaseBridgePolicy):
 
     def _bridge_policy(self, state: State, atoms: Set[GroundAtom],
                        failed_options: List[_Option]) -> _Option:
-
         ldl = self._get_current_ldl()
-
         # Add failure atoms based on failed_options.
         atoms_with_failures = atoms | utils.get_failure_atoms(failed_options)
-
         objects = set(state)
         goal: Set[GroundAtom] = set()  # task goal not used
         next_nsrt = utils.query_ldl(ldl, atoms_with_failures, objects, goal)
         if next_nsrt is None:
             raise BridgePolicyDone()
-
         return next_nsrt.sample_option(state, goal, self._rng)
 
     def get_option_policy(self) -> Callable[[State], _Option]:
