@@ -1102,27 +1102,82 @@ class EnvironmentFailure(ExceptionWithInfo):
         return repr(self)
 
 
-def option_plan_to_policy(
-        plan: Sequence[_Option]) -> Callable[[State], Action]:
-    """Create a policy that executes a sequence of options in order."""
-    queue = list(plan)  # don't modify plan, just in case
+def option_policy_to_policy(
+    option_policy: Callable[[State], _Option],
+    max_option_steps: Optional[int] = None,
+    raise_error_on_repeated_state: bool = False,
+) -> Callable[[State], Action]:
+    """Create a policy that executes a policy over options."""
     cur_option = DummyOption
+    num_cur_option_steps = 0
+    last_state: Optional[State] = None
 
     def _policy(state: State) -> Action:
-        nonlocal cur_option
-        if cur_option.terminal(state):
-            if not queue:
-                raise OptionExecutionFailure("Option plan exhausted!")
-            cur_option = queue.pop(0)
-            assert cur_option.initiable(state), "Unsound option plan"
+        nonlocal cur_option, num_cur_option_steps, last_state
+
+        if cur_option is DummyOption:
+            last_option: Optional[_Option] = None
+        else:
+            last_option = cur_option
+
+        if max_option_steps is not None and \
+            num_cur_option_steps >= max_option_steps:
+            raise OptionExecutionFailure(
+                "Exceeded max option steps.",
+                info={"last_failed_option": last_option})
+
+        if last_state is not None and \
+            raise_error_on_repeated_state and state.allclose(last_state):
+            raise OptionExecutionFailure(
+                "Encountered repeated state.",
+                info={"last_failed_option": last_option})
+        last_state = state
+
+        if cur_option is DummyOption or cur_option.terminal(state):
+            try:
+                cur_option = option_policy(state)
+            except OptionExecutionFailure as e:
+                e.info["last_failed_option"] = last_option
+                raise e
+            if not cur_option.initiable(state):
+                raise OptionExecutionFailure(
+                    "Unsound option policy.",
+                    info={"last_failed_option": last_option})
+            num_cur_option_steps = 0
+
+        num_cur_option_steps += 1
+
         return cur_option.policy(state)
 
     return _policy
 
 
-def nsrt_plan_to_greedy_policy(
-        nsrt_plan: Sequence[_GroundNSRT], goal: Set[GroundAtom],
-        rng: np.random.Generator) -> Callable[[State], Action]:
+def option_plan_to_policy(
+        plan: Sequence[_Option],
+        max_option_steps: Optional[int] = None,
+        raise_error_on_repeated_state: bool = False
+) -> Callable[[State], Action]:
+    """Create a policy that executes a sequence of options in order."""
+    queue = list(plan)  # don't modify plan, just in case
+
+    def _option_policy(state: State) -> _Option:
+        del state  # not used
+        if not queue:
+            raise OptionExecutionFailure("Option plan exhausted!")
+        return queue.pop(0)
+
+    return option_policy_to_policy(
+        _option_policy,
+        max_option_steps=max_option_steps,
+        raise_error_on_repeated_state=raise_error_on_repeated_state)
+
+
+def nsrt_plan_to_greedy_option_policy(
+    nsrt_plan: Sequence[_GroundNSRT],
+    goal: Set[GroundAtom],
+    rng: np.random.Generator,
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+) -> Callable[[State], _Option]:
     """Greedily execute an NSRT plan, assuming downward refinability and that
     any sample will work.
 
@@ -1130,22 +1185,45 @@ def nsrt_plan_to_greedy_policy(
     OptionExecutionFailure is raised.
     """
     cur_nsrt: Optional[_GroundNSRT] = None
-    cur_option = DummyOption
     nsrt_queue = list(nsrt_plan)
+    if necessary_atoms_seq is None:
+        empty_atoms: Set[GroundAtom] = set()
+        necessary_atoms_seq = [empty_atoms for _ in range(len(nsrt_plan) + 1)]
+    assert len(necessary_atoms_seq) == len(nsrt_plan) + 1
+    necessary_atoms_queue = list(necessary_atoms_seq)
 
-    def _policy(state: State) -> Action:
-        nonlocal cur_nsrt, cur_option
-        if cur_option is DummyOption or cur_option.terminal(state):
-            if not nsrt_queue:
-                raise OptionExecutionFailure("Greedy option plan exhausted.")
-            cur_nsrt = nsrt_queue.pop(0)
-            cur_option = cur_nsrt.sample_option(state, goal, rng)
-            if not cur_option.initiable(state):
-                raise OptionExecutionFailure("Greedy option not initiable.")
-        act = cur_option.policy(state)
-        return act
+    def _option_policy(state: State) -> _Option:
+        nonlocal cur_nsrt
+        if not nsrt_queue:
+            raise OptionExecutionFailure("NSRT plan exhausted.")
+        expected_atoms = necessary_atoms_queue.pop(0)
+        if not all(a.holds(state) for a in expected_atoms):
+            raise OptionExecutionFailure(
+                "Executing the NSRT failed to achieve the necessary atoms.")
+        cur_nsrt = nsrt_queue.pop(0)
+        cur_option = cur_nsrt.sample_option(state, goal, rng)
+        logging.debug(f"Using option {cur_option.name}{cur_option.objects} "
+                      "from NSRT plan.")
+        return cur_option
 
-    return _policy
+    return _option_policy
+
+
+def nsrt_plan_to_greedy_policy(
+    nsrt_plan: Sequence[_GroundNSRT],
+    goal: Set[GroundAtom],
+    rng: np.random.Generator,
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+) -> Callable[[State], Action]:
+    """Greedily execute an NSRT plan, assuming downward refinability and that
+    any sample will work.
+
+    If an option is not initiable or if the plan runs out, an
+    OptionExecutionFailure is raised.
+    """
+    option_policy = nsrt_plan_to_greedy_option_policy(
+        nsrt_plan, goal, rng, necessary_atoms_seq=necessary_atoms_seq)
+    return option_policy_to_policy(option_policy)
 
 
 def create_random_option_policy(
@@ -1240,7 +1318,7 @@ def get_variable_combinations(
 
 
 def get_all_ground_atoms_for_predicate(
-        predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
+        predicate: Predicate, objects: Collection[Object]) -> Set[GroundAtom]:
     """Get all groundings of the predicate given objects.
 
     Note: we don't want lru_cache() on this function because we might want
@@ -2239,7 +2317,7 @@ class _LDLParser:
         # Validate parameters.
         variables = variable_name_to_variable.values()
         for v in nsrt.parameters:
-            assert v in variables, "NSRT parameter {v} missing from LDL rule"
+            assert v in variables, f"NSRT parameter {v} missing from LDL rule"
         return nsrt
 
 
@@ -2691,6 +2769,57 @@ def create_pddl_problem(objects: Collection[Object],
   (:goal (and {goal_str}))
 )
 """
+
+
+@functools.lru_cache(maxsize=None)
+def get_failure_predicate(option: ParameterizedOption,
+                          idxs: Tuple[int]) -> Predicate:
+    """Create a Failure predicate for a parameterized option."""
+    idx_str = ",".join(map(str, idxs))
+    arg_types = [option.types[i] for i in idxs]
+    return Predicate(f"{option.name}Failed_arg{idx_str}",
+                     arg_types,
+                     _classifier=lambda s, o: False)
+
+
+def _get_idxs_to_failure_predicate(
+        option: ParameterizedOption,
+        max_arity: int = 1) -> Dict[Tuple[int, ...], Predicate]:
+    """Helper for get_all_failure_predicates() and get_failure_atoms()."""
+    idxs_to_failure_predicate: Dict[Tuple[int, ...], Predicate] = {}
+    num_types = len(option.types)
+    max_num_idxs = min(max_arity, num_types)
+    all_idxs = list(range(num_types))
+    for arity in range(1, max_num_idxs + 1):
+        for idxs in itertools.combinations(all_idxs, arity):
+            pred = get_failure_predicate(option, idxs)
+            idxs_to_failure_predicate[idxs] = pred
+    return idxs_to_failure_predicate
+
+
+def get_all_failure_predicates(options: Set[ParameterizedOption],
+                               max_arity: int = 1) -> Set[Predicate]:
+    """Get all possible failure predicates."""
+    failure_preds: Set[Predicate] = set()
+    for param_opt in options:
+        preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
+        failure_preds.update(preds.values())
+    return failure_preds
+
+
+def get_failure_atoms(failed_options: Collection[_Option],
+                      max_arity: int = 1) -> Set[GroundAtom]:
+    """Get ground failure atoms for the collection of failure options."""
+    failure_atoms: Set[GroundAtom] = set()
+    failed_option_specs = {(o.parent, tuple(o.objects))
+                           for o in failed_options}
+    for (param_opt, objs) in failed_option_specs:
+        preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
+        for idxs, pred in preds.items():
+            obj_for_idxs = [objs[i] for i in idxs]
+            failure_atom = GroundAtom(pred, obj_for_idxs)
+            failure_atoms.add(failure_atom)
+    return failure_atoms
 
 
 @dataclass

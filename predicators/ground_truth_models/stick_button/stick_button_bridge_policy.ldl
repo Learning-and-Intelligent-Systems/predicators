@@ -1,0 +1,26 @@
+(define (policy)
+  (:rule PickStickFromButton
+    :parameters (?robot - robot ?stick - stick ?from_button - button)
+    :preconditions (and (HandEmpty ?robot) (RobotAboveButton ?robot ?from_button) (RobotPressButtonFailed_arg0 ?robot) (not (AboveNoButton )) (not (Grasped ?robot ?stick)) (not (RobotPressButtonFailed_arg1 ?from_button)))
+    :goals ()
+    :action (PickStickFromButton ?robot ?stick ?from-button)
+  )
+  (:rule PickStickFromNothing
+    :parameters (?robot - robot ?stick - stick)
+    :preconditions (and (AboveNoButton ) (HandEmpty ?robot) (RobotPressButtonFailed_arg0 ?robot) (not (Grasped ?robot ?stick)))
+    :goals ()
+    :action (PickStickFromNothing ?robot ?stick)
+  )
+  (:rule PlaceStickFromButton
+    :parameters (?robot - robot ?stick - stick)
+    :preconditions (and (Grasped ?robot ?stick) (RobotPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (AboveNoButton )) (not (HandEmpty ?robot)))
+    :goals ()
+    :action (PlaceStickFromButton ?robot ?stick)
+  )
+  (:rule PlaceStickFromNothing
+    :parameters (?robot - robot ?stick - stick)
+    :preconditions (and (AboveNoButton ) (Grasped ?robot ?stick) (RobotPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (HandEmpty ?robot)))
+    :goals ()
+    :action (PlaceStickFromNothing ?robot ?stick)
+  )
+)
