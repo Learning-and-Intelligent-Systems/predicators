@@ -15,7 +15,8 @@ class OracleBridgePolicy(LDLBridgePolicy):
     def __init__(self, types: Set[Type], predicates: Set[Predicate],
                  options: Set[ParameterizedOption], nsrts: Set[NSRT]) -> None:
         super().__init__(types, predicates, options, nsrts)
-        all_predicates = predicates | self._failure_predicates
+        all_predicates = predicates | self._failure_predicates | \
+            self._offending_object_predicates
         self._oracle_ldl = get_gt_ldl_bridge_policy(CFG.env, self._types,
                                                     all_predicates,
                                                     self._options, self._nsrts)

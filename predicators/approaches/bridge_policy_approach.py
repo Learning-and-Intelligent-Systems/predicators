@@ -113,6 +113,10 @@ class BridgePolicyApproach(OracleApproach):
                                   f"{failed_option.objects}.")
                     logging.debug(f"Error: {e.args[0]}")
                     self._bridge_policy.record_failed_option(failed_option)
+                offending_objects = e.info.get("offending_objects", None)
+                if offending_objects is not None:
+                    self._bridge_policy.record_offending_objects(
+                        offending_objects)
 
             # Switch control from planner to bridge.
             if current_control == "planner":
@@ -139,6 +143,10 @@ class BridgePolicyApproach(OracleApproach):
                         raise ApproachFailure(
                             "Loop detected, giving up.",
                             info={"all_failed_options": all_failed_options})
+                except OptionExecutionFailure as e:
+                    # TODO ?????
+                    all_failed_options.append(e.info["last_failed_option"])
+                    return _policy(s)
                 last_bridge_policy_state = s
 
             # Switch control from bridge to planner.
@@ -188,4 +196,3 @@ class BridgePolicyApproach(OracleApproach):
         # Use the option model ONLY to predict environment failures.
         # Will raise an EnvironmentFailure if one is predicted.
         self._option_model.get_next_state_and_num_actions(state, option)
-

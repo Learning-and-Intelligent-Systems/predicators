@@ -1106,10 +1106,11 @@ def option_policy_to_policy(
     option_policy: Callable[[State], _Option],
     max_option_steps: Optional[int] = None,
     raise_error_on_repeated_state: bool = False,
-    environment_failure_predictor: Optional[Callable[[State, _Option], None]] = None,
+    environment_failure_predictor: Optional[Callable[[State, _Option],
+                                                     None]] = None,
 ) -> Callable[[State], Action]:
     """Create a policy that executes a policy over options.
-    
+
     If environment_failure_predictor is not None, it should raise an
     EnvironmentFailure if one is predicted.
     """
@@ -1153,10 +1154,13 @@ def option_policy_to_policy(
                 try:
                     environment_failure_predictor(state, cur_option)
                 except EnvironmentFailure as e:
+                    print(state.pretty_str())
                     raise OptionExecutionFailure(
-                        f"Environment failure predicted: {e.args[0]}.",
-                        info={"last_failed_option": cur_option,
-                              **e.info})
+                        f"Environment failure predicted: {repr(e)}.",
+                        info={
+                            "last_failed_option": cur_option,
+                            **e.info
+                        })
 
         num_cur_option_steps += 1
 
@@ -2833,6 +2837,38 @@ def get_failure_atoms(failed_options: Collection[_Option],
             failure_atom = GroundAtom(pred, obj_for_idxs)
             failure_atoms.add(failure_atom)
     return failure_atoms
+
+
+@functools.lru_cache(maxsize=None)
+def get_offending_object_predicate(types: Tuple[Type, ...]) -> Predicate:
+    """Create an Offending predicate for some object types."""
+    type_str = "-".join(t.name for t in types)
+    return Predicate(f"OffendingObjects_{type_str}",
+                     types,
+                     _classifier=lambda s, o: False)
+
+
+def get_all_offending_object_predicates(types: Collection[Type],
+                                        max_arity: int = 1) -> Set[Predicate]:
+    """Get all possible offending object predicates."""
+    predicates: Set[Predicate] = set()
+    for i in range(1, max_arity + 1):
+        for type_tuple in itertools.product(types, repeat=i):
+            predicates.add(get_offending_object_predicate(type_tuple))
+    return predicates
+
+
+def get_offending_object_atoms(offending_objects: Collection[Object],
+                               max_arity: int = 1) -> Set[GroundAtom]:
+    """Get ground failure atoms for the collection of failure options."""
+    offending_atoms: Set[GroundAtom] = set()
+    for i in range(1, max_arity + 1):
+        for obj_tuple in itertools.product(offending_objects, repeat=i):
+            type_tuple = tuple(o.type for o in obj_tuple)
+            pred = get_offending_object_predicate(type_tuple)
+            atom = GroundAtom(pred, obj_tuple)
+            offending_atoms.add(atom)
+    return offending_atoms
 
 
 @dataclass

@@ -6,8 +6,8 @@ from typing import Callable, List, Set
 import numpy as np
 
 from predicators.settings import CFG
-from predicators.structs import NSRT, ParameterizedOption, Predicate, State, \
-    Type, _Option
+from predicators.structs import NSRT, Object, ParameterizedOption, Predicate, \
+    State, Type, _Option
 
 
 class BridgePolicyDone(Exception):
@@ -25,6 +25,7 @@ class BaseBridgePolicy(abc.ABC):
         self._nsrts = nsrts
         self._rng = np.random.default_rng(CFG.seed)
         self._failed_options: List[_Option] = []
+        self._offending_objects: Set[Object] = set()
 
     @classmethod
     @abc.abstractmethod
@@ -47,7 +48,12 @@ class BaseBridgePolicy(abc.ABC):
     def reset(self) -> None:
         """Called at the beginning of a new task."""
         self._failed_options = []
+        self._offending_objects = set()
 
     def record_failed_option(self, failed_option: _Option) -> None:
         """Called when an option has failed."""
         self._failed_options.append(failed_option)
+
+    def record_offending_objects(self, offending_objects: Set[Object]) -> None:
+        """Called when there were some offending objects."""
+        self._offending_objects.update(offending_objects)
