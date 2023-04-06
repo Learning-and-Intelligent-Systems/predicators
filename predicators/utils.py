@@ -1106,8 +1106,13 @@ def option_policy_to_policy(
     option_policy: Callable[[State], _Option],
     max_option_steps: Optional[int] = None,
     raise_error_on_repeated_state: bool = False,
+    environment_failure_predictor: Optional[Callable[[State, _Option], None]] = None,
 ) -> Callable[[State], Action]:
-    """Create a policy that executes a policy over options."""
+    """Create a policy that executes a policy over options.
+    
+    If environment_failure_predictor is not None, it should raise an
+    EnvironmentFailure if one is predicted.
+    """
     cur_option = DummyOption
     num_cur_option_steps = 0
     last_state: Optional[State] = None
@@ -1144,6 +1149,14 @@ def option_policy_to_policy(
                     "Unsound option policy.",
                     info={"last_failed_option": last_option})
             num_cur_option_steps = 0
+            if environment_failure_predictor is not None:
+                try:
+                    environment_failure_predictor(state, cur_option)
+                except EnvironmentFailure as e:
+                    raise OptionExecutionFailure(
+                        f"Environment failure predicted: {e.args[0]}.",
+                        info={"last_failed_option": cur_option,
+                              **e.info})
 
         num_cur_option_steps += 1
 

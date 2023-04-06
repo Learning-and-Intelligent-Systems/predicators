@@ -23,6 +23,10 @@ Oracle bridge policy in painting:
 Oracle bridge policy in stick button:
     python predicators/main.py --env stick_button --approach bridge_policy \
         --seed 0 --bridge_policy oracle --horizon 10000
+
+Oracle bridge policy in cluttered table:
+    python predicators/main.py --env cluttered_table --approach bridge_policy \
+        --seed 0 --bridge_policy oracle
 """
 
 import logging
@@ -80,6 +84,7 @@ class BridgePolicyApproach(OracleApproach):
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
             raise_error_on_repeated_state=True,
+            environment_failure_predictor=self._predict_env_failure,
         )
         all_failed_options: List[_Option] = []
 
@@ -122,6 +127,7 @@ class BridgePolicyApproach(OracleApproach):
                     option_policy,
                     max_option_steps=CFG.max_num_steps_option_rollout,
                     raise_error_on_repeated_state=True,
+                    environment_failure_predictor=self._predict_env_failure,
                 )
                 # Special case: bridge policy passes control immediately back
                 # to the planner. For example, if this happened on every time
@@ -148,6 +154,7 @@ class BridgePolicyApproach(OracleApproach):
                 option_policy,
                 max_option_steps=CFG.max_num_steps_option_rollout,
                 raise_error_on_repeated_state=True,
+                environment_failure_predictor=self._predict_env_failure,
             )
             try:
                 return current_policy(s)
@@ -176,3 +183,9 @@ class BridgePolicyApproach(OracleApproach):
             goal=task.goal,
             rng=self._rng,
             necessary_atoms_seq=atoms_seq)
+
+    def _predict_env_failure(self, state: State, option: _Option) -> None:
+        # Use the option model ONLY to predict environment failures.
+        # Will raise an EnvironmentFailure if one is predicted.
+        self._option_model.get_next_state_and_num_actions(state, option)
+

@@ -3,9 +3,11 @@
 from .nsrts import ClutteredTableGroundTruthNSRTFactory
 from .options import ClutteredTableGroundTruthOptionFactory, \
     ClutteredTablePlaceGroundTruthOptionFactory
+from .ldl_bridge_policy import ClutteredTableLDLBridgePolicyFactory
 
 __all__ = [
     "ClutteredTableGroundTruthNSRTFactory",
     "ClutteredTableGroundTruthOptionFactory",
-    "ClutteredTablePlaceGroundTruthOptionFactory"
+    "ClutteredTablePlaceGroundTruthOptionFactory",
+    "ClutteredTableLDLBridgePolicyFactory"
 ]
