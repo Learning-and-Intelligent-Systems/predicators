@@ -312,6 +312,9 @@ def test_run_episode():
         def __init__(self):
             self.num_observations = 0
 
+        def reset(self, train_or_test, task_idx):
+            self.num_observations = 0
+
         def observe(self, obs, action):
             self.num_observations += 1
 
