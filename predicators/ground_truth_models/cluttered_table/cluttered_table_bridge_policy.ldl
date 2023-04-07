@@ -1,5 +1,5 @@
 (define (policy)
-     (:rule Grasp
+    (:rule Grasp
         :parameters (?can - can)
         :preconditions (and (OffendingObjects_can ?can) (HandEmpty) (Untrashed ?can))
         :goals ()

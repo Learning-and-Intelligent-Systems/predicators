@@ -2,7 +2,9 @@
 
 from .nsrts import ExitGarageGroundTruthNSRTFactory
 from .options import ExitGarageGroundTruthOptionFactory
+from .ldl_bridge_policy import ExitGarageLDLBridgePolicyFactory
 
 __all__ = [
-    "ExitGarageGroundTruthNSRTFactory", "ExitGarageGroundTruthOptionFactory"
+    "ExitGarageGroundTruthNSRTFactory", "ExitGarageGroundTruthOptionFactory",
+    "ExitGarageLDLBridgePolicyFactory"
 ]

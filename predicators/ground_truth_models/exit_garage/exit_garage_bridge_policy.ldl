@@ -1,0 +1,16 @@
+(define (policy)
+    (:rule PickupObstacle
+        :parameters (?robot - robot ?obstacle - obstacle)
+        :preconditions (and (OffendingObjects_obstacle ?obstacle) (NotCarryingObstacle ?robot) (ObstacleNotCleared ?obstacle))
+        :goals ()
+        :action (PickupObstacle ?robot ?obstacle)
+    )
+
+    (:rule StoreObstacle
+        :parameters (?robot - robot ?obstacle - obstacle)
+        :preconditions (and (CarryingObstacle ?robot ?obstacle))
+        :goals ()
+        :action (StoreObstacle ?robot ?obstacle)
+    )
+
+)
