@@ -811,19 +811,6 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
         new_pred_candidates = {}
         # First, we get the set of all atoms that change in this transition.
         transition_add_effs = transition[1] - transition[0]
-
-        # # NOTE: Debugging
-        # if "Forall[0:block].[NOT-Covers(0,1)]" in str(transition_add_effs):
-        #     import ipdb; ipdb.set_trace()
-        # if "Forall[0:block].[((0:block).grasp<=[idx 0]-0.489)(0)]" in str(transition_add_effs):
-        #     import ipdb; ipdb.set_trace()
-
-        # # If we already have a predicate for these, then we're good, we skip
-        # # this transition.
-        # for atom in transition_add_effs:
-        #     if atom.predicate in curr_preds:
-        #         return new_pred_candidates
-
         # Otherwise, return all candidate predicates that change from false
         # to true in this transition.
         for atom in transition_add_effs:
@@ -955,18 +942,116 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
                  "preconditions...")
     pruned_atom_data = utils.prune_ground_atom_dataset(
         atom_dataset, kept_predicates | initial_predicates)
-    segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
+    pruned_segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
     low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
     preds_in_preconds = set()
+
+    # Use the atom dataset to make a queryable dictionary mapping low-level
+    # state to high-level state.
+    low_to_high_level_init_state_map = {}
+    for train_traj in segmented_trajs:
+        for segment in train_traj:
+            low_to_high_level_init_state_map[str(segment.states[0])] = segment.init_atoms
+
+    def get_candidates_for_pnad_preconds(pnad, already_tried_preds):
+        candidate_set = set()
+        for i, seg in enumerate(pnad.datastore):
+            # Get all predicates tru in this state.
+            preds_true_in_curr_state = set()
+            for atom in low_to_high_level_init_state_map[str(seg[0].states[0])]:
+                if atom.predicate not in already_tried_preds:
+                    preds_true_in_curr_state.add(atom.predicate)
+            if i == 0:
+                candidate_set = preds_true_in_curr_state                
+            else:
+                candidate_set &= preds_true_in_curr_state
+
+        return candidate_set
+
+    new_hillclimbing_sets_to_try = []
     for pnad in learn_strips_operators(low_level_trajs,
                                        train_tasks,
                                        set(kept_predicates
                                            | initial_predicates),
-                                       segmented_trajs,
+                                       pruned_segmented_trajs,
                                        verify_harmlessness=False,
                                        verbose=False):
         for atom in pnad.op.preconditions:
             preds_in_preconds.add(atom.predicate)
+
+        # HACK (for now) to learn static predicates and delete effects.
+        new_precond_cands = get_candidates_for_pnad_preconds(pnad, kept_predicates)
+        new_hillclimbing_sets_to_try.append(new_precond_cands)
+
+    for curr_candidates_set in new_hillclimbing_sets_to_try:
+        curr_pruned_atom_dataset = utils.prune_ground_atom_dataset(
+            atom_dataset,
+            set(kept_predicates) | initial_predicates
+            | curr_candidates_set)
+
+        learned_preds_dict = {
+            pred: candidates[pred]
+            for pred in kept_predicates
+        }
+        curr_candidates = {pred: candidates[pred] for pred in curr_candidates_set}
+        score_function = create_score_function(
+            CFG.grammar_search_score_function, initial_predicates,
+            curr_pruned_atom_dataset, {
+                **curr_candidates,
+                **learned_preds_dict
+            }, train_tasks)
+
+        # Then, run optimization on these candidates + goal predicates + currently
+        # learned predicates alone.
+
+        # Greedy local hill climbing search.
+        if CFG.grammar_search_search_algorithm == "hill_climbing":
+            path, _, heuristics = utils.run_hill_climbing(
+                kept_predicates,
+                _check_goal,
+                _get_successors,
+                score_function.evaluate,
+                enforced_depth=CFG.grammar_search_hill_climbing_depth,
+                parallelize=CFG.grammar_search_parallelize_hill_climbing)
+            logging.info("\nHill climbing summary:")
+            for i in range(1, len(path)):
+                new_additions = path[i] - path[i - 1]
+                assert len(new_additions) == 1
+                new_addition = next(iter(new_additions))
+                h = heuristics[i]
+                prev_h = heuristics[i - 1]
+                logging.info(f"\tOn step {i}, added {new_addition}, with "
+                                f"heuristic {h:.3f} (an improvement of "
+                                f"{prev_h - h:.3f} over the previous step)")
+        elif CFG.grammar_search_search_algorithm == "gbfs":
+            path, _ = utils.run_gbfs(
+                kept_predicates,
+                _check_goal,
+                _get_successors,
+                score_function.evaluate,
+                max_evals=CFG.grammar_search_gbfs_num_evals)
+        else:
+            raise NotImplementedError(
+                "Unrecognized grammar_search_search_algorithm: "
+                f"{CFG.grammar_search_search_algorithm}.")
+        # Update the current predicate set with the learned predicates.
+        kept_predicates = path[-1]
+        total_num_evals += len(path) * len(curr_candidates.keys())
+
+    pruned_atom_data = utils.prune_ground_atom_dataset(
+        atom_dataset, kept_predicates | initial_predicates)
+    pruned_segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
+
+    for pnad in learn_strips_operators(low_level_trajs,
+                                       train_tasks,
+                                       set(kept_predicates
+                                           | initial_predicates),
+                                       pruned_segmented_trajs,
+                                       verify_harmlessness=False,
+                                       verbose=False):
+        for atom in pnad.op.preconditions:
+            preds_in_preconds.add(atom.predicate)
+    
     kept_predicates &= preds_in_preconds
 
     logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
