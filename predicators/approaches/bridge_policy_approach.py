@@ -41,7 +41,7 @@ from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
 from predicators.structs import Action, ParameterizedOption, \
-    Predicate, State, Task, Type, _Option
+    Predicate, State, Task, Type, _Option, BridgePolicyDoneNSRT
 from predicators.utils import OptionExecutionFailure
 
 
@@ -61,7 +61,7 @@ class BridgePolicyApproach(OracleApproach):
                          max_skeletons_optimized)
         predicates = self._get_current_predicates()
         options = initial_options
-        nsrts = self._get_current_nsrts()
+        nsrts = self._get_current_nsrts() | {BridgePolicyDoneNSRT}
         self._bridge_policy = create_bridge_policy(CFG.bridge_policy, types,
                                                    predicates, options, nsrts)
 
@@ -74,10 +74,6 @@ class BridgePolicyApproach(OracleApproach):
         return self._bridge_policy.is_learning_based
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        # TODO: need to update oracle stick button policy to explicitly raise
-        # done after a pick or a place.
-        import ipdb; ipdb.set_trace()
-
         start_time = time.perf_counter()
         self._bridge_policy.reset()
         # Start by planning. Note that we cannot start with the bridge policy
