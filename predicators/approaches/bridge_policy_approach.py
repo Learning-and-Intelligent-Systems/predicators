@@ -40,7 +40,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
-from predicators.structs import Action, DefaultState, ParameterizedOption, \
+from predicators.structs import Action, ParameterizedOption, \
     Predicate, State, Task, Type, _Option
 from predicators.utils import OptionExecutionFailure
 
@@ -74,6 +74,10 @@ class BridgePolicyApproach(OracleApproach):
         return self._bridge_policy.is_learning_based
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        # TODO: need to update oracle stick button policy to explicitly raise
+        # done after a pick or a place.
+        import ipdb; ipdb.set_trace()
+
         start_time = time.perf_counter()
         self._bridge_policy.reset()
         # Start by planning. Note that we cannot start with the bridge policy
@@ -88,12 +92,11 @@ class BridgePolicyApproach(OracleApproach):
         )
         all_failed_options: List[_Option] = []
 
-        # Prevent infinite loops by detecting if the bridge policy is called
-        # twice with the same state.
-        last_bridge_policy_state = DefaultState
+        # TODO: detect loops? Maybe not because bridge policy has history.
+        # But do need to avoid infinite recursion.
 
         def _policy(s: State) -> Action:
-            nonlocal current_control, current_policy, last_bridge_policy_state
+            nonlocal current_control, current_policy
 
             if time.perf_counter() - start_time > timeout:
                 raise ApproachTimeout("Bridge policy timed out.")
@@ -103,9 +106,14 @@ class BridgePolicyApproach(OracleApproach):
             try:
                 return current_policy(s)
             except BridgePolicyDone:
+                # Bridge policy declared itself done so switch back to planner.
                 assert current_control == "bridge"
+                current_control = "planner"
+                logging.debug("Switching control from bridge to planner.")
                 failed_option = None  # not used, but satisfy linting
             except OptionExecutionFailure as e:
+                # An error was encountered, so we need the bridge policy.
+                current_control = "bridge"
                 failed_option = e.info["last_failed_option"]
                 if failed_option is not None:
                     all_failed_options.append(failed_option)
@@ -117,15 +125,13 @@ class BridgePolicyApproach(OracleApproach):
                 if offending_objects is not None:
                     self._bridge_policy.record_offending_objects(
                         offending_objects)
+                logging.debug("Giving control to bridge.")
 
-            # Switch control from planner to bridge.
-            if current_control == "planner":
+            if current_control == "bridge":
                 # Planning failed on the first time step.
                 if failed_option is None:
                     assert s.allclose(task.init)
-                    raise ApproachFailure("Planning failed on init state.")
-                logging.debug("Switching control from planner to bridge.")
-                current_control = "bridge"
+                    raise ApproachFailure("Planning failed on init state.")                
                 option_policy = self._bridge_policy.get_option_policy()
                 current_policy = utils.option_policy_to_policy(
                     option_policy,
@@ -133,44 +139,23 @@ class BridgePolicyApproach(OracleApproach):
                     raise_error_on_repeated_state=True,
                     environment_failure_predictor=self._predict_env_failure,
                 )
-                # Special case: bridge policy passes control immediately back
-                # to the planner. For example, if this happened on every time
-                # step, then this approach would be performing MPC.
-                try:
-                    return current_policy(s)
-                except BridgePolicyDone:
-                    if last_bridge_policy_state.allclose(s):
-                        raise ApproachFailure(
-                            "Loop detected, giving up.",
-                            info={"all_failed_options": all_failed_options})
-                except OptionExecutionFailure as e:
-                    # TODO ?????
-                    current_control = "planner"
-                    all_failed_options.append(e.info["last_failed_option"])
-                    return _policy(s)
-                last_bridge_policy_state = s
+            else:
+                assert current_control == "planner"
+                current_task = Task(s, task.goal)
+                current_control = "planner"
+                duration = time.perf_counter() - start_time
+                remaining_time = timeout - duration
+                option_policy = self._get_option_policy_by_planning(
+                    current_task, remaining_time)
+                current_policy = utils.option_policy_to_policy(
+                    option_policy,
+                    max_option_steps=CFG.max_num_steps_option_rollout,
+                    raise_error_on_repeated_state=True,
+                    environment_failure_predictor=self._predict_env_failure,
+                )
 
-            # Switch control from bridge to planner.
-            logging.debug("Switching control from bridge to planner.")
-            assert current_control == "bridge"
-            current_task = Task(s, task.goal)
-            current_control = "planner"
-            duration = time.perf_counter() - start_time
-            remaining_time = timeout - duration
-            option_policy = self._get_option_policy_by_planning(
-                current_task, remaining_time)
-            current_policy = utils.option_policy_to_policy(
-                option_policy,
-                max_option_steps=CFG.max_num_steps_option_rollout,
-                raise_error_on_repeated_state=True,
-                environment_failure_predictor=self._predict_env_failure,
-            )
-            try:
-                return current_policy(s)
-            except OptionExecutionFailure as e:
-                all_failed_options.append(e.info["last_failed_option"])
-                raise ApproachFailure(
-                    e.args[0], info={"all_failed_options": all_failed_options})
+            # TODO: prevent infinite recursion!
+            return _policy(s)
 
         return _policy
 
