@@ -1,11 +1,16 @@
 (define (policy)
+    (:rule BridgePolicyDone
+    :parameters (?obstacle - obstacle)
+    :preconditions (and (OffendingObjects_obstacle ?obstacle) (not (ObstacleNotCleared ?obstacle)))
+    :goals ()
+    :action (BridgePolicyDone)
+  )
     (:rule PickupObstacle
         :parameters (?robot - robot ?obstacle - obstacle)
         :preconditions (and (OffendingObjects_obstacle ?obstacle) (NotCarryingObstacle ?robot) (ObstacleNotCleared ?obstacle))
         :goals ()
         :action (PickupObstacle ?robot ?obstacle)
     )
-
     (:rule StoreObstacle
         :parameters (?robot - robot ?obstacle - obstacle)
         :preconditions (and (CarryingObstacle ?robot ?obstacle))

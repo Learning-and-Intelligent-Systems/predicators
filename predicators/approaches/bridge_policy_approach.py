@@ -24,8 +24,12 @@ Oracle bridge policy in stick button:
     python predicators/main.py --env stick_button --approach bridge_policy \
         --seed 0 --bridge_policy oracle --horizon 10000
 
-Oracle bridge policy in cluttered table:
+Oracle bridge policy in cluttered table (TODO make work):
     python predicators/main.py --env cluttered_table --approach bridge_policy \
+        --seed 0 --bridge_policy oracle
+
+Oracle bridge policy in exit garage:
+    python predicators/main.py --env exit_garage --approach bridge_policy \
         --seed 0 --bridge_policy oracle
 """
 
