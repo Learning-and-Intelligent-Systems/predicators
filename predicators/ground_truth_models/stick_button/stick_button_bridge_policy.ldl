@@ -1,4 +1,16 @@
 (define (policy)
+  (:rule BridgePolicyDone
+    :parameters (?robot - robot)
+    :preconditions (and (RobotPressButtonFailed_arg0 ?robot) (not (HandEmpty ?robot)))
+    :goals ()
+    :action (BridgePolicyDone)
+  )
+  (:rule BridgePolicyDone
+    :parameters (?robot - robot)
+    :preconditions (and (StickPressButtonFailed_arg0 ?robot) (HandEmpty ?robot))
+    :goals ()
+    :action (BridgePolicyDone)
+  )
   (:rule PickStickFromButton
     :parameters (?robot - robot ?stick - stick ?from_button - button)
     :preconditions (and (HandEmpty ?robot) (RobotAboveButton ?robot ?from_button) (RobotPressButtonFailed_arg0 ?robot) (not (AboveNoButton )) (not (Grasped ?robot ?stick)) (not (RobotPressButtonFailed_arg1 ?from_button)))
@@ -13,13 +25,13 @@
   )
   (:rule PlaceStickFromButton
     :parameters (?robot - robot ?stick - stick)
-    :preconditions (and (Grasped ?robot ?stick) (RobotPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (AboveNoButton )) (not (HandEmpty ?robot)))
+    :preconditions (and (Grasped ?robot ?stick) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (AboveNoButton )) (not (HandEmpty ?robot)))
     :goals ()
     :action (PlaceStickFromButton ?robot ?stick)
   )
   (:rule PlaceStickFromNothing
     :parameters (?robot - robot ?stick - stick)
-    :preconditions (and (AboveNoButton ) (Grasped ?robot ?stick) (RobotPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (HandEmpty ?robot)))
+    :preconditions (and (AboveNoButton ) (Grasped ?robot ?stick) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (HandEmpty ?robot)))
     :goals ()
     :action (PlaceStickFromNothing ?robot ?stick)
   )

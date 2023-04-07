@@ -5,6 +5,7 @@ import logging
 from typing import Callable, List, Set
 
 from predicators import utils
+from predicators.approaches import ApproachFailure
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.structs import NSRT, GroundAtom, LiftedDecisionList, Object, \
     ParameterizedOption, Predicate, State, Type, _Option, BridgePolicyDoneNSRT
@@ -35,6 +36,9 @@ class LDLBridgePolicy(BaseBridgePolicy):
         objects = set(state)
         goal: Set[GroundAtom] = set()  # task goal not used
         next_nsrt = utils.query_ldl(ldl, atoms, objects, goal)
+        if next_nsrt is None:
+            print("atoms:", atoms)
+            raise ApproachFailure("Bridge policy failed.")
         if next_nsrt.parent == BridgePolicyDoneNSRT:
             raise BridgePolicyDone()
         return next_nsrt.sample_option(state, goal, self._rng)
