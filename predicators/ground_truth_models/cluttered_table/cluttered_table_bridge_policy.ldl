@@ -1,7 +1,14 @@
 (define (policy)
+    (:rule BridgePolicyDone
+        :parameters (?can - can)
+        :preconditions (and (OffendingObjects_can ?can) (Holding ?can))
+        :goals ()
+        :action (BridgePolicyDone)
+    )
     (:rule Grasp
         :parameters (?can - can)
-        :preconditions (and (OffendingObjects_can ?can) (HandEmpty) (Untrashed ?can))
+        :preconditions (and (OffendingObjects_can ?can) (HandEmpty) (Untrashed ?can)
+                        (not (GraspFailed_arg0 ?can)))
         :goals ()
         :action (Grasp ?can)
     )
