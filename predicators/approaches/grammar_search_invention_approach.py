@@ -773,7 +773,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset, candidates, self._train_tasks)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
-        self._learned_predicates = _select_predicates_to_keep(
+        self._learned_predicates = self._select_predicates_to_keep(
             candidates, score_function, self._initial_predicates, atom_dataset,
             self._train_tasks)
         logging.info("Done.")
@@ -781,110 +781,223 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
 
-def _select_predicates_to_keep(candidates: Dict[Predicate, float],
-                               score_function: _PredicateSearchScoreFunction,
-                               initial_predicates: set[Predicate],
-                               atom_dataset: List[GroundAtomTrajectory],
-                               train_tasks: List[Task]) -> Set[Predicate]:
-    """Perform a greedy search over predicate sets."""
-    curr_candidates = {}
+    def _select_predicates_to_keep(self,
+                                candidates: Dict[Predicate, float],
+                                score_function: _PredicateSearchScoreFunction,
+                                initial_predicates: set[Predicate],
+                                atom_dataset: List[GroundAtomTrajectory],
+                                train_tasks: List[Task]) -> Set[Predicate]:
+        """Perform a greedy search over predicate sets."""
+        curr_candidates = {}
 
-    # There are no goal states for this search; run until exhausted.
-    def _check_goal(s: FrozenSet[Predicate]) -> bool:
-        del s  # unused
-        return False
+        # There are no goal states for this search; run until exhausted.
+        def _check_goal(s: FrozenSet[Predicate]) -> bool:
+            del s  # unused
+            return False
 
-    # Successively consider larger predicate sets.
-    def _get_successors(
-        s: FrozenSet[Predicate]
-    ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-        for predicate in sorted(set(curr_candidates) - s):  # determinism
-            # Actions not needed. Frozensets for hashing. The cost of
-            # 1.0 is irrelevant because we're doing GBFS / hill
-            # climbing and not A* (because we don't care about the
-            # path).
-            yield (None, frozenset(s | {predicate}), 1.0)
+        # Successively consider larger predicate sets.
+        def _get_successors(
+            s: FrozenSet[Predicate]
+        ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+            for predicate in sorted(set(curr_candidates) - s):  # determinism
+                # Actions not needed. Frozensets for hashing. The cost of
+                # 1.0 is irrelevant because we're doing GBFS / hill
+                # climbing and not A* (because we don't care about the
+                # path).
+                yield (None, frozenset(s | {predicate}), 1.0)
 
-    def get_candidates_for_transition(
-            transition: Tuple[Set[GroundAtom], Set[GroundAtom]],
-            curr_preds: Set[Predicate]) -> Dict[Predicate, float]:
-        new_pred_candidates = {}
-        # First, we get the set of all atoms that change in this transition.
-        transition_add_effs = transition[1] - transition[0]
-        # Otherwise, return all candidate predicates that change from false
-        # to true in this transition.
-        for atom in transition_add_effs:
-            if atom.predicate not in initial_predicates and atom.predicate not in curr_preds:
-                new_pred_candidates[atom.predicate] = candidates[
-                    atom.predicate]
-        return new_pred_candidates
+        def get_candidates_for_transition(
+                transition: Tuple[Set[GroundAtom], Set[GroundAtom]],
+                curr_preds: Set[Predicate]) -> Dict[Predicate, float]:
+            new_pred_candidates = {}
+            # First, we get the set of all atoms that change in this transition.
+            transition_add_effs = transition[1] - transition[0]
+            # Otherwise, return all candidate predicates that change from false
+            # to true in this transition.
+            for atom in transition_add_effs:
+                if atom.predicate not in initial_predicates and atom.predicate not in curr_preds:
+                    new_pred_candidates[atom.predicate] = candidates[
+                        atom.predicate]
+            return new_pred_candidates
 
-    # Start the search with no candidates.
-    curr_learned_preds: FrozenSet[Predicate] = frozenset()
+        # Start the search with no candidates.
+        curr_learned_preds: FrozenSet[Predicate] = frozenset()
 
-    # We need to segment trajectories by option so we can backchain thru
-    # frontiers.
-    assert CFG.segmenter == "option_changes"
-    segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
+        # We need to segment trajectories by option so we can backchain thru
+        # frontiers.
+        assert CFG.segmenter == "option_changes"
+        segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
 
-    def get_transitions_in_frontier(
-            frontier_idx: int
-    ) -> List[Tuple[Set[GroundAtom], Set[GroundAtom]]]:
-        assert frontier_idx > 0  # Cannot get transitions for the 0th index, since there's no postimage state.
-        transitions_in_frontier = []
-        for segmented_traj in segmented_trajs:
-            traj_len = len(segmented_traj)
-            if frontier_idx > traj_len:
-                # Skip trajs for which we're trying to get
-                # a frontier idx that would go beyond the
-                # initial state.
-                continue
-            init_atoms = segmented_traj[traj_len - frontier_idx].init_atoms
-            final_atoms = segmented_traj[traj_len - frontier_idx].final_atoms
-            transitions_in_frontier.append((init_atoms, final_atoms))
+        def get_transitions_in_frontier(
+                frontier_idx: int
+        ) -> List[Tuple[Set[GroundAtom], Set[GroundAtom]]]:
+            assert frontier_idx > 0  # Cannot get transitions for the 0th index, since there's no postimage state.
+            transitions_in_frontier = []
+            for segmented_traj in segmented_trajs:
+                traj_len = len(segmented_traj)
+                if frontier_idx > traj_len:
+                    # Skip trajs for which we're trying to get
+                    # a frontier idx that would go beyond the
+                    # initial state.
+                    continue
+                init_atoms = segmented_traj[traj_len - frontier_idx].init_atoms
+                final_atoms = segmented_traj[traj_len - frontier_idx].final_atoms
+                transitions_in_frontier.append((init_atoms, final_atoms))
 
-        return transitions_in_frontier
+            return transitions_in_frontier
 
-    max_frontier_idx = max(len(traj) for traj in segmented_trajs) + 1
-    
-    num_candidates_per_frontier: List[Tuple[int, int]] = []
-    total_num_candidates_evaled = 0
-    total_num_evals = 0
+        max_frontier_idx = max(len(traj) for traj in segmented_trajs) + 1
+        
+        num_candidates_per_frontier: List[Tuple[int, int]] = []
+        total_num_candidates_evaled = 0
+        total_num_evals = 0
 
-    # We start at frontier 2 because 2 steps from the end is the preimage state
-    # of the penultimate transition.
-    for frontier_idx in range(2, max_frontier_idx):
-        transitions_for_frontier = get_transitions_in_frontier(frontier_idx)
-        num_candidates_for_curr_frontier = 0
-        candidates_tried_this_frontier = set()
-        # TODO: maybe implement a smart way to avoid repeating the same predicate evaluations
-        # after you confirm this works.
-        for idx, curr_transition in enumerate(transitions_for_frontier):
-            curr_candidates = get_candidates_for_transition(
-                curr_transition,
-                set(curr_learned_preds) | candidates_tried_this_frontier)
+        # We start at frontier 2 because 2 steps from the end is the preimage state
+        # of the penultimate transition.
+        for frontier_idx in range(2, max_frontier_idx):
+            transitions_for_frontier = get_transitions_in_frontier(frontier_idx)
+            num_candidates_for_curr_frontier = 0
+            # candidates_tried_this_frontier = set()
+            # TODO: maybe implement a smart way to avoid repeating the same predicate evaluations
+            # after you confirm this works.
+            for idx, curr_transition in enumerate(transitions_for_frontier):
+                curr_candidates = get_candidates_for_transition(
+                    curr_transition,
+                    set(curr_learned_preds))
 
-            candidates_tried_this_frontier |= set(curr_candidates.keys())
+                if len(curr_candidates.keys()) == 0:
+                    continue
+                total_num_candidates_evaled += len(curr_candidates.keys())
+                num_candidates_for_curr_frontier += len(curr_candidates.keys())
+                logging.info(
+                    f"Evaluating transition {idx} in frontier {frontier_idx} with {len(curr_candidates)} candidates."
+                )
+                curr_frontier_pruned_atom_dataset = utils.prune_ground_atom_dataset(
+                    atom_dataset,
+                    set(curr_learned_preds) | initial_predicates
+                    | set(curr_candidates))
 
-            if len(curr_candidates.keys()) == 0:
-                continue
-            total_num_candidates_evaled += len(curr_candidates.keys())
-            num_candidates_for_curr_frontier += len(curr_candidates.keys())
-            logging.info(
-                f"Evaluating transition {idx} in frontier {frontier_idx} with {len(curr_candidates)} candidates."
-            )
-            curr_frontier_pruned_atom_dataset = utils.prune_ground_atom_dataset(
+                learned_preds_dict = {
+                    pred: candidates[pred]
+                    for pred in curr_learned_preds
+                }
+                score_function = create_score_function(
+                    CFG.grammar_search_score_function, initial_predicates,
+                    curr_frontier_pruned_atom_dataset, {
+                        **curr_candidates,
+                        **learned_preds_dict
+                    }, train_tasks)
+
+                # Then, run optimization on these candidates + goal predicates + currently
+                # learned predicates alone.
+
+                # Greedy local hill climbing search.
+                if CFG.grammar_search_search_algorithm == "hill_climbing":
+                    path, _, heuristics = utils.run_hill_climbing(
+                        curr_learned_preds,
+                        _check_goal,
+                        _get_successors,
+                        score_function.evaluate,
+                        enforced_depth=CFG.grammar_search_hill_climbing_depth,
+                        parallelize=CFG.grammar_search_parallelize_hill_climbing)
+                    logging.info("\nHill climbing summary:")
+                    for i in range(1, len(path)):
+                        new_additions = path[i] - path[i - 1]
+                        assert len(new_additions) == 1
+                        new_addition = next(iter(new_additions))
+                        h = heuristics[i]
+                        prev_h = heuristics[i - 1]
+                        logging.info(f"\tOn step {i}, added {new_addition}, with "
+                                    f"heuristic {h:.3f} (an improvement of "
+                                    f"{prev_h - h:.3f} over the previous step)")
+                elif CFG.grammar_search_search_algorithm == "gbfs":
+                    path, _ = utils.run_gbfs(
+                        curr_learned_preds,
+                        _check_goal,
+                        _get_successors,
+                        score_function.evaluate,
+                        max_evals=CFG.grammar_search_gbfs_num_evals)
+                else:
+                    raise NotImplementedError(
+                        "Unrecognized grammar_search_search_algorithm: "
+                        f"{CFG.grammar_search_search_algorithm}.")
+                # Update the current predicate set with the learned predicates.
+                curr_learned_preds = path[-1]
+                total_num_evals += len(path) * len(curr_candidates.keys())
+            num_candidates_per_frontier.append(
+                (frontier_idx, num_candidates_for_curr_frontier))
+
+        logging.info("Completed predicate invention!")
+        logging.info(
+            f"Evaluated {total_num_candidates_evaled} total candidates with {total_num_evals} predicate eval calls."
+        )
+        assert self._metrics.get("total_num_predicate_evaluations") is None
+        self._metrics["total_num_predicate_evaluations"] = total_num_candidates_evaled
+        logging.info("Frontier Learning Summary:")
+        for elem in num_candidates_per_frontier:
+            logging.info(f"Evaluated {elem[1]} candidates for frontier {elem[0]}.")
+
+        kept_predicates = curr_learned_preds
+        # Filter out predicates that don't appear in some operator preconditions.
+        logging.info("\nFiltering out predicates that don't appear in "
+                    "preconditions...")
+        pruned_atom_data = utils.prune_ground_atom_dataset(
+            atom_dataset, kept_predicates | initial_predicates)
+        pruned_segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
+        low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+        preds_in_preconds = set()
+
+        # Use the atom dataset to make a queryable dictionary mapping low-level
+        # state to high-level state.
+        low_to_high_level_init_state_map = {}
+        for train_traj in segmented_trajs:
+            for segment in train_traj:
+                low_to_high_level_init_state_map[str(segment.states[0])] = segment.init_atoms
+
+        def get_candidates_for_pnad_preconds(pnad, already_tried_preds):
+            candidate_set = set()
+            for i, seg in enumerate(pnad.datastore):
+                # Get all predicates tru in this state.
+                preds_true_in_curr_state = set()
+                for atom in low_to_high_level_init_state_map[str(seg[0].states[0])]:
+                    if atom.predicate not in already_tried_preds:
+                        preds_true_in_curr_state.add(atom.predicate)
+                if i == 0:
+                    candidate_set = preds_true_in_curr_state                
+                else:
+                    candidate_set &= preds_true_in_curr_state
+
+            return candidate_set
+
+        new_hillclimbing_sets_to_try = []
+        for pnad in learn_strips_operators(low_level_trajs,
+                                        train_tasks,
+                                        set(kept_predicates
+                                            | initial_predicates),
+                                        pruned_segmented_trajs,
+                                        verify_harmlessness=False,
+                                        verbose=False):
+            for atom in pnad.op.preconditions:
+                preds_in_preconds.add(atom.predicate)
+
+            # HACK (for now) to learn static predicates and delete effects.
+            new_precond_cands = get_candidates_for_pnad_preconds(pnad, kept_predicates)
+            new_hillclimbing_sets_to_try.append(new_precond_cands)
+
+        for curr_candidates_set in new_hillclimbing_sets_to_try:
+            curr_pruned_atom_dataset = utils.prune_ground_atom_dataset(
                 atom_dataset,
-                set(curr_learned_preds) | initial_predicates
-                | set(curr_candidates))
+                set(kept_predicates) | initial_predicates
+                | curr_candidates_set)
 
             learned_preds_dict = {
                 pred: candidates[pred]
-                for pred in curr_learned_preds
+                for pred in kept_predicates
             }
+            curr_candidates = {pred: candidates[pred] for pred in curr_candidates_set}
             score_function = create_score_function(
                 CFG.grammar_search_score_function, initial_predicates,
-                curr_frontier_pruned_atom_dataset, {
+                curr_pruned_atom_dataset, {
                     **curr_candidates,
                     **learned_preds_dict
                 }, train_tasks)
@@ -895,7 +1008,7 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
             # Greedy local hill climbing search.
             if CFG.grammar_search_search_algorithm == "hill_climbing":
                 path, _, heuristics = utils.run_hill_climbing(
-                    curr_learned_preds,
+                    kept_predicates,
                     _check_goal,
                     _get_successors,
                     score_function.evaluate,
@@ -909,11 +1022,11 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
                     h = heuristics[i]
                     prev_h = heuristics[i - 1]
                     logging.info(f"\tOn step {i}, added {new_addition}, with "
-                                 f"heuristic {h:.3f} (an improvement of "
-                                 f"{prev_h - h:.3f} over the previous step)")
+                                    f"heuristic {h:.3f} (an improvement of "
+                                    f"{prev_h - h:.3f} over the previous step)")
             elif CFG.grammar_search_search_algorithm == "gbfs":
                 path, _ = utils.run_gbfs(
-                    curr_learned_preds,
+                    kept_predicates,
                     _check_goal,
                     _get_successors,
                     score_function.evaluate,
@@ -923,141 +1036,29 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
                     "Unrecognized grammar_search_search_algorithm: "
                     f"{CFG.grammar_search_search_algorithm}.")
             # Update the current predicate set with the learned predicates.
-            curr_learned_preds = path[-1]
+            kept_predicates = path[-1]
             total_num_evals += len(path) * len(curr_candidates.keys())
-        num_candidates_per_frontier.append(
-            (frontier_idx, num_candidates_for_curr_frontier))
 
-    logging.info("Completed predicate invention!")
-    logging.info(
-        f"Evaluated {total_num_candidates_evaled} total candidates with {total_num_evals} predicate eval calls."
-    )
-    logging.info("Frontier Learning Summary:")
-    for elem in num_candidates_per_frontier:
-        logging.info(f"Evaluated {elem[1]} candidates for frontier {elem[0]}.")
+        pruned_atom_data = utils.prune_ground_atom_dataset(
+            atom_dataset, kept_predicates | initial_predicates)
+        pruned_segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
 
-    kept_predicates = curr_learned_preds
-    # Filter out predicates that don't appear in some operator preconditions.
-    logging.info("\nFiltering out predicates that don't appear in "
-                 "preconditions...")
-    pruned_atom_data = utils.prune_ground_atom_dataset(
-        atom_dataset, kept_predicates | initial_predicates)
-    pruned_segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
-    low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
-    preds_in_preconds = set()
+        for pnad in learn_strips_operators(low_level_trajs,
+                                        train_tasks,
+                                        set(kept_predicates
+                                            | initial_predicates),
+                                        pruned_segmented_trajs,
+                                        verify_harmlessness=False,
+                                        verbose=False):
+            for atom in pnad.op.preconditions:
+                preds_in_preconds.add(atom.predicate)
+        
+        kept_predicates &= preds_in_preconds
 
-    # Use the atom dataset to make a queryable dictionary mapping low-level
-    # state to high-level state.
-    low_to_high_level_init_state_map = {}
-    for train_traj in segmented_trajs:
-        for segment in train_traj:
-            low_to_high_level_init_state_map[str(segment.states[0])] = segment.init_atoms
+        logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
+                    f"{len(candidates)} candidates:")
+        for pred in kept_predicates:
+            logging.info(f"\t{pred}")
+        score_function.evaluate(kept_predicates)  # log useful numbers
 
-    def get_candidates_for_pnad_preconds(pnad, already_tried_preds):
-        candidate_set = set()
-        for i, seg in enumerate(pnad.datastore):
-            # Get all predicates tru in this state.
-            preds_true_in_curr_state = set()
-            for atom in low_to_high_level_init_state_map[str(seg[0].states[0])]:
-                if atom.predicate not in already_tried_preds:
-                    preds_true_in_curr_state.add(atom.predicate)
-            if i == 0:
-                candidate_set = preds_true_in_curr_state                
-            else:
-                candidate_set &= preds_true_in_curr_state
-
-        return candidate_set
-
-    new_hillclimbing_sets_to_try = []
-    for pnad in learn_strips_operators(low_level_trajs,
-                                       train_tasks,
-                                       set(kept_predicates
-                                           | initial_predicates),
-                                       pruned_segmented_trajs,
-                                       verify_harmlessness=False,
-                                       verbose=False):
-        for atom in pnad.op.preconditions:
-            preds_in_preconds.add(atom.predicate)
-
-        # HACK (for now) to learn static predicates and delete effects.
-        new_precond_cands = get_candidates_for_pnad_preconds(pnad, kept_predicates)
-        new_hillclimbing_sets_to_try.append(new_precond_cands)
-
-    for curr_candidates_set in new_hillclimbing_sets_to_try:
-        curr_pruned_atom_dataset = utils.prune_ground_atom_dataset(
-            atom_dataset,
-            set(kept_predicates) | initial_predicates
-            | curr_candidates_set)
-
-        learned_preds_dict = {
-            pred: candidates[pred]
-            for pred in kept_predicates
-        }
-        curr_candidates = {pred: candidates[pred] for pred in curr_candidates_set}
-        score_function = create_score_function(
-            CFG.grammar_search_score_function, initial_predicates,
-            curr_pruned_atom_dataset, {
-                **curr_candidates,
-                **learned_preds_dict
-            }, train_tasks)
-
-        # Then, run optimization on these candidates + goal predicates + currently
-        # learned predicates alone.
-
-        # Greedy local hill climbing search.
-        if CFG.grammar_search_search_algorithm == "hill_climbing":
-            path, _, heuristics = utils.run_hill_climbing(
-                kept_predicates,
-                _check_goal,
-                _get_successors,
-                score_function.evaluate,
-                enforced_depth=CFG.grammar_search_hill_climbing_depth,
-                parallelize=CFG.grammar_search_parallelize_hill_climbing)
-            logging.info("\nHill climbing summary:")
-            for i in range(1, len(path)):
-                new_additions = path[i] - path[i - 1]
-                assert len(new_additions) == 1
-                new_addition = next(iter(new_additions))
-                h = heuristics[i]
-                prev_h = heuristics[i - 1]
-                logging.info(f"\tOn step {i}, added {new_addition}, with "
-                                f"heuristic {h:.3f} (an improvement of "
-                                f"{prev_h - h:.3f} over the previous step)")
-        elif CFG.grammar_search_search_algorithm == "gbfs":
-            path, _ = utils.run_gbfs(
-                kept_predicates,
-                _check_goal,
-                _get_successors,
-                score_function.evaluate,
-                max_evals=CFG.grammar_search_gbfs_num_evals)
-        else:
-            raise NotImplementedError(
-                "Unrecognized grammar_search_search_algorithm: "
-                f"{CFG.grammar_search_search_algorithm}.")
-        # Update the current predicate set with the learned predicates.
-        kept_predicates = path[-1]
-        total_num_evals += len(path) * len(curr_candidates.keys())
-
-    pruned_atom_data = utils.prune_ground_atom_dataset(
-        atom_dataset, kept_predicates | initial_predicates)
-    pruned_segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
-
-    for pnad in learn_strips_operators(low_level_trajs,
-                                       train_tasks,
-                                       set(kept_predicates
-                                           | initial_predicates),
-                                       pruned_segmented_trajs,
-                                       verify_harmlessness=False,
-                                       verbose=False):
-        for atom in pnad.op.preconditions:
-            preds_in_preconds.add(atom.predicate)
-    
-    kept_predicates &= preds_in_preconds
-
-    logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
-                 f"{len(candidates)} candidates:")
-    for pred in kept_predicates:
-        logging.info(f"\t{pred}")
-    score_function.evaluate(kept_predicates)  # log useful numbers
-
-    return set(kept_predicates)
+        return set(kept_predicates)
