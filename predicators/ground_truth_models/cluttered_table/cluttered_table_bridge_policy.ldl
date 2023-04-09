@@ -12,4 +12,11 @@
         :goals ()
         :action (Grasp ?can)
     )
+    (:rule Grasp
+        :parameters (?can - can)
+        :preconditions (and (OffendingObjects_can ?can) (HandEmpty) (Untrashed ?can)
+                        (GraspFailed_arg0 ?can))
+        :goals ()
+        :action (Grasp ?can)
+    )
 )

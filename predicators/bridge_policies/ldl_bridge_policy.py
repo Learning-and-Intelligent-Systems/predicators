@@ -38,7 +38,7 @@ class LDLBridgePolicy(BaseBridgePolicy):
         next_nsrt = utils.query_ldl(ldl, atoms, objects, goal)
         if next_nsrt is None:
             print("atoms:", atoms)
-            raise ApproachFailure("Bridge policy failed.")
+            raise ApproachFailure("LDL bridge policy not applicable.")
         if next_nsrt.parent == BridgePolicyDoneNSRT:
             raise BridgePolicyDone()
         return next_nsrt.sample_option(state, goal, self._rng)
