@@ -133,8 +133,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         # Set up model
         self._gnn = setup_graph_net(train_dataset,
                                     num_steps=CFG.gnn_num_message_passing,
-                                    layer_size=CFG.gnn_layer_size
-                                    ).to(self._device)
+                                    layer_size=CFG.gnn_layer_size).to(
+                                        self._device)
         # Set up Adam optimizer and dataloaders.
         optimizer = torch.optim.Adam(self._gnn.parameters(),
                                      lr=CFG.gnn_learning_rate,
