@@ -113,8 +113,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             pickup_target_x = state.get(obstacle, "x")
             pickup_target_y = state.get(obstacle, "y")
             pickup_position = np.array([pickup_target_x, pickup_target_y])
-            cls._plan_direct(state, memory, params, start_position,
-                             pickup_position)
+            cls._plan_direct(memory, params, start_position, pickup_position)
             # Append pickup action to memory plans
             memory["action_plan"].append(
                 Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))
@@ -127,7 +126,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             target_x += ExitGarageEnv.obstacle_radius
             target_y = (ExitGarageEnv.y_ub -
                         ExitGarageEnv.storage_area_height / 2)
-            cls._plan_direct(state, memory, params, pickup_position,
+            cls._plan_direct(memory, params, pickup_position,
                              np.array([target_x, target_y]))
             # Append place action to memory action plan
             memory["action_plan"].append(
@@ -263,8 +262,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
         return True
 
     @classmethod
-    def _plan_direct(cls, state: State, memory: Dict, params: Array,
-                     start_position: Array, target_position: Array) -> None:
+    def _plan_direct(cls, memory: Dict, params: Array, start_position: Array,
+                     target_position: Array) -> None:
         """Set position and action plans for a straight line from the starting
         position to the target position.
 

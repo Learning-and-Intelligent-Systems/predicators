@@ -266,7 +266,7 @@ def test_exit_garage_options():
 
     # Test ClearObstacle, then DriveCarToExit
     option_plan = [
-        ClearObstacle.ground([robot, obstacle2], [0.2]),
+        ClearObstacle.ground([robot, obstacle1], [0.2]),
         DriveCarToExit.ground([car], [0.7]),
     ]
     policy = utils.option_plan_to_policy(option_plan)
@@ -280,9 +280,9 @@ def test_exit_garage_options():
     )
     final_state = traj.states[-1]
     assert final_state.get(robot, "carrying") == 0
-    assert final_state.get(obstacle2, "carried") == 0
-    assert GroundAtom(ObstacleCleared, [obstacle2]).holds(final_state)
-    assert not GroundAtom(ObstacleNotCleared, [obstacle2]).holds(final_state)
+    assert final_state.get(obstacle1, "carried") == 0
+    assert GroundAtom(ObstacleCleared, [obstacle1]).holds(final_state)
+    assert not GroundAtom(ObstacleNotCleared, [obstacle1]).holds(final_state)
     assert GroundAtom(CarHasExited, [car]).holds(final_state)
     assert task.task.goal_holds(final_state)
 

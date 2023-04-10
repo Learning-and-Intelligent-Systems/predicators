@@ -157,7 +157,7 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_max_obstacles_per_room": 1,
 }]
 EXTRA_ARGS_ORACLE_APPROACH["exit_garage"] = [{
-    "exit_garage_pick_place_refine_penalty":
+    "exit_garage_clear_refine_penalty":
     0,
     "exit_garage_min_num_obstacles":
     1,
