@@ -78,7 +78,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         for the per-action GNN, and train the GNN regressor."""
         graph_inputs = []
         graph_targets = []
-        for task, skeleton, atoms_sequence, succeeded, refinement_time in data:
+        for (task, skeleton, atoms_sequence, succeeded, refinement_time,
+             low_level_count) in data:
             state, goal = task.init, task.goal
             for i, action in enumerate(skeleton):
                 atoms = atoms_sequence[i]
@@ -86,6 +87,9 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                 # Add failed penalty to the value if failure occurred
                 if not succeeded:
                     value += CFG.refinement_data_failed_refinement_penalty
+                elif CFG.refinement_data_include_execution_cost:
+                    value += (low_level_count[i] *
+                              CFG.refinement_data_low_level_execution_cost)
                 # Convert input and target to graphs
                 graph_inputs.append(
                     self._graphify_single_input(state, atoms, goal, action))

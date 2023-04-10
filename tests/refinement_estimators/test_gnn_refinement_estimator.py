@@ -49,6 +49,7 @@ def test_narrow_passage_gnn_refinement_estimator():
         "gnn_layer_size": 3,
         "gnn_num_epochs": 1,
         "gnn_do_normalization": True,
+        "refinement_data_include_execution_cost": True,
     })
     estimator = GNNRefinementEstimator()
 
@@ -91,10 +92,12 @@ def test_narrow_passage_gnn_refinement_estimator():
 
     # Create sample data to train using
     sample_data = [
-        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, [4]),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, [4],
+         [3]),
         (sample_task, move_through_door_skeleton, move_through_door_atoms_seq,
-         True, [0.5, 1.5]),
-        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, [5]),
+         True, [0.5, 1.5], [3, 5]),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, [5],
+         []),
     ]
     estimator.train(sample_data)
 
@@ -193,7 +196,7 @@ def test_gnn_refinement_estimator_arities():
     atoms_sequence = [goal, goal]
 
     # Create sample refinement training data
-    data = [(task, skeleton, atoms_sequence, False, [5.0])]
+    data = [(task, skeleton, atoms_sequence, False, [5.0], [4])]
     # Check that train() and _graphify_single_input() successfully run
     estimator.train(data)
 

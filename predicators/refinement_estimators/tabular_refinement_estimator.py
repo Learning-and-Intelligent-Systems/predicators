@@ -28,13 +28,17 @@ class TabularRefinementEstimator(PerSkeletonRefinementEstimator[float]):
         refinement time per (skeleton, atoms_sequence) pair."""
         grouped_data = defaultdict(list)
         # Go through data and group them by skeleton
-        for _, skeleton, atoms_sequence, succeeded, refinement_time in data:
+        for (_, skeleton, atoms_sequence, succeeded, refinement_time,
+             low_level_count) in data:
             # Convert skeleton and atoms_sequence into an immutable dict key
             key = self._immutable_model_dict_key(skeleton, atoms_sequence)
             value = sum(refinement_time)
             # Add failed refinement penalty to the value if failure occurred
             if not succeeded:
                 value += CFG.refinement_data_failed_refinement_penalty
+            elif CFG.refinement_data_include_execution_cost:
+                value += (sum(low_level_count) *
+                          CFG.refinement_data_low_level_execution_cost)
             grouped_data[key].append(value)
         # Compute average time for each (skeleton, atoms_sequence) key
         processed_data = {

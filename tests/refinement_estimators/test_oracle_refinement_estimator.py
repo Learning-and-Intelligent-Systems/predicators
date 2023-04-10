@@ -18,7 +18,7 @@ def test_oracle_refinement_estimator():
     assert estimator.get_name() == "oracle"
     assert not estimator.is_learning_based
     with pytest.raises(NotImplementedError):
-        sample_task = NarrowPassageEnv().get_train_tasks()[0]
+        sample_task = NarrowPassageEnv().get_train_tasks()[0].task
         estimator.get_cost(sample_task, [], [])
 
 

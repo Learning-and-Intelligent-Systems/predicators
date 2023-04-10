@@ -36,7 +36,8 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
         # Go through data and group them by skeleton
         grouped_input_imgs = defaultdict(list)
         grouped_targets = defaultdict(list)
-        for task, skeleton, atoms_sequence, succeeded, refinement_time in data:
+        for (task, skeleton, atoms_sequence, succeeded, refinement_time,
+             low_level_count) in data:
             # Convert skeleton and atoms_sequence into an immutable dict key
             key = self._immutable_model_dict_key(skeleton, atoms_sequence)
             # Render the initial state for use as an input image matrix
@@ -46,6 +47,9 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
             value = sum(refinement_time)
             if not succeeded:
                 value += CFG.refinement_data_failed_refinement_penalty
+            elif CFG.refinement_data_include_execution_cost:
+                value += (sum(low_level_count) *
+                          CFG.refinement_data_low_level_execution_cost)
             grouped_targets[key].append([value])
 
         # For each (skeleton, atoms_sequence) key, fit a CNNRegressor

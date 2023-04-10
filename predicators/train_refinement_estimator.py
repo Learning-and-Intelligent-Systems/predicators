@@ -162,8 +162,8 @@ def _generate_refinement_data(
     dataset: List[RefinementDatapoint] = []
     for test_task_idx, task in enumerate(train_tasks):
         try:
-            _collect_refinement_data_for_task(task, option_model, nsrts, preds,
-                                              env.types,
+            _collect_refinement_data_for_task(env, task, option_model, nsrts,
+                                              preds, env.types,
                                               CFG.seed + test_task_idx,
                                               dataset)
             logging.info(f"Task {test_task_idx+1} / {num_tasks}: Success")
@@ -187,7 +187,7 @@ def _generate_refinement_data(
     return dataset
 
 
-def _collect_refinement_data_for_task(task: Task,
+def _collect_refinement_data_for_task(env: BaseEnv, task: Task,
                                       option_model: _OptionModelBase,
                                       nsrts: Set[NSRT],
                                       predicates: Set[Predicate],
@@ -212,39 +212,53 @@ def _collect_refinement_data_for_task(task: Task,
     heuristic = utils.create_task_planning_heuristic(
         CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
         reachable_nsrts, predicates, objects)
+    generated_skeletons = []
     try:
-        gen = _skeleton_generator(
-            task, reachable_nsrts, init_atoms, heuristic, seed,
-            CFG.refinement_data_skeleton_generator_timeout, metrics,
-            CFG.refinement_data_num_skeletons)
-        for skeleton, atoms_sequence in gen:
-            necessary_atoms_seq = utils.compute_necessary_atoms_seq(
-                skeleton, atoms_sequence, task.goal)
-            # This list will be mutated by run_low_level_search to record
-            # the refinement time for each step of the skeleton
-            refinement_time_list: List[float] = []
-            _, suc = run_low_level_search(
-                task,
-                option_model,
-                skeleton,
-                necessary_atoms_seq,
-                seed,
-                CFG.refinement_data_low_level_search_timeout,
-                metrics,
-                CFG.horizon,
-                refinement_time=refinement_time_list)
-            assert len(refinement_time_list) == len(skeleton)
-            # Add datapoint to dataset
-            data.append((
-                task,
-                skeleton,
-                atoms_sequence,
-                suc,
-                refinement_time_list,
-            ))
+        for item in _skeleton_generator(
+                task, reachable_nsrts, init_atoms, heuristic, seed,
+                CFG.refinement_data_skeleton_generator_timeout, metrics,
+                CFG.refinement_data_num_skeletons):
+            generated_skeletons.append(item)
     except _MaxSkeletonsFailure:
         # Done finding skeletons
-        return
+        pass
+    for skeleton, atoms_sequence in generated_skeletons:
+        necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+            skeleton, atoms_sequence, task.goal)
+        # This list will be mutated by run_low_level_search to record
+        # the refinement time for each step of the skeleton
+        refinement_time_list: List[float] = []
+        plan, suc = run_low_level_search(
+            task,
+            option_model,
+            skeleton,
+            necessary_atoms_seq,
+            seed,
+            CFG.refinement_data_low_level_search_timeout,
+            metrics,
+            CFG.horizon,
+            refinement_time=refinement_time_list)
+        assert len(refinement_time_list) == len(skeleton)
+        low_level_action_count: List[int] = []
+        # On plan success, count the low level actions per abstract action
+        if suc and CFG.refinement_data_include_execution_cost:
+            s = task.init
+            for action in plan:
+                action_count = 0
+                while not action.terminal(s):
+                    s = env.simulate(s, action.policy(s))
+                    action_count += 1
+                low_level_action_count.append(action_count)
+            assert len(low_level_action_count) == len(skeleton)
+        # Add datapoint to dataset
+        data.append((
+            task,
+            skeleton,
+            atoms_sequence,
+            suc,
+            refinement_time_list,
+            low_level_action_count,
+        ))
 
 
 def _get_data_file_path() -> Path:
