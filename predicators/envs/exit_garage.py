@@ -216,6 +216,7 @@ class ExitGarageEnv(BaseEnv):
         self._exit_geom.plot(ax, color=exit_color)
 
         # Draw obstacles
+        carried_obstacle_geom: Optional[utils.Circle] = None
         for obstacle in state.get_objects(self._obstacle_type):
             if state.get(obstacle, "carried") == 1:
                 # Obstacle is being carried, so draw it under the robot instead
@@ -224,11 +225,12 @@ class ExitGarageEnv(BaseEnv):
                 robot_y = state.get(self._robot, "y")
                 carried_obstacle_geom = utils.Circle(robot_x, robot_y,
                                                      self.obstacle_radius)
-                carried_obstacle_geom.plot(ax, color=carried_color)
             else:
                 # Obstacle is not being carried, just draw normally
                 obstacle_geom = self._object_to_geom(obstacle, state)
                 obstacle_geom.plot(ax, color=obstacle_color)
+        if carried_obstacle_geom:
+            carried_obstacle_geom.plot(ax, color=carried_color)
 
         # Draw robot
         robot_geom = self._object_to_geom(self._robot, state)
