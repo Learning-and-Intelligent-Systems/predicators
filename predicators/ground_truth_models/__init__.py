@@ -1,5 +1,6 @@
 """Implements ground-truth NSRTs and options."""
 import abc
+from pathlib import Path
 from typing import Dict, List, Sequence, Set
 
 from gym.spaces import Box
@@ -7,7 +8,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.settings import CFG
-from predicators.structs import NSRT, ParameterizedOption, Predicate, Type
+from predicators.structs import NSRT, LiftedDecisionList, \
+    ParameterizedOption, Predicate, Type
 
 
 class GroundTruthOptionFactory(abc.ABC):
@@ -37,19 +39,45 @@ class GroundTruthNSRTFactory(abc.ABC):
         """Get the env names that this factory builds NSRTs for."""
         raise NotImplementedError("Override me!")
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def get_nsrts(env_name: str, types: Dict[str, Type],
+    def get_nsrts(cls, env_name: str, types: Dict[str, Type],
                   predicates: Dict[str, Predicate],
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
         """Create NSRTs for the given env name."""
         raise NotImplementedError("Override me!")
 
 
+class GroundTruthLDLBridgePolicyFactory(abc.ABC):
+    """Ground-truth policies implemented with LDLs saved in text files."""
+
+    @classmethod
+    @abc.abstractmethod
+    def get_env_names(cls) -> Set[str]:
+        """Get the env names that this factory builds bridge policies for."""
+        raise NotImplementedError("Override me!")
+
+    @classmethod
+    @abc.abstractmethod
+    def _get_ldl_file(cls) -> Path:
+        """Get the path to the LDL file."""
+        raise NotImplementedError("Override me!")
+
+    @classmethod
+    def get_ldl_bridge_policy(cls, env_name: str, types: Set[Type],
+                              predicates: Set[Predicate],
+                              options: Set[ParameterizedOption],
+                              nsrts: Set[NSRT]) -> LiftedDecisionList:
+        """Create LDL bridge policy for the given env name."""
+        del env_name, options  # not used
+        ldl_file = cls._get_ldl_file()
+        with open(ldl_file, "r", encoding="utf-8") as f:
+            ldl_str = f.read()
+        return utils.parse_ldl_from_str(ldl_str, types, predicates, nsrts)
+
+
 def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
     """Create ground truth options for an env."""
-    # This is a work in progress. Gradually moving options out of environments
-    # until we can remove them from the environment API entirely.
     env = get_or_create_env(env_name)
     for cls in utils.get_all_subclasses(GroundTruthOptionFactory):
         if not cls.__abstractmethods__ and env_name in cls.get_env_names():
@@ -71,8 +99,6 @@ def get_gt_options(env_name: str) -> Set[ParameterizedOption]:
 def get_gt_nsrts(env_name: str, predicates_to_keep: Set[Predicate],
                  options_to_keep: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth options for an env."""
-    # This is a work in progress. Gradually moving NSRTs into env-specific
-    # files; ground_truth_nsrts.py will be deleted.
     env = get_or_create_env(env_name)
     env_options = get_gt_options(env_name)
     assert predicates_to_keep.issubset(env.predicates)
@@ -100,6 +126,20 @@ def get_gt_nsrts(env_name: str, predicates_to_keep: Set[Predicate],
         nsrt = nsrt.filter_predicates(predicates_to_keep)
         final_nsrts.add(nsrt)
     return final_nsrts
+
+
+def get_gt_ldl_bridge_policy(env_name: str, types: Set[Type],
+                             predicates: Set[Predicate],
+                             options: Set[ParameterizedOption],
+                             nsrts: Set[NSRT]) -> LiftedDecisionList:
+    """Create a lifted decision list for an oracle bridge policy."""
+    for cls in utils.get_all_subclasses(GroundTruthLDLBridgePolicyFactory):
+        if not cls.__abstractmethods__ and env_name in cls.get_env_names():
+            factory = cls()
+            return factory.get_ldl_bridge_policy(env_name, types, predicates,
+                                                 options, nsrts)
+    raise NotImplementedError("Ground-truth bridge policy not implemented for "
+                              f"env: {env_name}")
 
 
 def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
