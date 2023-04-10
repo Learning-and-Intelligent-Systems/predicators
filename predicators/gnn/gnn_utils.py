@@ -166,7 +166,6 @@ def normalize_graph(graph: Dict,
         if k in normalizers:
             new_graph[k] = transform(graph[k], normalizers[k])
         else:
-            # assert k in ['n_node', 'n_edge', 'senders', 'receivers']
             new_graph[k] = graph[k]
     return new_graph
 

@@ -22,11 +22,8 @@ from predicators.gnn.gnn_utils import GraphDictDataset, compute_normalizers, \
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import NSRT, Array, GroundAtom, Predicate, \
+from predicators.structs import NSRT, GroundAtom, NDArray, Predicate, \
     RefinementDatapoint, State, Task, _GroundNSRT
-
-device = torch.device(
-    "cuda:0" if CFG.use_torch_gpu and torch.cuda.is_available() else "cpu")
 
 
 class GNNRefinementEstimator(BaseRefinementEstimator):
@@ -45,6 +42,11 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         self._input_normalizers: Dict = {}
         self._target_normalizers: Dict = {}
         self._mse_loss = torch.nn.MSELoss()
+        self._device = torch.device(
+            "cuda:0"
+            if CFG.use_torch_gpu and torch.cuda.is_available()
+            else "cpu"
+        )
         self._setup_fields()
 
     @classmethod
@@ -119,7 +121,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         else:
             num_validation = 0
         # Shuffle and split data
-        shuffled_indices = np.random.permutation(len(graph_inputs))
+        shuffled_indices = self._rng.permutation(len(graph_inputs))
         graph_inputs = [graph_inputs[i] for i in shuffled_indices]
         graph_targets = [graph_targets[i] for i in shuffled_indices]
         train_inputs = graph_inputs[num_validation:]
@@ -131,7 +133,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         # Set up model
         self._gnn = setup_graph_net(train_dataset,
                                     num_steps=CFG.gnn_num_message_passing,
-                                    layer_size=CFG.gnn_layer_size).to(device)
+                                    layer_size=CFG.gnn_layer_size
+                                    ).to(self._device)
         # Set up Adam optimizer and dataloaders.
         optimizer = torch.optim.Adam(self._gnn.parameters(),
                                      lr=CFG.gnn_learning_rate,
@@ -177,7 +180,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         R = functools.partial(utils.wrap_predicate, prefix="REV-")
 
         # Add 1 node per object and create node features array
-        graph: Dict[str, Array] = {
+        graph: Dict[str, NDArray[np.float64]] = {
             "n_node": np.reshape(num_objects, [1]).astype(np.int64)
         }
         node_features = np.zeros((num_objects, num_node_features))
@@ -346,6 +349,6 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         state_dict = info["state_dict"]
         if state_dict is not None:
             self._gnn.load_state_dict(info["state_dict"])
-        self._gnn.to(device)
+        self._gnn.to(self._device)
         self._input_normalizers = info["input_normalizers"]
         self._target_normalizers = info["target_normalizers"]
