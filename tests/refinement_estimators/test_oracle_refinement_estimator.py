@@ -108,17 +108,13 @@ def test_exit_garage_oracle_refinement_estimator():
     task = Task(sample_state, sample_task.goal)
     gt_nsrts = get_gt_nsrts(CFG.env, env.predicates,
                             get_gt_options(env.get_name()))
-    (drive_car_to_exit_nsrt, pickup_obstacle_nsrt,
-     store_obstacle_nsrt) = sorted(gt_nsrts)
+    clear_obstacle_nsrt, drive_car_to_exit_nsrt = sorted(gt_nsrts)
 
     # Ground NSRTs using objects
     ground_drive_car_to_exit = drive_car_to_exit_nsrt.ground([car])
 
-    def ground_pickup_obstacle(obstacle):
-        return pickup_obstacle_nsrt.ground([robot, obstacle])
-
-    def ground_store_obstacle(obstacle):
-        return store_obstacle_nsrt.ground([robot, obstacle])
+    def ground_clear_obstacle(obstacle):
+        return clear_obstacle_nsrt.ground([robot, obstacle])
 
     # Test direct DriveCarToExit skeleton
     drive_direct_skeleton = [ground_drive_car_to_exit]
@@ -127,9 +123,8 @@ def test_exit_garage_oracle_refinement_estimator():
 
     # Test pickups and stores before driving
     long_skeleton = [
-        ground_pickup_obstacle(obstacles[0]),
-        ground_store_obstacle(obstacles[0]),
-        ground_pickup_obstacle(obstacles[1]),
+        ground_clear_obstacle(obstacles[0]),
+        ground_clear_obstacle(obstacles[1]),
         ground_drive_car_to_exit,
     ]
     long_cost = estimator.get_cost(task, long_skeleton, [])

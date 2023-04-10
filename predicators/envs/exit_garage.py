@@ -62,7 +62,7 @@ class ExitGarageEnv(BaseEnv):
     _robot_type = Type("robot", ["x", "y", "carrying"])  # carrying: bool
     _obstacle_type = Type("obstacle", ["x", "y", "carried"])  # carried: bool
     # Convenience type for storage area, storing number of obstacles in it
-    # This is used in the StoreObstacle option to calculate where to place the
+    # This is used in the ClearObstacle option to calculate where to place the
     # a new obstacle in the storage area.
     _storage_type = Type("storage", ["num_stored"])
 
@@ -71,12 +71,6 @@ class ExitGarageEnv(BaseEnv):
         # Predicates
         self._CarHasExited = Predicate("CarHasExited", [self._car_type],
                                        self._CarHasExited_holds)
-        self._CarryingObstacle = Predicate(
-            "CarryingObstacle", [self._robot_type, self._obstacle_type],
-            self._CarryingObstacle_holds)
-        self._NotCarryingObstacle = Predicate("NotCarryingObstacle",
-                                              [self._robot_type],
-                                              self._NotCarryingObstacle_holds)
         self._ObstacleCleared = Predicate("ObstacleCleared",
                                           [self._obstacle_type],
                                           self._ObstacleCleared_holds)
@@ -143,8 +137,7 @@ class ExitGarageEnv(BaseEnv):
             else:
                 # Place the current obstacle if in storage area and there is
                 # no collision caused by doing so
-                if ry > 1.0 - self.storage_area_height and not \
-                        self._placed_object_collides(state, rx, ry):
+                if ry > 1.0 - self.storage_area_height:
                     next_state.set(carried_obstacle, "x", rx)
                     next_state.set(carried_obstacle, "y", ry)
                     next_state.set(carried_obstacle, "carried", 0)
@@ -172,9 +165,7 @@ class ExitGarageEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._CarHasExited, self._CarryingObstacle,
-            self._NotCarryingObstacle, self._ObstacleCleared,
-            self._ObstacleNotCleared
+            self._CarHasExited, self._ObstacleCleared, self._ObstacleNotCleared
         }
 
     @property
@@ -326,18 +317,6 @@ class ExitGarageEnv(BaseEnv):
         car_geom = self._object_to_geom(car, state)
         return car_geom.intersects(self._exit_geom)
 
-    def _CarryingObstacle_holds(self, state: State,
-                                objects: Sequence[Object]) -> bool:
-        robot, obstacle = objects
-        robot_carrying_something = state.get(robot, "carrying") == 1
-        obstacle_is_carried = state.get(obstacle, "carried") == 1
-        return robot_carrying_something and obstacle_is_carried
-
-    def _NotCarryingObstacle_holds(self, state: State,
-                                   objects: Sequence[Object]) -> bool:
-        robot, = objects
-        return state.get(robot, "carrying") == 0
-
     def _ObstacleCleared_holds(self, state: State,
                                objects: Sequence[Object]) -> bool:
         obstacle, = objects
@@ -391,12 +370,6 @@ class ExitGarageEnv(BaseEnv):
             if car_geom.intersects(obstacle_geom):
                 return True
         return False
-
-    @classmethod
-    def _placed_object_collides(cls, state: State, new_x: float,
-                                new_y: float) -> bool:
-        """Returns True if an obstacle placed at (new_x, new_y) would collide
-        with an existing obstacle in the storage area."""
 
     @classmethod
     def _robot_carrying_obstacle(cls, state: State) -> Optional[Object]:

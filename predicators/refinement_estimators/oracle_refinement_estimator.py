@@ -80,6 +80,6 @@ def exit_garage_oracle_estimator(
     # Each picked-up obstacle decreases the refinement cost of DriveCarToExit
     cost = 0
     for ground_nsrt in skeleton:
-        if ground_nsrt.name == "PickupObstacle":
+        if ground_nsrt.name == "ClearObstacle":
             cost -= 1
     return cost

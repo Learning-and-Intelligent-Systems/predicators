@@ -288,7 +288,7 @@ class GlobalSettings:
     narrow_passage_birrt_smooth_amt = 50
 
     # exit_garage env parameters
-    exit_garage_pick_place_refine_penalty = 0.2
+    exit_garage_clear_refine_penalty = 0.2
     exit_garage_min_num_obstacles = 2
     exit_garage_max_num_obstacles = 4  # inclusive
     exit_garage_rrt_extend_fn_threshold = 1e-4
