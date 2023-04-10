@@ -42,11 +42,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         self._input_normalizers: Dict = {}
         self._target_normalizers: Dict = {}
         self._mse_loss = torch.nn.MSELoss()
-        self._device = torch.device(
-            "cuda:0"
-            if CFG.use_torch_gpu and torch.cuda.is_available()
-            else "cpu"
-        )
+        self._device = torch.device("cuda:0" if CFG.use_torch_gpu
+                                    and torch.cuda.is_available() else "cpu")
         self._setup_fields()
 
     @classmethod
