@@ -250,6 +250,17 @@ class LineSegment(_Geom2D):
 
         return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
 
+    def distance_nearest_point(self, x: float, y: float) -> float:
+        v = np.array([self.x1, self.y1])
+        w = np.array([self.x2, self.y2])
+        p = np.array([x, y])
+
+        length_squared = ((v - w) ** 2).sum()
+        if length_squared == 0.0:
+            return np.linalg.norm(p - v)
+        t = max(0, min(1, np.dot(p - v, w - v) / length_squared))
+        projection = v + t * (w - v)
+        return np.linalg.norm(p - projection)
 
 @dataclass(frozen=True)
 class Circle(_Geom2D):
@@ -376,6 +387,19 @@ class Rectangle(_Geom2D):
         return 0 <= rx <= self.width and \
                0 <= ry <= self.height
 
+    def contains_point_vec(self, x: Array, y: Array) -> Array:
+        rotate_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+                                  [-np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        xy = np.stack((x - self.x, y - self.y), axis=2)
+        rxy = xy @ rotate_matrix.T
+        rx = rxy[:, :, 0]
+        ry = rxy[:, :, 1]
+        return np.logical_and(np.logical_and(
+                        0 <= rx, rx <= self.width),
+                    np.logical_and(
+                        0 <= ry, ry <= self.height))
+
     def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
         """Create a new rectangle that is this rectangle, but rotated CCW by
         the given rotation (in radians), relative to the (x, y) origin.
@@ -405,6 +429,53 @@ class Rectangle(_Geom2D):
         patch = patches.Rectangle((self.x, self.y), self.width, self.height,
                                   angle, **kwargs)
         ax.add_patch(patch)
+
+    def distance_nearest_point(self, x: float, y: float) -> float:
+        # https://stackoverflow.com/a/18157551
+        rotate_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+                                  [-np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        dx = max(-rx, 0, rx - self.width)
+        dy = max(-ry, 0, ry - self.height)
+        dist = np.sqrt(dx * dx + dy * dy)
+
+        return dist
+
+    def nearest_point(self, x: float, y: float) -> Tuple[float, float]:
+        rotate_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+                                  [-np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        if rx < 0 and ry < 0:
+            ra, rb = 0, 0
+        elif rx < 0 and 0 <= ry < self.height:
+            ra, rb = 0, ry
+        elif rx < 0 and ry >= self.height:
+            ra, rb = 0, self.height
+        elif 0 <= rx < self.width and ry < 0:
+            ra, rb = rx, 0
+        elif 0 <= rx < self. width and 0 <= ry < self.height:
+            ra, rb = rx, ry
+        elif 0 <= rx < self.width and ry >= self.height:
+            ra, rb = rx, self.height
+        elif rx >= self.width and ry < 0:
+            ra, rb = self.width, 0
+        elif rx >= self.width and 0 <= ry < self.height:
+            ra, rb = self.width, ry
+        elif rx >= self.width and ry >= self.height:
+            ra, rb = self.width, self.height
+
+        x, y = np.array([ra, rb]) @ rotate_matrix + np.array([self.x, self.y])
+
+        return x, y
+
+    def relative_reoriented_coordinates(self, x: float, y: float) -> Tuple[float, float]:
+        rotate_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+                                  [-np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        return rx, ry
 
 
 def line_segments_intersect(seg1: LineSegment, seg2: LineSegment) -> bool:
@@ -2473,6 +2544,33 @@ def create_video_from_partial_refinements(
     raise NotImplementedError("Unrecognized failure video mode: "
                               f"{CFG.failure_video_mode}.")
 
+
+def create_video_from_samplers(
+        plan, skeleton, env, train_or_test, task_idx, task
+    ) -> Video:
+    
+    import copy
+    policy = option_plan_to_policy(plan)
+    video: Video = []
+    state = env.reset(train_or_test, task_idx)
+    rng = np.random.default_rng(CFG.seed)
+    for option, nsrt in zip(plan, skeleton):
+        action = policy(state)
+        video.extend(env.render(action))
+        img_list = []
+        for _ in range(100):
+            action_sample = nsrt.sample_option(state, task.goal, skeleton, rng)
+            tmp_policy = option_plan_to_policy([action_sample])
+            tmp_env = copy.deepcopy(env)
+            tmp_action = tmp_policy(state)
+            tmp_env.step(tmp_action)
+            img_list.extend(tmp_env.render())
+
+        img_list = np.array(img_list)
+        img = img_list.mean(axis=0)
+        video.append(img)
+        state = env.step(action)
+    return video
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int) -> Image:
     """Convert matplotlib figure into Image."""

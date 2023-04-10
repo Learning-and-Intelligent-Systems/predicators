@@ -496,21 +496,72 @@ class GlobalSettings:
     sampler_learning_single_step = False
     use_ebm = True
     sql_reward_scale = 1/24#1#100#
+    save_only_exploration_results = True
+    lifelong_method = "retrain" # "retrain", "distill", "2-distill"
+    lifelong_burnin_period = None
+    torch_num_threads = 1
 
     # bookshelf env parameters
     bookshelf_num_books_train = [4, 5]#[3, 4]#[2, 3]#[8, 9]#
     bookshelf_num_books_test = [5, 6]#[4, 5]#[3, 4]#[9, 10]#
-    # bookshelf_num_obstacles_train = [18, 19]#[4, 5]#
-    # bookshelf_num_obstacles_test = [19,20]#[5, 6]#
+    bookshelf_num_obstacles_train = [18, 19]#[4, 5]#
+    bookshelf_num_obstacles_test = [19,20]#[5, 6]#
     bookshelf_against_wall = False
     bookshelf_train_tasks_overwrite = None
     bookshelf_specialized_nsrts = False
     bookshelf_singlestep_goal = False
+    bookshelf_add_sampler_idx_to_params = False
+    bookshelf_no_obstacles = False
+    # ebm_train_reconstruction = False
+    ebm_aux_training = None     # None, 'reconstruct', 'geometry', 'geometry+'
+    ebm_aux_n_samples = 1       # How many samples to draw and check for each sampler
+    # use_cspace = False
+    # image_only = False
+    ebm_input_mode = 'local'    # 'full-image-only', 'full-image-vector', 'full-image-action', 'full-cspace-only', 'full-cspace-vector', 'full-cspace-action', 'local'
+    classifier_free_guidance = False
+    viz_sampling_distributions = False
+    sesame_max_samples_total = float('inf')
+    exit_if_result_exists = True
+
+    mix_samplers_uniform = True
+    mix_samplers_predictor = False
 
     # data collection
     data_collection_process_idx = 0
     data_collection_num_processes = 1
     collect_failures = False
+
+    # cupboard env parameters
+    cupboard_against_wall = True
+    # bookshelf_num_books_train = [2]#[4, 5]#[3, 4]#[2, 3]#[8, 9]#
+    # bookshelf_num_books_test = [2]#[5, 6]#[4, 5]#[3, 4]#[9, 10]#
+    # bookshelf_num_obstacles_train = [18, 19]#[4, 5]#
+    # bookshelf_num_obstacles_test = [19,20]#[5, 6]#
+    cupboard_singlestep_goal = False
+
+    # stickbasket env parameters
+    stickbasket_against_wall = False
+    stickbasket_singlestep_goal = False
+    stickbasket_num_sticks_train = [2, 3]#[3, 4]#[4, 5]#[8, 9]#
+    stickbasket_num_sticks_test = [3, 4]#[4, 5]#[5, 6]#[9, 10]#
+
+    # ballbin env parameters
+    ballbin_against_wall = False
+    ballbin_singlestep_goal = False
+    ballbin_num_balls_train = [8, 9]#[4, 5]#[3, 4]#[2, 3]#
+    ballbin_num_balls_test = [9, 10]#[5, 6]#[4, 5]#[3, 4]#
+
+    # boxtray env parameters
+    boxtray_against_wall = False
+    boxtray_singlestep_goal = False
+
+    # planar behavior env parameters
+    planar_behavior_task_order = 'fixed' # 'shuffled', 'interleaved'
+
+    # sampler viz env parameters
+    sampler_viz_num_obstacles_train = [0]
+    sampler_viz_num_obstacles_test = [0]
+    sampler_viz_singlestep_goal = False
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -518,19 +569,6 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
-            bookshelf_num_obstacles_train=defaultdict(
-                lambda: [18, 19],
-                {
-                    "sampler_learning": [18, 19],
-                    "sampler_learning_mix": [0],
-                })[args.get("approach", "")],
-            bookshelf_num_obstacles_test=defaultdict(
-                lambda: [19, 20],
-                {
-                    "sampler_learning": [19, 20],
-                    "sampler_learning_mix": [0],
-                })[args.get("approach", "")],
-
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
             horizon=defaultdict(

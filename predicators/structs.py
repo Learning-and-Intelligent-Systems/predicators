@@ -16,7 +16,8 @@ from tabulate import tabulate
 from predicators.settings import CFG
 
 
-@dataclass(frozen=True, order=True)
+# @dataclass(frozen=True, order=True)
+@dataclass(order=True)
 class Type:
     """Struct defining a type."""
     name: str
@@ -27,6 +28,13 @@ class Type:
     def dim(self) -> int:
         """Dimensionality of the feature vector of this object type."""
         return len(self.feature_names)
+
+    def set_parent(self, parent) -> None:
+        assert isinstance(parent, Type)
+        self.parent = parent
+
+    def set_name(self, name) -> None:
+        self.name = name
 
     def __call__(self, name: str) -> _TypedEntity:
         """Convenience method for generating _TypedEntities."""

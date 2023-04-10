@@ -15,6 +15,7 @@ import numpy as np
 import math
 import torch
 import torch.nn.functional as F
+import torchvision
 from sklearn.base import BaseEstimator
 from sklearn.neighbors import \
     KNeighborsClassifier as _SKLearnKNeighborsClassifier
@@ -308,7 +309,11 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
             old_len = len(y)
             X, y = _balance_binary_classification_data(X, y, self._rng)
             logging.info(f"Reduced dataset size from {old_len} to {len(y)}")
-        X, self._input_shift, self._input_scale = _normalize_data(X)
+        if not (hasattr(self, '_skip_norm') and self._skip_norm):
+            X, self._input_shift, self._input_scale = _normalize_data(X)
+        else:
+            self._input_shift = 0
+            self._input_scale = 1
         if X_val is not None:
             X_val = (X_val - self._input_shift) / self._input_scale
         self._fit(X, y, X_val, y_val)
@@ -946,6 +951,7 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._skip_norm = True
         self._parallel_samples = 1
 
     @property
@@ -1024,45 +1030,85 @@ class BinaryCNNEBM(BinaryEBM):
 
     def _initialize_net(self) -> None:
         if self._conv_backbone is None:
-            self._conv_backbone = nn.Sequential(
-                # nn.Conv2d(1, 6, kernel_size=5, padding=2),
-                nn.Conv2d(3, 6, kernel_size=3),
-                nn.MaxPool2d(2, stride=2),
-                nn.Dropout(0.5),
-                nn.ReLU(),
-                # nn.BatchNorm2d(6),
-                # nn.Conv2d(6, 16, kernel_size=5),
-                nn.Conv2d(6, 16, kernel_size=3),
-                nn.MaxPool2d(2, stride=2),
-                nn.Dropout(0.5),
-                nn.ReLU(),
-                # nn.BatchNorm2d(16),
-                # nn.Conv2d(16, 32, kernel_size=5),
-                nn.Conv2d(16, 32, kernel_size=3),
-                nn.Dropout(0.5),
-                nn.ReLU(),
-                # nn.BatchNorm2d(32),
-            )      
-        # self._x_dim -= (900)  # subtract image dimensions
-        self._x_dim -= (20*20*3)  # subtract image dimensions
-        # self._x_dim -= (12*12*3)  # subtract image dimensions
-        self._x_dim += 32   # add CNN output dimensions
+            # self._conv_backbone = nn.Sequential(
+            #     # nn.Conv2d(1, 6, kernel_size=5, padding=2),
+            #     nn.Conv2d(3, 6, kernel_size=3),
+            #     nn.MaxPool2d(2, stride=2),
+            #     nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     # nn.BatchNorm2d(6),
+            #     # nn.Conv2d(6, 16, kernel_size=5),
+            #     nn.Conv2d(6, 16, kernel_size=3),
+            #     nn.MaxPool2d(2, stride=2),
+            #     nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     # nn.BatchNorm2d(16),
+            #     # nn.Conv2d(16, 32, kernel_size=5),
+            #     nn.Conv2d(16, 32, kernel_size=3),
+            #     nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     # nn.BatchNorm2d(32),
+            # )      
+            # self._conv_backbone = nn.Sequential(
+            #     nn.Conv2d(self._img_shape[2], 16, 5),
+            #     nn.MaxPool2d(2, stride=2),
+            #     nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     nn.Conv2d(16, 32, 5),
+            #     nn.MaxPool2d(2, stride=2),
+            #     nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     nn.Conv2d(32, 64, 5),
+            #     nn.MaxPool2d(2, stride=2),
+            #     nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     nn.Conv2d(64, 128, 5),
+            #     nn.MaxPool2d(2, stride=2),
+            #     nn.Dropout(0.5),
+            #     nn.ReLU(),
+            #     nn.Conv2d(128, 256, 4),
+            #     nn.Dropout(0.5),
+            #     nn.ReLU()
+            # )
+            logging.info("Using resnet18!")
+            self._conv_backbone = nn.Sequential(*list(torchvision.models.resnet18(weights='DEFAULT').children())[:-1])
+
+            if self._x_dim - math.prod(self._img_shape) > 0:
+                self._mlp_backbone = nn.Sequential(
+                    nn.Linear(self._x_dim - math.prod(self._img_shape), 256),
+                    nn.Dropout(0.5),
+                    nn.ReLU(),
+                    nn.Linear(256, 512),
+                    nn.Dropout(0.5),
+                    nn.ReLU()
+                )
+            else:
+                self._mlp_backbone = None
+        # self._x_dim -= math.prod(self._img_shape)
+        # self._x_dim += 256   # add CNN output dimensions
+        orig_x_dim = self._x_dim
+        self._x_dim = 2 * 512   # concatenate outputs of backbones
         super()._initialize_net()
-        # self._x_dim += (900)
-        self._x_dim += (20*20*3)
-        # self._x_dim += (12*12*3)
-        self._x_dim -= 32    
+        # self._x_dim += math.prod(self._img_shape)
+        # self._x_dim -= 256 
+        self._x_dim = orig_x_dim   
+    
+    def fit(self, X: Array, y: Array, X_val: Array = None, y_val: Array = None, img_shape: Tuple = None) -> None:
+        self._img_shape = img_shape
+        assert 124 <= img_shape[0] <= 139 and 124 <= img_shape[1] <= 139, f'124 <= {img_shape} <= 139'    # this makes sure the output of the CNN is 1x1xchannels
+        super().fit(X, y, X_val, y_val)
 
     def forward(self, tensor_X: Tensor) -> Tensor:
         assert not self._do_single_class_prediction
-        # img_X = tensor_X[:, :900].reshape(tensor_X.shape[0], 1, 30, 30)
-        # tensor_X = tensor_X[:, 900:]
-        img_X = tensor_X[:, :20*20*3].reshape(tensor_X.shape[0], 20, 20, 3).permute((0, 3, 1, 2))
-        tensor_X = tensor_X[:, 20*20*3:]
-        # img_X = tensor_X[:, :12*12*3].reshape(tensor_X.shape[0], 12, 12, 3).permute((0, 3, 1, 2))
-        # tensor_X = tensor_X[:, 12*12*3:]
+        img_X = tensor_X[:, :math.prod(self._img_shape)].reshape(tensor_X.shape[0], *(self._img_shape)).permute((0, 3, 1, 2))
+        tensor_X = tensor_X[:, math.prod(self._img_shape):]
         img_X = self._conv_backbone(img_X)
-        tensor_X = torch.cat((tensor_X, img_X.reshape(-1, 32)), dim=1)
+        if self._mlp_backbone is not None:
+            tensor_X = self._mlp_backbone(tensor_X)
+        #     tensor_X = tensor_X * img_X.reshape(img_X.shape[0], -1)
+        # else:
+        #     tensor_X = img_X.reshape(img_X.shape[0], -1)
+        tensor_X = torch.cat((tensor_X, img_X.reshape(img_X.shape[0], -1)), dim=1)
         return super().forward(tensor_X)
 
 class RegressionEBM(MLPRegressor, DistributionRegressor):
@@ -1296,6 +1342,7 @@ class DiffusionRegressor(nn.Module):
                  max_train_iters: int, timesteps: int,
                  learning_rate: float) -> None:
         super().__init__()
+        torch.set_num_threads(CFG.torch_num_threads)    # reset here to get the cmd line arg
         self._linears = nn.ModuleList()
         self._hid_sizes = hid_sizes
         self._max_train_iters = max_train_iters
@@ -1322,10 +1369,10 @@ class DiffusionRegressor(nn.Module):
         # calculations for posterior q(x_{t-1} | x_t, x_0)
         self._posterior_variance = self._betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
 
-        self._cache_num_samples = CFG.sesame_max_samples_per_step
+        self._cache_num_samples = CFG.sesame_max_samples_per_step #* CFG.ebm_aux_n_samples
         self._cache = {}
 
-    def forward(self, X_cond, Y_out, t):
+    def forward(self, X_cond, Y_out, t, return_aux=False):
         half_t_dim = self._t_dim // 2
         t_embeddings = math.log(10000) / (half_t_dim - 1)
         t_embeddings = torch.exp(torch.arange(half_t_dim, device=self._device) * -t_embeddings)
@@ -1333,29 +1380,40 @@ class DiffusionRegressor(nn.Module):
         t_embeddings = torch.cat((t_embeddings.sin(), t_embeddings.cos()), dim=-1)
         X = torch.cat((X_cond, Y_out, t_embeddings), dim=1)
         for linear in self._linears[:-1]:
+            # X = F.relu(F.dropout(linear(X), p=0.5, training=self.training))
             X = F.relu(linear(X))
         X = self._linears[-1](X)
-        return X
+        if return_aux:
+            return X[:, self._y_dim:]
+        return X[:, :self._y_dim]
 
+    def fit(self, X_cond: Array, Y_out: Array, Y_aux: Optional[Array] = None) -> None:# X_neg: Array, Y_neg: Array) -> None:
+        num_data, _ = Y_out.shape
+        if not self.is_trained:
+            self.is_trained = True
+            self._x_cond_dim = X_cond.shape[1]
+            self._t_dim = (X_cond.shape[1] // 2) * 2    # make sure it's even
+            _, self._y_dim = Y_out.shape
+            self._x_dim = self._x_cond_dim + self._t_dim + self._y_dim
 
-    def fit(self, X_cond: Array, Y_out: Array,) -> None:# X_neg: Array, Y_neg: Array) -> None:
-        self.is_trained = True
-        self._x_cond_dim = X_cond.shape[1]
-        self._t_dim = (X_cond.shape[1] // 2) * 2    # make sure it's even
-        num_data, self._y_dim = Y_out.shape
-        self._x_dim = self._x_cond_dim + self._t_dim + self._y_dim
+            self._input_shift = np.min(X_cond, axis=0)
+            self._input_scale = np.max(X_cond - self._input_shift, axis=0)
+            self._input_scale = np.clip(self._input_scale, 1e-6, None)
 
-        self._input_shift = np.min(X_cond, axis=0)
-        self._input_scale = np.max(X_cond - self._input_shift, axis=0)
-        self._input_scale = np.clip(self._input_scale, 1e-6, None)
+            self._output_shift = np.min(Y_out, axis=0)
+            self._output_scale = np.max(Y_out - self._output_shift, axis=0)
+            self._output_scale = np.clip(self._output_scale, 1e-6, None)
+
+            if Y_aux is not None:
+                self._y_aux_dim = Y_aux.shape[1]
+                self._output_aux_shift = np.min(Y_aux, axis=0)
+                self._output_aux_scale = np.max(Y_aux - self._output_aux_shift, axis=0)
+                self._output_aux_scale = np.clip(self._output_aux_scale, 1e-6, None)
+
         X_cond = ((X_cond - self._input_shift) / self._input_scale) * 2 - 1
-        # X_neg = ((X_neg - self._input_shift) / self._input_scale) * 2 - 1
-
-        self._output_shift = np.min(Y_out, axis=0)
-        self._output_scale = np.max(Y_out - self._output_shift, axis=0)
-        self._output_scale = np.clip(self._output_scale, 1e-6, None)
         Y_out = ((Y_out - self._output_shift) / self._output_scale) * 2 - 1
-        # Y_neg = ((Y_neg - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux is not None:
+            Y_aux = ((Y_aux - self._output_aux_shift) / self._output_aux_scale) * 2 - 1       
 
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
@@ -1366,9 +1424,14 @@ class DiffusionRegressor(nn.Module):
 
         tensor_X_cond = torch.from_numpy(np.array(X_cond, dtype=np.float32)).to(self._device)
         tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
         # tensor_X_neg = torch.from_numpy(np.array(X_neg, dtype=np.float32)).to(self._device)
         # tensor_Y_neg = torch.from_numpy(np.array(Y_neg, dtype=np.float32)).to(self._device)
-        data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
+        if Y_aux is not None:
+            tensor_Y_aux = torch.from_numpy(np.array(Y_aux, dtype=np.float32)).to(self._device)
+            data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out, tensor_Y_aux)
+        else:
+            data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
         # data_neg = torch.utils.data.TensorDataset(tensor_X_neg, tensor_Y_neg)
         dataloader = torch.utils.data.DataLoader(data, batch_size=512, shuffle=True)
         # dataloader_neg = torch.utils.data.DataLoader(data_neg, batch_size=(512 * len(data_neg)) // len(data), shuffle=True)
@@ -1379,10 +1442,16 @@ class DiffusionRegressor(nn.Module):
             cum_loss = 0
             n = 0
             # for (tensor_X, tensor_Y), (tensor_X_neg, tensor_Y_neg) in zip(dataloader, dataloader_neg):
-            for tensor_X, tensor_Y in dataloader:
+            # for tensor_X, tensor_Y in dataloader:
+            for tensors in dataloader:
+                if len(tensors) == 3:
+                    tensor_X, tensor_Y, tensor_Y_aux = tensors
+                else:
+                    tensor_X, tensor_Y = tensors
+                    tensor_Y_aux = None
                 t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self._device)
                 # t_neg = torch.randint(0, self._timesteps, (tensor_X_neg.shape[0],), device=self._device)
-                loss = self._p_losses(tensor_X, tensor_Y, t)#, tensor_X_neg, tensor_Y_neg, t_neg)
+                loss = self._p_losses(tensor_X, tensor_Y, t, tensor_Y_aux)#, tensor_X_neg, tensor_Y_neg, t_neg)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -1396,6 +1465,98 @@ class DiffusionRegressor(nn.Module):
         logging.info(f"Trained model with loss: {cum_loss:.5f}")
         return cum_loss
 
+    def distill(self, model_data_1, model_data_2) -> None:
+        assert self.is_trained 
+
+        model_1, data_1 = model_data_1
+        X_cond_1, Y_out_1, Y_aux_1 = data_1
+        model_2, data_2 = model_data_2
+        X_cond_2, Y_out_2, Y_aux_2 = data_2
+
+        assert (model_1._input_scale == self._input_scale).all() and (model_2._input_scale == self._input_scale).all()
+        assert (model_1._input_shift == self._input_shift).all() and (model_2._input_shift == self._input_shift).all()
+        assert (model_1._output_scale == self._output_scale).all() and (model_2._output_scale == self._output_scale).all()
+        assert (model_1._output_shift == self._output_shift).all() and (model_2._output_shift == self._output_shift).all()
+        if hasattr(self, '_output_aux_scale'):
+            assert (model_1._output_aux_scale == self._output_aux_scale).all() and (model_2._output_aux_scale == self._output_aux_scale).all()
+            assert (model_1._output_aux_shift == self._output_aux_shift).all() and (model_2._output_aux_shift == self._output_aux_shift).all()
+
+        X_cond_1 = ((X_cond_1 - self._input_shift) / self._input_scale) * 2 - 1
+        Y_out_1 = ((Y_out_1 - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux_1 is not None:
+            Y_aux_1 = ((Y_aux_1 - self._output_aux_shift) / self._output_aux_scale) * 2 - 1       
+        X_cond_2 = ((X_cond_2 - self._input_shift) / self._input_scale) * 2 - 1
+        Y_out_2 = ((Y_out_2 - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux_2 is not None:
+            Y_aux_2 = ((Y_aux_2 - self._output_aux_shift) / self._output_aux_scale) * 2 - 1       
+
+
+        size_1 = X_cond_1.shape[0]
+        size_2 = X_cond_2.shape[0]
+        # Make sure both dataloaders have the same # batches
+        pow_2 = 512
+        batch_size_2 = 0
+        while batch_size_2 == 0:
+            batch_size_1 = pow_2
+            batch_size_2 = pow_2 * min(size_1, size_2) // max(size_1, size_2)
+            pow_2 *= 2
+        if size_2 > size_1:
+            batch_size_2, batch_size_1 = batch_size_1, batch_size_2
+        
+        logging.info(f"Distilling {model_1.__class__.__name__} with {size_1} datapoints and "
+                      f"{model_2.__class__.__name__} with {size_2} datapoints into "
+                      f"{self.__class__.__name__}")
+
+        tensor_X_cond_1 = torch.from_numpy(np.array(X_cond_1, dtype=np.float32)).to(self._device)
+        tensor_Y_out_1 = torch.from_numpy(np.array(Y_out_1, dtype=np.float32)).to(self._device)
+        if Y_aux_1 is not None:
+            tensor_Y_aux_1 = torch.from_numpy(np.array(Y_aux_1, dtype=np.float32)).to(self._device)
+            data_1 = torch.utils.data.TensorDataset(tensor_X_cond_1, tensor_Y_out_1, tensor_Y_aux_1)
+        else:
+            data_1 = torch.utils.data.TensorDataset(tensor_X_cond_1, tensor_Y_out_1)
+        dataloader_1 = torch.utils.data.DataLoader(data_1, batch_size=batch_size_1, shuffle=True)
+
+        tensor_X_cond_2 = torch.from_numpy(np.array(X_cond_2, dtype=np.float32)).to(self._device)
+        tensor_Y_out_2 = torch.from_numpy(np.array(Y_out_2, dtype=np.float32)).to(self._device)
+        if Y_aux_2 is not None:
+            tensor_Y_aux_2 = torch.from_numpy(np.array(Y_aux_2, dtype=np.float32)).to(self._device)
+            data_2 = torch.utils.data.TensorDataset(tensor_X_cond_2, tensor_Y_out_2, tensor_Y_aux_2)
+        else:
+            data_2 = torch.utils.data.TensorDataset(tensor_X_cond_2, tensor_Y_out_2)
+        dataloader_2 = torch.utils.data.DataLoader(data_2, batch_size=batch_size_2, shuffle=True)
+
+        optimizer = self._optimizer
+        assert isinstance(self._max_train_iters, int)
+        self.train()
+        for itr in range(self._max_train_iters // 10):
+            cum_loss = 0
+            n = 0
+            for tensors_1, tensors_2 in zip(dataloader_1, dataloader_2):
+                if len(tensors_1) == 3:
+                    tensor_X_1, tensor_Y_1, tensor_Y_aux_1 = tensors_1
+                    tensor_X_2, tensor_Y_2, tensor_Y_aux_2 = tensors_2
+                else:
+                    tensor_X_1, tensor_Y_1 = tensors_1
+                    tensor_X_2, tensor_Y_2 = tensors_2
+                    tensor_Y_aux_1 = None
+                    tensor_Y_aux_2 = None
+                t_1 = torch.randint(0, self._timesteps, (tensor_X_1.shape[0],), device=self._device)
+                t_2 = torch.randint(0, self._timesteps, (tensor_X_2.shape[0],), device=self._device)
+                loss = self._distill_losses(model_1, tensor_X_1, tensor_Y_1, t_1, tensor_Y_aux_1, model_2, tensor_X_2, tensor_Y_2, t_2, tensor_Y_aux_2)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                cum_loss += loss.item() * (tensor_X_1.shape[0] + tensor_X_2.shape[0])
+                n += tensor_X_1.shape[0] + tensor_X_2.shape[0]
+            cum_loss /= n
+            if itr % 10 == 0:
+                logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{self._max_train_iters}")
+
+        self.eval()
+        logging.info(f"Distilled model with loss: {cum_loss:.5f}")
+        return cum_loss
+
+
     @torch.no_grad()
     def _p_sample(self, x_cond, y_out, t, t_index):
         betas_t = self._extract(self._betas, t, y_out.shape)
@@ -1406,8 +1567,13 @@ class DiffusionRegressor(nn.Module):
         
         # Equation 11 in the paper
         # Use our model (noise predictor) to predict the mean
-        epsilon_out = self(x_cond, y_out, t)
-        epsilon = epsilon_out#[:, :-1]
+        if CFG.classifier_free_guidance:
+            epsilon_empty = self(torch.zeros_like(x_cond), y_out, t)
+            epsilon_cond = self(x_cond, y_out, t)
+            epsilon = epsilon_empty + 2 * (epsilon_cond - epsilon_empty)
+        else:
+            epsilon_out = self(x_cond, y_out, t)
+            epsilon = epsilon_out#[:, :-1]
         # out = epsilon_out[:, -1]
         # grad = torch.autograd.grad(out.sum(), y_out)[0]
         # epsilon -= (sqrt_one_minus_alphas_cumprod_t * grad)
@@ -1454,12 +1620,16 @@ class DiffusionRegressor(nn.Module):
         return samples[idx]
 
     def _initialize_net(self):
-        self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
-        for i in range(len(self._hid_sizes) - 1):
-            self._linears.append(
-                nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
-        # self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim + 1))   # +1 for classifier guidance
-        self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim))
+        if len(self._linears) == 0:
+            self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+            for i in range(len(self._hid_sizes) - 1):
+                self._linears.append(
+                    nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+            # self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim + 1))   # +1 for classifier guidance
+            if CFG.ebm_aux_training:
+                self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim + self._y_aux_dim))
+            else:
+                self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim))
 
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""
@@ -1486,9 +1656,14 @@ class DiffusionRegressor(nn.Module):
         beta_end = 0.02
         return torch.linspace(beta_start, beta_end, timesteps)
 
-    def _p_losses(self, X_cond, Y_start, t):#, X_neg, Y_neg_start, t_neg):
+    def _p_losses(self, X_cond, Y_start, t, Y_aux):#, X_neg, Y_neg_start, t_neg):
         noise = torch.randn_like(Y_start)
         Y_noisy = self._q_sample(Y_start, t, noise)
+        if CFG.classifier_free_guidance:
+            mask = torch.randint(2, size=(X_cond.shape[0], 1), dtype=torch.long, device=X_cond.device)
+        else:
+            mask = torch.ones((X_cond.shape[0], 1), dtype=torch.long, device=X_cond.device)
+        X_cond = X_cond * mask
         predicted_noise_label = self(X_cond, Y_noisy, t)
         predicted_noise = predicted_noise_label#[:, :-1]
         # label_pos = predicted_noise_label[:, -1]
@@ -1502,7 +1677,58 @@ class DiffusionRegressor(nn.Module):
         # loss += F.binary_cross_entropy_with_logits(torch.cat((label_pos, label_neg)),
         #                 torch.cat((torch.ones_like(label_pos), torch.zeros_like(label_neg))))
 
+        if Y_aux is not None:
+            # X_cond_hat = self(X_cond, torch.zeros_like(Y_noisy), torch.zeros_like(t), return_reconstruction=True)
+            # loss += F.smooth_l1_loss(X_cond, X_cond_hat)
+            Y_aux_hat = self(X_cond, Y_start, torch.zeros_like(t), return_aux=True)
+            loss += F.smooth_l1_loss(Y_aux, Y_aux_hat)
+
         return loss
+
+    def _distill_losses(self, model_1, X_cond_1, Y_start_1, t_1, Y_aux_1, model_2, X_cond_2, Y_start_2, t_2, Y_aux_2):
+        if CFG.lifelong_method == "2-distill":
+            noise_1 = torch.randn_like(Y_start_1)
+            Y_noisy_1 = self._q_sample(Y_start_1, t_1, noise_1)
+            predicted_noise_1 = self(X_cond_1, Y_noisy_1, t_1)
+
+            noise_label_1 = model_1(X_cond_1, Y_noisy_1, t_1)
+            loss_1 = F.smooth_l1_loss(noise_label_1, predicted_noise_1)
+
+            if Y_aux_1 is not None:
+                Y_aux_hat_1 = self(X_cond_1, Y_start_1, torch.zeros_like(t_1), return_aux=True)
+                Y_aux_label_1 = model_1(X_cond_1, Y_start_1, torch.zeros_like(t_1), return_aux=True)
+                loss_1 += F.smooth_l1_loss(Y_aux_label_1, Y_aux_hat_1)
+        else:
+            loss_1 = self._p_losses(X_cond_1, Y_start_1, t_1, Y_aux_1)
+
+        noise_2 = torch.randn_like(Y_start_2)
+        Y_noisy_2 = self._q_sample(Y_start_2, t_2, noise_2)
+        predicted_noise_2 = self(X_cond_2, Y_noisy_2, t_2)
+
+        noise_label_2 = model_2(X_cond_2, Y_noisy_2, t_2)
+        loss_2 = F.smooth_l1_loss(noise_label_2, predicted_noise_2)
+
+        if Y_aux_2 is not None:
+            Y_aux_hat_2 = self(X_cond_2, Y_start_2, torch.zeros_like(t_2), return_aux=True)
+            Y_aux_label_2 = model_2(X_cond_2, Y_start_2, torch.zeros_like(t_2), return_aux=True)
+            loss_2 += F.smooth_l1_loss(Y_aux_label_2, Y_aux_hat_2)
+
+        return loss_1 + loss_2
+
+    def predict_aux(self, x_cond: Array, y_out: Array) -> Array:
+        x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1
+        x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self._device)
+        
+        y_out = ((y_out - self._output_shift) / self._output_scale) * 2 - 1
+        y_out_tensor = torch.from_numpy(np.array(y_out, dtype=np.float32)).to(self._device)
+
+        t = torch.zeros(x_cond_tensor.shape[0], device=self._device, dtype=torch.int64)
+        aux = self(x_cond_tensor, y_out_tensor, t, return_aux=True).detach().cpu().numpy()
+        return ((aux + 1) / 2 * self._output_aux_scale) + self._output_aux_shift
+
+    def aux_square_error(self, x_cond: Array, y_out: Array, aux_label: Array) -> Array:
+        aux = self.predict_aux(x_cond, y_out)
+        return (aux - aux_label) ** 2
 
     def _q_sample(self, Y_start, t, noise):
         sqrt_alphas_cumprod_t = self._extract(self._sqrt_alphas_cumprod, t, Y_start.shape)
@@ -1517,7 +1743,371 @@ class DiffusionRegressor(nn.Module):
         out = a.gather(-1, t.cpu())
         return out.reshape(batch_size, *((1,) * (len(shape) - 1))).to(t.device)
 
+# class CNNDiffusionRegressor(DiffusionRegressor):
+
+#     def __init__(self, seed: int, hid_sizes: List[int],
+#                  max_train_iters: int, timesteps: int,
+#                  learning_rate: float) -> None:
+#         super().__init__(seed, hid_sizes, max_train_iters, timesteps, learning_rate)
+
+#         # Store information about CNN 
+#         self._conv_backbone = None
+
+#     def _initialize_net(self) -> None:
+#         if self._conv_backbone is None:
+#             # self._conv_backbone = nn.Sequential(
+#             #     # nn.Conv2d(1, 6, kernel_size=5, padding=2),
+#             #     nn.Conv2d(3, 6, kernel_size=3),
+#             #     nn.MaxPool2d(2, stride=2),
+#             #     # nn.Dropout(0.5),
+#             #     nn.ReLU(),
+#             #     # nn.Conv2d(6, 16, kernel_size=5),
+#             #     nn.Conv2d(6, 16, kernel_size=3),
+#             #     nn.MaxPool2d(2, stride=2),
+#             #     # nn.Dropout(0.5),
+#             #     nn.ReLU(),
+#             #     # nn.Conv2d(16, 32, kernel_size=5),
+#             #     nn.Conv2d(16, 32, kernel_size=3),
+#             #     # nn.Dropout(0.5),
+#             #     nn.ReLU()
+#             # ) 
+#             self._conv_backbone = nn.Sequential(
+#                 nn.Conv2d(3, 16, 5),
+#                 nn.MaxPool2d(2, stride=2),
+#                 nn.ReLU(),
+#                 nn.Conv2d(16, 32, 5),
+#                 nn.MaxPool2d(2, stride=2),
+#                 nn.ReLU(),
+#                 nn.Conv2d(32, 64, 5),
+#                 nn.MaxPool2d(2, stride=2),
+#                 nn.ReLU(),
+#                 nn.Conv2d(64, 64, 5),
+#                 nn.MaxPool2d(2, stride=2),
+#                 nn.ReLU(),
+#                 nn.Conv2d(64, 64, 5),
+#                 nn.ReLU()
+#             )     
+
+#         # self._x_cond_dim -= (20*20*3)
+#         self._x_cond_dim -= (150*150*3)
+#         self._x_cond_dim += 64
+#         self._t_dim = (self._x_cond_dim // 2) * 2
+#         self._x_dim = self._x_cond_dim + self._t_dim + self._y_dim
+#         super()._initialize_net()
+#         # self._x_cond_dim += (20*20*3)
+#         # self._x_cond_dim -= 32
+#         # self._t_dim = (self._x_cond_dim // 2)
+
+#         # # self._x_dim += (900)
+#         # self._x_dim += (20*20*3)
+#         # # self._x_dim += (12*12*3)
+#         # self._x_dim -= 32    
+
+#     def forward(self, X_cond, Y_out, t) -> Tensor:
+#         # img_X = X_cond[:, :900].reshape(X_cond.shape[0], 1, 30, 30)
+#         # X_cond = X_cond[:, 900:]
+#         # img_X = X_cond[:, :20*20*3].reshape(X_cond.shape[0], 20, 20, 3).permute((0, 3, 1, 2))
+#         # X_cond = X_cond[:, 20*20*3:]
+#         # img_X = X_cond[:, :12*12*3].reshape(X_cond.shape[0], 12, 12, 3).permute((0, 3, 1, 2))
+#         # X_cond = X_cond[:, 12*12*3:]
+#         img_X = X_cond[:, :150*150*3].reshape(X_cond.shape[0], 150, 150, 3).permute((0, 3, 1, 2))
+#         X_cond = X_cond[:, 150*150*3:]
+#         img_X = self._forward_cnn(img_X)
+#         X_cond = torch.cat((X_cond, img_X.reshape(X_cond.shape[0], -1)), dim=1)
+#         return self._forward_fcn(X_cond, Y_out, t)
+    
+#     def _forward_cnn(self, img_X) -> Tensor:
+#         # print(img_X.shape)
+#         # tmp_x = self._conv_backbone[:3](img_X)
+#         # print(tmp_x.shape)
+#         # tmp_x = self._conv_backbone[3:6](tmp_x)
+#         # print(tmp_x.shape)
+#         # tmp_x = self._conv_backbone[6:](tmp_x)
+#         # print(tmp_x.shape)
+#         # exit()
+#         return self._conv_backbone(img_X)
+
+
+#     def _forward_fcn(self, X_cond, Y_out, t) -> Tensor:
+#         return super().forward(X_cond, Y_out, t)
+
+#     @torch.no_grad()
+#     def _p_sample(self, x_cond, y_out, t, t_index):
+#         betas_t = self._extract(self._betas, t, y_out.shape)
+#         sqrt_one_minus_alphas_cumprod_t = self._extract(
+#             self._sqrt_one_minus_alphas_cumprod, t, y_out.shape
+#         )
+#         sqrt_recip_alphas_t = self._extract(self._sqrt_recip_alphas, t, y_out.shape)
+        
+#         # Equation 11 in the paper
+#         # Use our model (noise predictor) to predict the mean
+#         epsilon_out = self._forward_fcn(x_cond, y_out, t)
+#         epsilon = epsilon_out#[:, :-1]
+#         # out = epsilon_out[:, -1]
+#         # grad = torch.autograd.grad(out.sum(), y_out)[0]
+#         # epsilon -= (sqrt_one_minus_alphas_cumprod_t * grad)
+#         model_mean = sqrt_recip_alphas_t * (
+#             y_out - betas_t * epsilon / sqrt_one_minus_alphas_cumprod_t
+#         )
+
+#         if t_index == 0:
+#             return model_mean
+#         else:
+#             posterior_variance_t = self._extract(self._posterior_variance, t, y_out.shape)
+#             noise = torch.randn_like(y_out)
+#             # Algorithm 2 line 4:
+#             return model_mean + torch.sqrt(posterior_variance_t) * noise 
+
+
+#     @torch.no_grad()
+#     def _p_sample_loop(self, x_cond):
+#         # start from pure noise (for each example in the batch)
+#         y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self._device, requires_grad=True)
+#         y_outs = []
+
+#         # img_X = x_cond[:, :20*20*3].reshape(x_cond.shape[0], 20, 20, 3).permute((0, 3, 1, 2))
+#         # X_cond = x_cond[:, 20*20*3:]
+#         img_X = x_cond[:, :150*150*3].reshape(x_cond.shape[0], 150, 150, 3).permute((0, 3, 1, 2))
+#         X_cond = x_cond[:, 150*150*3:]
+#         # img_X = X_cond[:, :12*12*3].reshape(X_cond.shape[0], 12, 12, 3).permute((0, 3, 1, 2))
+#         # X_cond = X_cond[:, 12*12*3:]
+
+#         img_X = self._forward_cnn(img_X)
+#         X_cond = torch.cat((X_cond, img_X.reshape(X_cond.shape[0], -1)), dim=1)
+#         for i in reversed(range(0, self._timesteps)):
+#             y_out = self._p_sample(X_cond, y_out, torch.full((self._cache_num_samples,), i, device=self._device, dtype=torch.long), i)
+#             y_outs.append(y_out.detach().cpu().numpy())
+#         return y_outs
+
+# class CNNDiffusionRegressor(DiffusionRegressor):
+#     # THIS IS THE IMAGE-ONLY VERSION
+
+#     def __init__(self, seed: int, hid_sizes: List[int],
+#                  max_train_iters: int, timesteps: int,
+#                  learning_rate: float) -> None:
+#         super().__init__(seed, hid_sizes, max_train_iters, timesteps, learning_rate)
+
+#         # Store information about CNN 
+#         self._conv_backbone = None
+
+#     class Upsample(nn.Module):
+#         def __init__(self, in_channels, out_channels, kernel_size, stride, t_dim):
+#             super().__init__()
+#             self._up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride)
+#             self._conv = nn.Conv2d(in_channels, out_channels, 3, padding='same')
+#             self._t_linear = nn.Linear(t_dim, out_channels * 2)
+#             self._relu = nn.ReLU()
+
+#         def forward(self, x1, x2, t_embeddings):
+#             x = self._up(x1)
+#             x = torch.cat((x, x2), dim=1)
+#             x = self._conv(x)
+#             scale_shift = self._t_linear(t_embeddings)
+#             scale, shift = scale_shift.view(*(scale_shift.shape), 1, 1).chunk(2, dim=1)
+#             x = x * (scale + 1) + shift
+#             return self._relu(x)
+
+#     class Downsample(nn.Module):
+#         def __init__(self, in_channels, out_channels, kernel_size, maxpool, t_dim):
+#             super().__init__()
+#             self._conv = nn.Conv2d(in_channels, out_channels, kernel_size)
+#             if maxpool:
+#                 self._pool = nn.MaxPool2d(2, stride=2)
+#             else:
+#                 self._pool = None
+#             self._t_linear = nn.Linear(t_dim, out_channels * 2)
+#             self._relu = nn.ReLU()
+
+#         def forward(self, x, t_embeddings):
+#             x = self._conv(x)
+#             if self._pool:
+#                 x = self._pool(x)
+#             scale_shift = self._t_linear(t_embeddings)
+#             scale, shift = scale_shift.view(*(scale_shift.shape), 1, 1).chunk(2, dim=1)
+#             x = x * (scale + 1) + shift
+#             return self._relu(x)
+
+#     class SinusoidalPositionalEmbeddings(nn.Module):
+#         def __init__(self, dim):
+#             super().__init__()
+#             self.dim = dim
+
+#         def forward(self, t):
+#             device = t.device
+#             half_dim = self.dim // 2
+#             embeddings = math.log(10000) / (half_dim - 1)
+#             embeddings = torch.exp(torch.arange(half_dim, device=device) * -embeddings)
+#             embeddings = t[:, None] * embeddings[None, :]
+#             embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
+#             return embeddings
+
+#     def _initialize_net(self) -> None:
+#         if self._conv_backbone is None:
+#             # time embeddings
+#             self._t_dim = self._img_shape[1]    # height and width
+#             self._time_mlp = nn.Sequential(
+#                 self.SinusoidalPositionalEmbeddings(self._t_dim),
+#                 nn.Linear(self._t_dim, 4 * self._t_dim),
+#                 nn.ReLU(),
+#                 nn.Linear(4 * self._t_dim, 4 * self._t_dim),
+#                 nn.ReLU()
+#             )
+#             # Encode
+#             self._down1 = self.Downsample(self._img_shape[2], 16, 5, maxpool=True, t_dim=4 * self._t_dim)
+#             self._down2 = self.Downsample(16, 32, 5, maxpool=True, t_dim=4 * self._t_dim)
+#             self._down3 = self.Downsample(32, 64, 5, maxpool=True, t_dim=4 * self._t_dim)
+#             self._down4 = self.Downsample(64, 128, 5, maxpool=True, t_dim=4 * self._t_dim)
+#             self._down5 = self.Downsample(128, 256, 4, maxpool=False, t_dim=4 * self._t_dim)
+#             # Decode
+#             # (h - 1) stride + 2 padding + kernel
+#             self._up1 = self.Upsample(256, 128, kernel_size=4, stride=1, t_dim=4 * self._t_dim)
+#             self._up2 = self.Upsample(128, 64, kernel_size=4, stride=3, t_dim=4 * self._t_dim)
+#             self._up3 = self.Upsample(64, 32, kernel_size=6, stride=2, t_dim=4 * self._t_dim)
+#             self._up4 = self.Upsample(32, 16, kernel_size=6, stride=2, t_dim=4 * self._t_dim)
+#             self._out = nn.Sequential(
+#                 nn.ConvTranspose2d(16, 8, 6, stride=2),
+#                 nn.Conv2d(8, 1, kernel_size=3, padding='same'))
+
+#     def fit(self, X: Array, img_shape: Array) -> None:
+#         self._img_shape = img_shape
+#         self.is_trained = True
+#         num_data = X.shape[0]
+#         logging.info(f"Training {self.__class__.__name__} on {num_data} "
+#                      "datapoints")
+
+#         self._initialize_net()
+#         self.to(self._device) 
+#         optimizer = self._create_optimizer()
+
+#         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(self._device)
+#         tensor_X = tensor_X.view(tensor_X.shape[0], *(self._img_shape)).permute((0, 3, 1, 2))
+
+#         data = torch.utils.data.TensorDataset(tensor_X)
+#         dataloader = torch.utils.data.DataLoader(data, batch_size=512, shuffle=True)
+
+#         assert isinstance(self._max_train_iters, int)
+#         self.train()
+#         for itr in range(self._max_train_iters):
+#             cum_loss = 0
+#             n = 0
+#             for tensor_X, in dataloader:
+#                 t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self._device)
+#                 loss = self._p_losses(tensor_X, t)
+#                 optimizer.zero_grad()
+#                 loss.backward()
+#                 optimizer.step()
+#                 cum_loss += loss.item() * tensor_X.shape[0]
+#                 n += tensor_X.shape[0]
+#             cum_loss /= n
+#             if itr % 100 == 0:
+#                 logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{self._max_train_iters}")
+
+#         self.eval()
+#         logging.info(f"Trained model with loss: {cum_loss:.5f}")
+#         return cum_loss
+
+
+#     def forward(self, X, t) -> Tensor:
+#         t_embeddings = self._time_mlp(t)
+#         x1 = self._down1(X, t_embeddings)
+#         x2 = self._down2(x1, t_embeddings)
+#         x3 = self._down3(x2, t_embeddings)
+#         x4 = self._down4(x3, t_embeddings)
+#         x5 = self._down5(x4, t_embeddings)
+#         x = self._up1(x5, x4, t_embeddings)
+#         x = self._up2(x, x3, t_embeddings)
+#         x = self._up3(x, x2, t_embeddings)
+#         x = self._up4(x, x1, t_embeddings)
+#         x = self._out(x)
+#         return x
+    
+#     def _p_losses(self, X_start, t):
+#         noise = torch.randn_like(X_start[:, -1])
+#         X_noisy = self._q_sample(X_start[:, -1], t, noise)
+#         X_noisy = torch.cat((X_start[:, :-1], X_noisy[:, None]), dim=1)
+#         predicted_noise = self(X_noisy, t).squeeze()
+#         loss = F.smooth_l1_loss(noise, predicted_noise)
+#         return loss
+
+#     @torch.no_grad()
+#     def _p_sample(self, x, t, t_index):
+#         y_out = x[:, -1].unsqueeze(dim=1)
+#         betas_t = self._extract(self._betas, t, y_out.shape)
+#         sqrt_one_minus_alphas_cumprod_t = self._extract(
+#             self._sqrt_one_minus_alphas_cumprod, t, y_out.shape
+#         )
+#         sqrt_recip_alphas_t = self._extract(self._sqrt_recip_alphas, t, y_out.shape)
+        
+#         # Equation 11 in the paper
+#         # Use our model (noise predictor) to predict the mean
+#         # epsilon_out = self._forward_fcn(x_cond, y_out, t)
+#         epsilon_out = self(x, t)
+#         epsilon = epsilon_out#[:, :-1]
+#         # out = epsilon_out[:, -1]
+#         # grad = torch.autograd.grad(out.sum(), y_out)[0]
+#         # epsilon -= (sqrt_one_minus_alphas_cumprod_t * grad)
+#         model_mean = sqrt_recip_alphas_t * (
+#             y_out - betas_t * epsilon / sqrt_one_minus_alphas_cumprod_t
+#         )
+
+#         if t_index == 0:
+#             return model_mean
+#         else:
+#             posterior_variance_t = self._extract(self._posterior_variance, t, y_out.shape)
+#             noise = torch.randn_like(y_out)
+#             # Algorithm 2 line 4:
+#             return model_mean + torch.sqrt(posterior_variance_t) * noise 
+
+
+#     @torch.no_grad()
+#     def _p_sample_loop(self, x):
+#         # start from pure noise (for each example in the batch)
+#         x = x.view(x.shape[0], self._img_shape[0], self._img_shape[1], self._img_shape[2] - 1).permute((0, 3, 1, 2))
+#         y_out = torch.randn(1, 1, self._img_shape[0], self._img_shape[1], device=self._device, requires_grad=True)
+#         y_outs = []
+#         for i in reversed(range(0, self._timesteps)):
+#             y_out = self._p_sample(torch.cat((x, y_out), dim=1), torch.full((1,), i, device=self._device, dtype=torch.long), i)
+#             y_outs.append(y_out.detach().cpu().numpy())
+#         return y_outs
+
+
+#     def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+#         x_tensor = torch.from_numpy(np.array(x, dtype=np.float32)).to(self._device).view(1, -1)
+#         sample = self._p_sample_loop(x_tensor)[-1].squeeze()
+
+#         import matplotlib
+#         matplotlib.use('TkAgg')
+#         import matplotlib.pyplot as plt
+#         full_img = x.reshape(self._img_shape[0], self._img_shape[1], self._img_shape[2] - 1)
+#         full_img = (full_img - full_img.min(axis=(0, 1))) / (full_img.max(axis=(0,1)) - full_img.min(axis=(0,1)))
+#         env_img = full_img[:, :, :3]
+#         local_img = full_img[:, :, 3]
+#         # act_img = F.softmax(torch.from_numpy(sample).to(self._device).view(-1)).view(sample.shape).detach().cpu().numpy()
+#         # act_img = (sample - sample.min()) / (sample.max() - sample.min())
+#         act_img = (sample - sample.min()) / (sample.max() - sample.min()) > 0.5
+#         print(act_img)
+#         print(np.sort(act_img, axis=None))
+#         plt.imshow(env_img)
+#         plt.figure()
+#         plt.imshow(local_img)
+#         plt.figure()
+#         plt.imshow(act_img)
+#         plt.show()
+#         exit()
+
+#         i,j = np.unravel_index(sample.argmax(), self._img_shape[:2])
+
+#         pos_x_low = j * 20 / self._img_shape[2]
+#         pos_x_high = (j + 1) * 20 / self._img_shape[2]
+#         pos_y_low = (self._img_shape[1] - 1 - i) * 20 / self._img_shape[1]
+#         pos_y_high = (self._img_shape[1] - 1 - (i - 1)) * 20 / self._img_shape[1]
+
+#         pos_x = rng.uniform(pos_x_low, pos_x_high)
+#         pos_y = rng.uniform(pos_y_low, pos_y_high)
+#         return pos_x, pos_y
+
 class CNNDiffusionRegressor(DiffusionRegressor):
+    # THIS IS THE IMAGE-ONLY VERSION
 
     def __init__(self, seed: int, hid_sizes: List[int],
                  max_train_iters: int, timesteps: int,
@@ -1527,95 +2117,154 @@ class CNNDiffusionRegressor(DiffusionRegressor):
         # Store information about CNN 
         self._conv_backbone = None
 
+    class Downsample(nn.Module):
+        def __init__(self, in_channels, out_channels, kernel_size, maxpool, t_dim):
+            super().__init__()
+            self._conv = nn.Conv2d(in_channels, out_channels, kernel_size)
+            if maxpool:
+                self._pool = nn.MaxPool2d(2, stride=2)
+            else:
+                self._pool = None
+            self._t_linear = nn.Linear(t_dim, out_channels * 2)
+            self._relu = nn.ReLU()
+
+        def forward(self, x, t_embeddings):
+            x = self._conv(x)
+            if self._pool:
+                x = self._pool(x)
+            scale_shift = self._t_linear(t_embeddings)
+            scale, shift = scale_shift.view(*(scale_shift.shape), 1, 1).chunk(2, dim=1)
+            x = x * (scale + 1) + shift
+            return self._relu(x)
+
+    class SinusoidalPositionalEmbeddings(nn.Module):
+        def __init__(self, dim):
+            super().__init__()
+            self.dim = dim
+
+        def forward(self, t):
+            device = t.device
+            half_dim = self.dim // 2
+            embeddings = math.log(10000) / (half_dim - 1)
+            embeddings = torch.exp(torch.arange(half_dim, device=device) * -embeddings)
+            embeddings = t[:, None] * embeddings[None, :]
+            embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
+            return embeddings
+
     def _initialize_net(self) -> None:
         if self._conv_backbone is None:
-            # self._conv_backbone = nn.Sequential(
-            #     # nn.Conv2d(1, 6, kernel_size=5, padding=2),
-            #     nn.Conv2d(3, 6, kernel_size=3),
-            #     nn.MaxPool2d(2, stride=2),
-            #     # nn.Dropout(0.5),
-            #     nn.ReLU(),
-            #     # nn.Conv2d(6, 16, kernel_size=5),
-            #     nn.Conv2d(6, 16, kernel_size=3),
-            #     nn.MaxPool2d(2, stride=2),
-            #     # nn.Dropout(0.5),
-            #     nn.ReLU(),
-            #     # nn.Conv2d(16, 32, kernel_size=5),
-            #     nn.Conv2d(16, 32, kernel_size=3),
-            #     # nn.Dropout(0.5),
-            #     nn.ReLU()
-            # ) 
-            self._conv_backbone = nn.Sequential(
-                nn.Conv2d(3, 16, 5),
-                nn.MaxPool2d(2, stride=2),
+            # time embeddings
+            self._t_dim = self._img_shape[1]    # height and width
+            self._time_mlp = nn.Sequential(
+                self.SinusoidalPositionalEmbeddings(self._t_dim),
+                nn.Linear(self._t_dim, 4 * self._t_dim),
                 nn.ReLU(),
-                nn.Conv2d(16, 32, 5),
-                nn.MaxPool2d(2, stride=2),
-                nn.ReLU(),
-                nn.Conv2d(32, 64, 5),
-                nn.MaxPool2d(2, stride=2),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, 5),
-                nn.MaxPool2d(2, stride=2),
-                nn.ReLU(),
-                nn.Conv2d(64, 64, 5),
+                nn.Linear(4 * self._t_dim, 4 * self._t_dim),
                 nn.ReLU()
-            )     
+            )
+            # Encode
+            # image_shape contains only the conditioning variables, but we'll convert the outputs to images and add one channel
+            self._down1 = self.Downsample(self._img_shape[2] + 1, 16, 5, maxpool=True, t_dim=4 * self._t_dim)
+            self._down2 = self.Downsample(16, 32, 5, maxpool=True, t_dim=4 * self._t_dim)
+            self._down3 = self.Downsample(32, 64, 5, maxpool=True, t_dim=4 * self._t_dim)
+            self._down4 = self.Downsample(64, 128, 5, maxpool=True, t_dim=4 * self._t_dim)
+            self._down5 = self.Downsample(128, 256, 4, maxpool=False, t_dim=4 * self._t_dim)
+            self._out = nn.Linear(256, self._out_dim)
 
-        # self._x_cond_dim -= (20*20*3)
-        self._x_cond_dim -= (150*150*3)
-        self._x_cond_dim += 64
-        self._t_dim = (self._x_cond_dim // 2) * 2
-        self._x_dim = self._x_cond_dim + self._t_dim + self._y_dim
-        super()._initialize_net()
-        # self._x_cond_dim += (20*20*3)
-        # self._x_cond_dim -= 32
-        # self._t_dim = (self._x_cond_dim // 2)
 
-        # # self._x_dim += (900)
-        # self._x_dim += (20*20*3)
-        # # self._x_dim += (12*12*3)
-        # self._x_dim -= 32    
+    def fit(self, X: Array, Y: Array, Y_to_img_xform: Callable, xform_inputs: Array, Y_mean: Array, Y_std: Array, img_shape: Array) -> None:
+        self._img_shape = img_shape
+        self.is_trained = True
+        self._out_dim = Y.shape[1]
 
-    def forward(self, X_cond, Y_out, t) -> Tensor:
-        # img_X = X_cond[:, :900].reshape(X_cond.shape[0], 1, 30, 30)
-        # X_cond = X_cond[:, 900:]
-        # img_X = X_cond[:, :20*20*3].reshape(X_cond.shape[0], 20, 20, 3).permute((0, 3, 1, 2))
-        # X_cond = X_cond[:, 20*20*3:]
-        # img_X = X_cond[:, :12*12*3].reshape(X_cond.shape[0], 12, 12, 3).permute((0, 3, 1, 2))
-        # X_cond = X_cond[:, 12*12*3:]
-        img_X = X_cond[:, :150*150*3].reshape(X_cond.shape[0], 150, 150, 3).permute((0, 3, 1, 2))
-        X_cond = X_cond[:, 150*150*3:]
-        img_X = self._forward_cnn(img_X)
-        X_cond = torch.cat((X_cond, img_X.reshape(X_cond.shape[0], -1)), dim=1)
-        return self._forward_fcn(X_cond, Y_out, t)
+        num_data = X.shape[0]
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
+
+        self._initialize_net()
+        self.to(self._device) 
+        optimizer = self._create_optimizer()
+
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(self._device)
+        tensor_X = tensor_X.view(tensor_X.shape[0], *(self._img_shape)).permute((0, 3, 1, 2))
+
+        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(self._device)
+        tensor_xform_inputs = torch.from_numpy(np.array(xform_inputs, dtype=np.float32)).to(self._device)
+        self._Y_to_img_xform = Y_to_img_xform
+        self._Y_mean = torch.from_numpy(np.array(Y_mean, dtype=np.float32)).to(self._device)
+        self._Y_std = torch.from_numpy(np.array(Y_std, dtype=np.float32)).to(self._device)
+        self._Y_mean_np = Y_mean
+        self._Y_std_np = Y_std
+
+        data = torch.utils.data.TensorDataset(tensor_X, tensor_Y, tensor_xform_inputs)
+        dataloader = torch.utils.data.DataLoader(data, batch_size=512, shuffle=True)
+
+        assert isinstance(self._max_train_iters, int)
+        self.train()
+        for itr in range(self._max_train_iters):
+            cum_loss = 0
+            n = 0
+            for tensor_X, tensor_Y, tensor_xform_inputs in dataloader:
+                t = torch.randint(0, self._timesteps, (tensor_X.shape[0],), device=self._device)
+                loss = self._p_losses(tensor_X, tensor_Y, tensor_xform_inputs, t)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                cum_loss += loss.item() * tensor_X.shape[0]
+                n += tensor_X.shape[0]
+            cum_loss /= n
+            if itr % 100 == 0:
+                logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{self._max_train_iters}")
+
+        self.eval()
+        logging.info(f"Trained model with loss: {cum_loss:.5f}")
+        return cum_loss
+
+
+    def forward(self, X, t) -> Tensor:
+        t_embeddings = self._time_mlp(t)
+        X = self._down1(X, t_embeddings)
+        X = self._down2(X, t_embeddings)
+        X = self._down3(X, t_embeddings)
+        X = self._down4(X, t_embeddings)
+        X = self._down5(X, t_embeddings)
+        X = X.view(X.shape[0], -1)
+        X = self._out(X)
+        return X
     
-    def _forward_cnn(self, img_X) -> Tensor:
-        # print(img_X.shape)
-        # tmp_x = self._conv_backbone[:3](img_X)
-        # print(tmp_x.shape)
-        # tmp_x = self._conv_backbone[3:6](tmp_x)
-        # print(tmp_x.shape)
-        # tmp_x = self._conv_backbone[6:](tmp_x)
-        # print(tmp_x.shape)
-        # exit()
-        return self._conv_backbone(img_X)
+    def _p_losses(self, X, Y_start, xform_inputs, t):
+        noise = torch.randn_like(Y_start)
+        Y_noisy = self._q_sample(Y_start, t, noise)
 
-
-    def _forward_fcn(self, X_cond, Y_out, t) -> Tensor:
-        return super().forward(X_cond, Y_out, t)
+        # convert noisy sample into image
+        Y_noisy_unnormalized = (Y_noisy * self._Y_std) + self._Y_mean
+        Y_noisy_img = self._Y_to_img_xform(Y_noisy_unnormalized, xform_inputs, self._img_shape)
+        # raveled_idx = Y_noisy_img.view(Y_noisy_img.shape[0], -1).argmax(dim=1)
+        # i, j = np.unravel_index(raveled_idx, Y_noisy_img.shape[1:])
+        X_noisy = torch.cat((X, Y_noisy_img[:, None]), dim=1)
+        predicted_noise = self(X_noisy, t).squeeze()
+        loss = F.smooth_l1_loss(noise, predicted_noise)
+        return loss
 
     @torch.no_grad()
-    def _p_sample(self, x_cond, y_out, t, t_index):
+    def _p_sample(self, x, y_out, xform_inputs, t, t_index):
         betas_t = self._extract(self._betas, t, y_out.shape)
         sqrt_one_minus_alphas_cumprod_t = self._extract(
             self._sqrt_one_minus_alphas_cumprod, t, y_out.shape
         )
         sqrt_recip_alphas_t = self._extract(self._sqrt_recip_alphas, t, y_out.shape)
         
+        # Convert y_out to img
+        y_unnormalized = (y_out * self._Y_std) + self._Y_mean
+        y_img = self._Y_to_img_xform(y_unnormalized, xform_inputs, self._img_shape)
+        raveled_idx = y_img.view(y_img.shape[0], -1).argmax(dim=1)
+        i, j = np.unravel_index(raveled_idx, y_img.shape[1:])
+        x = torch.cat((x, y_img[:, None]), dim=1)
+
         # Equation 11 in the paper
         # Use our model (noise predictor) to predict the mean
-        epsilon_out = self._forward_fcn(x_cond, y_out, t)
+        # epsilon_out = self._forward_fcn(x_cond, y_out, t)
+        epsilon_out = self(x, t)
         epsilon = epsilon_out#[:, :-1]
         # out = epsilon_out[:, -1]
         # grad = torch.autograd.grad(out.sum(), y_out)[0]
@@ -1630,25 +2279,24 @@ class CNNDiffusionRegressor(DiffusionRegressor):
             posterior_variance_t = self._extract(self._posterior_variance, t, y_out.shape)
             noise = torch.randn_like(y_out)
             # Algorithm 2 line 4:
+            print('\t', t, epsilon)
             return model_mean + torch.sqrt(posterior_variance_t) * noise 
 
 
     @torch.no_grad()
-    def _p_sample_loop(self, x_cond):
+    def _p_sample_loop(self, x, xform_inputs):
         # start from pure noise (for each example in the batch)
-        y_out = torch.randn(self._cache_num_samples, self._y_dim, device=self._device, requires_grad=True)
+        x = x.view(x.shape[0], self._img_shape[0], self._img_shape[1], self._img_shape[2]).permute((0, 3, 1, 2))
+        y_out = torch.randn(1, self._out_dim, device=self._device, requires_grad=True)
         y_outs = []
-
-        # img_X = x_cond[:, :20*20*3].reshape(x_cond.shape[0], 20, 20, 3).permute((0, 3, 1, 2))
-        # X_cond = x_cond[:, 20*20*3:]
-        img_X = x_cond[:, :150*150*3].reshape(x_cond.shape[0], 150, 150, 3).permute((0, 3, 1, 2))
-        X_cond = x_cond[:, 150*150*3:]
-        # img_X = X_cond[:, :12*12*3].reshape(X_cond.shape[0], 12, 12, 3).permute((0, 3, 1, 2))
-        # X_cond = X_cond[:, 12*12*3:]
-
-        img_X = self._forward_cnn(img_X)
-        X_cond = torch.cat((X_cond, img_X.reshape(X_cond.shape[0], -1)), dim=1)
         for i in reversed(range(0, self._timesteps)):
-            y_out = self._p_sample(X_cond, y_out, torch.full((self._cache_num_samples,), i, device=self._device, dtype=torch.long), i)
+            y_out = self._p_sample(x, y_out, xform_inputs, torch.full((1,), i, device=self._device, dtype=torch.long), i)
             y_outs.append(y_out.detach().cpu().numpy())
         return y_outs
+
+
+    def predict_sample(self, x: Array, xform_inputs: Array, rng: np.random.Generator) -> Array:
+        x = torch.from_numpy(np.array(x, dtype=np.float32)).to(self._device)
+        xform_inputs = torch.from_numpy(np.array(xform_inputs, dtype=np.float32)).to(self._device)
+        sample = self._p_sample_loop(x.view(1, -1), xform_inputs.view(1, -1))[-1]
+        return (sample * self._Y_std_np) + self._Y_mean_np

@@ -59,6 +59,18 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_satellites_gt_nsrts(env_name)
     elif env_name == "bookshelf":
         nsrts = _get_bookshelf_gt_nsrts(env_name)
+    elif env_name == "cupboard":
+        nsrts = _get_cupboard_gt_nsrts(env_name)
+    elif env_name == "stickbasket":
+        nsrts = _get_stickbasket_gt_nsrts(env_name)
+    elif env_name == "ballbin":
+        nsrts = _get_ballbin_gt_nsrts(env_name)
+    elif env_name == "boxtray":
+        nsrts = _get_boxtray_gt_nsrts(env_name)
+    elif env_name == 'planar_behavior':
+        nsrts = _get_planar_behavior_gt_nsrts(env_name)
+    elif env_name == 'sampler_viz':
+        nsrts = _get_sampler_viz_gt_nsrts(env_name)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -2844,14 +2856,20 @@ def _get_satellites_gt_nsrts(env_name: str) -> Set[NSRT]:
 
 def _get_bookshelf_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for BookShelfEnv."""
-    object_type, book_type, shelf_type, robot_type = \
-        _get_types_by_names(env_name, ["object", "book", "shelf", "robot"])
-
-    OnShelf, CanReach, Holding, GripperFree = _get_predicates_by_names(
-        env_name, ["OnShelf", "CanReach", "Holding", "GripperFree"])
-
-    NavigateTo, PickBook, PlaceBookOnShelf = _get_options_by_names(
-        env_name, ["NavigateTo", "PickBook", "PlaceBookOnShelf"])
+    if env_name == 'bookshelf':
+        object_type, book_type, shelf_type, robot_type = \
+            _get_types_by_names(env_name, ["object", "book", "shelf", "robot"])
+        OnShelf, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["OnShelf", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickBook, PlaceBookOnShelf = _get_options_by_names(
+            env_name, ["NavigateTo", "PickBook", "PlaceBookOnShelf"])
+    elif env_name == 'planar_behavior':
+        object_type, book_type, shelf_type, robot_type = \
+            _get_types_by_names(env_name, ["object-shared", "bookshelf-book", "bookshelf-shelf", "robot-shared"])
+        OnShelf, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["On", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickBook, PlaceBookOnShelf = _get_options_by_names(
+            env_name, ["NavigateTo", "Pick", "Place"])
 
     nsrts = set()
 
@@ -2975,11 +2993,845 @@ def _get_bookshelf_gt_nsrts(env_name: str) -> Set[NSRT]:
         # TODO: implement rejection sampling?
         return params
 
-    placebokonshelf_nsrt = NSRT("PlaceBookOnShelf", parameters, preconditions,
+    placebookonshelf_nsrt = NSRT("PlaceBookOnShelf", parameters, preconditions,
                                 add_effects, delete_effects,
                                 ignore_effects, option, option_vars, 
                                 placebookonshelf_sampler)
-    nsrts.add(placebokonshelf_nsrt)
+    nsrts.add(placebookonshelf_nsrt)
+
+    return nsrts
+
+def _get_cupboard_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for CupboardEnv."""
+    if env_name == 'cupboard':
+        object_type, cup_type, cupboard_type, robot_type = \
+            _get_types_by_names(env_name, ["object", "cup", "cupboard", "robot"])
+        OnCupboard, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["OnCupboard", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickCup, PlaceCupOnCupboard = _get_options_by_names(
+            env_name, ["NavigateTo", "PickCup", "PlaceCupOnCupboard"])
+    elif env_name == 'planar_behavior':
+        object_type, cup_type, cupboard_type, robot_type = \
+            _get_types_by_names(env_name, ["object-shared", "cupboard-cup", "cupboard-cupboard", "robot-shared"])
+        OnCupboard, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["On", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickCup, PlaceCupOnCupboard = _get_options_by_names(
+            env_name, ["NavigateTo", "Pick", "Place"])
+
+    nsrts = set()
+
+    # NavigateTo
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?cup", cup_type)
+    else:
+        obj = Variable("?object", object_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [obj, robot]
+    option_vars = [robot, obj]
+    option = NavigateTo
+    preconditions = set()
+    add_effects = {LiftedAtom(CanReach, [obj, robot])}
+    delete_effects = set()
+    ignore_effects = {CanReach}
+
+    def navigateto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object],
+                           skeleton: List[Any]) -> Array:
+        del goal, skeleton # unused
+        option = NavigateTo
+        env = get_or_create_env(env_name)
+        low = option.params_space.low.copy()
+        high = option.params_space.high.copy()
+        obj, robot = objs
+        # if obj.is_instance(cup_type):
+        #     high[-2] = 0.0     # try only samples left of the object
+        # TODO: Increase range below for rejection sampling
+        for tries in range(1):
+            if (tries + 1) % 100 == 0:
+                print(f'{tries} failed tries')
+            params = rng.uniform(low, high)
+            # action = option.ground([robot, obj], params).policy(state)
+            # next_state = env.simulate(state, action)
+            # if CanReach.holds(next_state, [obj, robot]):
+            #     break
+        return params
+
+    if CFG.bookshelf_specialized_nsrts:
+        navigateto_nsrt = NSRT("NavigateToCup", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    else:
+        navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    nsrts.add(navigateto_nsrt)
+
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?cupboard", cupboard_type)
+        parameters = [obj, robot]
+        option_vars = [robot, obj]
+        add_effects = {LiftedAtom(CanReach, [obj, robot])}
+        navigateto_nsrt = NSRT("NavigateToCupboard", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+        nsrts.add(navigateto_nsrt)
+
+
+    # PickCup
+    cup = Variable("?cup", cup_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [cup, robot]
+    option_vars = [robot, cup]
+    option = PickCup
+    preconditions = {
+        LiftedAtom(CanReach, [cup, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [cup])}
+    delete_effects = {
+        LiftedAtom(CanReach, [cup, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    ignore_effects = set()
+
+    def pickcup_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object],
+                         skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PickCup
+        low = option.params_space.low.copy()
+        high = option.params_space.high.copy()
+        # limit to -pi/4 < yaw < pi/4
+        # low[-1] = -np.pi / 4
+        # high[-1] = np.pi / 4
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    pickcup_nsrt = NSRT("PickCup", parameters, preconditions,
+                         add_effects, delete_effects, ignore_effects,
+                         option, option_vars, pickcup_sampler)
+    nsrts.add(pickcup_nsrt)
+
+    # PlaceCupOnCupbard
+    cup = Variable("?cup", cup_type)
+    cupboard = Variable("?cupboard", cupboard_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [cup, cupboard, robot]
+    option_vars = [robot, cup, cupboard]
+    option = PlaceCupOnCupboard
+    preconditions = {
+        LiftedAtom(Holding, [cup]),
+        LiftedAtom(CanReach, [cupboard, robot]),
+    }
+    add_effects = {
+        LiftedAtom(OnCupboard, [cup, cupboard]),
+        LiftedAtom(GripperFree, [robot]),
+    }
+    delete_effects = {LiftedAtom(Holding, [cup])}
+    ignore_effects = {CanReach}
+    
+    def placecuponcupboard_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
+                                 objs: Sequence[Object],
+                                 skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PlaceCupOnCupboard
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    placecuponcupboard_nsrt = NSRT("PlaceCupOnCupboard", parameters, preconditions,
+                                add_effects, delete_effects,
+                                ignore_effects, option, option_vars, 
+                                placecuponcupboard_sampler)
+    nsrts.add(placecuponcupboard_nsrt)
+
+    return nsrts
+
+def _get_stickbasket_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for StickasketEnv."""
+    if env_name == 'stickbasket':
+        object_type, stick_type, basket_type, robot_type = \
+            _get_types_by_names(env_name, ["object", "stick", "basket", "robot"])
+        OnBasket, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["OnBasket", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickStick, PlaceStickOnBasket = _get_options_by_names(
+            env_name, ["NavigateTo", "PickStick", "PlaceStickOnBasket"])
+    elif env_name == 'planar_behavior':
+        object_type, stick_type, basket_type, robot_type = \
+            _get_types_by_names(env_name, ["object-shared", "stickbasket-stick", "stickbasket-basket", "robot-shared"])
+        OnBasket, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["On", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickStick, PlaceStickOnBasket = _get_options_by_names(
+            env_name, ["NavigateTo", "Pick", "Place"])
+
+    nsrts = set()
+
+    # NavigateTo
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?stick", stick_type)
+    else:
+        obj = Variable("?object", object_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [obj, robot]
+    option_vars = [robot, obj]
+    option = NavigateTo
+    preconditions = set()
+    add_effects = {LiftedAtom(CanReach, [obj, robot])}
+    delete_effects = set()
+    ignore_effects = {CanReach}
+
+    def navigateto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object],
+                           skeleton: List[Any]) -> Array:
+        del goal, skeleton # unused
+        option = NavigateTo
+        env = get_or_create_env(env_name)
+        low = option.params_space.low
+        high = option.params_space.high
+        obj, robot = objs
+        # TODO: Increase range below for rejection sampling
+        for tries in range(1):
+            if (tries + 1) % 100 == 0:
+                print(f'{tries} failed tries')
+            params = rng.uniform(low, high)
+            # action = option.ground([robot, obj], params).policy(state)
+            # next_state = env.simulate(state, action)
+            # if CanReach.holds(next_state, [obj, robot]):
+            #     break
+        return params
+
+    if CFG.bookshelf_specialized_nsrts:
+        navigateto_nsrt = NSRT("NavigateToStick", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    else:
+        navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    nsrts.add(navigateto_nsrt)
+
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?basket", basket_type)
+        parameters = [obj, robot]
+        option_vars = [robot, obj]
+        add_effects = {LiftedAtom(CanReach, [obj, robot])}
+        navigateto_nsrt = NSRT("NavigateToBasket", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+        nsrts.add(navigateto_nsrt)
+
+
+    # PickStick
+    stick = Variable("?stick", stick_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [stick, robot]
+    option_vars = [robot, stick]
+    option = PickStick
+    preconditions = {
+        LiftedAtom(CanReach, [stick, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [stick])}
+    delete_effects = {
+        LiftedAtom(CanReach, [stick, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    ignore_effects = set()
+
+    def pickstick_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object],
+                         skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PickStick
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    pickstick_nsrt = NSRT("PickStick", parameters, preconditions,
+                         add_effects, delete_effects, ignore_effects,
+                         option, option_vars, pickstick_sampler)
+    nsrts.add(pickstick_nsrt)
+
+    # PlaceStickOnBasket
+    stick = Variable("?stick", stick_type)
+    basket = Variable("?basket", basket_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [stick, basket, robot]
+    option_vars = [robot, stick, basket]
+    option = PlaceStickOnBasket
+    preconditions = {
+        LiftedAtom(Holding, [stick]),
+        LiftedAtom(CanReach, [basket, robot]),
+    }
+    add_effects = {
+        LiftedAtom(OnBasket, [stick, basket]),
+        LiftedAtom(GripperFree, [robot]),
+    }
+    delete_effects = {LiftedAtom(Holding, [stick])}
+    ignore_effects = {CanReach}
+    
+    def placestickonbasket_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
+                                 objs: Sequence[Object],
+                                 skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PlaceStickOnBasket
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    placestickonbasket_nsrt = NSRT("PlaceStickOnBasket", parameters, preconditions,
+                                add_effects, delete_effects,
+                                ignore_effects, option, option_vars, 
+                                placestickonbasket_sampler)
+    nsrts.add(placestickonbasket_nsrt)
+
+    return nsrts
+
+def _get_ballbin_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for BallbinEnv."""
+    if env_name == 'ballbin':
+        object_type, ball_type, bin_type, robot_type = \
+            _get_types_by_names(env_name, ["object", "ball", "bin", "robot"])
+        OnBin, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["OnBin", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickBall, PlaceBallOnBin = _get_options_by_names(
+            env_name, ["NavigateTo", "PickBall", "PlaceBallOnBin"])
+    elif env_name == 'planar_behavior':
+        object_type, ball_type, bin_type, robot_type = \
+            _get_types_by_names(env_name, ["object-shared", "ballbin-ball", "ballbin-bin", "robot-shared"])
+        OnBin, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["On", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickBall, PlaceBallOnBin = _get_options_by_names(
+            env_name, ["NavigateTo", "Pick", "Place"])
+
+    nsrts = set()
+
+    # NavigateTo
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?ball", ball_type)
+    else:
+        obj = Variable("?object", object_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [obj, robot]
+    option_vars = [robot, obj]
+    option = NavigateTo
+    preconditions = set()
+    add_effects = {LiftedAtom(CanReach, [obj, robot])}
+    delete_effects = set()
+    ignore_effects = {CanReach}
+
+    def navigateto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object],
+                           skeleton: List[Any]) -> Array:
+        del goal, skeleton # unused
+        option = NavigateTo
+        env = get_or_create_env(env_name)
+        low = option.params_space.low
+        high = option.params_space.high
+        obj, robot = objs
+        # TODO: Increase range below for rejection sampling
+        for tries in range(1):
+            if (tries + 1) % 100 == 0:
+                print(f'{tries} failed tries')
+            params = rng.uniform(low, high)
+            # action = option.ground([robot, obj], params).policy(state)
+            # next_state = env.simulate(state, action)
+            # if CanReach.holds(next_state, [obj, robot]):
+            #     break
+        return params
+
+    if CFG.bookshelf_specialized_nsrts:
+        navigateto_nsrt = NSRT("NavigateToBall", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    else:
+        navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    nsrts.add(navigateto_nsrt)
+
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?bin", bin_type)
+        parameters = [obj, robot]
+        option_vars = [robot, obj]
+        add_effects = {LiftedAtom(CanReach, [obj, robot])}
+        navigateto_nsrt = NSRT("NavigateToBin", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+        nsrts.add(navigateto_nsrt)
+
+
+    # PickBall
+    ball = Variable("?ball", ball_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [ball, robot]
+    option_vars = [robot, ball]
+    option = PickBall
+    preconditions = {
+        LiftedAtom(CanReach, [ball, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [ball])}
+    delete_effects = {
+        LiftedAtom(CanReach, [ball, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    ignore_effects = set()
+
+    def pickball_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object],
+                         skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PickBall
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    pickball_nsrt = NSRT("PickBall", parameters, preconditions,
+                         add_effects, delete_effects, ignore_effects,
+                         option, option_vars, pickball_sampler)
+    nsrts.add(pickball_nsrt)
+
+    # PlaceBallOnBin
+    ball = Variable("?ball", ball_type)
+    bin = Variable("?bin", bin_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [ball, bin, robot]
+    option_vars = [robot, ball, bin]
+    option = PlaceBallOnBin
+    preconditions = {
+        LiftedAtom(Holding, [ball]),
+        LiftedAtom(CanReach, [bin, robot]),
+    }
+    add_effects = {
+        LiftedAtom(OnBin, [ball, bin]),
+        LiftedAtom(GripperFree, [robot]),
+    }
+    delete_effects = {LiftedAtom(Holding, [ball])}
+    ignore_effects = {CanReach}
+    
+    def placeballonbin_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
+                                 objs: Sequence[Object],
+                                 skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PlaceBallOnBin
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    placeballonbin_nsrt = NSRT("PlaceBallOnBin", parameters, preconditions,
+                                add_effects, delete_effects,
+                                ignore_effects, option, option_vars, 
+                                placeballonbin_sampler)
+    nsrts.add(placeballonbin_nsrt)
+
+    return nsrts
+
+def _get_boxtray_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for BoxtrayEnv."""
+    if env_name == 'boxtray':
+        object_type, box_type, tray_type, robot_type = \
+            _get_types_by_names(env_name, ["object", "box", "tray", "robot"])
+        OnTray, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["OnTray", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickBox, PlaceBoxOnTray = _get_options_by_names(
+            env_name, ["NavigateTo", "PickBox", "PlaceBoxOnTray"])
+    elif env_name == 'planar_behavior':
+        object_type, box_type, tray_type, robot_type = \
+            _get_types_by_names(env_name, ["object-shared", "boxtray-box", "boxtray-tray", "robot-shared"])
+        OnTray, CanReach, Holding, GripperFree = _get_predicates_by_names(
+            env_name, ["On", "CanReach", "Holding", "GripperFree"])
+        NavigateTo, PickBox, PlaceBoxOnTray = _get_options_by_names(
+            env_name, ["NavigateTo", "Pick", "Place"])
+
+    nsrts = set()
+
+    # NavigateTo
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?box", box_type)
+    else:
+        obj = Variable("?object", object_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [obj, robot]
+    option_vars = [robot, obj]
+    option = NavigateTo
+    preconditions = set()
+    add_effects = {LiftedAtom(CanReach, [obj, robot])}
+    delete_effects = set()
+    ignore_effects = {CanReach}
+
+    def navigateto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object],
+                           skeleton: List[Any]) -> Array:
+        del goal, skeleton # unused
+        option = NavigateTo
+        env = get_or_create_env(env_name)
+        low = option.params_space.low
+        high = option.params_space.high
+        obj, robot = objs
+        # TODO: Increase range below for rejection sampling
+        for tries in range(1):
+            if (tries + 1) % 100 == 0:
+                print(f'{tries} failed tries')
+            params = rng.uniform(low, high)
+            # action = option.ground([robot, obj], params).policy(state)
+            # next_state = env.simulate(state, action)
+            # if CanReach.holds(next_state, [obj, robot]):
+            #     break
+        return params
+
+    if CFG.bookshelf_specialized_nsrts:
+        navigateto_nsrt = NSRT("NavigateToBox", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    else:
+        navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    nsrts.add(navigateto_nsrt)
+
+    if CFG.bookshelf_specialized_nsrts:
+        obj = Variable("?tray", tray_type)
+        parameters = [obj, robot]
+        option_vars = [robot, obj]
+        add_effects = {LiftedAtom(CanReach, [obj, robot])}
+        navigateto_nsrt = NSRT("NavigateToTray", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+        nsrts.add(navigateto_nsrt)
+
+
+    # PickBox
+    box = Variable("?box", box_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [box, robot]
+    option_vars = [robot, box]
+    option = PickBox
+    preconditions = {
+        LiftedAtom(CanReach, [box, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [box])}
+    delete_effects = {
+        LiftedAtom(CanReach, [box, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    ignore_effects = set()
+
+    def pickbox_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object],
+                         skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PickBox
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    pickbox_nsrt = NSRT("PickBox", parameters, preconditions,
+                         add_effects, delete_effects, ignore_effects,
+                         option, option_vars, pickbox_sampler)
+    nsrts.add(pickbox_nsrt)
+
+    # PlaceBoxOnTray
+    box = Variable("?box", box_type)
+    tray = Variable("?tray", tray_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [box, tray, robot]
+    option_vars = [robot, box, tray]
+    option = PlaceBoxOnTray
+    preconditions = {
+        LiftedAtom(Holding, [box]),
+        LiftedAtom(CanReach, [tray, robot]),
+    }
+    add_effects = {
+        LiftedAtom(OnTray, [box, tray]),
+        LiftedAtom(GripperFree, [robot]),
+    }
+    delete_effects = {LiftedAtom(Holding, [box])}
+    ignore_effects = {CanReach}
+    
+    def placeboxontray_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
+                                 objs: Sequence[Object],
+                                 skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PlaceBoxOnTray
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    placeboxontray_nsrt = NSRT("PlaceBoxOnTray", parameters, preconditions,
+                                add_effects, delete_effects,
+                                ignore_effects, option, option_vars, 
+                                placeboxontray_sampler)
+    nsrts.add(placeboxontray_nsrt)
+
+    return nsrts
+
+def _get_planar_behavior_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for PlanarBehaviorEnv."""
+    nsrts = set()
+    if CFG.bookshelf_specialized_nsrts:
+        nsrts |= _get_ballbin_gt_nsrts(env_name)
+        nsrts |= _get_bookshelf_gt_nsrts(env_name)
+        nsrts |= _get_boxtray_gt_nsrts(env_name)
+        nsrts |= _get_cupboard_gt_nsrts(env_name)
+        nsrts |= _get_stickbasket_gt_nsrts(env_name)
+        return nsrts
+
+    object_type, pickable_type, placeable_type, robot_type = \
+        _get_types_by_names(env_name, ["object-shared", "pickable-shared", "placeable-shared", "robot-shared"])
+
+    On, CanReach, Holding, GripperFree = _get_predicates_by_names(
+        env_name, ["On", "CanReach", "Holding", "GripperFree"])
+
+    NavigateTo, Pick, Place = _get_options_by_names(
+        env_name, ["NavigateTo", "Pick", "Place"])
+
+
+    # NavigateTo
+    obj = Variable("?object", object_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [obj, robot]
+    option_vars = [robot, obj]
+    option = NavigateTo
+    preconditions = set()
+    add_effects = {LiftedAtom(CanReach, [obj, robot])}
+    delete_effects = set()
+    ignore_effects = {CanReach}
+
+    def navigateto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object],
+                           skeleton: List[Any]) -> Array:
+        del goal, skeleton # unused
+        option = NavigateTo
+        env = get_or_create_env(env_name)
+        low = option.params_space.low
+        high = option.params_space.high
+        obj, robot = objs
+        # TODO: Increase range below for rejection sampling
+        for tries in range(1):
+            if (tries + 1) % 100 == 0:
+                print(f'{tries} failed tries')
+            params = rng.uniform(low, high)
+            # action = option.ground([robot, obj], params).policy(state)
+            # next_state = env.simulate(state, action)
+            # if CanReach.holds(next_state, [obj, robot]):
+            #     break
+        return params
+
+    navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, navigateto_sampler)
+    nsrts.add(navigateto_nsrt)
+
+    # Pick
+    obj = Variable("?object", pickable_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [obj, robot]
+    option_vars = [robot, obj]
+    option = Pick
+    preconditions = {
+        LiftedAtom(CanReach, [obj, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [obj])}
+    delete_effects = {
+        LiftedAtom(CanReach, [obj, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    ignore_effects = set()
+
+    def pick_sampler(state: State, goal: Set[GroundAtom],
+                     rng: np.random.Generator,
+                     objs: Sequence[Object],
+                     skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = Pick
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    pick_nsrt = NSRT("Pick", parameters, preconditions,
+                         add_effects, delete_effects, ignore_effects,
+                         option, option_vars, pick_sampler)
+    nsrts.add(pick_nsrt)
+
+    # Place
+    obj1 = Variable("?obj1", pickable_type)
+    obj2 = Variable("?obj2", placeable_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [obj1, obj2, robot]
+    option_vars = [robot, obj1, obj2]
+    option = Place
+    preconditions = {
+        LiftedAtom(Holding, [obj1]),
+        LiftedAtom(CanReach, [obj2, robot]),
+    }
+    add_effects = {
+        LiftedAtom(On, [obj1, obj2]),
+        LiftedAtom(GripperFree, [robot]),
+    }
+    delete_effects = {LiftedAtom(Holding, [obj1])}
+    ignore_effects = {CanReach}
+    
+    def place_sampler(state: State, goal: Set[GroundAtom],
+                      rng: np.random.Generator,
+                      objs: Sequence[Object],
+                      skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = Place
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    place_nsrt = NSRT("Place", parameters, preconditions,
+                               add_effects, delete_effects,
+                               ignore_effects, option, option_vars, 
+                               place_sampler)
+    nsrts.add(place_nsrt)
+
+    return nsrts
+
+def _get_sampler_viz_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for SamplerVizEnv."""
+    shelf_type, robot_type = _get_types_by_names(env_name, ["shelf", "robot"])
+    OnGoal, CanReach, Holding, GripperFree = _get_predicates_by_names(env_name, ["OnGoal", "CanReach", "Holding", "GripperFree"])
+    NavigateTo, PickShelf, PushShelf = _get_options_by_names(env_name, ["NavigateTo", "PickShelf", "PushShelf"])
+
+    nsrts = set()
+
+    # NavigateTo
+    shelf = Variable("?shelf", shelf_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [shelf, robot]
+    option_vars = [robot, shelf]
+    option = NavigateTo
+    preconditions = set()
+    add_effects = {LiftedAtom(CanReach, [shelf, robot])}
+    delete_effects = set()
+    ignore_effects = {CanReach}
+
+    def navigateto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object],
+                           skeleton: List[Any]) -> Array:
+        del goal, skeleton # unused
+        option = NavigateTo
+        env = get_or_create_env(env_name)
+        low = option.params_space.low
+        high = option.params_space.high
+        shelf, robot = objs
+        # TODO: Increase range below for rejection sampling
+        for tries in range(1):
+            if (tries + 1) % 100 == 0:
+                print(f'{tries} failed tries')
+            params = rng.uniform(low, high)
+        return params
+
+    navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
+                           add_effects, delete_effects, ignore_effects,
+                           option, option_vars, navigateto_sampler)
+    nsrts.add(navigateto_nsrt)
+
+    # PickShelf
+    shelf = Variable("?shelf", shelf_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [shelf, robot]
+    option_vars = [robot, shelf]
+    option = PickShelf
+    preconditions = {
+        LiftedAtom(CanReach, [shelf, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [shelf])}
+    delete_effects = {
+        LiftedAtom(CanReach, [shelf, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    ignore_effects = set()
+
+    def pickshelf_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object],
+                         skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PickShelf
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    pickshelf_nsrt = NSRT("PickShelf", parameters, preconditions,
+                         add_effects, delete_effects, ignore_effects,
+                         option, option_vars, pickshelf_sampler)
+    nsrts.add(pickshelf_nsrt)
+
+    # PushShelf
+    shelf = Variable("?shelf", shelf_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [shelf, robot]
+    option_vars = [robot, shelf]
+    option = PushShelf
+    preconditions = {
+        LiftedAtom(Holding, [shelf]),
+    }
+    add_effects = {
+        LiftedAtom(OnGoal, [shelf]),
+        LiftedAtom(GripperFree, [robot]),
+    }
+    delete_effects = {LiftedAtom(Holding, [shelf])}
+    ignore_effects = {CanReach}
+    
+    def pushshelf_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
+                                 objs: Sequence[Object],
+                                 skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
+        option = PushShelf
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    pushshelf_nsrt = NSRT("PushShelf", parameters, preconditions,
+                                add_effects, delete_effects,
+                                ignore_effects, option, option_vars, 
+                                pushshelf_sampler)
+    nsrts.add(pushshelf_nsrt)
 
     return nsrts
 

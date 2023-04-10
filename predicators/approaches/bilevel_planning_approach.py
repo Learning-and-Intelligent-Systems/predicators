@@ -70,7 +70,7 @@ class BilevelPlanningApproach(BaseApproach):
         For example, PG4 inserts an abstract policy into kwargs.
         """
         try:
-            plan, metrics = sesame_plan(
+            sesame_ret = sesame_plan(
                 task,
                 self._option_model,
                 nsrts,
@@ -84,12 +84,23 @@ class BilevelPlanningApproach(BaseApproach):
                 allow_noops=CFG.sesame_allow_noops,
                 use_visited_state_set=CFG.sesame_use_visited_state_set,
                 **kwargs)
+            if 'return_skeleton' in kwargs and kwargs['return_skeleton']:
+                plan, metrics, skeleton = sesame_ret
+            else:
+                plan, metrics = sesame_ret
+            ### Keep track of per-env metrics for planar_behavior
+            for obj in task.init:
+                if obj.name == "dummy":
+                    metrics["env"] = task.init.get(obj, "indicator")
+                    break
+            ###
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
 
-        return plan, metrics
+        # return plan, metrics
+        return sesame_ret
 
     def reset_metrics(self) -> None:
         super().reset_metrics()
@@ -115,6 +126,26 @@ class BilevelPlanningApproach(BaseApproach):
                 metrics[metric], self._metrics[f"min_{metric}"])
             self._metrics[f"max_{metric}"] = max(
                 metrics[metric], self._metrics[f"max_{metric}"])
+
+        if "env" in metrics:
+            env = metrics["env"]
+            for metric in [
+                    "num_samples", "num_skeletons_optimized",
+                    "num_failures_discovered", "num_nodes_expanded",
+                    "num_nodes_created", "plan_length"
+            ]:
+                self._metrics[f"env_{env}_total_{metric}"] += metrics[metric]
+            self._metrics[f"env_{env}_total_num_nsrts"] += len(nsrts)
+            self._metrics[f"env_{env}_total_num_preds"] += len(predicates)
+            for metric in [
+                    f"num_samples",
+                    f"num_skeletons_optimized",
+            ]:
+                self._metrics[f"env_{env}_min_{metric}"] = min(
+                    metrics[metric], self._metrics[f"env_{env}_min_{metric}"])
+                self._metrics[f"env_{env}_max_{metric}"] = max(
+                    metrics[metric], self._metrics[f"env_{env}_max_{metric}"])
+
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:

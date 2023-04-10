@@ -82,6 +82,12 @@ def main() -> None:
     os.makedirs(CFG.results_dir, exist_ok=True)
     # Create the eval trajectories directory.
     os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
+    if CFG.exit_if_result_exists:
+        outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__0.pkl")
+        print(outfile)
+        if os.path.exists(outfile):
+            logging.info("Results file already exists and config is set to exit")
+            exit(1)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
     # The action space and options need to be seeded externally, because
@@ -93,6 +99,7 @@ def main() -> None:
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
     train_tasks = env.get_train_tasks()
+
     # If train tasks have goals that involve excluded predicates, strip those
     # predicate classifiers to prevent leaking information to the approaches.
     stripped_train_tasks = [
@@ -214,7 +221,10 @@ def _generate_interaction_results(
     query_cost = 0.0
     if CFG.make_interaction_videos:
         video = []
-    for request in requests:
+    total_requests = len(requests)
+    for curr_request, request in enumerate(requests):
+        if curr_request % 100 == 0:
+            logging.info(f"\t{curr_request} / {total_requests}")
         if request.train_task_idx < CFG.max_initial_demos and \
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
@@ -258,10 +268,28 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_num_execution_timeouts = 0
     total_num_execution_failures = 0
 
+    total_tasks_env = defaultdict(int)
+    num_found_policy_env = defaultdict(int)
+    num_solved_env = defaultdict(int)
+    total_suc_time_env = defaultdict(float)
+    total_num_solve_timeouts_env = defaultdict(int)
+    total_num_solve_failures_env = defaultdict(int)
+    total_num_execution_timeouts_env = defaultdict(int)
+    total_num_execution_failures_env = defaultdict(int)
+
     save_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
         # Run the approach's solve() method to get a policy for this task.
+        ### Keep track of per-env counts for planar_behavior
+        if env.get_name() == "planar_behavior":
+            for obj in task.init:
+                if obj.name == "dummy":
+                    env_indicator = task.init.get(obj, "indicator")
+                    break
+            subenv_name = env._indicator_to_env_map[env_indicator].get_name()
+            total_tasks_env[subenv_name] += 1
+        ###
         solve_start = time.perf_counter()
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
@@ -270,8 +298,12 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                          f"Approach failed to solve with error: {e}")
             if isinstance(e, ApproachTimeout):
                 total_num_solve_timeouts += 1
+                if env.get_name() == "planar_behavior":
+                    total_num_solve_timeouts_env[subenv_name] += 1
             elif isinstance(e, ApproachFailure):
                 total_num_solve_failures += 1
+                if env.get_name() == "planar_behavior":
+                    total_num_solve_failures_env[subenv_name] += 1
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
@@ -282,8 +314,9 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 raise e
             continue
         solve_time = time.perf_counter() - solve_start
-        metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
         num_found_policy += 1
+        if env.get_name() == "planar_behavior":
+            num_found_policy_env[subenv_name] += 1
         make_video = False
         solved = False
         caught_exception = False
@@ -303,7 +336,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
-            metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
             # Save the successful trajectory, e.g., for playback on a robot.
             traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
             traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
@@ -323,13 +355,22 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                            f"error: {e}")
             if isinstance(e, ApproachTimeout):
                 total_num_execution_timeouts += 1
+                if env.get_name() == "planar_behavior":
+                    total_num_execution_timeouts_env[subenv_name] += 1
             elif isinstance(e, ApproachFailure):
                 total_num_execution_failures += 1
+                if env.get_name() == "planar_behavior":
+                    total_num_execution_failures_env[subenv_name] += 1
             caught_exception = True
         if solved:
             log_message = "SOLVED"
             num_solved += 1
             total_suc_time += (solve_time + exec_time)
+            ### Keep track of per-env time for planar_behavior
+            if env.get_name() == "planar_behavior":
+                num_solved_env[subenv_name] += 1
+                total_suc_time_env[subenv_name] += (solve_time + exec_time)
+            ###
             make_video = CFG.make_test_videos
             video_file = f"{save_prefix}__task{test_task_idx+1}.mp4"
         else:
@@ -345,6 +386,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             assert monitor is not None
             video = monitor.get_video()
             utils.save_video(video_file, video)
+        if CFG.viz_sampling_distributions:
+            nsrts = approach._get_current_nsrts()
+            preds = approach._get_current_predicates()
+            plan, _, skeleton = approach._run_sesame_plan(task, nsrts, preds, CFG.timeout,
+                                              CFG.seed, return_skeleton=True)
+            video = utils.create_video_from_samplers(plan, skeleton, env, "test", test_task_idx, task)
+            video_file = f"{save_prefix}__task{test_task_idx+1}_samples.mp4"
+            utils.save_video(video_file, video)
+
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
@@ -374,34 +424,69 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         total = approach.metrics[f"total_{metric_name}"]
         metrics[f"avg_{metric_name}"] = (
             total / num_found_policy if num_found_policy > 0 else float("inf"))
+
+    if env.get_name() == "planar_behavior":
+        for subenv_indicator, subenv in env._indicator_to_env_map.items():
+            subenv_name = subenv.get_name()
+            metrics[f"{subenv_name}_num_solved"] = num_solved_env[subenv_name]
+            metrics[f"{subenv_name}_num_total"] = total_tasks_env[subenv_name]
+            metrics[f"{subenv_name}_avg_suc_time"] = (total_suc_time_env[subenv_name] /
+                                       num_solved_env[subenv_name] if num_solved_env[subenv_name] > 0 else float("inf"))
+            metrics[f"{subenv_name}_min_num_samples"] = approach.metrics[
+                f"env_{subenv_indicator}_min_num_samples"] if approach.metrics[f"env_{subenv_indicator}_min_num_samples"] < float(
+                    "inf") else 0
+            metrics[f"{subenv_name}_max_num_samples"] = approach.metrics[f"env_{subenv_indicator}_max_num_samples"]
+            metrics[f"{subenv_name}_min_skeletons_optimized"] = approach.metrics[
+                f"env_{subenv_indicator}_min_num_skeletons_optimized"] if approach.metrics[
+                    f"env_{subenv_indicator}_min_num_skeletons_optimized"] < float("inf") else 0
+            metrics[f"{subenv_name}_max_skeletons_optimized"] = approach.metrics[
+                f"env_{subenv_indicator}_max_num_skeletons_optimized"]
+            metrics[f"{subenv_name}_num_solve_timeouts"] = total_num_solve_timeouts_env[subenv_name]
+            metrics[f"{subenv_name}_num_solve_failures"] = total_num_solve_failures_env[subenv_name]
+            metrics[f"{subenv_name}_num_execution_timeouts"] = total_num_execution_timeouts_env[subenv_name]
+            metrics[f"{subenv_name}_num_execution_failures"] = total_num_execution_failures_env[subenv_name]
+            # Handle computing averages of total approach metrics wrt the
+            # number of found policies. Note: this is different from computing
+            # an average wrt the number of solved tasks, which might be more
+            # appropriate for some metrics, e.g. avg_suc_time above.
+            for metric_name in [
+                    "num_samples", "num_skeletons_optimized", "num_nodes_expanded",
+                    "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
+                    "num_failures_discovered"
+            ]:
+                total = approach.metrics[f"env_{subenv_indicator}_total_{metric_name}"]
+                metrics[f"{subenv_name}_avg_{metric_name}"] = (
+                    total / num_found_policy_env[subenv_name] if num_found_policy_env[subenv_name] > 0 else float("inf"))
+
     return metrics
 
 
 def _save_test_results(results: Metrics,
                        online_learning_cycle: Optional[int]) -> None:
-    num_solved = results["num_solved"]
-    num_total = results["num_total"]
-    avg_suc_time = results["avg_suc_time"]
-    logging.info(f"Tasks solved: {num_solved} / {num_total}")
-    logging.info(f"Average time for successes: {avg_suc_time:.5f} seconds")
-    outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
-               f"{online_learning_cycle}.pkl")
-    # Save CFG alongside results.
-    outdata = {
-        "config": CFG,
-        "results": results.copy(),
-        "git_commit_hash": utils.get_git_commit_hash()
-    }
-    # Dump the CFG, results, and git commit hash to a pickle file.
-    with open(outfile, "wb") as f:
-        pkl.dump(outdata, f)
-    # Before printing the results, filter out keys that start with the
-    # special prefix "PER_TASK_", to prevent an annoyingly long printout.
-    del_keys = [k for k in results if k.startswith("PER_TASK_")]
-    for k in del_keys:
-        del results[k]
-    logging.info(f"Test results: {results}")
-    logging.info(f"Wrote out test results to {outfile}")
+    if not CFG.save_only_exploration_results:
+        num_solved = results["num_solved"]
+        num_total = results["num_total"]
+        avg_suc_time = results["avg_suc_time"]
+        logging.info(f"Tasks solved: {num_solved} / {num_total}")
+        logging.info(f"Average time for successes: {avg_suc_time:.5f} seconds")
+        outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
+                   f"{online_learning_cycle}.pkl")
+        # Save CFG alongside results.
+        outdata = {
+            "config": CFG,
+            "results": results.copy(),
+            "git_commit_hash": utils.get_git_commit_hash()
+        }
+        # Dump the CFG, results, and git commit hash to a pickle file.
+        with open(outfile, "wb") as f:
+            pkl.dump(outdata, f)
+        # Before printing the results, filter out keys that start with the
+        # special prefix "PER_TASK_", to prevent an annoyingly long printout.
+        del_keys = [k for k in results if k.startswith("PER_TASK_")]
+        for k in del_keys:
+            del results[k]
+        logging.info(f"Test results: {results}")
+        logging.info(f"Wrote out test results to {outfile}")
 
 
 if __name__ == "__main__":  # pragma: no cover

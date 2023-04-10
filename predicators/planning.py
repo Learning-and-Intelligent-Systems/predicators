@@ -509,6 +509,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         max_samples_per_step
         if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
     ]
+    if CFG.sesame_max_samples_total < float('inf') and len(skeleton) > 0:
+        max_tries[0] = float('inf')  # only stop if the max steps total is reached
     plan: List[_Option] = [DummyOption for _ in skeleton]
     # The number of actions taken by each option in the plan. This is to
     # make sure that we do not exceed the task horizon.
@@ -527,10 +529,12 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                 return all_failed_refinements, False
             return longest_failed_refinement, False
         assert num_tries[cur_idx] < max_tries[cur_idx]
+        # assert metrics["num_samples"] < CFG.sesame_max_samples_total
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
         num_tries[cur_idx] += 1
+        # logging.info(f"{skeleton[cur_idx].name}, {num_tries[cur_idx]}")
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
@@ -628,6 +632,9 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
             # is exhausted, backtrack.
             cur_idx -= 1
             assert cur_idx >= 0
+            backtracking_exhausted = False
+            if metrics["num_samples"] >= CFG.sesame_max_samples_total:
+                backtracking_exhausted = True
             while num_tries[cur_idx] == max_tries[cur_idx]:
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
@@ -635,24 +642,27 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                 traj[cur_idx + 1] = DefaultState
                 cur_idx -= 1
                 if cur_idx < 0:
-                    # Backtracking exhausted. If we're only propagating failures
-                    # after exhaustion, and if there are any failures,
-                    # propagate up the EARLIEST one so that high-level search
-                    # restarts. Otherwise, return a partial refinement so that
-                    # high-level search continues.
-                    for possible_failure in discovered_failures:
-                        if possible_failure is not None and \
-                           CFG.sesame_propagate_failures == "after_exhaust":
-                            raise _DiscoveredFailureException(
-                                "Discovered a failure", possible_failure, {
-                                    "longest_failed_refinement":
-                                    longest_failed_refinement,
-                                    "all_failed_refinements":
-                                    all_failed_refinements
-                                })
-                    if return_all_failed_refinements:
-                        return all_failed_refinements, False
-                    return longest_failed_refinement, False
+                    backtracking_exhausted = True
+                    break
+            if backtracking_exhausted:
+                # Backtracking exhausted. If we're only propagating failures
+                # after exhaustion, and if there are any failures,
+                # propagate up the EARLIEST one so that high-level search
+                # restarts. Otherwise, return a partial refinement so that
+                # high-level search continues.
+                for possible_failure in discovered_failures:
+                    if possible_failure is not None and \
+                       CFG.sesame_propagate_failures == "after_exhaust":
+                        raise _DiscoveredFailureException(
+                            "Discovered a failure", possible_failure, {
+                                "longest_failed_refinement":
+                                longest_failed_refinement,
+                                "all_failed_refinements":
+                                all_failed_refinements
+                            })
+                if return_all_failed_refinements:
+                    return all_failed_refinements, False
+                return longest_failed_refinement, False
     # Should only get here if the skeleton was empty.
     assert not skeleton
     if return_all_failed_refinements:

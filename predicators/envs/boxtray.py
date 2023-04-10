@@ -14,8 +14,8 @@ from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
-class BookshelfEnv(BaseEnv):
-    """Bookshelf domain."""
+class BoxtrayEnv(BaseEnv):
+    """Boxtray domain."""
 
     env_x_lb: ClassVar[float] = 0
     env_y_lb: ClassVar[float] = 0
@@ -23,15 +23,15 @@ class BookshelfEnv(BaseEnv):
     env_y_ub: ClassVar[float] = 20#12#
     robot_radius: ClassVar[float] = 2
     gripper_length: ClassVar[float] = 2
-    shelf_w_lb: ClassVar[float] = 5
-    shelf_w_ub: ClassVar[float] = 10#7#
-    shelf_h_lb: ClassVar[float] = 2
-    shelf_h_ub: ClassVar[float] = 5#3#
-    book_w_lb: ClassVar[float] = 0.5
-    book_w_ub: ClassVar[float] = 1
-    book_h_lb: ClassVar[float] = 1
-    book_h_ub: ClassVar[float] = 1.5
-    _shelf_color: ClassVar[List[float]] = [0.89, 0.82, 0.68]
+    tray_w_lb: ClassVar[float] = 11
+    tray_w_ub: ClassVar[float] = 13
+    tray_h_lb: ClassVar[float] = 3
+    tray_h_ub: ClassVar[float] = 5
+    box_w_lb: ClassVar[float] = 0.5
+    box_w_ub: ClassVar[float] = 1
+    box_h_lb: ClassVar[float] = 1
+    box_h_ub: ClassVar[float] = 1.5
+    _tray_color: ClassVar[List[float]] = [0.89, 0.82, 0.68]
     _robot_color: ClassVar[List[float]] = [0.5, 0.5, 0.5]
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -41,23 +41,23 @@ class BookshelfEnv(BaseEnv):
         self._object_type = Type("object", ["pose_x", "pose_y", "width", "height", "yaw", "held"])
         self._pickable_type = Type("pickable", ["pose_x", "pose_y", "width", "height", "yaw", "held"], self._object_type)
         self._placeable_type = Type("placeable", ["pose_x", "pose_y", "width", "height", "yaw", "held"], self._object_type)
-        # Book: when held, pose becomes relative to gripper
-        self._book_type = Type(
-            "book", ["pose_x", "pose_y", "width", "height", "yaw", "held"],
+        # Box: when held, pose becomes relative to gripper
+        self._box_type = Type(
+            "box", ["pose_x", "pose_y", "width", "height", "yaw", "held"],
             self._pickable_type)
-        self._shelf_type = Type("shelf",
+        self._tray_type = Type("tray",
                                 ["pose_x", "pose_y", "width", "height", "yaw", "held"],
                                 self._placeable_type)
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "yaw", "gripper_free"])
         # Predicates
-        self._OnShelf = Predicate("OnShelf",
-                                  [self._book_type, self._shelf_type],
-                                  self._OnShelf_holds)
+        self._OnTray = Predicate("OnTray",
+                                  [self._box_type, self._tray_type],
+                                  self._OnTray_holds)
         self._CanReach = Predicate("CanReach",
                                   [self._object_type, self._robot_type],
                                   self._CanReach_holds)
-        self._Holding = Predicate("Holding", [self._book_type],
+        self._Holding = Predicate("Holding", [self._box_type],
                                   self._Holding_holds)
         self._GripperFree = Predicate("GripperFree", [self._robot_type],
                                       self._GripperFree_holds)
@@ -82,12 +82,12 @@ class BookshelfEnv(BaseEnv):
         else:
             lo = [0, -np.pi]
             hi = [1, np.pi]
-        self._PickBook = utils.SingletonParameterizedOption(
-            # variables: [robot, book to pick]
-            # params: [offset_gripper, book_yaw]
-            "PickBook",
-            self._PickBook_policy,
-            types=[self._robot_type, self._book_type],
+        self._PickBox = utils.SingletonParameterizedOption(
+            # variables: [robot, box to pick]
+            # params: [offset_gripper, box_yaw]
+            "PickBox",
+            self._PickBox_policy,
+            types=[self._robot_type, self._box_type],
             params_space=Box(np.array(lo, dtype=np.float32),
                              np.array(hi, dtype=np.float32)))
         if CFG.bookshelf_add_sampler_idx_to_params:
@@ -96,38 +96,38 @@ class BookshelfEnv(BaseEnv):
         else:
             lo = [0]
             hi = [1]
-        self._PlaceBookOnShelf = utils.SingletonParameterizedOption(
-            # variables: [robot, book, shelf]
+        self._PlaceBoxOnTray = utils.SingletonParameterizedOption(
+            # variables: [robot, box, tray]
             # params: [offset_gripper]
-            "PlaceBookOnShelf",
-            self._PlaceBookOnShelf_policy,
-            types=[self._robot_type, self._book_type, self._shelf_type],
+            "PlaceBoxOnTray",
+            self._PlaceBoxOnTray_policy,
+            types=[self._robot_type, self._box_type, self._tray_type],
             params_space=Box(np.array(lo, dtype=np.float32),
                              np.array(hi, dtype=np.float32)))
         # Static objects (always exist no matter the settings)
-        self._shelf = Object("shelf", self._shelf_type)
+        self._tray = Object("tray", self._tray_type)
         self._robot = Object("robby", self._robot_type)
 
     @classmethod
     def get_name(cls) -> str:
-        return "bookshelf"
+        return "boxtray"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         arr = action.arr
         if arr[-1] < -0.33:
-            transition_fn = self._transition_pick_book
+            transition_fn = self._transition_pick_box
         elif -0.33 <= arr[-1] < 0.33:
-            transition_fn = self._transition_place_book_on_shelf
+            transition_fn = self._transition_place_box_on_tray
         elif 0.33 <= arr[-1]:
             transition_fn = self._transition_navigate_to
         return transition_fn(state, action)
 
-    def _transition_pick_book(self, state: State, action: Action) -> State:
+    def _transition_pick_box(self, state: State, action: Action) -> State:
         yaw, offset_gripper = action.arr[2:4]
         next_state = state.copy()
-        held_book = self._get_held_book(state)
-        if held_book is not None:
+        held_box = self._get_held_box(state)
+        if held_box is not None:
             return next_state
 
         robby = self._robot
@@ -143,44 +143,44 @@ class BookshelfEnv(BaseEnv):
         tip_y = robby_y + (self.robot_radius + offset_gripper *
                            self.gripper_length) * np.sin(robby_yaw)
 
-        pick_book, book_rect = self._get_pickable_book(state, tip_x, tip_y)
+        pick_box, box_rect = self._get_pickable_box(state, tip_x, tip_y)
         gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
-        ignore_objects = {pick_book, robby}
-        # Check that there is a graspable book and that there are no gripper collisions
-        if pick_book is None or self.check_collision(state, gripper_line,
+        ignore_objects = {pick_box, robby}
+        # Check that there is a graspable box and that there are no gripper collisions
+        if pick_box is None or self.check_collision(state, gripper_line,
                                                      ignore_objects):
             return next_state
         # Execute pick
-        book_rect = book_rect.rotate_about_point(tip_x, tip_y, yaw)
-        yaw = book_rect.theta - robby_yaw
+        box_rect = box_rect.rotate_about_point(tip_x, tip_y, yaw)
+        yaw = box_rect.theta - robby_yaw
         while yaw > np.pi:
             yaw -= (2 * np.pi)
         while yaw < -np.pi:
             yaw += (2 * np.pi)
-        rel_x = book_rect.x - tip_x
-        rel_y = book_rect.y - tip_y
+        rel_x = box_rect.x - tip_x
+        rel_y = box_rect.y - tip_y
         rot_rel_x = rel_x * np.sin(robby_yaw) - rel_y * np.cos(robby_yaw)
         rot_rel_y = rel_x * np.cos(robby_yaw) + rel_y * np.sin(robby_yaw)
-        next_state.set(pick_book, "held", 1.0)
-        next_state.set(pick_book, "pose_x", rot_rel_x)
-        next_state.set(pick_book, "pose_y", rot_rel_y)
-        next_state.set(pick_book, "yaw", yaw)
+        next_state.set(pick_box, "held", 1.0)
+        next_state.set(pick_box, "pose_x", rot_rel_x)
+        next_state.set(pick_box, "pose_y", rot_rel_y)
+        next_state.set(pick_box, "yaw", yaw)
         next_state.set(robby, "gripper_free", 0.0)
         return next_state
 
-    def _transition_place_book_on_shelf(self, state: State,
+    def _transition_place_box_on_tray(self, state: State,
                                         action: Action) -> State:
         offset_gripper = action.arr[3]
         next_state = state.copy()
 
-        book = self._get_held_book(state)
-        if book is None:
+        box = self._get_held_box(state)
+        if box is None:
             return next_state
-        book_relative_x = state.get(book, "pose_x")
-        book_relative_y = state.get(book, "pose_y")
-        book_relative_yaw = state.get(book, "yaw")
-        book_w = state.get(book, "width")
-        book_h = state.get(book, "height")
+        box_relative_x = state.get(box, "pose_x")
+        box_relative_y = state.get(box, "pose_y")
+        box_relative_yaw = state.get(box, "yaw")
+        box_w = state.get(box, "width")
+        box_h = state.get(box, "height")
 
         robby = self._robot
         robby_x = state.get(robby, "pose_x")
@@ -190,45 +190,50 @@ class BookshelfEnv(BaseEnv):
         if gripper_free != 0.0:
             return next_state
 
-        shelf = self._shelf
-        shelf_x = state.get(shelf, "pose_x")
-        shelf_y = state.get(shelf, "pose_y")
-        shelf_w = state.get(shelf, "width")
-        shelf_h = state.get(shelf, "height")
-        shelf_yaw = state.get(shelf, "yaw")
+        tray = self._tray
+        tray_x = state.get(tray, "pose_x")
+        tray_y = state.get(tray, "pose_y")
+        tray_w = state.get(tray, "width")
+        tray_h = state.get(tray, "height")
+        tray_yaw = state.get(tray, "yaw")
+        tray_hole1_x = tray_x
+        tray_hole1_y = tray_y
+        tray_hole2_x = tray_x + (tray_w - tray_h) * np.cos(tray_yaw)
+        tray_hole2_y = tray_y + (tray_w - tray_h) * np.sin(tray_yaw)
 
         tip_x = robby_x + (self.robot_radius + offset_gripper *
                            self.gripper_length) * np.cos(robby_yaw)
         tip_y = robby_y + (self.robot_radius + offset_gripper *
                            self.gripper_length) * np.sin(robby_yaw)
 
-        place_x = tip_x + book_relative_x * np.sin(
-            robby_yaw) + book_relative_y * np.cos(robby_yaw)
-        place_y = tip_y + book_relative_y * np.sin(
-            robby_yaw) - book_relative_x * np.cos(robby_yaw)
-        place_yaw = book_relative_yaw + robby_yaw
+        place_x = tip_x + box_relative_x * np.sin(
+            robby_yaw) + box_relative_y * np.cos(robby_yaw)
+        place_y = tip_y + box_relative_y * np.sin(
+            robby_yaw) - box_relative_x * np.cos(robby_yaw)
+        place_yaw = box_relative_yaw + robby_yaw
         while place_yaw > np.pi:
             place_yaw -= (2 * np.pi)
         while place_yaw < -np.pi:
             place_yaw += (2 * np.pi)
 
-        # Check whether the books center-of-mass is within the shelf bounds
-        # and that there are no other collisions with the book or gripper
-        book_rect = utils.Rectangle(place_x, place_y, book_w, book_h,
+        # Check whether the boxs center-of-mass is within the tray bounds
+        # and that there are no other collisions with the box or gripper
+        box_rect = utils.Rectangle(place_x, place_y, box_w, box_h,
                                     place_yaw)
-        shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h,
-                                     shelf_yaw)
+        tray_hole1_rect = utils.Rectangle(tray_hole1_x, tray_hole1_y, tray_h, tray_h, tray_yaw)
+        tray_hole2_rect = utils.Rectangle(tray_hole2_x, tray_hole2_y, tray_h, tray_h, tray_yaw)
         gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
-        ignore_objects = {book, robby, shelf}
-        if not shelf_rect.contains_point(*(book_rect.center)) or \
-            self.check_collision(state, book_rect, ignore_objects) or \
+        ignore_objects = {box, robby, tray}
+        if not (tray_hole1_rect.contains_point(*(box_rect.center)) or \
+                tray_hole2_rect.contains_point(*(box_rect.center))) or \
+            self.check_collision(state, box_rect, ignore_objects) or \
             self.check_collision(state, gripper_line, ignore_objects):
             return next_state
 
-        next_state.set(book, "held", 0.0)
-        next_state.set(book, "pose_x", place_x)
-        next_state.set(book, "pose_y", place_y)
-        next_state.set(book, "yaw", place_yaw)
+        next_state.set(box, "held", 0.0)
+        next_state.set(box, "pose_x", place_x)
+        next_state.set(box, "pose_y", place_y)
+        next_state.set(box, "yaw", place_yaw)
         next_state.set(robby, "gripper_free", 1.0)
         return next_state
 
@@ -248,11 +253,11 @@ class BookshelfEnv(BaseEnv):
         return next_state
 
     @property
-    def _num_books_train(self) -> List[int]:
+    def _num_boxs_train(self) -> List[int]:
         return CFG.bookshelf_num_books_train
 
     @property
-    def _num_books_test(self) -> List[int]:
+    def _num_boxs_test(self) -> List[int]:
         return CFG.bookshelf_num_books_test
 
     @property
@@ -265,34 +270,34 @@ class BookshelfEnv(BaseEnv):
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.bookshelf_train_tasks_overwrite if CFG.bookshelf_train_tasks_overwrite is not None else CFG.num_train_tasks,
-                               possible_num_books=self._num_books_train,
+                               possible_num_boxs=self._num_boxs_train,
                                possible_num_obstacles=self._num_obstacles_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               possible_num_books=self._num_books_test,
+                               possible_num_boxs=self._num_boxs_test,
                                possible_num_obstacles=self._num_obstacles_test,
                                rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._OnShelf, self._CanReach, self._Holding, self._GripperFree}
+        return {self._OnTray, self._CanReach, self._Holding, self._GripperFree}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._OnShelf}
+        return {self._OnTray}
 
     @property
     def types(self) -> Set[Type]:
         return {
             self._object_type, self._pickable_type, self._placeable_type,
-            self._book_type, self._shelf_type, self._robot_type
+            self._box_type, self._tray_type, self._robot_type
         }
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._NavigateTo, self._PickBook, self._PlaceBookOnShelf}
+        return {self._NavigateTo, self._PickBox, self._PlaceBoxOnTray}
 
     @property
     def action_space(self) -> Box:
@@ -313,22 +318,31 @@ class BookshelfEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-        books = [b for b in state if b.is_instance(self._book_type)]
+        boxs = [b for b in state if b.is_instance(self._box_type)]
         if task is not None:
-            goal_books = {obj for atom in task.goal for obj in atom.objects if obj.is_instance(self._book_type) }
+            goal_boxs = {obj for atom in task.goal for obj in atom.objects if obj.is_instance(self._box_type) }
         else:
-            goal_books = books
+            goal_boxs = boxs
         
-        shelf = self._shelf
+        tray = self._tray
         robby = self._robot
-        # Draw shelf
-        shelf_x = state.get(shelf, "pose_x")
-        shelf_y = state.get(shelf, "pose_y")
-        shelf_w = state.get(shelf, "width")
-        shelf_h = state.get(shelf, "height")
-        shelf_yaw = state.get(shelf, "yaw")
-        rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw)
-        rect.plot(ax, facecolor=self._shelf_color)
+        # Draw tray
+        tray_x = state.get(tray, "pose_x")
+        tray_y = state.get(tray, "pose_y")
+        tray_w = state.get(tray, "width")
+        tray_h = state.get(tray, "height")
+        tray_yaw = state.get(tray, "yaw")
+        rect = utils.Rectangle(tray_x, tray_y, tray_w, tray_h, tray_yaw)
+        rect.plot(ax, facecolor=self._tray_color)
+        tray_hole1_x = tray_x
+        tray_hole1_y = tray_y
+        rect = utils.Rectangle(tray_hole1_x, tray_hole1_y, tray_h, tray_h, tray_yaw)
+        rect.plot(ax, facecolor='sienna')
+        tray_hole2_x = tray_x + (tray_w - tray_h) * np.cos(tray_yaw)
+        tray_hole2_y = tray_y + (tray_w - tray_h) * np.sin(tray_yaw)
+        rect = utils.Rectangle(tray_hole2_x, tray_hole2_y, tray_h, tray_h, tray_yaw)
+        rect.plot(ax, facecolor='sienna')
+
 
         # Draw robot
         robby_x = state.get(robby, "pose_x")
@@ -345,15 +359,15 @@ class BookshelfEnv(BaseEnv):
         gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
         gripper_line.plot(ax, color="white")
 
-        # Draw books
-        for b in sorted(books):
+        # Draw boxs
+        for b in sorted(boxs):
             x = state.get(b, "pose_x")
             y = state.get(b, "pose_y")
             w = state.get(b, "width")
             h = state.get(b, "height")
             yaw = state.get(b, "yaw")
             holding = state.get(b, "held") == 1.0
-            fc = "blue" if b in goal_books else "gray"
+            fc = "seagreen" if b in goal_boxs else "gray"
             ec = "red" if holding else "gray"
             if holding:
                 aux_x = tip_x + x * np.sin(robby_yaw) + y * np.cos(robby_yaw)
@@ -375,118 +389,65 @@ class BookshelfEnv(BaseEnv):
         plt.axis("off")
         return fig
 
-    def grid_state(self, state: State) -> Array:
-
-        grid = np.zeros((self.env_x_ub, self.env_y_ub, 3))
-        books = [b for b in state if b.is_instance(self._book_type)]
-        shelf = self._shelf
-        robby = self._robot                                
-
-        # Draw shelf
-        shelf_x = state.get(shelf, "pose_x")
-        shelf_y = state.get(shelf, "pose_y")
-        shelf_w = state.get(shelf, "width")
-        shelf_h = state.get(shelf, "height")
-        shelf_yaw = state.get(shelf, "yaw")
-        shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw)
-
-        # Draw robot
-        robby_x = state.get(robby, "pose_x")
-        robby_y = state.get(robby, "pose_y")
-        robby_yaw = state.get(robby, "yaw")
-        gripper_free = state.get(robby, "gripper_free") == 1.0
-        robby_circ = utils.Circle(robby_x, robby_y, self.robot_radius)
-
-        # Draw books
-        book_rects = []
-        for b in sorted(books):
-            x = state.get(b, "pose_x")
-            y = state.get(b, "pose_y")
-            w = state.get(b, "width")
-            h = state.get(b, "height")
-            yaw = state.get(b, "yaw")
-            holding = state.get(b, "held") == 1.0
-            if holding:
-                yaw += robby_yaw
-            while yaw > np.pi:
-                yaw -= (2 * np.pi)
-            while yaw < -np.pi:
-                yaw += (2 * np.pi)
-            book_rects.append(utils.Rectangle(x, y, w, h, yaw))
-
-        cell_w = 1
-        cell_h = 1
-        cell_yaw = 0
-        for i in range(self.env_x_ub):
-            for j in range(self.env_y_ub):
-                grid_cell = utils.Rectangle(i, j, cell_w, cell_h, cell_yaw)
-                if utils.geom2ds_intersect(shelf_rect, grid_cell):
-                    grid[i, j, 0] = 1
-                if utils.geom2ds_intersect(robby_circ, grid_cell):
-                    grid[i, j, 1] = 1
-                for rect in book_rects:
-                    if utils.geom2ds_intersect(rect, grid_cell):
-                        grid[i, j, 2] = 1
-        return grid
-
-    def _get_tasks(self, num_tasks: int, possible_num_books: List[int],
+    def _get_tasks(self, num_tasks: int, possible_num_boxs: List[int],
                    possible_num_obstacles: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
-            num_books = rng.choice(possible_num_books)
+            num_boxs = rng.choice(possible_num_boxs)
             num_obstacles = rng.choice(possible_num_obstacles)
             data = {}
 
-            # Sample shelf variables
-            if CFG.bookshelf_against_wall:
-                # Size
-                shelf_w = rng.uniform(self.shelf_w_lb, self.shelf_w_ub)
-                shelf_h = rng.uniform(self.shelf_h_lb, self.shelf_h_ub)
-                # Pick wall
-                wall_idx = rng.integers(4)  # l, b, r, t
-                # Pose
-                if wall_idx == 0 or wall_idx == 2:
-                    shelf_y = rng.uniform(self.env_y_lb + shelf_w, self.env_y_ub)
-                    if wall_idx == 0:
-                        shelf_x = self.env_x_lb
-                    else:
-                        shelf_x = self.env_x_ub - shelf_h
-                    shelf_yaw = - np.pi / 2
-                else:
-                    shelf_x = rng.uniform(self.env_x_lb, self.env_x_ub - shelf_w)
-                    if wall_idx == 1:
-                        shelf_y = self.env_y_lb
-                    else:
-                        shelf_y = self.env_y_ub - shelf_h
-                    shelf_yaw = 0
+            # Sample tray variables
+            if CFG.boxtray_against_wall:
+                raise ValueError('This env is not supposed to have the tray fixed against a wall')
+                # # Size
+                # tray_w = rng.uniform(self.tray_w_lb, self.tray_w_ub)
+                # tray_h = rng.uniform(self.tray_h_lb, self.tray_h_ub)
+                # # Pick wall
+                # wall_idx = rng.integers(4)  # l, b, r, t
+                # # Pose
+                # if wall_idx == 0 or wall_idx == 2:
+                #     tray_y = rng.uniform(self.env_y_lb + tray_w, self.env_y_ub)
+                #     if wall_idx == 0:
+                #         tray_x = self.env_x_lb
+                #     else:
+                #         tray_x = self.env_x_ub - tray_h
+                #     tray_yaw = - np.pi / 2
+                # else:
+                #     tray_x = rng.uniform(self.env_x_lb, self.env_x_ub - tray_w)
+                #     if wall_idx == 1:
+                #         tray_y = self.env_y_lb
+                #     else:
+                #         tray_y = self.env_y_ub - tray_h
+                #     tray_yaw = 0
             else:
-                shelf_out_of_bounds = True
+                tray_out_of_bounds = True
                 env_w = self.env_x_ub - self.env_x_lb
                 env_h = self.env_y_ub - self.env_y_lb
                 env_x = self.env_x_lb
                 env_y = self.env_y_lb
                 env_rect = utils.Rectangle(env_x, env_y, env_w, env_h, 0)
-                while shelf_out_of_bounds:
+                while tray_out_of_bounds:
                     # Size
-                    shelf_w = rng.uniform(self.shelf_w_lb, self.shelf_w_ub)
-                    shelf_h = rng.uniform(self.shelf_h_lb, self.shelf_h_ub)
+                    tray_w = rng.uniform(self.tray_w_lb, self.tray_w_ub)
+                    tray_h = rng.uniform(self.tray_h_lb, self.tray_h_ub)
                     # Pose
-                    shelf_x = rng.uniform(self.env_x_lb, self.env_x_ub - shelf_w)
-                    shelf_y = rng.uniform(self.env_y_lb, self.env_y_ub - shelf_h)
-                    shelf_yaw = rng.uniform(-np.pi, np.pi)
+                    tray_x = rng.uniform(self.env_x_lb, self.env_x_ub - tray_w)
+                    tray_y = rng.uniform(self.env_y_lb, self.env_y_ub - tray_h)
+                    tray_yaw = rng.uniform(-np.pi, np.pi)
 
-                    shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h,
-                                                 shelf_yaw)
-                    shelf_out_of_bounds = not(
-                        env_rect.contains_point(*(shelf_rect.vertices[0])) and
-                        env_rect.contains_point(*(shelf_rect.vertices[1])) and
-                        env_rect.contains_point(*(shelf_rect.vertices[2])) and
-                        env_rect.contains_point(*(shelf_rect.vertices[3]))
+                    tray_rect = utils.Rectangle(tray_x, tray_y, tray_w, tray_h,
+                                                 tray_yaw)
+                    tray_out_of_bounds = not(
+                        env_rect.contains_point(*(tray_rect.vertices[0])) and
+                        env_rect.contains_point(*(tray_rect.vertices[1])) and
+                        env_rect.contains_point(*(tray_rect.vertices[2])) and
+                        env_rect.contains_point(*(tray_rect.vertices[3]))
                     )
 
-            data[self._shelf] = np.array(
-                [shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw, 0.0])
+            data[self._tray] = np.array(
+                [tray_x, tray_y, tray_w, tray_h, tray_yaw, 0.0])
 
             tmp_state = State(data)
             # Initialize robot pos
@@ -503,49 +464,49 @@ class BookshelfEnv(BaseEnv):
             data[self._robot] = np.array(
                 [robot_init_x, robot_init_y, robot_init_yaw, gripper_free])
 
-            # Sample book poses
+            # Sample box poses
             goal = set()
-            for j in range(num_books):
-                book_collision = True
+            for j in range(num_boxs):
+                box_collision = True
                 tmp_state = State(data)
-                while book_collision:
-                    book_init_x = rng.uniform(self.env_x_lb, self.env_x_ub)
-                    book_init_y = rng.uniform(self.env_y_lb, self.env_y_ub)
-                    book_init_yaw = rng.uniform(-np.pi, np.pi)
-                    book_width = rng.uniform(self.book_w_lb, self.book_w_ub)
-                    book_height = rng.uniform(self.book_h_lb, self.book_h_ub)
-                    book_rect = utils.Rectangle(book_init_x, book_init_y,
-                                                book_width, book_height,
-                                                book_init_yaw)
-                    book_collision = self.check_collision(tmp_state, book_rect)
-                book = Object(f"book{j}", self._book_type)
+                while box_collision:
+                    box_init_x = rng.uniform(self.env_x_lb, self.env_x_ub)
+                    box_init_y = rng.uniform(self.env_y_lb, self.env_y_ub)
+                    box_init_yaw = rng.uniform(-np.pi, np.pi)
+                    box_width = rng.uniform(self.box_w_lb, self.box_w_ub)
+                    box_height = rng.uniform(self.box_h_lb, self.box_h_ub)
+                    box_rect = utils.Rectangle(box_init_x, box_init_y,
+                                                box_width, box_height,
+                                                box_init_yaw)
+                    box_collision = self.check_collision(tmp_state, box_rect)
+                box = Object(f"box{j}", self._box_type)
                 held = 0.0
-                data[book] = np.array([
-                    book_init_x, book_init_y, book_width, book_height,
-                    book_init_yaw, held
+                data[box] = np.array([
+                    box_init_x, box_init_y, box_width, box_height,
+                    box_init_yaw, held
                 ],
                                       dtype=np.float32)
-                if not CFG.bookshelf_singlestep_goal:
-                    goal.add(GroundAtom(self._OnShelf, [book, self._shelf]))
+                if not CFG.boxtray_singlestep_goal:
+                    goal.add(GroundAtom(self._OnTray, [box, self._tray]))
                 elif j == 0:
-                    goal.add(GroundAtom(self._CanReach, [book, self._robot]))
+                    goal.add(GroundAtom(self._CanReach, [box, self._robot]))
 
-            for j in range(num_books, num_books + num_obstacles):
+            for j in range(num_boxs, num_boxs + num_obstacles):
                 obstacle_collision = True
                 tmp_state = State(data)
-                ignore_objects = {self._shelf}   # allow obstacles to be placed on shelf
+                ignore_objects = {self._tray}   # allow obstacles to be placed on tray
                 while obstacle_collision:
                     obstacle_init_x = rng.uniform(self.env_x_lb, self.env_x_ub)
                     obstacle_init_y = rng.uniform(self.env_y_lb, self.env_y_ub)
                     obstacle_init_yaw = rng.uniform(-np.pi, np.pi)
-                    obstacle_width = rng.uniform(self.book_w_lb, self.book_w_ub)
-                    obstacle_height = rng.uniform(self.book_h_lb, self.book_h_ub)
+                    obstacle_width = rng.uniform(self.box_w_lb, self.box_w_ub)
+                    obstacle_height = rng.uniform(self.box_h_lb, self.box_h_ub)
                     obstacle_rect = utils.Rectangle(obstacle_init_x, obstacle_init_y,
                                                 obstacle_width, obstacle_height,
                                                 obstacle_init_yaw)
                     obstacle_collision = self.check_collision(tmp_state, obstacle_rect,
                                                               ignore_objects)
-                obstacle = Object(f"book{j}", self._book_type)
+                obstacle = Object(f"box{j}", self._box_type)
                 held = 0.0
                 data[obstacle] = np.array([
                     obstacle_init_x, obstacle_init_y, obstacle_width, obstacle_height,
@@ -601,8 +562,8 @@ class BookshelfEnv(BaseEnv):
         for obj in state.data:
             if obj in ignore_objects:
                 continue
-            if obj.is_instance(self._book_type) or obj.is_instance(
-                    self._shelf_type):
+            if obj.is_instance(self._box_type) or obj.is_instance(
+                    self._tray_type):
                 x = state.get(obj, "pose_x")
                 y = state.get(obj, "pose_y")
                 width = state.get(obj, "width")
@@ -627,29 +588,29 @@ class BookshelfEnv(BaseEnv):
     '''
     Note: the pick policy takes a parameter delta, representing how far to stretch the
     gripper (between 0, 1 relative to the gripper size), and a parameter yaw, representing
-    the relative orientation of the book once gripped. 
+    the relative orientation of the box once gripped. 
     '''
 
-    def _PickBook_policy(self, state: State, memory: Dict,
+    def _PickBox_policy(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
-        robby, book = objects
-        book_x = state.get(book, "pose_x")
-        book_y = state.get(book, "pose_y")
-        book_w = state.get(book, "width")
-        book_h = state.get(book, "height")
-        book_yaw = state.get(book, "yaw")
+        robby, box = objects
+        box_x = state.get(box, "pose_x")
+        box_y = state.get(box, "pose_y")
+        box_w = state.get(box, "width")
+        box_h = state.get(box, "height")
+        box_yaw = state.get(box, "yaw")
 
         robby_x = state.get(robby, "pose_x")
         robby_y = state.get(robby, "pose_y")
         robby_yaw = state.get(robby, "yaw")
 
         if CFG.bookshelf_add_sampler_idx_to_params:
-            _, offset_gripper, book_yaw = params
+            _, offset_gripper, box_yaw = params
         else:
-            offset_gripper, book_yaw = params
+            offset_gripper, box_yaw = params
 
-        arr = np.array([robby_x, robby_y, book_yaw, offset_gripper, -1],
+        arr = np.array([robby_x, robby_y, box_yaw, offset_gripper, -1],
                        dtype=np.float32)
         return Action(arr)
 
@@ -658,22 +619,22 @@ class BookshelfEnv(BaseEnv):
     the gripper, between 0 and 1 relative to the gripper size. 
     '''
 
-    def _PlaceBookOnShelf_policy(self, state: State, memory: Dict,
+    def _PlaceBoxOnTray_policy(self, state: State, memory: Dict,
                                  objects: Sequence[Object],
                                  params: Array) -> Action:
         del memory  # unused
-        robby, book, shelf = objects
-        book_x = state.get(book, "pose_x")
-        book_y = state.get(book, "pose_y")
-        book_w = state.get(book, "width")
-        book_h = state.get(book, "height")
-        book_yaw = state.get(book, "yaw")
+        robby, box, tray = objects
+        box_x = state.get(box, "pose_x")
+        box_y = state.get(box, "pose_y")
+        box_w = state.get(box, "width")
+        box_h = state.get(box, "height")
+        box_yaw = state.get(box, "yaw")
 
-        shelf_x = state.get(shelf, "pose_x")
-        shelf_y = state.get(shelf, "pose_y")
-        shelf_w = state.get(shelf, "width")
-        shelf_h = state.get(shelf, "height")
-        shelf_yaw = state.get(shelf, "yaw")
+        tray_x = state.get(tray, "pose_x")
+        tray_y = state.get(tray, "pose_y")
+        tray_w = state.get(tray, "width")
+        tray_h = state.get(tray, "height")
+        tray_yaw = state.get(tray, "yaw")
 
         robby_x = state.get(robby, "pose_x")
         robby_y = state.get(robby, "pose_y")
@@ -739,32 +700,37 @@ class BookshelfEnv(BaseEnv):
         return Action(arr)
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        book, = objects
-        return state.get(book, "held") == 1.0
+        box, = objects
+        return state.get(box, "held") == 1.0
 
-    def _OnShelf_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        book, shelf = objects
+    def _OnTray_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        box, tray = objects
 
-        book_x = state.get(book, "pose_x")
-        book_y = state.get(book, "pose_y")
-        book_w = state.get(book, "width")
-        book_h = state.get(book, "height")
-        book_yaw = state.get(book, "yaw")
+        box_x = state.get(box, "pose_x")
+        box_y = state.get(box, "pose_y")
+        box_w = state.get(box, "width")
+        box_h = state.get(box, "height")
+        box_yaw = state.get(box, "yaw")
 
-        shelf_x = state.get(shelf, "pose_x")
-        shelf_y = state.get(shelf, "pose_y")
-        shelf_w = state.get(shelf, "width")
-        shelf_h = state.get(shelf, "height")
-        shelf_yaw = state.get(shelf, "yaw")
+        tray_x = state.get(tray, "pose_x")
+        tray_y = state.get(tray, "pose_y")
+        tray_w = state.get(tray, "width")
+        tray_h = state.get(tray, "height")
+        tray_yaw = state.get(tray, "yaw")
+        tray_hole1_x = tray_x
+        tray_hole1_y = tray_y
+        tray_hole2_x = tray_x + (tray_w - tray_h) * np.cos(tray_yaw)
+        tray_hole2_y = tray_y + (tray_w - tray_h) * np.sin(tray_yaw)
 
-        while book_yaw > np.pi:
-            book_yaw -= (2 * np.pi)
-        while book_yaw < -np.pi:
-            book_yaw += (2 * np.pi)
-        book_rect = utils.Rectangle(book_x, book_y, book_w, book_h, book_yaw)
-        shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h,
-                                     shelf_yaw)
-        return shelf_rect.contains_point(*(book_rect.center))
+        while box_yaw > np.pi:
+            box_yaw -= (2 * np.pi)
+        while box_yaw < -np.pi:
+            box_yaw += (2 * np.pi)
+        box_rect = utils.Rectangle(box_x, box_y, box_w, box_h, box_yaw)
+        tray_hole1_rect = utils.Rectangle(tray_hole1_x, tray_hole1_y, tray_h, tray_h, tray_yaw)
+        tray_hole2_rect = utils.Rectangle(tray_hole2_x, tray_hole2_y, tray_h, tray_h, tray_yaw)
+        return tray_hole1_rect.contains_point(*(box_rect.center)) or \
+               tray_hole2_rect.contains_point(*(box_rect.center))
 
     def _GripperFree_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
@@ -774,9 +740,15 @@ class BookshelfEnv(BaseEnv):
     def _CanReach_holds(self, state: State,
                         objects: Sequence[Object]) -> bool:
         obj, robby = objects
-        if obj.is_instance(self._book_type) and self._Holding_holds(state, [obj]):
+        robby_x = state.get(robby, "pose_x")
+        robby_y = state.get(robby, "pose_y")
+        robby_yaw = state.get(robby, "yaw")
+        tip_x = robby_x + (self.robot_radius + self.gripper_length) * np.cos(robby_yaw)
+        tip_y = robby_y + (self.robot_radius + self.gripper_length) * np.sin(robby_yaw)
+        gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
+        if obj.is_instance(self._box_type) and self._Holding_holds(state, [obj]):
             return False
-        if obj.is_instance(self._book_type) or obj.is_instance(self._shelf_type):
+        if obj.is_instance(self._box_type):
             x = state.get(obj, "pose_x")
             y = state.get(obj, "pose_y")
             width = state.get(obj, "width")
@@ -787,23 +759,35 @@ class BookshelfEnv(BaseEnv):
             while theta < -np.pi:
                 theta += (2 * np.pi)
             obj_geom = utils.Rectangle(x, y, width, height, theta)
-        else:
-            raise ValueError("Can only compute reachable for books and shelves")
+            return utils.geom2ds_intersect(gripper_line, obj_geom)
+        if obj.is_instance(self._tray_type):
+            x = state.get(obj, "pose_x")
+            y = state.get(obj, "pose_y")
+            width = state.get(obj, "width")
+            height = state.get(obj, "height")
+            theta = state.get(obj, "yaw")
+            while theta > np.pi:
+                theta -= (2 * np.pi)
+            while theta < -np.pi:
+                theta += (2 * np.pi)
+            x1 = x
+            y1 = y
+            x2 = x + (width - height) * np.cos(theta)
+            y2 = y + (width - height) * np.sin(theta)
+            obj_geom1 = utils.Rectangle(x1, y1, height, height, theta)
+            obj_geom2 = utils.Rectangle(x2, y2, height, height, theta)
+            return utils.geom2ds_intersect(gripper_line, obj_geom1) or \
+                   utils.geom2ds_intersect(gripper_line, obj_geom2)
 
-        robby_x = state.get(robby, "pose_x")
-        robby_y = state.get(robby, "pose_y")
-        robby_yaw = state.get(robby, "yaw")
-        tip_x = robby_x + (self.robot_radius + self.gripper_length) * np.cos(robby_yaw)
-        tip_y = robby_y + (self.robot_radius + self.gripper_length) * np.sin(robby_yaw)
-        gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
-        return utils.geom2ds_intersect(gripper_line, obj_geom)
+        raise ValueError("Can only compute reachable for boxs and bins")
 
 
-    def _get_pickable_book(self, state: State, tip_x: float, tip_y: float):
-        pick_book = None
-        book_rect = None
+
+    def _get_pickable_box(self, state: State, tip_x: float, tip_y: float):
+        pick_box = None
+        box_rect = None
         for obj in state.data:
-            if obj.is_instance(self._book_type):
+            if obj.is_instance(self._box_type):
                 x = state.get(obj, "pose_x")
                 y = state.get(obj, "pose_y")
                 width = state.get(obj, "width")
@@ -813,15 +797,15 @@ class BookshelfEnv(BaseEnv):
                     theta -= (2 * np.pi)
                 while theta < -np.pi:
                     theta += (2 * np.pi)
-                book_rect = utils.Rectangle(x, y, width, height, theta)
-                if book_rect.contains_point(tip_x, tip_y):
-                    pick_book = obj
+                box_rect = utils.Rectangle(x, y, width, height, theta)
+                if box_rect.contains_point(tip_x, tip_y):
+                    pick_box = obj
                     break
-        return pick_book, book_rect
+        return pick_box, box_rect
 
-    def _get_held_book(self, state):
+    def _get_held_box(self, state):
         for obj in state:
-            if obj.is_instance(self._book_type) and state.get(obj,
+            if obj.is_instance(self._box_type) and state.get(obj,
                                                               "held") == 1.0:
                 return obj
         return None
