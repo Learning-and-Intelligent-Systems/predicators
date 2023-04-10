@@ -851,6 +851,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         num_candidates_per_frontier: List[Tuple[int, int]] = []
         total_num_candidates_evaled = 0
         total_num_evals = 0
+        candidates_tried_without_improvement = set()
 
         # We start at frontier 2 because 2 steps from the end is the preimage state
         # of the penultimate transition.
@@ -863,7 +864,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for idx, curr_transition in enumerate(transitions_for_frontier):
                 curr_candidates = get_candidates_for_transition(
                     curr_transition,
-                    set(curr_learned_preds))
+                    set(curr_learned_preds) | candidates_tried_without_improvement)
 
                 if len(curr_candidates.keys()) == 0:
                     continue
@@ -923,6 +924,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         f"{CFG.grammar_search_search_algorithm}.")
                 # Update the current predicate set with the learned predicates.
                 curr_learned_preds = path[-1]
+                # Update candidates tried futily.
+                if len(path) == 1:
+                    candidates_tried_without_improvement |= set(curr_candidates)
+                else:
+                    candidates_tried_without_improvement = set()
+
+
                 total_num_evals += len(path) * len(curr_candidates.keys())
             num_candidates_per_frontier.append(
                 (frontier_idx, num_candidates_for_curr_frontier))
@@ -931,8 +939,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         logging.info(
             f"Evaluated {total_num_candidates_evaled} total candidates with {total_num_evals} predicate eval calls."
         )
-        assert self._metrics.get("total_num_predicate_evaluations") is None
-        self._metrics["total_num_predicate_evaluations"] = total_num_candidates_evaled
         logging.info("Frontier Learning Summary:")
         for elem in num_candidates_per_frontier:
             logging.info(f"Evaluated {elem[1]} candidates for frontier {elem[0]}.")
@@ -977,9 +983,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                         pruned_segmented_trajs,
                                         verify_harmlessness=False,
                                         verbose=False):
-            for atom in pnad.op.preconditions:
-                preds_in_preconds.add(atom.predicate)
-
             # HACK (for now) to learn static predicates and delete effects.
             new_precond_cands = get_candidates_for_pnad_preconds(pnad, kept_predicates)
             new_hillclimbing_sets_to_try.append(new_precond_cands)
@@ -1060,5 +1063,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         for pred in kept_predicates:
             logging.info(f"\t{pred}")
         score_function.evaluate(kept_predicates)  # log useful numbers
+        assert self._metrics.get("total_num_predicate_evaluations") is None
+        self._metrics["total_num_predicate_evaluations"] = total_num_evals
 
         return set(kept_predicates)
