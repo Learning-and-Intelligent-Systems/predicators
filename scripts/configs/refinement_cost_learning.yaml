@@ -1,0 +1,62 @@
+# Data collection and training for refinement cost estimation
+---
+APPROACHES:
+  tabular:
+    NAME: "refinement_estimation"
+    FLAGS:
+      refinement_estimator: "tabular"
+#  cnn:
+#    NAME: "refinement_estimation"
+#    FLAGS:
+#      refinement_estimator: "cnn"
+#  gnn:
+#    NAME: "refinement_estimation"
+#    FLAGS:
+#      refinement_estimator: "gnn"
+ENVS:
+  variable_passage:
+    NAME: "narrow_passage"
+    FLAGS:
+      # cnn
+      learning_rate: 0.0003
+      weight_decay: 0.001
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_learning_rate: 0.00001
+      gnn_weight_decay: 0
+      gnn_num_epochs: 25000
+      gnn_batch_size: 300
+      gnn_do_normalization: true
+      gnn_use_validation_set: true
+  exit_garage:
+    NAME: "exit_garage"
+    FLAGS:
+      exit_garage_min_num_obstacles: 2
+      exit_garage_max_num_obstacles: 3  # inclusive
+      refinement_data_num_skeletons: 15
+      refinement_estimation_num_skeletons_generated: 15
+      refinement_data_low_level_search_timeout: 30
+      refinement_data_failed_refinement_penalty: 20
+      # cnn
+      learning_rate: 0.0003
+      weight_decay: 0.001
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_learning_rate: 0.00001
+      gnn_weight_decay: 0
+      gnn_num_epochs: 25000
+      gnn_batch_size: 300
+      gnn_do_normalization: true
+      gnn_use_validation_set: true
+ARGS:
+#  - "load_data"
+  - "skip_refinement_estimator_training"
+FLAGS:  # general flags
+  num_train_tasks: 10000
+  num_test_tasks: 50
+START_SEED: 456
+NUM_SEEDS: 1
+USE_GPU: true
+TRAIN_REFINEMENT_ESTIMATOR: true
