@@ -234,6 +234,10 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         # Handle action globals
         action_globals = np.zeros(len(self._nsrts), dtype=np.int64)
         action_globals[self._nsrts.index(action.parent)] = 1
+        for i, action_obj in action.objects:
+            obj_index = object_to_node[action_obj]
+            feat_index = self._node_feature_to_index[f"nsrt-{i}"]
+            node_features[obj_index, feat_index] = 1
 
         # Organize
         graph["nodes"] = node_features.astype(np.float32)
