@@ -233,8 +233,8 @@ def test_exit_garage_collisions(raise_env_failure):
         with pytest.raises(utils.EnvironmentFailure) as e:
             for _ in range(50):
                 state = env.simulate(state, drive_car_action)
-            assert "Collision" in str(e)
-            assert e.info["offending_objects"] == {obstacle}
+        assert "Collision" in str(e)
+        assert e.value.info["offending_objects"] == {obstacle}
     else:
         for _ in range(50):
             state = env.simulate(state, drive_car_action)
@@ -256,8 +256,8 @@ def test_exit_garage_collisions(raise_env_failure):
         with pytest.raises(utils.EnvironmentFailure) as e:
             for _ in range(50):
                 state = env.simulate(state, drive_car_action)
-            assert "Collision" in str(e)
-            assert e.info["offending_objects"] == {storage}
+        assert "Collision" in str(e)
+        assert e.value.info["offending_objects"] == {storage}
     else:
         for _ in range(50):
             state = env.simulate(state, drive_car_action)
