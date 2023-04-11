@@ -8,8 +8,8 @@ from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.structs import NSRT, BridgePolicyDoneNSRT, \
-    BridgePolicyFailure, GroundAtom, LiftedDecisionList, Object, \
-    ParameterizedOption, Predicate, State, Type, _Option
+    BridgePolicyFailure, GroundAtom, LiftedDecisionList, ParameterizedOption, \
+    Predicate, State, Type, _Option
 
 
 class LDLBridgePolicy(BaseBridgePolicy):
@@ -42,11 +42,12 @@ class LDLBridgePolicy(BaseBridgePolicy):
         def _option_policy(state: State) -> _Option:
             # Process history into set of predicates.
             state_history = self._state_history + [state]
-            new_atoms = utils.abstract(state, self._predicates)
-            atoms_history = self._atoms_history + [new_atoms]
-            atoms = self._history_to_atoms(state_history, atoms_history,
-                                           self._option_history,
-                                           self._failure_history)
+            atoms = utils.abstract(state, self._predicates)
+            atoms_history = self._atoms_history + [atoms]
+            atoms |= self._get_derived_history_atoms(state_history,
+                                                     atoms_history,
+                                                     self._option_history,
+                                                     self._failure_history)
             option = self._bridge_policy(state, atoms)
             logging.debug(f"Using option {option.name}{option.objects} "
                           "from bridge policy.")
@@ -54,7 +55,7 @@ class LDLBridgePolicy(BaseBridgePolicy):
 
         return _option_policy
 
-    def _history_to_atoms(
+    def _get_derived_history_atoms(
         self, state_history: List[State], atoms_history: List[Set[GroundAtom]],
         option_history: List[_Option],
         failure_history: List[Tuple[int,
@@ -63,14 +64,12 @@ class LDLBridgePolicy(BaseBridgePolicy):
         assert len(state_history) == len(option_history) + 1
         all_failed_options = [o for _, (o, _) in failure_history]
         failure_atoms = utils.get_failure_atoms(all_failed_options)
-        last_atoms = atoms_history[-1]
-        all_offending_objects = {o for _, (_, objs) in failure_history
-                                 for o in objs}
-        all_offending_atoms = utils.get_offending_object_atoms(
-            all_offending_objects)
+        all_offending_objects = {
+            o
+            for _, (_, objs) in failure_history for o in objs
+        }
+        all_off_atoms = utils.get_offending_object_atoms(all_offending_objects)
         last_offending_objects = failure_history[-1][1][1]
-        last_offending_atoms = utils.get_offending_object_atoms(
+        last_off_atoms = utils.get_offending_object_atoms(
             last_offending_objects, last_failure=True)
-        atoms = last_atoms | failure_atoms | all_offending_atoms | \
-            last_offending_atoms
-        return atoms
+        return failure_atoms | all_off_atoms | last_off_atoms

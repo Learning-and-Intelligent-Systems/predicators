@@ -1780,7 +1780,7 @@ BridgePolicyDoneOption = ParameterizedOption(
 BridgePolicyDoneNSRT = NSRT("BridgePolicyDone", [], set(), set(), set(), set(),
                             BridgePolicyDoneOption.parent, [],
                             lambda s, m, o, p: np.array([], dtype=np.float32))
-BridgePolicyFailure = Any  # TODO
+BridgePolicyFailure = Tuple[_Option, Set[Object]]  # option, offending objects
 
 # Convenience higher-order types useful throughout the code
 Observation = Any

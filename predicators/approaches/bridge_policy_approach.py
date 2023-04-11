@@ -174,7 +174,7 @@ class BridgePolicyApproach(OracleApproach):
 
     def _create_new_option_callback(self) -> Callable[[State, _Option], None]:
 
-        def _new_option_callback(state: State, option: _Option):
+        def _new_option_callback(state: State, option: _Option) -> None:
             self._bridge_policy.record_state_option(state, option)
             try:
                 # Use the option model ONLY to predict environment failures.
