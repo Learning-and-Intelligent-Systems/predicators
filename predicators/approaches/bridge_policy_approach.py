@@ -307,7 +307,7 @@ class BridgePolicyApproach(OracleApproach):
             assert len(states) == len(atoms)
             seq_len = len(atoms)
 
-            # Prepare to excise the rational transitions.
+            # Prepare to map the rational transitions to done.
             optimal_ctgs: List[float] = []
             for state in states:
                 task = Task(state, goal)
@@ -334,19 +334,26 @@ class BridgePolicyApproach(OracleApproach):
 
             # Collect the irrational transitions and turn atom changes into
             # ground NSRTs.
+            last_transition_was_rational = True
             for t in range(seq_len - 1):
-                # Step was rational, so skip it.
+                # Step was rational.
                 if optimal_ctgs[t] == optimal_ctgs[t + 1] + 1:
-                    continue
-                # Step was irrational, so include it.
-                # Assume all changes were necessary; we don't know otherwise.
-                add_atoms = frozenset(atoms[t + 1] - atoms[t])
-                try:
-                    ground_nsrt = effects_to_ground_nsrt[add_atoms]
-                except KeyError:  # pragma: no cover
-                    logging.warning("WARNING: no NSRT found for add atoms "
-                                    f"{add_atoms}. Skipping transition.")
-                    continue
+                    if not last_transition_was_rational:
+                        # Bridge policy should be done now.
+                        ground_nsrt = BridgePolicyDoneNSRT.ground([])
+                    last_transition_was_rational = True
+                # Step was irrational.
+                else:
+                    last_transition_was_rational = False
+                    # Assume all changes were necessary; we don't know otherwise.
+                    add_atoms = frozenset(atoms[t + 1] - atoms[t])
+                    try:
+                        ground_nsrt = effects_to_ground_nsrt[add_atoms]
+                    except KeyError:  # pragma: no cover
+                        logging.warning("WARNING: no NSRT found for add atoms "
+                                        f"{add_atoms}. Skipping transition.")
+                        continue
+                # Add to data.
                 self._bridge_dataset.append((
                     policy_input,
                     ground_nsrt,
