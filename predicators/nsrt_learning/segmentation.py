@@ -109,7 +109,8 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
     effects achieved, that marks the switch point between segments.
     """
     traj, all_atoms = trajectory
-    if CFG.option_learner == "no_learning":
+    if traj.actions and traj.actions[0].has_option():
+        assert CFG.option_learner == "no_learning"
         return _segment_with_option_changes(trajectory)
     env = get_or_create_env(CFG.env)
     env_options = get_gt_options(env.get_name())

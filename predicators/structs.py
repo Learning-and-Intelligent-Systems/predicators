@@ -1813,3 +1813,4 @@ AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
 RGBA = Tuple[float, float, float, float]
 BridgePolicy = Callable[[State, Set[GroundAtom], List[_Option]], _Option]
+BridgeDataset = List[Tuple[Set[_Option], _GroundNSRT, Set[GroundAtom], State]]

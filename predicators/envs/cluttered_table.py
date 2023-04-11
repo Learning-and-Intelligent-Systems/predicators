@@ -224,8 +224,9 @@ class ClutteredTableEnv(BaseEnv):
                 return True
         return False
 
-    @staticmethod
-    def _check_collisions(start_x: float,
+    @classmethod
+    def _check_collisions(cls,
+                          start_x: float,
                           start_y: float,
                           end_x: float,
                           end_y: float,
@@ -245,7 +246,7 @@ class ClutteredTableEnv(BaseEnv):
         colliding_can = None
         colliding_can_max_dist = float("-inf")
         for can in state:
-            if can == ignored_can:
+            if can == ignored_can or not cls._Untrashed_holds(state, [can]):
                 continue
             this_x = state.get(can, "pose_x")
             this_y = state.get(can, "pose_y")
