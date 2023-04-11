@@ -29,21 +29,11 @@ class LearnedLDLBridgePolicy(LDLBridgePolicy):
     def _get_current_ldl(self) -> LiftedDecisionList:
         return self._current_ldl
 
-    def learn_from_demos(self, dataset: BridgeDataset) -> None:
-        # Convert dataset into (atoms, ground NSRT) dataset where atoms
-        # includes failure atoms.
-        ground_atom_data: List[Tuple[Set[GroundAtom], _GroundNSRT]] = []
-        # Collect all seen atoms for later constructing negative preconds.
-        all_seen_atoms: Set[GroundAtom] = set()
-        for failed_option_set, ground_nsrt, ground_atoms, _ in dataset:
-            # Add failure atoms.
-            ground_atoms |= utils.get_failure_atoms(failed_option_set)
-            all_seen_atoms.update(ground_atoms)
-            ground_atom_data.append((ground_atoms, ground_nsrt))
-
+    def learn_from_demos(self, ground_atom_data: BridgeDataset) -> None:
         # Convert dataset into NSRT: [lifted atoms] dataset where the
         # atoms are only over the objects in the NSRT. Do this for both
         # positive and negative atoms.
+        all_seen_atoms = {a for atoms, _ in ground_atom_data for a in atoms}
         nsrt_to_pos_lifted_atoms: Dict[NSRT, List[Set[LiftedAtom]]] = {}
         nsrt_to_neg_lifted_atoms: Dict[NSRT, List[Set[LiftedAtom]]] = {}
         for ground_atoms, ground_nsrt in ground_atom_data:

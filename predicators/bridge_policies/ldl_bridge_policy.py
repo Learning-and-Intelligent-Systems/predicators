@@ -41,19 +41,27 @@ class LDLBridgePolicy(BaseBridgePolicy):
 
         def _option_policy(state: State) -> _Option:
             # Process history into set of predicates.
-            state_history = self._state_history + [state]
-            atoms = utils.abstract(state, self._predicates)
-            atoms_history = self._atoms_history + [atoms]
-            atoms |= self._get_derived_history_atoms(state_history,
-                                                     atoms_history,
-                                                     self._option_history,
-                                                     self._failure_history)
+            atoms = self.get_policy_input_atoms(state)
             option = self._bridge_policy(state, atoms)
             logging.debug(f"Using option {option.name}{option.objects} "
                           "from bridge policy.")
             return option
 
         return _option_policy
+
+    def get_policy_input_atoms(self, state: State) -> Set[GroundAtom]:
+        """Get the input to the policy based on the history and new state.
+        
+        TODO: move to parent class.
+        """
+        state_history = self._state_history + [state]
+        atoms = utils.abstract(state, self._predicates)
+        atoms_history = self._atoms_history + [atoms]
+        atoms |= self._get_derived_history_atoms(state_history,
+                                                    atoms_history,
+                                                    self._option_history,
+                                                    self._failure_history)
+        return atoms
 
     def _get_derived_history_atoms(
         self, state_history: List[State], atoms_history: List[Set[GroundAtom]],

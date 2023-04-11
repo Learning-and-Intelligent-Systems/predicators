@@ -140,6 +140,13 @@ class BridgePolicyApproach(OracleApproach):
                 bridge_policy_failure = (failed_option, offending_objects)
                 self._bridge_policy.record_failure(bridge_policy_failure)
                 logging.debug("Giving control to bridge.")
+            except ApproachFailure as e:
+                # The bridge policy got stuck.
+                assert "LDL bridge policy not applicable" in str(e)
+                policy_input = self._bridge_policy.get_policy_input_atoms(s)
+                raise ApproachFailure("Bridge policy stuck.",
+                    info={"policy_input": policy_input},
+                )
 
             if current_control == "bridge":
                 # Planning failed on the first time step.
@@ -234,15 +241,15 @@ class BridgePolicyApproach(OracleApproach):
         policy = self._solve(task, timeout=CFG.timeout)
 
         reached_stuck_state = False
-        failure_history = None
+        policy_input = None
 
         def _act_policy(s: State) -> Action:
-            nonlocal reached_stuck_state, failure_history
+            nonlocal reached_stuck_state, policy_input
             try:
                 return policy(s)
             except ApproachFailure as e:
                 reached_stuck_state = True
-                failure_history = e.info["failure_history"]
+                policy_input = e.info["policy_input"]
                 # Approach failures not caught in interaction loop.
                 raise OptionExecutionFailure(e.args[0], e.info)
 
@@ -252,9 +259,9 @@ class BridgePolicyApproach(OracleApproach):
         def _query_policy(s: State) -> Optional[Query]:
             if not reached_stuck_state or task.goal_holds(s):
                 return None
-            assert failure_history is not None
+            assert policy_input is not None
             return DemonstrationQuery(
-                train_task_idx, {"failure_history": failure_history})
+                train_task_idx, {"policy_input": policy_input})
 
         request = InteractionRequest(train_task_idx, _act_policy,
                                      _query_policy, _termination_fn)
@@ -281,7 +288,7 @@ class BridgePolicyApproach(OracleApproach):
             query = response.query
             assert isinstance(query, DemonstrationQuery)
             goal = self._train_tasks[query.train_task_idx].goal
-            failure_history = query.get_info("failure_history")
+            policy_input = query.get_info("policy_input")
 
             # Abstract and segment the trajectory.
             traj = response.teacher_traj
@@ -341,10 +348,8 @@ class BridgePolicyApproach(OracleApproach):
                                     f"{add_atoms}. Skipping transition.")
                     continue
                 self._bridge_dataset.append((
-                    failure_history,
+                    policy_input,
                     ground_nsrt,
-                    atoms[t],
-                    states[t],
                 ))
 
         return self._bridge_policy.learn_from_demos(self._bridge_dataset)
