@@ -1,13 +1,14 @@
 """Base class for a bridge policy."""
 
 import abc
-from typing import Callable, List, Set
+from typing import Callable, List, Set, Tuple
 
 import numpy as np
 
+from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import NSRT, Object, ParameterizedOption, Predicate, \
-    State, Type, _Option
+    State, Type, _Option, BridgePolicyFailure, GroundAtom
 
 
 class BridgePolicyDone(Exception):
@@ -24,8 +25,10 @@ class BaseBridgePolicy(abc.ABC):
         self._options = options
         self._nsrts = nsrts
         self._rng = np.random.default_rng(CFG.seed)
-        self._failed_options: List[_Option] = []
-        self._offending_objects: Set[Object] = set()
+        self._state_history: List[State] = []
+        self._atoms_history: List[Set[GroundAtom]] = []
+        self._option_history: List[_Option] = []
+        self._failure_history: List[Tuple[int, BridgePolicyFailure]] = []
 
     @classmethod
     @abc.abstractmethod
@@ -47,13 +50,19 @@ class BaseBridgePolicy(abc.ABC):
 
     def reset(self) -> None:
         """Called at the beginning of a new task."""
-        self._failed_options = []
-        self._offending_objects = set()
+        self._state_history = []
+        self._atoms_history = []
+        self._option_history = []
+        self._failure_history = []
 
-    def record_failed_option(self, failed_option: _Option) -> None:
-        """Called when an option has failed."""
-        self._failed_options.append(failed_option)
+    def record_failure(self, failure: BridgePolicyFailure) -> None:
+        """Called when a failure is detected."""
+        t = len(self._option_history)
+        self._failure_history.append((t, failure))
 
-    def record_offending_objects(self, offending_objects: Set[Object]) -> None:
-        """Called when there were some offending objects."""
-        self._offending_objects.update(offending_objects)
+    def record_state_option(self, state: State, option: _Option) -> None:
+        """Called whenever a new option is selected by either the planner or
+        the bridge policy itself."""
+        self._state_history.append(state)
+        self._atoms_history.append(utils.abstract(state, self._predicates))
+        self._option_history.append(option)

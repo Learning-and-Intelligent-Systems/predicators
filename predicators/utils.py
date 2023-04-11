@@ -1106,8 +1106,7 @@ def option_policy_to_policy(
     option_policy: Callable[[State], _Option],
     max_option_steps: Optional[int] = None,
     raise_error_on_repeated_state: bool = False,
-    environment_failure_predictor: Optional[Callable[[State, _Option],
-                                                     None]] = None,
+    new_option_callback: Optional[Callable[[State, _Option], None]] = None,
 ) -> Callable[[State], Action]:
     """Create a policy that executes a policy over options.
 
@@ -1150,16 +1149,8 @@ def option_policy_to_policy(
                     "Unsound option policy.",
                     info={"last_failed_option": last_option})
             num_cur_option_steps = 0
-            if environment_failure_predictor is not None:
-                try:
-                    environment_failure_predictor(state, cur_option)
-                except EnvironmentFailure as e:
-                    raise OptionExecutionFailure(
-                        f"Environment failure predicted: {repr(e)}.",
-                        info={
-                            "last_failed_option": cur_option,
-                            **e.info
-                        })
+            if new_option_callback is not None:
+                new_option_callback(state, cur_option)
 
         num_cur_option_steps += 1
 
@@ -2789,18 +2780,24 @@ def create_pddl_problem(objects: Collection[Object],
 
 @functools.lru_cache(maxsize=None)
 def get_failure_predicate(option: ParameterizedOption,
-                          idxs: Tuple[int]) -> Predicate:
+                          idxs: Tuple[int],
+                          last_failure: bool = False) -> Predicate:
     """Create a Failure predicate for a parameterized option."""
     idx_str = ",".join(map(str, idxs))
     arg_types = [option.types[i] for i in idxs]
-    return Predicate(f"{option.name}Failed_arg{idx_str}",
+    if last_failure:
+        fail_str = "LastFailed"
+    else:
+        fail_str = "Failed"
+    return Predicate(f"{option.name}{fail_str}_arg{idx_str}",
                      arg_types,
                      _classifier=lambda s, o: False)
 
 
 def _get_idxs_to_failure_predicate(
         option: ParameterizedOption,
-        max_arity: int = 1) -> Dict[Tuple[int, ...], Predicate]:
+        max_arity: int = 1,
+        last_failure: bool = False) -> Dict[Tuple[int, ...], Predicate]:
     """Helper for get_all_failure_predicates() and get_failure_atoms()."""
     idxs_to_failure_predicate: Dict[Tuple[int, ...], Predicate] = {}
     num_types = len(option.types)
@@ -2808,7 +2805,7 @@ def _get_idxs_to_failure_predicate(
     all_idxs = list(range(num_types))
     for arity in range(1, max_num_idxs + 1):
         for idxs in itertools.combinations(all_idxs, arity):
-            pred = get_failure_predicate(option, idxs)
+            pred = get_failure_predicate(option, idxs, last_failure)
             idxs_to_failure_predicate[idxs] = pred
     return idxs_to_failure_predicate
 
@@ -2820,21 +2817,31 @@ def get_all_failure_predicates(options: Set[ParameterizedOption],
     for param_opt in options:
         preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
         failure_preds.update(preds.values())
+        preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity,
+                                               last_failure=True)
+        failure_preds.update(preds.values())
     return failure_preds
 
 
-def get_failure_atoms(failed_options: Collection[_Option],
+def get_failure_atoms(failed_options: List[_Option],
                       max_arity: int = 1) -> Set[GroundAtom]:
     """Get ground failure atoms for the collection of failure options."""
     failure_atoms: Set[GroundAtom] = set()
-    failed_option_specs = {(o.parent, tuple(o.objects))
-                           for o in failed_options}
+    failed_option_specs = [(o.parent, tuple(o.objects))
+                           for o in failed_options]
     for (param_opt, objs) in failed_option_specs:
         preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
         for idxs, pred in preds.items():
             obj_for_idxs = [objs[i] for i in idxs]
             failure_atom = GroundAtom(pred, obj_for_idxs)
             failure_atoms.add(failure_atom)
+    param_opt, objs = failed_option_specs[-1]
+    preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity,
+                                           last_failure=True)
+    for idxs, pred in preds.items():
+        obj_for_idxs = [objs[i] for i in idxs]
+        failure_atom = GroundAtom(pred, obj_for_idxs)
+        failure_atoms.add(failure_atom)
     return failure_atoms
 
 

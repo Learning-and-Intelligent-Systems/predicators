@@ -1,13 +1,19 @@
 (define (policy)
   (:rule BridgePolicyDone
-    :parameters (?robot - robot)
-    :preconditions (and (RobotPressButtonFailed_arg0 ?robot) (not (HandEmpty ?robot)))
+    :parameters (?robot - robot ?button - button)
+    :preconditions (and (RobotPressButtonLastFailed_arg1 ?button) (not (Pressed ?button)) (not (HandEmpty ?robot)))
     :goals ()
     :action (BridgePolicyDone)
   )
   (:rule BridgePolicyDone
-    :parameters (?robot - robot)
-    :preconditions (and (StickPressButtonFailed_arg0 ?robot) (HandEmpty ?robot))
+    :parameters (?robot - robot ?button - button)
+    :preconditions (and (StickPressButtonLastFailed_arg2 ?button) (not (Pressed ?button)) (HandEmpty ?robot))
+    :goals ()
+    :action (BridgePolicyDone)
+  )
+  (:rule BridgePolicyDone
+    :parameters (?robot - robot ?stick - stick)
+    :preconditions (and (PickStickLastFailed_arg1 ?stick) (Grasped ?robot ?stick))
     :goals ()
     :action (BridgePolicyDone)
   )

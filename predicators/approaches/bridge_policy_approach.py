@@ -81,6 +81,10 @@ class BridgePolicyApproach(OracleApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         start_time = time.perf_counter()
+        self._bridge_policy.reset()
+        # The bridge policy's internal history is updated every time a new
+        # option is selected or a failure is encountered.
+        new_option_callback = self._create_new_option_callback()
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         current_control = "planner"
@@ -89,9 +93,8 @@ class BridgePolicyApproach(OracleApproach):
             option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout,
             raise_error_on_repeated_state=True,
-            environment_failure_predictor=self._predict_env_failure,
+            new_option_callback=new_option_callback,
         )
-        all_failed_options: List[_Option] = []
 
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy
@@ -108,22 +111,15 @@ class BridgePolicyApproach(OracleApproach):
                 assert current_control == "bridge"
                 current_control = "planner"
                 logging.debug("Switching control from bridge to planner.")
-                failed_option = None  # not used, but satisfy linting
-                self._bridge_policy.reset()
+                failed_option = None
+                offending_objects = None
             except OptionExecutionFailure as e:
                 # An error was encountered, so we need the bridge policy.
                 current_control = "bridge"
                 failed_option = e.info["last_failed_option"]
-                if failed_option is not None:
-                    all_failed_options.append(failed_option)
-                    logging.debug(f"Failed option: {failed_option.name}"
-                                  f"{failed_option.objects}.")
-                    logging.debug(f"Error: {e.args[0]}")
-                    self._bridge_policy.record_failed_option(failed_option)
                 offending_objects = e.info.get("offending_objects", None)
-                if offending_objects is not None:
-                    self._bridge_policy.record_offending_objects(
-                        offending_objects)
+                bridge_policy_failure = (failed_option, offending_objects)
+                self._bridge_policy.record_failure(bridge_policy_failure)
                 logging.debug("Giving control to bridge.")
 
             if current_control == "bridge":
@@ -136,7 +132,7 @@ class BridgePolicyApproach(OracleApproach):
                     option_policy,
                     max_option_steps=CFG.max_num_steps_option_rollout,
                     raise_error_on_repeated_state=True,
-                    environment_failure_predictor=self._predict_env_failure,
+                    new_option_callback=new_option_callback,
                 )
             else:
                 assert current_control == "planner"
@@ -150,7 +146,7 @@ class BridgePolicyApproach(OracleApproach):
                     option_policy,
                     max_option_steps=CFG.max_num_steps_option_rollout,
                     raise_error_on_repeated_state=True,
-                    environment_failure_predictor=self._predict_env_failure,
+                    new_option_callback=new_option_callback,
                 )
 
             return _policy(s)
@@ -176,7 +172,19 @@ class BridgePolicyApproach(OracleApproach):
             rng=self._rng,
             necessary_atoms_seq=atoms_seq)
 
-    def _predict_env_failure(self, state: State, option: _Option) -> None:
-        # Use the option model ONLY to predict environment failures.
-        # Will raise an EnvironmentFailure if one is predicted.
-        self._option_model.get_next_state_and_num_actions(state, option)
+    def _create_new_option_callback(self) -> Callable[[State, _Option], None]:
+
+        def _new_option_callback(state: State, option: _Option):
+            self._bridge_policy.record_state_option(state, option)
+            try:
+                # Use the option model ONLY to predict environment failures.
+                # Will raise an EnvironmentFailure if one is predicted.
+                self._option_model.get_next_state_and_num_actions(state, option)
+            except EnvironmentFailure as e:
+                raise OptionExecutionFailure(
+                    f"Environment failure predicted: {repr(e)}.",
+                    info={
+                        "last_failed_option": cur_option,
+                        **e.info
+                    })
+        return _new_option_callback

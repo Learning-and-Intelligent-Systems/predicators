@@ -2,14 +2,14 @@
 
 import abc
 import logging
-from typing import Callable, List, Set
+from typing import Callable, List, Set, Tuple
 
 from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
 from predicators.structs import NSRT, BridgePolicyDoneNSRT, GroundAtom, \
     LiftedDecisionList, Object, ParameterizedOption, Predicate, State, Type, \
-    _Option
+    _Option, BridgePolicyFailure
 
 
 class LDLBridgePolicy(BaseBridgePolicy):
@@ -26,18 +26,13 @@ class LDLBridgePolicy(BaseBridgePolicy):
     def _get_current_ldl(self) -> LiftedDecisionList:
         """Return the current lifted decision list policy."""
 
-    def _bridge_policy(self, state: State, atoms: Set[GroundAtom],
-                       failed_options: List[_Option],
-                       offending_objects: Set[Object]) -> _Option:
+    def _bridge_policy(self, state: State, atoms: Set[GroundAtom]) -> _Option:
         ldl = self._get_current_ldl()
-        # Add failure atoms based on failed_options.
-        atoms |= utils.get_failure_atoms(failed_options)
-        # Add offending object atoms based on offending_objects.
-        atoms |= utils.get_offending_object_atoms(offending_objects)
         objects = set(state)
         goal: Set[GroundAtom] = set()  # task goal not used
         next_nsrt = utils.query_ldl(ldl, atoms, objects, goal)
         if next_nsrt is None:
+            import ipdb; ipdb.set_trace()
             raise ApproachFailure("LDL bridge policy not applicable.")
         if next_nsrt.parent == BridgePolicyDoneNSRT:
             raise BridgePolicyDone()
@@ -46,11 +41,26 @@ class LDLBridgePolicy(BaseBridgePolicy):
     def get_option_policy(self) -> Callable[[State], _Option]:
 
         def _option_policy(state: State) -> _Option:
-            atoms = utils.abstract(state, self._predicates)
-            option = self._bridge_policy(state, atoms, self._failed_options,
-                                         self._offending_objects)
+            # Process history into set of predicates.
+            state_history = self._state_history + [state]
+            new_atoms = utils.abstract(state, self._predicates)
+            atoms_history = self._atoms_history + [new_atoms]
+            atoms = self._history_to_atoms(state_history, atoms_history, self._option_history, self._failure_history)
+            option = self._bridge_policy(state, atoms)
             logging.debug(f"Using option {option.name}{option.objects} "
                           "from bridge policy.")
             return option
 
         return _option_policy
+
+    def _history_to_atoms(self, state_history: List[State], atoms_history: List[Set[GroundAtom]],
+                       option_history: List[_Option], failure_history: List[Tuple[int, BridgePolicyFailure]]
+                       ) -> Set[GroundAtom]:
+        assert len(state_history) == len(atoms_history)
+        assert len(state_history) == len(option_history) + 1
+        # TODO handle offending objects
+        all_failed_options = [o for _, (o, _) in failure_history]
+        failure_atoms = utils.get_failure_atoms(all_failed_options)
+        last_atoms = atoms_history[-1]
+        atoms = last_atoms | failure_atoms
+        return atoms
