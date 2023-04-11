@@ -1772,7 +1772,7 @@ class GroundMacro:
 
 
 # Bridge policy structs
-BridgePolicy = Callable[[State, Set[GroundAtom], List[_Option]], _Option]
+BridgeDataset = List[Tuple[Set[_Option], _GroundNSRT, Set[GroundAtom], State]]
 BridgePolicyDoneOption = ParameterizedOption(
     "BridgePolicyDoneOption", [], Box(0, 1, (0, )),
     lambda s, m, o, p: Action(np.array([0.0])), lambda s, m, o, p: False,

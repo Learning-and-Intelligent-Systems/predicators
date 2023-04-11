@@ -7,8 +7,8 @@ import numpy as np
 
 from predicators import utils
 from predicators.settings import CFG
-from predicators.structs import NSRT, BridgePolicyFailure, GroundAtom, \
-    ParameterizedOption, Predicate, State, Type, _Option
+from predicators.structs import NSRT, BridgeDataset, ParameterizedOption, \
+    Predicate, State, Type, _Option, BridgePolicyFailure, GroundAtom
 
 
 class BridgePolicyDone(Exception):
@@ -66,3 +66,10 @@ class BaseBridgePolicy(abc.ABC):
         self._state_history.append(state)
         self._atoms_history.append(utils.abstract(state, self._predicates))
         self._option_history.append(option)
+
+    def learn_from_demos(self, dataset: BridgeDataset) -> None:
+        """For learning-based approaches, learn whatever is needed from the
+        given dataset.
+
+        By default, nothing is learned. Subclasses may override.
+        """
