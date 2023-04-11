@@ -19,8 +19,8 @@ class LDLBridgePolicy(BaseBridgePolicy):
                  options: Set[ParameterizedOption], nsrts: Set[NSRT]) -> None:
         super().__init__(types, predicates, options, nsrts)
         self._failure_predicates = utils.get_all_failure_predicates(options)
-        self._offending_object_predicates = utils.get_all_offending_object_predicates(
-            types)
+        self._offending_object_predicates = \
+            utils.get_all_offending_object_predicates(types)
 
     @abc.abstractmethod
     def _get_current_ldl(self) -> LiftedDecisionList:
@@ -38,7 +38,6 @@ class LDLBridgePolicy(BaseBridgePolicy):
         goal: Set[GroundAtom] = set()  # task goal not used
         next_nsrt = utils.query_ldl(ldl, atoms, objects, goal)
         if next_nsrt is None:
-            print("atoms:", atoms)
             raise ApproachFailure("LDL bridge policy not applicable.")
         if next_nsrt.parent == BridgePolicyDoneNSRT:
             raise BridgePolicyDone()
