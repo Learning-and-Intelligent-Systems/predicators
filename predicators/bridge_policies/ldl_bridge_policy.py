@@ -7,8 +7,9 @@ from typing import Callable, List, Set
 from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
-from predicators.structs import NSRT, GroundAtom, LiftedDecisionList, Object, \
-    ParameterizedOption, Predicate, State, Type, _Option, BridgePolicyDoneNSRT
+from predicators.structs import NSRT, BridgePolicyDoneNSRT, GroundAtom, \
+    LiftedDecisionList, Object, ParameterizedOption, Predicate, State, Type, \
+    _Option
 
 
 class LDLBridgePolicy(BaseBridgePolicy):

@@ -24,13 +24,15 @@ Oracle bridge policy in stick button:
     python predicators/main.py --env stick_button --approach bridge_policy \
         --seed 0 --bridge_policy oracle --horizon 10000
 
-Oracle bridge policy in cluttered table (TODO make work):
+Oracle bridge policy in cluttered table:
     python predicators/main.py --env cluttered_table --approach bridge_policy \
         --seed 0 --bridge_policy oracle
 
 Oracle bridge policy in exit garage:
     python predicators/main.py --env exit_garage --approach bridge_policy \
-        --seed 0 --bridge_policy oracle
+        --seed 0 --bridge_policy oracle \
+        --exit_garage_motion_planning_ignore_obstacles True \
+        --exit_garage_raise_environment_failure True
 """
 
 import logging
@@ -44,8 +46,8 @@ from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.bridge_policies import BridgePolicyDone, create_bridge_policy
 from predicators.settings import CFG
-from predicators.structs import Action, ParameterizedOption, \
-    Predicate, State, Task, Type, _Option, BridgePolicyDoneNSRT
+from predicators.structs import Action, BridgePolicyDoneNSRT, \
+    ParameterizedOption, Predicate, State, Task, Type, _Option
 from predicators.utils import OptionExecutionFailure
 
 
@@ -91,9 +93,6 @@ class BridgePolicyApproach(OracleApproach):
         )
         all_failed_options: List[_Option] = []
 
-        # TODO: detect loops? Maybe not because bridge policy has history.
-        # But do need to avoid infinite recursion.
-
         def _policy(s: State) -> Action:
             nonlocal current_control, current_policy
 
@@ -131,7 +130,7 @@ class BridgePolicyApproach(OracleApproach):
                 # Planning failed on the first time step.
                 if failed_option is None:
                     assert s.allclose(task.init)
-                    raise ApproachFailure("Planning failed on init state.")                
+                    raise ApproachFailure("Planning failed on init state.")
                 option_policy = self._bridge_policy.get_option_policy()
                 current_policy = utils.option_policy_to_policy(
                     option_policy,
@@ -154,7 +153,6 @@ class BridgePolicyApproach(OracleApproach):
                     environment_failure_predictor=self._predict_env_failure,
                 )
 
-            # TODO: prevent infinite recursion!
             return _policy(s)
 
         return _policy

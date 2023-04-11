@@ -1774,13 +1774,12 @@ class GroundMacro:
 # Bridge policy structs
 BridgePolicy = Callable[[State, Set[GroundAtom], List[_Option]], _Option]
 BridgePolicyDoneOption = ParameterizedOption(
-    "BridgePolicyDoneOption", [], Box(0, 1,
-                           (0, )), lambda s, m, o, p: Action(np.array([0.0])),
-    lambda s, m, o, p: False, lambda s, m, o, p: True).ground([], [])
-BridgePolicyDoneNSRT = NSRT("BridgePolicyDone", [],
-    set(), set(), set(), set(), BridgePolicyDoneOption.parent, [],
-    lambda s, m, o, p: np.array([], dtype=np.float32))
-
+    "BridgePolicyDoneOption", [], Box(0, 1, (0, )),
+    lambda s, m, o, p: Action(np.array([0.0])), lambda s, m, o, p: False,
+    lambda s, m, o, p: True).ground([], np.array([]))
+BridgePolicyDoneNSRT = NSRT("BridgePolicyDone", [], set(), set(), set(), set(),
+                            BridgePolicyDoneOption.parent, [],
+                            lambda s, m, o, p: np.array([], dtype=np.float32))
 
 # Convenience higher-order types useful throughout the code
 Observation = Any
