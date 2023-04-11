@@ -290,6 +290,9 @@ class BridgePolicyApproach(OracleApproach):
             for state in states:
                 task = Task(state, goal)
                 # Assuming optimal task planning here.
+                assert (CFG.sesame_task_planner == "astar" and \
+                        CFG.sesame_task_planning_heuristic == "lmcut") or \
+                        CFG.sesame_task_planner == "fdopt"
                 try:
                     nsrt_plan, _, _ = self._run_task_plan(
                         task, nsrts, preds, CFG.timeout, self._seed)
