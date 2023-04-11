@@ -6,8 +6,8 @@ from typing import Callable, List, Set
 import numpy as np
 
 from predicators.settings import CFG
-from predicators.structs import NSRT, ParameterizedOption, Predicate, State, \
-    Type, _Option
+from predicators.structs import NSRT, BridgeDataset, ParameterizedOption, \
+    Predicate, State, Type, _Option
 
 
 class BridgePolicyDone(Exception):
@@ -51,3 +51,10 @@ class BaseBridgePolicy(abc.ABC):
     def record_failed_option(self, failed_option: _Option) -> None:
         """Called when an option has failed."""
         self._failed_options.append(failed_option)
+
+    def learn_from_demos(self, dataset: BridgeDataset) -> None:
+        """For learning-based approaches, learn whatever is needed from the
+        given dataset.
+
+        By default, nothing is learned. Subclasses may override.
+        """
