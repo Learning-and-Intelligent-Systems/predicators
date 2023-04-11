@@ -64,7 +64,8 @@ class LDLBridgePolicy(BaseBridgePolicy):
         all_failed_options = [o for _, (o, _) in failure_history]
         failure_atoms = utils.get_failure_atoms(all_failed_options)
         last_atoms = atoms_history[-1]
-        all_offending_objects = {o for _, (_, (o, )) in failure_history}
+        all_offending_objects = {o for _, (_, objs) in failure_history
+                                 for o in objs}
         all_offending_atoms = utils.get_offending_object_atoms(
             all_offending_objects)
         last_offending_objects = failure_history[-1][1][1]

@@ -112,12 +112,12 @@ class BridgePolicyApproach(OracleApproach):
                 current_control = "planner"
                 logging.debug("Switching control from bridge to planner.")
                 failed_option = None
-                offending_objects = None
+                offending_objects = set()
             except OptionExecutionFailure as e:
                 # An error was encountered, so we need the bridge policy.
                 current_control = "bridge"
                 failed_option = e.info["last_failed_option"]
-                offending_objects = e.info.get("offending_objects", None)
+                offending_objects = e.info.get("offending_objects", set())
                 bridge_policy_failure = (failed_option, offending_objects)
                 self._bridge_policy.record_failure(bridge_policy_failure)
                 logging.debug("Giving control to bridge.")
