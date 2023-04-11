@@ -7,8 +7,8 @@ import numpy as np
 
 from predicators import utils
 from predicators.settings import CFG
-from predicators.structs import NSRT, Object, ParameterizedOption, Predicate, \
-    State, Type, _Option, BridgePolicyFailure, GroundAtom
+from predicators.structs import NSRT, BridgePolicyFailure, GroundAtom, \
+    Object, ParameterizedOption, Predicate, State, Type, _Option
 
 
 class BridgePolicyDone(Exception):

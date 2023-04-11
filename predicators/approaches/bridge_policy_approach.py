@@ -179,12 +179,15 @@ class BridgePolicyApproach(OracleApproach):
             try:
                 # Use the option model ONLY to predict environment failures.
                 # Will raise an EnvironmentFailure if one is predicted.
-                self._option_model.get_next_state_and_num_actions(state, option)
-            except EnvironmentFailure as e:
+                self._option_model.get_next_state_and_num_actions(
+                    state, option)
+            except utils.EnvironmentFailure as e:
+                logging.debug(f"Environment failure: {repr(e)}")
                 raise OptionExecutionFailure(
                     f"Environment failure predicted: {repr(e)}.",
                     info={
-                        "last_failed_option": cur_option,
+                        "last_failed_option": option,
                         **e.info
                     })
+
         return _new_option_callback

@@ -2817,7 +2817,8 @@ def get_all_failure_predicates(options: Set[ParameterizedOption],
     for param_opt in options:
         preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
         failure_preds.update(preds.values())
-        preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity,
+        preds = _get_idxs_to_failure_predicate(param_opt,
+                                               max_arity=max_arity,
                                                last_failure=True)
         failure_preds.update(preds.values())
     return failure_preds
@@ -2836,7 +2837,8 @@ def get_failure_atoms(failed_options: List[_Option],
             failure_atom = GroundAtom(pred, obj_for_idxs)
             failure_atoms.add(failure_atom)
     param_opt, objs = failed_option_specs[-1]
-    preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity,
+    preds = _get_idxs_to_failure_predicate(param_opt,
+                                           max_arity=max_arity,
                                            last_failure=True)
     for idxs, pred in preds.items():
         obj_for_idxs = [objs[i] for i in idxs]
@@ -2846,10 +2848,15 @@ def get_failure_atoms(failed_options: List[_Option],
 
 
 @functools.lru_cache(maxsize=None)
-def get_offending_object_predicate(types: Tuple[Type, ...]) -> Predicate:
+def get_offending_object_predicate(types: Tuple[Type, ...],
+                                   last_failure: bool = False) -> Predicate:
     """Create an Offending predicate for some object types."""
+    if last_failure:
+        fail_str = "LastOffendingObjects"
+    else:
+        fail_str = "OffendingObjects"
     type_str = "-".join(t.name for t in types)
-    return Predicate(f"OffendingObjects_{type_str}",
+    return Predicate(f"{fail_str}_{type_str}",
                      types,
                      _classifier=lambda s, o: False)
 
@@ -2861,17 +2868,21 @@ def get_all_offending_object_predicates(types: Collection[Type],
     for i in range(1, max_arity + 1):
         for type_tuple in itertools.product(types, repeat=i):
             predicates.add(get_offending_object_predicate(type_tuple))
+            predicates.add(
+                get_offending_object_predicate(type_tuple, last_failure=True))
     return predicates
 
 
 def get_offending_object_atoms(offending_objects: Collection[Object],
-                               max_arity: int = 1) -> Set[GroundAtom]:
+                               max_arity: int = 1,
+                               last_failure: bool = False) -> Set[GroundAtom]:
     """Get ground failure atoms for the collection of failure options."""
     offending_atoms: Set[GroundAtom] = set()
     for i in range(1, max_arity + 1):
         for obj_tuple in itertools.product(offending_objects, repeat=i):
             type_tuple = tuple(o.type for o in obj_tuple)
-            pred = get_offending_object_predicate(type_tuple)
+            pred = get_offending_object_predicate(type_tuple,
+                                                  last_failure=last_failure)
             atom = GroundAtom(pred, obj_tuple)
             offending_atoms.add(atom)
     return offending_atoms
