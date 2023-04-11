@@ -984,7 +984,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                         verify_harmlessness=False,
                                         verbose=False):
             # HACK (for now) to learn static predicates and delete effects.
-            new_precond_cands = get_candidates_for_pnad_preconds(pnad, kept_predicates)
+            new_precond_cands = get_candidates_for_pnad_preconds(pnad, kept_predicates | initial_predicates)
             new_hillclimbing_sets_to_try.append(new_precond_cands)
 
         for curr_candidates_set in new_hillclimbing_sets_to_try:
