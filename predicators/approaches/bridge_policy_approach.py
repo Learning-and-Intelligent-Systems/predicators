@@ -234,15 +234,15 @@ class BridgePolicyApproach(OracleApproach):
         policy = self._solve(task, timeout=CFG.timeout)
 
         reached_stuck_state = False
-        all_failed_options = None
+        failure_history = None
 
         def _act_policy(s: State) -> Action:
-            nonlocal reached_stuck_state, all_failed_options
+            nonlocal reached_stuck_state, failure_history
             try:
                 return policy(s)
             except ApproachFailure as e:
                 reached_stuck_state = True
-                all_failed_options = e.info["all_failed_options"]
+                failure_history = e.info["failure_history"]
                 # Approach failures not caught in interaction loop.
                 raise OptionExecutionFailure(e.args[0], e.info)
 
@@ -252,9 +252,9 @@ class BridgePolicyApproach(OracleApproach):
         def _query_policy(s: State) -> Optional[Query]:
             if not reached_stuck_state or task.goal_holds(s):
                 return None
-            assert all_failed_options is not None
+            assert failure_history is not None
             return DemonstrationQuery(
-                train_task_idx, {"all_failed_options": all_failed_options})
+                train_task_idx, {"failure_history": failure_history})
 
         request = InteractionRequest(train_task_idx, _act_policy,
                                      _query_policy, _termination_fn)
@@ -281,7 +281,7 @@ class BridgePolicyApproach(OracleApproach):
             query = response.query
             assert isinstance(query, DemonstrationQuery)
             goal = self._train_tasks[query.train_task_idx].goal
-            all_failed_options = query.get_info("all_failed_options")
+            failure_history = query.get_info("failure_history")
 
             # Abstract and segment the trajectory.
             traj = response.teacher_traj
@@ -341,7 +341,7 @@ class BridgePolicyApproach(OracleApproach):
                                     f"{add_atoms}. Skipping transition.")
                     continue
                 self._bridge_dataset.append((
-                    all_failed_options,
+                    failure_history,
                     ground_nsrt,
                     atoms[t],
                     states[t],
