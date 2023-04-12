@@ -1,25 +1,43 @@
 (define (policy)
-  (:rule PickStickFromButton
+  (:rule PickStickFromButtonFailedPress
     :parameters (?robot - robot ?stick - stick ?from_button - button)
-    :preconditions (and (HandEmpty ?robot) (RobotAboveButton ?robot ?from_button) (RobotPressButtonFailed_arg0 ?robot) (not (AboveNoButton )) (not (Grasped ?robot ?stick)) (not (RobotPressButtonFailed_arg1 ?from_button)))
+    :preconditions (and (HandEmpty ?robot) (RobotAboveButton ?robot ?from_button) (RobotPressButtonLastFailed_arg0 ?robot) )
     :goals ()
     :action (PickStickFromButton ?robot ?stick ?from-button)
   )
-  (:rule PickStickFromNothing
+  (:rule PickStickFromNothingFailedPress
     :parameters (?robot - robot ?stick - stick)
-    :preconditions (and (AboveNoButton ) (HandEmpty ?robot) (RobotPressButtonFailed_arg0 ?robot) (not (Grasped ?robot ?stick)))
+    :preconditions (and (AboveNoButton ) (HandEmpty ?robot) (RobotPressButtonLastFailed_arg0 ?robot))
+    :goals ()
+    :action (PickStickFromNothing ?robot ?stick)
+  )
+  (:rule PickStickFromButtonFailedPick
+    :parameters (?robot - robot ?stick - stick ?from_button - button)
+    :preconditions (and (HandEmpty ?robot) (RobotAboveButton ?robot ?from_button) (PickStickLastFailed_arg0 ?robot) )
+    :goals ()
+    :action (PickStickFromButton ?robot ?stick ?from-button)
+  )
+  (:rule PickStickFromNothingFailedPick
+    :parameters (?robot - robot ?stick - stick)
+    :preconditions (and (AboveNoButton ) (HandEmpty ?robot) (PickStickLastFailed_arg0 ?robot))
     :goals ()
     :action (PickStickFromNothing ?robot ?stick)
   )
   (:rule PlaceStickFromButton
     :parameters (?robot - robot ?stick - stick)
-    :preconditions (and (Grasped ?robot ?stick) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (AboveNoButton )) (not (HandEmpty ?robot)))
+    :preconditions (and (Grasped ?robot ?stick) (StickPressButtonLastFailed_arg0 ?robot) (not (AboveNoButton )))
     :goals ()
     :action (PlaceStickFromButton ?robot ?stick)
   )
   (:rule PlaceStickFromNothing
     :parameters (?robot - robot ?stick - stick)
-    :preconditions (and (AboveNoButton ) (Grasped ?robot ?stick) (StickPressButtonFailed_arg0 ?robot) (StickPressButtonFailed_arg1 ?stick) (not (HandEmpty ?robot)))
+    :preconditions (and (AboveNoButton ) (Grasped ?robot ?stick) (StickPressButtonLastFailed_arg0 ?robot))
+    :goals ()
+    :action (PlaceStickFromNothing ?robot ?stick)
+  )
+    (:rule PlaceStickRepeated
+    :parameters (?robot - robot ?stick - stick)
+    :preconditions (and (Grasped ?robot ?stick) (PlaceStickLastFailed_arg0 ?robot))
     :goals ()
     :action (PlaceStickFromNothing ?robot ?stick)
   )
