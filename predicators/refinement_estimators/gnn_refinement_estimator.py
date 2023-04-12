@@ -276,13 +276,6 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         }
         return graph
 
-    def _to_tensor_on_device(self, graph: Dict) -> None:
-        """Convert the nodes, edges, and globals of a graph to a tensor on
-        self._device."""
-        graph["nodes"] = torch.from_numpy(graph["nodes"]).to(self._device)
-        graph["edges"] = torch.from_numpy(graph["edges"]).to(self._device)
-        graph["globals"] = torch.from_numpy(graph["globals"]).to(self._device)
-
     def _setup_fields(self) -> None:
         """Assign indices to each node and edge feature, and also identify list
         of nullary predicates."""

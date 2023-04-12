@@ -397,9 +397,7 @@ def _create_super_graph(batches: List[Dict],
     # Convert Tensors to device
     if device is not None:
         for key, val in super_graph.items():
-            if val is None:
-                continue
-            super_graph[key] = val.to(device)
+            super_graph[key] = val.to(device) if val is not None else val
     return super_graph
 
 
