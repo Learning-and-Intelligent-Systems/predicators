@@ -50,6 +50,7 @@ ENVS:
       gnn_num_message_passing: 3
       gnn_layer_size: 32
       gnn_do_normalization: true
+ARGS: []
 FLAGS:  # general flags
   num_test_tasks: 50
 START_SEED: 456
