@@ -7,9 +7,8 @@ from typing import Callable, List, Set, Tuple
 from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.bridge_policies import BaseBridgePolicy, BridgePolicyDone
-from predicators.structs import NSRT, \
-    BridgePolicyFailure, GroundAtom, LiftedDecisionList, ParameterizedOption, \
-    Predicate, State, Type, _Option
+from predicators.structs import NSRT, BridgePolicyFailure, GroundAtom, \
+    LiftedDecisionList, ParameterizedOption, Predicate, State, Type, _Option
 
 
 class LDLBridgePolicy(BaseBridgePolicy):
@@ -49,16 +48,15 @@ class LDLBridgePolicy(BaseBridgePolicy):
 
     def get_policy_input_atoms(self, state: State) -> Set[GroundAtom]:
         """Get the input to the policy based on the history and new state.
-        
+
         TODO: move to parent class.
         """
         state_history = self._state_history + [state]
         atoms = utils.abstract(state, self._predicates)
         atoms_history = self._atoms_history + [atoms]
-        atoms |= self._get_derived_history_atoms(state_history,
-                                                    atoms_history,
-                                                    self._option_history,
-                                                    self._failure_history)
+        atoms |= self._get_derived_history_atoms(state_history, atoms_history,
+                                                 self._option_history,
+                                                 self._failure_history)
         return atoms
 
     def _get_derived_history_atoms(

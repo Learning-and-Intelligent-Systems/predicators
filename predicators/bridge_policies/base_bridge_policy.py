@@ -7,8 +7,8 @@ import numpy as np
 
 from predicators import utils
 from predicators.settings import CFG
-from predicators.structs import NSRT, BridgeDataset, ParameterizedOption, \
-    Predicate, State, Type, _Option, BridgePolicyFailure, GroundAtom
+from predicators.structs import NSRT, BridgeDataset, BridgePolicyFailure, \
+    GroundAtom, ParameterizedOption, Predicate, State, Type, _Option
 
 
 class BridgePolicyDone(Exception):
@@ -67,14 +67,19 @@ class BaseBridgePolicy(abc.ABC):
         self._atoms_history.append(utils.abstract(state, self._predicates))
         self._option_history.append(option)
 
-    def get_internal_state(self) -> Tuple[List[State], List[Set[GroundAtom]],
-            List[_Option], List[Tuple[int, BridgePolicyFailure]]]:
+    def get_internal_state(
+        self
+    ) -> Tuple[List[State], List[Set[GroundAtom]], List[_Option], List[Tuple[
+            int, BridgePolicyFailure]]]:
         """Get that which is sufficient to describe the internal state."""
         return (list(self._state_history), list(self._atoms_history),
                 list(self._option_history), list(self._failure_history))
 
-    def set_internal_state(self, internal_state: Tuple[List[State], List[Set[GroundAtom]],
-            List[_Option], List[Tuple[int, BridgePolicyFailure]]]) -> None:
+    def set_internal_state(
+        self, internal_state: Tuple[List[State], List[Set[GroundAtom]],
+                                    List[_Option],
+                                    List[Tuple[int, BridgePolicyFailure]]]
+    ) -> None:
         """Set the bridge policy's internal state."""
         self._state_history, self._atoms_history, self._option_history, \
             self._failure_history = internal_state
