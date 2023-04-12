@@ -145,6 +145,7 @@ def _get_refinement_estimation_parser() -> ArgumentParser:
     parser = utils.create_arg_parser()
     # Add script-specific flags to the parser
     parser.add_argument("--refinement_data_file_name", default="", type=str)
+    parser.add_argument("--refinement_data_save_every", default=-1, type=int)
     parser.add_argument("--skip_refinement_estimator_training",
                         action="store_true")
     return parser
@@ -158,6 +159,12 @@ def _generate_refinement_data(
     nsrts = get_gt_nsrts(CFG.env, preds, options)
     option_model = create_option_model(CFG.option_model_name)
 
+    # Create saved data directory.
+    os.makedirs(CFG.data_dir, exist_ok=True)
+    # Create file path.
+    temp_file_path = _get_data_file_path(temp=True)
+    data_file_path = _get_data_file_path()
+
     # Generate the dataset and save it to file.
     dataset: List[RefinementDatapoint] = []
     for test_task_idx, task in enumerate(train_tasks):
@@ -170,17 +177,15 @@ def _generate_refinement_data(
         except (PlanningTimeout, _SkeletonSearchTimeout) as e:
             logging.info(f"Task {test_task_idx+1} / {num_tasks} failed by "
                          f"timing out: {e}")
+
+        # Save the intermediate dataset after every N training tasks
+        if CFG.refinement_data_save_every > 0 and \
+                (test_task_idx + 1) % CFG.refinement_data_save_every == 0:
+            logging.info(f"Writing intermediate dataset to {temp_file_path}")
+            with open(temp_file_path, "wb") as f:
+                pkl.dump(dataset, f)
+
     logging.info(f"Got {len(dataset)} data points.")
-    # Create saved data directory.
-    os.makedirs(CFG.data_dir, exist_ok=True)
-    # Create file path.
-    data_file_path = _get_data_file_path()
-    # Store the train tasks just in case we need it in the future.
-    # (Note: unpickling this doesn't work...)
-    # data_content = {
-    #     "tasks": train_tasks,
-    #     "data": dataset,
-    # }
     logging.info(f"Writing dataset to {data_file_path}")
     with open(data_file_path, "wb") as f:
         pkl.dump(dataset, f)
@@ -261,12 +266,14 @@ def _collect_refinement_data_for_task(env: BaseEnv, task: Task,
         ))
 
 
-def _get_data_file_path() -> Path:
+def _get_data_file_path(temp: bool = False) -> Path:
     if len(CFG.refinement_data_file_name):
         file_name = CFG.refinement_data_file_name
     else:
         config_path_str = utils.get_config_path_str()
         file_name = f"refinement_data_{config_path_str}.data"
+    if temp:
+        file_name += ".temp"
     data_file_path = Path(CFG.data_dir) / file_name
     return data_file_path
 
