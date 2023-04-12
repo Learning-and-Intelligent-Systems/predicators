@@ -15,14 +15,12 @@ __all__ = ["BaseSTRIPSLearner"]
 utils.import_submodules(__path__, __name__)
 
 
-def learn_strips_operators(
-    trajectories: List[LowLevelTrajectory],
-    train_tasks: List[Task],
-    predicates: Set[Predicate],
-    segmented_trajs: List[List[Segment]],
-    verify_harmlessness: bool,
-    verbose: bool = True,
-) -> List[PNAD]:
+def learn_strips_operators(trajectories: List[LowLevelTrajectory],
+                           train_tasks: List[Task],
+                           predicates: Set[Predicate],
+                           segmented_trajs: List[List[Segment]],
+                           verify_harmlessness: bool,
+                           verbose: bool = True) -> List[PNAD]:
     """Learn strips operators on the given data segments.
 
     Return a list of PNADs with op (STRIPSOperator), datastore, and

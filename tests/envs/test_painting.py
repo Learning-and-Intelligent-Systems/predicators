@@ -1,10 +1,12 @@
 """Test cases for the painting environment."""
-
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
 from predicators import utils
 from predicators.envs.painting import PaintingEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -12,6 +14,7 @@ def test_painting():
     """Tests for PaintingEnv class."""
     utils.reset_config({
         "env": "painting",
+        "painting_initial_holding_prob": 0.0,
     })
     env = PaintingEnv()
     for task in env.get_train_tasks():
@@ -20,10 +23,10 @@ def test_painting():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 14
+    assert len(env.predicates) == 15
     assert {pred.name for pred in env.goal_predicates} == \
         {"InBox", "IsBoxColor", "InShelf", "IsShelfColor"}
-    assert len(env.options) == 6
+    assert len(get_gt_options(env.get_name())) == 6
     assert len(env.types) == 5
     obj_type = [t for t in env.types if t.name == "obj"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
@@ -58,6 +61,72 @@ def test_painting():
         if i < 3:
             # Test rendering
             env.render_state(state, task, caption="caption")
+
+    # Test interface for collecting human demonstrations.
+    event_to_action = env.get_event_to_action_fn()
+    fig = plt.figure()
+    for key in ["w", "d", "b", "s", "p"]:
+        event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, key)
+        assert isinstance(event_to_action(state, event), Action)
+    # Test picking with side grasp.
+    state = env.reset("test", 0)
+    obj = state.get_objects(obj_type)[0]
+    denom = (env.env_ub - env.env_lb)
+    plt_x = (state.get(obj, "pose_y") - env.env_lb) / denom
+    plt_y = -1000  # just needs to be lower than the object itself
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    side_grasp_action = event_to_action(state, event)
+    assert side_grasp_action.arr[3] < env.side_grasp_thresh
+    assert abs(side_grasp_action.arr[4] - 1.0) < 1e-5
+    # Test picking with top grasp.
+    plt_y = 1000  # just needs to be higher than the object itself
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    top_grasp_action = event_to_action(state, event)
+    assert top_grasp_action.arr[3] > env.top_grasp_thresh
+    assert abs(top_grasp_action.arr[4] - 1.0) < 1e-5
+    # Test placing (on table).
+    state2 = env.simulate(state, side_grasp_action)
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    place_action = event_to_action(state2, event)
+    assert abs(place_action.arr[4] - (-1.0)) < 1e-5
+    # Test quitting.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "q")
+    with pytest.raises(utils.HumanDemonstrationFailure) as e:
+        event_to_action(state, event)
+    assert "Human quit" in str(e)
+    # Test invalid action with no click.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "i")
+    with pytest.raises(NotImplementedError) as e:
+        event_to_action(state, event)
+    assert "No valid action found" in str(e)
+    # Test invalid action with click.
+    plt_x = -1000
+    plt_y = -1000
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    with pytest.raises(NotImplementedError) as e:
+        event_to_action(state, event)
+    assert "No valid action found" in str(e)
+    plt.close()
 
 
 def test_painting_goals():
@@ -95,12 +164,14 @@ def test_painting_failure_cases():
         "painting_lid_open_prob": 0.0,
     })
     env = PaintingEnv()
-    Pick = [o for o in env.options if o.name == "Pick"][0]
-    Wash = [o for o in env.options if o.name == "Wash"][0]
-    Dry = [o for o in env.options if o.name == "Dry"][0]
-    Paint = [o for o in env.options if o.name == "Paint"][0]
-    Place = [o for o in env.options if o.name == "Place"][0]
-    OpenLid = [o for o in env.options if o.name == "OpenLid"][0]
+    Pick = [o for o in get_gt_options(env.get_name()) if o.name == "Pick"][0]
+    Wash = [o for o in get_gt_options(env.get_name()) if o.name == "Wash"][0]
+    Dry = [o for o in get_gt_options(env.get_name()) if o.name == "Dry"][0]
+    Paint = [o for o in get_gt_options(env.get_name()) if o.name == "Paint"][0]
+    Place = [o for o in get_gt_options(env.get_name()) if o.name == "Place"][0]
+    OpenLid = [
+        o for o in get_gt_options(env.get_name()) if o.name == "OpenLid"
+    ][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     Holding = [o for o in env.predicates if o.name == "Holding"][0]
     obj_type = [t for t in env.types if t.name == "obj"][0]

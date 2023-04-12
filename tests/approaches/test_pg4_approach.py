@@ -1,12 +1,11 @@
 """Test cases for the PG4 approach."""
-
 import pytest
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.pg4_approach import PG4Approach
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, Task
 
 
@@ -25,10 +24,11 @@ def test_pg4_approach():
         "cover_initial_holding_prob": 1.0,
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
-    approach = PG4Approach(env.predicates, env.options, env.types,
-                           env.action_space, train_tasks)
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = PG4Approach(env.predicates, get_gt_options(env.get_name()),
+                           env.types, env.action_space, train_tasks)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     approach._nsrts = nsrts  # pylint: disable=protected-access
     task = train_tasks[0]
 

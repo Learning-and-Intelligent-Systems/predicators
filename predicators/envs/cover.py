@@ -14,8 +14,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    Object, Predicate, State, Type
 
 
 class CoverEnv(BaseEnv):
@@ -24,8 +24,8 @@ class CoverEnv(BaseEnv):
     _allow_free_space_placing: ClassVar[bool] = False
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
-    _workspace_x: ClassVar[float] = 1.35
-    _workspace_z: ClassVar[float] = 0.65
+    workspace_x: ClassVar[float] = 1.35
+    workspace_z: ClassVar[float] = 0.65
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -47,11 +47,6 @@ class CoverEnv(BaseEnv):
         self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
-        # Options
-        self._PickPlace: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
-                "PickPlace", self._PickPlace_policy,
-                params_space=Box(0, 1, (1, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -117,10 +112,10 @@ class CoverEnv(BaseEnv):
                 next_state.set(held_block, "grasp", -1)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -139,17 +134,13 @@ class CoverEnv(BaseEnv):
         return {self._block_type, self._target_type, self._robot_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._PickPlace}
-
-    @property
     def action_space(self) -> Box:
         return Box(0, 1, (1, ))  # same as option param space
 
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
@@ -247,7 +238,8 @@ class CoverEnv(BaseEnv):
             targets.append(Object(f"target{i}", self._target_type))
         return blocks, targets
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         # Create blocks and targets.
         blocks, targets = self._create_blocks_and_targets()
@@ -266,7 +258,7 @@ class CoverEnv(BaseEnv):
             init = self._create_initial_state(blocks, targets, rng)
             assert init.get_objects(self._block_type) == blocks
             assert init.get_objects(self._target_type) == targets
-            tasks.append(Task(init, goals[i % len(goals)]))
+            tasks.append(EnvironmentTask(init, goals[i % len(goals)]))
         return tasks
 
     def _create_initial_state(self, blocks: List[Object],
@@ -294,11 +286,11 @@ class CoverEnv(BaseEnv):
         if "hand_empty" in self._robot_type.feature_names:
             # [hand, pose_x, pose_z, hand_empty]
             data[self._robot] = np.array(
-                [0.5, self._workspace_x, self._workspace_z, 1])
+                [0.5, self.workspace_x, self.workspace_z, 1])
         else:
             # [hand, pose_x, pose_z]
             data[self._robot] = np.array(
-                [0.5, self._workspace_x, self._workspace_z])
+                [0.5, self.workspace_x, self.workspace_z])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
@@ -351,12 +343,6 @@ class CoverEnv(BaseEnv):
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return state.get(block, "grasp") != -1
-
-    @staticmethod
-    def _PickPlace_policy(state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        return Action(params)  # action is simply the parameter
 
     def _any_intersection(self,
                           pose: float,
@@ -415,38 +401,9 @@ class CoverEnvTypedOptions(CoverEnv):
     This means we need two options (one for block, one for target).
     """
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        del self._PickPlace
-        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
-            "Pick",
-            self._Pick_policy,
-            types=[self._block_type],
-            params_space=Box(-0.1, 0.1, (1, )))
-        self._Place: ParameterizedOption = utils.SingletonParameterizedOption(
-            "Place",
-            self._PickPlace_policy,  # use the parent class's policy
-            types=[self._target_type],
-            params_space=Box(0, 1, (1, )))
-
     @classmethod
     def get_name(cls) -> str:
         return "cover_typed_options"
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Place}
-
-    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
-                     p: Array) -> Action:
-        del m  # unused
-        _ = self  # unused
-        # The pick parameter is a RELATIVE position, so we need to
-        # add the pose of the object.
-        pick_pose = s.get(o[0], "pose") + p[0]
-        pick_pose = min(max(pick_pose, 0.0), 1.0)
-        return Action(np.array([pick_pose], dtype=np.float32))
 
 
 class CoverEnvHierarchicalTypes(CoverEnv):
@@ -594,31 +551,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Need to override static object creation because the types are now
         # different (in terms of equality).
         self._robot = Object("robby", self._robot_type)
-        # Override the original options to make them multi-step. Note that
-        # the parameter spaces are designed to match what would be learned
-        # by the neural option learners.
-        self._Pick = ParameterizedOption(
-            "Pick",
-            types=[self._block_type, self._robot_type],
-            params_space=Box(-np.inf, np.inf, (5, )),
-            policy=self._Pick_policy,
-            initiable=self._Pick_initiable,
-            terminal=self._Pick_terminal)
-        self._Place = ParameterizedOption(
-            "Place",
-            types=[self._block_type, self._robot_type, self._target_type],
-            params_space=Box(-np.inf, np.inf, (5, )),
-            policy=self._Place_policy,
-            initiable=self._Place_initiable,
-            terminal=self._Place_terminal)
 
     @classmethod
     def get_name(cls) -> str:
         return "cover_multistep_options"
-
-    @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Place}
 
     @property
     def action_space(self) -> Box:
@@ -777,7 +713,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         # Need to override rendering to account for new state features.
@@ -1035,117 +971,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             hand_regions.append((state.get(target_hr,
                                            "lb"), state.get(target_hr, "ub")))
         return hand_regions
-
-    def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
-                        p: Array) -> bool:
-        # Convert the relative parameters into absolute parameters.
-        m["params"] = p
-        # Get the non-static object features.
-        block, robot = o
-        vec = [
-            s.get(block, "grasp"),
-            s.get(robot, "x"),
-            s.get(robot, "y"),
-            s.get(robot, "grip"),
-            s.get(robot, "holding"),
-        ]
-        m["absolute_params"] = vec + p
-        return self._HandEmpty_holds(s, [])
-
-    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
-                     p: Array) -> Action:
-        assert np.allclose(p, m["params"])
-        del p
-        absolute_params = m["absolute_params"]
-        # The object is the one we want to pick.
-        assert len(o) == 2
-        obj = o[0]
-        assert obj.type == self._block_type
-        x = s.get(self._robot, "x")
-        y = s.get(self._robot, "y")
-        by = s.get(obj, "y")
-        desired_x = absolute_params[1]
-        desired_y = by + 1e-3
-        at_desired_x = abs(desired_x - x) < 1e-5
-
-        lb, ub = CFG.cover_multistep_action_limits
-        # If we're above the object, move down and turn on the gripper.
-        if at_desired_x:
-            delta_y = np.clip(desired_y - y, lb, ub)
-            return Action(np.array([0., delta_y, 1.0], dtype=np.float32))
-        # If we're not above the object, but we're at a safe height,
-        # then move left/right.
-        if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, lb, ub)
-            return Action(np.array([delta_x, 0., 1.0], dtype=np.float32))
-        # If we're not above the object, and we're not at a safe height,
-        # then move up.
-        delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
-        return Action(np.array([0., delta_y, 1.0], dtype=np.float32))
-
-    def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
-                       p: Array) -> bool:
-        assert np.allclose(p, m["params"])
-        # Pick is done when we're holding the desired object.
-        return self._Holding_holds(s, o)
-
-    def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
-                         p: Array) -> bool:
-        block, robot, _ = o
-        assert block.is_instance(self._block_type)
-        assert robot.is_instance(self._robot_type)
-        # Convert the relative parameters into absolute parameters.
-        m["params"] = p
-        # Only the block and robot are changing. Get the non-static features.
-        vec = [
-            s.get(block, "x"),
-            s.get(block, "grasp"),
-            s.get(robot, "x"),
-            s.get(robot, "grip"),
-            s.get(robot, "holding"),
-        ]
-        m["absolute_params"] = vec + p
-        # Place is initiable if we're holding the object.
-        return self._Holding_holds(s, [block, robot])
-
-    def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
-                      p: Array) -> Action:
-        assert np.allclose(p, m["params"])
-        del p
-        absolute_params = m["absolute_params"]
-        # The object is the one we want to place at.
-        assert len(o) == 3
-        obj = o[0]
-        assert obj.type == self._block_type
-        x = s.get(self._robot, "x")
-        y = s.get(self._robot, "y")
-        bh = s.get(obj, "height")
-        desired_x = absolute_params[2]
-        desired_y = bh + 1e-3
-
-        at_desired_x = abs(desired_x - x) < 1e-5
-
-        lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object, move down and turn off the magnet.
-        if at_desired_x:
-            delta_y = np.clip(desired_y - y, lb, ub)
-            return Action(np.array([0., delta_y, -1.0], dtype=np.float32))
-        # If we're not above the object, but we're at a safe height,
-        # then move left/right.
-        if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, lb, ub)
-            return Action(np.array([delta_x, 0., 1.0], dtype=np.float32))
-        # If we're not above the object, and we're not at a safe height,
-        # then move up.
-        delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
-        return Action(np.array([0., delta_y, 1.0], dtype=np.float32))
-
-    def _Place_terminal(self, s: State, m: Dict, o: Sequence[Object],
-                        p: Array) -> bool:
-        del o  # unused
-        assert np.allclose(p, m["params"])
-        # Place is done when the hand is empty.
-        return self._HandEmpty_holds(s, [])
 
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:

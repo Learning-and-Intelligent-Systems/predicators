@@ -1,9 +1,9 @@
 """Test cases for the coffee environment."""
-
 import numpy as np
 
 from predicators import utils
 from predicators.envs.coffee import CoffeeEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, GroundAtom
 
 
@@ -28,8 +28,8 @@ def test_coffee():
     JugInMachine = pred_name_to_pred["JugInMachine"]
     OnTable = pred_name_to_pred["OnTable"]
     NotAboveCup = pred_name_to_pred["NotAboveCup"]
-    assert len(env.options) == 6
-    option_name_to_option = {o.name: o for o in env.options}
+    assert len(get_gt_options(env.get_name())) == 6
+    option_name_to_option = {o.name: o for o in get_gt_options(env.get_name())}
     assert len(env.types) == 4
     type_name_to_type = {t.name: t for t in env.types}
     cup_type = type_name_to_type["cup"]

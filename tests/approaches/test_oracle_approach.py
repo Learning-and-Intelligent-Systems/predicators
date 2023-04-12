@@ -1,11 +1,14 @@
 """Test cases for the oracle approach class."""
-
 from typing import Any, Dict, List, Set
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
+import predicators.envs.pddl_env
 from predicators import utils
+from predicators.approaches.base_approach import ApproachFailure, \
+    ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
@@ -14,6 +17,7 @@ from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
 from predicators.envs.doors import DoorsEnv
+from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
@@ -31,10 +35,13 @@ from predicators.envs.stick_button import StickButtonEnv
 from predicators.envs.tools import ToolsEnv
 from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
     TouchPointEnvParam
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
 from predicators.settings import CFG
-from predicators.structs import Action, Variable
+from predicators.structs import NSRT, Action, ParameterizedOption, Task, \
+    Variable
+
+_PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 
 ENV_NAME_AND_CLS = [
     ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),
@@ -43,9 +50,9 @@ ENV_NAME_AND_CLS = [
     ("cover_multistep_options", CoverMultistepOptions),
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
-    ("narrow_passage", NarrowPassageEnv), ("painting", PaintingEnv),
-    ("sandwich", SandwichEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
-    ("repeated_nextto", RepeatedNextToEnv),
+    ("exit_garage", ExitGarageEnv), ("narrow_passage", NarrowPassageEnv),
+    ("painting", PaintingEnv), ("sandwich", SandwichEnv), ("tools", ToolsEnv),
+    ("playroom", PlayroomEnv), ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
     ("satellites", SatellitesEnv), ("satellites_simple", SatellitesSimpleEnv),
@@ -149,7 +156,21 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_min_obstacles_per_room": 1,
     "doors_max_obstacles_per_room": 1,
 }]
+EXTRA_ARGS_ORACLE_APPROACH["exit_garage"] = [{
+    "exit_garage_pick_place_refine_penalty":
+    0,
+    "exit_garage_min_num_obstacles":
+    1,
+    "exit_garage_max_num_obstacles":
+    1,
+    "exit_garage_rrt_num_control_samples":
+    15,
+    "exit_garage_rrt_sample_goal_eps":
+    0.3,
+}]
 EXTRA_ARGS_ORACLE_APPROACH["narrow_passage"] = [{
+    "narrow_passage_open_door_refine_penalty":
+    0,
     "narrow_passage_door_width_padding_lb":
     0.075,
     "narrow_passage_door_width_padding_ub":
@@ -247,18 +268,128 @@ def test_oracle_approach(env_name, env_cls):
             args["num_test_tasks"] = 2
         utils.reset_config(args)
         env = env_cls(use_gui=False)
-        train_tasks = env.get_train_tasks()
-        approach = OracleApproach(env.predicates, env.options, env.types,
+        train_tasks = [t.task for t in env.get_train_tasks()]
+        test_tasks = [t.task for t in env.get_test_tasks()]
+        approach = OracleApproach(env.predicates,
+                                  get_gt_options(env.get_name()), env.types,
                                   env.action_space, train_tasks)
         assert not approach.is_learning_based
         for task in train_tasks:
             policy = approach.solve(task, timeout=500)
             assert _policy_solves_task(policy, task, env.simulate)
-        for task in env.get_test_tasks():
+        for task in test_tasks:
             policy = approach.solve(task, timeout=500)
             assert _policy_solves_task(policy, task, env.simulate)
     # Tests if OracleApproach can load _OracleOptionModel
     assert isinstance(approach.get_option_model(), _OracleOptionModel)
+
+
+def test_planning_without_sim():
+    """Tests the oracle approach in an environment with no simulator."""
+    # Test planning in a PDDL environment, which should succeed without
+    # simulation.
+    utils.reset_config({
+        "env": "pddl_blocks_procedural_tasks",
+        "num_train_tasks": 0,
+        "num_test_tasks": 2,
+        "bilevel_plan_without_sim": True,
+    })
+    simulate_path_str = \
+        f"{_PDDL_ENV_MODULE_PATH}.ProceduralTasksBlocksPDDLEnv.simulate"
+    with patch(simulate_path_str) as mock_simulate:
+        # Raise an error (and fail the test) if simulate is called.
+        mock_simulate.side_effect = AssertionError("Simulate called.")
+        env = ProceduralTasksBlocksPDDLEnv(use_gui=False)
+        train_tasks = [t.task for t in env.get_train_tasks()]
+        approach = OracleApproach(env.predicates,
+                                  get_gt_options(env.get_name()), env.types,
+                                  env.action_space, train_tasks)
+    # Test the policy outside of patch() because _policy_solves_task uses the
+    # simulator.
+    task = env.get_test_tasks()[0].task
+    policy = approach.solve(task, timeout=500)
+    assert _policy_solves_task(policy, task, env.simulate)
+    # Running the policy again should fail because the plan is empty.
+    with pytest.raises(ApproachFailure) as e:
+        _policy_solves_task(policy, task, env.simulate)
+    assert "Greedy option plan exhausted." in str(e)
+
+    # Cover case where unknown task planner is used.
+    utils.reset_config({
+        "env": "cover",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "bilevel_plan_without_sim": True,
+        "sesame_task_planner": "not-a-real-planner"
+    })
+    with pytest.raises(ValueError):
+        policy = approach.solve(task, timeout=500)
+
+    # Test timeout.
+    utils.reset_config({
+        "env": "pddl_blocks_procedural_tasks",
+        "num_train_tasks": 0,
+        "num_test_tasks": 2,
+        "bilevel_plan_without_sim": True,
+    })
+    with pytest.raises(ApproachTimeout) as e:
+        approach.solve(task, timeout=0)
+
+    # Test planning failure.
+    objects = set(task.init)
+    blocks = sorted(o for o in objects if o.type.name == "block")
+    block0, block1 = blocks[:2]
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+    on = pred_name_to_pred["on"]
+    impossible_goal = {on([block0, block1]), on([block1, block0])}
+    new_task = Task(task.init, impossible_goal)
+    with pytest.raises(ApproachFailure) as e:
+        approach.solve(new_task, timeout=500)
+
+    # Cover case where the option is not initiable.
+    utils.reset_config({
+        "env": "cover",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "bilevel_plan_without_sim": True,
+    })
+    env = CoverEnv(use_gui=False)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+
+    # Force options to be non-initiable.
+    options = get_gt_options(env.get_name())
+    approach = OracleApproach(env.predicates, options, env.types,
+                              env.action_space, train_tasks)
+
+    assert len(options) == 1
+    option = next(iter(options))
+    new_option = ParameterizedOption(option.name, option.types,
+                                     option.params_space, option.policy,
+                                     lambda _1, _2, _3, _4: False,
+                                     option.terminal)
+    nsrts = approach._nsrts  # pylint: disable=protected-access
+    new_nsrts = set()
+    for nsrt in nsrts:
+        new_nsrt = NSRT(
+            nsrt.name,
+            nsrt.parameters,
+            nsrt.preconditions,
+            nsrt.add_effects,
+            nsrt.delete_effects,
+            nsrt.ignore_effects,
+            new_option,
+            nsrt.option_vars,
+            nsrt._sampler,  # pylint: disable=protected-access
+        )
+        new_nsrts.add(new_nsrt)
+    approach._nsrts = new_nsrts  # pylint: disable=protected-access
+
+    task = env.get_test_tasks()[0]
+
+    policy = approach.solve(task, timeout=500)
+    with pytest.raises(ApproachFailure) as e:
+        policy(task.init)
+    assert "Greedy option not initiable." in str(e)
 
 
 def test_get_gt_nsrts():
@@ -276,7 +407,8 @@ def test_nsrt_parameters(env_name, env_cls):
         "num_test_tasks": 2
     })
     env = env_cls(use_gui=False)
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     for nsrt in nsrts:
         effects_vars: Set[Variable] = set()
         precond_vars: Set[Variable] = set()
@@ -306,12 +438,13 @@ def test_cover_get_gt_nsrts():
     })
     # All predicates and options
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     assert len(nsrts) == 2
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     assert pick_nsrt.name == "Pick"
     assert place_nsrt.name == "Place"
-    train_task = env.get_train_tasks()[0]
+    train_task = env.get_train_tasks()[0].task
     state = train_task.init
     block0, _, _, target0, _ = list(state)
     assert block0.name == "block0"
@@ -330,7 +463,8 @@ def test_cover_get_gt_nsrts():
     assert get_gt_nsrts(env.get_name(), env.predicates, set()) == set()
     # Excluded predicate
     predicates = {p for p in env.predicates if p.name != "Holding"}
-    nsrts = get_gt_nsrts(env.get_name(), predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), predicates,
+                         get_gt_options(env.get_name()))
     assert len(nsrts) == 2
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     for atom in pick_nsrt.preconditions:
@@ -361,7 +495,8 @@ def test_cluttered_table_get_gt_nsrts(place_version):
             "num_test_tasks": 2
         })
         env = ClutteredTablePlaceEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     assert len(nsrts) == 2
     if not place_version:
         dump_nsrt, grasp_nsrt = sorted(nsrts, key=lambda o: o.name)
@@ -371,7 +506,7 @@ def test_cluttered_table_get_gt_nsrts(place_version):
         grasp_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
         assert grasp_nsrt.name == "Grasp"
         assert place_nsrt.name == "Place"
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     for (i, task) in enumerate(train_tasks):
         if i < len(train_tasks) / 2:
             utils.reset_config(
@@ -446,7 +581,8 @@ def test_repeated_nextto_painting_get_gt_nsrts():
     robby = [obj for obj in list(init) if obj.name == "robby"][0]
     rng = np.random.default_rng(123)
     # Test PlaceOnTable
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     ptables = [nsrt for nsrt in nsrts if nsrt.name.startswith("PlaceOnTable")]
     assert len(ptables) == 1
     ptable = ptables[0]
@@ -473,10 +609,11 @@ def test_playroom_simple_get_gt_nsrts():
     })
     env = PlayroomSimpleEnv()
     # Test MoveTableToDial for coverage.
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     movetabletodial = [nsrt for nsrt in nsrts \
                        if nsrt.name == "MoveTableToDial"][0]
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     train_task = train_tasks[0]
     state = train_task.init
     objs = list(state)
@@ -502,10 +639,11 @@ def test_playroom_get_gt_nsrts():
     })
     env = PlayroomEnv()
     # Test MoveDialToDoor for coverage.
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     movedialtodoor = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDialToDoor"][0]
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     train_task = train_tasks[0]
     state = train_task.init
     objs = list(state)

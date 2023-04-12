@@ -1,5 +1,4 @@
 """Test cases for the sandwich env."""
-
 import json
 import tempfile
 from pathlib import Path
@@ -12,6 +11,7 @@ import predicators.llm_interface
 from predicators import utils
 from predicators.envs import create_new_env
 from predicators.envs.sandwich import SandwichEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, GroundAtom
 
 _LLM_MODULE_PATH = predicators.llm_interface.__name__
@@ -50,8 +50,8 @@ def test_sandwich_properties():
         IsBread, IsPatty, IsCheese, IsEgg, IsGreenPepper, IsHam, IsLettuce,
         IsTomato, On, OnBoard
     }
-    assert len(env.options) == 3
-    Pick, PutOnBoard, Stack = sorted(env.options)
+    assert len(get_gt_options(env.get_name())) == 3
+    Pick, PutOnBoard, Stack = sorted(get_gt_options(env.get_name()))
     assert Pick.name == "Pick"
     assert PutOnBoard.name == "PutOnBoard"
     assert Stack.name == "Stack"
@@ -75,7 +75,7 @@ def test_sandwich_options(env_name):
     env = create_new_env(env_name)
     BoardClear, Clear, GripperOpen, _, InHolder, _, _, _, _, _, _, _, _, On, \
         OnBoard = sorted(env.predicates)
-    Pick, PutOnBoard, Stack = sorted(env.options)
+    Pick, PutOnBoard, Stack = sorted(get_gt_options(env.get_name()))
     board_type, holder_type, _, robot_type = sorted(env.types)
 
     task = env.get_train_tasks()[0]
@@ -202,7 +202,7 @@ def test_sandwich_options(env_name):
     assert state.allclose(next_state)
 
     # Rendering with caption.
-    env.render(state, caption="Test caption")
+    env.render_state(state, task, caption="Test caption")
 
 
 def test_sandwich_load_task_from_json():
@@ -380,7 +380,7 @@ def test_sandwich_load_task_from_json():
         })
 
         env = SandwichEnv()
-        test_tasks = env.get_test_tasks()
+        test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]
@@ -414,7 +414,7 @@ def test_sandwich_load_task_from_json():
 {"On": [["bread1", "cheese0"], ["cheese0", "bread0"]],
  "OnBoard": [["bread0", "board"]]}"""
             ]
-            test_tasks = env.get_test_tasks()
+            test_tasks = [t.task for t in env.get_test_tasks()]
 
     assert len(test_tasks) == 1
     task = test_tasks[0]

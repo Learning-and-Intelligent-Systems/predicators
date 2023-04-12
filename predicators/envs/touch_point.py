@@ -1,7 +1,7 @@
 """Toy environment for testing option learning."""
 
 import logging
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set
+from typing import Callable, ClassVar, List, Optional, Sequence, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,8 +11,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class TouchPointEnv(BaseEnv):
@@ -43,14 +43,6 @@ class TouchPointEnv(BaseEnv):
         self._Touched = Predicate("Touched",
                                   [self._robot_type, self._target_type],
                                   self._Touched_holds)
-        # Options
-        self._MoveTo = ParameterizedOption(
-            "MoveTo",
-            types=[self._robot_type, self._target_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._MoveTo_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._MoveTo_terminal)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._target = Object("target", self._target_type)
@@ -73,10 +65,10 @@ class TouchPointEnv(BaseEnv):
         next_state.set(self._robot, "y", new_y)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -92,10 +84,6 @@ class TouchPointEnv(BaseEnv):
         return {self._robot_type, self._target_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._MoveTo}
-
-    @property
     def action_space(self) -> Box:
         # An angle in radians.
         return Box(-np.pi, np.pi, (1, ))
@@ -103,7 +91,7 @@ class TouchPointEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -127,14 +115,15 @@ class TouchPointEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         # There is only one goal in this environment.
         goal_atom = GroundAtom(self._Touched, [self._robot, self._target])
         goal = {goal_atom}
         # The initial positions of the robot and dot vary. The only constraint
         # is that the initial positions should be far enough away that the goal
         # is not initially satisfied.
-        tasks: List[Task] = []
+        tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             state = utils.create_state_from_dict({
                 self._robot: {
@@ -148,28 +137,8 @@ class TouchPointEnv(BaseEnv):
             })
             # Make sure goal is not satisfied.
             if not goal_atom.holds(state):
-                tasks.append(Task(state, goal))
+                tasks.append(EnvironmentTask(state, goal))
         return tasks
-
-    @staticmethod
-    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> Action:
-        # Move in the direction of the target.
-        del memory, params  # unused
-        robot, target = objects
-        rx = state.get(robot, "x")
-        ry = state.get(robot, "y")
-        tx = state.get(target, "x")
-        ty = state.get(target, "y")
-        dx = tx - rx
-        dy = ty - ry
-        rot = np.arctan2(dy, dx)  # between -pi and pi
-        return Action(np.array([rot], dtype=np.float32))
-
-    def _MoveTo_terminal(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        return self._Touched_holds(state, objects)
 
     def _Touched_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, target = objects
@@ -205,19 +174,6 @@ class TouchPointEnvParam(TouchPointEnv):
 
     action_limits: ClassVar[List[float]] = [-2.0, 2.0]
 
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        # Override option.
-        self._MoveTo = ParameterizedOption(
-            "MoveTo",
-            types=[self._robot_type, self._target_type],
-            params_space=Box(self.action_limits[0], self.action_limits[1],
-                             (2, )),
-            policy=self._MoveTo_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._MoveTo_terminal)
-
     @classmethod
     def get_name(cls) -> str:
         return "touch_point_param"
@@ -243,11 +199,6 @@ class TouchPointEnvParam(TouchPointEnv):
         next_state.set(self._robot, "y", new_y)
         return next_state
 
-    @staticmethod
-    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> Action:
-        return Action(params)
-
 
 class TouchOpenEnv(TouchPointEnvParam):
     """TouchPointEnvParam but where the target is a door from DoorsEnv that
@@ -269,26 +220,6 @@ class TouchOpenEnv(TouchPointEnvParam):
                                        self._TouchingDoor_holds)
         self._DoorIsOpen = Predicate("DoorIsOpen", [self._door_type],
                                      self._DoorIsOpen_holds)
-        # Add options.
-        # Note that the parameter spaces are designed to match what would be
-        # learned by the neural option learners, in that they correspond to
-        # only the dimensions that change when the option is run.
-        del self._MoveTo
-        self._MoveToDoor = ParameterizedOption(
-            "MoveToDoor",
-            types=[self._robot_type, self._door_type],
-            params_space=Box(self.action_limits[0], self.action_limits[1],
-                             (2, )),
-            policy=self._MoveToDoor_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._MoveToDoor_terminal)
-        self._OpenDoor = ParameterizedOption(
-            "OpenDoor",
-            types=[self._door_type, self._robot_type],
-            params_space=Box(-np.inf, np.inf, (2, )),
-            policy=self._OpenDoor_policy,
-            initiable=self._OpenDoor_initiable,
-            terminal=self._OpenDoor_terminal)
         # Add static object.
         self._door = Object("door", self._door_type)
 
@@ -348,14 +279,10 @@ class TouchOpenEnv(TouchPointEnvParam):
     def types(self) -> Set[Type]:
         return {self._robot_type, self._door_type}
 
-    @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._MoveToDoor, self._OpenDoor}
-
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -386,14 +313,15 @@ class TouchOpenEnv(TouchPointEnvParam):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         goal_atom1 = GroundAtom(self._TouchingDoor, [self._robot, self._door])
         goal_atom2 = GroundAtom(self._DoorIsOpen, [self._door])
         goal1 = {goal_atom1, goal_atom2}
         # The initial positions of the robot and door vary. The only constraint
         # is that the initial positions should be far enough away that the goal
         # is not initially satisfied.
-        tasks: List[Task] = []
+        tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             flex = rng.uniform(0.0, 1.0)
             rot = rng.uniform(0.0, 1.0)
@@ -414,40 +342,8 @@ class TouchOpenEnv(TouchPointEnvParam):
             })
             # Make sure the goal is not satisfied.
             if not goal_atom1.holds(state) and not goal_atom2.holds(state):
-                tasks.append(Task(state, goal1))
+                tasks.append(EnvironmentTask(state, goal1))
         return tasks
-
-    @staticmethod
-    def _MoveToDoor_policy(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        dx, dy = params
-        return Action(np.array([dx, dy, 0.0], dtype=np.float32))
-
-    def _MoveToDoor_terminal(self, state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        return self._TouchingDoor_holds(state, objects)
-
-    def _OpenDoor_initiable(self, state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        # You can only open the door if touching it.
-        door, robot = objects
-        return self._TouchingDoor_holds(state, [robot, door])
-
-    @staticmethod
-    def _OpenDoor_policy(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> Action:
-        del state, memory, objects  # unused
-        delta_rot, _ = params
-        return Action(np.array([0.0, 0.0, delta_rot], dtype=np.float32))
-
-    def _OpenDoor_terminal(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        door, _ = objects
-        return self._DoorIsOpen_holds(state, [door])
 
     def _TouchingDoor_holds(self, state: State,
                             objects: Sequence[Object]) -> bool:

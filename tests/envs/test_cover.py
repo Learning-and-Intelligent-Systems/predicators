@@ -1,5 +1,4 @@
 """Test cases for the cover environment."""
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -9,7 +8,8 @@ from predicators import utils
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
     CoverMultistepOptions
-from predicators.structs import Action, Task
+from predicators.ground_truth_models import get_gt_options
+from predicators.structs import Action, EnvironmentTask
 
 
 @pytest.mark.parametrize("env_name", ["cover", "cover_handempty"])
@@ -34,7 +34,7 @@ def test_cover(env_name):
     # Goal predicates should be {Covers}.
     assert {pred.name for pred in env.goal_predicates} == {"Covers"}
     # Options should be {PickPlace}.
-    assert len(env.options) == 1
+    assert len(get_gt_options(env.get_name())) == 1
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 1-dimensional.
@@ -43,7 +43,7 @@ def test_cover(env_name):
     task = env.get_test_tasks()[2]
     assert len(task.goal) == 2  # harder goal
     state = task.init
-    option = next(iter(env.options))
+    option = next(iter(get_gt_options(env.get_name())))
     block0 = [b for b in state if b.name == "block0"][0]
     block1 = [b for b in state if b.name == "block1"][0]
     target0 = [b for b in state if b.name == "target0"][0]
@@ -91,7 +91,7 @@ def test_cover(env_name):
     assert not expected_lengths
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a noop.
-    option = next(iter(env.options)).ground([], [0])
+    option = next(iter(get_gt_options(env.get_name()))).ground([], [0])
     assert option.initiable(task.init)
     traj = utils.run_policy_with_simulator(option.policy,
                                            env.simulate,
@@ -136,7 +136,7 @@ def test_cover_typed_options():
     # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding}.
     assert len(env.predicates) == 5
     # Options should be {Pick, Place}.
-    assert len(env.options) == 2
+    assert len(get_gt_options(env.get_name())) == 2
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 1-dimensional.
@@ -145,8 +145,12 @@ def test_cover_typed_options():
     task = env.get_test_tasks()[2]
     assert len(task.goal) == 2  # harder goal
     state = task.init
-    pick_option = [o for o in env.options if o.name == "Pick"][0]
-    place_option = [o for o in env.options if o.name == "Place"][0]
+    pick_option = [
+        o for o in get_gt_options(env.get_name()) if o.name == "Pick"
+    ][0]
+    place_option = [
+        o for o in get_gt_options(env.get_name()) if o.name == "Place"
+    ][0]
     block0 = [b for b in state if b.name == "block0"][0]
     block1 = [b for b in state if b.name == "block1"][0]
     target0 = [b for b in state if b.name == "target0"][0]
@@ -213,7 +217,7 @@ def test_cover_regrasp():
     # Predicates should be same as CoverEnv, plus Clear.
     assert len(env.predicates) == 6
     # Options should be {PickPlace}.
-    assert len(env.options) == 1
+    assert len(get_gt_options(env.get_name())) == 1
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 1-dimensional.
@@ -248,7 +252,7 @@ def test_cover_multistep_options():
     # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding}.
     assert len(env.predicates) == 5
     # Options should be {Pick, Place}.
-    assert len(env.options) == 2
+    assert len(get_gt_options(env.get_name())) == 2
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 3-dimensional.
@@ -274,7 +278,7 @@ def test_cover_multistep_options():
         [0.17778981 - 0.05 / 2, 0.17778981 + 0.05 / 2])
     state.data[target1_hr] = np.array(
         [0.63629464 - 0.03 / 2, 0.63629464 + 0.03 / 2])
-    task = Task(state, task.goal)
+    task = EnvironmentTask(state, task.goal)
     action_arrs = [
         # Move to above block0
         np.array([0.05, 0., 0.], dtype=np.float32),

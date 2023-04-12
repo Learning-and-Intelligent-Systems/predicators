@@ -6,17 +6,14 @@ navigate between objects in order to pick or place them. Also, the move
 option can turn on any number of NextTo predicates.
 """
 
-from typing import Dict, List, Optional, Sequence, Set
+from typing import List, Optional, Sequence, Set
 
 import matplotlib
-import numpy as np
-from gym.spaces import Box
 
-from predicators import utils
 from predicators.envs.painting import PaintingEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    Predicate, State, Task
+from predicators.structs import Action, EnvironmentTask, Object, Predicate, \
+    State
 
 
 class RepeatedNextToPaintingEnv(PaintingEnv):
@@ -36,22 +33,6 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                                       self._NextTo_holds)
         self._NextToTable = Predicate("NextToTable", [self._robot_type],
                                       self._NextToTable_holds)
-        # Additional Options
-        self._MoveToObj = utils.SingletonParameterizedOption(
-            "MoveToObj",
-            self._Move_policy,
-            types=[self._robot_type, self._obj_type],
-            params_space=Box(self.env_lb, self.env_ub, (1, )))
-        self._MoveToBox = utils.SingletonParameterizedOption(
-            "MoveToBox",
-            self._Move_policy,
-            types=[self._robot_type, self._box_type],
-            params_space=Box(self.env_lb, self.env_ub, (1, )))
-        self._MoveToShelf = utils.SingletonParameterizedOption(
-            "MoveToShelf",
-            self._Move_policy,
-            types=[self._robot_type, self._shelf_type],
-            params_space=Box(self.env_lb, self.env_ub, (1, )))
 
     @classmethod
     def get_name(cls) -> str:
@@ -69,7 +50,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                                     action: Action) -> State:
         x, y, z, _ = action.arr[:4]
         next_state = super()._transition_pick_or_openlid(state, action)
-        target_obj = self._get_object_at_xyz(state, x, y, z)
+        target_obj = self._get_object_at_xyz(state, x, y, z, self.pick_tol)
         # In this environment, we disallow picking an object if the robot
         # is not currently next to it. To implement this, whenever the
         # parent class's pick is successful, we check the NextTo constraint,
@@ -113,12 +94,6 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return super().options | {
-            self._MoveToObj, self._MoveToBox, self._MoveToShelf
-        }
-
-    @property
     def _num_objects_train(self) -> List[int]:
         return CFG.rnt_painting_num_objs_train
 
@@ -137,7 +112,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         # List of NextTo objects to render
@@ -155,17 +130,6 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         assert caption is None
         return super().render_state_plt(state, task, caption="NextTo: " + \
             str(nextto_objs))
-
-    @staticmethod
-    def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> Action:
-        del memory  # unused
-        _, obj = objects
-        next_x = state.get(obj, "pose_x")
-        next_y = params[0]
-        return Action(
-            np.array([next_x, next_y, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                     dtype=np.float32))
 
     def _NextTo_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, obj = objects

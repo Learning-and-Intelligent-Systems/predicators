@@ -10,8 +10,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class ScrewsEnv(BaseEnv):
@@ -23,12 +23,13 @@ class ScrewsEnv(BaseEnv):
     irrelevant screws that might be picked up when picking a desired
     screw.
     """
+    # Certain parameters made public for use in the oracle options.
     gripper_width: ClassVar[float] = 0.5
     _receptacle_width: ClassVar[float] = 0.6
     _receptacle_height: ClassVar[float] = 0.2
     _screw_width: ClassVar[float] = 0.05
-    _screw_height: ClassVar[float] = 0.05
-    _magnetic_field_dist: ClassVar[float] = 0.5
+    screw_height: ClassVar[float] = 0.05
+    magnetic_field_dist: ClassVar[float] = 0.5
     _num_screw_clusters: ClassVar[int] = 3
     # Reachable zone boundaries.
     rz_x_lb = -5.0
@@ -62,44 +63,16 @@ class ScrewsEnv(BaseEnv):
             "ScrewInReceptacle", [self._screw_type, self._receptacle_type],
             self._ScrewInReceptacle_holds)
 
-        # Options.
-        self._MoveToScrew = utils.SingletonParameterizedOption(
-            # variables: [robot, screw to pick up].
-            # params: [].
-            "MoveToScrew",
-            self._MoveToScrew_policy,
-            types=[self._gripper_type, self._screw_type])
-        self._MoveToReceptacle = utils.SingletonParameterizedOption(
-            # variables: [robot, receptacle].
-            # params: [].
-            "MoveToReceptacle",
-            self._MoveToReceptacle_policy,
-            types=[
-                self._gripper_type, self._receptacle_type, self._screw_type
-            ])
-        self._MagnetizeGripper = utils.SingletonParameterizedOption(
-            # variables: [robot].
-            # params: [].
-            "MagnetizeGripper",
-            self._MagnetizeGripper_policy,
-            types=[self._gripper_type])
-        self._DemagnetizeGripper = utils.SingletonParameterizedOption(
-            # variables: [robot].
-            # params: [].
-            "DemagnetizeGripper",
-            self._DemagnetizeGripper_policy,
-            types=[self._gripper_type])
-
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._gripper_type)
         self._receptacle = Object("receptacle", self._receptacle_type)
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                possible_num_screws=self.num_screws_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_screws=self.num_screws_test,
                                rng=self._test_rng)
@@ -111,7 +84,7 @@ class ScrewsEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
@@ -160,9 +133,9 @@ class ScrewsEnv(BaseEnv):
             else:
                 color = "grey"
             rect = plt.Rectangle((screw_x - self._screw_width / 2.0,
-                                  screw_y - self._screw_height / 2.0),
+                                  screw_y - self.screw_height / 2.0),
                                  self._screw_width,
-                                 self._screw_height,
+                                 self.screw_height,
                                  edgecolor=color,
                                  facecolor=color)
             ax.add_patch(rect)
@@ -185,13 +158,6 @@ class ScrewsEnv(BaseEnv):
         return {self._screw_type, self._gripper_type, self._receptacle_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._MoveToScrew, self._MoveToReceptacle, self._MagnetizeGripper,
-            self._DemagnetizeGripper
-        }
-
-    @property
     def action_space(self) -> Box:
         # dimensions: [dx, dy, magnetized vs. unmagnetized].
         lowers = np.array([-self._rz_width, -self._rz_height, 0.0],
@@ -209,7 +175,7 @@ class ScrewsEnv(BaseEnv):
         return self._transition_demagnetize(state_after_move)
 
     def _get_tasks(self, num_tasks: int, possible_num_screws: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
 
         for _ in range(num_tasks):
@@ -227,7 +193,7 @@ class ScrewsEnv(BaseEnv):
                     # Sample a random initial position for the screw
                     # such that it is on the ground, and near one of the
                     # screw clusters.
-                    y_pos = self.rz_y_lb + self._screw_height / 2.0
+                    y_pos = self.rz_y_lb + self.screw_height / 2.0
                     screw_cluster_xcenter = rng.choice(screw_cluster_xcenters)
                     x_pos = rng.normal(screw_cluster_xcenter)
                     # if this position doesn't make this screw in collision
@@ -240,7 +206,7 @@ class ScrewsEnv(BaseEnv):
 
     def _get_single_task(self, screw_name_to_pos: Dict[str, Tuple[float,
                                                                   float]],
-                         rng: np.random.Generator) -> Task:
+                         rng: np.random.Generator) -> EnvironmentTask:
         state_dict = {}
         goal_atoms: Set[GroundAtom] = set()
         # Select a random screw that needs to be in the receptacle as the goal
@@ -279,7 +245,7 @@ class ScrewsEnv(BaseEnv):
 
         init_state = utils.create_state_from_dict(state_dict)
         assert len(goal_atoms) == 1
-        task = Task(init_state, goal_atoms)
+        task = EnvironmentTask(init_state, goal_atoms)
         return task
 
     def _surface_xy_is_valid(self, x: float, y: float,
@@ -287,10 +253,10 @@ class ScrewsEnv(BaseEnv):
         # First, check that there isn't another screw at this location.
         for (existing_x, existing_y) in existing_xys:
             if (abs(existing_x - x) < self._screw_width
-                    and abs(existing_y - y) < self._screw_height):
+                    and abs(existing_y - y) < self.screw_height):
                 return False
         # Next, check that the location is valid.
-        y_is_valid = (y == self.rz_y_lb + self._screw_height / 2.0)
+        y_is_valid = (y == self.rz_y_lb + self.screw_height / 2.0)
         x_is_valid = (self.rz_x_lb + self._screw_width / 2.0) <= x <= (
             self.rz_x_ub - (self._receptacle_width + self._screw_width / 2.0))
         return x_is_valid and y_is_valid
@@ -345,7 +311,7 @@ class ScrewsEnv(BaseEnv):
                 if self._GripperCanPickScrew_holds(state,
                                                    [self._robot, screw]):
                     next_state.set(screw, "pose_y",
-                                   ry - (self._screw_height / 2.0))
+                                   ry - (self.screw_height / 2.0))
                     next_state.set(screw, "held", 1.0)
 
         return next_state
@@ -359,10 +325,10 @@ class ScrewsEnv(BaseEnv):
                         state, [self._robot, self._receptacle]):
                     receptacle_y = state.get(self._receptacle, "pose_y")
                     next_state.set(screw, "pose_y",
-                                   receptacle_y + (self._screw_height / 2.0))
+                                   receptacle_y + (self.screw_height / 2.0))
                 else:
                     next_state.set(screw, "pose_y",
-                                   self.rz_y_lb + (self._screw_height / 2.0))
+                                   self.rz_y_lb + (self.screw_height / 2.0))
                 next_state.set(screw, "held", 0.0)
 
         return next_state
@@ -372,7 +338,7 @@ class ScrewsEnv(BaseEnv):
         gripper, screw = objects
         gripper_y = state.get(gripper, "pose_y")
         screw_y = state.get(screw, "pose_y")
-        screw_max_y = screw_y + self._screw_height / 2.0
+        screw_max_y = screw_y + self.screw_height / 2.0
 
         gripper_center_pose = state.get(gripper, "pose_x")
         gripper_min_x = gripper_center_pose - self.gripper_width / 2.0
@@ -382,7 +348,7 @@ class ScrewsEnv(BaseEnv):
         screw_max_x = screw_x + (self._screw_width / 2.0)
 
         return screw_max_y <= gripper_y and \
-            gripper_y - screw_max_y < self._magnetic_field_dist and \
+            gripper_y - screw_max_y < self.magnetic_field_dist and \
             gripper_min_x < screw_max_x < gripper_max_x and \
             gripper_min_x < screw_min_x < gripper_max_x
 
@@ -422,62 +388,3 @@ class ScrewsEnv(BaseEnv):
         screw_held = state.get(screw, "held")
         return screw_held <= 0.5 and screw_min_x > receptacle_min_x \
             and screw_max_x < receptacle_max_x
-
-    def _MoveToScrew_policy(self, state: State, memory: Dict,
-                            objects: Sequence[Object],
-                            params: Array) -> Action:
-        """Policy to return an action that moves to a position above a
-        particular screw such that the screw can be grasped."""
-        del memory, params  # unused.
-        _, screw = objects
-        screw_x = state.get(screw, "pose_x")
-        screw_y = state.get(screw, "pose_y")
-
-        target_x = screw_x
-        target_y = screw_y + (self._screw_height /
-                              2.0) + (self._magnetic_field_dist / 2.0)
-
-        current_x = state.get(self._robot, "pose_x")
-        current_y = state.get(self._robot, "pose_y")
-
-        return Action(
-            np.array([target_x - current_x, target_y - current_y, 0.0],
-                     dtype=np.float32))
-
-    def _MoveToReceptacle_policy(self, state: State, memory: Dict,
-                                 objects: Sequence[Object],
-                                 params: Array) -> Action:
-        """Policy to return an action that moves to a position above the
-        receptacle."""
-        del memory, params  # unused.
-        _, receptacle, _ = objects
-        receptacle_x = state.get(receptacle, "pose_x")
-        receptacle_y = state.get(receptacle, "pose_y")
-
-        target_x = receptacle_x
-        target_y = receptacle_y + (self._magnetic_field_dist)
-
-        current_x = state.get(self._robot, "pose_x")
-        current_y = state.get(self._robot, "pose_y")
-
-        return Action(
-            np.array([target_x - current_x, target_y - current_y, 1.0],
-                     dtype=np.float32))
-
-    @staticmethod
-    def _MagnetizeGripper_policy(state: State, memory: Dict,
-                                 objects: Sequence[Object],
-                                 params: Array) -> Action:
-        """Policy to return an action that magnetizes the gripper at its
-        current position."""
-        del state, memory, objects, params  # unused.
-        return Action(np.array([0.0, 0.0, 1.0], dtype=np.float32))
-
-    @staticmethod
-    def _DemagnetizeGripper_policy(state: State, memory: Dict,
-                                   objects: Sequence[Object],
-                                   params: Array) -> Action:
-        """Policy to return an action that demagnetizes the gripper at its
-        current position."""
-        del state, memory, objects, params  # unused.
-        return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))

@@ -1,8 +1,7 @@
 """An environment where a robot must press buttons with its hand or a stick."""
 
 import logging
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
-    Tuple
+from typing import Callable, ClassVar, List, Optional, Sequence, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -12,8 +11,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 from predicators.utils import _Geom2D
 
 
@@ -46,29 +45,30 @@ class StickButtonEnv(BaseEnv):
     stick_init_ub: ClassVar[float] = 1.6  # start low in the reachable zone
     pick_grasp_tol: ClassVar[float] = 1e-3
 
+    # Types
+    # The (x, y) is the center of the robot. Theta is only relevant when
+    # the robot is holding the stick.
+    _robot_type = Type("robot", ["x", "y", "theta"])
+    # The (x, y) is the center of the button.
+    _button_type = Type("button", ["x", "y", "pressed"])
+    # The (x, y) is the bottom left-hand corner of the stick, and theta
+    # is CCW angle in radians, consistent with utils.Rectangle.
+    _stick_type = Type("stick", ["x", "y", "theta", "held"])
+    # Holds the stick up so that it can be grasped by the robot.
+    _holder_type = Type("holder", ["x", "y", "theta"])
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        # The (x, y) is the center of the robot. Theta is only relevant when
-        # the robot is holding the stick.
-        self._robot_type = Type("robot", ["x", "y", "theta"])
-        # The (x, y) is the center of the button.
-        self._button_type = Type("button", ["x", "y", "pressed"])
-        # The (x, y) is the bottom left-hand corner of the stick, and theta
-        # is CCW angle in radians, consistent with utils.Rectangle.
-        self._stick_type = Type("stick", ["x", "y", "theta", "held"])
-        # Holds the stick up so that it can be grasped by the robot.
-        self._holder_type = Type("holder", ["x", "y", "theta"])
         # Predicates
         self._Pressed = Predicate("Pressed", [self._button_type],
                                   self._Pressed_holds)
         self._StickAboveButton = Predicate(
             "StickAboveButton", [self._stick_type, self._button_type],
-            self._Above_holds)
+            self.Above_holds)
         self._RobotAboveButton = Predicate(
             "RobotAboveButton", [self._robot_type, self._button_type],
-            self._Above_holds)
+            self.Above_holds)
         self._Grasped = Predicate("Grasped",
                                   [self._robot_type, self._stick_type],
                                   self._Grasped_holds)
@@ -76,45 +76,20 @@ class StickButtonEnv(BaseEnv):
                                     self._HandEmpty_holds)
         self._AboveNoButton = Predicate("AboveNoButton", [],
                                         self._AboveNoButton_holds)
-        # Options
-        self._RobotPressButton = ParameterizedOption(
-            "RobotPressButton",
-            types=[self._robot_type, self._button_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._RobotPressButton_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._RobotPressButton_terminal,
-        )
-
-        self._PickStick = ParameterizedOption(
-            "PickStick",
-            types=[self._robot_type, self._stick_type],
-            params_space=Box(0, 1, (1, )),  # normalized w.r.t. stick width
-            policy=self._PickStick_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._PickStick_terminal,
-        )
-
-        self._StickPressButton = ParameterizedOption(
-            "StickPressButton",
-            types=[self._robot_type, self._stick_type, self._button_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._StickPressButton_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._StickPressButton_terminal,
-        )
-
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._stick = Object("stick", self._stick_type)
         self._holder = Object("holder", self._holder_type)
 
         assert 0 < CFG.stick_button_holder_scale < 1
-        self._holder_width = self.stick_width * CFG.stick_button_holder_scale
 
     @classmethod
     def get_name(cls) -> str:
         return "stick_button"
+
+    @classmethod
+    def _get_holder_width(cls) -> float:
+        return cls.stick_width * CFG.stick_button_holder_scale
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -142,11 +117,11 @@ class StickButtonEnv(BaseEnv):
         next_state.set(self._robot, "x", new_rx)
         next_state.set(self._robot, "y", new_ry)
         next_state.set(self._robot, "theta", new_rtheta)
-        robot_circ = self._object_to_geom(self._robot, next_state)
+        robot_circ = self.object_to_geom(self._robot, next_state)
 
         # Check if the stick is held. If so, we need to move and rotate it.
         stick_held = state.get(self._stick, "held") > 0.5
-        stick_rect = self._object_to_geom(self._stick, state)
+        stick_rect = self.object_to_geom(self._stick, state)
         assert isinstance(stick_rect, utils.Rectangle)
         if stick_held:
             if not CFG.stick_button_disable_angles:
@@ -161,6 +136,12 @@ class StickButtonEnv(BaseEnv):
             next_state.set(self._stick, "theta", stick_rect.theta)
 
         if press > 0:
+            # Check for placing the stick.
+            holder_rect = self.object_to_geom(self._holder, state)
+            if stick_held and stick_rect.intersects(holder_rect):
+                # Place the stick back on the holder.
+                next_state.set(self._stick, "held", 0.0)
+
             # Check if the stick is now held for the first time.
             if not stick_held and stick_rect.intersects(robot_circ):
                 # Check for a collision with the stick holder. The reason that
@@ -169,7 +150,6 @@ class StickButtonEnv(BaseEnv):
                 # direction to pick up the stick, at which button it may
                 # collide with the stick holder. On other timesteps, the robot
                 # would be high enough above the holder to avoid collisions.
-                holder_rect = self._object_to_geom(self._holder, state)
                 if robot_circ.intersects(holder_rect):
                     # No-op in case of collision.
                     return state.copy()
@@ -177,22 +157,22 @@ class StickButtonEnv(BaseEnv):
                 next_state.set(self._stick, "held", 1.0)
 
             # Check if any button is now pressed.
-            tip_rect = self._stick_rect_to_tip_rect(stick_rect)
+            tip_rect = self.stick_rect_to_tip_rect(stick_rect)
             for button in state.get_objects(self._button_type):
-                circ = self._object_to_geom(button, state)
+                circ = self.object_to_geom(button, state)
                 if (circ.intersects(tip_rect) and stick_held) or \
                    (circ.intersects(robot_circ) and not stick_held):
                     next_state.set(button, "pressed", 1.0)
 
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num=CFG.num_train_tasks,
             num_button_lst=CFG.stick_button_num_buttons_train,
             rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num=CFG.num_test_tasks,
             num_button_lst=CFG.stick_button_num_buttons_test,
@@ -217,12 +197,6 @@ class StickButtonEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._RobotPressButton, self._PickStick, self._StickPressButton
-        }
-
-    @property
     def action_space(self) -> Box:
         # Normalized dx, dy, dtheta, press.
         return Box(low=-1., high=1., shape=(4, ), dtype=np.float32)
@@ -230,7 +204,7 @@ class StickButtonEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
@@ -246,28 +220,24 @@ class StickButtonEnv(BaseEnv):
         # Draw the buttons.
         for button in state.get_objects(self._button_type):
             color = "blue" if state.get(button, "pressed") > 0.5 else "yellow"
-            circ = self._object_to_geom(button, state)
+            circ = self.object_to_geom(button, state)
             circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75)
         # Draw the holder.
         holder, = state.get_objects(self._holder_type)
-        rect = self._object_to_geom(holder, state)
+        rect = self.object_to_geom(holder, state)
         assert isinstance(rect, utils.Rectangle)
         rect.plot(ax, color="gray")
         # Draw the stick.
         stick, = state.get_objects(self._stick_type)
-        rect = self._object_to_geom(stick, state)
+        rect = self.object_to_geom(stick, state)
         assert isinstance(rect, utils.Rectangle)
         color = "black" if state.get(stick, "held") > 0.5 else "white"
         rect.plot(ax, facecolor="firebrick", edgecolor=color)
-        rect = self._stick_rect_to_tip_rect(rect)
+        rect = self.stick_rect_to_tip_rect(rect)
         rect.plot(ax, facecolor="saddlebrown", edgecolor=color)
-        # Uncomment for debugging.
-        # tx, ty = self._get_stick_grasp_loc(state, stick, np.array([0.1]))
-        # circ = utils.Circle(tx, ty, radius=0.025)
-        # circ.plot(ax, color="black")
         # Draw the robot.
         robot, = state.get_objects(self._robot_type)
-        circ = self._object_to_geom(robot, state)
+        circ = self.object_to_geom(robot, state)
         assert isinstance(circ, utils.Circle)
         circ.plot(ax, facecolor="red", edgecolor="black")
         # Show the direction that the robot is facing.
@@ -287,7 +257,7 @@ class StickButtonEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num: int, num_button_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         for _ in range(num):
             state_dict = {}
@@ -362,7 +332,7 @@ class StickButtonEnv(BaseEnv):
             necessary_reach = max_button_y - self.rz_y_ub
             while True:
                 # Allow the stick to start in the middle of the holder.
-                x_offset = rng.uniform(-self._holder_width,
+                x_offset = rng.uniform(-self._get_holder_width(),
                                        self.stick_width / 2)
                 # Check solvability.
                 # Case 0: If all buttons are within reach, we're all set.
@@ -373,7 +343,7 @@ class StickButtonEnv(BaseEnv):
                     break
                 # Case 2: we can grasp the stick above the holder, but we can
                 # still reach the highest button.
-                min_rel_grasp = x_offset + self._holder_width
+                min_rel_grasp = x_offset + self._get_holder_width()
                 grasp_to_top = self.stick_width - min_rel_grasp
                 if grasp_to_top > necessary_reach:
                     break
@@ -386,7 +356,7 @@ class StickButtonEnv(BaseEnv):
             holder_rect = utils.Rectangle(
                 x=x + x_offset,
                 y=(y - height_diff / 2),
-                width=self._holder_width,
+                width=self._get_holder_width(),
                 height=self.holder_height,
                 theta=0,
             )
@@ -397,161 +367,58 @@ class StickButtonEnv(BaseEnv):
                 "theta": holder_rect.theta,
             }
             init_state = utils.create_state_from_dict(state_dict)
-            task = Task(init_state, goal)
+            task = EnvironmentTask(init_state, goal)
             tasks.append(task)
         return tasks
 
-    def _object_to_geom(self, obj: Object, state: State) -> _Geom2D:
+    @classmethod
+    def object_to_geom(cls, obj: Object, state: State) -> _Geom2D:
+        """Public for use by oracle options."""
         x = state.get(obj, "x")
         y = state.get(obj, "y")
-        if obj.is_instance(self._robot_type):
-            return utils.Circle(x, y, self.robot_radius)
-        if obj.is_instance(self._button_type):
-            return utils.Circle(x, y, self.button_radius)
-        if obj.is_instance(self._holder_type):
+        if obj.is_instance(cls._robot_type):
+            return utils.Circle(x, y, cls.robot_radius)
+        if obj.is_instance(cls._button_type):
+            return utils.Circle(x, y, cls.button_radius)
+        if obj.is_instance(cls._holder_type):
             theta = state.get(obj, "theta")
             return utils.Rectangle(x=x,
                                    y=y,
-                                   width=self._holder_width,
-                                   height=self.holder_height,
+                                   width=cls._get_holder_width(),
+                                   height=cls.holder_height,
                                    theta=theta)
-        assert obj.is_instance(self._stick_type)
+        assert obj.is_instance(cls._stick_type)
         theta = state.get(obj, "theta")
         return utils.Rectangle(x=x,
                                y=y,
-                               width=self.stick_width,
-                               height=self.stick_height,
+                               width=cls.stick_width,
+                               height=cls.stick_height,
                                theta=theta)
 
-    def _stick_rect_to_tip_rect(
-            self, stick_rect: utils.Rectangle) -> utils.Rectangle:
+    @classmethod
+    def stick_rect_to_tip_rect(cls,
+                               stick_rect: utils.Rectangle) -> utils.Rectangle:
+        """Public for use by oracle options."""
         theta = stick_rect.theta
-        width = self.stick_tip_width
+        width = cls.stick_tip_width
         scale = stick_rect.width - width
         return utils.Rectangle(x=(stick_rect.x + scale * np.cos(theta)),
                                y=(stick_rect.y + scale * np.sin(theta)),
-                               width=self.stick_tip_width,
+                               width=cls.stick_tip_width,
                                height=stick_rect.height,
                                theta=theta)
-
-    def _get_stick_grasp_loc(self, state: State, stick: Object,
-                             params: Array) -> Tuple[float, float]:
-        stheta = state.get(stick, "theta")
-        # We always aim for the center of the shorter dimension. The params
-        # selects a position along the longer dimension.
-        h = self.stick_height
-        sx = state.get(stick, "x") + (h / 2) * np.cos(stheta + np.pi / 2)
-        sy = state.get(stick, "y") + (h / 2) * np.sin(stheta + np.pi / 2)
-        # Calculate the target button to reach based on the parameter.
-        pick_param, = params
-        scale = self.stick_width * pick_param
-        tx = sx + scale * np.cos(stheta)
-        ty = sy + scale * np.sin(stheta)
-        return (tx, ty)
-
-    def _RobotPressButton_policy(self, state: State, memory: Dict,
-                                 objects: Sequence[Object],
-                                 params: Array) -> Action:
-        del memory, params  # unused
-        # If the robot and button are already pressing, press.
-        if self._Above_holds(state, objects):
-            return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
-        # Otherwise, move toward the button.
-        robot, button = objects
-        rx = state.get(robot, "x")
-        ry = state.get(robot, "y")
-        px = state.get(button, "x")
-        py = state.get(button, "y")
-        dx = np.clip(px - rx, -self.max_speed, self.max_speed)
-        dy = np.clip(py - ry, -self.max_speed, self.max_speed)
-        # Normalize.
-        dx = dx / self.max_speed
-        dy = dy / self.max_speed
-        # No need to rotate, and we don't want to press until we're there.
-        return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
-
-    def _RobotPressButton_terminal(self, state: State, memory: Dict,
-                                   objects: Sequence[Object],
-                                   params: Array) -> bool:
-        del memory, params  # unused
-        _, button = objects
-        return self._Pressed_holds(state, [button])
-
-    def _PickStick_policy(self, state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        robot, stick = objects
-        rx = state.get(robot, "x")
-        ry = state.get(robot, "y")
-        tx, ty = self._get_stick_grasp_loc(state, stick, params)
-        # If we're close enough to the grasp button, press.
-        if (tx - rx)**2 + (ty - ry)**2 < self.pick_grasp_tol:
-            return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
-        # Move toward the target.
-        dx = np.clip(tx - rx, -self.max_speed, self.max_speed)
-        dy = np.clip(ty - ry, -self.max_speed, self.max_speed)
-        # Normalize.
-        dx = dx / self.max_speed
-        dy = dy / self.max_speed
-        # No need to rotate or press.
-        return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
-
-    def _PickStick_terminal(self, state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        return self._Grasped_holds(state, objects)
-
-    def _StickPressButton_policy(self, state: State, memory: Dict,
-                                 objects: Sequence[Object],
-                                 params: Array) -> Action:
-        del memory, params  # unused
-        _, stick, button = objects
-        button_circ = self._object_to_geom(button, state)
-        stick_rect = self._object_to_geom(self._stick, state)
-        assert isinstance(stick_rect, utils.Rectangle)
-        tip_rect = self._stick_rect_to_tip_rect(stick_rect)
-        # If the stick tip is pressing the button, press.
-        if tip_rect.intersects(button_circ):
-            return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
-        # If the stick is vertical, move the tip toward the button.
-        stheta = state.get(stick, "theta")
-        desired_theta = np.pi / 2
-        if abs(stheta - desired_theta) < 1e-3:
-            tx = tip_rect.x
-            ty = tip_rect.y
-            px = state.get(button, "x")
-            py = state.get(button, "y")
-            dx = np.clip(px - tx, -self.max_speed, self.max_speed)
-            dy = np.clip(py - ty, -self.max_speed, self.max_speed)
-            # Normalize.
-            dx = dx / self.max_speed
-            dy = dy / self.max_speed
-            # No need to rotate or press.
-            return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
-        assert not CFG.stick_button_disable_angles
-        # Otherwise, rotate the stick.
-        dtheta = np.clip(desired_theta - stheta, -self.max_angular_speed,
-                         self.max_angular_speed)
-        # Normalize.
-        dtheta = dtheta / self.max_angular_speed
-        return Action(np.array([0.0, 0.0, dtheta, -1.0], dtype=np.float32))
-
-    def _StickPressButton_terminal(self, state: State, memory: Dict,
-                                   objects: Sequence[Object],
-                                   params: Array) -> bool:
-        del memory, params  # unused
-        _, _, button = objects
-        return self._Pressed_holds(state, [button])
 
     @staticmethod
     def _Pressed_holds(state: State, objects: Sequence[Object]) -> bool:
         button, = objects
         return state.get(button, "pressed") > 0.5
 
-    def _Above_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @classmethod
+    def Above_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        """Public for use by oracle options."""
         obj1, obj2 = objects
-        geom1 = self._object_to_geom(obj1, state)
-        geom2 = self._object_to_geom(obj2, state)
+        geom1 = cls.object_to_geom(obj1, state)
+        geom2 = cls.object_to_geom(obj2, state)
         return geom1.intersects(geom2)
 
     @staticmethod
@@ -571,19 +438,22 @@ class StickButtonEnv(BaseEnv):
         robot, = state.get_objects(self._robot_type)
         stick, = state.get_objects(self._stick_type)
         for button in state.get_objects(self._button_type):
-            if self._Above_holds(state, [robot, button]):
+            if self.Above_holds(state, [robot, button]):
                 return False
-            if self._Above_holds(state, [stick, button]):
+            if self.Above_holds(state, [stick, button]):
                 return False
         return True
 
     def get_event_to_action_fn(
             self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
         assert CFG.stick_button_disable_angles
-        logging.info("Controls: mouse click to move, any key to press")
+        logging.info("Controls: mouse click to move, (q) to quit, any other "
+                     "key to press")
 
         def _event_to_action(state: State,
                              event: matplotlib.backend_bases.Event) -> Action:
+            if event.key == "q":
+                raise utils.HumanDemonstrationFailure("Human quit.")
             if event.key is not None:
                 # Press action.
                 return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))

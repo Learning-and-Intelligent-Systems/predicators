@@ -19,7 +19,7 @@ an infrared reading, the object must first be shot with Chemical Y. Geiger
 readings can be taken without any sort of chemical reaction.
 """
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+from typing import ClassVar, List, Optional, Sequence, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -29,8 +29,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class SatellitesEnv(BaseEnv):
@@ -92,29 +92,6 @@ class SatellitesEnv(BaseEnv):
         self._GeigerReadingTaken = Predicate("GeigerReadingTaken",
                                              [self._sat_type, self._obj_type],
                                              self._GeigerReadingTaken_holds)
-
-        # Options
-        self._MoveTo = utils.SingletonParameterizedOption(
-            "MoveTo",
-            types=[self._sat_type, self._obj_type],
-            params_space=Box(0, 1, (2, )),  # target absolute x/y
-            policy=self._MoveTo_policy)
-        self._Calibrate = utils.SingletonParameterizedOption(
-            "Calibrate",
-            types=[self._sat_type, self._obj_type],
-            policy=self._Calibrate_policy)
-        self._ShootChemX = utils.SingletonParameterizedOption(
-            "ShootChemX",
-            types=[self._sat_type, self._obj_type],
-            policy=self._ShootChemX_policy)
-        self._ShootChemY = utils.SingletonParameterizedOption(
-            "ShootChemY",
-            types=[self._sat_type, self._obj_type],
-            policy=self._ShootChemY_policy)
-        self._UseInstrument = utils.SingletonParameterizedOption(
-            "UseInstrument",
-            types=[self._sat_type, self._obj_type],
-            policy=self._UseInstrument_policy)
 
     @classmethod
     def get_name(cls) -> str:
@@ -190,13 +167,13 @@ class SatellitesEnv(BaseEnv):
             next_state.set(sat, "theta", theta)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks,
                                num_sat_lst=CFG.satellites_num_sat_train,
                                num_obj_lst=CFG.satellites_num_obj_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
                                num_sat_lst=CFG.satellites_num_sat_test,
                                num_obj_lst=CFG.satellites_num_obj_test,
@@ -224,13 +201,6 @@ class SatellitesEnv(BaseEnv):
         return {self._sat_type, self._obj_type}
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._MoveTo, self._Calibrate, self._ShootChemX, self._ShootChemY,
-            self._UseInstrument
-        }
-
-    @property
     def action_space(self) -> Box:
         # [cur sat x, cur sat y, obj x, obj y, target sat x, target sat y,
         # calibrate, shoot Chemical X, shoot Chemical Y, use instrument]
@@ -239,7 +209,7 @@ class SatellitesEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         figsize = (1, 1)
@@ -287,7 +257,7 @@ class SatellitesEnv(BaseEnv):
 
     def _get_tasks(self, num: int, num_sat_lst: List[int],
                    num_obj_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         radius = self.radius + self.init_padding
         for _ in range(num):
@@ -373,7 +343,7 @@ class SatellitesEnv(BaseEnv):
                 elif self._HasGeiger_holds(init_state, [sat]):
                     goal_pred = self._GeigerReadingTaken
                 goal.add(GroundAtom(goal_pred, [sat, goal_obj_for_sat]))
-            task = Task(init_state, goal)
+            task = EnvironmentTask(init_state, goal)
             tasks.append(task)
         return tasks
 
@@ -471,96 +441,6 @@ class SatellitesEnv(BaseEnv):
             abs(state.get(sat, "read_obj_id") -
                 state.get(obj, "id")) < self.id_tol
 
-    @staticmethod
-    def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> Action:
-        del memory  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x, target_sat_y = params
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            0.0, 0.0, 0.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _Calibrate_policy(state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x = cur_sat_x
-        target_sat_y = cur_sat_y
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            1.0, 0.0, 0.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _ShootChemX_policy(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x = cur_sat_x
-        target_sat_y = cur_sat_y
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            0.0, 1.0, 0.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _ShootChemY_policy(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x = cur_sat_x
-        target_sat_y = cur_sat_y
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            0.0, 0.0, 1.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _UseInstrument_policy(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> Action:
-        del memory, params  # unused
-        sat, obj = objects
-        cur_sat_x = state.get(sat, "x")
-        cur_sat_y = state.get(sat, "y")
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        target_sat_x = cur_sat_x
-        target_sat_y = cur_sat_y
-        arr = np.array([
-            cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y,
-            0.0, 0.0, 0.0, 1.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
     def _get_all_circles(self, state: State) -> Set[utils.Circle]:
         """Get all entities in the state as utils.Circle objects."""
         circles = set()
@@ -601,13 +481,13 @@ class SatellitesSimpleEnv(SatellitesEnv):
     def get_name(cls) -> str:
         return "satellites_simple"
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks,
                                num_sat_lst=CFG.satellites_num_sat_train,
                                num_obj_lst=[1],
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
                                num_sat_lst=CFG.satellites_num_sat_test,
                                num_obj_lst=[1],

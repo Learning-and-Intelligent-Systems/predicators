@@ -18,6 +18,7 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
@@ -54,8 +55,10 @@ def _setup_data_for_env(env_name: str,
         "offline_data_planning_timeout": 10
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks, env.options)
+    options = get_gt_options(env.get_name())
+    env_train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env_train_tasks]
+    dataset = create_dataset(env, train_tasks, options)
     assert all(traj.is_demo for traj in dataset.trajectories)
     demo_skeleton_lengths = [
         utils.num_options_in_action_sequence(t.actions)
@@ -161,8 +164,10 @@ def _skeleton_based_score_function(
         train_task = train_tasks[traj.train_task_idx]
         init_atoms = utils.abstract(traj.states[0], current_predicate_set)
         objects = set(traj.states[0])
+        dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
+            strips_ops, option_specs)
         ground_nsrts, reachable_atoms = task_plan_grounding(
-            init_atoms, objects, strips_ops, option_specs)
+            init_atoms, objects, dummy_nsrts)
         heuristic = utils.create_task_planning_heuristic(
             CFG.sesame_task_planning_heuristic, init_atoms, train_task.goal,
             ground_nsrts, current_predicate_set, objects)

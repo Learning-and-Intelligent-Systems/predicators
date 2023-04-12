@@ -13,9 +13,9 @@ from numpy.typing import NDArray
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
-from predicators.utils import Rectangle, _Geom2D
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
+from predicators.utils import Rectangle, StateWithCache, _Geom2D
 
 
 class DoorsEnv(BaseEnv):
@@ -33,17 +33,17 @@ class DoorsEnv(BaseEnv):
     move_sq_dist_tol: ClassVar[float] = 1e-5
     open_door_thresh: ClassVar[float] = 1e-2
 
+    # Types
+    _robot_type = Type("robot", ["x", "y"])
+    _door_type = Type(
+        "door",
+        ["x", "y", "theta", "mass", "friction", "rot", "target_rot", "open"])
+    _room_type = Type("room", ["x", "y"])
+    _obstacle_type = Type("obstacle", ["x", "y", "width", "height", "theta"])
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
-        self._robot_type = Type("robot", ["x", "y"])
-        self._door_type = Type("door", [
-            "x", "y", "theta", "mass", "friction", "rot", "target_rot", "open"
-        ])
-        self._room_type = Type("room", ["x", "y"])
-        self._obstacle_type = Type("obstacle",
-                                   ["x", "y", "width", "height", "theta"])
         # Predicates
         self._InRoom = Predicate("InRoom", [self._robot_type, self._room_type],
                                  self._InRoom_holds)
@@ -66,40 +66,6 @@ class DoorsEnv(BaseEnv):
         self._DoorsShareRoom = Predicate("DoorsShareRoom",
                                          [self._door_type, self._door_type],
                                          self._DoorsShareRoom_holds)
-        # Options
-        self._MoveToDoor = ParameterizedOption(
-            "MoveToDoor",
-            types=[self._robot_type, self._door_type],
-            # No parameters; the option always moves to the doorway center.
-            params_space=Box(0, 1, (0, )),
-            # The policy is a motion planner.
-            policy=self._MoveToDoor_policy,
-            # Only initiable when the robot is in a room for the doory.
-            initiable=self._MoveToDoor_initiable,
-            terminal=self._MoveToDoor_terminal)
-        self._OpenDoor = ParameterizedOption(
-            "OpenDoor",
-            types=[self._door_type, self._robot_type],
-            # Even though this option does not need to be parameterized, we
-            # make it so, because we want to match the parameter space of the
-            # option that will get learned during option learning. This is
-            # useful for when we want to use sampler_learner = "oracle" too.
-            params_space=Box(-np.inf, np.inf, (2, )),
-            policy=self._OpenDoor_policy,
-            # Only initiable when the robot is in the doorway.
-            initiable=self._OpenDoor_initiable,
-            terminal=self._OpenDoor_terminal)
-        self._MoveThroughDoor = ParameterizedOption(
-            "MoveThroughDoor",
-            types=[self._robot_type, self._door_type],
-            # No parameters; the option always moves straight through.
-            params_space=Box(0, 1, (0, )),
-            # The policy just moves in a straight line. No motion planning
-            # required, because there are no obstacles in the doorway.
-            policy=self._MoveThroughDoor_policy,
-            # Only initiable when the robot is in the doorway.
-            initiable=self._MoveThroughDoor_initiable,
-            terminal=self._MoveThroughDoor_terminal)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         # Hyperparameters from CFG.
@@ -108,13 +74,6 @@ class DoorsEnv(BaseEnv):
         self._max_obstacles_per_room = CFG.doors_max_obstacles_per_room
         self._min_room_exists_frac = CFG.doors_min_room_exists_frac
         self._max_room_exists_frac = CFG.doors_max_room_exists_frac
-        # Caches for values that do not ever change.
-        self._static_geom_cache: Dict[Object, _Geom2D] = {}
-        self._door_to_rooms_cache: Dict[Object, Set[Object]] = {}
-        self._room_to_doors_cache: Dict[Object, Set[Object]] = {}
-        self._door_to_doorway_geom_cache: Dict[Object, Rectangle] = {}
-        self._position_in_doorway_cache: Dict[Tuple[Object, Object],
-                                              Tuple[float, float]] = {}
         # See note in _sample_initial_state_from_map().
         self._task_id_count = itertools.count()
 
@@ -133,7 +92,7 @@ class DoorsEnv(BaseEnv):
         next_state.set(self._robot, "x", new_x)
         next_state.set(self._robot, "y", new_y)
         # Check for collisions.
-        if self._state_has_collision(next_state):
+        if self.state_has_collision(next_state):
             # Revert the change to the robot position.
             next_state.set(self._robot, "x", x)
             next_state.set(self._robot, "y", y)
@@ -152,10 +111,10 @@ class DoorsEnv(BaseEnv):
                     next_state.set(door, "open", 1.0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -182,10 +141,6 @@ class DoorsEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {self._MoveToDoor, self._OpenDoor, self._MoveThroughDoor}
-
-    @property
     def action_space(self) -> Box:
         # dx, dy, drot
         lb = np.array(
@@ -198,7 +153,7 @@ class DoorsEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
@@ -211,7 +166,7 @@ class DoorsEnv(BaseEnv):
         goal_room_color = "khaki"
         goal_room = next(iter(task.goal)).objects[1]
         for room in state.get_objects(self._room_type):
-            room_geom = self._object_to_geom(room, state)
+            room_geom = self.object_to_geom(room, state)
             if room == goal_room:
                 color = goal_room_color
             elif self._InRoom_holds(state, [self._robot, room]):
@@ -222,13 +177,13 @@ class DoorsEnv(BaseEnv):
 
         # Draw robot.
         robot_color = "blue"
-        robot_geom = self._object_to_geom(self._robot, state)
+        robot_geom = self.object_to_geom(self._robot, state)
         robot_geom.plot(ax, color=robot_color)
 
         # Draw obstacles (including room walls).
         obstacle_color = "black"
         for obstacle in state.get_objects(self._obstacle_type):
-            obstacle_geom = self._object_to_geom(obstacle, state)
+            obstacle_geom = self.object_to_geom(obstacle, state)
             obstacle_geom.plot(ax, color=obstacle_color)
 
         # Draw doors.
@@ -240,10 +195,10 @@ class DoorsEnv(BaseEnv):
                 color = open_door_color
             else:
                 color = closed_door_color
-            door_geom = self._object_to_geom(door, state)
+            door_geom = self.object_to_geom(door, state)
             door_geom.plot(ax, color=color)
             if CFG.doors_draw_debug:
-                doorway_geom = self._door_to_doorway_geom(door, state)
+                doorway_geom = self.door_to_doorway_geom(door, state)
                 doorway_geom.plot(ax, color=doorway_color, alpha=0.1)
 
         # Visualize the motion plan.
@@ -262,8 +217,9 @@ class DoorsEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
-        tasks: List[Task] = []
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        tasks: List[EnvironmentTask] = []
         for _ in range(num):
             # Sample a room map.
             room_map = self._sample_room_map(rng)
@@ -279,7 +235,7 @@ class DoorsEnv(BaseEnv):
             goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
             goal = {goal_atom}
             assert not goal_atom.holds(state)
-            tasks.append(Task(state, goal))
+            tasks.append(EnvironmentTask(state, goal))
         return tasks
 
     def _sample_initial_state_from_map(self, room_map: NDArray,
@@ -393,194 +349,33 @@ class DoorsEnv(BaseEnv):
             y = rng.uniform(room_cy - rad, room_cy + rad)
             state_dict[self._robot] = {"x": x, "y": y}
             state = utils.create_state_from_dict(state_dict)
-            if not self._state_has_collision(state):
-                return state
-
-    def _MoveToDoor_initiable(self, state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
-        del params  # unused
-        robot, door = objects
-        # The robot must be in one of the rooms for the door.
-        for r in self._door_to_rooms(door, state):
-            if self._InRoom_holds(state, [robot, r]):
-                room = r
-                break
-        else:
-            return False
-        # Make a plan and store it in memory for use in the policy. Note that
-        # policies are assumed to be deterministic, but RRT is stochastic. We
-        # enforce determinism by using a constant seed in RRT.
-        rng = np.random.default_rng(CFG.seed)
-
-        room_rect = self._object_to_geom(room, state)
-
-        def _sample_fn(_: Array) -> Array:
-            # Sample a point in the room that is far enough away from the
-            # wall (to save on collision checking).
-            assert isinstance(room_rect, Rectangle)
-            x_lb = room_rect.x + self.robot_radius
-            x_ub = room_rect.x + self.room_size - self.robot_radius
-            y_lb = room_rect.y + self.robot_radius
-            y_ub = room_rect.y + self.room_size - self.robot_radius
-            x = rng.uniform(x_lb, x_ub)
-            y = rng.uniform(y_lb, y_ub)
-            return np.array([x, y], dtype=np.float32)
-
-        def _extend_fn(pt1: Array, pt2: Array) -> Iterator[Array]:
-            # Make sure that we obey the bounds on actions.
-            distance = np.linalg.norm(pt2 - pt1)
-            num = int(distance / self.action_magnitude) + 1
-            for i in range(1, num + 1):
-                yield pt1 * (1 - i / num) + pt2 * i / num
-
-        def _collision_fn(pt: Array) -> bool:
-            # Make a hypothetical state for the robot at this point and check
-            # if there would be collisions.
-            x, y = pt
-            s = state.copy()
-            s.set(robot, "x", x)
-            s.set(robot, "y", y)
-            return self._state_has_collision(s)
-
-        def _distance_fn(from_pt: Array, to_pt: Array) -> float:
-            return np.sum(np.subtract(from_pt, to_pt)**2)
-
-        birrt = utils.BiRRT(_sample_fn,
-                            _extend_fn,
-                            _collision_fn,
-                            _distance_fn,
-                            rng,
-                            num_attempts=CFG.doors_birrt_num_attempts,
-                            num_iters=CFG.doors_birrt_num_iters,
-                            smooth_amt=CFG.doors_birrt_smooth_amt)
-
-        # Set up the initial and target inputs for the motion planner.
-        robot_x = state.get(robot, "x")
-        robot_y = state.get(robot, "y")
-        target_x, target_y = self._get_position_in_doorway(room, door, state)
-        initial_state = np.array([robot_x, robot_y])
-        target_state = np.array([target_x, target_y])
-        # Run planning.
-        position_plan = birrt.query(initial_state, target_state)
-        # In very rare cases, motion planning fails (it is stochastic after
-        # all). In this case, determine the option to be not initiable.
-        if position_plan is None:  # pragma: no cover
-            return False
-        # The position plan is used for the termination check, and for debug
-        # drawing in the rendering.
-        memory["position_plan"] = position_plan
-        # Convert the plan from position space to action space.
-        deltas = np.subtract(position_plan[1:], position_plan[:-1])
-        action_plan = [
-            Action(np.array([dx, dy, 0.0], dtype=np.float32))
-            for (dx, dy) in deltas
-        ]
-        memory["action_plan"] = action_plan
-        return True
-
-    def _MoveToDoor_terminal(self, state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        # Terminate as soon as we are in the doorway.
-        robot, door = objects
-        return self._InDoorway_holds(state, [robot, door])
-
-    @staticmethod
-    def _MoveToDoor_policy(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        del state, objects, params  # unused
-        assert memory["action_plan"], "Motion plan did not reach its goal"
-        return memory["action_plan"].pop(0)
-
-    def _MoveThroughDoor_initiable(self, state: State, memory: Dict,
-                                   objects: Sequence[Object],
-                                   params: Array) -> bool:
-        del params  # unused
-        robot, door = objects
-        # The robot must be in the doorway.
-        if not self._InDoorway_holds(state, [robot, door]):
-            return False
-        # The door must be open.
-        if not self._DoorIsOpen_holds(state, [door]):
-            return False
-        # The option is initiable. Memorize the target -- otherwise, we would
-        # not know which side of the door to move toward during execution.
-        room1, room2 = self._door_to_rooms(door, state)
-        if self._InRoom_holds(state, [robot, room1]):
-            end_room = room2
-        else:
-            assert self._InRoom_holds(state, [robot, room2])
-            end_room = room1
-        memory["target"] = self._get_position_in_doorway(end_room, door, state)
-        memory["target_room"] = end_room
-        return True
-
-    def _MoveThroughDoor_terminal(self, state: State, memory: Dict,
-                                  objects: Sequence[Object],
-                                  params: Array) -> bool:
-        del params  # unused
-        robot, door = objects
-        target_room = memory["target_room"]
-        # Sanity check: we should never leave the doorway.
-        assert self._InDoorway_holds(state, [robot, door])
-        # Terminate as soon as we enter the other room.
-        return self._InRoom_holds(state, [robot, target_room])
-
-    def _MoveThroughDoor_policy(self, state: State, memory: Dict,
-                                objects: Sequence[Object],
-                                params: Array) -> Action:
-        del params  # unused
-        robot, _ = objects
-        desired_x, desired_y = memory["target"]
-        robot_x = state.get(robot, "x")
-        robot_y = state.get(robot, "y")
-        delta = np.subtract([desired_x, desired_y], [robot_x, robot_y])
-        delta_norm = np.linalg.norm(delta)
-        if delta_norm > self.action_magnitude:
-            delta = self.action_magnitude * delta / delta_norm
-        dx, dy = delta
-        action = Action(np.array([dx, dy, 0.0], dtype=np.float32))
-        assert self.action_space.contains(action.arr)
-        return action
-
-    def _OpenDoor_initiable(self, state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        # Can only open the door if touching it.
-        door, robot = objects
-        return self._TouchingDoor_holds(state, [robot, door])
-
-    def _OpenDoor_terminal(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        # Terminate when the door is open.
-        door, _ = objects
-        return self._DoorIsOpen_holds(state, [door])
-
-    @staticmethod
-    def _OpenDoor_policy(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> Action:
-        del memory  # unused
-        door, _ = objects
-        delta_rot, _ = params
-        current_rot = state.get(door, "rot")
-        target = current_rot + delta_rot
-        return Action(np.array([0.0, 0.0, target], dtype=np.float32))
+            # Create task-constant caches and store them in the sim state.
+            # We store in the sim state, rather than the environment, because
+            # the caches may be used by oracle options (which are external).
+            task_cache: Dict[str, Dict] = {
+                "static_geom": {},
+                "door_to_rooms": {},
+                "room_to_doors": {},
+                "door_to_doorway_geom": {},
+                "position_in_doorway": {},
+            }
+            state_with_cache = utils.StateWithCache(state.data, task_cache)
+            if not self.state_has_collision(state_with_cache):
+                return state_with_cache
 
     def _InRoom_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # The robot is in the room if its center is in the room.
         robot, room = objects
-        robot_geom = self._object_to_geom(robot, state)
+        robot_geom = self.object_to_geom(robot, state)
         assert isinstance(robot_geom, utils.Circle)
-        room_geom = self._object_to_geom(room, state)
+        room_geom = self.object_to_geom(room, state)
         return room_geom.contains_point(robot_geom.x, robot_geom.y)
 
     def _InDoorway_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
         robot, door = objects
-        doorway_geom = self._door_to_doorway_geom(door, state)
-        robot_geom = self._object_to_geom(robot, state)
+        doorway_geom = self.door_to_doorway_geom(door, state)
+        robot_geom = self.object_to_geom(robot, state)
         return robot_geom.intersects(doorway_geom)
 
     def _InMainRoom_holds(self, state: State,
@@ -621,50 +416,56 @@ class DoorsEnv(BaseEnv):
         # Open to debate, but let's enforce this...
         if door1 == door2:
             return False
-        rooms1 = self._door_to_rooms(door1, state)
-        rooms2 = self._door_to_rooms(door2, state)
+        rooms1 = self.door_to_rooms(door1, state)
+        rooms2 = self.door_to_rooms(door2, state)
         return len(rooms1 & rooms2) > 0
 
-    def _state_has_collision(self, state: State) -> bool:
-        robot, = state.get_objects(self._robot_type)
-        robot_geom = self._object_to_geom(robot, state)
+    @classmethod
+    def state_has_collision(cls, state: State) -> bool:
+        """Public for use by oracle options."""
+        robot, = state.get_objects(cls._robot_type)
+        robot_geom = cls.object_to_geom(robot, state)
         # Check for collisions with obstacles.
-        for obstacle in state.get_objects(self._obstacle_type):
-            obstacle_geom = self._object_to_geom(obstacle, state)
+        for obstacle in state.get_objects(cls._obstacle_type):
+            obstacle_geom = cls.object_to_geom(obstacle, state)
             if robot_geom.intersects(obstacle_geom):
                 return True
         # Check for collisions with closed doors.
-        for door in state.get_objects(self._door_type):
-            if self._DoorIsOpen_holds(state, [door]):
+        for door in state.get_objects(cls._door_type):
+            if cls._DoorIsOpen_holds(state, [door]):
                 continue
-            door_geom = self._object_to_geom(door, state)
+            door_geom = cls.object_to_geom(door, state)
             if robot_geom.intersects(door_geom):
                 return True
         return False
 
-    def _object_to_geom(self, obj: Object, state: State) -> _Geom2D:
+    @classmethod
+    def object_to_geom(cls, obj: Object, state: State) -> _Geom2D:
+        """Public for use by oracle options."""
         x = state.get(obj, "x")
         y = state.get(obj, "y")
-        if obj.is_instance(self._robot_type):
-            return utils.Circle(x, y, self.robot_radius)
+        if obj.is_instance(cls._robot_type):
+            return utils.Circle(x, y, cls.robot_radius)
         # Only the robot shape is dynamic. All other shapes are cached.
-        if obj not in self._static_geom_cache:
-            if obj.is_instance(self._room_type):
-                width = self.room_size
-                height = self.room_size
+        assert isinstance(state, StateWithCache)
+        static_geom_cache = state.cache["static_geom"]
+        if obj not in static_geom_cache:
+            if obj.is_instance(cls._room_type):
+                width = cls.room_size
+                height = cls.room_size
                 theta = 0.0
-            elif obj.is_instance(self._door_type):
-                width = self.hallway_width
-                height = self.wall_depth
+            elif obj.is_instance(cls._door_type):
+                width = cls.hallway_width
+                height = cls.wall_depth
                 theta = state.get(obj, "theta")
             else:
-                assert obj.is_instance(self._obstacle_type)
+                assert obj.is_instance(cls._obstacle_type)
                 width = state.get(obj, "width")
                 height = state.get(obj, "height")
                 theta = state.get(obj, "theta")
             geom = Rectangle(x=x, y=y, width=width, height=height, theta=theta)
-            self._static_geom_cache[obj] = geom
-        return self._static_geom_cache[obj]
+            static_geom_cache[obj] = geom
+        return static_geom_cache[obj]
 
     def _get_world_boundaries(
             self, state: State) -> Tuple[float, float, float, float]:
@@ -831,69 +632,62 @@ class DoorsEnv(BaseEnv):
             "open": 0.0,  # always start out closed
         }
 
-    def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
-        if door not in self._door_to_rooms_cache:
+    @classmethod
+    def door_to_rooms(cls, door: Object, state: State) -> Set[Object]:
+        """Public for use by oracle options."""
+        assert isinstance(state, StateWithCache)
+        door_to_rooms_cache = state.cache["door_to_rooms"]
+        if door not in door_to_rooms_cache:
             rooms = set()
-            door_geom = self._object_to_geom(door, state)
-            for room in state.get_objects(self._room_type):
-                room_geom = self._object_to_geom(room, state)
+            door_geom = cls.object_to_geom(door, state)
+            for room in state.get_objects(cls._room_type):
+                room_geom = cls.object_to_geom(room, state)
                 if door_geom.intersects(room_geom):
                     rooms.add(room)
             assert len(rooms) == 2
-            self._door_to_rooms_cache[door] = rooms
-        return self._door_to_rooms_cache[door]
+            door_to_rooms_cache[door] = rooms
+        return door_to_rooms_cache[door]
 
     def _room_to_doors(self, room: Object, state: State) -> Set[Object]:
-        if room not in self._room_to_doors_cache:
+        assert isinstance(state, StateWithCache)
+        room_to_doors_cache = state.cache["room_to_doors"]
+        if room not in room_to_doors_cache:
             doors = set()
-            room_geom = self._object_to_geom(room, state)
+            room_geom = self.object_to_geom(room, state)
             for door in state.get_objects(self._door_type):
-                door_geom = self._object_to_geom(door, state)
+                door_geom = self.object_to_geom(door, state)
                 if room_geom.intersects(door_geom):
                     doors.add(door)
             assert 1 <= len(doors) <= 4
-            self._room_to_doors_cache[room] = doors
-        return self._room_to_doors_cache[room]
+            room_to_doors_cache[room] = doors
+        return room_to_doors_cache[room]
 
-    def _door_to_doorway_geom(self, door: Object, state: State) -> Rectangle:
-        if door not in self._door_to_doorway_geom_cache:
+    @classmethod
+    def door_to_doorway_geom(cls, door: Object, state: State) -> Rectangle:
+        """Public for use by oracle options."""
+        assert isinstance(state, StateWithCache)
+        doorway_geom_cache = state.cache["door_to_doorway_geom"]
+        if door not in doorway_geom_cache:
             x = state.get(door, "x")
             y = state.get(door, "y")
             theta = state.get(door, "theta")
-            doorway_size = self.robot_radius + self.doorway_pad
+            doorway_size = cls.robot_radius + cls.doorway_pad
             # Top or bottom door.
             if abs(theta) < 1e-6:
                 return Rectangle(x=x,
                                  y=(y - doorway_size),
-                                 width=self.hallway_width,
-                                 height=(self.wall_depth + 2 * doorway_size),
+                                 width=cls.hallway_width,
+                                 height=(cls.wall_depth + 2 * doorway_size),
                                  theta=0)
             # Left or right door.
             assert abs(theta - np.pi / 2) < 1e-6
-            geom = Rectangle(x=(x - self.wall_depth - doorway_size),
+            geom = Rectangle(x=(x - cls.wall_depth - doorway_size),
                              y=y,
-                             width=(self.wall_depth + 2 * doorway_size),
-                             height=self.hallway_width,
+                             width=(cls.wall_depth + 2 * doorway_size),
+                             height=cls.hallway_width,
                              theta=0)
-            self._door_to_doorway_geom_cache[door] = geom
-        return self._door_to_doorway_geom_cache[door]
-
-    def _get_position_in_doorway(self, room: Object, door: Object,
-                                 state: State) -> Tuple[float, float]:
-        if (room, door) not in self._position_in_doorway_cache:
-            # Find the two vertices of the doorway that are in the room.
-            doorway_geom = self._door_to_doorway_geom(door, state)
-            room_geom = self._object_to_geom(room, state)
-            vertices_in_room = []
-            for (x, y) in doorway_geom.vertices:
-                if room_geom.contains_point(x, y):
-                    vertices_in_room.append((x, y))
-            assert len(vertices_in_room) == 2
-            (x0, y0), (x1, y1) = vertices_in_room
-            tx = (x0 + x1) / 2
-            ty = (y0 + y1) / 2
-            self._position_in_doorway_cache[(room, door)] = (tx, ty)
-        return self._position_in_doorway_cache[(room, door)]
+            doorway_geom_cache[door] = geom
+        return doorway_geom_cache[door]
 
     def _sample_room_map(self, rng: np.random.Generator) -> NDArray:
         # Sample a grid where any room can be reached from any other room.

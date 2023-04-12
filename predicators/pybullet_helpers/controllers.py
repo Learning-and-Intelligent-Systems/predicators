@@ -40,6 +40,9 @@ def create_move_end_effector_to_pose_option(
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del memory  # unused
+        # Sync the joints.
+        assert isinstance(state, utils.PyBulletState)
+        robot.set_joints(state.joint_positions)
         # First handle the main arm joints.
         current_pose, target_pose, finger_status = \
             get_current_and_target_pose_and_finger_status(

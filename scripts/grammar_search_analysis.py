@@ -13,12 +13,17 @@ from predicators import utils
 from predicators.approaches import create_approach
 from predicators.approaches.grammar_search_invention_approach import \
     _ForallClassifier, _SingleAttributeCompareClassifier
+from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import CoverEnv
-from predicators.ground_truth_nsrts import _get_predicates_by_names
+from predicators.execution_monitoring import create_execution_monitor
+from predicators.ground_truth_models import _get_predicates_by_names, \
+    get_gt_options
 from predicators.main import _run_testing
+from predicators.perception import create_perceiver
 from predicators.predicate_search_score_functions import create_score_function
+from predicators.settings import CFG
 from predicators.structs import Dataset, Object, Predicate, State, Task
 
 DEFAULT_ENV_NAMES = [
@@ -175,8 +180,10 @@ def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
         **args,
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks, env.options)
+    options = get_gt_options(env.get_name())
+    env_train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env_train_tasks]
+    dataset = create_dataset(env, train_tasks, options)
     start_time = time.perf_counter()
 
     for non_goal_predicates in non_goal_predicate_sets:
@@ -229,11 +236,14 @@ def _run_proxy_analysis_for_predicates(
     # Learn NSRTs and plan.
     if run_planning:
         utils.flush_cache()
-        approach = create_approach("nsrt_learning", all_predicates,
-                                   env.options, env.types, env.action_space,
-                                   train_tasks)
-        approach.learn_from_offline_dataset(dataset)
-        planning_result = _run_testing(env, approach)
+        options = get_gt_options(env.get_name())
+        approach = create_approach("nsrt_learning", all_predicates, options,
+                                   env.types, env.action_space, train_tasks)
+        perceiver = create_perceiver(CFG.perceiver)
+        execution_monitor = create_execution_monitor(CFG.execution_monitor)
+        cogman = CogMan(approach, perceiver, execution_monitor)
+        cogman.learn_from_offline_dataset(dataset)
+        planning_result = _run_testing(env, cogman)
         results.update(planning_result)
     return results
 

@@ -141,13 +141,18 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         # low-level ground atoms sequence after segmentation.
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         del pruned_atom_data
-        pnads = learn_strips_operators(low_level_trajs,
-                                       self._train_tasks,
-                                       set(candidate_predicates
-                                           | self._initial_predicates),
-                                       segmented_trajs,
-                                       verify_harmlessness=False,
-                                       verbose=False)
+        try:
+            pnads = learn_strips_operators(low_level_trajs,
+                                           self._train_tasks,
+                                           set(candidate_predicates
+                                               | self._initial_predicates),
+                                           segmented_trajs,
+                                           verify_harmlessness=False,
+                                           verbose=False)
+        except TimeoutError:
+            logging.info(
+                "Warning: Operator Learning timed out! Skipping evaluation.")
+            return float('inf')
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,
@@ -244,8 +249,10 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 traj.states[0],
                 candidate_predicates | self._initial_predicates)
             objects = set(traj.states[0])
+            dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
+                strips_ops, option_specs)
             ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, strips_ops, option_specs)
+                init_atoms, objects, dummy_nsrts)
             traj_goal = self._train_tasks[traj.train_task_idx].goal
             heuristic = utils.create_task_planning_heuristic(
                 CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
@@ -309,11 +316,12 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             goal = self._train_tasks[ll_traj.train_task_idx].goal
             # Ground everything once per demo.
             objects = set(ll_traj.states[0])
+            dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
+                strips_ops, option_specs)
             ground_nsrts, reachable_atoms = task_plan_grounding(
                 init_atoms,
                 objects,
-                strips_ops,
-                option_specs,
+                dummy_nsrts,
                 allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.sesame_task_planning_heuristic, init_atoms, goal,
@@ -692,8 +700,10 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
 
         # It's important for efficiency that we only ground once, and create
         # the heuristic once, for every task.
+        dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
+            strips_ops, option_specs)
         ground_nsrts, reachable_atoms = task_plan_grounding(
-            init_atoms, objects, strips_ops, option_specs)
+            init_atoms, objects, dummy_nsrts)
         heuristic = utils.create_task_planning_heuristic(
             CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
             set(candidate_predicates) | self._initial_predicates, objects)

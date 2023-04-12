@@ -1,12 +1,14 @@
 """Tests for models."""
 
+import logging
 import time
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.ml_models import BinaryClassifierEnsemble, \
+from predicators.ml_models import BinaryClassifierEnsemble, CNNRegressor, \
     DegenerateMLPDistributionRegressor, ImplicitMLPRegressor, \
     KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
     MLPRegressor, NeuralGaussianRegressor
@@ -92,6 +94,38 @@ def test_implicit_mlp_regressor():
         model.predict(x)
 
 
+def test_basic_cnn_regressor():
+    """Tests for CNNRegressor."""
+    utils.reset_config()
+    input_size = (3, 9, 6)
+    output_size = 2
+    num_samples = 5
+    model = CNNRegressor(seed=123,
+                         conv_channel_nums=[1, 1],
+                         conv_kernel_sizes=[3, 1],
+                         linear_hid_sizes=[32, 32],
+                         max_train_iters=100,
+                         clip_gradients=True,
+                         clip_value=5,
+                         learning_rate=1e-3)
+    X = np.ones((num_samples, *input_size))
+    Y = np.zeros((num_samples, output_size))
+    model.fit(X, Y)
+    x = np.ones(input_size)
+    predicted_y = model.predict(x)
+    expected_y = np.zeros(output_size)
+    assert predicted_y.shape == expected_y.shape
+    assert np.allclose(predicted_y, expected_y, atol=1e-2)
+    # Test with nonzero outputs.
+    Y = 75 * np.ones((num_samples, output_size))
+    model.fit(X, Y)
+    x = np.ones(input_size)
+    predicted_y = model.predict(x)
+    expected_y = 75 * np.ones(output_size)
+    assert predicted_y.shape == expected_y.shape
+    assert np.allclose(predicted_y, expected_y, atol=1e-2)
+
+
 def test_neural_gaussian_regressor():
     """Tests for NeuralGaussianRegressor."""
     utils.reset_config()
@@ -172,17 +206,18 @@ def test_mlp_classifier():
     assert prediction
     assert model.predict_proba(np.ones(input_size)) > 0.5
     # Test for early stopping
-    start_time = time.perf_counter()
     model = MLPBinaryClassifier(seed=123,
                                 balance_data=True,
                                 max_train_iters=100000,
                                 learning_rate=1e-2,
-                                n_iter_no_change=1,
+                                n_iter_no_change=-1,
                                 hid_sizes=[32, 32],
                                 n_reinitialize_tries=1,
-                                weight_init="default")
-    model.fit(X, y)
-    assert time.perf_counter() - start_time < 3, "Didn't early stop"
+                                weight_init="default",
+                                train_print_every=1)
+    with patch.object(logging, "info", return_value=None) as mock_logging_info:
+        model.fit(X, y)
+    assert mock_logging_info.call_count < 5
     # Test with no positive examples.
     num_class_samples = 1000
     X = np.concatenate([

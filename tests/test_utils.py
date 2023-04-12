@@ -1,5 +1,4 @@
 """Test cases for utils."""
-
 import os
 import time
 from typing import Iterator, Tuple
@@ -14,8 +13,8 @@ from predicators import utils
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.envs.pddl_env import ProceduralTasksGripperPDDLEnv, \
     ProceduralTasksSpannerPDDLEnv
-from predicators.ground_truth_nsrts import _get_predicates_by_names, \
-    get_gt_nsrts
+from predicators.ground_truth_models import _get_predicates_by_names, \
+    get_gt_nsrts, get_gt_options
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
@@ -473,7 +472,8 @@ def test_get_static_preds():
     """Tests for get_static_preds()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     static_preds = utils.get_static_preds(nsrts, env.predicates)
     assert {pred.name for pred in static_preds} == {"IsTarget", "IsBlock"}
 
@@ -482,7 +482,8 @@ def test_get_static_atoms():
     """Tests for get_static_atoms()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     task = env.get_train_tasks()[0]
     objects = set(task.init)
     ground_nsrts = set()
@@ -517,7 +518,7 @@ def test_run_policy():
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
     policy = lambda _: Action(env.action_space.sample())
-    task = env.get_task("test", 0)
+    task = env.get_task("test", 0).task
     traj, metrics = utils.run_policy(policy,
                                      env,
                                      "test",
@@ -560,12 +561,15 @@ def test_run_policy():
     def _policy(_):
         raise ValueError("mock error")
 
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0
 
-        def observe(self, state, action):
+        def reset(self, train_or_test, task_idx):
+            self.num_observations = 0
+
+        def observe(self, obs, action):
             self.num_observations += 1
 
     with pytest.raises(ValueError) as e:
@@ -601,6 +605,10 @@ def test_run_policy():
             """Step the mock environment."""
             del action  # unused
             raise utils.EnvironmentFailure("mock failure")
+
+        def get_observation(self):
+            """Gets currrent observation in mock environment."""
+            return DefaultState
 
     mock_env = _MockEnv()
     policy = lambda _: Action(np.zeros(1, dtype=np.float32))
@@ -695,12 +703,16 @@ def test_run_policy_with_simulator():
     assert len(traj.actions) == 3
 
     # Test with monitor.
-    class _NullMonitor(utils.Monitor):
+    class _NullMonitor(utils.LoggingMonitor):
 
-        def observe(self, state, action):
+        def reset(self, train_or_test, task_idx):
+            pass
+
+        def observe(self, obs, action):
             pass
 
     monitor = _NullMonitor()
+    monitor.reset("train", 0)
     traj = utils.run_policy_with_simulator(_policy,
                                            _simulator,
                                            state,
@@ -711,18 +723,22 @@ def test_run_policy_with_simulator():
     assert len(traj.actions) == 3
 
     # Test with monitor in case where an uncaught exception is raised.
-    class _CountingMonitor(utils.Monitor):
+    class _CountingMonitor(utils.LoggingMonitor):
 
         def __init__(self):
             self.num_observations = 0
 
-        def observe(self, state, action):
+        def reset(self, train_or_test, task_idx):
+            self.num_observations = 0
+
+        def observe(self, obs, action):
             self.num_observations += 1
 
     def _policy(_):
         raise ValueError("mock error")
 
     monitor = _CountingMonitor()
+    monitor.reset("train", 0)
     try:
         utils.run_policy_with_simulator(_policy,
                                         _simulator,
@@ -1578,14 +1594,14 @@ def test_nsrt_methods():
     ground_nsrts = sorted(utils.all_ground_nsrts(nsrt, objects))
     assert len(ground_nsrts) == 8
     all_obj = [nsrt.objects for nsrt in ground_nsrts]
-    assert [cup1, plate1, plate1] in all_obj
-    assert [cup1, plate2, plate1] in all_obj
-    assert [cup2, plate1, plate1] in all_obj
-    assert [cup2, plate2, plate1] in all_obj
-    assert [cup1, plate1, plate2] in all_obj
-    assert [cup1, plate2, plate2] in all_obj
-    assert [cup2, plate1, plate2] in all_obj
-    assert [cup2, plate2, plate2] in all_obj
+    assert (cup1, plate1, plate1) in all_obj
+    assert (cup1, plate2, plate1) in all_obj
+    assert (cup2, plate1, plate1) in all_obj
+    assert (cup2, plate2, plate1) in all_obj
+    assert (cup1, plate1, plate2) in all_obj
+    assert (cup1, plate2, plate2) in all_obj
+    assert (cup2, plate1, plate2) in all_obj
+    assert (cup2, plate2, plate2) in all_obj
     preds, types = utils.extract_preds_and_types({nsrt})
     assert preds == {"NotOn": not_on, "On": on}
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
@@ -1896,8 +1912,8 @@ def test_nsrt_application():
         utils.get_applicable_operators(ground_nsrts, {pred1([cup1, plate1])}))
     assert len(applicable) == 2
     all_obj = [(nsrt.name, nsrt.objects) for nsrt in applicable]
-    assert ("Pick", [cup1, plate1]) in all_obj
-    assert ("Place", [cup1, plate1]) in all_obj
+    assert ("Pick", (cup1, plate1)) in all_obj
+    assert ("Place", (cup1, plate1)) in all_obj
     next_atoms = [
         utils.apply_operator(nsrt, {pred1([cup1, plate1])})
         for nsrt in applicable
@@ -2163,8 +2179,9 @@ def test_create_pddl():
     utils.reset_config({"env": "cover"})
     # All predicates and options
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    train_task = env.get_train_tasks()[0]
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    train_task = env.get_train_tasks()[0].task
     state = train_task.init
     objects = list(state)
     init_atoms = utils.abstract(state, env.predicates)
@@ -2227,7 +2244,8 @@ def test_create_pddl():
     utils.reset_config({"env": "pddl_spanner_procedural_tasks"})
     # All predicates and options
     env = ProceduralTasksSpannerPDDLEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
                                           "spanner")
     assert domain_str == """(define (domain spanner)
@@ -2274,7 +2292,7 @@ def test_create_pddl():
   )
 )"""
 
-    train_task = env.get_train_tasks()[0]
+    train_task = env.get_train_tasks()[0].task
     state = train_task.init
     objects = list(state)
     init_atoms = utils.abstract(state, env.predicates)
@@ -2319,7 +2337,7 @@ def test_VideoMonitor():
     env = CoverMultistepOptions()
     monitor = utils.VideoMonitor(env.render)
     policy = lambda _: Action(env.action_space.sample())
-    task = env.get_task("test", 0)
+    task = env.get_task("test", 0).task
     traj, _ = utils.run_policy(policy,
                                env,
                                "test",
@@ -2340,7 +2358,7 @@ def test_VideoMonitor():
 def test_SimulateVideoMonitor():
     """Tests for SimulateVideoMonitor()."""
     env = CoverMultistepOptions()
-    task = env.get_task("test", 0)
+    task = env.get_task("test", 0).task
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
     policy = lambda _: Action(env.action_space.sample())
     traj, _ = utils.run_policy(policy,
@@ -2780,6 +2798,15 @@ def test_run_hill_climbing():
         assert heuristics == [
             8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0
         ]
+        # Test timeout.
+        with pytest.raises(TimeoutError):
+            utils.run_hill_climbing(initial_state,
+                                    _grid_check_goal_fn,
+                                    _grid_successor_fn,
+                                    _local_minimum_grid_heuristic_fn,
+                                    enforced_depth=1,
+                                    parallelize=parallelize,
+                                    timeout=0.0)
 
     # Test early_termination_heuristic_thresh with very high value.
     initial_state = (0, 0)
@@ -2980,7 +3007,7 @@ def test_get_third_party_path():
 def test_create_video_from_partial_refinements():
     """Tests for create_video_from_partial_refinements()."""
     env = CoverEnv()
-    PickPlace = list(env.options)[0]
+    PickPlace = list(get_gt_options(env.get_name()))[0]
     option = PickPlace.ground([],
                               np.zeros(PickPlace.params_space.shape,
                                        dtype=np.float32))
@@ -3063,44 +3090,6 @@ def test_parse_config_excluded_predicates():
         utils.parse_config_excluded_predicates(env)
 
 
-def test_parse_config_included_options():
-    """Tests for parse_config_included_options()."""
-    # Test including nothing.
-    utils.reset_config({
-        "env": "cover_multistep_options",
-        "included_options": "",
-    })
-    env = CoverMultistepOptions()
-    included = utils.parse_config_included_options(env)
-    assert not included
-    # Test including specific options.
-    utils.reset_config({
-        "included_options": "Pick",
-    })
-    Pick, Place = sorted(env.options)
-    assert Pick.name == "Pick"
-    assert Place.name == "Place"
-    included = utils.parse_config_included_options(env)
-    assert included == {Pick}
-    utils.reset_config({
-        "included_options": "Place",
-    })
-    included = utils.parse_config_included_options(env)
-    assert included == {Place}
-    utils.reset_config({
-        "included_options": "Pick,Place",
-    })
-    included = utils.parse_config_included_options(env)
-    assert included == {Pick, Place}
-    # Test including an unknown option.
-    utils.reset_config({
-        "included_options": "Pick,NotReal",
-    })
-    with pytest.raises(AssertionError) as e:
-        utils.parse_config_included_options(env)
-    assert "Unrecognized option in included_options!" in str(e)
-
-
 def test_null_sampler():
     """Tests for null_sampler()."""
     assert utils.null_sampler(None, None, None, None).shape == (0, )
@@ -3165,6 +3154,31 @@ def test_parse_ldl_from_str():
 )"""
 
     env = ProceduralTasksGripperPDDLEnv(use_gui=False)
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     ldl = utils.parse_ldl_from_str(ldl_str, env.types, env.predicates, nsrts)
     assert str(ldl) == ldl_str
+
+
+def test_motion_planning():
+    """Basic assertion test for BiRRT."""
+    # Create dummy functions to pass into BiRRT.
+    dummy_sample_fn = lambda x: x
+    dummy_extend_fn = lambda x, y: [x, y]
+    dummy_collision_fn = lambda x: False
+    dummy_distance_fn = lambda x, y: 0.0
+
+    birrt = utils.BiRRT(
+        dummy_sample_fn,
+        dummy_extend_fn,
+        dummy_collision_fn,
+        dummy_distance_fn,
+        np.random.default_rng(0),
+        num_attempts=1,
+        num_iters=1,
+        smooth_amt=0,
+    )
+
+    # Test that query_to_goal_fn for BiRRT raises a NotImplementedError
+    with pytest.raises(NotImplementedError):
+        birrt.query_to_goal_fn(0, lambda: 1, lambda x: False)

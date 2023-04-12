@@ -1,5 +1,4 @@
 """Test cases for the boring room vs playroom environment."""
-
 import numpy as np
 import pytest
 
@@ -7,6 +6,7 @@ from predicators import utils
 from predicators.envs import create_new_env
 from predicators.envs.playroom import PlayroomEnv, PlayroomHardEnv, \
     PlayroomSimpleEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -24,11 +24,11 @@ def test_playroom(env_name):
             assert len(obj.type.feature_names) == len(task.init[obj])
     if env_name in ("playroom_simple", "playroom_simple_clear"):
         assert len(env.predicates) == 9
-        assert len(env.options) == 6
+        assert len(get_gt_options(env.get_name())) == 6
         assert len(env.types) == 3
     elif env_name == "playroom":
         assert len(env.predicates) == 19
-        assert len(env.options) == 10
+        assert len(get_gt_options(env.get_name())) == 10
         assert len(env.types) == 5
     assert {pred.name for pred in env.goal_predicates} == \
         {"On", "OnTable", "LightOn", "LightOff"}
@@ -57,7 +57,7 @@ def test_playroom_failure_cases(env_name):
     block0 = block_type("block0")
     block1 = block_type("block1")
     block2 = block_type("block2")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     robot = None
@@ -155,7 +155,7 @@ def test_playroom_simulate_blocks(env_name):
     robot_type = [t for t in env.types if t.name == "robot"][0]
     block1 = block_type("block1")
     block2 = block_type("block2")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     robot = None
     for item in state:
@@ -209,7 +209,7 @@ def test_playroom_simulate_doors_and_dial():
     dial_type = [t for t in env.types if t.name == "dial"][0]
     door1 = door_type("door1")
     door6 = door_type("door6")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     robot = None
     dial = None
@@ -322,13 +322,19 @@ def test_playroom_simple_options():
     LightOn = [p for p in env.predicates if p.name == "LightOn"][0]
     robot = robot_type("robby")
     dial = dial_type("dial")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     # Run through a specific plan of options.
-    MoveTableToDial = [o for o in env.options
-                       if o.name == "MoveTableToDial"][0]
-    TurnOnDial = [o for o in env.options if o.name == "TurnOnDial"][0]
-    TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
+    MoveTableToDial = [
+        o for o in get_gt_options(env.get_name())
+        if o.name == "MoveTableToDial"
+    ][0]
+    TurnOnDial = [
+        o for o in get_gt_options(env.get_name()) if o.name == "TurnOnDial"
+    ][0]
+    TurnOffDial = [
+        o for o in get_gt_options(env.get_name()) if o.name == "TurnOffDial"
+    ][0]
     plan = [
         # Picking/placing blocks will be covered in the next test
         MoveTableToDial.ground([robot, dial], [-0.2, 0.0, 0.0]),
@@ -379,18 +385,32 @@ def test_playroom_options():
     region5 = region_type("region5")
     region6 = region_type("region6")
     region7 = region_type("region7")
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     # Run through a specific plan of options.
-    Pick = [o for o in env.options if o.name == "Pick"][0]
-    Stack = [o for o in env.options if o.name == "Stack"][0]
-    PutOnTable = [o for o in env.options if o.name == "PutOnTable"][0]
-    MoveToDoor = [o for o in env.options if o.name == "MoveToDoor"][0]
-    MoveDoorToDial = [o for o in env.options if o.name == "MoveDoorToDial"][0]
-    OpenDoor = [o for o in env.options if o.name == "OpenDoor"][0]
-    CloseDoor = [o for o in env.options if o.name == "CloseDoor"][0]
-    TurnOnDial = [o for o in env.options if o.name == "TurnOnDial"][0]
-    TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
+    Pick = [o for o in get_gt_options(env.get_name()) if o.name == "Pick"][0]
+    Stack = [o for o in get_gt_options(env.get_name()) if o.name == "Stack"][0]
+    PutOnTable = [
+        o for o in get_gt_options(env.get_name()) if o.name == "PutOnTable"
+    ][0]
+    MoveToDoor = [
+        o for o in get_gt_options(env.get_name()) if o.name == "MoveToDoor"
+    ][0]
+    MoveDoorToDial = [
+        o for o in get_gt_options(env.get_name()) if o.name == "MoveDoorToDial"
+    ][0]
+    OpenDoor = [
+        o for o in get_gt_options(env.get_name()) if o.name == "OpenDoor"
+    ][0]
+    CloseDoor = [
+        o for o in get_gt_options(env.get_name()) if o.name == "CloseDoor"
+    ][0]
+    TurnOnDial = [
+        o for o in get_gt_options(env.get_name()) if o.name == "TurnOnDial"
+    ][0]
+    TurnOffDial = [
+        o for o in get_gt_options(env.get_name()) if o.name == "TurnOffDial"
+    ][0]
     plan = [
         Pick.ground([robot, block1], [0.35]),
         PutOnTable.ground([robot], [0.1, 0.5, 0.0]),  # put block1 on table
@@ -454,7 +474,7 @@ def test_playroom_action_sequence_video():
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     # Run through a specific plan of low-level actions.
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     action_arrs = [
         # Pick up a block
         np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),
@@ -502,7 +522,7 @@ def test_playroom_hard():
     utils.reset_config({"env": "playroom_hard"})
     env = PlayroomHardEnv()
     dial_type = [t for t in env.types if t.name == "dial"][0]
-    task = env.get_train_tasks()[0]
+    task = env.get_train_tasks()[0].task
     state = task.init
     dial = None
     for item in state:
