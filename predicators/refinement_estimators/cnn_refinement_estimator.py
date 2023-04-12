@@ -66,7 +66,7 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
             t0 = time.perf_counter()
             model.fit(X, Y)
             logging.info(f"Fit model in {time.perf_counter() - t0:.2f}s")
-            self._model_dict[key] = model.to("cpu")
+            self._model_dict[key] = model
 
     @staticmethod
     def _create_regressor() -> CNNRegressor:
