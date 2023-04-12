@@ -59,7 +59,7 @@ matplotlib.use("Agg")
 
 # Unpickling CUDA models errs out if the device isn't recognized because of
 # an unusual name, including in supercloud, but we can set it manually
-if "CUDA_VISIBLE_DEVICES" in os.environ:
+if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
     cuda_visible_devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
     if len(cuda_visible_devices) and cuda_visible_devices[0] != "0":
         cuda_visible_devices[0] = "0"
