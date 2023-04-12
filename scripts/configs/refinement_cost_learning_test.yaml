@@ -16,12 +16,12 @@ APPROACHES:
       refinement_estimator: "tabular"
   cnn:
     NAME: "refinement_estimation"
-    SKIP: false
+    SKIP: true
     FLAGS:
       refinement_estimator: "cnn"
   gnn:
     NAME: "refinement_estimation"
-    SKIP: false
+    SKIP: true
     FLAGS:
       refinement_estimator: "gnn"
 ENVS:
@@ -39,6 +39,10 @@ ENVS:
       narrow_passage_door_width_padding_ub: 0.01
       narrow_passage_passage_width_padding_lb: 0.0005
       narrow_passage_passage_width_padding_ub: 0.0005
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_do_normalization: true
   exit_garage:
     NAME: "exit_garage"
     SKIP: true
