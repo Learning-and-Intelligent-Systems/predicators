@@ -98,9 +98,13 @@ def generate_run_configs(config_filename: str,
             train_refinement_estimator = False
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
+            if approach_config.get("SKIP", False):
+                continue
             approach = approach_config["NAME"]
             # Loop over envs.
             for env_exp_id, env_config in config["ENVS"].items():
+                if env_config.get("SKIP", False):
+                    continue
                 env = env_config["NAME"]
                 # Create the experiment ID, args, and flags.
                 experiment_id = f"{env_exp_id}-{approach_exp_id}"

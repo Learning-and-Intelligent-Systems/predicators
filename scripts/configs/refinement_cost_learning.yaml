@@ -3,19 +3,23 @@
 APPROACHES:
   tabular:
     NAME: "refinement_estimation"
+    SKIP: false
     FLAGS:
       refinement_estimator: "tabular"
-#  cnn:
-#    NAME: "refinement_estimation"
-#    FLAGS:
-#      refinement_estimator: "cnn"
-#  gnn:
-#    NAME: "refinement_estimation"
-#    FLAGS:
-#      refinement_estimator: "gnn"
+  cnn:
+    NAME: "refinement_estimation"
+    SKIP: true
+    FLAGS:
+      refinement_estimator: "cnn"
+  gnn:
+    NAME: "refinement_estimation"
+    SKIP: true
+    FLAGS:
+      refinement_estimator: "gnn"
 ENVS:
   variable_passage:
     NAME: "narrow_passage"
+    SKIP: false
     FLAGS:
       # cnn
       learning_rate: 0.0003
@@ -31,6 +35,7 @@ ENVS:
       gnn_use_validation_set: true
   exit_garage:
     NAME: "exit_garage"
+    SKIP: false
     FLAGS:
       exit_garage_min_num_obstacles: 2
       exit_garage_max_num_obstacles: 3  # inclusive
