@@ -17,8 +17,8 @@ from torch.utils.data import DataLoader
 from predicators import utils
 from predicators.gnn.gnn import EncodeProcessDecode, setup_graph_net
 from predicators.gnn.gnn_utils import GraphDictDataset, compute_normalizers, \
-    get_single_model_prediction, graph_batch_collate, normalize_graph, \
-    train_model
+    get_graph_batch_collate_with_device, get_single_model_prediction, \
+    normalize_graph, train_model
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
@@ -65,7 +65,9 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
             in_graph = self._graphify_single_input(state, atoms, goal, action)
             if CFG.gnn_do_normalization:
                 in_graph = normalize_graph(in_graph, self._input_normalizers)
-            out_graph = get_single_model_prediction(self._gnn, in_graph)
+            out_graph = get_single_model_prediction(self._gnn,
+                                                    in_graph,
+                                                    device=self._device)
             if CFG.gnn_do_normalization:
                 out_graph = normalize_graph(out_graph,
                                             self._target_normalizers,
@@ -121,7 +123,6 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
             num_validation = max(1, int(len(graph_inputs) * 0.1))
         else:
             num_validation = 0
-        # Shuffle and split data
         shuffled_indices = self._rng.permutation(len(graph_inputs))
         graph_inputs = [graph_inputs[i] for i in shuffled_indices]
         graph_targets = [graph_targets[i] for i in shuffled_indices]
@@ -140,6 +141,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         optimizer = torch.optim.Adam(self._gnn.parameters(),
                                      lr=CFG.gnn_learning_rate,
                                      weight_decay=CFG.gnn_weight_decay)
+        graph_batch_collate = get_graph_batch_collate_with_device(self._device)
         train_dataloader = DataLoader(train_dataset,
                                       batch_size=CFG.gnn_batch_size,
                                       shuffle=True,
@@ -159,7 +161,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                                       criterion=None,
                                       global_criterion=self._global_criterion,
                                       num_epochs=CFG.gnn_num_epochs,
-                                      do_validation=CFG.gnn_use_validation_set)
+                                      do_validation=CFG.gnn_use_validation_set,
+                                      device=self._device)
         self._gnn.load_state_dict(best_model_dict)
 
     def _global_criterion(self, output: torch.Tensor,
@@ -273,6 +276,13 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         }
         return graph
 
+    def _to_tensor_on_device(self, graph: Dict) -> None:
+        """Convert the nodes, edges, and globals of a graph to a tensor on
+        self._device."""
+        graph["nodes"] = torch.from_numpy(graph["nodes"]).to(self._device)
+        graph["edges"] = torch.from_numpy(graph["edges"]).to(self._device)
+        graph["globals"] = torch.from_numpy(graph["globals"]).to(self._device)
+
     def _setup_fields(self) -> None:
         """Assign indices to each node and edge feature, and also identify list
         of nullary predicates."""
@@ -346,10 +356,10 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         example_dataset = GraphDictDataset([ex_input], [ex_target])
         self._gnn = setup_graph_net(example_dataset,
                                     num_steps=CFG.gnn_num_message_passing,
-                                    layer_size=CFG.gnn_layer_size)
+                                    layer_size=CFG.gnn_layer_size).to(
+                                        self._device)
         state_dict = info["state_dict"]
         if state_dict is not None:
             self._gnn.load_state_dict(info["state_dict"])
-        self._gnn.to(self._device)
         self._input_normalizers = info["input_normalizers"]
         self._target_normalizers = info["target_normalizers"]

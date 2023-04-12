@@ -14,14 +14,17 @@ from torch.utils.data import Dataset
 from predicators.structs import Array
 
 
-def train_model(model: Any, dataloaders: Dict,
-                optimizer: torch.optim.Optimizer,
-                criterion: Optional[Callable[[torch.Tensor, torch.Tensor],
-                                             torch.Tensor]],
-                global_criterion: Optional[
-                    Callable[[torch.Tensor, torch.Tensor],
-                             torch.Tensor]], num_epochs: int,
-                do_validation: bool) -> OrderedDict[str, torch.Tensor]:
+def train_model(
+    model: Any,
+    dataloaders: Dict,
+    optimizer: torch.optim.Optimizer,
+    criterion: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]],
+    global_criterion: Optional[Callable[[torch.Tensor, torch.Tensor],
+                                        torch.Tensor]],
+    num_epochs: int,
+    do_validation: bool,
+    device: Optional[torch.device] = None,
+) -> OrderedDict[str, torch.Tensor]:
     """Optimize the model and save checkpoints."""
     since = time.perf_counter()
 
@@ -65,6 +68,8 @@ def train_model(model: Any, dataloaders: Dict,
                 output = outputs[-1]
 
                 loss = torch.tensor(0.0)
+                if device is not None:
+                    loss = loss.to(device)
                 if criterion is not None:
                     loss += criterion(output['nodes'], targets['nodes'])
 
@@ -184,11 +189,13 @@ def _invert_normalize_array(array_data: Array,
     return (array_data * scale) + shift
 
 
-def get_single_model_prediction(model: Any, single_input: Dict) -> Dict:
+def get_single_model_prediction(model: Any,
+                                single_input: Dict,
+                                device: Optional[torch.device] = None) -> Dict:
     """Get a prediction from the given model on the given input."""
     model.train(False)
     model.eval()
-    inputs = _create_super_graph([single_input])
+    inputs = _create_super_graph([single_input], device=device)
     outputs = model(inputs.copy())
     graphs = split_graphs(_convert_to_data(outputs[-1]))
     assert len(graphs) == 1
@@ -224,7 +231,7 @@ def _compute_stacked_offsets(sizes: List[Array],
 def _convert_to_data(graph: Dict) -> Dict:
     for key in graph.keys():
         if graph[key] is not None:
-            graph[key] = graph[key].data
+            graph[key] = graph[key].cpu().data
     return graph
 
 
@@ -345,7 +352,8 @@ class GraphDictDataset(Dataset):
         return sample
 
 
-def _create_super_graph(batches: List[Dict]) -> Dict:
+def _create_super_graph(batches: List[Dict],
+                        device: Optional[torch.device] = None) -> Dict:
     nodes = batches[0]['nodes']
     edges = batches[0]['edges']
     receivers = batches[0]['receivers'][:, None]
@@ -370,7 +378,7 @@ def _create_super_graph(batches: List[Dict]) -> Dict:
         num_nodes = np.vstack((num_nodes, b['n_node']))
         num_edges = np.vstack((num_edges, b['n_edge']))
 
-    return {
+    super_graph = {
         'n_node':
         torch.from_numpy(num_nodes),
         'n_edge':
@@ -386,15 +394,28 @@ def _create_super_graph(batches: List[Dict]) -> Dict:
         'globals': (torch.from_numpy(globals_).float().requires_grad_()
                     if globals_ is not None else None),
     }
+    # Convert Tensors to device
+    if device is not None:
+        for key, val in super_graph.items():
+            if val is None:
+                continue
+            super_graph[key] = val.to(device)
+    return super_graph
 
 
-def graph_batch_collate(batch: List[Dict]) -> Dict:
+def graph_batch_collate(batch: List[Dict],
+                        device: Optional[torch.device] = None) -> Dict:
     """Collate the given batch of graphs.
 
     Assumes batch is a dictionary where each key contains a list of
     graphs.
     """
     return {
-        key: _create_super_graph([d[key] for d in batch])
+        key: _create_super_graph([d[key] for d in batch], device=device)
         for key in batch[0]
     }
+
+
+def get_graph_batch_collate_with_device(device: torch.device) -> Callable:
+    """Return a graph_batch_collate function that is given a device."""
+    return lambda batch: graph_batch_collate(batch, device=device)
