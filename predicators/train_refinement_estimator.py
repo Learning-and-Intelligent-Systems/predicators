@@ -236,6 +236,7 @@ def _collect_refinement_data_for_task(env: BaseEnv, task: Task,
     except _MaxSkeletonsFailure:
         # Done finding skeletons
         pass
+    logging.info(f"Trying to refine {len(generated_skeletons)} skeletons")
     for skeleton, atoms_sequence in generated_skeletons:
         necessary_atoms_seq = utils.compute_necessary_atoms_seq(
             skeleton, atoms_sequence, task.goal)
