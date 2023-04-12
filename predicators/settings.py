@@ -296,6 +296,8 @@ class GlobalSettings:
     exit_garage_rrt_num_attempts = 10
     exit_garage_rrt_num_iters = 100
     exit_garage_rrt_sample_goal_eps = 0.1
+    exit_garage_motion_planning_ignore_obstacles = False
+    exit_garage_raise_environment_failure = False
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]

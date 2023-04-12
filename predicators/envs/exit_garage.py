@@ -119,9 +119,14 @@ class ExitGarageEnv(BaseEnv):
             next_state.set(self._car, "x", cx + dx)
             next_state.set(self._car, "y", cy + dy)
             next_state.set(self._car, "theta", new_theta)
-            # If this causes a collision, revert the movement
-            if self.car_has_collision(next_state) or \
-                    self.coords_out_of_bounds(cx + dx, cy + dy):
+            # If this causes a collision, optionally raise failure
+            collision_obj = self.get_car_collision_object(next_state)
+            collision = collision_obj is not None
+            if collision and CFG.exit_garage_raise_environment_failure:
+                raise utils.EnvironmentFailure(
+                    "Collision", info={"offending_objects": {collision_obj}})
+            # If there is a collision or out-of-bounds, revert the move
+            if collision or self.coords_out_of_bounds(cx + dx, cy + dy):
                 next_state.set(self._car, "x", cx)
                 next_state.set(self._car, "y", cy)
                 next_state.set(self._car, "theta", theta)
@@ -368,9 +373,8 @@ class ExitGarageEnv(BaseEnv):
         return True
 
     @classmethod
-    def car_has_collision(cls, state: State) -> bool:
-        """Returns True if the car has collided with the storage area or any
-        obstacle.
+    def get_car_collision_object(cls, state: State) -> Optional[Object]:
+        """Returns the object that the car has collided with, or None.
 
         This is made public because it is used both in simulate and in
         the externally-defined ground-truth options.
@@ -381,7 +385,7 @@ class ExitGarageEnv(BaseEnv):
         storage, = state.get_objects(cls._storage_type)
         storage_geom = cls._object_to_geom(storage, state)
         if car_geom.intersects(storage_geom):
-            return True
+            return storage
         # Check for collisions with obstacles
         for obstacle in state.get_objects(cls._obstacle_type):
             # Ignore this obstacle if it is being carried by the robot
@@ -389,8 +393,8 @@ class ExitGarageEnv(BaseEnv):
                 continue
             obstacle_geom = cls._object_to_geom(obstacle, state)
             if car_geom.intersects(obstacle_geom):
-                return True
-        return False
+                return obstacle
+        return None
 
     @classmethod
     def _placed_object_collides(cls, state: State, new_x: float,

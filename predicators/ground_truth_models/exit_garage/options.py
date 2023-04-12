@@ -222,14 +222,18 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _collision_fn(pt: Array) -> bool:
             # Check for collision of car in non-holonomic case
             x, y, theta = pt
-            # Make a hypothetical state for the car at this point and check
-            # if there would be collisions.
-            s = state.copy()
-            s.set(move_obj, "x", x)
-            s.set(move_obj, "y", y)
-            s.set(move_obj, "theta", theta)
-            return ExitGarageEnv.car_has_collision(
-                s) or ExitGarageEnv.coords_out_of_bounds(x, y)
+            if ExitGarageEnv.coords_out_of_bounds(x, y):
+                return True
+            if not CFG.exit_garage_motion_planning_ignore_obstacles:
+                # Make a hypothetical state for the car at this point and check
+                # if there would be collisions.
+                s = state.copy()
+                s.set(move_obj, "x", x)
+                s.set(move_obj, "y", y)
+                s.set(move_obj, "theta", theta)
+                if ExitGarageEnv.get_car_collision_object(s) is not None:
+                    return True
+            return False
 
         rrt = utils.RRT(
             _sample_fn,
