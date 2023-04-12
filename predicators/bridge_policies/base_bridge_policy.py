@@ -67,6 +67,18 @@ class BaseBridgePolicy(abc.ABC):
         self._atoms_history.append(utils.abstract(state, self._predicates))
         self._option_history.append(option)
 
+    def get_internal_state(self) -> Tuple[List[State], List[Set[GroundAtom]],
+            List[_Option], List[Tuple[int, BridgePolicyFailure]]]:
+        """Get that which is sufficient to describe the internal state."""
+        return (list(self._state_history), list(self._atoms_history),
+                list(self._option_history), list(self._failure_history))
+
+    def set_internal_state(self, internal_state: Tuple[List[State], List[Set[GroundAtom]],
+            List[_Option], List[Tuple[int, BridgePolicyFailure]]]) -> None:
+        """Set the bridge policy's internal state."""
+        self._state_history, self._atoms_history, self._option_history, \
+            self._failure_history = internal_state
+
     def learn_from_demos(self, dataset: BridgeDataset) -> None:
         """For learning-based approaches, learn whatever is needed from the
         given dataset.

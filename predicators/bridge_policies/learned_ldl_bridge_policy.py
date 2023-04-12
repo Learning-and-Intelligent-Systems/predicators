@@ -34,6 +34,8 @@ class LearnedLDLBridgePolicy(LDLBridgePolicy):
         # atoms are only over the objects in the NSRT. Do this for both
         # positive and negative atoms.
         all_seen_atoms = {a for atoms, _ in ground_atom_data for a in atoms}
+        for atom_set in self._atoms_history:
+            all_seen_atoms.update(atom_set)
         nsrt_to_pos_lifted_atoms: Dict[NSRT, List[Set[LiftedAtom]]] = {}
         nsrt_to_neg_lifted_atoms: Dict[NSRT, List[Set[LiftedAtom]]] = {}
         for ground_atoms, ground_nsrt in ground_atom_data:

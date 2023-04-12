@@ -65,7 +65,7 @@ from predicators.settings import CFG
 from predicators.structs import Action, BridgeDataset, DefaultState, \
     DemonstrationQuery, DemonstrationResponse, InteractionRequest, \
     InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
-    Type, _Option, BridgePolicyDoneNSRT
+    Type, _Option
 from predicators.utils import OptionExecutionFailure
 
 
@@ -85,7 +85,7 @@ class BridgePolicyApproach(OracleApproach):
                          max_skeletons_optimized)
         predicates = self._get_current_predicates()
         options = initial_options
-        nsrts = self._get_current_nsrts() | {BridgePolicyDoneNSRT}
+        nsrts = self._get_current_nsrts()
         self._bridge_policy = create_bridge_policy(CFG.bridge_policy, types,
                                                    predicates, options, nsrts)
         self._bridge_dataset: BridgeDataset = []
@@ -114,9 +114,10 @@ class BridgePolicyApproach(OracleApproach):
             raise_error_on_repeated_state=True,
             new_option_callback=new_option_callback,
         )
+        num_actions_since_switch = 0
 
         def _policy(s: State) -> Action:
-            nonlocal current_control, current_policy
+            nonlocal current_control, current_policy, num_actions_since_switch
 
             if time.perf_counter() - start_time > timeout:
                 raise ApproachTimeout("Bridge policy timed out.")
@@ -124,10 +125,16 @@ class BridgePolicyApproach(OracleApproach):
             # Normal execution. Either keep executing the current option, or
             # switch to the next option if it has terminated.
             try:
-                return current_policy(s)
+                act = current_policy(s)
+                num_actions_since_switch += 1
+                return act
             except BridgePolicyDone:
                 # Bridge policy declared itself done so switch back to planner.
                 assert current_control == "bridge"
+                # Ask for help (or fail during evaluation) if the bridge policy
+                # terminates immediately.
+                if num_actions_since_switch == 0:
+                    raise ApproachFailure("Bridge policy stuck.")
                 current_control = "planner"
                 logging.debug("Switching control from bridge to planner.")
                 failed_option = None
@@ -140,13 +147,8 @@ class BridgePolicyApproach(OracleApproach):
                 bridge_policy_failure = (failed_option, offending_objects)
                 self._bridge_policy.record_failure(bridge_policy_failure)
                 logging.debug("Giving control to bridge.")
-            except ApproachFailure as e:
-                # The bridge policy got stuck.
-                assert "LDL bridge policy not applicable" in str(e)
-                policy_input = self._bridge_policy.get_policy_input_atoms(s)
-                raise ApproachFailure("Bridge policy stuck.",
-                    info={"policy_input": policy_input},
-                )
+
+            num_actions_since_switch = 0
 
             if current_control == "bridge":
                 # Planning failed on the first time step.
@@ -241,15 +243,13 @@ class BridgePolicyApproach(OracleApproach):
         policy = self._solve(task, timeout=CFG.timeout)
 
         reached_stuck_state = False
-        policy_input = None
 
         def _act_policy(s: State) -> Action:
-            nonlocal reached_stuck_state, policy_input
+            nonlocal reached_stuck_state
             try:
                 return policy(s)
             except ApproachFailure as e:
                 reached_stuck_state = True
-                policy_input = e.info["policy_input"]
                 # Approach failures not caught in interaction loop.
                 raise OptionExecutionFailure(e.args[0], e.info)
 
@@ -259,9 +259,9 @@ class BridgePolicyApproach(OracleApproach):
         def _query_policy(s: State) -> Optional[Query]:
             if not reached_stuck_state or task.goal_holds(s):
                 return None
-            assert policy_input is not None
+            internal_state = self._bridge_policy.get_internal_state()
             return DemonstrationQuery(
-                train_task_idx, {"policy_input": policy_input})
+                train_task_idx, {"bridge_internal_state": internal_state})
 
         request = InteractionRequest(train_task_idx, _act_policy,
                                      _query_policy, _termination_fn)
@@ -288,11 +288,18 @@ class BridgePolicyApproach(OracleApproach):
             query = response.query
             assert isinstance(query, DemonstrationQuery)
             goal = self._train_tasks[query.train_task_idx].goal
-            policy_input = query.get_info("policy_input")
+            bridge_internal_state = query.get_info("bridge_internal_state")
 
-            # Abstract and segment the trajectory.
+            # Turn the demonstration into a sequence of (state, option).
             traj = response.teacher_traj
             assert traj is not None
+            objects = set(traj.states[0])
+            effects_to_ground_nsrt = {}
+            for nsrt in nsrts:
+                for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                    add_atoms = frozenset(ground_nsrt.add_effects)
+                    effects_to_ground_nsrt[add_atoms] = ground_nsrt
+
             atom_traj = [utils.abstract(s, preds) for s in traj.states]
             segmented_traj = segment_trajectory((traj, atom_traj))
             if not segmented_traj:
@@ -307,7 +314,31 @@ class BridgePolicyApproach(OracleApproach):
             assert len(states) == len(atoms)
             seq_len = len(atoms)
 
-            # Prepare to map the rational transitions to done.
+            # Assume all changes were necessary; we don't know otherwise.
+            options: List[_Option] = []
+            ground_nsrts: List[_GroundNSRT] = []
+            for t in range(seq_len - 1):
+                add_atoms = frozenset(atoms[t + 1] - atoms[t])
+                try:
+                    ground_nsrt = effects_to_ground_nsrt[add_atoms]
+                except KeyError:
+                    raise ValueError(f"No NSRT found for atoms {add_atoms}.")
+                ground_nsrts.append(ground_nsrt)
+                # Assume the option parameters don't matter.
+                option = ground_nsrt.sample_option(states[t], goal, self._rng)
+                options.append(option)
+            assert len(options) == len(ground_nsrts) == seq_len - 1
+            
+            # Get the policy inputs from the bridge policy by playing back the
+            # demonstration, starting at the state where it got stuck.
+            self._bridge_policy.set_internal_state(bridge_internal_state)
+            policy_inputs: List[Set[GroundAtom]] = []
+            for state, option in zip(states, options):
+                input_atoms = self._bridge_policy.get_policy_input_atoms(state)
+                policy_inputs.append(input_atoms)
+                self._bridge_policy.record_state_option(state, option)
+
+            # Prepare to excise the rational transitions.
             optimal_ctgs: List[float] = []
             for state in states:
                 task = Task(state, goal)
@@ -324,39 +355,15 @@ class BridgePolicyApproach(OracleApproach):
                     ctg = float("inf")
                 optimal_ctgs.append(ctg)
 
-            # For later converting atoms into ground NSRTs.
-            objects = set(states[0])
-            effects_to_ground_nsrt = {}
-            for nsrt in nsrts:
-                for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-                    add_atoms = frozenset(ground_nsrt.add_effects)
-                    effects_to_ground_nsrt[add_atoms] = ground_nsrt
-
-            # Collect the irrational transitions and turn atom changes into
-            # ground NSRTs.
-            last_transition_was_rational = True
+            # Update the bridge dataset with the irrational transitions.
             for t in range(seq_len - 1):
                 # Step was rational.
                 if optimal_ctgs[t] == optimal_ctgs[t + 1] + 1:
-                    if not last_transition_was_rational:
-                        # Bridge policy should be done now.
-                        ground_nsrt = BridgePolicyDoneNSRT.ground([])
-                    last_transition_was_rational = True
-                # Step was irrational.
-                else:
-                    last_transition_was_rational = False
-                    # Assume all changes were necessary; we don't know otherwise.
-                    add_atoms = frozenset(atoms[t + 1] - atoms[t])
-                    try:
-                        ground_nsrt = effects_to_ground_nsrt[add_atoms]
-                    except KeyError:  # pragma: no cover
-                        logging.warning("WARNING: no NSRT found for add atoms "
-                                        f"{add_atoms}. Skipping transition.")
-                        continue
+                    continue
                 # Add to data.
                 self._bridge_dataset.append((
-                    policy_input,
-                    ground_nsrt,
+                    policy_inputs[t],
+                    ground_nsrts[t],
                 ))
 
         return self._bridge_policy.learn_from_demos(self._bridge_dataset)
