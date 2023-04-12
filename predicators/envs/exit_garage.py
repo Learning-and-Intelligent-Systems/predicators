@@ -125,7 +125,7 @@ class ExitGarageEnv(BaseEnv):
             if collision and CFG.exit_garage_raise_environment_failure:
                 raise utils.EnvironmentFailure(
                     "Collision", info={"offending_objects": {collision_obj}})
-            # tf there is a collision or out-of-bounds, revert the move
+            # If there is a collision or out-of-bounds, revert the move
             if collision or self.coords_out_of_bounds(cx + dx, cy + dy):
                 next_state.set(self._car, "x", cx)
                 next_state.set(self._car, "y", cy)
