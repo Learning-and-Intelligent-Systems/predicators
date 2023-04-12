@@ -1,6 +1,7 @@
 """Environment for refinement cost learning with varying object counts."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+import logging
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -471,3 +472,14 @@ class ExitGarageEnv(BaseEnv):
         # Obstacles
         assert obj.is_instance(cls._obstacle_type)
         return utils.Circle(x, y, cls.obstacle_radius)
+
+
+    def get_event_to_action_fn(
+            self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+        logging.info("Controls: put your mouse where you want either the car "
+            "or the robot to move, then press (c) or (r) to execute the move. "
+            "Press (g) to toggle the robot gripper. Press (q) to quit.")
+
+        import ipdb; ipdb.set_trace()
+
+    

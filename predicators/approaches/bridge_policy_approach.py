@@ -39,16 +39,22 @@ Learned bridge policy in stick button:
         --num_test_tasks 10 --segmenter contacts --demonstrator human \
         --stick_button_num_buttons_train '[3,4]'
 
-Oracle bridge policy in cluttered table:
-    python predicators/main.py --env cluttered_table --approach bridge_policy \
-        --seed 0 --bridge_policy oracle
-
 Oracle bridge policy in exit garage:
     python predicators/main.py --env exit_garage --approach bridge_policy \
         --seed 0 --bridge_policy oracle \
         --exit_garage_motion_planning_ignore_obstacles True \
         --exit_garage_raise_environment_failure True \
         --exit_garage_pick_place_refine_penalty 0
+
+ Learned bridge policy in exit garage:
+    python predicators/main.py --env exit_garage --approach bridge_policy \
+        --exit_garage_motion_planning_ignore_obstacles True \
+        --exit_garage_raise_environment_failure True \
+        --exit_garage_pick_place_refine_penalty 0  \
+        --max_initial_demos 0 --seed 0 \
+        --interactive_num_requests_per_cycle 1 \
+        --num_online_learning_cycles 100 \
+        --num_test_tasks 10 --segmenter contacts --demonstrator human
 """
 
 import logging
