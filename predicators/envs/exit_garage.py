@@ -476,10 +476,27 @@ class ExitGarageEnv(BaseEnv):
 
     def get_event_to_action_fn(
             self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+
         logging.info("Controls: put your mouse where you want either the car "
             "or the robot to move, then press (c) or (r) to execute the move. "
             "Press (g) to toggle the robot gripper. Press (q) to quit.")
 
-        import ipdb; ipdb.set_trace()
+        def _event_to_action(state: State,
+                             event: matplotlib.backend_bases.Event,
+                             mouse_x: float,
+                             mouse_y: float) -> Action:
+            if event.key == "q":
+                raise utils.HumanDemonstrationFailure("Human quit.")
 
-    
+            if event.key == "g":
+                # Toggle the robot gripper.
+                return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+
+            # Get the mouse position.
+            print("mouse x:", mouse_x)
+            print("mouse y:", mouse_y)
+            return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+
+        return _event_to_action
+
+        

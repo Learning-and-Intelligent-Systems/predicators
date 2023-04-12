@@ -245,16 +245,25 @@ def human_demonstrator_policy(env: BaseEnv, caption: str,
     # Render the state.
     fig = env.render_plt(caption=caption)
     container = {}
+    # Set up tracking of the mouse position for cases where we want to know the
+    # cursor position without necessarily clicking.
+    mouse_x, mouse_y = 0.0, 0.0
+    def _mouse_move(event: matplotlib.backend_bases.Event) -> None:
+        nonlocal mouse_x, mouse_y
+        mouse_x, mouse_y = event.xdata, event.ydata
+    cursor_cid = fig.canvas.mpl_connect('motion_notify_event', _mouse_move)
 
     def _handler(event: matplotlib.backend_bases.Event) -> None:
-        container["action"] = event_to_action(state, event)
+        container["action"] = event_to_action(state, event, mouse_x, mouse_y)
 
     keyboard_cid = fig.canvas.mpl_connect("key_press_event", _handler)
     mouse_cid = fig.canvas.mpl_connect("button_press_event", _handler)
+
     # Hang until either a mouse press or a keyboard press.
     plt.waitforbuttonpress()
     fig.canvas.mpl_disconnect(keyboard_cid)
     fig.canvas.mpl_disconnect(mouse_cid)
+    fig.canvas.mpl_disconnect(cursor_cid)
     plt.close()
     if "action" not in container:
         logging.warning("WARNING: Event handler failed. Its error message "
