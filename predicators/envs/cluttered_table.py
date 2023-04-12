@@ -163,6 +163,12 @@ class ClutteredTableEnv(BaseEnv):
                 max(CFG.cluttered_table_num_cans_train,
                     CFG.cluttered_table_num_cans_test)):
             cans.append(Object(f"can{i}", self._can_type))
+        if train_or_test == "train":
+            rng = self._train_rng
+        else:
+            assert train_or_test == "test"
+            rng = self._test_rng
+        rng.shuffle(cans)
         goal = {GroundAtom(self._Holding, [cans[0]])}
         for _ in range(num):
             tasks.append(
