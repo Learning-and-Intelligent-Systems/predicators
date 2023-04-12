@@ -121,6 +121,11 @@ def _train_refinement_estimation_approach() -> None:
     assert refinement_estimator.is_learning_based, \
         "Refinement estimator (--refinement_estimator) must be learning-based"
 
+    # Train with only a subset of dataset if desired
+    if CFG.refinement_train_with_num_data > -1:
+        dataset = dataset[:CFG.refinement_train_with_num_data]
+        logging.info(f"Using {len(dataset)} data points")
+
     # Train estimator
     train_start_time = time.perf_counter()
     refinement_estimator.train(dataset)
@@ -148,6 +153,9 @@ def _get_refinement_estimation_parser() -> ArgumentParser:
     parser.add_argument("--refinement_data_save_every", default=-1, type=int)
     parser.add_argument("--skip_refinement_estimator_training",
                         action="store_true")
+    parser.add_argument("--refinement_train_with_num_data",
+                        default=-1,
+                        type=int)
     return parser
 
 
