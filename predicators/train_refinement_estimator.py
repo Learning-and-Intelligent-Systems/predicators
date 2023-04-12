@@ -122,8 +122,9 @@ def _train_refinement_estimation_approach() -> None:
         "Refinement estimator (--refinement_estimator) must be learning-based"
 
     # Train with only a subset of dataset if desired
-    if CFG.refinement_train_with_num_data > -1:
-        dataset = dataset[:CFG.refinement_train_with_num_data]
+    if CFG.refinement_train_with_frac_data >= 0:
+        num_points = int(len(dataset) * CFG.refinement_train_with_frac_data)
+        dataset = dataset[:num_points]
         logging.info(f"Using {len(dataset)} data points")
 
     # Train estimator
@@ -153,9 +154,9 @@ def _get_refinement_estimation_parser() -> ArgumentParser:
     parser.add_argument("--refinement_data_save_every", default=-1, type=int)
     parser.add_argument("--skip_refinement_estimator_training",
                         action="store_true")
-    parser.add_argument("--refinement_train_with_num_data",
+    parser.add_argument("--refinement_train_with_frac_data",
                         default=-1,
-                        type=int)
+                        type=float)
     return parser
 
 

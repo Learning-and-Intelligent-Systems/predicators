@@ -74,8 +74,8 @@ def test_train_refinement_estimator():
         "1",
         "--log_file",
         temp_log_file,
-        "--refinement_train_with_num_data",
-        "1",
+        "--refinement_train_with_frac_data",
+        "1.1",
     ]
     sys.argv = train_sys_argv
     _train_refinement_estimation_approach()
