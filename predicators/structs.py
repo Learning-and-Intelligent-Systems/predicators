@@ -1377,10 +1377,16 @@ class GroundAtomsHoldResponse(Response):
 class DemonstrationQuery(Query):
     """A query requesting a demonstration to finish a train task."""
     train_task_idx: int
+    info: Optional[Dict] = field(default=None)
 
     @property
     def cost(self) -> float:
         return 1
+
+    def get_info(self, key: Any) -> Any:
+        """Access key from query info."""
+        assert self.info is not None
+        return self.info[key]
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1806,4 +1812,5 @@ ParameterizedTerminal = Callable[[State, Dict, Sequence[Object], Array], bool]
 AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
 RGBA = Tuple[float, float, float, float]
-BridgePolicy = Callable[[State, Set[GroundAtom], _GroundNSRT], _Option]
+BridgePolicy = Callable[[State, Set[GroundAtom], List[_Option]], _Option]
+BridgeDataset = List[Tuple[Set[_Option], _GroundNSRT, Set[GroundAtom], State]]
