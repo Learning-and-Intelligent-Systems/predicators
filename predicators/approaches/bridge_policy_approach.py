@@ -43,6 +43,13 @@ Oracle bridge policy in cluttered table:
     python predicators/main.py --env cluttered_table --approach bridge_policy \
         --seed 0 --bridge_policy oracle
 
+Learned bridge policy in cluttered table with oracle demonstrator:
+    python predicators/main.py --env cluttered_table --approach bridge_policy \
+        --seed 0 --horizon 10000 --max_initial_demos 0 \
+        --interactive_num_requests_per_cycle 1 \
+        --num_online_learning_cycles 10 \
+        --num_test_tasks 10 --segmenter oracle --demonstrator oracle
+
 Oracle bridge policy in exit garage:
     python predicators/main.py --env exit_garage --approach bridge_policy \
         --seed 0 --bridge_policy oracle \
