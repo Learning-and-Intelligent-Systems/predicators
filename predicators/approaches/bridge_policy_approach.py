@@ -53,7 +53,7 @@ Oracle bridge policy in exit garage:
         --exit_garage_pick_place_refine_penalty 0  \
         --max_initial_demos 0 --seed 0 \
         --interactive_num_requests_per_cycle 1 \
-        --num_online_learning_cycles 100 \
+        --num_online_learning_cycles 3 \
         --num_test_tasks 10 --segmenter contacts --demonstrator human
 """
 
@@ -110,7 +110,7 @@ class BridgePolicyApproach(OracleApproach):
         self._bridge_policy.reset()
         # The bridge policy's internal history is updated every time a new
         # option is selected or a failure is encountered.
-        new_option_callback = self._create_new_option_callback()
+        new_option_callback = self._bridge_policy.record_state_option
         # Start by planning. Note that we cannot start with the bridge policy
         # because the bridge policy takes as input the last failed NSRT.
         current_control = "planner"
@@ -121,6 +121,7 @@ class BridgePolicyApproach(OracleApproach):
             raise_error_on_repeated_state=True,
             new_option_callback=new_option_callback,
         )
+        current_policy = self._wrap_policy_env_failure(current_policy)
         num_actions_since_switch = 0
 
         def _policy(s: State) -> Action:
@@ -169,6 +170,7 @@ class BridgePolicyApproach(OracleApproach):
                     raise_error_on_repeated_state=True,
                     new_option_callback=new_option_callback,
                 )
+                current_policy = self._wrap_policy_env_failure(current_policy)
             else:
                 assert current_control == "planner"
                 current_task = Task(s, task.goal)
@@ -183,6 +185,7 @@ class BridgePolicyApproach(OracleApproach):
                     raise_error_on_repeated_state=True,
                     new_option_callback=new_option_callback,
                 )
+                current_policy = self._wrap_policy_env_failure(current_policy)
 
             return _policy(s)
 
@@ -207,25 +210,29 @@ class BridgePolicyApproach(OracleApproach):
             rng=self._rng,
             necessary_atoms_seq=atoms_seq)
 
-    def _create_new_option_callback(self) -> Callable[[State, _Option], None]:
+        
+    def _wrap_policy_env_failure(self, policy: Callable[[State], Action]) -> Callable[[State], Action]:
+        # TODO: remove this and create an environment failure predictor
+        # interface.
+        from predicators.envs import get_or_create_env
+        simulator = get_or_create_env(CFG.env).simulate
 
-        def _new_option_callback(state: State, option: _Option) -> None:
-            self._bridge_policy.record_state_option(state, option)
+        def _policy(state: State) -> Action:
+            act = policy(state)
             try:
-                # Use the option model ONLY to predict environment failures.
-                # Will raise an EnvironmentFailure if one is predicted.
-                self._option_model.get_next_state_and_num_actions(
-                    state, option)
+                simulator(state, act)
             except utils.EnvironmentFailure as e:
                 logging.debug(f"Environment failure: {repr(e)}")
+                option = act.get_option()
                 raise OptionExecutionFailure(
                     f"Environment failure predicted: {repr(e)}.",
                     info={
                         "last_failed_option": option,
                         **e.info
                     })
+            return act
 
-        return _new_option_callback
+        return _policy
 
     ########################### Active learning ###############################
 
