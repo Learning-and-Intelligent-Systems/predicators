@@ -76,7 +76,8 @@ class SpotControllers():
 
         self.sdk = bosdyn.client.create_standard_sdk('SesameClient')
         self.robot: Robot = self.sdk.create_robot(self._hostname)
-        if not os.environ.get('BOSDYN_CLIENT_USERNAME') or not os.environ.get('BOSDYN_CLIENT_PASSWORD'):
+        if not os.environ.get('BOSDYN_CLIENT_USERNAME') or not os.environ.get(
+                'BOSDYN_CLIENT_PASSWORD'):
             raise RuntimeError("Spot environment variables unset.")
         bosdyn.client.util.authenticate(self.robot)
         self.robot.time_sync.wait_for_sync()
