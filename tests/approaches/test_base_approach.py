@@ -1,5 +1,4 @@
 """Test cases for the base approach class."""
-
 from typing import Callable
 
 import numpy as np
@@ -9,6 +8,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches import BaseApproach, create_approach
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, ParameterizedOption, Predicate, \
     State, Task, Type
 
@@ -84,7 +84,7 @@ def test_base_approach():
 def test_create_approach():
     """Tests for create_approach."""
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     for name in [
             "random_actions",
             "random_options",
@@ -98,9 +98,11 @@ def test_create_approach():
             "env": "cover",
             "approach": name,
         })
-        approach = create_approach(name, env.predicates, env.options,
-                                   env.types, env.action_space, train_tasks)
+        approach = create_approach(name, env.predicates,
+                                   get_gt_options(env.get_name()), env.types,
+                                   env.action_space, train_tasks)
         assert isinstance(approach, BaseApproach)
     with pytest.raises(NotImplementedError):
-        create_approach("Not a real approach", env.predicates, env.options,
-                        env.types, env.action_space, train_tasks)
+        create_approach("Not a real approach", env.predicates,
+                        get_gt_options(env.get_name()), env.types,
+                        env.action_space, train_tasks)

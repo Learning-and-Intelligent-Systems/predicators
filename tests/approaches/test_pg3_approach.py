@@ -1,6 +1,6 @@
 """Test cases for the PG3 approach."""
-
 import os
+import tempfile
 
 import pytest
 
@@ -10,7 +10,7 @@ from predicators.approaches.pg3_approach import PG3Approach
 from predicators.approaches.pg4_approach import PG4Approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OptionModelBase
 from predicators.structs import LDLRule, LiftedDecisionList
 
@@ -40,11 +40,12 @@ def test_pg3_approach(approach_name, approach_cls):
         "pg3_hc_enforced_depth": 0,
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
-    approach = approach_cls(env.predicates, env.options, env.types,
-                            env.action_space, train_tasks)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = approach_cls(env.predicates, get_gt_options(env.get_name()),
+                            env.types, env.action_space, train_tasks)
     assert approach.get_name() == approach_name
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     approach._nsrts = nsrts  # pylint: disable=protected-access
 
@@ -97,6 +98,34 @@ def test_pg3_approach(approach_name, approach_cls):
     act = policy(task.init)
     option = act.get_option()
     assert option.name == "pick-up"
+
+    # Test loading from a saved init policy file.
+    if approach_name == "pg3":
+        pg3_init_file = tempfile.NamedTemporaryFile().name
+        with open(pg3_init_file, "w", encoding="utf-8") as f:
+            # Write the good policy to a file.
+            f.write(str(ldl))
+        # Create a new approach.
+        utils.reset_config({
+            "env": env_name,
+            "approach": approach_name,
+            "num_train_tasks": 1,
+            "num_test_tasks": 1,
+            "strips_learner": "oracle",
+            "pg3_heuristic": "demo_plan_comparison",  # faster for tests
+            "pg3_search_method": "hill_climbing",
+            "pg3_hc_enforced_depth": 0,
+            "pg3_init_policy": pg3_init_file,
+        })
+        new_approach = approach_cls(env.predicates,
+                                    get_gt_options(env.get_name()), env.types,
+                                    env.action_space, train_tasks)
+        new_approach._nsrts = nsrts  # pylint: disable=protected-access
+        recovered_ldls = new_approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
+        assert len(recovered_ldls) == 1
+        recovered_ldl = recovered_ldls[0]
+        assert len(recovered_ldl.rules) == len(ldl.rules)
+
     # Test case where low-level search fails in PG3.
     if approach_name == "pg3":
         approach._option_model = _MockOptionModel(env.simulate)  # pylint: disable=protected-access
@@ -122,7 +151,7 @@ def test_pg3_approach(approach_name, approach_cls):
         option = act.get_option()
         assert option.name == "pick-up"
     # Test learning with a fast heuristic.
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     approach.learn_from_offline_dataset(dataset)
     load_path = utils.get_approach_load_path_str()
     expected_policy_file = f"{load_path}_None.ldl"
@@ -158,10 +187,10 @@ def test_cluttered_table_pg3_approach():
         "sampler_learner": "oracle",
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
-    approach = PG3Approach(env.predicates, env.options, env.types,
-                           env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = PG3Approach(env.predicates, get_gt_options(env.get_name()),
+                           env.types, env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     approach.learn_from_offline_dataset(dataset)
     # Test several tasks to make sure we encounter at least one discovered
     # failure.

@@ -1,5 +1,4 @@
 """Test cases for the stick button environment."""
-
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,7 +6,8 @@ import pytest
 
 from predicators import utils
 from predicators.envs.stick_button import StickButtonEnv
-from predicators.structs import Action, GroundAtom, Task
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
+from predicators.structs import Action, EnvironmentTask, GroundAtom
 
 
 def test_stick_button():
@@ -29,7 +29,7 @@ def test_stick_button():
     assert len(env.goal_predicates) == 1
     AboveNoButton = [p for p in env.predicates if p.name == "AboveNoButton"][0]
     assert {pred.name for pred in env.goal_predicates} == {"Pressed"}
-    assert len(env.options) == 3
+    assert len(get_gt_options(env.get_name())) == 4
     assert len(env.types) == 4
     button_type, holder_type, robot_type, stick_type = sorted(env.types)
     assert button_type.name == "button"
@@ -62,7 +62,7 @@ def test_stick_button():
     state.set(stick, "x", stick_x)
     state.set(stick, "y", (env.rz_y_ub + env.rz_y_lb) / 4)
     state.set(stick, "theta", np.pi / 4)
-    task = Task(state, task.goal)
+    task = EnvironmentTask(state, task.goal)
     env.render_state(state, task)
     assert GroundAtom(AboveNoButton, []).holds(state)
 
@@ -167,8 +167,10 @@ def test_stick_button():
 
     ## Test options ##
 
-    PickStick, RobotPressButton, StickPressButton = sorted(env.options)
+    options = get_gt_options(env.get_name())
+    PickStick, PlaceStick, RobotPressButton, StickPressButton = sorted(options)
     assert PickStick.name == "PickStick"
+    assert PlaceStick.name == "PlaceStick"
     assert RobotPressButton.name == "RobotPressButton"
     assert StickPressButton.name == "StickPressButton"
 
@@ -216,6 +218,21 @@ def test_stick_button():
         exceptions_to_break_on={utils.OptionExecutionFailure})
     assert traj.states[-2].get(unreachable_button, "pressed") < 0.5
     assert traj.states[-1].get(unreachable_button, "pressed") > 0.5
+
+    # Test PlaceStick.
+    option = PlaceStick.ground([robot, stick], [-0.1])
+    option_plan.append(option)
+
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        task.init,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(stick, "held") > 0.5
+    assert traj.states[-1].get(stick, "held") < 0.5
 
     # Uncomment for debugging.
     # policy = utils.option_plan_to_policy(option_plan)
@@ -275,4 +292,17 @@ def test_stick_button():
     event.xdata = event.x
     event.ydata = event.y
     assert isinstance(event_to_action(state, event), Action)
+    # Test quitting.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "q")
+    with pytest.raises(utils.HumanDemonstrationFailure) as e:
+        event_to_action(state, event)
+    assert "Human quit" in str(e)
     plt.close()
+
+    # Special test for PlaceStick NSRT because it's not used by oracle.
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    nsrt = next(iter(n for n in nsrts if n.name == "PlaceStickFromNothing"))
+    ground_nsrt = nsrt.ground([robot, stick])
+    rng = np.random.default_rng(123)
+    option = ground_nsrt.sample_option(state, set(), rng)
+    assert -1 <= option.params[0] <= 1

@@ -1,5 +1,4 @@
 """Test cases for the online NSRT learning approach."""
-
 import pytest
 
 from predicators import utils
@@ -8,6 +7,7 @@ from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
 from predicators.settings import CFG
 from predicators.structs import Dataset
@@ -31,11 +31,12 @@ def test_online_nsrt_learning_approach():
         "online_learning_max_novelty_count": float("inf"),
     })
     env = CoverEnv()
-    train_tasks = env.get_train_tasks()
-    approach = OnlineNSRTLearningApproach(env.predicates, env.options,
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    approach = OnlineNSRTLearningApproach(env.predicates,
+                                          get_gt_options(env.get_name()),
                                           env.types, env.action_space,
                                           train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert approach.is_learning_based
     # Learning with an empty dataset should not crash.
     approach.learn_from_offline_dataset(Dataset([]))

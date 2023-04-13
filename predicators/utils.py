@@ -45,7 +45,7 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, OptionSpec, \
+    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
     Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
     _GroundSTRIPSOperator, _Option, _TypedEntity
@@ -99,13 +99,13 @@ def count_positives_for_ops(
                     all_ground_operators_given_partial(op, objects,
                                                        option_var_to_obj)):
                 if max_groundings is not None and \
-                   grounding_idx > max_groundings:
+                    grounding_idx > max_groundings:
                     break
                 # Check the ground_op against the segment.
                 if not ground_op.preconditions.issubset(segment.init_atoms):
                     continue
                 if ground_op.add_effects == segment.add_effects and \
-                   ground_op.delete_effects == segment.delete_effects:
+                    ground_op.delete_effects == segment.delete_effects:
                     covered_by_some_op = True
                     true_positive_idxs[op_idx].add(seg_idx)
                 else:
@@ -452,8 +452,11 @@ class Rectangle(_Geom2D):
 
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         angle = self.theta * 180 / np.pi
-        patch = patches.Rectangle((self.x, self.y), self.width, self.height,
-                                  angle, **kwargs)
+        patch = patches.Rectangle((self.x, self.y),
+                                  self.width,
+                                  self.height,
+                                  angle=angle,
+                                  **kwargs)
         ax.add_patch(patch)
 
 
@@ -568,7 +571,7 @@ def line_segment_intersects_rectangle(seg: LineSegment,
     """Checks if a line segment intersects a rectangle."""
     # Case 1: one of the end points of the segment is in the rectangle.
     if rect.contains_point(seg.x1, seg.y1) or \
-       rect.contains_point(seg.x2, seg.y2):
+        rect.contains_point(seg.x2, seg.y2):
         return True
     # Case 2: the segment intersects with one of the rectangle sides.
     return any(line_segments_intersect(s, seg) for s in rect.line_segments)
@@ -885,12 +888,38 @@ class PyBulletState(State):
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
 
-class Monitor(abc.ABC):
+class StateWithCache(State):
+    """A state with a cache stored in the simulator state that is ignored for
+    state equality checks.
+
+    The cache is deliberately not copied.
+    """
+
+    @property
+    def cache(self) -> Dict[str, Dict]:
+        """Expose the cache in the simulator_state."""
+        return cast(Dict[str, Dict], self.simulator_state)
+
+    def allclose(self, other: State) -> bool:
+        # Ignores the simulator state.
+        return State(self.data).allclose(State(other.data))
+
+    def copy(self) -> State:
+        state_dict_copy = super().copy().data
+        return StateWithCache(state_dict_copy, self.cache)
+
+
+class LoggingMonitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 
     @abc.abstractmethod
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        """Record a state and the action that is about to be taken.
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        """Called when the monitor starts a new episode."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        """Record an observation and the action that is about to be taken.
 
         On the last timestep of a trajectory, no action is taken, so
         action is None.
@@ -899,14 +928,15 @@ class Monitor(abc.ABC):
 
 
 def run_policy(
-        policy: Callable[[State], Action],
-        env: BaseEnv,
-        train_or_test: str,
-        task_idx: int,
-        termination_function: Callable[[State], bool],
-        max_num_steps: int,
-        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-        monitor: Optional[Monitor] = None
+    policy: Callable[[State], Action],
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    termination_function: Callable[[State], bool],
+    max_num_steps: int,
+    do_env_reset: bool = True,
+    exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+    monitor: Optional[LoggingMonitor] = None
 ) -> Tuple[LowLevelTrajectory, Metrics]:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
@@ -921,8 +951,16 @@ def run_policy(
     Note that in the case where the exception is raised in step, we exclude the
     last action from the returned trajectory to maintain the invariant that
     the trajectory states are of length one greater than the actions.
+
+    NOTE: this may be deprecated in the future in favor of run_episode.
     """
-    state = env.reset(train_or_test, task_idx)
+    if do_env_reset:
+        env.reset(train_or_test, task_idx)
+        if monitor is not None:
+            monitor.reset(train_or_test, task_idx)
+    obs = env.get_observation()
+    assert isinstance(obs, State)
+    state = obs
     states = [state]
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
@@ -947,7 +985,7 @@ def run_policy(
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
+                    type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
@@ -969,7 +1007,7 @@ def run_policy_with_simulator(
         termination_function: Callable[[State], bool],
         max_num_steps: int,
         exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-        monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+        monitor: Optional[LoggingMonitor] = None) -> LowLevelTrajectory:
     """Execute a policy from a given initial state, using a simulator.
 
     *** This function should not be used with any core code, because we want
@@ -1009,7 +1047,7 @@ def run_policy_with_simulator(
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
+                    type(e) in exceptions_to_break_on:
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
@@ -1064,22 +1102,128 @@ class EnvironmentFailure(ExceptionWithInfo):
         return repr(self)
 
 
-def option_plan_to_policy(
-        plan: Sequence[_Option]) -> Callable[[State], Action]:
-    """Create a policy that executes a sequence of options in order."""
-    queue = list(plan)  # don't modify plan, just in case
+def option_policy_to_policy(
+    option_policy: Callable[[State], _Option],
+    max_option_steps: Optional[int] = None,
+    raise_error_on_repeated_state: bool = False,
+) -> Callable[[State], Action]:
+    """Create a policy that executes a policy over options."""
     cur_option = DummyOption
+    num_cur_option_steps = 0
+    last_state: Optional[State] = None
 
     def _policy(state: State) -> Action:
-        nonlocal cur_option
-        if cur_option.terminal(state):
-            if not queue:
-                raise OptionExecutionFailure("Option plan exhausted!")
-            cur_option = queue.pop(0)
-            assert cur_option.initiable(state), "Unsound option plan"
+        nonlocal cur_option, num_cur_option_steps, last_state
+
+        if cur_option is DummyOption:
+            last_option: Optional[_Option] = None
+        else:
+            last_option = cur_option
+
+        if max_option_steps is not None and \
+            num_cur_option_steps >= max_option_steps:
+            raise OptionExecutionFailure(
+                "Exceeded max option steps.",
+                info={"last_failed_option": last_option})
+
+        if last_state is not None and \
+            raise_error_on_repeated_state and state.allclose(last_state):
+            raise OptionExecutionFailure(
+                "Encountered repeated state.",
+                info={"last_failed_option": last_option})
+        last_state = state
+
+        if cur_option is DummyOption or cur_option.terminal(state):
+            try:
+                cur_option = option_policy(state)
+            except OptionExecutionFailure as e:
+                e.info["last_failed_option"] = last_option
+                raise e
+            if not cur_option.initiable(state):
+                raise OptionExecutionFailure(
+                    "Unsound option policy.",
+                    info={"last_failed_option": last_option})
+            num_cur_option_steps = 0
+
+        num_cur_option_steps += 1
+
         return cur_option.policy(state)
 
     return _policy
+
+
+def option_plan_to_policy(
+        plan: Sequence[_Option],
+        max_option_steps: Optional[int] = None,
+        raise_error_on_repeated_state: bool = False
+) -> Callable[[State], Action]:
+    """Create a policy that executes a sequence of options in order."""
+    queue = list(plan)  # don't modify plan, just in case
+
+    def _option_policy(state: State) -> _Option:
+        del state  # not used
+        if not queue:
+            raise OptionExecutionFailure("Option plan exhausted!")
+        return queue.pop(0)
+
+    return option_policy_to_policy(
+        _option_policy,
+        max_option_steps=max_option_steps,
+        raise_error_on_repeated_state=raise_error_on_repeated_state)
+
+
+def nsrt_plan_to_greedy_option_policy(
+    nsrt_plan: Sequence[_GroundNSRT],
+    goal: Set[GroundAtom],
+    rng: np.random.Generator,
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+) -> Callable[[State], _Option]:
+    """Greedily execute an NSRT plan, assuming downward refinability and that
+    any sample will work.
+
+    If an option is not initiable or if the plan runs out, an
+    OptionExecutionFailure is raised.
+    """
+    cur_nsrt: Optional[_GroundNSRT] = None
+    nsrt_queue = list(nsrt_plan)
+    if necessary_atoms_seq is None:
+        empty_atoms: Set[GroundAtom] = set()
+        necessary_atoms_seq = [empty_atoms for _ in range(len(nsrt_plan) + 1)]
+    assert len(necessary_atoms_seq) == len(nsrt_plan) + 1
+    necessary_atoms_queue = list(necessary_atoms_seq)
+
+    def _option_policy(state: State) -> _Option:
+        nonlocal cur_nsrt
+        if not nsrt_queue:
+            raise OptionExecutionFailure("NSRT plan exhausted.")
+        expected_atoms = necessary_atoms_queue.pop(0)
+        if not all(a.holds(state) for a in expected_atoms):
+            raise OptionExecutionFailure(
+                "Executing the NSRT failed to achieve the necessary atoms.")
+        cur_nsrt = nsrt_queue.pop(0)
+        cur_option = cur_nsrt.sample_option(state, goal, rng)
+        logging.debug(f"Using option {cur_option.name}{cur_option.objects} "
+                      "from NSRT plan.")
+        return cur_option
+
+    return _option_policy
+
+
+def nsrt_plan_to_greedy_policy(
+    nsrt_plan: Sequence[_GroundNSRT],
+    goal: Set[GroundAtom],
+    rng: np.random.Generator,
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+) -> Callable[[State], Action]:
+    """Greedily execute an NSRT plan, assuming downward refinability and that
+    any sample will work.
+
+    If an option is not initiable or if the plan runs out, an
+    OptionExecutionFailure is raised.
+    """
+    option_policy = nsrt_plan_to_greedy_option_policy(
+        nsrt_plan, goal, rng, necessary_atoms_seq=necessary_atoms_seq)
+    return option_policy_to_policy(option_policy)
 
 
 def create_random_option_policy(
@@ -1114,6 +1258,20 @@ def create_random_option_policy(
         return act
 
     return _policy
+
+
+def sample_applicable_ground_nsrt(
+        state: State, ground_nsrts: Sequence[_GroundNSRT],
+        predicates: Set[Predicate],
+        rng: np.random.Generator) -> Optional[_GroundNSRT]:
+    """Choose uniformly among the ground NSRTs that are applicable in the
+    state."""
+    atoms = abstract(state, predicates)
+    applicable_nsrts = sorted(get_applicable_operators(ground_nsrts, atoms))
+    if len(applicable_nsrts) == 0:
+        return None
+    idx = rng.choice(len(applicable_nsrts))
+    return applicable_nsrts[idx]
 
 
 def action_arrs_to_policy(
@@ -1160,7 +1318,7 @@ def get_variable_combinations(
 
 
 def get_all_ground_atoms_for_predicate(
-        predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
+        predicate: Predicate, objects: Collection[Object]) -> Set[GroundAtom]:
     """Get all groundings of the predicate given objects.
 
     Note: we don't want lru_cache() on this function because we might want
@@ -1347,7 +1505,7 @@ def _run_heuristic_search(
     """
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
     state_to_best_path_cost: Dict[_S, float] = \
-        defaultdict(lambda : float("inf"))
+        defaultdict(lambda: float("inf"))
 
     root_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
         initial_state, 0, 0)
@@ -1361,7 +1519,7 @@ def _run_heuristic_search(
     start_time = time.perf_counter()
 
     while len(queue) > 0 and time.perf_counter() - start_time < timeout and \
-          num_expansions < max_expansions and num_evals < max_evals:
+            num_expansions < max_expansions and num_evals < max_evals:
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:
@@ -1451,14 +1609,16 @@ def run_astar(initial_state: _S,
 
 
 def run_hill_climbing(
-        initial_state: _S,
-        check_goal: Callable[[_S], bool],
-        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-        heuristic: Callable[[_S], float],
-        early_termination_heuristic_thresh: Optional[float] = None,
-        enforced_depth: int = 0,
-        parallelize: bool = False,
-        verbose: bool = True) -> Tuple[List[_S], List[_A], List[float]]:
+    initial_state: _S,
+    check_goal: Callable[[_S], bool],
+    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+    heuristic: Callable[[_S], float],
+    early_termination_heuristic_thresh: Optional[float] = None,
+    enforced_depth: int = 0,
+    parallelize: bool = False,
+    verbose: bool = True,
+    timeout: float = float('inf')
+) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -1479,6 +1639,7 @@ def run_hill_climbing(
     if verbose:
         logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                      f"with heuristic {last_heuristic}")
+    start_time = time.perf_counter()
     while True:
 
         # Stops when heuristic reaches specified value.
@@ -1502,6 +1663,9 @@ def run_hill_climbing(
             successors_at_depth = []
             for parent in current_depth_nodes:
                 for action, child_state, cost in get_successors(parent.state):
+                    # Raise error if timeout gets hit.
+                    if time.perf_counter() - start_time > timeout:
+                        raise TimeoutError()
                     if child_state in visited:
                         continue
                     visited.add(child_state)
@@ -1633,17 +1797,17 @@ def run_policy_guided_astar(
     return state_seq, action_seq
 
 
-_BiRRTState = TypeVar("_BiRRTState")
+_RRTState = TypeVar("_RRTState")
 
 
-class BiRRT(Generic[_BiRRTState]):
-    """Bidirectional rapidly-exploring random tree."""
+class RRT(Generic[_RRTState]):
+    """Rapidly-exploring random tree."""
 
-    def __init__(self, sample_fn: Callable[[_BiRRTState], _BiRRTState],
-                 extend_fn: Callable[[_BiRRTState, _BiRRTState],
-                                     Iterator[_BiRRTState]],
-                 collision_fn: Callable[[_BiRRTState], bool],
-                 distance_fn: Callable[[_BiRRTState, _BiRRTState],
+    def __init__(self, sample_fn: Callable[[_RRTState], _RRTState],
+                 extend_fn: Callable[[_RRTState, _RRTState],
+                                     Iterator[_RRTState]],
+                 collision_fn: Callable[[_RRTState], bool],
+                 distance_fn: Callable[[_RRTState, _RRTState],
                                        float], rng: np.random.Generator,
                  num_attempts: int, num_iters: int, smooth_amt: int):
         self._sample_fn = sample_fn
@@ -1655,9 +1819,11 @@ class BiRRT(Generic[_BiRRTState]):
         self._num_iters = num_iters
         self._smooth_amt = smooth_amt
 
-    def query(self, pt1: _BiRRTState,
-              pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
-        """Query the BiRRT, to get a collision-free path from pt1 to pt2.
+    def query(self,
+              pt1: _RRTState,
+              pt2: _RRTState,
+              sample_goal_eps: float = 0.0) -> Optional[List[_RRTState]]:
+        """Query the RRT, to get a collision-free path from pt1 to pt2.
 
         If none is found, returns None.
         """
@@ -1667,13 +1833,41 @@ class BiRRT(Generic[_BiRRTState]):
         if direct_path is not None:
             return direct_path
         for _ in range(self._num_attempts):
-            path = self._rrt_connect(pt1, pt2)
+            path = self._rrt_connect(pt1,
+                                     goal_sampler=lambda: pt2,
+                                     sample_goal_eps=sample_goal_eps)
             if path is not None:
                 return self._smooth_path(path)
         return None
 
-    def _try_direct_path(self, pt1: _BiRRTState,
-                         pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
+    def query_to_goal_fn(
+            self,
+            start: _RRTState,
+            goal_sampler: Callable[[], _RRTState],
+            goal_fn: Callable[[_RRTState], bool],
+            sample_goal_eps: float = 0.0) -> Optional[List[_RRTState]]:
+        """Query the RRT, to get a collision-free path from start to a point
+        such that goal_fn(point) is True. Uses goal_sampler to sample a target
+        for a direct path or with probability sample_goal_eps.
+
+        If none is found, returns None.
+        """
+        if self._collision_fn(start):
+            return None
+        direct_path = self._try_direct_path(start, goal_sampler())
+        if direct_path is not None:
+            return direct_path
+        for _ in range(self._num_attempts):
+            path = self._rrt_connect(start,
+                                     goal_sampler,
+                                     goal_fn,
+                                     sample_goal_eps=sample_goal_eps)
+            if path is not None:
+                return self._smooth_path(path)
+        return None
+
+    def _try_direct_path(self, pt1: _RRTState,
+                         pt2: _RRTState) -> Optional[List[_RRTState]]:
         path = [pt1]
         for newpt in self._extend_fn(pt1, pt2):
             if self._collision_fn(newpt):
@@ -1681,32 +1875,98 @@ class BiRRT(Generic[_BiRRTState]):
             path.append(newpt)
         return path
 
-    def _rrt_connect(self, pt1: _BiRRTState,
-                     pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
-        root1, root2 = _BiRRTNode(pt1), _BiRRTNode(pt2)
-        nodes1, nodes2 = [root1], [root2]
+    def _rrt_connect(
+        self,
+        pt1: _RRTState,
+        goal_sampler: Callable[[], _RRTState],
+        goal_fn: Optional[Callable[[_RRTState], bool]] = None,
+        sample_goal_eps: float = 0.0,
+    ) -> Optional[List[_RRTState]]:
+        root = _RRTNode(pt1)
+        nodes = [root]
 
-        def _get_pt_dist_to_node(pt: _BiRRTState,
-                                 node: _BiRRTNode[_BiRRTState]) -> float:
-            return self._distance_fn(pt, node.data)
+        for _ in range(self._num_iters):
+            # Sample the goal with a small probability, otherwise randomly
+            # choose a point.
+            sample_goal = self._rng.random() < sample_goal_eps
+            samp = goal_sampler() if sample_goal else self._sample_fn(pt1)
+            min_key = functools.partial(self._get_pt_dist_to_node, samp)
+            nearest = min(nodes, key=min_key)
+            reached_goal = False
+            for newpt in self._extend_fn(nearest.data, samp):
+                if self._collision_fn(newpt):
+                    break
+                nearest = _RRTNode(newpt, parent=nearest)
+                nodes.append(nearest)
+            else:
+                reached_goal = sample_goal
+            # Check goal_fn if defined
+            if reached_goal or goal_fn is not None and goal_fn(nearest.data):
+                path = nearest.path_from_root()
+                return [node.data for node in path]
+        return None
+
+    def _get_pt_dist_to_node(self, pt: _RRTState,
+                             node: _RRTNode[_RRTState]) -> float:
+        return self._distance_fn(pt, node.data)
+
+    def _smooth_path(self, path: List[_RRTState]) -> List[_RRTState]:
+        assert len(path) > 2
+        for _ in range(self._smooth_amt):
+            i = self._rng.integers(0, len(path) - 1)
+            j = self._rng.integers(0, len(path) - 1)
+            if abs(i - j) <= 1:
+                continue
+            if j < i:
+                i, j = j, i
+            shortcut = list(self._extend_fn(path[i], path[j]))
+            if len(shortcut) < j - i and \
+                    all(not self._collision_fn(pt) for pt in shortcut):
+                path = path[:i + 1] + shortcut + path[j + 1:]
+        return path
+
+
+class BiRRT(RRT[_RRTState]):
+    """Bidirectional rapidly-exploring random tree."""
+
+    def query_to_goal_fn(
+            self,
+            start: _RRTState,
+            goal_sampler: Callable[[], _RRTState],
+            goal_fn: Callable[[_RRTState], bool],
+            sample_goal_eps: float = 0.0) -> Optional[List[_RRTState]]:
+        raise NotImplementedError("Can't query to goal function using BiRRT")
+
+    def _rrt_connect(
+        self,
+        pt1: _RRTState,
+        goal_sampler: Callable[[], _RRTState],
+        goal_fn: Optional[Callable[[_RRTState], bool]] = None,
+        sample_goal_eps: float = 0.0,
+    ) -> Optional[List[_RRTState]]:
+        # goal_fn and sample_goal_eps are unused
+        pt2 = goal_sampler()
+        root1, root2 = _RRTNode(pt1), _RRTNode(pt2)
+        nodes1, nodes2 = [root1], [root2]
 
         for _ in range(self._num_iters):
             if len(nodes1) > len(nodes2):
                 nodes1, nodes2 = nodes2, nodes1
             samp = self._sample_fn(pt1)
-            min_key1 = functools.partial(_get_pt_dist_to_node, samp)
+            min_key1 = functools.partial(self._get_pt_dist_to_node, samp)
             nearest1 = min(nodes1, key=min_key1)
             for newpt in self._extend_fn(nearest1.data, samp):
                 if self._collision_fn(newpt):
                     break
-                nearest1 = _BiRRTNode(newpt, parent=nearest1)
+                nearest1 = _RRTNode(newpt, parent=nearest1)
                 nodes1.append(nearest1)
-            min_key2 = functools.partial(_get_pt_dist_to_node, nearest1.data)
+            min_key2 = functools.partial(self._get_pt_dist_to_node,
+                                         nearest1.data)
             nearest2 = min(nodes2, key=min_key2)
             for newpt in self._extend_fn(nearest2.data, nearest1.data):
                 if self._collision_fn(newpt):
                     break
-                nearest2 = _BiRRTNode(newpt, parent=nearest2)
+                nearest2 = _RRTNode(newpt, parent=nearest2)
                 nodes2.append(nearest2)
             else:
                 path1 = nearest1.path_from_root()
@@ -1719,35 +1979,20 @@ class BiRRT(Generic[_BiRRTState]):
                 return [node.data for node in path]
         return None
 
-    def _smooth_path(self, path: List[_BiRRTState]) -> List[_BiRRTState]:
-        assert len(path) > 2
-        for _ in range(self._smooth_amt):
-            i = self._rng.integers(0, len(path) - 1)
-            j = self._rng.integers(0, len(path) - 1)
-            if abs(i - j) <= 1:
-                continue
-            if j < i:
-                i, j = j, i
-            shortcut = list(self._extend_fn(path[i], path[j]))
-            if len(shortcut) < j-i and \
-               all(not self._collision_fn(pt) for pt in shortcut):
-                path = path[:i + 1] + shortcut + path[j + 1:]
-        return path
 
-
-class _BiRRTNode(Generic[_BiRRTState]):
-    """A node for BiRRT."""
+class _RRTNode(Generic[_RRTState]):
+    """A node for RRT."""
 
     def __init__(self,
-                 data: _BiRRTState,
-                 parent: Optional[_BiRRTNode[_BiRRTState]] = None) -> None:
+                 data: _RRTState,
+                 parent: Optional[_RRTNode[_RRTState]] = None) -> None:
         self.data = data
         self.parent = parent
 
-    def path_from_root(self) -> List[_BiRRTNode[_BiRRTState]]:
+    def path_from_root(self) -> List[_RRTNode[_RRTState]]:
         """Return the path from the root to this node."""
         sequence = []
-        node: Optional[_BiRRTNode[_BiRRTState]] = self
+        node: Optional[_RRTNode[_RRTState]] = self
         while node is not None:
             sequence.append(node)
             node = node.parent
@@ -1833,7 +2078,7 @@ def all_ground_nsrts(nsrt: NSRT,
     """Get all possible groundings of the given NSRT with the given objects."""
     types = [p.type for p in nsrt.parameters]
     for choice in get_object_combinations(objects, types):
-        yield nsrt.ground(choice)
+        yield nsrt.ground(tuple(choice))
 
 
 def all_ground_nsrts_fd_translator(
@@ -2072,7 +2317,7 @@ class _LDLParser:
         # Validate parameters.
         variables = variable_name_to_variable.values()
         for v in nsrt.parameters:
-            assert v in variables, "NSRT parameter {v} missing from LDL rule"
+            assert v in variables, f"NSRT parameter {v} missing from LDL rule"
         return nsrt
 
 
@@ -2526,8 +2771,59 @@ def create_pddl_problem(objects: Collection[Object],
 """
 
 
+@functools.lru_cache(maxsize=None)
+def get_failure_predicate(option: ParameterizedOption,
+                          idxs: Tuple[int]) -> Predicate:
+    """Create a Failure predicate for a parameterized option."""
+    idx_str = ",".join(map(str, idxs))
+    arg_types = [option.types[i] for i in idxs]
+    return Predicate(f"{option.name}Failed_arg{idx_str}",
+                     arg_types,
+                     _classifier=lambda s, o: False)
+
+
+def _get_idxs_to_failure_predicate(
+        option: ParameterizedOption,
+        max_arity: int = 1) -> Dict[Tuple[int, ...], Predicate]:
+    """Helper for get_all_failure_predicates() and get_failure_atoms()."""
+    idxs_to_failure_predicate: Dict[Tuple[int, ...], Predicate] = {}
+    num_types = len(option.types)
+    max_num_idxs = min(max_arity, num_types)
+    all_idxs = list(range(num_types))
+    for arity in range(1, max_num_idxs + 1):
+        for idxs in itertools.combinations(all_idxs, arity):
+            pred = get_failure_predicate(option, idxs)
+            idxs_to_failure_predicate[idxs] = pred
+    return idxs_to_failure_predicate
+
+
+def get_all_failure_predicates(options: Set[ParameterizedOption],
+                               max_arity: int = 1) -> Set[Predicate]:
+    """Get all possible failure predicates."""
+    failure_preds: Set[Predicate] = set()
+    for param_opt in options:
+        preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
+        failure_preds.update(preds.values())
+    return failure_preds
+
+
+def get_failure_atoms(failed_options: Collection[_Option],
+                      max_arity: int = 1) -> Set[GroundAtom]:
+    """Get ground failure atoms for the collection of failure options."""
+    failure_atoms: Set[GroundAtom] = set()
+    failed_option_specs = {(o.parent, tuple(o.objects))
+                           for o in failed_options}
+    for (param_opt, objs) in failed_option_specs:
+        preds = _get_idxs_to_failure_predicate(param_opt, max_arity=max_arity)
+        for idxs, pred in preds.items():
+            obj_for_idxs = [objs[i] for i in idxs]
+            failure_atom = GroundAtom(pred, obj_for_idxs)
+            failure_atoms.add(failure_atom)
+    return failure_atoms
+
+
 @dataclass
-class VideoMonitor(Monitor):
+class VideoMonitor(LoggingMonitor):
     """A monitor that renders each state and action encountered.
 
     The render_fn is generally env.render. Note that the state is unused
@@ -2537,8 +2833,11 @@ class VideoMonitor(Monitor):
     _render_fn: Callable[[Optional[Action], Optional[str]], Video]
     _video: Video = field(init=False, default_factory=list)
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        del state  # unused
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        self._video = []
+
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        del obs  # unused
         self._video.extend(self._render_fn(action, None))
 
     def get_video(self) -> Video:
@@ -2547,7 +2846,7 @@ class VideoMonitor(Monitor):
 
 
 @dataclass
-class SimulateVideoMonitor(Monitor):
+class SimulateVideoMonitor(LoggingMonitor):
     """A monitor that calls render_state on each state and action seen.
 
     This monitor is meant for use with run_policy_with_simulator, as
@@ -2557,8 +2856,12 @@ class SimulateVideoMonitor(Monitor):
     _render_state_fn: Callable[[State, Task, Optional[Action]], Video]
     _video: Video = field(init=False, default_factory=list)
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        self._video.extend(self._render_state_fn(state, self._task, action))
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        self._video = []
+
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        assert isinstance(obs, State)
+        self._video.extend(self._render_state_fn(obs, self._task, action))
 
     def get_video(self) -> Video:
         """Return the video."""
@@ -2849,23 +3152,6 @@ def parse_config_excluded_predicates(
     return included, excluded
 
 
-def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
-    """Parse the CFG.included_options string, given an environment.
-
-    Return the set of included oracle options.
-
-    Note that "all" is not implemented because setting the option_learner flag
-    to "no_learning" is the preferred way to include all options.
-    """
-    if not CFG.included_options:
-        return set()
-    included_names = set(CFG.included_options.split(","))
-    assert included_names.issubset({option.name for option in env.options}), \
-        "Unrecognized option in included_options!"
-    included_options = {o for o in env.options if o.name in included_names}
-    return included_options
-
-
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
                  objs: Sequence[Object]) -> Array:
     """A sampler for an NSRT with no continuous parameters."""
@@ -2937,8 +3223,8 @@ def query_ldl(
                 static_predicates=static_predicates,
                 init_atoms=init_atoms):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
-               not ground_rule.neg_state_preconditions & atoms and \
-               ground_rule.goal_preconditions.issubset(goal):
+                    not ground_rule.neg_state_preconditions & atoms and \
+                    ground_rule.goal_preconditions.issubset(goal):
                 return ground_rule.ground_nsrt
     return None
 

@@ -4,11 +4,16 @@ import abc
 from pathlib import Path
 from typing import List, Set
 
-from predicators.structs import GroundAtom, State, _GroundNSRT
+from predicators.envs import get_or_create_env
+from predicators.settings import CFG
+from predicators.structs import GroundAtom, Task, _GroundNSRT
 
 
 class BaseRefinementEstimator(abc.ABC):
     """Base refinement cost estimator."""
+
+    def __init__(self) -> None:
+        self._env = get_or_create_env(CFG.env)
 
     @classmethod
     @abc.abstractmethod
@@ -24,7 +29,7 @@ class BaseRefinementEstimator(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def get_cost(self, initial_state: State, skeleton: List[_GroundNSRT],
+    def get_cost(self, initial_task: Task, skeleton: List[_GroundNSRT],
                  atoms_sequence: List[Set[GroundAtom]]) -> float:
         """Return an estimated cost for a proposed high-level skeleton."""
         raise NotImplementedError("Override me!")

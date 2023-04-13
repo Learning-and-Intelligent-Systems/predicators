@@ -3,21 +3,24 @@ information to assist an agent during online learning."""
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence
 
 import numpy as np
+from matplotlib import pyplot as plt
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
-from predicators.envs import get_or_create_env
-from predicators.ground_truth_nsrts import _get_options_by_names, \
-    _get_types_by_names
+from predicators.datasets.demo_only import human_demonstrator_policy
+from predicators.envs import BaseEnv, create_new_env
+from predicators.ground_truth_models import _get_options_by_names, \
+    _get_types_by_names, get_gt_options
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    InteractionRequest, LowLevelTrajectory, PathToStateQuery, \
+    InteractionRequest, LowLevelTrajectory, Observation, PathToStateQuery, \
     PathToStateResponse, Query, Response, State, Task
 
 
@@ -25,18 +28,23 @@ class Teacher:
     """The teacher can respond to queries of various types."""
 
     def __init__(self, train_tasks: Sequence[Task]) -> None:
+        self._env = create_new_env(CFG.env)
         self._train_tasks = train_tasks
-        env = get_or_create_env(CFG.env)
-        self._pred_name_to_pred = {pred.name: pred for pred in env.predicates}
+        env_options = get_gt_options(self._env.get_name())
+        self._pred_name_to_pred = {
+            pred.name: pred
+            for pred in self._env.predicates
+        }
         self._allowed_query_type_names = get_allowed_query_type_names()
         self._oracle_approach = OracleApproach(
-            env.predicates,
-            env.options,
-            env.types,
-            env.action_space, [],
+            self._env.predicates,
+            env_options,
+            self._env.types,
+            self._env.action_space, [],
             task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
             max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
-        self._simulator = env.simulate
+        self._simulator = self._env.simulate
+        self._rng = np.random.default_rng(CFG.seed)
 
     def answer_query(self, state: State, query: Query) -> Response:
         """The key method that the teacher defines."""
@@ -66,18 +74,40 @@ class Teacher:
         # the goal from the train task.
         goal = self._train_tasks[query.train_task_idx].goal
         task = Task(state, goal)
-        try:
-            policy = self._oracle_approach.solve(task, CFG.timeout)
-        except (ApproachTimeout, ApproachFailure):
-            return DemonstrationResponse(query, teacher_traj=None)
+        termination_function = task.goal_holds
 
-        traj = utils.run_policy_with_simulator(
+        if CFG.demonstrator == "oracle":
+            try:
+                policy = self._oracle_approach.solve(task, CFG.timeout)
+            except (ApproachTimeout, ApproachFailure):
+                return DemonstrationResponse(query, teacher_traj=None)
+
+        else:  # pragma: no cover
+            assert CFG.demonstrator == "human"
+            # Disable all built-in keyboard shortcuts.
+            keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
+            for k in keymaps:
+                plt.rcParams[k].clear()
+            # Create the environment-specific method for turning events into
+            # actions. This should also log instructions.
+            event_to_action = self._env.get_event_to_action_fn()
+            caption = f"Please demonstrate achieving the goal:\n{goal}"
+            policy = functools.partial(human_demonstrator_policy, self._env,
+                                       caption, event_to_action)
+
+        traj, _ = utils.run_policy(
             policy,
-            self._simulator,
-            task.init,
-            task.goal_holds,
-            max_num_steps=CFG.max_num_steps_option_rollout)
-        assert task.goal_holds(traj.states[-1])
+            self._env,
+            "train",
+            query.train_task_idx,
+            termination_function=termination_function,
+            max_num_steps=CFG.horizon,
+            do_env_reset=False,  # important!
+            exceptions_to_break_on={
+                utils.OptionExecutionFailure,
+                utils.HumanDemonstrationFailure,
+            })
+
         teacher_traj = LowLevelTrajectory(traj.states,
                                           traj.actions,
                                           _is_demo=True,
@@ -177,7 +207,7 @@ class Teacher:
 
 
 @dataclass
-class TeacherInteractionMonitor(utils.Monitor):
+class TeacherInteractionMonitor(utils.LoggingMonitor):
     """Wraps the interaction between agent and teacher to include generating
     and answering queries."""
     _request: InteractionRequest
@@ -186,8 +216,22 @@ class TeacherInteractionMonitor(utils.Monitor):
                                                  default_factory=list)
     _query_cost: float = field(init=False, default=0.0)
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        del action  # unused
+    @property
+    def _teacher_env(self) -> BaseEnv:
+        """Exposes the teacher's environment to this monitor."""
+        # This is a temporary hack. When issue #1443 is resolved, this can be
+        # removed. That issue will require a fairly significant amount of work.
+        return self._teacher._env  # pylint: disable=protected-access
+
+    def reset(self, train_or_test: str, task_idx: int) -> None:
+        self._teacher_env.reset(train_or_test, task_idx)
+
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        assert isinstance(obs, State)
+        assert obs.allclose(self._teacher_env.get_observation())
+        if action is not None:
+            self._teacher_env.step(action)
+        state = obs
         query = self._request.query_policy(state)
         if query is None:
             self._responses.append(None)
@@ -214,7 +258,11 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
     The render_fn is generally env.render.
     """
 
-    def observe(self, state: State, action: Optional[Action]) -> None:
+    def observe(self, obs: Observation, action: Optional[Action]) -> None:
+        assert obs.allclose(self._teacher_env.get_observation())
+        if action is not None:
+            self._teacher_env.step(action)
+        state = obs
         query = self._request.query_policy(state)
         if query is None:
             response = None

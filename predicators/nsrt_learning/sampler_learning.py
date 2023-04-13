@@ -8,7 +8,7 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DistributionRegressor, \
     MLPBinaryClassifier, NeuralGaussianRegressor
@@ -53,11 +53,12 @@ def _extract_oracle_samplers(
     operator match, a warning is generated.
     """
     env = get_or_create_env(CFG.env)
+    env_options = get_gt_options(env.get_name())
     # We don't need to match ground truth NSRTs with no continuous
     # parameters, so we filter them out.
     gt_nsrts = {
         nsrt
-        for nsrt in get_gt_nsrts(env.get_name(), env.predicates, env.options)
+        for nsrt in get_gt_nsrts(env.get_name(), env.predicates, env_options)
         if nsrt.option.params_space.shape != (0, )
     }
     assert len(strips_ops) == len(option_specs)
@@ -162,6 +163,9 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         balance_data=CFG.mlp_classifier_balance_data,
         max_train_iters=CFG.sampler_mlp_classifier_max_itr,
         learning_rate=CFG.learning_rate,
+        weight_decay=CFG.weight_decay,
+        use_torch_gpu=CFG.use_torch_gpu,
+        train_print_every=CFG.pytorch_train_print_every,
         n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
         hid_sizes=CFG.mlp_classifier_hid_sizes,
         n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
@@ -199,7 +203,10 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             max_train_iters=CFG.neural_gaus_regressor_max_itr,
             clip_gradients=CFG.mlp_regressor_clip_gradients,
             clip_value=CFG.mlp_regressor_gradient_clip_value,
-            learning_rate=CFG.learning_rate)
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every)
     else:
         assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
         regressor = DegenerateMLPDistributionRegressor(
@@ -208,7 +215,10 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             max_train_iters=CFG.mlp_regressor_max_itr,
             clip_gradients=CFG.mlp_regressor_clip_gradients,
             clip_value=CFG.mlp_regressor_gradient_clip_value,
-            learning_rate=CFG.learning_rate)
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every)
 
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 

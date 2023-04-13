@@ -1,10 +1,9 @@
 """Test cases for the tabular refinement cost estimator."""
-
 import pytest
 
 from predicators import utils
 from predicators.envs.narrow_passage import NarrowPassageEnv
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.refinement_estimators.tabular_refinement_estimator import \
     TabularRefinementEstimator
 from predicators.settings import CFG
@@ -14,22 +13,22 @@ from predicators.structs import GroundAtom
 def test_tabular_refinement_estimator():
     """Test general properties of tabular refinement cost estimator."""
     utils.reset_config({
-        "env": "fake_env",
+        "env": "narrow_passage",
         "refinement_data_failed_refinement_penalty": 3
     })
     estimator = TabularRefinementEstimator()
     assert estimator.get_name() == "tabular"
     assert estimator.is_learning_based
     with pytest.raises(AssertionError):
-        sample_state = NarrowPassageEnv().get_train_tasks()[0].init
-        estimator.get_cost(sample_state, [], [])
+        sample_task = NarrowPassageEnv().get_train_tasks()[0]
+        estimator.get_cost(sample_task, [], [])
     # Check that train actually runs
-    sample_data = [(sample_state, [], [], False, 5)]
+    sample_data = [(sample_task, [], [], False, 5)]
     estimator.train(sample_data)
     # Check that the resulting dictionary is correct
-    cost_dict = estimator._cost_dict  # pylint: disable=protected-access
+    cost_dict = estimator._model_dict  # pylint: disable=protected-access
     assert cost_dict == {(tuple(), tuple()): 8}
-    assert estimator.get_cost(sample_state, [], []) == 8
+    assert estimator.get_cost(sample_task, [], []) == 8
 
 
 def test_narrow_passage_tabular_refinement_estimator():
@@ -44,11 +43,13 @@ def test_narrow_passage_tabular_refinement_estimator():
     env = NarrowPassageEnv()
     DoorIsClosed, DoorIsOpen, TouchedGoal = sorted(env.predicates)
     door_type, _, robot_type, target_type, _ = sorted(env.types)
-    sample_state = env.get_train_tasks()[0].init
+    sample_task = env.get_train_tasks()[0]
+    sample_state = sample_task.init
     door, = sample_state.get_objects(door_type)
     robot, = sample_state.get_objects(robot_type)
     target, = sample_state.get_objects(target_type)
-    gt_nsrts = get_gt_nsrts(CFG.env, env.predicates, env.options)
+    gt_nsrts = get_gt_nsrts(CFG.env, env.predicates,
+                            get_gt_options(env.get_name()))
     move_and_open_door_nsrt, move_to_target_nsrt = sorted(gt_nsrts)
 
     # Ground NSRTs using objects
@@ -77,20 +78,20 @@ def test_narrow_passage_tabular_refinement_estimator():
 
     # Create sample data to train using
     sample_data = [
-        (sample_state, move_direct_skeleton, move_direct_atoms_seq, True, 4),
-        (sample_state, move_through_door_skeleton, move_through_door_atoms_seq,
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, 4),
+        (sample_task, move_through_door_skeleton, move_through_door_atoms_seq,
          True, 2),
-        (sample_state, move_direct_skeleton, move_direct_atoms_seq, False, 5),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, 5),
     ]
     estimator.train(sample_data)
 
     # Test direct MoveToTarget skeleton
-    move_direct_cost = estimator.get_cost(sample_state, move_direct_skeleton,
+    move_direct_cost = estimator.get_cost(sample_task, move_direct_skeleton,
                                           move_direct_atoms_seq)
     assert move_direct_cost == 6  # average of 2 samples: 4 and 5 + 3
 
     # Test open door then move skeleton
-    move_through_door_cost = estimator.get_cost(sample_state,
+    move_through_door_cost = estimator.get_cost(sample_task,
                                                 move_through_door_skeleton,
                                                 move_through_door_atoms_seq)
     assert move_through_door_cost == 2
@@ -102,7 +103,7 @@ def test_narrow_passage_tabular_refinement_estimator():
         ground_move_and_open_door,
         ground_move_to_target,
     ]
-    impossible_cost = estimator.get_cost(sample_state, impossible_skeleton, [])
+    impossible_cost = estimator.get_cost(sample_task, impossible_skeleton, [])
     assert impossible_cost == float('inf')
 
     # Make sure that sorting the costs makes sense

@@ -4,7 +4,7 @@ import logging
 from typing import List
 
 from predicators.envs import get_or_create_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import PNAD, Datastore, DummyOption
@@ -15,7 +15,8 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
 
     def _learn(self) -> List[PNAD]:
         env = get_or_create_env(CFG.env)
-        gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+        env_options = get_gt_options(env.get_name())
+        gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env_options)
         pnads: List[PNAD] = []
         for nsrt in gt_nsrts:
             datastore: Datastore = []

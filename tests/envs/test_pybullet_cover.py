@@ -5,6 +5,7 @@ import pytest
 
 from predicators import utils
 from predicators.envs.pybullet_cover import PyBulletCoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Object, State
 
@@ -17,7 +18,7 @@ class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
     @property
     def workspace_dimensions(self):
         """Expose the workspace dimensions."""
-        return (self._workspace_x, self._workspace_z)
+        return (self.workspace_x, self.workspace_z)
 
     @property
     def block_type(self):
@@ -34,17 +35,12 @@ class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
         """Expose the robot, which is a static object."""
         return self._robot
 
-    @property
-    def PickPlace(self):
-        """Expose the PickPlace parameterized option."""
-        return self._PickPlace
-
     def set_state(self, state):
         """Forcibly reset the state."""
         joint_positions = list(self._pybullet_robot.initial_joint_positions)
         state_with_sim = utils.PyBulletState(state.data,
                                              simulator_state=joint_positions)
-        self._current_state = state_with_sim
+        self._current_observation = state_with_sim
         self._current_task = None
         self._reset_state(state_with_sim)
 
@@ -104,12 +100,21 @@ def test_pybullet_cover_reset(env):
         env.render_state(state, task, action)
 
 
+def test_pybullet_cover_options(env):
+    """Tests for PyBulletCoverEnv options."""
+    options = get_gt_options(env.get_name())
+    assert len(options) == 1
+    option = next(iter(options))
+    assert option.name == "PickPlace"
+
+
 def test_pybullet_cover_step(env):
     """Tests for taking actions in PyBulletCoverEnv."""
     block = Object("block0", env.block_type)
     target = Object("target0", env.target_type)
     robot = env.robot
     workspace_x, workspace_z = env.workspace_dimensions
+    PickPlace, = get_gt_options(env.get_name())
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot:
@@ -123,13 +128,13 @@ def test_pybullet_cover_step(env):
     recovered_state = env.get_state()
     assert recovered_state.allclose(init_state)
     # Create an option for picking the block.
-    option = env.PickPlace.ground([], [0.25])
+    option = PickPlace.ground([], [0.25])
     # Execute the option.
     state = env.execute_option(option)
     # The block should now be held.
     assert state.get(block, "grasp") != -1
     # Create an option for placing the block.
-    option = env.PickPlace.ground([], [0.75])
+    option = PickPlace.ground([], [0.75])
     # Execute the option.
     state = env.execute_option(option)
     # The block should now be placed.
@@ -149,12 +154,12 @@ def test_pybullet_cover_step(env):
     assert abs(recovered_state.get(block, "grasp")) < 0.01
     # Try placing outside the hand regions, which should fail.
     env.disable_hand_regions = True
-    option = env.PickPlace.ground([], [0.75])
+    option = PickPlace.ground([], [0.75])
     state = env.execute_option(option)
     assert abs(state.get(block, "grasp")) < 0.01
     # Now correctly place.
     env.disable_hand_regions = False
-    option = env.PickPlace.ground([], [0.75])
+    option = PickPlace.ground([], [0.75])
     state = env.execute_option(option)
     assert state.get(block, "grasp") == -1
     assert abs(state.get(block, "pose") - 0.75) < 0.01
@@ -165,6 +170,7 @@ def test_pybullet_cover_pick_workspace_bounds(env):
     block = Object("block0", env.block_type)
     robot = env.robot
     workspace_x, workspace_z = env.workspace_dimensions
+    PickPlace, = get_gt_options(env.get_name())
     for pose in [0.0, 1.0]:
         # Create a simple custom state with one block for testing.
         init_state = State({
@@ -177,7 +183,7 @@ def test_pybullet_cover_pick_workspace_bounds(env):
         recovered_state = env.get_state()
         assert recovered_state.allclose(init_state)
         # Create an option for picking the block.
-        option = env.PickPlace.ground([], [pose])
+        option = PickPlace.ground([], [pose])
         # Execute the option.
         state = env.execute_option(option)
         # The block should now be held.

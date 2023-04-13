@@ -10,8 +10,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Predicate, State, Type
 
 
 class CoffeeEnv(BaseEnv):
@@ -27,10 +27,7 @@ class CoffeeEnv(BaseEnv):
     pick_jug_y_padding: ClassVar[float] = 1.5
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
     safe_z_tol: ClassVar[float] = 1e-1
-    twist_policy_tol: ClassVar[float] = 1e-1
-    pick_policy_tol: ClassVar[float] = 1e-1
     place_jug_in_machine_tol: ClassVar[float] = 1e-1
-    pour_policy_tol: ClassVar[float] = 1e-1
     # Robot settings.
     x_lb: ClassVar[float] = 0.0
     x_ub: ClassVar[float] = 10.0
@@ -141,57 +138,6 @@ class CoffeeEnv(BaseEnv):
         self._NotSameCup = Predicate("NotSameCup",
                                      [self._cup_type, self._cup_type],
                                      self._NotSameCup_holds)
-
-        # Options
-        self._MoveToTwistJug = ParameterizedOption(
-            "MoveToTwistJug",
-            types=[self._robot_type, self._jug_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._MoveToTwistJug_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._MoveToTwistJug_terminal,
-        )
-        self._TwistJug = ParameterizedOption(
-            "TwistJug",
-            types=[self._robot_type, self._jug_type],
-            # The parameter is a normalized amount to twist by.
-            params_space=Box(-1, 1, (1, )),
-            policy=self._TwistJug_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._TwistJug_terminal,
-        )
-        self._PickJug = ParameterizedOption(
-            "PickJug",
-            types=[self._robot_type, self._jug_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._PickJug_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._PickJug_terminal,
-        )
-        self._PlaceJugInMachine = ParameterizedOption(
-            "PlaceJugInMachine",
-            types=[self._robot_type, self._jug_type, self._machine_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._PlaceJugInMachine_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._PlaceJugInMachine_terminal,
-        )
-        self._TurnMachineOn = ParameterizedOption(
-            "TurnMachineOn",
-            types=[self._robot_type, self._machine_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._TurnMachineOn_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._TurnMachineOn_terminal,
-        )
-        self._Pour = ParameterizedOption(
-            "Pour",
-            types=[self._robot_type, self._jug_type, self._cup_type],
-            params_space=Box(0, 1, (0, )),
-            policy=self._Pour_policy,
-            initiable=lambda s, m, o, p: True,
-            terminal=self._Pour_terminal,
-        )
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -323,12 +269,12 @@ class CoffeeEnv(BaseEnv):
             next_state.set(self._jug, "is_filled", 1.0)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks,
                                num_cups_lst=CFG.coffee_num_cups_train,
                                rng=self._train_rng)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_test_tasks,
                                num_cups_lst=CFG.coffee_num_cups_test,
                                rng=self._test_rng)
@@ -354,17 +300,6 @@ class CoffeeEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._TwistJug,
-            self._PickJug,
-            self._PlaceJugInMachine,
-            self._TurnMachineOn,
-            self._Pour,
-            self._MoveToTwistJug,
-        }
-
-    @property
     def action_space(self) -> Box:
         # Normalized dx, dy, dz, dtilt, dwrist, dfingers.
         return Box(low=-1., high=1., shape=(6, ), dtype=np.float32)
@@ -372,7 +307,7 @@ class CoffeeEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
@@ -503,7 +438,7 @@ class CoffeeEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks = []
         # Create the parts of the initial state that do not change between
         # tasks, which includes the robot and the machine.
@@ -584,7 +519,7 @@ class CoffeeEnv(BaseEnv):
                 "is_filled": 0.0  # jug starts off empty
             }
             init_state = utils.create_state_from_dict(state_dict)
-            task = Task(init_state, goal)
+            task = EnvironmentTask(init_state, goal)
             tasks.append(task)
         return tasks
 
@@ -691,216 +626,6 @@ class CoffeeEnv(BaseEnv):
         cup1, cup2 = objects
         return cup1 != cup2
 
-    def _MoveToTwistJug_policy(self, state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> Action:
-        # This policy moves the robot to above the jug, then moves down.
-        del memory, params  # unused
-        robot, jug = objects
-        x = state.get(robot, "x")
-        y = state.get(robot, "y")
-        z = state.get(robot, "z")
-        robot_pos = (x, y, z)
-        jug_x = state.get(jug, "x")
-        jug_y = state.get(jug, "y")
-        jug_z = self.jug_height
-        jug_top = (jug_x, jug_y, jug_z)
-        xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
-        # If at the correct x and y position, move directly toward the target.
-        if xy_sq_dist < self.twist_policy_tol:
-            return self._get_move_action(jug_top, robot_pos)
-        # Move to the position above the jug.
-        return self._get_move_action((jug_x, jug_y, self.robot_init_z),
-                                     robot_pos)
-
-    def _MoveToTwistJug_terminal(self, state: State, memory: Dict,
-                                 objects: Sequence[Object],
-                                 params: Array) -> bool:
-        del memory, params  # unused
-        robot, jug = objects
-        return self._Twisting_holds(state, [robot, jug])
-
-    def _TwistJug_policy(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> Action:
-        # This policy twists until the jug is in the desired rotation, and then
-        # moves up to break contact with the jug.
-        del memory  # unused
-        robot, jug = objects
-        current_rot = state.get(jug, "rot")
-        norm_desired_rot, = params
-        desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
-        delta_rot = np.clip(desired_rot - current_rot, -self.max_angular_vel,
-                            self.max_angular_vel)
-        if abs(delta_rot) < self.twist_policy_tol:
-            # Move up to stop twisting.
-            x = state.get(robot, "x")
-            y = state.get(robot, "y")
-            z = state.get(robot, "z")
-            robot_pos = (x, y, z)
-            return self._get_move_action((x, y, self.robot_init_z), robot_pos)
-        dtwist = delta_rot / self.max_angular_vel
-        return Action(
-            np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
-
-    def _TwistJug_terminal(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        robot, _ = objects
-        return self._HandEmpty_holds(state, [robot])
-
-    def _PickJug_policy(self, state: State, memory: Dict,
-                        objects: Sequence[Object], params: Array) -> Action:
-        # This policy moves the robot to a safe height, then moves to behind
-        # the handle in the y direction, then moves down in the z direction,
-        # then moves forward in the y direction before finally grasping.
-        del memory, params  # unused
-        robot, jug = objects
-        x = state.get(robot, "x")
-        y = state.get(robot, "y")
-        z = state.get(robot, "z")
-        robot_pos = (x, y, z)
-        handle_pos = self._get_jug_handle_grasp(state, jug)
-        # If close enough, pick.
-        sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
-        if sq_dist_to_handle < self.pick_policy_tol:
-            return Action(
-                np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
-        target_x, target_y, target_z = handle_pos
-        # Distance to the handle in the x/z plane.
-        xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
-        # Distance to the penultimate waypoint in the x/y plane.
-        waypoint_y = target_y - self.pick_jug_y_padding
-        # Distance in the z direction to a safe move distance.
-        safe_z_sq_dist = (self.robot_init_z - z)**2
-        xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
-        # If at the correct x and z position and behind in the y direction,
-        # move directly toward the target.
-        if target_y > y and xz_handle_sq_dist < self.pick_policy_tol:
-            return self._get_move_action(handle_pos, robot_pos)
-        # If close enough to the penultimate waypoint in the x/y plane,
-        # move to the waypoint (in the z direction).
-        if xy_waypoint_sq_dist < self.pick_policy_tol:
-            return self._get_move_action((target_x, waypoint_y, target_z),
-                                         robot_pos)
-        # If at a safe height, move to the position above the penultimate
-        # waypoint, still at a safe height.
-        if safe_z_sq_dist < self.safe_z_tol:
-            return self._get_move_action(
-                (target_x, waypoint_y, self.robot_init_z), robot_pos)
-        # Move up to a safe height.
-        return self._get_move_action((x, y, self.robot_init_z), robot_pos)
-
-    def _PickJug_terminal(self, state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        robot, jug = objects
-        return self._Holding_holds(state, [robot, jug])
-
-    def _PlaceJugInMachine_policy(self, state: State, memory: Dict,
-                                  objects: Sequence[Object],
-                                  params: Array) -> Action:
-        # This policy picks the jug up slightly above the table to avoid
-        # worrying about friction, then moves directly to the place position,
-        # then places the jug.
-        del memory, params  # unused
-        robot, jug, _ = objects
-        # Use the jug position as the origin.
-        x = state.get(jug, "x")
-        y = state.get(jug, "y")
-        z = state.get(robot, "z") - self.jug_handle_height
-        jug_pos = (x, y, z)
-        place_pos = (self.dispense_area_x, self.dispense_area_y, self.z_lb)
-        # If close enough, place.
-        sq_dist_to_place = np.sum(np.subtract(jug_pos, place_pos)**2)
-        if sq_dist_to_place < self.place_jug_in_machine_tol:
-            return Action(
-                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
-        # If already above the table, move directly toward the place pos.
-        if z > self.z_lb:
-            return self._get_move_action(place_pos, jug_pos)
-        # Move up.
-        return self._get_move_action((x, y, z + self.max_position_vel),
-                                     jug_pos)
-
-    def _PlaceJugInMachine_terminal(self, state: State, memory: Dict,
-                                    objects: Sequence[Object],
-                                    params: Array) -> bool:
-        del memory, params  # unused
-        robot, jug, machine = objects
-        return not self._Holding_holds(state, [robot, jug]) and \
-            self._JugInMachine_holds(state, [jug, machine])
-
-    def _TurnMachineOn_policy(self, state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> Action:
-        # This policy moves the robot up to be level with the button in the
-        # z direction and then moves forward in the y direction to press it.
-        del memory, params  # unused
-        robot, _ = objects
-        x = state.get(robot, "x")
-        y = state.get(robot, "y")
-        z = state.get(robot, "z")
-        robot_pos = (x, y, z)
-        button_pos = (self.button_x, self.button_y, self.button_z)
-        if (self.button_z - z)**2 < self.button_radius**2:
-            # Move directly toward the button.
-            return self._get_move_action(button_pos, robot_pos)
-        # Move only in the z direction.
-        return self._get_move_action((x, y, self.button_z), robot_pos)
-
-    def _TurnMachineOn_terminal(self, state: State, memory: Dict,
-                                objects: Sequence[Object],
-                                params: Array) -> bool:
-        del memory, params  # unused
-        _, machine = objects
-        return self._MachineOn_holds(state, [machine])
-
-    def _Pour_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        # This policy moves the robot next to the cup and then pours until
-        # the cup is filled. Note that if starting out at the end of another
-        # pour, we need to start by rotating the cup to prevent any further
-        # pouring until we've moved over the next cup.
-        del memory, params  # unused
-        move_tilt = self.tilt_lb
-        pour_tilt = self.tilt_ub
-        robot, jug, cup = objects
-        robot_x = state.get(robot, "x")
-        robot_y = state.get(robot, "y")
-        robot_z = state.get(robot, "z")
-        robot_pos = (robot_x, robot_y, robot_z)
-        tilt = state.get(robot, "tilt")
-        jug_x = state.get(jug, "x")
-        jug_y = state.get(jug, "y")
-        jug_z = self._get_jug_z(state, jug)
-        jug_pos = (jug_x, jug_y, jug_z)
-        pour_x, pour_y, _ = pour_pos = self._get_pour_position(state, cup)
-        # If we're close enough to the pour position, pour.
-        sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
-        if sq_dist_to_pour < self.pour_policy_tol:
-            dtilt = pour_tilt - tilt
-            return self._get_move_action(jug_pos, jug_pos, dtilt=dtilt)
-        dtilt = move_tilt - tilt
-        # If we're above the pour position, move down to pour.
-        xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
-        if xy_pour_sq_dist < self.safe_z_tol:
-            return self._get_move_action(pour_pos, jug_pos, dtilt=dtilt)
-        # If we're at a safe height, move toward above the pour position.
-        if (robot_z - self.robot_init_z)**2 < self.safe_z_tol:
-            return self._get_move_action((pour_x, pour_y, jug_z),
-                                         jug_pos,
-                                         dtilt=dtilt)
-        # Move to a safe moving height.
-        return self._get_move_action((robot_x, robot_y, self.robot_init_z),
-                                     robot_pos,
-                                     dtilt=dtilt)
-
-    def _Pour_terminal(self, state: State, memory: Dict,
-                       objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        _, _, cup = objects
-        return self._CupFilled_holds(state, [cup])
-
     def _robot_jug_above_cup(self, state: State, cup: Object) -> bool:
         if not self._Holding_holds(state, [self._robot, self._jug]):
             return False
@@ -912,21 +637,15 @@ class CoffeeEnv(BaseEnv):
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
         return sq_dist_to_pour < self.pour_pos_tol
 
-    def _get_jug_handle_grasp(self, state: State,
+    @classmethod
+    def _get_jug_handle_grasp(cls, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Orient pointing down.
         rot = state.get(jug, "rot") - np.pi / 2
-        target_x = state.get(jug, "x") + np.cos(rot) * self.jug_handle_offset
-        target_y = state.get(jug, "y") + np.sin(rot) * self.jug_handle_offset
-        target_z = self.jug_handle_height
+        target_x = state.get(jug, "x") + np.cos(rot) * cls.jug_handle_offset
+        target_y = state.get(jug, "y") + np.sin(rot) * cls.jug_handle_offset
+        target_z = cls.jug_handle_height
         return (target_x, target_y, target_z)
-
-    def _get_jug_z(self, state: State, jug: Object) -> float:
-        if state.get(jug, "is_held") > 0.5:
-            # Offset to account for handle.
-            return state.get(self._robot, "z") - self.jug_handle_height
-        # On the table.
-        return self.z_lb
 
     def _get_pour_position(self, state: State,
                            cup: Object) -> Tuple[float, float, float]:
@@ -950,27 +669,9 @@ class CoffeeEnv(BaseEnv):
                 closest_cup_dist = sq_dist
         return closest_cup
 
-    def _get_move_action(self,
-                         target_pos: Tuple[float, float, float],
-                         robot_pos: Tuple[float, float, float],
-                         dtilt: float = 0.0,
-                         dwrist: float = 0.0) -> Action:
-        # We want to move in this direction.
-        delta = np.subtract(target_pos, robot_pos)
-        # But we can only move at most max_position_vel in one step.
-        # Get the norm full move delta.
-        pos_norm = float(np.linalg.norm(delta))
-        # If the norm is more than max_position_vel, rescale the delta so that
-        # its norm is max_position_vel.
-        if pos_norm > self.max_position_vel:
-            delta = self.max_position_vel * (delta / pos_norm)
-            pos_norm = self.max_position_vel
-        # Now normalize so that the action values are between -1 and 1, as
-        # expected by simulate and the action space.
-        if pos_norm > 0:
-            delta = delta / self.max_position_vel
-        dx, dy, dz = delta
-        dtilt = np.clip(dtilt, -self.max_angular_vel, self.max_angular_vel)
-        dtilt = dtilt / self.max_angular_vel
-        return Action(
-            np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
+    def _get_jug_z(self, state: State, jug: Object) -> float:
+        if state.get(jug, "is_held") > 0.5:
+            # Offset to account for handle.
+            return state.get(self._robot, "z") - self.jug_handle_height
+        # On the table.
+        return self.z_lb

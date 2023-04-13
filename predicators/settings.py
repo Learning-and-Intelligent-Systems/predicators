@@ -82,6 +82,7 @@ class GlobalSettings:
 
     # repeated nextto env parameters
     repeated_nextto_num_dots = 15
+    repeated_nextto_nextto_thresh = 0.5
 
     # painting env parameters
     painting_initial_holding_prob = 0.5
@@ -90,6 +91,7 @@ class GlobalSettings:
     painting_num_objs_test = [3, 4]
     painting_max_objs_in_goal = float("inf")
     painting_goal_receptacles = "box_and_shelf"  # box_and_shelf, box, shelf
+    painting_raise_environment_failure = True
 
     # repeated_nextto_painting (rnt_painting) env parameters
     rnt_painting_num_objs_train = [8, 9, 10]
@@ -279,13 +281,26 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
+    narrow_passage_open_door_refine_penalty = 0.2
     narrow_passage_door_width_padding_lb = 1e-4
-    narrow_passage_door_width_padding_ub = 5e-3
+    narrow_passage_door_width_padding_ub = 0.015
     narrow_passage_passage_width_padding_lb = 5e-4
     narrow_passage_passage_width_padding_ub = 2e-2
     narrow_passage_birrt_num_attempts = 10
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
+
+    # exit_garage env parameters
+    exit_garage_pick_place_refine_penalty = 0.2
+    exit_garage_min_num_obstacles = 2
+    exit_garage_max_num_obstacles = 4  # inclusive
+    exit_garage_rrt_extend_fn_threshold = 1e-4
+    exit_garage_rrt_num_control_samples = 100
+    exit_garage_rrt_num_attempts = 10
+    exit_garage_rrt_num_iters = 100
+    exit_garage_rrt_sample_goal_eps = 0.1
+    exit_garage_motion_planning_ignore_obstacles = False
+    exit_garage_raise_environment_failure = False
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
@@ -297,6 +312,11 @@ class GlobalSettings:
     satellites_num_obj_train = [3, 4]
     satellites_num_sat_test = [3, 4]
     satellites_num_obj_test = [4, 5]
+
+    # sokoban env parameters
+    # use Sokoban-huge-v0 to show-off, the bottleneck is just the gym env
+    # initialization and resetting. use Sokoban-small-v0 for tests
+    sokoban_gym_name = "Sokoban-v0"
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -373,6 +393,12 @@ class GlobalSettings:
     sesame_check_static_object_changes = False
     # Warning: making this tolerance any lower breaks pybullet_blocks.
     sesame_static_object_change_tol = 1e-3
+    # If True, then bilevel planning approaches will run task planning only,
+    # and then greedily sample and execute in the environment. This avoids the
+    # need for a simulator. In the future, we could check to see if the
+    # observed states match (at the abstract level) the expected states, and
+    # replan if not. But for now, we just execute each step without checking.
+    bilevel_plan_without_sim = False
 
     # evaluation parameters
     log_dir = "logs"
@@ -410,6 +436,7 @@ class GlobalSettings:
     enable_harmless_op_pruning = False  # some methods may want this to be True
     backchaining_check_intermediate_harmlessness = False
     pnad_search_without_del = False
+    pnad_search_timeout = 10.0
     compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
@@ -420,14 +447,24 @@ class GlobalSettings:
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
 
+    # torch GPU usage setting
+    use_torch_gpu = False
+
     # torch model parameters
     learning_rate = 1e-3
+    weight_decay = 0
     mlp_regressor_max_itr = 10000
     mlp_regressor_hid_sizes = [32, 32]
     mlp_regressor_clip_gradients = False
     mlp_regressor_gradient_clip_value = 5
     mlp_classifier_hid_sizes = [32, 32]
     mlp_classifier_balance_data = True
+    cnn_regressor_max_itr = 500
+    cnn_regressor_conv_channel_nums = [3, 3]
+    cnn_regressor_conv_kernel_sizes = [5, 3]
+    cnn_regressor_linear_hid_sizes = [32, 8]
+    cnn_regressor_clip_gradients = True
+    cnn_regressor_gradient_clip_value = 5
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 1000
     mlp_classifier_n_iter_no_change = 5000
@@ -440,6 +477,9 @@ class GlobalSettings:
     implicit_mlp_regressor_derivative_free_sigma_init = 0.33
     implicit_mlp_regressor_derivative_free_shrink_scale = 0.5
     implicit_mlp_regressor_grid_num_ticks_per_dim = 100
+
+    # ml training parameters
+    pytorch_train_print_every = 1000
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
@@ -470,16 +510,25 @@ class GlobalSettings:
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
+    online_learning_lifelong = False
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
-    refinement_estimation_num_skeletons_generated = 3
+    refinement_estimation_num_skeletons_generated = 8
 
     # refinement data collection parameters
-    refinement_data_num_skeletons = 3
+    refinement_data_num_skeletons = 8
     refinement_data_skeleton_generator_timeout = 20
     refinement_data_low_level_search_timeout = 5  # timeout for refinement try
     refinement_data_failed_refinement_penalty = 5  # added time on failure
+
+    # CNN refinement cost estimator image pre-processing parameters
+    cnn_refinement_estimator_crop = False  # True
+    cnn_refinement_estimator_crop_bounds = (320, 400, 100, 650)
+    cnn_refinement_estimator_downsample = 2
+
+    # bridge policy parameters
+    bridge_policy = "learned_ldl"  # default bridge policy
 
     # glib explorer parameters
     glib_min_goal_size = 1
@@ -591,6 +640,7 @@ class GlobalSettings:
                 {
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
+                    "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
                 })[args.get("env", "")],
@@ -623,6 +673,8 @@ def get_allowed_query_type_names() -> Set[str]:
         return {"PathToStateQuery"}
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
+    if CFG.approach == "bridge_policy":
+        return {"DemonstrationQuery"}
     if CFG.approach == "unittest":
         return {
             "GroundAtomsHoldQuery",

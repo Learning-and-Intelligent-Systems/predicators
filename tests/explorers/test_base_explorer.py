@@ -1,11 +1,10 @@
 """Test cases for the base explorer class."""
-
 import pytest
 
 from predicators import utils
 from predicators.envs.cover import CoverEnv
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
 
 
@@ -13,15 +12,16 @@ def test_create_explorer():
     """Tests for create_explorer."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
     option_model = _OracleOptionModel(env)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     # Greedy lookahead explorer.
     state_score_fn = lambda _1, _2: 0.0
     name = "greedy_lookahead"
     explorer = create_explorer(name,
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -34,7 +34,7 @@ def test_create_explorer():
     name = "glib"
     explorer = create_explorer(name,
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -47,7 +47,7 @@ def test_create_explorer():
     name = "exploit_planning"
     explorer = create_explorer(name,
                                env.predicates,
-                               env.options,
+                               get_gt_options(env.get_name()),
                                env.types,
                                env.action_space,
                                train_tasks,
@@ -59,10 +59,12 @@ def test_create_explorer():
             "random_actions",
             "random_options",
     ]:
-        explorer = create_explorer(name, env.predicates, env.options,
-                                   env.types, env.action_space, train_tasks)
+        explorer = create_explorer(name, env.predicates,
+                                   get_gt_options(env.get_name()), env.types,
+                                   env.action_space, train_tasks)
         assert isinstance(explorer, BaseExplorer)
     # Failure case.
     with pytest.raises(NotImplementedError):
-        create_explorer("Not a real explorer", env.predicates, env.options,
-                        env.types, env.action_space, train_tasks)
+        create_explorer("Not a real explorer", env.predicates,
+                        get_gt_options(env.get_name()), env.types,
+                        env.action_space, train_tasks)

@@ -1,5 +1,4 @@
 """Test cases for the GNN metacontroller approach."""
-
 import numpy as np
 import pytest
 from gym.spaces import Box
@@ -11,6 +10,7 @@ from predicators.approaches.gnn_metacontroller_approach import \
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.gnn.gnn_utils import get_single_model_prediction
+from predicators.ground_truth_models import get_gt_options
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
@@ -58,11 +58,11 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
         "horizon": 10
     })
     env = create_new_env(env_name)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     approach = create_approach("gnn_metacontroller", env.predicates,
-                               env.options, env.types, env.action_space,
-                               train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+                               get_gt_options(env.get_name()), env.types,
+                               env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
     approach.learn_from_offline_dataset(dataset)
@@ -82,8 +82,8 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
         assert "Metacontroller could not sample an option" in str(e)
     # Test loading.
     approach2 = create_approach("gnn_metacontroller", env.predicates,
-                                env.options, env.types, env.action_space,
-                                train_tasks)
+                                get_gt_options(env.get_name()), env.types,
+                                env.action_space, train_tasks)
     approach2.load(online_learning_cycle=None)
 
 

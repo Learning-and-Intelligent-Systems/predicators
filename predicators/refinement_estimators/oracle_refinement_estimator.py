@@ -2,10 +2,10 @@
 
 from typing import List, Set
 
-from predicators.envs.narrow_passage import NarrowPassageEnv
+from predicators.envs import BaseEnv
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, State, _GroundNSRT
+from predicators.structs import GroundAtom, State, Task, _GroundNSRT
 
 
 class OracleRefinementEstimator(BaseRefinementEstimator):
@@ -20,12 +20,16 @@ class OracleRefinementEstimator(BaseRefinementEstimator):
     def is_learning_based(self) -> bool:
         return False
 
-    def get_cost(self, initial_state: State, skeleton: List[_GroundNSRT],
+    def get_cost(self, initial_task: Task, skeleton: List[_GroundNSRT],
                  atoms_sequence: List[Set[GroundAtom]]) -> float:
         env_name = CFG.env
         if env_name == "narrow_passage":
-            return narrow_passage_oracle_estimator(initial_state, skeleton,
+            return narrow_passage_oracle_estimator(self._env,
+                                                   initial_task.init, skeleton,
                                                    atoms_sequence)
+        if env_name == "exit_garage":
+            return exit_garage_oracle_estimator(self._env, initial_task.init,
+                                                skeleton, atoms_sequence)
 
         # Given environment doesn't have an implemented oracle estimator
         raise NotImplementedError(
@@ -33,6 +37,7 @@ class OracleRefinementEstimator(BaseRefinementEstimator):
 
 
 def narrow_passage_oracle_estimator(
+    env: BaseEnv,
     initial_state: State,
     skeleton: List[_GroundNSRT],
     atoms_sequence: List[Set[GroundAtom]],
@@ -41,7 +46,6 @@ def narrow_passage_oracle_estimator(
     del atoms_sequence  # unused
 
     # Extract door and passage widths from the state
-    env = NarrowPassageEnv()
     door_type, _, _, _, wall_type = sorted(env.types)
     door, = initial_state.get_objects(door_type)
     door_width = initial_state.get(door, "width")
@@ -61,4 +65,21 @@ def narrow_passage_oracle_estimator(
             cost += cost_of_open_door
         elif ground_nsrt.name == "MoveToTarget":
             cost += 1
+    return cost
+
+
+def exit_garage_oracle_estimator(
+    env: BaseEnv,
+    initial_state: State,
+    skeleton: List[_GroundNSRT],
+    atoms_sequence: List[Set[GroundAtom]],
+) -> float:
+    """Oracle refinement estimation function for exit_garage env."""
+    del env, initial_state, atoms_sequence  # unused
+
+    # Each picked-up obstacle decreases the refinement cost of DriveCarToExit
+    cost = 0
+    for ground_nsrt in skeleton:
+        if ground_nsrt.name == "PickupObstacle":
+            cost -= 1
     return cost

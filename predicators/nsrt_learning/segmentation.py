@@ -4,7 +4,7 @@ from typing import Callable, List
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtomTrajectory, \
     LowLevelTrajectory, Segment, State
@@ -20,6 +20,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         return _segment_with_oracle(trajectory)
     if CFG.segmenter == "contacts":
         return _segment_with_contact_changes(trajectory)
+    if CFG.segmenter == "every_step":
+        return _segment_with_switch_function(trajectory, lambda _: True)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
 
@@ -107,10 +109,12 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
     effects achieved, that marks the switch point between segments.
     """
     traj, all_atoms = trajectory
-    if CFG.option_learner == "no_learning":
+    if traj.actions and traj.actions[0].has_option():
+        assert CFG.option_learner == "no_learning"
         return _segment_with_option_changes(trajectory)
     env = get_or_create_env(CFG.env)
-    gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    env_options = get_gt_options(env.get_name())
+    gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env_options)
     objects = list(traj.states[0])
     ground_nsrts = {
         ground_nsrt

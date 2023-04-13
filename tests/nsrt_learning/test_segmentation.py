@@ -1,5 +1,4 @@
 """Tests for low-level trajectory segmentation."""
-
 import numpy as np
 import pytest
 from gym.spaces import Box
@@ -7,6 +6,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.structs import Action, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Type
@@ -158,6 +158,10 @@ def test_segment_trajectory():
     assert not segment.has_option()
     assert segment.init_atoms == atoms0
     assert segment.final_atoms == atoms1
+    # Test segmenting at every step.
+    utils.reset_config({"segmenter": "every_step"})
+    every_step_segments = segment_trajectory(trajectory)
+    assert len(every_step_segments) == 5
     # Test oracle segmenter with unknown options. This segmenter uses the
     # ground truth NSRTs, so we need to use a real environment where those
     # are defined.
@@ -174,7 +178,7 @@ def test_segment_trajectory():
         "offline_data_method": "demo",
     })
     env = create_new_env("cover_multistep_options", do_cache=False)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
     dataset = create_dataset(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -215,9 +219,9 @@ def test_contact_based_segmentation(env):
         "excluded_predicates": "all",
     })
     env = create_new_env(env, do_cache=False)
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     assert len(train_tasks) == 1
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
     assert len(ground_atom_dataset) == 1

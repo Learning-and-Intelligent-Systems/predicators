@@ -18,7 +18,8 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, State, Task, Video
+from predicators.structs import Action, Array, EnvironmentTask, Observation, \
+    State, Video
 
 
 class PyBulletEnv(BaseEnv):
@@ -26,9 +27,8 @@ class PyBulletEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    _grasp_tol: ClassVar[float] = 0.05
+    grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
-    _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
 
     # Object parameters.
     _obj_mass: ClassVar[float] = 0.5
@@ -57,63 +57,70 @@ class PyBulletEnv(BaseEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Controls the maximum end effector change between time steps.
-        self._max_vel_norm = CFG.pybullet_max_vel_norm
-
         # When an object is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
         self._held_obj_to_base_link: Optional[Any] = None
         self._held_obj_id: Optional[int] = None
 
         # Set up all the static PyBullet content.
-        self._initialize_pybullet()
+        self._physics_client_id, self._pybullet_robot, pybullet_bodies = \
+            self.initialize_pybullet(self.using_gui)
+        self._store_pybullet_bodies(pybullet_bodies)
 
-    def _initialize_pybullet(self) -> None:
-        """One-time initialization of PyBullet assets."""
+    @classmethod
+    def initialize_pybullet(
+            cls, using_gui: bool
+    ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
+        """Returns physics client ID, robot, and dictionary containing other
+        object IDs and any other info from pybullet that needs to be tracked.
+
+        This is a public class method because the oracle options use it too.
+
+        Subclasses may override to load additional assets.
+        """
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
-        if self.using_gui:  # pragma: no cover
-            self._physics_client_id = create_gui_connection(
-                camera_distance=self._camera_distance,
-                camera_yaw=self._camera_yaw,
-                camera_pitch=self._camera_pitch,
-                camera_target=self._camera_target,
+        if using_gui:  # pragma: no cover
+            physics_client_id = create_gui_connection(
+                camera_distance=cls._camera_distance,
+                camera_yaw=cls._camera_yaw,
+                camera_pitch=cls._camera_pitch,
+                camera_target=cls._camera_target,
             )
         else:
-            self._physics_client_id = p.connect(p.DIRECT)
-        # This second connection can be useful for stateless operations.
-        self._physics_client_id2 = p.connect(p.DIRECT)
+            physics_client_id = p.connect(p.DIRECT)
 
-        p.resetSimulation(physicsClientId=self._physics_client_id)
-        p.resetSimulation(physicsClientId=self._physics_client_id2)
+        p.resetSimulation(physicsClientId=physics_client_id)
 
         # Load plane.
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
-                   physicsClientId=self._physics_client_id)
-        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
-                   useFixedBase=True,
-                   physicsClientId=self._physics_client_id2)
+                   physicsClientId=physics_client_id)
 
         # Load robot.
-        self._pybullet_robot = self._create_pybullet_robot(
-            self._physics_client_id)
-        self._pybullet_robot_sim = self._create_pybullet_robot(
-            self._physics_client_id2)
+        pybullet_robot = cls._create_pybullet_robot(physics_client_id)
 
         # Set gravity.
-        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
-        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id2)
+        p.setGravity(0., 0., -10., physicsClientId=physics_client_id)
+
+        return physics_client_id, pybullet_robot, {}
 
     @abc.abstractmethod
-    def _create_pybullet_robot(
-            self, physics_client_id: int) -> SingleArmPyBulletRobot:
-        """Make and return a PyBullet robot object in the given
-        physics_client_id.
+    def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
+        """Store any bodies created in cls.initialize_pybullet().
 
-        It will be saved as either self._pybullet_robot or
-        self._pybullet_robot_sim.
+        This is separate from the initialization because the
+        initialization is a class method (which is needed for options).
+        Subclasses should decide what bodies to keep.
         """
+        raise NotImplementedError("Override me!")
+
+    @classmethod
+    @abc.abstractmethod
+    def _create_pybullet_robot(
+            cls, physics_client_id: int) -> SingleArmPyBulletRobot:
+        """Make and return a PyBullet robot object in the given
+        physics_client_id."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -154,33 +161,34 @@ class PyBulletEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         # Optimization: check if we're already in the right state.
-        if not state.allclose(self._current_state):
-            self._current_state = state
+        if self._current_observation is None or \
+            not state.allclose(self._current_state):
+            self._current_observation = state
             self._reset_state(state)
         return self.step(action)
 
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
 
     def render_state(self,
                      state: State,
-                     task: Task,
+                     task: EnvironmentTask,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> Video:
         raise NotImplementedError("A PyBullet environment cannot render "
                                   "arbitrary states.")
 
-    def reset(self, train_or_test: str, task_idx: int) -> State:
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
         # Converts the State into a PyBulletState.
-        self._current_state = self._get_state()
-        return self._current_state.copy()
+        self._current_observation = self._get_state()
+        return self._current_observation.copy()
 
     def _reset_state(self, state: State) -> None:
         """Helper for reset and testing."""
@@ -191,9 +199,8 @@ class PyBulletEnv(BaseEnv):
             self._held_constraint_id = None
         self._held_obj_id = None
 
-        # Reset robots.
+        # Reset robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
-        self._pybullet_robot_sim.reset_state(self._extract_robot_state(state))
 
     def render(self,
                action: Optional[Action] = None,
@@ -238,7 +245,7 @@ class PyBulletEnv(BaseEnv):
         rgb_array = rgb_array[:, :, :3]
         return [rgb_array]
 
-    def step(self, action: Action) -> State:
+    def step(self, action: Action) -> Observation:
         # Send the action to the robot.
         target_joint_positions = action.arr.tolist()
         self._pybullet_robot.set_motors(target_joint_positions)
@@ -287,8 +294,8 @@ class PyBulletEnv(BaseEnv):
             self._held_constraint_id = None
             self._held_obj_id = None
 
-        self._current_state = self._get_state()
-        return self._current_state.copy()
+        self._current_observation = self._get_state()
+        return self._current_observation.copy()
 
     def _detect_held_object(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists.
@@ -310,7 +317,7 @@ class PyBulletEnv(BaseEnv):
                 closest_points = p.getClosestPoints(
                     bodyA=self._pybullet_robot.robot_id,
                     bodyB=obj_id,
-                    distance=self._grasp_tol,
+                    distance=self.grasp_tol,
                     linkIndexA=finger_id,
                     physicsClientId=self._physics_client_id)
                 for point in closest_points:
@@ -377,11 +384,13 @@ class PyBulletEnv(BaseEnv):
         return state.joint_positions[finger_joint_idx]
 
     def _action_to_finger_delta(self, action: Action) -> float:
-        finger_position = self._get_finger_position(self._current_state)
+        assert isinstance(self._current_observation, State)
+        finger_position = self._get_finger_position(self._current_observation)
         target = action.arr[-1]
         return target - finger_position
 
-    def _add_pybullet_state_to_tasks(self, tasks: List[Task]) -> List[Task]:
+    def _add_pybullet_state_to_tasks(
+            self, tasks: List[EnvironmentTask]) -> List[EnvironmentTask]:
         """Converts the task initial states into PyBulletStates."""
         pybullet_tasks = []
         for task in tasks:
@@ -392,13 +401,14 @@ class PyBulletEnv(BaseEnv):
             joint_positions = self._pybullet_robot.get_joints()
             pybullet_init = utils.PyBulletState(
                 init.data.copy(), simulator_state=joint_positions)
-            pybullet_task = Task(pybullet_init, task.goal)
+            pybullet_task = EnvironmentTask(pybullet_init, task.goal)
             pybullet_tasks.append(pybullet_task)
         return pybullet_tasks
 
-    @property
-    def _robot_ee_home_orn(self) -> Quaternion:
-        robot_ee_orns = CFG.pybullet_robot_ee_orns[self.get_name()]
+    @classmethod
+    def get_robot_ee_home_orn(cls) -> Quaternion:
+        """Public for use by oracle options."""
+        robot_ee_orns = CFG.pybullet_robot_ee_orns[cls.get_name()]
         return robot_ee_orns[CFG.pybullet_robot]
 
 

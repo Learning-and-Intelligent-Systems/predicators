@@ -13,6 +13,7 @@ from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Object, Predicate, State, Task
 from scripts.analyze_results_directory import get_df_for_entry
@@ -27,11 +28,12 @@ def evaluate_approach(evaluate_fn: Callable[
     utils.update_config(args)
     # Create classes.
     env = create_new_env(CFG.env, do_cache=True)
+    options = get_gt_options(env.get_name())
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Don't need actual train tasks.
     train_tasks: List[Task] = []
     # Create the agent (approach).
-    approach = create_approach(CFG.approach, preds, env.options, env.types,
+    approach = create_approach(CFG.approach, preds, options, env.types,
                                env.action_space, train_tasks)
     assert isinstance(approach, InteractiveLearningApproach)
     _run_pipeline(env, approach, evaluate_fn, data)
@@ -92,8 +94,8 @@ def create_states_cover(
     block_poses = [0.15, 0.605]
     target_poses = [0.375, 0.815]
     # State 0: no blocks overlap any targets
-    task = env.get_test_tasks()[0]
-    state = task.init
+    env_task = env.get_test_tasks()[0]
+    state = env_task.init
     block0 = [b for b in state if b.name == "block0"][0]
     block1 = [b for b in state if b.name == "block1"][0]
     target0 = [b for b in state if b.name == "target0"][0]

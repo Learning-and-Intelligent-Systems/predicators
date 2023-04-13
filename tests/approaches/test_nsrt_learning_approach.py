@@ -1,5 +1,4 @@
 """Test cases for the NSRT learning approach."""
-
 import os
 
 import dill as pkl
@@ -9,6 +8,8 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, create_approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
+from predicators.ground_truth_models import get_gt_options, \
+    parse_config_included_options
 from predicators.settings import CFG
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
@@ -64,17 +65,17 @@ def _test_approach(env_name,
             "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     if option_learner == "no_learning":
-        options = env.options
+        options = get_gt_options(env.get_name())
     else:
-        options = utils.parse_config_included_options(env)
+        options = parse_config_included_options(env)
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks, options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
-    task = env.get_test_tasks()[0]
+    task = env.get_test_tasks()[0].task
     if try_solving:
         if solve_exceptions is not None:
             assert not check_solution
@@ -95,7 +96,8 @@ def _test_approach(env_name,
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
-    approach2 = create_approach(approach_name, preds, env.options, env.types,
+    approach2 = create_approach(approach_name, preds,
+                                get_gt_options(env.get_name()), env.types,
                                 env.action_space, train_tasks)
     approach2.load(online_learning_cycle=None)
     if try_solving:

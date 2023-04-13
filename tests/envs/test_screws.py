@@ -1,9 +1,9 @@
 """Test cases for the screws environment."""
-
 import numpy as np
 
 from predicators import utils
 from predicators.envs.screws import ScrewsEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action
 
 
@@ -11,7 +11,7 @@ def test_screws():
     """Tests for ScrewsEnv class."""
     utils.reset_config({"seed": 0})
     env = ScrewsEnv()
-    train_tasks = env.get_train_tasks()
+    train_tasks = [t.task for t in env.get_train_tasks()]
     task = train_tasks[0]
     env.render_state(task.init, task)
     # Goal predicates should be {ScrewInReceptacle}.
@@ -54,7 +54,8 @@ def test_screws():
     # Check that picking up something and then dropping it immediately
     # works (this is never done during normal optimal planning.)
     goal_screw = list(task.goal)[0].objects[0]
-    DemagnetizeGripper, MagnetizeGripper, _, MoveToScrew = sorted(env.options)
+    DemagnetizeGripper, MagnetizeGripper, _, MoveToScrew = sorted(
+        get_gt_options(env.get_name()))
     demagnetize_gripper_option = DemagnetizeGripper.ground([gripper], [])
     magnetize_gripper_option = MagnetizeGripper.ground([gripper], [])
     move_to_screw_option = MoveToScrew.ground([gripper, goal_screw], [])

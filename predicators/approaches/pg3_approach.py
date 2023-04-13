@@ -8,6 +8,12 @@ Example command line:
     python predicators/main.py --approach pg3 --seed 0 \
         --env pddl_easy_delivery_procedural_tasks \
         --strips_learner oracle --num_train_tasks 10
+
+Example to load from a policy text file:
+    python predicators/main.py --approach pg3 --seed 0 \
+        --env pddl_gripper_procedural_tasks \
+        --strips_learner oracle --num_train_tasks 10 \
+        --pg3_init_policy gripper_ldl_policy.txt
 """
 from __future__ import annotations
 
@@ -155,8 +161,15 @@ class PG3Approach(NSRTLearningApproach):
         with open(f"{load_path}_{online_learning_cycle}.ldl", "rb") as f:
             self._current_ldl = pkl.load(f)
 
-    @staticmethod
-    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
+    def _get_policy_search_initial_ldls(self) -> List[LiftedDecisionList]:
         # Initialize with an empty list by default, but subclasses may
         # override.
+        if CFG.pg3_init_policy is not None:
+            with open(CFG.pg3_init_policy, "r", encoding="utf-8") as f:
+                policy_str = f.read()
+            predicates = self._get_current_predicates()
+            nsrts = self._get_current_nsrts()
+            init_policy = utils.parse_ldl_from_str(policy_str, self._types,
+                                                   predicates, nsrts)
+            return [init_policy]
         return [LiftedDecisionList([])]
