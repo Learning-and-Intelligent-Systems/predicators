@@ -1,5 +1,6 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
+import os
 import sys
 import time
 from typing import Any, Sequence
@@ -73,8 +74,10 @@ class SpotControllers():
         # See hello_spot.py for an explanation of these lines.
         bosdyn.client.util.setup_logging(self._verbose)
 
-        self.sdk = bosdyn.client.create_standard_sdk('ArmObjectGraspClient')
+        self.sdk = bosdyn.client.create_standard_sdk('SesameClient')
         self.robot: Robot = self.sdk.create_robot(self._hostname)
+        if not os.environ.get('BOSDYN_CLIENT_USERNAME') or not os.environ.get('BOSDYN_CLIENT_PASSWORD'):
+            raise RuntimeError("Spot environment variables unset.")
         bosdyn.client.util.authenticate(self.robot)
         self.robot.time_sync.wait_for_sync()
 

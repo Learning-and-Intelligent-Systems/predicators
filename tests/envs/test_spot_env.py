@@ -6,6 +6,7 @@ import pytest
 
 from predicators import utils
 from predicators.envs.spot_env import SpotEnv
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 
 
 def test_spot_env():
@@ -25,7 +26,8 @@ def test_spot_env():
     assert {pred.name for pred in env.predicates} == \
         {"ReachableSurface", "HoldingCan", "On", "HandEmpty", "ReachableCan"}
     assert {pred.name for pred in env.goal_predicates} == {"On"}
-    assert len(env.options) == 4
+    options = get_gt_options(env.get_name())
+    assert len(options) == 4
     assert len(env.types) == 3
     assert len(env.strips_operators) == 4
     with pytest.raises(NotImplementedError):
@@ -39,10 +41,11 @@ def test_spot_env_simulate():
         "approach": "nsrt_learning",
     })
     env = SpotEnv()
-    MoveToSurface = [o for o in env.options if o.name == "MoveToSurface"][0]
-    MoveToCan = [o for o in env.options if o.name == "MoveToCan"][0]
-    GraspCan = [o for o in env.options if o.name == "GraspCan"][0]
-    PlaceCanOnTop = [o for o in env.options if o.name == "PlaceCanOntop"][0]
+    options = get_gt_options(env.get_name())
+    MoveToSurface = [o for o in options if o.name == "MoveToSurface"][0]
+    MoveToCan = [o for o in options if o.name == "MoveToCan"][0]
+    GraspCan = [o for o in options if o.name == "GraspCan"][0]
+    PlaceCanOnTop = [o for o in options if o.name == "PlaceCanOntop"][0]
 
     task = env.get_train_tasks()[0]
     state = task.init
@@ -104,8 +107,8 @@ def test_json_loading():
         Path('predicators/spot_utils/json_tasks/test.json'))
     assert str(
         output_task
-    ) == "Task(init=_PDDLEnvState(data={counter:flat_surface: {}, " +\
+    ) == "EnvironmentTask(init_obs=_PDDLEnvState(data={counter:flat_surface: {}, " +\
         "snack_table:flat_surface: {}, soda_can:soda_can: {}, " +\
         "spot:robot: {}}, simulator_state={On(soda_can:soda_can, " +\
         "counter:flat_surface), HandEmpty(spot:robot)}), " +\
-        "goal={On(soda_can:soda_can, snack_table:flat_surface)})"
+        "goal_description={On(soda_can:soda_can, snack_table:flat_surface)})"

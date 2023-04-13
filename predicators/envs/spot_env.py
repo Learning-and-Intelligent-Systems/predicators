@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Collection, Dict, List, Optional, Set
+from typing import Collection, Dict, List, Optional, Sequence, Set
 
 import matplotlib
 import numpy as np
@@ -11,12 +11,42 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op, \
-    _create_predicate_classifier, _PDDLEnvState, \
-    _strips_operator_to_parameterized_option
+    _create_predicate_classifier, _PDDLEnvState
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    Variable
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    LiftedAtom, Object, ParameterizedOption, Predicate, State, \
+    STRIPSOperator, Type, Variable
+
+
+def _strips_operator_to_parameterized_option(
+        op: STRIPSOperator, ordered_operators: List[STRIPSOperator],
+        action_dims: int) -> ParameterizedOption:
+    name = op.name
+    types = [p.type for p in op.parameters]
+    op_idx = ordered_operators.index(op)
+
+    def policy(s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
+        del m, p  # unused
+        ordered_objs = list(s)
+        # The first dimension of an action encodes the operator.
+        # The second dimension of an action encodes the first object
+        # argument to the ground operator. The third dimension encodes the
+        # second object and so on. Actions are always padded so that their
+        # length is equal to the max number of arguments for any operator.
+        obj_idxs = [ordered_objs.index(obj) for obj in o]
+        act_arr = np.zeros(action_dims, dtype=np.float32)
+        act_arr[0] = op_idx
+        act_arr[1:(len(obj_idxs) + 1)] = obj_idxs
+        return Action(act_arr)
+
+    # Note: the initiable is deliberately always True. This only makes a
+    # difference for exploration. If the initiable took into account the
+    # ground-truth preconditions, that would make exploration too easy,
+    # because the options would only ever get used in states where their
+    # preconditions hold. Instead, with always-True initiable, there is a
+    # difficult exploration problem because most options will have trivial
+    # effects on the environment.
+    return utils.SingletonParameterizedOption(name, policy, types)
 
 
 class SpotEnv(BaseEnv):
@@ -142,10 +172,6 @@ class SpotEnv(BaseEnv):
         }
 
     @property
-    def options(self) -> Set[ParameterizedOption]:
-        return self._options
-
-    @property
     def action_space(self) -> Box:
         # See class docstring for explanation.
         num_ops = len(self._strips_operators)
@@ -184,14 +210,14 @@ class SpotEnv(BaseEnv):
                                                      ordered_objs)
         return next_state
 
-    def _generate_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._generate_tasks(CFG.num_train_tasks)
 
-    def _generate_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._generate_tasks(CFG.num_test_tasks)
 
-    def _generate_tasks(self, num_tasks: int) -> List[Task]:
-        tasks: List[Task] = []
+    def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
+        tasks: List[EnvironmentTask] = []
         spot = Object("spot", self._robot_type)
         kitchen_counter = Object("counter", self._surface_type)
         snack_table = Object("snack_table", self._surface_type)
@@ -203,7 +229,7 @@ class SpotEnv(BaseEnv):
                     GroundAtom(self._On, [soda_can, kitchen_counter])
                 }, [spot, kitchen_counter, snack_table, soda_can])
             goal = {GroundAtom(self._On, [soda_can, snack_table])}
-            tasks.append(Task(init_state, goal))
+            tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
     @property
@@ -213,7 +239,7 @@ class SpotEnv(BaseEnv):
     def render_state_plt(
             self,
             state: State,
-            task: Task,
+            task: EnvironmentTask,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
@@ -251,7 +277,7 @@ class SpotEnv(BaseEnv):
                 init_preds.add(init_atom)
         return init_preds
 
-    def _load_task_from_json(self, json_file: Path) -> Task:
+    def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
         """Create a task from a JSON file.
 
         By default, we assume JSON files are in the following format:
@@ -311,4 +337,4 @@ class SpotEnv(BaseEnv):
             assert "language_goal" in json_dict
             goal = self._parse_language_goal_from_json(
                 json_dict["language_goal"], object_name_to_object)
-        return Task(init_state, goal)
+        return EnvironmentTask(init_state, goal)
