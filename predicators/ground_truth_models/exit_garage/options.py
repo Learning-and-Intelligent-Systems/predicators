@@ -232,8 +232,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             s.set(move_obj, "x", x)
             s.set(move_obj, "y", y)
             s.set(move_obj, "theta", theta)
-            return ExitGarageEnv.car_has_collision(
-                s) or ExitGarageEnv.coords_out_of_bounds(x, y)
+            collision = ExitGarageEnv.get_car_collision_object(s) is not None
+            return collision or ExitGarageEnv.coords_out_of_bounds(x, y)
 
         rrt = utils.RRT(
             _sample_fn,

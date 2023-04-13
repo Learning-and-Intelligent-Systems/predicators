@@ -1,7 +1,8 @@
 """Environment for refinement cost learning with varying object counts."""
 
 import logging
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -473,11 +474,11 @@ class ExitGarageEnv(BaseEnv):
         assert obj.is_instance(cls._obstacle_type)
         return utils.Circle(x, y, cls.obstacle_radius)
 
-
     def get_event_to_action_fn(
             self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
 
-        logging.info("Controls: click to move robot, use arrow keys for car, "
+        logging.info(
+            "Controls: click to move robot, use arrow keys for car, "
             "and press (g) to toggle the robot gripper. Press (q) to quit.")
 
         def _event_to_action(state: State,
@@ -486,23 +487,28 @@ class ExitGarageEnv(BaseEnv):
                 raise utils.HumanDemonstrationFailure("Human quit.")
 
             if event.key == "g":
-                return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+                return Action(
+                    np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
 
             if event.key == "left":
                 v = -self.car_max_absolute_vel
-                return Action(np.array([v, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+                return Action(
+                    np.array([v, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
 
             if event.key == "right":
                 v = self.car_max_absolute_vel
-                return Action(np.array([v, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+                return Action(
+                    np.array([v, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
 
             if event.key == "up":
                 omega = self.car_steering_omega_limit / 10.0
-                return Action(np.array([0.0, omega, 0.0, 0.0, 1.0], dtype=np.float32))
+                return Action(
+                    np.array([0.0, omega, 0.0, 0.0, 1.0], dtype=np.float32))
 
             if event.key == "down":
                 omega = -self.car_steering_omega_limit / 10.0
-                return Action(np.array([0.0, omega, 0.0, 0.0, 1.0], dtype=np.float32))
+                return Action(
+                    np.array([0.0, omega, 0.0, 0.0, 1.0], dtype=np.float32))
 
             # Only remaining option is clicked.
             tx = event.xdata
@@ -520,5 +526,3 @@ class ExitGarageEnv(BaseEnv):
             return Action(np.array([0.0, 0.0, dx, dy, 0.0], dtype=np.float32))
 
         return _event_to_action
-
-        

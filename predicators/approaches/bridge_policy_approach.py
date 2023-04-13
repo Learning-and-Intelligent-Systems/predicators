@@ -72,7 +72,7 @@ from predicators.settings import CFG
 from predicators.structs import Action, BridgeDataset, DefaultState, \
     DemonstrationQuery, DemonstrationResponse, InteractionRequest, \
     InteractionResult, ParameterizedOption, Predicate, Query, State, Task, \
-    Type, _Option
+    Type, _Option, _GroundNSRT, GroundAtom
 from predicators.utils import OptionExecutionFailure
 
 
@@ -210,8 +210,9 @@ class BridgePolicyApproach(OracleApproach):
             rng=self._rng,
             necessary_atoms_seq=atoms_seq)
 
-        
-    def _wrap_policy_env_failure(self, policy: Callable[[State], Action]) -> Callable[[State], Action]:
+    def _wrap_policy_env_failure(
+            self, policy: Callable[[State],
+                                   Action]) -> Callable[[State], Action]:
         # TODO: remove this and create an environment failure predictor
         # interface.
         from predicators.envs import get_or_create_env
