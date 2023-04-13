@@ -477,25 +477,47 @@ class ExitGarageEnv(BaseEnv):
     def get_event_to_action_fn(
             self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
 
-        logging.info("Controls: put your mouse where you want either the car "
-            "or the robot to move, then press (c) or (r) to execute the move. "
-            "Press (g) to toggle the robot gripper. Press (q) to quit.")
+        logging.info("Controls: click to move robot, use arrow keys for car, "
+            "and press (g) to toggle the robot gripper. Press (q) to quit.")
 
         def _event_to_action(state: State,
-                             event: matplotlib.backend_bases.Event,
-                             mouse_x: float,
-                             mouse_y: float) -> Action:
+                             event: matplotlib.backend_bases.Event) -> Action:
             if event.key == "q":
                 raise utils.HumanDemonstrationFailure("Human quit.")
 
             if event.key == "g":
-                # Toggle the robot gripper.
                 return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
 
-            # Get the mouse position.
-            print("mouse x:", mouse_x)
-            print("mouse y:", mouse_y)
-            return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+            if event.key == "left":
+                v = -self.car_max_absolute_vel
+                return Action(np.array([v, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+
+            if event.key == "right":
+                v = self.car_max_absolute_vel
+                return Action(np.array([v, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+
+            if event.key == "up":
+                omega = self.car_steering_omega_limit / 10.0
+                return Action(np.array([0.0, omega, 0.0, 0.0, 1.0], dtype=np.float32))
+
+            if event.key == "down":
+                omega = -self.car_steering_omega_limit / 10.0
+                return Action(np.array([0.0, omega, 0.0, 0.0, 1.0], dtype=np.float32))
+
+            # Only remaining option is clicked.
+            tx = event.xdata
+            ty = event.ydata
+            assert tx is not None and ty is not None, "Unrecognized action"
+            robot_x = state.get(self._robot, "x")
+            robot_y = state.get(self._robot, "y")
+            dx = tx - robot_x
+            dy = ty - robot_y
+            mag = np.linalg.norm([dx, dy])
+            if mag > self.car_max_absolute_vel:
+                scale = self.car_max_absolute_vel / mag
+                dx *= scale
+                dy *= scale
+            return Action(np.array([0.0, 0.0, dx, dy, 0.0], dtype=np.float32))
 
         return _event_to_action
 
