@@ -513,7 +513,9 @@ class ExitGarageEnv(BaseEnv):
             # Only remaining option is clicked.
             tx = event.xdata
             ty = event.ydata
-            assert tx is not None and ty is not None, "Unrecognized action"
+            if (tx is None or ty is None):
+                raise NotImplementedError("No valid action found.")
+
             robot_x = state.get(self._robot, "x")
             robot_y = state.get(self._robot, "y")
             dx = tx - robot_x
