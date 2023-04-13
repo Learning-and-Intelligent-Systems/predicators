@@ -9,8 +9,8 @@ from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.structs import Action, Array, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, STRIPSOperator, Type, Variable
+from predicators.structs import Action, Array, Object, ParameterizedOption, \
+    Predicate, State, STRIPSOperator, Type
 
 
 class SpotEnvGroundTruthOptionFactory(GroundTruthOptionFactory):

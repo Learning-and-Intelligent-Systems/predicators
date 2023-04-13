@@ -2,7 +2,6 @@
 
 from typing import Dict, Set
 
-from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
