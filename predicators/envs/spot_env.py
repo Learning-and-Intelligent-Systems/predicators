@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Collection, Dict, List, Optional, Sequence, Set
+from typing import Collection, Dict, List, Optional, Set
 
 import matplotlib
 import numpy as np
