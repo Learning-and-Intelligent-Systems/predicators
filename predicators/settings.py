@@ -290,7 +290,7 @@ class GlobalSettings:
     # exit_garage env parameters
     exit_garage_clear_refine_penalty = 0.2
     exit_garage_min_num_obstacles = 2
-    exit_garage_max_num_obstacles = 4  # inclusive
+    exit_garage_max_num_obstacles = 3  # inclusive
     exit_garage_rrt_extend_fn_threshold = 1e-4
     exit_garage_rrt_num_control_samples = 100
     exit_garage_rrt_num_attempts = 10

@@ -135,13 +135,13 @@ def compute_normalizers(
     edge_data = np.array(edge_data_lst)
     global_data = np.array(global_data_lst)
     normalizers = {}
-    if normalize_nodes:
+    if normalize_nodes and len(node_data):
         node_normalizers = _compute_normalizer_array(node_data)
         normalizers["nodes"] = node_normalizers
-    if normalize_edges:
+    if normalize_edges and len(edge_data):
         edge_normalizers = _compute_normalizer_array(edge_data)
         normalizers["edges"] = edge_normalizers
-    if normalize_globals:
+    if normalize_globals and len(global_data):
         global_normalizers = _compute_normalizer_array(global_data)
         normalizers["globals"] = global_normalizers
     return normalizers
