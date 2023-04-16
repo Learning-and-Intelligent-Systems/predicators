@@ -49,7 +49,7 @@ class ExitGarageEnv(BaseEnv):
     robot_starting_y: ClassVar[float] = 0.8
     obstacle_area_left_padding: ClassVar[float] = 0.4
     obstacle_area_right_padding: ClassVar[float] = 0.1
-    obstacle_area_vertical_padding: ClassVar[float] = 0.1
+    obstacle_area_vertical_padding: ClassVar[float] = 0.05
     car_starting_x: ClassVar[float] = 0.15
     car_starting_y: ClassVar[float] = 0.3
 

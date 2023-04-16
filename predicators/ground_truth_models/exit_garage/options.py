@@ -176,7 +176,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             angle_dist = (from_pt[2] - to_pt[2] + np.pi) % (2 * np.pi) - np.pi
             # We need to scale the weight of the angle for the distance down
             # because it should matter but not as much as the position diff
-            scaled_angle_dist = angle_dist / (10 * np.pi)
+            scaled_angle_dist = angle_dist / (2 * np.pi)
             distance += scaled_angle_dist**2
             return distance
 
