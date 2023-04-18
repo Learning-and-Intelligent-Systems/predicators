@@ -19,7 +19,7 @@ from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, Type
+    ParameterizedOption, Predicate, Segment, Task, Type, GroundAtomTrajectory
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -80,8 +80,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
         else:
             # Apply predicates to data, producing a dataset of abstract states.
-            ground_atom_dataset = utils.create_ground_atom_dataset(
-                trajectories, self._get_current_predicates())
+            ground_atom_dataset = self._create_ground_atom_dataset(trajectories)
             # Save ground atoms dataset to file. Note that a
             # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
             # list of sets of GroundAtoms, so we only save the list of
@@ -108,6 +107,9 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             pkl.dump(self._nsrts, f)
         if CFG.compute_sidelining_objective_value:
             self._compute_sidelining_objective_value(trajectories)
+
+    def _create_ground_atom_dataset(trajectories: List[LowLevelTrajectory]) -> List[GroundAtomTrajectory]:
+         return utils.create_ground_atom_dataset(trajectories, self._get_current_predicates())
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         save_path = utils.get_approach_load_path_str()

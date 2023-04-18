@@ -473,7 +473,8 @@ class PaintingEnv(BaseEnv):
                 pose = self._sample_initial_object_pose(obj_poses, rng)
                 obj_poses.append(pose)
                 # Start out wet and clean, dry and dirty, or dry and clean
-                choice = rng.choice(3)
+                # choice = rng.choice(3) # TODO
+                choice = "salmon"
                 if choice == 0:
                     wetness = 0.0
                     dirtiness = rng.uniform(0.5, 1.)
