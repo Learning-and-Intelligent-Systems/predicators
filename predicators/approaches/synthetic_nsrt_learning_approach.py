@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable, List, Optional, Set, Sequence
+from typing import Callable, List, Optional, Set
 
 import dill as pkl
 from pg3.policy_search import learn_policy
@@ -46,48 +46,63 @@ class SyntheticNSRTLearningApproach(NSRTLearningApproach):
         # TODO override
         return super()._solve(task, timeout)
 
-    def _create_ground_atom_dataset(self, trajectories: List[LowLevelTrajectory]) -> List[GroundAtomTrajectory]:
-        # TODO should we be learning NRSTs first, then using ground NSRTs instead of options here??
-        ground_atom_trajs = super()._create_ground_atom_dataset(trajectories)
-        for ll_traj, ground_atom_seq in ground_atom_trajs:
-            positive_synthetic_atoms_to_add = set()
-            negative_synthetic_atoms_to_remove = set()
-            assert len(ll_traj.states) == len(ground_atom_seq), "TODO handle multi-step options"
-            for t, act in enumerate(ll_traj.actions):
-                ground_atom_seq[t] |= positive_synthetic_atoms_to_add
-                ground_atom_seq[t] -= negative_synthetic_atoms_to_remove
-                option = act.get_option()
-                new_synthetic_atom = self._option_spec_to_synthetic_atom(option.parent, option.objects)
-                old_synthetic_atom = self._option_spec_to_synthetic_atom(option.parent, option.objects, negate=True)
-                positive_synthetic_atoms_to_add.add(new_synthetic_atom)
-                negative_synthetic_atoms_to_remove.add(old_synthetic_atom)
-            last_t = len(ll_traj.actions)
-            ground_atom_seq[last_t] |= positive_synthetic_atoms_to_add
-            ground_atom_seq[last_t] -= negative_synthetic_atoms_to_remove
-        return ground_atom_trajs
+    def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
+                     online_learning_cycle: Optional[int]) -> None:
 
-    def _get_current_predicates(self) -> Set[Predicate]:
-        primitive_preds = super()._get_current_predicates()
-        synthetic_preds = self._get_synthetic_predicates()
-        return primitive_preds | synthetic_preds
+        
+        
+        
+        # # Learn initial NSRTs without synthetic crap.
+        # # TODO: skip sampler learning here in a non-terrible way.
+        # sampler_learner = CFG.sampler_learner
+        # utils.update_config({"sampler_learner": "oracle"})
+        # super()._learn_nsrts(trajectories, online_learning_cycle)
+        # nsrts = self._get_current_nsrts()
+        # preds = self._get_current_predicates()
 
-    def _get_synthetic_predicates(self) -> Set[Predicate]:
-        synthetic_preds = set()
-        for opt in self._initial_options:
-            pred = self._parameterized_option_to_predicate(opt)
-            synthetic_preds.add(pred)
-            pred = self._parameterized_option_to_predicate(opt, negate=True)
-            synthetic_preds.add(pred)
-        return synthetic_preds
+        # # Use learned operators to compute costs to go.
+        # # For each irrational step, record the rational action(s) that were
+        # # not taken. We will use these to add negative synthetic atoms later.
+        # trajectory_optimal_ctgs: List[List[float]] = []
+        # trajectory_rational_acts_not_taken: List[List[Set[_GroundNSRTs]]] = []
+        # for trajectory in trajectories:
+        #     optimal_ctgs: List[float] = []
+        #     rational_acts_not_taken: List[List[Set[_GroundNSRTs]]] = []
+        #     # TODO: segment.
+        #     states = trajectory.states  # THIS IS WRONG WHEN OPTIONS ARE MULTI-STEP
+        #     goal = self._train_tasks[trajectory.train_task_idx].goal
 
-    def _parameterized_option_to_predicate(self, param_opt: ParameterizedOption, negate: bool = False) -> Predicate:
-        if negate:
-            name = f"{param_opt.name}-HAS-NOT-happened"
-        else:
-            name = f"{param_opt.name}-happened"
-        return Predicate(name, param_opt.types, lambda s,o: negate)
+        #     for state in states:
+        #         task = Task(state, goal)
+        #         # Assuming optimal task planning here.
+        #         assert (CFG.sesame_task_planner == "astar" and \
+        #                 CFG.sesame_task_planning_heuristic == "lmcut") or \
+        #                 CFG.sesame_task_planner == "fdopt"
+        #         try:
+        #             nsrt_plan, _, _ = self._run_task_plan(
+        #                 task, nsrts, preds, CFG.timeout, self._seed)
+        #             ctg: float = len(nsrt_plan)
+        #         except ApproachFailure:  # pragma: no cover
+        #             # Planning failed, put in infinite cost to go.
+        #             ctg = float("inf")
+        #         if optimal_ctgs:
+        #             last_ctg = optimal_ctgs[-1]
+        #             # Rational.
+        #             if last_ctg == ctg + 1:
+        #                 acts_not_taken = set()
+        #             # Irrational.
+        #             else:
+        #                 import ipdb; ipdb.set_trace()
+        #                 # TODO: get multiple acts?
+        #                 acts_not_taken = {nsrt_plan[0]}
+        #             rational_acts_not_taken.append(acts_not_taken)
+        #         optimal_ctgs.append(ctg)
+        #     trajectory_optimal_ctgs.append(optimal_ctgs)
+        #     trajectory_rational_acts_not_taken.append(rational_acts_not_taken)
 
-    def _option_spec_to_synthetic_atom(self, param_opt: ParameterizedOption, objects: Sequence[Object], negate: bool = False) -> GroundAtom:
-        pred = self._parameterized_option_to_predicate(param_opt, negate=negate)
-        atom = GroundAtom(pred, objects)
-        return atom
+        # import ipdb; ipdb.set_trace()
+
+
+        # # Rerun NSRT learning on synthetic data.
+        # utils.update_config({"sampler_learner": sampler_learner})
+        # super()._learn_nsrts(trajectories, online_learning_cycle)
