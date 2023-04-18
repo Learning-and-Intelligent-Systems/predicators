@@ -108,7 +108,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         if CFG.compute_sidelining_objective_value:
             self._compute_sidelining_objective_value(trajectories)
 
-    def _create_ground_atom_dataset(trajectories: List[LowLevelTrajectory]) -> List[GroundAtomTrajectory]:
+    def _create_ground_atom_dataset(self, trajectories: List[LowLevelTrajectory]) -> List[GroundAtomTrajectory]:
          return utils.create_ground_atom_dataset(trajectories, self._get_current_predicates())
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
