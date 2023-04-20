@@ -86,7 +86,7 @@ def exit_garage_oracle_estimator(
     # Each picked-up obstacle decreases the refinement cost of DriveCarToExit
     # if it is in the direct path of the car to the exit, otherwise it has a
     # positive cost and should be avoided
-    cost = 0
+    cost: float = 0
     for ground_nsrt in skeleton:
         if ground_nsrt.name == "ClearObstacle":
             obstacle = ground_nsrt.objects[1]

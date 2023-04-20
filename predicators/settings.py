@@ -278,7 +278,7 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
-    narrow_passage_open_door_refine_penalty = 0.2
+    narrow_passage_open_door_refine_penalty = 0
     narrow_passage_door_width_padding_lb = 1e-4
     narrow_passage_door_width_padding_ub = 0.015
     narrow_passage_passage_width_padding_lb = 5e-4
@@ -288,12 +288,12 @@ class GlobalSettings:
     narrow_passage_birrt_smooth_amt = 50
 
     # exit_garage env parameters
-    exit_garage_clear_refine_penalty = 0.2
+    exit_garage_clear_refine_penalty = 0
     exit_garage_min_num_obstacles = 2
     exit_garage_max_num_obstacles = 3  # inclusive
-    exit_garage_rrt_extend_fn_threshold = 1e-4
+    exit_garage_rrt_extend_fn_threshold = 1e-3
     exit_garage_rrt_num_control_samples = 100
-    exit_garage_rrt_num_attempts = 10
+    exit_garage_rrt_num_attempts = 3
     exit_garage_rrt_num_iters = 100
     exit_garage_rrt_sample_goal_eps = 0.1
 
