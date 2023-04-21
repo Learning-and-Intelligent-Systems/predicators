@@ -97,8 +97,9 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                 graph_inputs.append(
                     self._graphify_single_input(state, atoms, goal, action))
                 graph_targets.append(
-                    self._graphify_single_target(target_time,
-                                                 low_level_count[i]))
+                    self._graphify_single_target(
+                        target_time,
+                        low_level_count[i] if succeeded else 0))
         assert len(graph_inputs) and len(graph_targets), "No usable data"
         self._data_exemplar = (graph_inputs[0], graph_targets[0])
 
