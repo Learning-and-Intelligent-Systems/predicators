@@ -72,7 +72,11 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
                 out_graph = normalize_graph(out_graph,
                                             self._target_normalizers,
                                             invert=True)
-            cost += out_graph["globals"][0]
+            refinement_time, low_level_count = out_graph["globals"]
+            cost += refinement_time
+            if CFG.refinement_data_include_execution_cost:
+                cost += (low_level_count *
+                         CFG.refinement_data_low_level_execution_cost)
         return cost
 
     def train(self, data: List[RefinementDatapoint]) -> None:
@@ -85,17 +89,16 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
             state, goal = task.init, task.goal
             for i, action in enumerate(skeleton):
                 atoms = atoms_sequence[i]
-                value = refinement_time[i]
+                target_time = refinement_time[i]
                 # Add failed penalty to the value if failure occurred
                 if not succeeded:
-                    value += CFG.refinement_data_failed_refinement_penalty
-                elif CFG.refinement_data_include_execution_cost:
-                    value += (low_level_count[i] *
-                              CFG.refinement_data_low_level_execution_cost)
+                    target_time += CFG.refinement_data_failed_refinement_penalty
                 # Convert input and target to graphs
                 graph_inputs.append(
                     self._graphify_single_input(state, atoms, goal, action))
-                graph_targets.append(self._graphify_single_target(value))
+                graph_targets.append(
+                    self._graphify_single_target(target_time,
+                                                 low_level_count[i]))
         assert len(graph_inputs) and len(graph_targets), "No usable data"
         self._data_exemplar = (graph_inputs[0], graph_targets[0])
 
@@ -263,7 +266,8 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
         return graph
 
     @staticmethod
-    def _graphify_single_target(target: float) -> Dict:
+    def _graphify_single_target(refinement_time: float,
+                                low_level_count: int) -> Dict:
         """Convert target cost into a graph."""
         graph = {
             "n_node": np.array([1], dtype=np.int64),
@@ -272,7 +276,7 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
             "edges": np.array([]),
             "senders": np.array([]),
             "receivers": np.array([]),
-            "globals": np.array([target]),
+            "globals": np.array([refinement_time, low_level_count]),
         }
         return graph
 

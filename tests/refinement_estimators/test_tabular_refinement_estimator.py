@@ -27,7 +27,7 @@ def test_tabular_refinement_estimator():
     estimator.train(sample_data)
     # Check that the resulting dictionary is correct
     cost_dict = estimator._model_dict  # pylint: disable=protected-access
-    assert cost_dict == {(tuple(), tuple()): 3}
+    assert cost_dict == {(tuple(), tuple()): (3, 0)}
     assert estimator.get_cost(sample_task, [], []) == 3
 
 

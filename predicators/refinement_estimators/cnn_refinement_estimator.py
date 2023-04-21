@@ -26,8 +26,12 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
 
     def _model_predict(self, model: CNNRegressor, initial_task: Task) -> float:
         input_img = self._get_rendered_initial_state(initial_task)
-        cost = model.predict(input_img)
-        return cost[0]
+        refinement_time, low_level_count = model.predict(input_img)
+        cost = refinement_time
+        if CFG.refinement_data_include_execution_cost:
+            cost += (low_level_count *
+                     CFG.refinement_data_low_level_execution_cost)
+        return cost
 
     def train(self, data: List[RefinementDatapoint]) -> None:
         """Train the CNN regressors on the data points for that skeleton,
@@ -44,13 +48,10 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
             img = self._get_rendered_initial_state(task)
             grouped_input_imgs[key].append(img)
             # Compute target value from refinement time and possible failure
-            value = sum(refinement_time)
+            target_time = sum(refinement_time)
             if not succeeded:
-                value += CFG.refinement_data_failed_refinement_penalty
-            elif CFG.refinement_data_include_execution_cost:
-                value += (sum(low_level_count) *
-                          CFG.refinement_data_low_level_execution_cost)
-            grouped_targets[key].append([value])
+                target_time += CFG.refinement_data_failed_refinement_penalty
+            grouped_targets[key].append([target_time, sum(low_level_count)])
 
         # For each (skeleton, atoms_sequence) key, fit a CNNRegressor
         self._model_dict = {}
@@ -59,7 +60,7 @@ class CNNRefinementEstimator(PerSkeletonRefinementEstimator[CNNRegressor]):
             X = np.stack(grouped_input_imgs[key])
             assert len(X.shape) == 4  # expect (N, 3, H, W)
             Y = np.array(grouped_targets[key])
-            assert Y.shape == (X.shape[0], 1)
+            assert Y.shape == (X.shape[0], 2)
             model = self._create_regressor()
             logging.info(f"Training CNN for skeleton {i}/{total_num_keys} "
                          f"using {X.shape[0]} data points...")
