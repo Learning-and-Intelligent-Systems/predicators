@@ -271,6 +271,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     num_solved = 0
     cogman.reset_metrics()
     total_suc_time = 0.0
+    total_refinement_cost = 0.0
     total_num_solve_timeouts = 0
     total_num_solve_failures = 0
     total_num_execution_timeouts = 0
@@ -313,6 +314,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 "total_num_nodes_expanded"] - curr_num_nodes_expanded
         curr_num_nodes_created = cogman.metrics["total_num_nodes_created"]
         curr_num_nodes_expanded = cogman.metrics["total_num_nodes_expanded"]
+        curr_refinement_cost = cogman.metrics["total_refinement_time"]
 
         num_found_policy += 1
         make_video = False
@@ -333,6 +335,10 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 monitor=monitor)
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
+            if CFG.refinement_data_include_execution_cost:
+                curr_refinement_cost += (
+                    len(traj[1]) * CFG.refinement_data_low_level_execution_cost
+                )
             # Save the successful trajectory, e.g., for playback on a robot.
             traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
             traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
@@ -359,6 +365,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             log_message = "SOLVED"
             num_solved += 1
             total_suc_time += (solve_time + exec_time)
+            total_refinement_cost += curr_refinement_cost
             make_video = CFG.make_test_videos
             video_file = f"{save_prefix}__task{test_task_idx+1}.mp4"
         else:
@@ -377,6 +384,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
+                               num_solved if num_solved > 0 else float("inf"))
+    metrics["avg_ref_cost"] = (total_refinement_cost /
                                num_solved if num_solved > 0 else float("inf"))
     metrics["min_num_samples"] = cogman.metrics[
         "min_num_samples"] if cogman.metrics["min_num_samples"] < float(

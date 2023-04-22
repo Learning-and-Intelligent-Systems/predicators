@@ -172,6 +172,7 @@ def _sesame_plan_with_astar(
                         skeleton, atoms_sequence, task.goal)
                 else:
                     atoms_seq = atoms_sequence
+                refinement_start_time = time.perf_counter()
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_seq, new_seed,
                     timeout - (time.perf_counter() - start_time), metrics,
@@ -186,6 +187,8 @@ def _sesame_plan_with_astar(
                         f" samples, discovering "
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
+                    metrics["refinement_time"] = (time.perf_counter() -
+                                                  refinement_start_time)
                     return plan, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
@@ -1082,6 +1085,7 @@ def _sesame_plan_with_fast_downward(
         try:
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)
+            refinement_start_time = time.perf_counter()
             plan, suc = run_low_level_search(task, option_model, skeleton,
                                              necessary_atoms_seq, seed,
                                              low_level_timeout, metrics,
@@ -1091,6 +1095,8 @@ def _sesame_plan_with_fast_downward(
                     raise PlanningTimeout("Planning timed out in refinement!")
                 raise PlanningFailure("Skeleton produced by FD not refinable!")
             metrics["plan_length"] = len(plan)
+            metrics["refinement_time"] = (time.perf_counter() -
+                                          refinement_start_time)
             return plan, metrics
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
