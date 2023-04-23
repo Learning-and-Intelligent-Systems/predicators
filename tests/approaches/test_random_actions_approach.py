@@ -28,4 +28,4 @@ def test_random_actions_approach():
     # Test reproducibility
     assert str(
         actions
-    ) == "[Action(_arr=array([0.6823519], dtype=float32)), Action(_arr=array([0.05382102], dtype=float32)), Action(_arr=array([0.22035988], dtype=float32)), Action(_arr=array([0.18437181], dtype=float32)), Action(_arr=array([0.1759059], dtype=float32)), Action(_arr=array([0.8120945], dtype=float32)), Action(_arr=array([0.92334497], dtype=float32)), Action(_arr=array([0.2765744], dtype=float32)), Action(_arr=array([0.81975454], dtype=float32)), Action(_arr=array([0.8898927], dtype=float32))]"
+    ) == "[Action(_arr=array([0.6823519], dtype=float32)), Action(_arr=array([0.05382102], dtype=float32)), Action(_arr=array([0.22035988], dtype=float32)), Action(_arr=array([0.18437181], dtype=float32)), Action(_arr=array([0.1759059], dtype=float32)), Action(_arr=array([0.8120945], dtype=float32)), Action(_arr=array([0.92334497], dtype=float32)), Action(_arr=array([0.2765744], dtype=float32)), Action(_arr=array([0.81975454], dtype=float32)), Action(_arr=array([0.8898927], dtype=float32))]"  # pylint: disable=line-too-long
