@@ -9,12 +9,12 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, Image, Object, Observation, \
-    Predicate, State, Type, Video
+from predicators.structs import Action, EnvironmentTask, Image, Object, \
+    Observation, Predicate, State, Type, Video
 
 
 class SokobanEnv(BaseEnv):
-    """Sokoban environment wrapping gym-sokoban. Temporary test test test test test test test test test test."""
+    """Sokoban environment wrapping gym-sokoban."""
 
     name_to_enum: ClassVar[Dict[str, int]] = {
         "free": 0,
