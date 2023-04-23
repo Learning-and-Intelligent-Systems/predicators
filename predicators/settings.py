@@ -574,7 +574,7 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
-            # The method used for perception: now only "trivial" or "oracle"
+            # The method used for perception: now only "trivial" or "sokoban".
             perceiver=defaultdict(lambda: "trivial", {
                 "sokoban": "sokoban",
             })[args.get("env", "")],
