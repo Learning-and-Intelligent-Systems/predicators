@@ -9,12 +9,12 @@ from gym.spaces import Box
 
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, Object, Observation, \
+from predicators.structs import Action, EnvironmentTask, Image, Object, Observation, \
     Predicate, State, Type, Video
 
 
 class SokobanEnv(BaseEnv):
-    """Sokoban environment wrapping gym-sokoban."""
+    """Sokoban environment wrapping gym-sokoban. Temporary test test test test test test test test test test."""
 
     name_to_enum: ClassVar[Dict[str, int]] = {
         "free": 0,
@@ -96,7 +96,7 @@ class SokobanEnv(BaseEnv):
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:
         assert caption is None
-        arr: np.ndarray[Any, dtype[unsignedinteger[_8Bit]]] = self._gym_env.render('rgb_array') # type: ignore
+        arr: Image = self._gym_env.render('rgb_array') # type: ignore
         return [arr]
 
     @property
