@@ -80,6 +80,9 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: '**/setup.py'
+    - name: Install dependencies
+      run: |
+        pip install -e .[develop]
     - name: Run YAPF to test if python code is correctly formatted
       uses: AlexanderMelde/yapf-action@master
       with:
