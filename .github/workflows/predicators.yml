@@ -106,6 +106,27 @@ jobs:
         cache-dependency-path: '**/setup.py'
     - name: Run isort to organize imports
       uses: isort/isort-action@master
+  isort:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '**/setup.py'
+    - name: Install dependencies
+      run: |
+        pip install isort==5.10.1
+    - name: Run isort to detect any changes
+      run: |
+        isort --check-only .
+      env:
+        PYTHONHASHSEED: 0
   docformatter:
     runs-on: ubuntu-latest
     strategy:
