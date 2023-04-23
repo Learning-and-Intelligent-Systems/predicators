@@ -86,10 +86,10 @@ jobs:
         pip install yapf==0.32.0
     - name: Run yapf to detect any autoformatting changes
       run: |
-        yapf --diff -i -r --style .style.yapf --exclude '**/third_party' predicators
-        yapf --diff -i -r --style .style.yapf scripts
-        yapf --diff -i -r --style .style.yapf tests
-        yapf --diff -i -r --style .style.yapf setup.py
+        yapf --diff -r --style .style.yapf --exclude '**/third_party' predicators
+        yapf --diff -r --style .style.yapf scripts
+        yapf --diff -r --style .style.yapf tests
+        yapf --diff -r --style .style.yapf setup.py
       env:
         PYTHONHASHSEED: 0
   isort:
@@ -107,4 +107,25 @@ jobs:
         cache-dependency-path: '**/setup.py'
     - name: Run isort to organize imports
       uses: isort/isort-action@master
-  
+  docformatter:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '**/setup.py'
+    - name: Install dependencies
+      run: |
+        pip install -e .
+        pip install docformatter==1.4
+    - name: Run docformatter to detect any autoformatting changes
+      run: |
+        docformatter --check -r . --exclude venv predicators/third_party
+      env:
+        PYTHONHASHSEED: 0
