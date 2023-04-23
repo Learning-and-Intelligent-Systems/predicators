@@ -96,7 +96,7 @@ class SokobanEnv(BaseEnv):
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:
         assert caption is None
-        arr: Image = self._gym_env.render('rgb_array') # type: ignore
+        arr: Image = self._gym_env.render('rgb_array')  # type: ignore
         return [arr]
 
     @property
@@ -118,7 +118,7 @@ class SokobanEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # One-hot encoding of discrete action space.
-        assert self._gym_env.action_space.n == 9 # type: ignore
+        assert self._gym_env.action_space.n == 9  # type: ignore
         lowers = np.zeros(9, dtype=np.float32)
         uppers = np.ones(9, dtype=np.float32)
         return Box(lowers, uppers)
@@ -140,7 +140,8 @@ class SokobanEnv(BaseEnv):
         # Convert our actions to their discrete action space.
         discrete_action = np.argmax(action.arr)
         self._gym_env.step(discrete_action)
-        self._current_observation = self._gym_env.render(mode='raw') # type: ignore
+        self._current_observation = self._gym_env.render(
+            mode='raw')  # type: ignore
         return self._copy_observation(self._current_observation)
 
     def goal_reached(self) -> bool:
@@ -159,9 +160,9 @@ class SokobanEnv(BaseEnv):
         return tasks
 
     def _reset_initial_state_from_seed(self, seed: int) -> Observation:
-        self._gym_env.seed(seed) # type: ignore
+        self._gym_env.seed(seed)  # type: ignore
         self._gym_env.reset()
-        return self._gym_env.render(mode='raw') # type: ignore
+        return self._gym_env.render(mode='raw')  # type: ignore
 
     @classmethod
     def _IsLoc_holds(cls, state: State, objects: Sequence[Object]) -> bool:
