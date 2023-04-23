@@ -40,7 +40,7 @@ setup(
             "pytest-cov==2.12.1",
             "pytest-pylint==0.18.0",
             "yapf==0.32.0",
-            "docformatter",
+            "docformatter==1.4",
             "isort",
             "mypy@git+https://github.com/python/mypy.git@9bd651758e8ea2494" +
             "837814092af70f8d9e6f7a1",
