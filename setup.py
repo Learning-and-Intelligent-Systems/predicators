@@ -8,7 +8,7 @@ setup(
     install_requires=[
         "numpy>=1.22.3",
         "pytest",
-        "gym==0.21.0",
+        "gym==0.26.2",
         "matplotlib",
         "imageio",
         "imageio-ffmpeg",
