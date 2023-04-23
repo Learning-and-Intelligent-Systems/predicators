@@ -34,7 +34,7 @@ def run_motion_planning(
     num_interp = CFG.pybullet_birrt_extend_num_interp
 
     def _sample_fn(pt: JointPositions) -> JointPositions:
-        new_pt = joint_space.sample()
+        new_pt = JointPositions(joint_space.sample())
         # Don't change the fingers.
         new_pt[robot.left_finger_joint_idx] = pt[robot.left_finger_joint_idx]
         new_pt[robot.right_finger_joint_idx] = pt[robot.right_finger_joint_idx]
