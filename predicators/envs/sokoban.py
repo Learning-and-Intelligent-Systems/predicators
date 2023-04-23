@@ -134,7 +134,8 @@ class SokobanEnv(BaseEnv):
         return self._copy_observation(self._current_observation)
 
     def simulate(self, state: State, action: Action) -> State:
-        raise NotImplementedError("Simulate not implemented for gym envs.")
+        raise NotImplementedError("Simulate not implemented for gym envs. " +
+                                  "Try using --bilevel_plan_without_sim True")
 
     def step(self, action: Action) -> Observation:
         # Convert our actions to their discrete action space.
