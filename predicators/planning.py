@@ -166,13 +166,13 @@ def _sesame_plan_with_astar(
                 gen = iter(
                     sorted(proposed_skeletons,
                            key=lambda s: estimator.get_cost(task, *s)))
+            refinement_start_time = time.perf_counter()
             for skeleton, atoms_sequence in gen:
                 if CFG.sesame_use_necessary_atoms:
                     atoms_seq = utils.compute_necessary_atoms_seq(
                         skeleton, atoms_sequence, task.goal)
                 else:
                     atoms_seq = atoms_sequence
-                refinement_start_time = time.perf_counter()
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_seq, new_seed,
                     timeout - (time.perf_counter() - start_time), metrics,

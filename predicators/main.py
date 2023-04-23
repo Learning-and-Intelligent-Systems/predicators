@@ -383,9 +383,9 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
-    metrics["avg_ref_cost"] = (total_low_level_action_cost /
-                               num_solved if num_solved > 0 else float("inf") +
-                               cogman.metrics["total_refinement_time"])
+    metrics["avg_ref_cost"] = ((total_low_level_action_cost +
+                                cogman.metrics["total_refinement_time"]) /
+                               num_solved if num_solved > 0 else float("inf"))
     metrics["min_num_samples"] = cogman.metrics[
         "min_num_samples"] if cogman.metrics["min_num_samples"] < float(
             "inf") else 0
