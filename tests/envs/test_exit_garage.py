@@ -1,7 +1,9 @@
 """Test cases for the exit_garage environment."""
 
+import matplotlib
 import numpy as np
 import pytest
+from matplotlib import pyplot as plt
 
 from predicators import utils
 from predicators.envs.exit_garage import ExitGarageEnv
@@ -180,6 +182,38 @@ def test_exit_garage_actions():
     env.render_state(traj.states[6], task, caption="caption")  # after pickup
     env.render_state(traj.states[10], task)  # after store
     env.render_state(traj.states[-1], task)  # state at end
+
+    # Test interface for collecting human demonstrations.
+    state = env.reset("test", 0)
+    event_to_action = env.get_event_to_action_fn()
+    fig = plt.figure()
+    for key in ["up", "down", "left", "right", "g"]:
+        event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, key)
+        assert isinstance(event_to_action(state, event), Action)
+
+    # Test moving robot.
+    plt_x = 0
+    plt_y = 0
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    robot_move_action = event_to_action(state, event)
+    assert robot_move_action.arr[2] != 0.0
+    assert robot_move_action.arr[3] != 0.0
+    # Test quitting.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "q")
+    with pytest.raises(utils.HumanDemonstrationFailure) as e:
+        event_to_action(state, event)
+    assert "Human quit" in str(e)
+    # Test invalid action with no click.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "i")
+    with pytest.raises(NotImplementedError) as e:
+        event_to_action(state, event)
+    assert "No valid action found" in str(e)
+    plt.close()
 
 
 @pytest.mark.parametrize("raise_env_failure", (True, False))
