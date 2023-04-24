@@ -167,6 +167,17 @@ EXTRA_ARGS_ORACLE_APPROACH["exit_garage"] = [{
     15,
     "exit_garage_rrt_sample_goal_eps":
     0.3,
+}, {
+    "exit_garage_pick_place_refine_penalty":
+    0,
+    "exit_garage_min_num_obstacles":
+    3,
+    "exit_garage_max_num_obstacles":
+    3,
+    "exit_garage_raise_environment_failure":
+    True,
+    "exit_garage_motion_planning_ignore_obstacles":
+    True,
 }]
 EXTRA_ARGS_ORACLE_APPROACH["narrow_passage"] = [{
     "narrow_passage_open_door_refine_penalty":
