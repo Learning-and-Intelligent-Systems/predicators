@@ -50,7 +50,7 @@ X_KEY_AND_LABEL = [
 
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
-    ("PERC_SOLVED", "% Evaluation Tasks Solved"),
+    # ("PERC_SOLVED", "% Evaluation Tasks Solved"),
     ("QUERY_COST", "Cumulative Query Cost"),
     # ("PERC_EXEC_FAIL", "% Execution Failures"),
     # ("PERC_PLAN_FAIL", "% Planning Failures"),
@@ -61,9 +61,9 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Main Approaches and All Baselines in PlayroomEnv": [
+    "Main Approaches and All Baselines in BlocksEnv": [
         ("Main (Ensemble)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "playroom-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "blocks-main")),
         # ("Main (MLP)", "orange",
         #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
         ("Ask All", "green",
@@ -144,6 +144,7 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
                              plot_group: Sequence[Tuple[str, str, Callable]],
                              x_key: str, y_key: str) -> None:
     for label, color, selector in plot_group:
+        # print(label)
         entry_df = get_df_for_entry(x_key, df, selector)
         # Draw one line total. To make sure the x ticks are aligned, we will
         # interpolate.
@@ -159,45 +160,51 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
             all_ys.append(ys)
         # The max/min pattern here is so that we never have to extrapolate,
         # we only ever interpolate.
+        # print("ALL Xs:", all_xs)
         min_x = max(min(seed_x) for seed_x in all_xs)
-        min_x = max(0, min_x)
         max_x = min(max(seed_x) for seed_x in all_xs)
         max_x = min(max_x, 1000)
         # Create one consistent set of x ticks.
         new_xs = np.linspace(min_x, max_x, NUM_INTERP_POINTS)
+        # print("NEW Xs:", new_xs)
         # Create the interpolated y data.
         all_interp_ys = []
+        # print("INTERP Ys:")
         for xs, ys in zip(all_xs, all_ys):
             f = interpolate.interp1d(xs, ys)
             interp_ys = f(new_xs)
             all_interp_ys.append(interp_ys)
+            print(interp_ys)
         # HACK: confidence intervals
         CONFIDENCE = 0.95
         SEEDS = NUM_INTERP_POINTS
         t_value = stats.t.ppf((1 + CONFIDENCE) / 2.0, df=SEEDS-1)
         # Get means and stds.
-        # HACK: log scale y-axis
-        # all_interp_ys = np.log(all_interp_ys)
         mean_ys = np.mean(all_interp_ys, axis=0)
         std_ys = np.std(all_interp_ys, axis=0, ddof=1)
         se_ys = std_ys / np.sqrt(SEEDS)
         ci_length = t_value * se_ys
+        # HACK: log scale y-axis
+        log_mean_ys = np.log(mean_ys)
+        # print("LOG MEAN Ys:", log_mean_ys)
+        ci_lower = np.log(mean_ys - ci_length)
+        ci_upper = np.log(mean_ys + ci_length)
         # assert len(mean_ys) == len(std_ys) == len(new_xs)
         assert len(mean_ys) == len(ci_length) == len(new_xs)
         # Create the line.
         if label == "No Actions":
             # Draw a large star so the line is visible
             ax.plot(new_xs,
-                    mean_ys,
+                    log_mean_ys,
                     label=label,
                     color=color,
                     marker="*",
                     markersize=16)
         else:
-            ax.plot(new_xs, mean_ys, label=label, color=color)
+            ax.plot(new_xs, log_mean_ys, label=label, color=color)
         ax.fill_between(new_xs,
-                        mean_ys - ci_length,
-                        mean_ys + ci_length,
+                        ci_lower,
+                        ci_upper,
                         color=color,
                         alpha=FILL_BETWEEN_ALPHA)
     # Add a legend.
