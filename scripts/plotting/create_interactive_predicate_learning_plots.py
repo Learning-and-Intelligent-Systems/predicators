@@ -7,7 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy import interpolate
+from scipy import interpolate, stats
 
 from scripts.analyze_results_directory import create_raw_dataframe, \
     get_df_for_entry
@@ -52,8 +52,8 @@ X_KEY_AND_LABEL = [
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
     ("QUERY_COST", "Cumulative Query Cost"),
-    ("PERC_EXEC_FAIL", "% Execution Failures"),
-    ("PERC_PLAN_FAIL", "% Planning Failures"),
+    # ("PERC_EXEC_FAIL", "% Execution Failures"),
+    # ("PERC_PLAN_FAIL", "% Planning Failures"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
@@ -61,25 +61,17 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Main Approaches in CoverEnv Excluding Covers,Holding": [
+    "Main Approaches and All Baselines in PlayroomEnv": [
         ("Main (Ensemble)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
-        ("Main (MLP)", "orange",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
-    ],
-    "Query Baselines in CoverEnv Excluding Covers,Holding": [
-        ("Main (Entropy)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "playroom-main")),
+        # ("Main (MLP)", "orange",
+        #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
         ("Ask All", "green",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
         ("Ask None", "red",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-none" in v)),
         ("Ask Randomly", "purple",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-random" in v)),
-    ],
-    "Action Baselines in CoverEnv Excluding Covers,Holding": [
-        ("Main (Greedy Lookahead)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
         ("GLIB", "turquoise",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
         ("Random Actions", "brown",
@@ -88,6 +80,27 @@ PLOT_GROUPS = {
         ("No Actions", "gold",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no-actions" in v)),
     ],
+    # "Query Baselines in CoverEnv Excluding Covers,Holding": [
+    #     ("Main (Entropy)", "blue",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+    #     ("Ask All", "green",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
+    #     ("Ask None", "red",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-none" in v)),
+    #     ("Ask Randomly", "purple",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-random" in v)),
+    # ],
+    # "Action Baselines in CoverEnv Excluding Covers,Holding": [
+    #     ("Main (Greedy Lookahead)", "blue",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+    #     ("GLIB", "turquoise",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
+    #     ("Random Actions", "brown",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random-actions" in v)
+    #      ),
+    #     ("No Actions", "gold",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no-actions" in v)),
+    # ],
 }
 
 # If True, add (0, 0) to every plot.
@@ -147,7 +160,9 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
         # The max/min pattern here is so that we never have to extrapolate,
         # we only ever interpolate.
         min_x = max(min(seed_x) for seed_x in all_xs)
+        min_x = max(0, min_x)
         max_x = min(max(seed_x) for seed_x in all_xs)
+        max_x = min(max_x, 1000)
         # Create one consistent set of x ticks.
         new_xs = np.linspace(min_x, max_x, NUM_INTERP_POINTS)
         # Create the interpolated y data.
@@ -156,10 +171,19 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
             f = interpolate.interp1d(xs, ys)
             interp_ys = f(new_xs)
             all_interp_ys.append(interp_ys)
+        # HACK: confidence intervals
+        CONFIDENCE = 0.95
+        SEEDS = NUM_INTERP_POINTS
+        t_value = stats.t.ppf((1 + CONFIDENCE) / 2.0, df=SEEDS-1)
         # Get means and stds.
+        # HACK: log scale y-axis
+        # all_interp_ys = np.log(all_interp_ys)
         mean_ys = np.mean(all_interp_ys, axis=0)
-        std_ys = np.std(all_interp_ys, axis=0)
-        assert len(mean_ys) == len(std_ys) == len(new_xs)
+        std_ys = np.std(all_interp_ys, axis=0, ddof=1)
+        se_ys = std_ys / np.sqrt(SEEDS)
+        ci_length = t_value * se_ys
+        # assert len(mean_ys) == len(std_ys) == len(new_xs)
+        assert len(mean_ys) == len(ci_length) == len(new_xs)
         # Create the line.
         if label == "No Actions":
             # Draw a large star so the line is visible
@@ -172,12 +196,12 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
         else:
             ax.plot(new_xs, mean_ys, label=label, color=color)
         ax.fill_between(new_xs,
-                        mean_ys - std_ys,
-                        mean_ys + std_ys,
+                        mean_ys - ci_length,
+                        mean_ys + ci_length,
                         color=color,
                         alpha=FILL_BETWEEN_ALPHA)
     # Add a legend.
-    plt.legend()
+    # plt.legend()
 
 
 def _main() -> None:
@@ -196,8 +220,8 @@ def _main() -> None:
                     _create_single_line_plot(ax, df, d, x_key, y_key)
                 else:
                     raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
-                ax.set_xlabel(x_label)
-                ax.set_ylabel(y_label)
+                # ax.set_xlabel(x_label)
+                # ax.set_ylabel(y_label)
                 if y_key.startswith("PERC"):
                     ax.set_ylim((-5, 105))
                 plt.tight_layout()
