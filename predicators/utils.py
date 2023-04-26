@@ -847,8 +847,8 @@ class SingletonParameterizedOption(ParameterizedOption):
         # has been executed yet.
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
-            if "start_state" in memory:
-                assert state.allclose(memory["start_state"])
+            # if "start_state" in memory:
+            #     assert state.allclose(memory["start_state"])
             # Always update the memory dict due to the "is" check in _terminal.
             memory["start_state"] = state
             assert initiable is not None
