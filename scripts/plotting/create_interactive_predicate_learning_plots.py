@@ -186,7 +186,7 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
                         color=color,
                         alpha=FILL_BETWEEN_ALPHA)
     # Add a legend.
-    plt.legend()
+    # plt.legend()
 
 
 def _main() -> None:
@@ -205,10 +205,12 @@ def _main() -> None:
                     _create_single_line_plot(ax, df, d, x_key, y_key)
                 else:
                     raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
-                ax.set_xlabel(x_label)
-                ax.set_ylabel(y_label)
+                # ax.set_xlabel(x_label)
+                # ax.set_ylabel(y_label)
                 if y_key.startswith("PERC"):
                     ax.set_ylim((-5, 105))
+                if y_key == "PERC_SOLVED":
+                    plt.axhline(y=86, color='r', linestyle='dotted')
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
