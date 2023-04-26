@@ -61,33 +61,33 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Main Approaches in CoverEnv Excluding Covers,Holding": [
+    "Main Approaches in CoverEnv with Noise": [
         ("Main (Ensemble)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
-        ("Main (MLP)", "orange",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-noisy-main")),
+        # ("Main (MLP)", "orange",
+        #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
     ],
-    "Query Baselines in CoverEnv Excluding Covers,Holding": [
-        ("Main (Entropy)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
-        ("Ask All", "green",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
-        ("Ask None", "red",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-none" in v)),
-        ("Ask Randomly", "purple",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-random" in v)),
-    ],
-    "Action Baselines in CoverEnv Excluding Covers,Holding": [
-        ("Main (Greedy Lookahead)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
-        ("GLIB", "turquoise",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
-        ("Random Actions", "brown",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random-actions" in v)
-         ),
-        ("No Actions", "gold",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no-actions" in v)),
-    ],
+    # "Query Baselines in CoverEnv Excluding Covers,Holding": [
+    #     ("Main (Entropy)", "blue",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-noisy-main")),
+    #     ("Ask All", "green",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
+    #     ("Ask None", "red",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-none" in v)),
+    #     ("Ask Randomly", "purple",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-random" in v)),
+    # ],
+    # "Action Baselines in CoverEnv Excluding Covers,Holding": [
+    #     ("Main (Greedy Lookahead)", "blue",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-noisy-main")),
+    #     ("GLIB", "turquoise",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
+    #     ("Random Actions", "brown",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random-actions" in v)
+    #      ),
+    #     ("No Actions", "gold",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no-actions" in v)),
+    # ],
 }
 
 # If True, add (0, 0) to every plot.
