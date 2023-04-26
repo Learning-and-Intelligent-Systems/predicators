@@ -7,7 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy import interpolate
+from scipy import interpolate, stats
 
 from scripts.analyze_results_directory import create_raw_dataframe, \
     get_df_for_entry
@@ -156,10 +156,19 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
             f = interpolate.interp1d(xs, ys)
             interp_ys = f(new_xs)
             all_interp_ys.append(interp_ys)
+        # HACK: confidence intervals
+        CONFIDENCE = 0.95
+        SEEDS = NUM_INTERP_POINTS
+        t_value = stats.t.ppf((1 + CONFIDENCE) / 2.0, df=SEEDS-1)
         # Get means and stds.
         mean_ys = np.mean(all_interp_ys, axis=0)
-        std_ys = np.std(all_interp_ys, axis=0)
-        assert len(mean_ys) == len(std_ys) == len(new_xs)
+        std_ys = np.std(all_interp_ys, axis=0, ddof=1)
+        se_ys = std_ys / np.sqrt(SEEDS)
+        ci_length = t_value * se_ys
+        ci_lower = mean_ys - ci_length
+        ci_upper = mean_ys + ci_length
+        # assert len(mean_ys) == len(std_ys) == len(new_xs)
+        assert len(mean_ys) == len(ci_length) == len(new_xs)
         # Create the line.
         if label == "No Actions":
             # Draw a large star so the line is visible
@@ -172,8 +181,8 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
         else:
             ax.plot(new_xs, mean_ys, label=label, color=color)
         ax.fill_between(new_xs,
-                        mean_ys - std_ys,
-                        mean_ys + std_ys,
+                        ci_lower,
+                        ci_upper,
                         color=color,
                         alpha=FILL_BETWEEN_ALPHA)
     # Add a legend.
