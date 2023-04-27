@@ -930,8 +930,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # the atom dataset is type List[GroundAtomTrajectory] 
             # GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]] 
             # 
-            atom_dataset = []
-            train_tasks = []
+            atom_dataset_trunc = []
+            train_tasks_trunc = []
             for i, g_a_t in enumerate(original_atom_dataset):
                 llt, gas = g_a_t # low-level trajectory, ground atom sequence 
                 if len(gas) >= frontier_idx + 1:
@@ -945,14 +945,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             llt.train_task_idx
                         )
                     new_gat = (new_llt, new_gas)
-                    atom_dataset.append(new_gat)
+                    atom_dataset_trunc.append(new_gat)
 
                     new_init = new_ll_states[0]
                     new_train_task = Task(
                             new_init,
                             original_train_tasks[i].goal
                         )
-                    train_tasks.append(new_train_task)
+                    train_tasks_trunc.append(new_train_task)
             # import pdb; pdb.set_trace()
             ####
 
@@ -977,8 +977,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 logging.info(
                     f"Evaluating transition {idx} in frontier {frontier_idx} with {len(curr_candidates)} candidates."
                 )
-                curr_frontier_pruned_atom_dataset = utils.prune_ground_atom_dataset(
-                    atom_dataset,
+                curr_frontier_pruned_atom_dataset_skip = utils.prune_ground_atom_dataset(
+                    atom_dataset_trunc,
                     set(curr_learned_preds) | initial_predicates
                     | set(curr_candidates))
 
@@ -986,21 +986,31 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     pred: candidates[pred]
                     for pred in curr_learned_preds
                 }
-                score_function = create_score_function(
+                score_function_skip = create_score_function(
                     CFG.grammar_search_score_function, initial_predicates,
-                    curr_frontier_pruned_atom_dataset, {
+                    curr_frontier_pruned_atom_dataset_skip, {
                         **curr_candidates,
                         **learned_preds_dict
-                    }, train_tasks)
+                    }, train_tasks_trunc)
 
                 ######
-                skip_to_next_frontier = score_function.evaluate2(curr_learned_preds)
+                skip_to_next_frontier = score_function_skip.evaluate2(curr_learned_preds)
                 # import pdb; pdb.set_trace()
                 if skip_to_next_frontier:
                     # print("SKIPPED ON TRANSITION, ", idx, "frontier: ", frontier_idx)
                     break
                 ######
 
+                curr_frontier_pruned_atom_dataset = utils.prune_ground_atom_dataset(
+                    atom_dataset,
+                    set(curr_learned_preds) | initial_predicates
+                    | set(curr_candidates))
+                score_function = create_score_function(
+                    CFG.grammar_search_score_function, initial_predicates,
+                    curr_frontier_pruned_atom_dataset, {
+                        **curr_candidates,
+                        **learned_preds_dict
+                    }, train_tasks)
 
                 # Then, run optimization on these candidates + goal predicates + currently
                 # learned predicates alone.
