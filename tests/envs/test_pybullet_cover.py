@@ -13,6 +13,7 @@ _GUI_ON = False  # toggle for debugging
 
 
 class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
+
     disable_hand_regions = False
 
     @property

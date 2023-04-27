@@ -623,6 +623,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+
         # See the class docstring for context.
         def _loss_fn(Y_hat: Tensor, Y: Tensor) -> Tensor:
             # The shape of Y_hat is (num_samples * (num_negatives + 1), ).
