@@ -56,7 +56,11 @@ class Teacher:
         holds = {}
         for ground_atom in query.ground_atoms:
             pred = self._pred_name_to_pred[ground_atom.predicate.name]
-            holds[ground_atom] = pred.holds(state, ground_atom.objects)
+            response = pred.holds(state, ground_atom.objects)
+            # HACK: flip sign with some probability
+            if np.random.uniform() < 0.05:
+                response = not response
+            holds[ground_atom] = response
         return GroundAtomsHoldResponse(query, holds)
 
     def _answer_Demonstration_query(
