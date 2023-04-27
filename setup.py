@@ -8,7 +8,7 @@ setup(
     install_requires=[
         "numpy>=1.22.3",
         "pytest",
-        "gym==0.21.0",
+        "gym==0.26.2",
         "matplotlib",
         "imageio",
         "imageio-ffmpeg",
@@ -37,11 +37,11 @@ setup(
     include_package_data=True,
     extras_require={
         "develop": [
-            "pytest-cov>=2.12.1",
-            "pytest-pylint>=0.18.0",
+            "pytest-cov==2.12.1",
+            "pytest-pylint==0.18.0",
             "yapf==0.32.0",
-            "docformatter",
-            "isort",
+            "docformatter==1.4",
+            "isort==5.10.1",
             "mypy@git+https://github.com/python/mypy.git@9bd651758e8ea2494" +
             "837814092af70f8d9e6f7a1",
         ]

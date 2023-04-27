@@ -18,7 +18,7 @@ jobs:
         cache-dependency-path: '**/setup.py'
     - run: |
         pip install -e .
-        pip install pytest-cov
+        pip install pytest-cov==2.12.1
     - name: Pytest
       run: |
         pytest -s tests/ --cov-config=.coveragerc --cov=predicators/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
@@ -61,13 +61,13 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -e .
-        pip install pytest-pylint
+        pip install pytest-pylint==0.18.0
     - name: Pylint
       run: |
         pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc
       env:
         PYTHONHASHSEED: 0
-  autoformat:
+  yapf:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -80,9 +80,56 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: '**/setup.py'
-    - name: Run YAPF to test if python code is correctly formatted
-      uses: AlexanderMelde/yapf-action@master
+    - name: Install dependencies
+      run: |
+        pip install yapf==0.32.0
+    - name: Run yapf to detect any autoformatting changes
+      run: |
+        yapf --diff -r --style .style.yapf --exclude '**/third_party' predicators
+        yapf --diff -r --style .style.yapf scripts
+        yapf --diff -r --style .style.yapf tests
+        yapf --diff -r --style .style.yapf setup.py
+      env:
+        PYTHONHASHSEED: 0
+  isort:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
       with:
-        args: --verbose --style .style.yapf --exclude '**/third_party'
-    - name: Run isort to organize imports
-      uses: isort/isort-action@master
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '**/setup.py'
+    - name: Install dependencies
+      run: |
+        pip install isort==5.10.1
+    - name: Run isort to detect any changes
+      run: |
+        isort --check-only .
+      env:
+        PYTHONHASHSEED: 0
+  docformatter:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '**/setup.py'
+    - name: Install dependencies
+      run: |
+        pip install docformatter==1.4
+    - name: Run docformatter to detect any autoformatting changes
+      run: |
+        docformatter --check -r . --exclude venv predicators/third_party
+      env:
+        PYTHONHASHSEED: 0

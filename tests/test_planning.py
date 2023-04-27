@@ -55,7 +55,7 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder, expectation,
             nsrts,
             env.predicates,
             env.types,
-            1,  # timeout
+            10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,

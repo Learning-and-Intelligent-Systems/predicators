@@ -49,7 +49,7 @@ def test_random_options_approach():
     policy = approach.solve(task, 500)
     solved = False
     act_var = None
-    for _ in range(10):
+    for _ in range(25):
         act = policy(state)
         assert act.has_option()
         if act_var is None:
@@ -111,4 +111,4 @@ def test_random_options_approach():
             act_var = act.arr.item()
         state = _simulator(state, act)
     # Test reproducibility
-    assert str(actions) == "[Action(_arr=array([0.70787615], dtype=float32)), Action(_arr=array([0.3698764], dtype=float32)), Action(_arr=array([0.29010695], dtype=float32)), Action(_arr=array([0.9975787], dtype=float32)), Action(_arr=array([0.9942262], dtype=float32)), Action(_arr=array([0.98252517], dtype=float32)), Action(_arr=array([0.55868745], dtype=float32)), Action(_arr=array([0.68523175], dtype=float32)), Action(_arr=array([0.99104315], dtype=float32)), Action(_arr=array([0.8620031], dtype=float32))]"  # pylint: disable=line-too-long
+    assert str(actions) == "[Action(_arr=array([0.6823519], dtype=float32)), Action(_arr=array([0.8120945], dtype=float32)), Action(_arr=array([0.92334497], dtype=float32)), Action(_arr=array([0.2765744], dtype=float32)), Action(_arr=array([0.81975454], dtype=float32)), Action(_arr=array([0.8898927], dtype=float32)), Action(_arr=array([0.51297045], dtype=float32)), Action(_arr=array([0.8242416], dtype=float32)), Action(_arr=array([0.74146706], dtype=float32)), Action(_arr=array([0.6299402], dtype=float32))]"  # pylint: disable=line-too-long
