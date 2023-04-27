@@ -201,7 +201,7 @@ def test_segment_trajectory():
 
 @pytest.mark.parametrize("env", [
     "stick_button", "cover_multistep_options", "doors", "coffee",
-    "touch_point", "blocks"
+    "touch_point", "blocks", "exit_garage"
 ])
 def test_contact_based_segmentation(env):
     """Tests for contact-based segmentation."""
@@ -214,6 +214,11 @@ def test_contact_based_segmentation(env):
         "doors_min_room_exists_frac": 1.0,
         "doors_max_room_exists_frac": 1.0,
         "doors_birrt_smooth_amt": 0,
+        "exit_garage_pick_place_refine_penalty": 0,
+        "exit_garage_min_num_obstacles": 3,
+        "exit_garage_max_num_obstacles": 3,
+        "exit_garage_raise_environment_failure": True,
+        "exit_garage_motion_planning_ignore_obstacles": True,
         # Exclude all predicates, because contact-based segmentation should
         # be invariant to excluded predicates.
         "excluded_predicates": "all",

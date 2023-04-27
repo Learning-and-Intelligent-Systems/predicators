@@ -577,6 +577,10 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
+            # The method used for perception: now only "trivial" or "sokoban".
+            perceiver=defaultdict(lambda: "trivial", {
+                "sokoban": "sokoban",
+            })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
             horizon=defaultdict(
