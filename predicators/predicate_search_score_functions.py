@@ -111,6 +111,13 @@ class _PredicateSearchScoreFunction(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
+    def evaluate2(self, candidate_predicates: FrozenSet[Predicate]) -> bool:
+        """Get the score for the given set of candidate predicates.
+
+        Lower is better.
+        """
+        raise NotImplementedError("Override me!")
+
     def _get_predicate_penalty(
             self, candidate_predicates: FrozenSet[Predicate]) -> float:
         """Get a score penalty based on the predicate complexities."""
@@ -166,12 +173,61 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                      f"{time.perf_counter()-start_time:.3f} seconds")
         return total_score
 
+    def evaluate2(self, candidate_predicates: FrozenSet[Predicate]) -> float:
+        total_cost = sum(self._candidates[pred]
+                         for pred in candidate_predicates)
+        logging.info(f"Evaluating predicates: {candidate_predicates}, with "
+                     f"total cost {total_cost}")
+        start_time = time.perf_counter()
+        pruned_atom_data = utils.prune_ground_atom_dataset(
+            self._atom_dataset,
+            candidate_predicates | self._initial_predicates)
+        segmented_trajs = [
+            segment_trajectory(traj) for traj in pruned_atom_data
+        ]
+        # Each entry in pruned_atom_data is a tuple of (low-level trajectory,
+        # low-level ground atoms sequence). We remove the latter, because
+        # it's prone to causing bugs -- we should rarely care about the
+        # low-level ground atoms sequence after segmentation.
+        low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+        del pruned_atom_data
+        try:
+            pnads = learn_strips_operators(low_level_trajs,
+                                           self._train_tasks,
+                                           set(candidate_predicates
+                                               | self._initial_predicates),
+                                           segmented_trajs,
+                                           verify_harmlessness=False,
+                                           verbose=False)
+        except TimeoutError:
+            logging.info(
+                "Warning: Operator Learning timed out! Skipping evaluation.")
+            return float('inf')
+        strips_ops = [pnad.op for pnad in pnads]
+        # for s in strips_ops:
+        #     print(s)
+        option_specs = [pnad.option_spec for pnad in pnads]
+        return self.evaluate_with_operators2(candidate_predicates,
+                                                low_level_trajs,
+                                                segmented_trajs, strips_ops,
+                                                option_specs)
+
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
                                 low_level_trajs: List[LowLevelTrajectory],
                                 segmented_trajs: List[List[Segment]],
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
+        """Use learned operators to compute a score for the given set of
+        candidate predicates."""
+        raise NotImplementedError("Override me!")
+
+    def evaluate_with_operators2(self,
+                                candidate_predicates: FrozenSet[Predicate],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
+                                strips_ops: List[STRIPSOperator],
+                                option_specs: List[OptionSpec]) -> bool:
         """Use learned operators to compute a score for the given set of
         candidate predicates."""
         raise NotImplementedError("Override me!")
@@ -313,7 +369,14 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 seg_traj)
             seen_demos += 1
             init_atoms = demo_atoms_sequence[0]
-            goal = self._train_tasks[ll_traj.train_task_idx].goal
+            ######
+            # goal = self._train_tasks[ll_traj.train_task_idx].goal
+            # try:
+            #     goal = self._train_tasks[ll_traj.train_task_idx].goal
+            # except:
+            #     import pdb; pdb.set_trace()
+            goal = self._train_tasks[low_level_trajs.index(ll_traj)].goal
+            ######
             # Ground everything once per demo.
             objects = set(ll_traj.states[0])
             dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
@@ -386,6 +449,93 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # The score is simply the total expected planning time.
             score += expected_planning_time
         return score
+
+    def evaluate_with_operators2(self,
+                                candidate_predicates: FrozenSet[Predicate],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
+                                strips_ops: List[STRIPSOperator],
+                                option_specs: List[OptionSpec]) -> bool:
+        assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
+        score = 0.0
+        seen_demos = 0
+        counter = 0
+        assert len(low_level_trajs) == len(segmented_trajs)
+        for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
+            counter += 1
+            if seen_demos >= CFG.grammar_search_max_demos:
+                break
+            if not ll_traj.is_demo:
+                continue
+            demo_atoms_sequence = utils.segment_trajectory_to_atoms_sequence(
+                seg_traj)
+            seen_demos += 1
+            init_atoms = demo_atoms_sequence[0]
+            ######
+            # goal = self._train_tasks[ll_traj.train_task_idx].goal
+            # try:
+            #     goal = self._train_tasks[ll_traj.train_task_idx].goal
+            # except:
+            #     import pdb; pdb.set_trace()
+            goal = self._train_tasks[low_level_trajs.index(ll_traj)].goal
+            ######
+            # Ground everything once per demo.
+            objects = set(ll_traj.states[0])
+            dummy_nsrts = utils.ops_and_specs_to_dummy_nsrts(
+                strips_ops, option_specs)
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms,
+                objects,
+                dummy_nsrts,
+                allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.sesame_task_planning_heuristic, init_atoms, goal,
+                ground_nsrts, candidate_predicates | self._initial_predicates,
+                objects)
+            # The expected time needed before a low-level plan is found. We
+            # approximate this using node creations and by adding a penalty
+            # for every skeleton after the first to account for backtracking.
+            expected_planning_time = 0.0
+            # Keep track of the probability that a refinable skeleton has still
+            # not been found, updated after each new goal-reaching skeleton is
+            # considered.
+            refinable_skeleton_not_found_prob = 1.0
+            if CFG.grammar_search_expected_nodes_max_skeletons == -1:
+                max_skeletons = CFG.sesame_max_skeletons_optimized
+            else:
+                max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
+            assert max_skeletons <= CFG.sesame_max_skeletons_optimized
+            assert not CFG.sesame_use_visited_state_set
+            generator = task_plan(init_atoms,
+                                  goal,
+                                  ground_nsrts,
+                                  reachable_atoms,
+                                  heuristic,
+                                  CFG.seed,
+                                  CFG.grammar_search_task_planning_timeout,
+                                  max_skeletons,
+                                  use_visited_state_set=False)
+            try:
+                length_of_shortest_plan = -1
+                for idx, (_, plan_atoms_sequence,
+                          metrics) in enumerate(generator):
+                    assert goal.issubset(plan_atoms_sequence[-1])
+                    # import pdb; pdb.set_trace()
+                    if idx == 0:
+                        length_of_shortest_plan = len(plan_atoms_sequence)
+                    if len(plan_atoms_sequence) > length_of_shortest_plan:
+                        break
+                    if len(demo_atoms_sequence) != len(plan_atoms_sequence):
+                        return False 
+                    # if len(demo_atoms_sequence) == len(plan_atoms_sequence):
+                    #     print("CORRECT LENGTH PLAN, train task: ", counter)
+            except (PlanningTimeout, PlanningFailure):
+                # import pdb; pdb.set_trace()
+                # Note if we failed to find any skeleton, the next lines add
+                # the upper bound with refinable_skeleton_not_found_prob = 1.0,
+                # so no special action is required.
+                pass
+        return True
 
     @staticmethod
     def _get_refinement_prob(

@@ -22,7 +22,7 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
-    Object, ParameterizedOption, Predicate, State, Task, Type
+    Object, ParameterizedOption, Predicate, State, Task, Type, LowLevelTrajectory
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -853,6 +853,26 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         total_num_evals = 0
         candidates_tried_without_improvement = set()
 
+        ######
+        # total_candidates = set() 
+        # for frontier_idx in range(2, max_frontier_idx):
+        #     transitions_for_frontier = get_transitions_in_frontier(frontier_idx)
+        #     for idx, curr_transition in enumerate(transitions_for_frontier):
+        #         curr_candidates = get_candidates_for_transition(
+        #             curr_transition,
+        #             total_candidates)
+        #         total_candidates |= set(curr_candidates.keys())
+
+        # # Want to look at the number of candidates we get 
+        # # Could we just try removing one at a time? would that limit the number of times 
+        # # we need to run eval()? 
+        # import pdb; pdb.set_trace()
+        ######
+        original_atom_dataset = atom_dataset.copy()
+        original_train_tasks = train_tasks.copy()
+        ######
+
+
         # We start at frontier 2 because 2 steps from the end is the preimage state
         # of the penultimate transition.
         for frontier_idx in range(2, max_frontier_idx):
@@ -861,12 +881,96 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # candidates_tried_this_frontier = set()
             # TODO: maybe implement a smart way to avoid repeating the same predicate evaluations
             # after you confirm this works.
+
+            ####
+            # candidates_per_transition = {}
+            # for idx, curr_transition in enumerate(transitions_for_frontier):
+            #     curr_candidates = get_candidates_for_transition(curr_transition, set())
+            #     candidates_per_transition[idx] = set(curr_candidates.keys())
+
+            # unique_sets = []
+            # transition_idxs = list(range(len(transitions_for_frontier)))
+            # remaining = transition_idxs.copy()
+            # while len(remaining) > 0:
+            #     idx = remaining[0]
+            #     collect = [idx]
+            #     for r in remaining:
+            #         if r != idx:
+            #             if candidates_per_transition[idx] == candidates_per_transition[r]:
+            #                 collect.append(r)
+            #     remaining = [i for i in remaining if i not in collect]
+            #     unique_sets.append(collect)
+
+            # # check 
+            # l = []
+            # for u in unique_sets:
+            #     l.extend(u)
+            # l = sorted(l)
+            # comparison = list(range(len(transitions_for_frontier)))
+
+            # d = {}
+            # for u in unique_sets:
+            #     if len(u) not in d:
+            #         d[len(u)] = 1
+            #     else:
+            #         d[len(u)] += 1
+
+            # sorted_unique_sets = sorted(unique_sets, key=lambda x: -len(x))
+            # # for i in sorted_unique_sets:
+            # #     print(i)
+            # actual_transitions_we_have_to_consider = sum(d.values())
+
+            # # import pdb; pdb.set_trace()
+            number_of_times_we_do_hillclimbing = 0
+            skip = 0
+            ####
+
+            ####
+            # edit the atom dataset and train tasks to be the one relevant to this frontier 
+            # the atom dataset is type List[GroundAtomTrajectory] 
+            # GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]] 
+            # 
+            atom_dataset = []
+            train_tasks = []
+            for i, g_a_t in enumerate(original_atom_dataset):
+                llt, gas = g_a_t # low-level trajectory, ground atom sequence 
+                if len(gas) >= frontier_idx + 1:
+                    new_gas = gas[-(frontier_idx + 1):]
+                    new_ll_states = llt.states[-(frontier_idx + 1):]
+                    new_ll_actions = llt.actions[-frontier_idx:]
+                    new_llt = LowLevelTrajectory(
+                            new_ll_states,
+                            new_ll_actions,
+                            llt.is_demo,
+                            llt.train_task_idx
+                        )
+                    new_gat = (new_llt, new_gas)
+                    atom_dataset.append(new_gat)
+
+                    new_init = new_ll_states[0]
+                    new_train_task = Task(
+                            new_init,
+                            original_train_tasks[i].goal
+                        )
+                    train_tasks.append(new_train_task)
+            # import pdb; pdb.set_trace()
+            ####
+
             for idx, curr_transition in enumerate(transitions_for_frontier):
+ 
                 curr_candidates = get_candidates_for_transition(
                     curr_transition,
                     set(curr_learned_preds) | candidates_tried_without_improvement)
+                
+                # import pdb; pdb.set_trace()
+                # candidates_per_transition[idx] = set(curr_candidates.keys())
+                # if idx == 10:
+                #     import pdb; pdb.set_trace()
+
 
                 if len(curr_candidates.keys()) == 0:
+                    skip += 1
+                    # import pdb; pdb.set_trace()
                     continue
                 total_num_candidates_evaled += len(curr_candidates.keys())
                 num_candidates_for_curr_frontier += len(curr_candidates.keys())
@@ -889,9 +993,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         **learned_preds_dict
                     }, train_tasks)
 
+                ######
+                skip_to_next_frontier = score_function.evaluate2(curr_learned_preds)
+                # import pdb; pdb.set_trace()
+                if skip_to_next_frontier:
+                    # print("SKIPPED ON TRANSITION, ", idx, "frontier: ", frontier_idx)
+                    break
+                ######
+
+
                 # Then, run optimization on these candidates + goal predicates + currently
                 # learned predicates alone.
-
+                number_of_times_we_do_hillclimbing += 1
                 # Greedy local hill climbing search.
                 if CFG.grammar_search_search_algorithm == "hill_climbing":
                     path, _, heuristics = utils.run_hill_climbing(
@@ -930,10 +1043,25 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 else:
                     candidates_tried_without_improvement = set()
 
-
                 total_num_evals += len(path) * len(curr_candidates.keys())
             num_candidates_per_frontier.append(
                 (frontier_idx, num_candidates_for_curr_frontier))
+
+            print("SKIPPED IN frontier", frontier_idx, "#: ", skip)
+
+            # # check all possible pairs of transitions 
+            # # check if they have the exact same candidate set 
+            # # for a particular controller, if the set differs, see why it differs 
+            # # len(transitions_for_frontier) is the idx range 
+            # max_idx = len(transitions_for_frontier)
+            # pairs = list(itertools.combinations(range(0, max_idx), 2))
+            # number_that_overlap = 0
+            # for a, b in pairs:
+            #     set1 = candidates_per_transition[a]
+            #     set2 = candidates_per_transition[b]
+            # import pdb; pdb.set_trace()
+
+
 
         logging.info("Completed predicate invention!")
         logging.info(
