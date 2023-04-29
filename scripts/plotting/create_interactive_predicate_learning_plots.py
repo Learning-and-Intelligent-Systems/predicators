@@ -52,8 +52,8 @@ X_KEY_AND_LABEL = [
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
     ("QUERY_COST", "Cumulative Query Cost"),
-    ("PERC_EXEC_FAIL", "% Execution Failures"),
-    ("PERC_PLAN_FAIL", "% Planning Failures"),
+    # ("PERC_EXEC_FAIL", "% Execution Failures"),
+    # ("PERC_PLAN_FAIL", "% Planning Failures"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,

@@ -90,7 +90,7 @@ class CoverEnv(BaseEnv):
         if held_block is not None and above_block is None:
             new_pose = pose - state.get(held_block, "grasp")
             # HACK: add some noise to pose of newly placed block
-            new_pose += np.random.normal(0.0, 0.005)
+            new_pose += np.random.normal(0.0, 0.015)
             # Prevent collisions with other blocks.
             if self._any_intersection(new_pose,
                                       state.get(held_block, "width"),

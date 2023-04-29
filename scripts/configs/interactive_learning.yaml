@@ -62,7 +62,7 @@ APPROACHES:
   #     predicate_mlp_classifier_n_reinitialize_tries: 5
   #     predicate_mlp_classifier_init: "normal"
 ENVS:
-  cover-noisy:
+  cover-noisy-0.015:
     NAME: "cover_handempty"
     FLAGS:
       excluded_predicates: "Covers,Holding,HandEmpty"
