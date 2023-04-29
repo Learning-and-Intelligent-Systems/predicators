@@ -63,7 +63,7 @@ Y_KEY_AND_LABEL = [
 PLOT_GROUPS = {
     "Main Approaches in CoverEnv with Noise": [
         ("Main (Ensemble)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-noisy-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-noisy-0.015-main")),
         # ("Main (MLP)", "orange",
         #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
     ],
