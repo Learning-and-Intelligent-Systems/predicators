@@ -778,6 +778,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             self._train_tasks)
         logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
+        print("PRINTING LEARNED PREDICATES: ")
+        for p in self._learned_predicates:
+            print(p)
+        print("====")
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
 
@@ -1057,7 +1061,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             num_candidates_per_frontier.append(
                 (frontier_idx, num_candidates_for_curr_frontier))
 
-            print("SKIPPED IN frontier", frontier_idx, "#: ", skip)
+            # print("SKIPPED IN frontier", frontier_idx, "#: ", skip)
 
             # # check all possible pairs of transitions 
             # # check if they have the exact same candidate set 

@@ -75,7 +75,10 @@ def main() -> None:
     handlers: List[logging.Handler] = [logging.StreamHandler()]
     if CFG.log_file:
         handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
-    logging.basicConfig(level=CFG.loglevel,
+    # logging.basicConfig(level=CFG.loglevel,
+    #                     format="%(message)s",
+    #                     handlers=handlers)
+    logging.basicConfig(level=30,
                         format="%(message)s",
                         handlers=handlers)
     if CFG.log_file:
