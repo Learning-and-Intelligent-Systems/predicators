@@ -38,12 +38,21 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
             del state, memory, objects  # unused
             return Action(params)  # action is simply the parameter
 
-        PickPlace = utils.SingletonParameterizedOption("PickPlace",
+        # PickPlace = utils.SingletonParameterizedOption("PickPlace",
+        #                                                _policy,
+        #                                                params_space=Box(
+        #                                                    0, 1, (1, )))
+        Pick = utils.SingletonParameterizedOption("Pick",
+                                                       _policy,
+                                                       params_space=Box(
+                                                           0, 1, (1, )))
+        Place = utils.SingletonParameterizedOption("Place",
                                                        _policy,
                                                        params_space=Box(
                                                            0, 1, (1, )))
 
-        return {PickPlace}
+        # return {PickPlace}
+        return {Pick, Place}
 
 
 class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):

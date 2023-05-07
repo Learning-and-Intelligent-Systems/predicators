@@ -13,6 +13,7 @@ from typing import Callable, Dict, FrozenSet, Iterator, List, Sequence, Set, \
     Tuple
 
 from gym.spaces import Box
+import numpy as np
 
 from predicators import utils
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
@@ -827,6 +828,140 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # frontiers.
         assert CFG.segmenter == "option_changes"
         segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
+
+        ####
+        # segmented_traj: List[List[Segment]]
+        from functools import reduce 
+        flattened_segmented_trajs = reduce(lambda a, b: a+b, segmented_trajs)
+        
+        # first, group segments by option 
+        option_to_segments = {}
+        for s in flattened_segmented_trajs:
+            n = s.get_option().name
+            if n in option_to_segments:
+                option_to_segments[n].append(s)
+            else:
+                option_to_segments[n] = [s]
+
+        # # second, cluster segments under each option by which objects change 
+        # def which_types_change(segment):
+        #     start = segment.states[0]
+        #     end = segment.states[-1]
+        #     start_objs = [o for o in start]
+        #     end_objs = [o for o in end]
+        #     assert len(start_objs) == len(end_objs)
+        #     obj_types_that_change = []
+        #     for i in range(len(start_objs)):
+        #         o1 = start_objs[i]
+        #         o2 = end_objs[i]
+        #         if not np.allclose(start[o1], end[o2]):
+        #             # this object's features have changed 
+        #             obj_types_that_change.append(o1.type)
+        #     return tuple(obj_types_that_change)
+
+        # # second, for each segment, label it with which type change in that segment
+        # option_to_segments_and_types = {
+        #     opt: {} for opt in option_to_segments.keys()
+        # } # option -> (types, ...) -> List[Segment]
+        # for option, segments in option_to_segments.items():
+        #     for s in segments:
+        #         types = which_types_change(s)
+        #         if types in option_to_segments_and_types[option].keys():
+        #             option_to_segments_and_types[option][types].append(s)
+        #         else:
+        #             option_to_segments_and_types[option] = {types: [s]}
+
+        # import pdb; pdb.set_trace()
+
+        # # try clustering by how much intersection decreases by 
+        def cluster(segments):
+            clusters = [] # list of lists of segment
+            print("num segments: ", len(segments))
+            num_effects_per_cluster = []
+            for j, s in enumerate(segments):
+                if len(clusters) == 0:
+                    clusters.append([s])
+                else:
+                    # see how much the overlap goes down in an existing cluster 
+                    for k, c in enumerate(clusters):
+                        # calculate this cluster's add effects 
+                        add_effects_per_segment = [seg.add_effects for seg in c]
+                        ungrounded_add_effects_per_segment = []
+                        for add_effects in add_effects_per_segment:
+                            ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+                        cluster_eff = set.intersection(*ungrounded_add_effects_per_segment)
+                        
+                        # now see how much the overlap goes down by when adding this segment 
+                        eff = set(a.predicate for a in s.add_effects)
+                        len_cluster_eff = len(cluster_eff)
+                        if j == len(segments)-1:
+                            num_effects_per_cluster.append(len_cluster_eff)
+                        len_eff = len(eff)
+                        len_both = len(cluster_eff & eff)
+                        print("segment_num: ", j+1, "cluster_num: ", k+1,"len_cluster_eff: ", len_cluster_eff, "len_eff:", len_eff, "len_both: ", len_both)
+                        if len_both == len_cluster_eff or (len_both < len_cluster_eff and len_both == len_eff):
+                            c.append(s)
+                            break
+                        if len_both != len_cluster_eff and k == len(clusters)-1:
+                            clusters.append([s])
+                            break
+                print("segment num: ", j+1, "cluster sizes: ", [len(c) for c in clusters])
+            
+            import pdb; pdb.set_trace()
+            return clusters
+
+        # def cluster(segments):
+        #     # first, try to cluster the segments by 
+        #     # the set of types involved in that segment's add effects 
+        #     clusters = {} 
+        #     for j, seg in enumerate(segments):
+        #         types = tuple(sorted(list(set.union(*[set(a.predicate.types) for a in seg.add_effects]))))
+        #         print(j, types)
+        #         if types in clusters:
+        #             clusters[types].append(seg)
+        #         else:
+        #             clusters[types] = [seg]
+        #     if len(clusters) > 1:
+        #         return list(clusters.values()) 
+        #     else:
+        #         # if this doesn't work, try to cluster the segments by 
+        #         # the same add effects 
+        #         clusters = []
+        #         for j, seg in enumerate(segments):
+
+
+        option_to_cluster_to_segments = {
+            opt: {} for opt in option_to_segments.keys()
+        }
+        for option, segments in option_to_segments.items():
+            if option == "Pick":
+                cluster(segments)
+
+
+
+        # now, get the add effects per controller 
+        option_to_add_effects = {}
+        for option, segments in option_to_segments.items():
+            add_effects_per_segment = [s.add_effects for s in segments]
+            ungrounded_add_effects_per_segment = []
+            for add_effects in add_effects_per_segment:
+                ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+            add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+            option_to_add_effects[option] = add_effects
+            list_add_effects = list(add_effects)
+
+        for k, v in option_to_add_effects.items():
+            print(k)
+            for p in v:
+                print(p)
+            print()
+
+        all_add_effects = set.union(*option_to_add_effects.values())
+        # return all_add_effects
+
+        # import pdb; pdb.set_trace()
+        return all_add_effects
+        ####
 
         def get_transitions_in_frontier(
                 frontier_idx: int

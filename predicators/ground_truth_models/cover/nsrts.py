@@ -45,7 +45,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Options
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
                         "cover_regrasp", "cover_handempty"):
-            PickPlace = options["PickPlace"]
+            # PickPlace = options["PickPlace"]
+            Pick, Place = options["Pick"], options["Place"]
         elif env_name in ("cover_typed_options", "cover_multistep_options"):
             Pick, Place = options["Pick"], options["Place"]
 
@@ -70,7 +71,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
                         "cover_regrasp", "cover_handempty"):
-            option = PickPlace
+            # option = PickPlace
+            option = Pick
             option_vars = []
         elif env_name == "cover_typed_options":
             option = Pick
@@ -186,7 +188,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
                         "cover_regrasp", "cover_handempty"):
-            option = PickPlace
+            # option = PickPlace
+            option = Place
             option_vars = []
         elif env_name == "cover_typed_options":
             option = Place

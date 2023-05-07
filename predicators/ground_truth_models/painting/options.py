@@ -37,6 +37,22 @@ class PaintingGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[robot_type, obj_type],
             params_space=Box(np.array([-0.01], dtype=np.float32),
                              np.array([1.01], dtype=np.float32)))
+        PickFromTop = utils.SingletonParameterizedOption(
+            # variables: [robot, object to pick]
+            # params: [grasp]
+            "PickFromTop",
+            cls._create_pick_policy(action_space),
+            types=[robot_type, obj_type],
+            params_space=Box(np.array([-0.01], dtype=np.float32),
+                             np.array([1.01], dtype=np.float32)))
+        PickFromSide = utils.SingletonParameterizedOption(
+            # variables: [robot, object to pick]
+            # params: [grasp]
+            "PickFromSide",
+            cls._create_pick_policy(action_space),
+            types=[robot_type, obj_type],
+            params_space=Box(np.array([-0.01], dtype=np.float32),
+                             np.array([1.01], dtype=np.float32)))
 
         Wash = utils.SingletonParameterizedOption(
             # variables: [robot]
@@ -59,11 +75,76 @@ class PaintingGroundTruthOptionFactory(GroundTruthOptionFactory):
             cls._create_paint_policy(),
             types=[robot_type],
             params_space=Box(-0.01, 1.01, (1, )))
+        PaintToBox = utils.SingletonParameterizedOption(
+            # variables: [robot]
+            # params: [new color]
+            "PaintToBox",
+            cls._create_paint_policy(),
+            types=[robot_type],
+            params_space=Box(-0.01, 1.01, (1, )))
+        PaintToShelf = utils.SingletonParameterizedOption(
+            # variables: [robot]
+            # params: [new color]
+            "PaintToShelf",
+            cls._create_paint_policy(),
+            types=[robot_type],
+            params_space=Box(-0.01, 1.01, (1, )))
 
         Place = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y, absolute z]
             "Place",
+            cls._create_place_policy(),
+            types=[robot_type],
+            params_space=Box(
+                np.array([
+                    PaintingEnv.obj_x - 1e-2, PaintingEnv.env_lb,
+                    PaintingEnv.obj_z - 1e-2
+                ],
+                         dtype=np.float32),
+                np.array([
+                    PaintingEnv.obj_x + 1e-2, PaintingEnv.env_ub,
+                    PaintingEnv.obj_z + 1e-2
+                ],
+                         dtype=np.float32)))
+        PlaceInBox = utils.SingletonParameterizedOption(
+            # variables: [robot]
+            # params: [absolute x, absolute y, absolute z]
+            "PlaceInBox",
+            cls._create_place_policy(),
+            types=[robot_type],
+            params_space=Box(
+                np.array([
+                    PaintingEnv.obj_x - 1e-2, PaintingEnv.env_lb,
+                    PaintingEnv.obj_z - 1e-2
+                ],
+                         dtype=np.float32),
+                np.array([
+                    PaintingEnv.obj_x + 1e-2, PaintingEnv.env_ub,
+                    PaintingEnv.obj_z + 1e-2
+                ],
+                         dtype=np.float32)))
+        PlaceInShelf = utils.SingletonParameterizedOption(
+            # variables: [robot]
+            # params: [absolute x, absolute y, absolute z]
+            "PlaceInShelf",
+            cls._create_place_policy(),
+            types=[robot_type],
+            params_space=Box(
+                np.array([
+                    PaintingEnv.obj_x - 1e-2, PaintingEnv.env_lb,
+                    PaintingEnv.obj_z - 1e-2
+                ],
+                         dtype=np.float32),
+                np.array([
+                    PaintingEnv.obj_x + 1e-2, PaintingEnv.env_ub,
+                    PaintingEnv.obj_z + 1e-2
+                ],
+                         dtype=np.float32)))
+        PlaceOnTable = utils.SingletonParameterizedOption(
+            # variables: [robot]
+            # params: [absolute x, absolute y, absolute z]
+            "PlaceOnTable",
             cls._create_place_policy(),
             types=[robot_type],
             params_space=Box(
@@ -85,7 +166,8 @@ class PaintingGroundTruthOptionFactory(GroundTruthOptionFactory):
             cls._create_open_lid_policy(),
             types=[robot_type, lid_type])
 
-        return {Pick, Wash, Dry, Paint, Place, OpenLid}
+        return {Pick, PickFromTop, PickFromSide, Wash, Dry, Paint, PaintToBox, PaintToShelf, Place, PlaceInBox, PlaceInShelf, PlaceOnTable, OpenLid}
+        # return {PickFromTop, PickFromSide, Wash, Dry, PaintToBox, PaintToShelf, PlaceInBox, PlaceInShelf, PlaceOnTable, OpenLid}
 
     @classmethod
     def _create_pick_policy(cls, action_space: Box) -> ParameterizedPolicy:

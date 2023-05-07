@@ -48,10 +48,17 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         Pick = options["Pick"]
+        PickFromTop = options["PickFromTop"]
+        PickFromSide = options["PickFromSide"]
         Wash = options["Wash"]
         Dry = options["Dry"]
         Paint = options["Paint"]
+        PaintToBox = options["PaintToBox"]
+        PaintToShelf = options["PaintToShelf"]
         Place = options["Place"]
+        PlaceInBox = options["PlaceInBox"]
+        PlaceInShelf = options["PlaceInShelf"]
+        PlaceOnTable = options["PlaceOnTable"]
         OpenLid = options["OpenLid"]
 
         # Additional predicates and options:
@@ -72,6 +79,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj, robot]
         option_vars = [robot, obj]
         option = Pick
+        # option = PickFromTop
         preconditions = {
             LiftedAtom(GripperOpen, [robot]),
             LiftedAtom(OnTable, [obj])
@@ -102,6 +110,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj, robot]
         option_vars = [robot, obj]
         option = Pick
+        # option = PickFromSide
         preconditions = {
             LiftedAtom(GripperOpen, [robot]),
             LiftedAtom(OnTable, [obj])
@@ -174,6 +183,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj, box, robot]
         option_vars = [robot]
         option = Paint
+        # option = PaintToBox
         preconditions = {
             LiftedAtom(Holding, [obj]),
             LiftedAtom(IsDry, [obj]),
@@ -203,6 +213,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj, shelf, robot]
         option_vars = [robot]
         option = Paint
+        # option = PaintToShelf
         preconditions = {
             LiftedAtom(Holding, [obj]),
             LiftedAtom(IsDry, [obj]),
@@ -233,6 +244,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj, box, robot]
         option_vars = [robot]
         option = Place
+        # option = PlaceInBox
         preconditions = {
             LiftedAtom(Holding, [obj]),
             LiftedAtom(HoldingTop, [obj]),
@@ -282,6 +294,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj, shelf, robot]
         option_vars = [robot]
         option = Place
+        # option = PlaceInShelf
         preconditions = {
             LiftedAtom(Holding, [obj]),
             LiftedAtom(HoldingSide, [obj]),
@@ -346,6 +359,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [obj, robot]
         option_vars = [robot]
         option = Place
+        # option = PlaceOnTable
         if env_name == "painting":
             # The environment is a little weird: the object is technically
             # already OnTable when we go to place it on the table, because
