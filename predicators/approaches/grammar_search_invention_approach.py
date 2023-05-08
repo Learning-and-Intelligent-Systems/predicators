@@ -870,97 +870,178 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #             option_to_segments_and_types[option][types].append(s)
         #         else:
         #             option_to_segments_and_types[option] = {types: [s]}
-
         # import pdb; pdb.set_trace()
 
         # # try clustering by how much intersection decreases by 
-        def cluster(segments):
-            clusters = [] # list of lists of segment
-            print("num segments: ", len(segments))
-            num_effects_per_cluster = []
-            for j, s in enumerate(segments):
-                if len(clusters) == 0:
-                    clusters.append([s])
-                else:
-                    # see how much the overlap goes down in an existing cluster 
-                    for k, c in enumerate(clusters):
-                        # calculate this cluster's add effects 
-                        add_effects_per_segment = [seg.add_effects for seg in c]
-                        ungrounded_add_effects_per_segment = []
-                        for add_effects in add_effects_per_segment:
-                            ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
-                        cluster_eff = set.intersection(*ungrounded_add_effects_per_segment)
-                        
-                        # now see how much the overlap goes down by when adding this segment 
-                        eff = set(a.predicate for a in s.add_effects)
-                        len_cluster_eff = len(cluster_eff)
-                        if j == len(segments)-1:
-                            num_effects_per_cluster.append(len_cluster_eff)
-                        len_eff = len(eff)
-                        len_both = len(cluster_eff & eff)
-                        print("segment_num: ", j+1, "cluster_num: ", k+1,"len_cluster_eff: ", len_cluster_eff, "len_eff:", len_eff, "len_both: ", len_both)
-                        if len_both == len_cluster_eff or (len_both < len_cluster_eff and len_both == len_eff):
-                            c.append(s)
-                            break
-                        if len_both != len_cluster_eff and k == len(clusters)-1:
-                            clusters.append([s])
-                            break
-                print("segment num: ", j+1, "cluster sizes: ", [len(c) for c in clusters])
-            
-            import pdb; pdb.set_trace()
-            return clusters
-
         # def cluster(segments):
-        #     # first, try to cluster the segments by 
-        #     # the set of types involved in that segment's add effects 
-        #     clusters = {} 
-        #     for j, seg in enumerate(segments):
-        #         types = tuple(sorted(list(set.union(*[set(a.predicate.types) for a in seg.add_effects]))))
-        #         print(j, types)
-        #         if types in clusters:
-        #             clusters[types].append(seg)
+        #     clusters = [] # list of lists of segment
+        #     print("num segments: ", len(segments))
+        #     num_effects_per_cluster = []
+        #     for j, s in enumerate(segments):
+        #         if len(clusters) == 0:
+        #             clusters.append([s])
         #         else:
-        #             clusters[types] = [seg]
-        #     if len(clusters) > 1:
-        #         return list(clusters.values()) 
-        #     else:
-        #         # if this doesn't work, try to cluster the segments by 
-        #         # the same add effects 
-        #         clusters = []
+        #             # see how much the overlap goes down in an existing cluster 
+        #             for k, c in enumerate(clusters):
+        #                 # calculate this cluster's add effects 
+        #                 add_effects_per_segment = [seg.add_effects for seg in c]
+        #                 ungrounded_add_effects_per_segment = []
+        #                 for add_effects in add_effects_per_segment:
+        #                     ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+        #                 cluster_eff = set.intersection(*ungrounded_add_effects_per_segment)
+                        
+        #                 # now see how much the overlap goes down by when adding this segment 
+        #                 eff = set(a.predicate for a in s.add_effects)
+        #                 len_cluster_eff = len(cluster_eff)
+        #                 if j == len(segments)-1:
+        #                     num_effects_per_cluster.append(len_cluster_eff)
+        #                 len_eff = len(eff)
+        #                 len_both = len(cluster_eff & eff)
+        #                 print("segment_num: ", j+1, "cluster_num: ", k+1,"len_cluster_eff: ", len_cluster_eff, "len_eff:", len_eff, "len_both: ", len_both)
+        #                 if len_both == len_cluster_eff or (len_both < len_cluster_eff and len_both == len_eff):
+        #                     c.append(s)
+        #                     break
+        #                 if len_both != len_cluster_eff and k == len(clusters)-1:
+        #                     clusters.append([s])
+        #                     break
+        #         print("segment num: ", j+1, "cluster sizes: ", [len(c) for c in clusters])
+            
+        #     import pdb; pdb.set_trace()
+        #     return clusters
+
+        def cluster(segments):
+            # first, try to cluster the segments by 
+            # the set of types involved in that segment's add effects 
+            clusters = {} 
+            for j, seg in enumerate(segments):
+                types = tuple(sorted(list(set.union(*[set(a.predicate.types) for a in seg.add_effects]))))
+                # print(j, types)
+                if types in clusters:
+                    clusters[types].append(seg)
+                else:
+                    clusters[types] = [seg]
+            # import pdb; pdb.set_trace()
+            return list(clusters.values()) 
+            # if len(clusters) > 1:
+            #     return list(clusters.values()) 
+            # else:
+            #     # if this doesn't work, try to cluster the segments by 
+            #     # the same add effects 
+            #     clusters = []
+            #     for j, seg in enumerate(segments):
+
+        # # try k means 
+        # def cluster(segments):
+        #     # get all 
+        #     def get_add_eff(seg):
+        #             return set(a.predicate for a in seg.add_effects)
+        #     all_combos = list(itertools.product(list(range(len(segments))), repeat=2))
+        #     d = {}
+        #     for combo in all_combos:
+        #         i, j = combo
+        #         seg1 = segments[i]
+        #         seg2 = segments[j]
+        #         d[combo] = len(get_add_eff(seg1) & get_add_eff(seg2))
+
+        #     # initialize the centroids randomly 
+        #     k = 2
+        #     idxs = np.random.choice(list(range(len(segments))), k, replace=False)
+        #     print(idxs)
+
+        #     for i in range(20):
+        #         print("i: ", i)
+        #         # assign points to centroids 
+        #         cluster_1 = [idxs[0]]
+        #         cluster_2 = [idxs[1]]
+        #         import pdb; pdb.set_trace()
         #         for j, seg in enumerate(segments):
+        #             if j in idxs:
+        #                 continue
+        #             overlap_1 = d[(j, idxs[0])]
+        #             overlap_2 = d[(j, idxs[1])]
+        #             if overlap_1 > overlap_2:
+        #                 cluster_1.append(j)
+        #             elif overlap_2 > overlap_1:
+        #                 cluster_2.append(j)
+        #             else:
+        #                 u = np.random.uniform()
+        #                 if u >= 0.5:
+        #                     cluster_1.append(j)
+        #                 else:
+        #                     cluster_2.append(j)
+                
+        #         # compute new centroids
+        #         # import pdb; pdb.set_trace()
+        #         temp1 = np.sum(d[0, b] for b in cluster_1)
+        #         temp2 = np.sum(d[1, b] for b in cluster_1)
+        #         temp3 = [np.sum(d[a, b] for b in cluster_1) for a in cluster_1]
+
+        #         idx1 = np.argmax(np.sum(d[a, b] for b in cluster_1) for a in cluster_1)
+        #         idx2 = np.argmax(np.sum(d[a, b] for b in cluster_2) for a in cluster_2)
+        #         idxs = [idx1, idx2]
+        #         print(idxs)
+        #         import pdb; pdb.set_trace()
+
+        #         # dists = []
+        #         # for s in cluster_2:
+        #         #     r = 0
+        #         #     for other in cluster_2:
+        #         #         a = get_add_eff(s)
+        #         #         b = get_add_eff(other)
+        #         #         r += len(a & b)
+        #         #     dists.append(r)
+        #         # centroid_2 = cluster_2[np.argmax(dists)]
+        #         # this doesn't ensure that the clusters don't converge on the same thing? 
+                
+        #     import pdb; pdb.set_trace()
+        #     return segments
+
+        # cluster with k means on the option's parameter 
+        # def cluster(segments):
 
 
-        option_to_cluster_to_segments = {
-            opt: {} for opt in option_to_segments.keys()
-        }
+
+        # option_to_cluster_to_segments = {
+        #     opt: {} for opt in option_to_segments.keys()
+        # }
+        # for option, segments in option_to_segments.items():
+        #     cluster(segments)
+
+        all_add_effects = set()
         for option, segments in option_to_segments.items():
-            if option == "Pick":
-                cluster(segments)
-
-
-
-        # now, get the add effects per controller 
-        option_to_add_effects = {}
-        for option, segments in option_to_segments.items():
-            add_effects_per_segment = [s.add_effects for s in segments]
-            ungrounded_add_effects_per_segment = []
-            for add_effects in add_effects_per_segment:
-                ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
-            add_effects = set.intersection(*ungrounded_add_effects_per_segment)
-            option_to_add_effects[option] = add_effects
-            list_add_effects = list(add_effects)
-
-        for k, v in option_to_add_effects.items():
-            print(k)
-            for p in v:
-                print(p)
-            print()
-
-        all_add_effects = set.union(*option_to_add_effects.values())
-        # return all_add_effects
-
-        # import pdb; pdb.set_trace()
+            for clus in cluster(segments):
+                add_effects_per_segment = [s.add_effects for s in clus]
+                ungrounded_add_effects_per_segment = []
+                for add_effects in add_effects_per_segment:
+                    ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+                add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+                all_add_effects |= add_effects
+                list_add_effects = list(add_effects)
         return all_add_effects
+
+
+        # # now, get the add effects per controller 
+        # option_to_add_effects = {}
+        # for option, segments in option_to_segments.items():
+        #     add_effects_per_segment = [s.add_effects for s in segments]
+        #     ungrounded_add_effects_per_segment = []
+        #     for add_effects in add_effects_per_segment:
+        #         ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+        #     add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+        #     option_to_add_effects[option] = add_effects
+        #     list_add_effects = list(add_effects)
+
+        # for k, v in option_to_add_effects.items():
+        #     print(k)
+        #     for p in v:
+        #         print(p)
+        #     print()
+
+        # all_add_effects = set.union(*option_to_add_effects.values())
+        # # return all_add_effects
+
+        # # import pdb; pdb.set_trace()
+        # return all_add_effects
         ####
 
         def get_transitions_in_frontier(
