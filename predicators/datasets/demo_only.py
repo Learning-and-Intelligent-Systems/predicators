@@ -22,24 +22,29 @@ from predicators.structs import Action, Dataset, LowLevelTrajectory, \
 
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task],
-                     known_options: Set[ParameterizedOption]) -> Dataset:
+                     known_options: Set[ParameterizedOption],
+                     annotate_with_gt_ops: bool) -> Dataset:
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
     dataset_fname, dataset_fname_template = utils.create_dataset_filename_str(
         saving_ground_atoms=False)
     os.makedirs(CFG.data_dir, exist_ok=True)
     if CFG.load_data:
-        dataset = _create_demo_data_with_loading(env, train_tasks,
-                                                 known_options,
-                                                 dataset_fname_template,
-                                                 dataset_fname)
+        dataset = _create_demo_data_with_loading(
+            env,
+            train_tasks,
+            known_options,
+            dataset_fname_template,
+            dataset_fname,
+            annotate_with_gt_ops=annotate_with_gt_ops)
     else:
-        trajectories = _generate_demonstrations(env,
-                                                train_tasks,
-                                                known_options,
-                                                train_tasks_start_idx=0)
-        logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
-        dataset = Dataset(trajectories)
+        dataset = _generate_demonstrations(
+            env,
+            train_tasks,
+            known_options,
+            train_tasks_start_idx=0,
+            annotate_with_gt_ops=annotate_with_gt_ops)
+        logging.info(f"\n\nCREATED {len(dataset.trajectories)} DEMONSTRATIONS")
 
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
@@ -49,7 +54,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
 def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
                                    known_options: Set[ParameterizedOption],
                                    dataset_fname_template: str,
-                                   dataset_fname: str) -> Dataset:
+                                   dataset_fname: str,
+                                   annotate_with_gt_ops: bool) -> Dataset:
     """Create demonstration data while handling loading from disk.
 
     This method takes care of three cases: the demonstrations on disk
@@ -103,24 +109,34 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
     with open(os.path.join(CFG.data_dir, fname), "rb") as f:
         dataset = pkl.load(f)
     loaded_trajectories = dataset.trajectories
-    generated_trajectories = _generate_demonstrations(
+    loaded_annotations = dataset.annotations
+    # If we're trying to annotate with ground truth operators,
+    # then check that the dataset we're loading has annotations.
+    if annotate_with_gt_ops:
+        assert len(loaded_annotations) == len(loaded_trajectories)
+    generated_dataset = _generate_demonstrations(
         env,
         train_tasks,
         known_options,
-        train_tasks_start_idx=train_tasks_start_idx)
+        train_tasks_start_idx=train_tasks_start_idx,
+        annotate_with_gt_ops=annotate_with_gt_ops)
+    generated_trajectories = generated_dataset.trajectories
+    generated_annotations = generated_dataset.annotations
     logging.info(f"\n\nLOADED DATASET OF {len(loaded_trajectories)} "
                  "DEMONSTRATIONS")
-    logging.info(f"CREATED {len(generated_trajectories)} DEMONSTRATIONS")
-    dataset = Dataset(loaded_trajectories + generated_trajectories)
+    logging.info(
+        f"CREATED {len(generated_dataset.trajectories)} DEMONSTRATIONS")
+    dataset = Dataset(loaded_trajectories + generated_trajectories,
+                      loaded_annotations + generated_annotations)
     with open(dataset_fname, "wb") as f:
         pkl.dump(dataset, f)
     return dataset
 
 
-def _generate_demonstrations(
-        env: BaseEnv, train_tasks: List[Task],
-        known_options: Set[ParameterizedOption],
-        train_tasks_start_idx: int) -> List[LowLevelTrajectory]:
+def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
+                             known_options: Set[ParameterizedOption],
+                             train_tasks_start_idx: int,
+                             annotate_with_gt_ops: bool) -> Dataset:
     """Use the demonstrator to generate demonstrations, one per training task
     starting from train_tasks_start_idx."""
     if CFG.demonstrator == "oracle":
@@ -142,6 +158,8 @@ def _generate_demonstrations(
         # actions. This should also log instructions.
         event_to_action = env.get_event_to_action_fn()
     trajectories = []
+    if annotate_with_gt_ops:
+        annotations: List[List[str]] = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
     rng = np.random.default_rng(CFG.seed)
     for idx, task in enumerate(train_tasks):
@@ -223,12 +241,23 @@ def _generate_demonstrations(
                     assert CFG.option_learner != "no_learning"
                     act.unset_option()
         trajectories.append(traj)
+        # If we're also annotating with ground truth operators,
+        # then get the last nsrt_plan and add the name of the
+        # nsrt used to the list of annotations.
+        if annotate_with_gt_ops:
+            last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
+            annotations.append(
+                [ground_nsrt.parent.name for ground_nsrt in last_nsrt_plan])
         if CFG.make_demo_videos:
             assert monitor is not None
             video = monitor.get_video()
             outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
             utils.save_video(outfile, video)
-    return trajectories
+    if annotate_with_gt_ops:
+        dataset = Dataset(trajectories, annotations)
+    else:
+        dataset = Dataset(trajectories)
+    return dataset
 
 
 def human_demonstrator_policy(env: BaseEnv, caption: str,

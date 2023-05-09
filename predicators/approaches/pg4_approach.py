@@ -20,7 +20,7 @@ from predicators.approaches.bilevel_planning_approach import \
 from predicators.approaches.pg3_approach import PG3Approach
 from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, Action, Metrics, \
-    Predicate, State, Task, _Option
+    Predicate, State, Task, _GroundNSRT, _Option
 
 
 class PG4Approach(PG3Approach):
@@ -37,9 +37,10 @@ class PG4Approach(PG3Approach):
         # but it's not the direct child, so we can't use super().
         return BilevelPlanningApproach._solve(self, task, timeout)  # pylint: disable=protected-access
 
-    def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
-                         preds: Set[Predicate], timeout: float, seed: int,
-                         **kwargs: Any) -> Tuple[List[_Option], Metrics]:
+    def _run_sesame_plan(
+            self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+            timeout: float, seed: int,
+            **kwargs: Any) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
         """Generates a plan choosing the best skeletons generated from policy-
         based skeletons and primitive successors."""
         abstract_policy: AbstractPolicy = lambda a, o, g: utils.query_ldl(
