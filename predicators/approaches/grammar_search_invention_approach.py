@@ -779,8 +779,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 atom_dataset, self._train_tasks)
         elif CFG.grammar_search_pred_selection_approach == "clustering":
             self._learned_predicates = self._select_predicates_by_clustering(
-                candidates, self._initial_predicates, dataset, atom_dataset,
-                self._train_tasks)
+                candidates, self._initial_predicates, dataset, atom_dataset)
         logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
@@ -885,8 +884,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _select_predicates_by_clustering(
             self, candidates: Dict[Predicate,
                                    float], initial_predicates: Set[Predicate],
-            dataset: Dataset, atom_dataset: List[GroundAtomTrajectory],
-            train_tasks: List[Task]) -> Set[Predicate]:
+            dataset: Dataset, atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
         # TODO: implement clustering
         # if CFG.predicate_learning_clusterer == "oracle":
         assert CFG.offline_data_method == "demo+gt_operators"
