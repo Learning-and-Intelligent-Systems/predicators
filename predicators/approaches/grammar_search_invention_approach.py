@@ -22,7 +22,7 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
-    Object, ParameterizedOption, Predicate, State, Task, Type
+    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -774,7 +774,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         if CFG.grammar_search_pred_selection_approach == "score_optimization":
-            self._learned_predicates = self._select_predicates_by_score_hillclimbing(
+            self._learned_predicates = \
+                self._select_predicates_by_score_hillclimbing(
                 candidates, score_function, self._initial_predicates,
                 atom_dataset, self._train_tasks)
         elif CFG.grammar_search_pred_selection_approach == "clustering":
@@ -902,7 +903,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                   for op_name in anno_list)
             # Next, make a dictionary mapping operator name to segments
             # where that operator was used.
-            gt_op_to_segments = {op_name: [] for op_name in all_gt_op_names}
+            gt_op_to_segments: Dict[str, List[Segment]] = {
+                op_name: []
+                for op_name in all_gt_op_names
+            }
             for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
                 assert len(seg_list) == len(op_list)
                 for op_name, segment in zip(op_list, seg_list):

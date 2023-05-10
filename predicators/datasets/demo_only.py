@@ -109,7 +109,10 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
     with open(os.path.join(CFG.data_dir, fname), "rb") as f:
         dataset = pkl.load(f)
     loaded_trajectories = dataset.trajectories
-    loaded_annotations = dataset.annotations
+    if dataset.has_annotations:
+        loaded_annotations = dataset.annotations
+    else:
+        loaded_annotations = None
     # If we're trying to annotate with ground truth operators,
     # then check that the dataset we're loading has annotations.
     if annotate_with_gt_ops:
@@ -121,13 +124,19 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
         train_tasks_start_idx=train_tasks_start_idx,
         annotate_with_gt_ops=annotate_with_gt_ops)
     generated_trajectories = generated_dataset.trajectories
-    generated_annotations = generated_dataset.annotations
+    if generated_dataset.has_annotations:
+        generated_annotations = generated_dataset.annotations
+    else:
+        generated_annotations = None
     logging.info(f"\n\nLOADED DATASET OF {len(loaded_trajectories)} "
                  "DEMONSTRATIONS")
     logging.info(
         f"CREATED {len(generated_dataset.trajectories)} DEMONSTRATIONS")
-    dataset = Dataset(loaded_trajectories + generated_trajectories,
-                      loaded_annotations + generated_annotations)
+    if generated_annotations is not None and loaded_annotations is not None:
+        dataset = Dataset(loaded_trajectories + generated_trajectories,
+                          loaded_annotations + generated_annotations)
+    else:
+        dataset = Dataset(loaded_trajectories + generated_trajectories)
     with open(dataset_fname, "wb") as f:
         pkl.dump(dataset, f)
     return dataset
