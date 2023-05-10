@@ -882,42 +882,52 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return set(kept_predicates)
 
     def _select_predicates_by_clustering(
-            self, candidates: Dict[Predicate,
-                                   float], initial_predicates: Set[Predicate],
-            dataset: Dataset, atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
-        # TODO: implement clustering
-        # if CFG.predicate_learning_clusterer == "oracle":
-        assert CFG.offline_data_method == "demo+gt_operators"
-        assert dataset.annotations is not None and len(
-            dataset.annotations) == len(dataset.trajectories)
-        assert CFG.segmenter == "option_changes"
-        segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
-        assert len(segmented_trajs) == len(dataset.annotations)
-        # First, get the set of all ground truth operator names.
-        all_gt_op_names = set(op_name for anno_list in dataset.annotations
-                              for op_name in anno_list)
-        # Next, make a dictionary mapping operator name to segments
-        # where that operator was used.
-        gt_op_to_segments = {op_name: [] for op_name in all_gt_op_names}
-        for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
-            assert len(seg_list) == len(op_list)
-            for op_name, segment in zip(op_list, seg_list):
-                gt_op_to_segments[op_name].append(segment)
-        predicates_to_keep: Set[Predicate] = set()
-        for seg_list in gt_op_to_segments.values():
-            unique_add_effect_preds: Set[Predicate] = set()
-            for seg in seg_list:
-                if len(unique_add_effect_preds) == 0:
-                    unique_add_effect_preds = set(atom.predicate
-                                                  for atom in seg.add_effects)
-                else:
-                    unique_add_effect_preds &= set(atom.predicate
-                                                   for atom in seg.add_effects)
-            predicates_to_keep |= unique_add_effect_preds
+            self, candidates: Dict[Predicate, float],
+            initial_predicates: Set[Predicate], dataset: Dataset,
+            atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
+        """Cluster segments from the atom_dataset into clusters corresponding
+        to operators and use this to select predicates."""
 
-        logging.info(f"\nSelected {len(predicates_to_keep)} predicates out of "
-                     f"{len(candidates)} candidates:")
-        for pred in predicates_to_keep:
-            logging.info(f"\t{pred}")
+        if CFG.grammar_search_pred_clusterer == "oracle":
+            assert CFG.offline_data_method == "demo+gt_operators"
+            assert dataset.annotations is not None and len(
+                dataset.annotations) == len(dataset.trajectories)
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in atom_dataset
+            ]
+            assert len(segmented_trajs) == len(dataset.annotations)
+            # First, get the set of all ground truth operator names.
+            all_gt_op_names = set(op_name for anno_list in dataset.annotations
+                                  for op_name in anno_list)
+            # Next, make a dictionary mapping operator name to segments
+            # where that operator was used.
+            gt_op_to_segments = {op_name: [] for op_name in all_gt_op_names}
+            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+                assert len(seg_list) == len(op_list)
+                for op_name, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[op_name].append(segment)
+            predicates_to_keep: Set[Predicate] = set()
+            for seg_list in gt_op_to_segments.values():
+                unique_add_effect_preds: Set[Predicate] = set()
+                for seg in seg_list:
+                    if len(unique_add_effect_preds) == 0:
+                        unique_add_effect_preds = set(
+                            atom.predicate for atom in seg.add_effects)
+                    else:
+                        unique_add_effect_preds &= set(
+                            atom.predicate for atom in seg.add_effects)
+                predicates_to_keep |= unique_add_effect_preds
 
-        return predicates_to_keep
+            # Remove all the initial predicates.
+            predicates_to_keep -= initial_predicates
+            logging.info(
+                f"\nSelected {len(predicates_to_keep)} predicates out of "
+                f"{len(candidates)} candidates:")
+            for pred in predicates_to_keep:
+                logging.info(f"\t{pred}")
+            return predicates_to_keep
+
+        raise NotImplementedError(
+            "Unrecognized clusterer for predicate " +
+            f"invention {CFG.grammar_search_pred_clusterer}.")
