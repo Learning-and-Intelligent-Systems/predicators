@@ -6,7 +6,7 @@ from predicators import utils
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
     BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import PNAD, LowLevelTrajectory, Predicate, Segment, \
+from predicators.structs import PNAD, Dataset, Predicate, Segment, \
     Task
 
 __all__ = ["BaseSTRIPSLearner"]
@@ -15,7 +15,7 @@ __all__ = ["BaseSTRIPSLearner"]
 utils.import_submodules(__path__, __name__)
 
 
-def learn_strips_operators(trajectories: List[LowLevelTrajectory],
+def learn_strips_operators(dataset: Dataset,
                            train_tasks: List[Task],
                            predicates: Set[Predicate],
                            segmented_trajs: List[List[Segment]],
@@ -29,7 +29,7 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
     for cls in utils.get_all_subclasses(BaseSTRIPSLearner):
         if not cls.__abstractmethods__ and \
            cls.get_name() == CFG.strips_learner:
-            learner = cls(trajectories, train_tasks, predicates,
+            learner = cls(dataset, train_tasks, predicates,
                           segmented_trajs, verify_harmlessness, verbose)
             break
     else:

@@ -8,7 +8,7 @@ from predicators import utils
 from predicators.planning import task_plan_with_option_plan_constraint
 from predicators.settings import CFG
 from predicators.structs import PNAD, DummyOption, GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, Predicate, \
+    Dataset, Object, OptionSpec, ParameterizedOption, Predicate, \
     Segment, State, STRIPSOperator, Task, Variable, _GroundSTRIPSOperator
 
 
@@ -16,13 +16,14 @@ class BaseSTRIPSLearner(abc.ABC):
     """Base class definition."""
 
     def __init__(self,
-                 trajectories: List[LowLevelTrajectory],
+                 dataset: Dataset,
                  train_tasks: List[Task],
                  predicates: Set[Predicate],
                  segmented_trajs: List[List[Segment]],
                  verify_harmlessness: bool,
                  verbose: bool = True) -> None:
-        self._trajectories = trajectories
+        self._dataset = dataset
+        self._trajectories = dataset.trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates
         self._segmented_trajs = segmented_trajs

@@ -15,11 +15,11 @@ from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.settings import CFG
 from predicators.structs import NSRT, PNAD, GroundAtomTrajectory, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task
+    Dataset, ParameterizedOption, Predicate, Segment, Task
 
 
 def learn_nsrts_from_data(
-    trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+    dataset: Dataset, train_tasks: List[Task],
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
     action_space: Box, ground_atom_dataset: List[GroundAtomTrajectory],
     sampler_learner: str
@@ -35,7 +35,7 @@ def learn_nsrts_from_data(
     the case that we are enforcing a min_data (see
     base_strips_learner.py).
     """
-    logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
+    logging.info(f"\nLearning NSRTs on {len(dataset.trajectories)} trajectories...")
 
     # Search over data orderings to find least complex PNAD set.
     # If the strips learner is not Backchaining then it will
@@ -48,9 +48,9 @@ def learn_nsrts_from_data(
         # Step 0: Shuffle dataset to learn from.
         if CFG.data_orderings_to_search > 1:
             random_data_indices = sorted(
-                [int(i) for i in range(len(trajectories))],
+                [int(i) for i in range(len(dataset.trajectories))],
                 key=lambda _: rng.random())
-            trajectories = [trajectories[i] for i in random_data_indices]
+            trajectories = [dataset.trajectories[i] for i in random_data_indices]
             ground_atom_dataset = [
                 ground_atom_dataset[i] for i in random_data_indices
             ]
@@ -78,7 +78,7 @@ def learn_nsrts_from_data(
         #         contains a STRIPSOperator, Datastore, and OptionSpec. The
         #         samplers will be filled in on a later step.
         pnads = learn_strips_operators(
-            trajectories,
+            dataset,
             train_tasks,
             predicates,
             segmented_trajs,
