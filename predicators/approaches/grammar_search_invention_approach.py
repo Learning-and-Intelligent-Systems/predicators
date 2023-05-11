@@ -783,7 +783,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 candidates, self._initial_predicates, dataset, atom_dataset)
         logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None, annotations=dataset.annotations)
 
     def _select_predicates_by_score_hillclimbing(
             self, candidates: Dict[Predicate, float],
