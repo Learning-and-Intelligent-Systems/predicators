@@ -3,6 +3,9 @@
 # Downloading, reproducing, distributing or otherwise using the SDK Software
 # is subject to the terms and conditions of the Boston Dynamics Software
 # Development Kit License (20191101-BDSDK-SL).
+
+# mypy: ignore-errors
+
 """Command line interface for graph nav with options to download/upload a map
 and to navigate a map."""
 
