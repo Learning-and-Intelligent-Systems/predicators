@@ -256,7 +256,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         if annotate_with_gt_ops:
             last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
             annotations.append(
-                [ground_nsrt.parent.name for ground_nsrt in last_nsrt_plan])
+                [ground_nsrt for ground_nsrt in last_nsrt_plan])
         if CFG.make_demo_videos:
             assert monitor is not None
             video = monitor.get_video()

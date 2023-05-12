@@ -899,8 +899,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ]
             assert len(segmented_trajs) == len(dataset.annotations)
             # First, get the set of all ground truth operator names.
-            all_gt_op_names = set(op_name for anno_list in dataset.annotations
-                                  for op_name in anno_list)
+            all_gt_op_names = set(ground_nsrt.parent.name for anno_list in dataset.annotations
+                                  for ground_nsrt in anno_list)
             # Next, make a dictionary mapping operator name to segments
             # where that operator was used.
             gt_op_to_segments: Dict[str, List[Segment]] = {
@@ -909,8 +909,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             }
             for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
                 assert len(seg_list) == len(op_list)
-                for op_name, segment in zip(op_list, seg_list):
-                    gt_op_to_segments[op_name].append(segment)
+                for ground_nsrt, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
             predicates_to_keep: Set[Predicate] = set()
             for seg_list in gt_op_to_segments.values():
                 unique_add_effect_preds: Set[Predicate] = set()

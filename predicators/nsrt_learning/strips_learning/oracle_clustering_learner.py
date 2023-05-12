@@ -7,7 +7,7 @@ from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, Segment, Predicate
+from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, Segment, Predicate, NSRT
 
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
@@ -34,16 +34,16 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                 add_effects &= lifted_atoms
         return add_effects
 
-    def _compute_datastore_given_pnad_name(self, pnad_name: str, dummy_pnad: PNAD) -> Datastore:
+    def _compute_datastores_given_nsrt(self, nsrt: NSRT) -> Datastore:
         datastore = []
-        for seg_traj, op_name_list in zip(self._segmented_trajs, self._annotations):
-            assert len(seg_traj) == len(op_name_list)
-            for segment, op_name in zip(seg_traj, op_name_list):
-                if op_name == pnad_name:
-                    objs = set(segment.trajectory.states[0])
-                    pnad, sub = self._find_best_matching_pnad_and_sub(segment, objs, [dummy_pnad])
-                    assert pnad == dummy_pnad
-                    datastore.append((segment, sub))
+        for seg_traj, ground_nsrt_list in zip(self._segmented_trajs, self._annotations):
+            assert len(seg_traj) == len(ground_nsrt_list)
+            for segment, ground_nsrt in zip(seg_traj, ground_nsrt_list):
+                if ground_nsrt.parent == nsrt:
+                    op_vars = nsrt.op.parameters
+                    obj_sub = ground_nsrt.objects
+                    var_to_obj_sub = {var: obj for (var, obj) in zip(op_vars, obj_sub)}
+                    datastore.append((segment, var_to_obj_sub))
         return datastore
 
     def _find_add_effect_intersection_preds(self, segments: List[Segment]) -> Set[Predicate]:
@@ -76,20 +76,14 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             else:
                 option_spec = (DummyOption.parent, [])
 
-            dummy_op = nsrt.op.copy_with(preconditions=set(), add_effects=set(), delete_effects=set(), ignore_effects=self._predicates)
-            initial_dummy_pnad = PNAD(dummy_op, [], option_spec)
-            datastore = self._compute_datastore_given_pnad_name(nsrt.name, initial_dummy_pnad)
-
-            assert(len(datastore) > 0)
-
-            dummy_pnad_with_datastore = PNAD(dummy_op, datastore, option_spec)
-            add_effects = self._induce_add_effects_by_intersection(dummy_pnad_with_datastore)
-            preconditions = self._induce_preconditions_via_intersection(dummy_pnad_with_datastore)
-            correct_pnad = PNAD(dummy_pnad_with_datastore.op.copy_with(preconditions=preconditions, add_effects=add_effects), datastore, option_spec)
-            self._compute_pnad_delete_effects(correct_pnad)
-            self._compute_pnad_ignore_effects(correct_pnad)
-            
-            pnads.append(correct_pnad)
+            datastore = self._compute_datastores_given_nsrt(nsrt)
+            pnad = PNAD(nsrt.op, datastore, option_spec)
+            add_effects = self._induce_add_effects_by_intersection(pnad)
+            preconditions = self._induce_preconditions_via_intersection(pnad)
+            pnad = PNAD(pnad.op.copy_with(preconditions=preconditions, add_effects=add_effects), datastore, option_spec)
+            self._compute_pnad_delete_effects(pnad)
+            self._compute_pnad_ignore_effects(pnad)
+            pnads.append(pnad)
                 
         return pnads
 
