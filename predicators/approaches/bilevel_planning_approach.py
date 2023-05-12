@@ -5,11 +5,13 @@ then Execution.
 """
 
 import abc
+import logging
 import os
 import sys
 import time
 from typing import Any, Callable, List, Set, Tuple
 
+import bosdyn
 from gym.spaces import Box
 
 from predicators import utils
@@ -20,6 +22,7 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
     fd_plan_from_sas_file, generate_sas_file_for_fd, sesame_plan, task_plan, \
     task_plan_grounding
 from predicators.settings import CFG
+from predicators.spot_utils.spot_utils import SpotControllers
 from predicators.structs import NSRT, Action, GroundAtom, Metrics, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
@@ -73,6 +76,22 @@ class BilevelPlanningApproach(BaseApproach):
             policy = utils.option_plan_to_policy(plan)
 
         self._save_metrics(metrics, nsrts, preds)
+
+        if CFG.env == "realworld_spot":  # pragma: no cover
+            try:
+                spot_controllers = SpotControllers()
+                for op in plan:
+                    if op.name == 'MoveToSurface':
+                        spot_controllers.navigateToController(op.objects)
+                    elif op.name == 'MoveToCan':
+                        spot_controllers.navigateToController(op.objects)
+                    elif op.name == 'GraspCan':
+                        spot_controllers.graspController(op.objects)
+                    elif op.name == 'PlaceCanOntop':
+                        spot_controllers.placeOntopController(op.objects)
+            except (bosdyn.client.exceptions.ProxyConnectionError,
+                    RuntimeError):
+                logging.info("Could not connect to Spot!")
 
         def _policy(s: State) -> Action:
             try:

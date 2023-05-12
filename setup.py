@@ -1,6 +1,8 @@
 """Setup script."""
 from setuptools import find_packages, setup
 
+path_to_myproject = "."
+
 setup(
     name="predicators",
     version="0.1.0",
@@ -31,6 +33,8 @@ setup(
         "lisdf",
         "seaborn",
         "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
+        "bosdyn-client >= 3.1",
+        "opencv-python >= 3.4.2.17",
         "pg3@git+https://github.com/tomsilver/pg3.git",
         "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git"  # pylint: disable=line-too-long
     ],
