@@ -5,7 +5,6 @@
 # Development Kit License (20191101-BDSDK-SL).
 
 # mypy: ignore-errors
-
 """Command line interface for graph nav with options to download/upload a map
 and to navigate a map."""
 

@@ -5,7 +5,6 @@
 # Development Kit License (20191101-BDSDK-SL).
 
 # mypy: ignore-errors
-
 """Graph nav utility functions."""
 
 
