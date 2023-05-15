@@ -11,7 +11,7 @@ ALL_ENVS=(
 
 for ENV in ${ALL_ENVS[@]}; do
     # Main approach.
-    python $FILE --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --excluded_predicates all --num_train_tasks $NUM_TRAIN_TASKS --offline_data_method demo+gt_operators --grammar_search_pred_selection_approach clustering --strips_learner pnad_search --pnad_search_timeout 1000.0 --disable_harmlessness_check True
+    python $FILE --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --excluded_predicates all --num_train_tasks $NUM_TRAIN_TASKS --offline_data_method demo+gt_operators --grammar_search_pred_selection_approach clustering --strips_learner oracle_clustering
 
     # # Ablations.
     # # Note: downrefeval is main but with --sesame_max_skeletons_optimized 1 during evaluation only. We can only run this using `--load_approach` since we don't allow grammar_search_expected_nodes_max_skeletons to be greater than sesame_max_skeletons_optimized during invention.
