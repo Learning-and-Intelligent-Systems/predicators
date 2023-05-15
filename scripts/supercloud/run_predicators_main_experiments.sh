@@ -3,10 +3,10 @@
 FILE="scripts/supercloud/submit_supercloud_job.py"
 NUM_TRAIN_TASKS="200"
 ALL_ENVS=(
-    "cover"
-    "blocks"
-    "painting"
-    "tools"
+    # "cover"
+    "pybullet_blocks"
+    # "painting"
+    # "tools"
 )
 
 for ENV in ${ALL_ENVS[@]}; do
