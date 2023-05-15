@@ -904,6 +904,11 @@ def task_plan_with_option_plan_constraint(
             # during grounding.
             if applicable_nsrt.option != gt_param_option:
                 continue
+
+            # if "{NOT-On(block1:block, block3:block), ((0:block).pose_z<=[idx 3]0.282)(block0:block), ((0:block).pose_z<=[idx 1]0.342)(block0:block), ((0:block).pose_z<=[idx 0]0.461)(block0:block), NOT-On(block0:block, block1:block), ((0:robot).fingers<=[idx 0]0.5)(robby:robot), NOT-On(block3:block, block2:block), ((0:block).pose_z<=[idx 3]0.282)(block3:block), ((0:block).pose_z<=[idx 1]0.342)(block1:block), ((0:block).pose_z<=[idx 1]0.342)(block3:block), NOT-OnTable(block2:block), OnTable(block0:block), Forall[1:block].[NOT-On(0,1)](block3:block), ((0:block).pose_z<=[idx 3]0.282)(block1:block), NOT-On(block2:block, block3:block), On(block1:block, block0:block), ((0:block).pose_z<=[idx 0]0.461)(block1:block), NOT-((0:block).pose_z<=[idx 3]0.282)(block2:block), Forall[1:block].[NOT-On(0,1)](block0:block), NOT-On(block2:block, block2:block), NOT-On(block2:block, block0:block), Forall[0:block].[NOT-On(0,1)](block1:block), NOT-((0:block).pose_z<=[idx 1]0.342)(block2:block), NOT-Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)](), NOT-On(block0:block, block2:block), OnTable(block3:block), Forall[0:block].[NOT-On(0,1)](block3:block), NOT-Forall[0:block].[NOT-On(0,1)](block0:block), NOT-Forall[1:block].[NOT-On(0,1)](block1:block), NOT-On(block1:block, block1:block), NOT-OnTable(block1:block), Forall[1:block].[NOT-On(0,1)](block2:block), NOT-On(block3:block, block0:block), Forall[0:block].[NOT-On(0,1)](block2:block), NOT-On(block2:block, block1:block), NOT-On(block1:block, block2:block), NOT-On(block0:block, block3:block), NOT-((0:block).pose_z<=[idx 0]0.461)(block2:block), NOT-On(block3:block, block1:block), NOT-On(block0:block, block0:block), NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)](), NOT-On(block3:block, block3:block), ((0:block).pose_z<=[idx 0]0.461)(block3:block)}" in str(atoms_seq[idx_into_traj]):
+            # if "Stack" in str(gt_param_option):
+            #     import ipdb; ipdb.set_trace()
+
             if applicable_nsrt.option_objs != gt_objects:
                 continue
             if atoms_seq is not None and not \

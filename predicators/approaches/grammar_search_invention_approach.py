@@ -911,7 +911,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 assert len(seg_list) == len(op_list)
                 for ground_nsrt, segment in zip(op_list, seg_list):
                     gt_op_to_segments[ground_nsrt.parent.name].append(segment)
-            predicates_to_keep: Set[Predicate] = set()
+            consistent_add_effs_preds: Set[Predicate] = set()
+            # First, select predicates that change as add effects consistently
+            # within clusters.
             for seg_list in gt_op_to_segments.values():
                 unique_add_effect_preds: Set[Predicate] = set()
                 for seg in seg_list:
@@ -921,7 +923,37 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     else:
                         unique_add_effect_preds &= set(
                             atom.predicate for atom in seg.add_effects)
-                predicates_to_keep |= unique_add_effect_preds
+                consistent_add_effs_preds |= unique_add_effect_preds
+
+            # Next, select predicates that are consistent (either, it is
+            # an add effect, or a delete effect, or doesn't change)
+            # within all demos.
+            predicates_to_keep : Set[Predicate] = set()
+            for pred in consistent_add_effs_preds:
+                keep_pred = True
+                for seg_list in gt_op_to_segments.values():
+                    segment_0 = seg_list[0]
+                    pred_in_add_effs_0 = pred in [atom.predicate for atom in segment_0.add_effects]
+                    pred_in_del_effs_0 = pred in [atom.predicate for atom in segment_0.delete_effects]
+                    # pred_in_unchanged_0 = pred in [atom.predicate for atom in (segment_0.final_atoms & segment_0.init_atoms)]
+
+                    for seg in seg_list[1:]:
+                        pred_in_curr_add_effs = pred in [atom.predicate for atom in seg.add_effects]
+                        pred_in_curr_del_effs = pred in [atom.predicate for atom in seg.delete_effects]
+                        pred_in_curr_unchanged = pred in [atom.predicate for atom in (seg.final_atoms & seg.init_atoms)]
+
+                        if not ((pred_in_add_effs_0 == pred_in_curr_add_effs) and (pred_in_del_effs_0 == pred_in_curr_del_effs)):
+                            # import ipdb; ipdb.set_trace()
+                            keep_pred = False
+                            break
+
+                    if not keep_pred:
+                        break
+                
+                else:
+                    predicates_to_keep.add(pred)
+
+            # predicates_to_keep = consistent_add_effs_preds
 
             # Remove all the initial predicates.
             predicates_to_keep -= initial_predicates
