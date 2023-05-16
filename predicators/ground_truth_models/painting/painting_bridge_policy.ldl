@@ -11,10 +11,4 @@
         :goals ()
         :action (PlaceOnTableFromHoldingTop ?obj ?robot)
     )
-    (:rule PlaceOnTableFromHoldingSide
-            :parameters (?obj - obj ?robot - robot)
-            :preconditions (and (Holding ?obj) (HoldingSide ?obj) (IsClean ?obj) (IsDry ?obj) (OnTable ?obj) (PlaceFailed_arg0 ?robot) (not (GripperOpen ?robot)))
-            :goals ()
-            :action (PlaceOnTableFromHoldingSide ?obj ?robot)
-    )
 )
