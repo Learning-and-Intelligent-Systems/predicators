@@ -99,7 +99,8 @@ def test_backchaining_strips_learner(approach_name, approach_cls):
     segment2 = Segment(traj2, set(), goal2, Eat)
     learner = approach_cls([traj1, traj2], [task1, task2], {Asleep},
                            [[segment1], [segment2]],
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     pnads = learner.learn()
     # Verify the results are as expected.
     expected_strs = [
@@ -136,7 +137,8 @@ def test_backchaining_strips_learner(approach_name, approach_cls):
     # Create and run the sidelining approach.
     learner = approach_cls([traj3, traj4], [task3, task4], {Asleep, Sad},
                            [[segment3], [segment4]],
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     pnads = learner.learn()
     assert len(pnads) == 1
     expected_str = """STRIPS-Cry0:
@@ -152,7 +154,8 @@ def test_backchaining_strips_learner(approach_name, approach_cls):
         utils.reset_config({"pnad_search_without_del": True})
         learner = approach_cls([traj3, traj4], [task3, task4], {Asleep, Sad},
                                [[segment3], [segment4]],
-                               verify_harmlessness=True)
+                               verify_harmlessness=True,
+                               annotations=None)
         pnads = learner.learn()
         assert len(pnads) == 1
         assert str(pnads[0]) == repr(pnads[0]) == expected_str
@@ -251,14 +254,16 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         [traj1, traj2, traj3], [task1, task2, task3],
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
         [[segment1], [segment2], [segment3]],
-        verify_harmlessness=True)
+        verify_harmlessness=True,
+        annotations=None)
     natural_order_pnads = learner.learn()
     # Now, create and run the learner with the 3 demos in the reverse order.
     learner = approach_cls(
         [traj3, traj2, traj1], [task1, task2, task3],
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
         [[segment3], [segment2], [segment1]],
-        verify_harmlessness=True)
+        verify_harmlessness=True,
+        annotations=None)
     if approach_name == "backchaining":
         # Be sure to reset the segment add effects before doing this.
         learner.reset_all_segment_add_effs()
@@ -561,7 +566,8 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     learner = approach_cls([traj1, traj2], [task1, task2],
                            preds,
                            segmented_trajs,
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     natural_order_pnads = learner.learn()
     action_space = Box(0, 1, (1, ))
     dataset = [traj1, traj2]
@@ -595,7 +601,8 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     learner = approach_cls([traj2, traj1], [task2, task1],
                            preds,
                            segmented_trajs,
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     if approach_name == "backchaining":
         # Be sure to reset the segment add effects before doing this.
         learner.reset_all_segment_add_effs()
@@ -827,7 +834,8 @@ def test_keep_effect_data_partitioning(approach_cls):
     learner = approach_cls([traj1, traj2], [task1, task2],
                            predicates,
                            segmented_trajs,
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     output_pnads = learner.learn()
     # There should be exactly 4 output PNADs: 2 for Configure, and 1 for
     # each of TurnOn and Run. One of the Configure operators should have
@@ -1040,7 +1048,8 @@ def test_combinatorial_keep_effect_data_partitioning(approach_name,
                            [task1, task2, task3, task4],
                            predicates,
                            segmented_trajs,
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     output_pnads = learner.learn()
     # We need 6 or 7 PNADs: 3 or 4 for configure, and 1 each for turn on,
     # run, and fix.
@@ -1110,7 +1119,8 @@ def test_combinatorial_keep_effect_data_partitioning(approach_name,
     learner = approach_cls([traj1, traj2, traj3], [task1, task2, task3],
                            predicates,
                            segmented_trajs[:-1],
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     if approach_name == "backchaining":
         learner.reset_all_segment_add_effs()
     output_pnads = learner.learn()
@@ -1206,7 +1216,8 @@ def test_keep_effect_adding_new_variables(approach_cls):
     # Now, run the learner on the demo.
     learner = approach_cls([traj], [task],
                            predicates, [segmented_traj],
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     output_pnads = learner.learn()
 
     # Verify that all the output PNADs are correct. The PNAD for Press should
@@ -1311,7 +1322,8 @@ def test_multi_pass_backchaining(approach_cls, val):
     learner = approach_cls([traj1, traj2, traj3], [task1, task2, task3],
                            predicates,
                            segmented_trajs,
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
     if val == 0.0:
@@ -1430,7 +1442,8 @@ def test_segment_not_in_datastore(approach_cls):
     learner = approach_cls(trajs, [task0, task1, task2, task3],
                            predicates,
                            segmented_trajs,
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
     assert len(learned_pnads) == 4
@@ -1620,6 +1633,7 @@ def test_backchaining_randomly_generated(approach_cls, use_single_option,
                            tasks,
                            predicates,
                            segmented_trajs,
-                           verify_harmlessness=True)
+                           verify_harmlessness=True,
+                           annotations=None)
     # Running this automatically checks that harmlessness passes.
     learner.learn()

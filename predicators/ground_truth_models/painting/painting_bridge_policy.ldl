@@ -5,10 +5,10 @@
         :goals ()
         :action (OpenLid ?lid ?robot)
     )
-    (:rule PlaceOnTable
+    (:rule PlaceOnTableFromHoldingTop
         :parameters (?obj - obj ?robot - robot)
         :preconditions (and (Holding ?obj) (HoldingTop ?obj) (IsClean ?obj) (IsDry ?obj) (OnTable ?obj) (PlaceFailed_arg0 ?robot) (not (GripperOpen ?robot)))
         :goals ()
-        :action (PlaceOnTable ?obj ?robot)
+        :action (PlaceOnTableFromHoldingTop ?obj ?robot)
     )
 )
