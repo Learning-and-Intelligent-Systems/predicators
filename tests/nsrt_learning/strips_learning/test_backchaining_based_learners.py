@@ -577,7 +577,8 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
                                                       options,
                                                       action_space,
                                                       ground_atom_dataset,
-                                                      sampler_learner="random")
+                                                      sampler_learner="random",
+                                                      annotations=None)
 
     traj1 = LowLevelTrajectory([
         state1, state2, state3, state4, state5, state6, state7, state8, state9
@@ -613,7 +614,8 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
                                                       options,
                                                       action_space,
                                                       ground_atom_dataset,
-                                                      sampler_learner="random")
+                                                      sampler_learner="random",
+                                                      annotations=None)
 
     # First, check that the two sets of PNADs have the same number of PNADs.
     # (in the case of EffectSearch).
@@ -666,7 +668,8 @@ def testspawn_new_pnad():
     # Create the sidelining approach.
     learner = _MockBackchainingSTRIPSLearner([traj], [task], {Asleep, Happy},
                                              [[segment]],
-                                             verify_harmlessness=True)
+                                             verify_harmlessness=True,
+                                             annotations=None)
     # Normal usage: the PNAD add effects can capture a subset of
     # the necessary_add_effects.
     _, ground_op = learner.find_unification(

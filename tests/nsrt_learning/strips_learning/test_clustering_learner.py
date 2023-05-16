@@ -155,7 +155,8 @@ def test_cluster_and_intersect_strips_learner():
     known_option_pnads = learn_strips_operators([known_option_ll_traj],
                                                 None,
                                                 None, [known_option_segments],
-                                                verify_harmlessness=True)
+                                                verify_harmlessness=True,
+                                                annotations=None)
     known_option_ops = [pnad.op for pnad in known_option_pnads]
     assert len(known_option_ops) == 1
     assert str((known_option_ops[0])) == """STRIPS-Op0:
@@ -168,7 +169,8 @@ def test_cluster_and_intersect_strips_learner():
                                                   None,
                                                   None,
                                                   [unknown_option_segments],
-                                                  verify_harmlessness=True)
+                                                  verify_harmlessness=True,
+                                                  annotations=None)
     unknown_option_ops = [pnad.op for pnad in unknown_option_pnads]
     assert len(unknown_option_ops) == 1
     assert str(unknown_option_ops[0]) == """STRIPS-Op0:
@@ -232,7 +234,8 @@ def test_cluster_and_search_strips_learner():
     pnads = learn_strips_operators([traj1, traj2, traj3],
                                    [task1, task2, task3],
                                    preds, [[segment1], [segment2], [segment3]],
-                                   verify_harmlessness=True)
+                                   verify_harmlessness=True,
+                                   annotations=None)
     assert len(pnads) == 2
     op0, op1 = sorted(pnads, key=str)
     assert str(op0) == """STRIPS-Op0:
@@ -261,7 +264,8 @@ def test_cluster_and_search_strips_learner():
     pnads = learn_strips_operators([traj1, traj2, traj3],
                                    [task1, task2, task3],
                                    preds, [[segment1], [segment2], [segment3]],
-                                   verify_harmlessness=True)
+                                   verify_harmlessness=True,
+                                   annotations=None)
     assert len(pnads) == 3
     op0, op1, op2 = sorted(pnads, key=str)
     assert str(op0) == """STRIPS-Op0-0:
@@ -299,7 +303,8 @@ def test_cluster_and_search_strips_learner():
     pnads = learn_strips_operators([traj1, traj2, traj3],
                                    [task1, task2, task3],
                                    preds, [[segment1], [segment2], [segment3]],
-                                   verify_harmlessness=True)
+                                   verify_harmlessness=True,
+                                   annotations=None)
     assert len(pnads) == 2
     op0, op1 = sorted(pnads, key=str)
     assert str(op0) == """STRIPS-Op0-0:
