@@ -7,7 +7,7 @@ or options.
 import logging
 import os
 import time
-from typing import Dict, List, Optional, Set, Any
+from typing import Any, Dict, List, Optional, Set
 
 import dill as pkl
 from gym.spaces import Box
@@ -49,10 +49,13 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
+        self._learn_nsrts(dataset.trajectories,
+                          online_learning_cycle=None,
+                          annotations=dataset.annotations)
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
-                     online_learning_cycle: Optional[int], annotations: Optional[List[Any]]) -> None:
+                     online_learning_cycle: Optional[int],
+                     annotations: Optional[List[Any]]) -> None:
         dataset_fname, _ = utils.create_dataset_filename_str(
             saving_ground_atoms=True,
             online_learning_cycle=online_learning_cycle)

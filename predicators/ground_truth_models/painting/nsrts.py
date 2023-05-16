@@ -392,8 +392,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     y = state.get(objs[0], "pose_y")
                     z = state.get(objs[0], "pose_z")
                 elif env_name == "repeated_nextto_painting":
-                    # Release the object at a randomly-chosen position on the table
-                    # such that it is NextTo the robot.
+                    # Release the object at a randomly-chosen position on
+                    # the table such that it is NextTo the robot.
                     robot_y = state.get(objs[1], "pose_y")
                     table_lb = RepeatedNextToPaintingEnv.table_lb
                     table_ub = RepeatedNextToPaintingEnv.table_ub

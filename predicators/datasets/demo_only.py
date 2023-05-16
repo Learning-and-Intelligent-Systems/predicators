@@ -168,7 +168,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         event_to_action = env.get_event_to_action_fn()
     trajectories = []
     if annotate_with_gt_ops:
-        annotations: List[List[str]] = []
+        annotations = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
     rng = np.random.default_rng(CFG.seed)
     for idx, task in enumerate(train_tasks):
@@ -255,8 +255,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         # nsrt used to the list of annotations.
         if annotate_with_gt_ops:
             last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
-            annotations.append(
-                [ground_nsrt for ground_nsrt in last_nsrt_plan])
+            annotations.append(list(last_nsrt_plan))
         if CFG.make_demo_videos:
             assert monitor is not None
             video = monitor.get_video()

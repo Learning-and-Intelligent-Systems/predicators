@@ -1,23 +1,23 @@
 """Oracle for STRIPS learning."""
 
-import logging
 from typing import List, Set
 
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, Segment, Predicate, NSRT
+from predicators.structs import NSRT, PNAD, Datastore, DummyOption, \
+    LiftedAtom, Predicate, Segment
 
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
-    """Base class for a STRIPS learner that uses oracle operators
-    but re-learns all the components via currently-implemented
-    methods in the base class."""
+    """Base class for a STRIPS learner that uses oracle operators but re-learns
+    all the components via currently-implemented methods in the base class."""
 
-    def _induce_add_effects_by_intersection(self, pnad: PNAD) -> Set[LiftedAtom]:
-        """Given a PNAD with a nonempty datastore, compute the add effects
-        for the PNAD's operator by intersecting all lifted add effects."""
+    def _induce_add_effects_by_intersection(self,
+                                            pnad: PNAD) -> Set[LiftedAtom]:
+        """Given a PNAD with a nonempty datastore, compute the add effects for
+        the PNAD's operator by intersecting all lifted add effects."""
         assert len(pnad.datastore) > 0
         for i, (segment, var_to_obj) in enumerate(pnad.datastore):
             objects = set(var_to_obj.values())
@@ -36,25 +36,28 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
 
     def _compute_datastores_given_nsrt(self, nsrt: NSRT) -> Datastore:
         datastore = []
-        for seg_traj, ground_nsrt_list in zip(self._segmented_trajs, self._annotations):
+        assert self._annotations is not None
+        for seg_traj, ground_nsrt_list in zip(self._segmented_trajs,
+                                              self._annotations):
             assert len(seg_traj) == len(ground_nsrt_list)
             for segment, ground_nsrt in zip(seg_traj, ground_nsrt_list):
                 if ground_nsrt.parent == nsrt:
                     op_vars = nsrt.op.parameters
                     obj_sub = ground_nsrt.objects
-                    var_to_obj_sub = {var: obj for (var, obj) in zip(op_vars, obj_sub)}
+                    var_to_obj_sub = dict(zip(op_vars, obj_sub))
                     datastore.append((segment, var_to_obj_sub))
         return datastore
 
-    def _find_add_effect_intersection_preds(self, segments: List[Segment]) -> Set[Predicate]:
+    def _find_add_effect_intersection_preds(
+            self, segments: List[Segment]) -> Set[Predicate]:
         unique_add_effect_preds: Set[Predicate] = set()
         for seg in segments:
             if len(unique_add_effect_preds) == 0:
-                unique_add_effect_preds = set(
-                    atom.predicate for atom in seg.add_effects)
+                unique_add_effect_preds = set(atom.predicate
+                                              for atom in seg.add_effects)
             else:
-                unique_add_effect_preds &= set(
-                    atom.predicate for atom in seg.add_effects)
+                unique_add_effect_preds &= set(atom.predicate
+                                               for atom in seg.add_effects)
         return unique_add_effect_preds
 
     def _learn(self) -> List[PNAD]:
@@ -80,11 +83,14 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             pnad = PNAD(nsrt.op, datastore, option_spec)
             add_effects = self._induce_add_effects_by_intersection(pnad)
             preconditions = self._induce_preconditions_via_intersection(pnad)
-            pnad = PNAD(pnad.op.copy_with(preconditions=preconditions, add_effects=add_effects), datastore, option_spec)
+            pnad = PNAD(
+                pnad.op.copy_with(preconditions=preconditions,
+                                  add_effects=add_effects), datastore,
+                option_spec)
             self._compute_pnad_delete_effects(pnad)
             self._compute_pnad_ignore_effects(pnad)
             pnads.append(pnad)
-                
+
         return pnads
 
     @classmethod

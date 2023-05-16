@@ -783,7 +783,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 candidates, self._initial_predicates, dataset, atom_dataset)
         logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None, annotations=dataset.annotations)
+        self._learn_nsrts(dataset.trajectories,
+                          online_learning_cycle=None,
+                          annotations=dataset.annotations)
 
     def _select_predicates_by_score_hillclimbing(
             self, candidates: Dict[Predicate, float],
@@ -869,6 +871,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                                | initial_predicates),
                                            segmented_trajs,
                                            verify_harmlessness=False,
+                                           annotations=None,
                                            verbose=False):
             for atom in pnad.op.preconditions:
                 preds_in_preconds.add(atom.predicate)
@@ -899,7 +902,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ]
             assert len(segmented_trajs) == len(dataset.annotations)
             # First, get the set of all ground truth operator names.
-            all_gt_op_names = set(ground_nsrt.parent.name for anno_list in dataset.annotations
+            all_gt_op_names = set(ground_nsrt.parent.name
+                                  for anno_list in dataset.annotations
                                   for ground_nsrt in anno_list)
             # Next, make a dictionary mapping operator name to segments
             # where that operator was used.
@@ -928,32 +932,34 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Next, select predicates that are consistent (either, it is
             # an add effect, or a delete effect, or doesn't change)
             # within all demos.
-            predicates_to_keep : Set[Predicate] = set()
+            predicates_to_keep: Set[Predicate] = set()
             for pred in consistent_add_effs_preds:
                 keep_pred = True
                 for seg_list in gt_op_to_segments.values():
                     segment_0 = seg_list[0]
-                    pred_in_add_effs_0 = pred in [atom.predicate for atom in segment_0.add_effects]
-                    pred_in_del_effs_0 = pred in [atom.predicate for atom in segment_0.delete_effects]
-                    # pred_in_unchanged_0 = pred in [atom.predicate for atom in (segment_0.final_atoms & segment_0.init_atoms)]
-
+                    pred_in_add_effs_0 = pred in [
+                        atom.predicate for atom in segment_0.add_effects
+                    ]
+                    pred_in_del_effs_0 = pred in [
+                        atom.predicate for atom in segment_0.delete_effects
+                    ]
                     for seg in seg_list[1:]:
-                        pred_in_curr_add_effs = pred in [atom.predicate for atom in seg.add_effects]
-                        pred_in_curr_del_effs = pred in [atom.predicate for atom in seg.delete_effects]
-                        pred_in_curr_unchanged = pred in [atom.predicate for atom in (seg.final_atoms & seg.init_atoms)]
-
-                        if not ((pred_in_add_effs_0 == pred_in_curr_add_effs) and (pred_in_del_effs_0 == pred_in_curr_del_effs)):
-                            # import ipdb; ipdb.set_trace()
+                        pred_in_curr_add_effs = pred in [
+                            atom.predicate for atom in seg.add_effects
+                        ]
+                        pred_in_curr_del_effs = pred in [
+                            atom.predicate for atom in seg.delete_effects
+                        ]
+                        if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
+                                and
+                                (pred_in_del_effs_0 == pred_in_curr_del_effs)):
                             keep_pred = False
                             break
-
                     if not keep_pred:
                         break
-                
+
                 else:
                     predicates_to_keep.add(pred)
-
-            # predicates_to_keep = consistent_add_effs_preds
 
             # Remove all the initial predicates.
             predicates_to_keep -= initial_predicates

@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from predicators import utils
 from predicators.planning import task_plan_with_option_plan_constraint

@@ -137,7 +137,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn NSRTs via superclass
-        self._learn_nsrts(self._dataset.trajectories, online_learning_cycle)
+        self._learn_nsrts(self._dataset.trajectories,
+                          online_learning_cycle,
+                          annotations=self._dataset.annotations)
 
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()

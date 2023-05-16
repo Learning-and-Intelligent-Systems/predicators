@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Set, Tuple, Optional, Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box

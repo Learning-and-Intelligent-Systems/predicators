@@ -1,6 +1,6 @@
 """This directory contains algorithms for STRIPS operator learning."""
 
-from typing import List, Set, Optional, Any
+from typing import Any, List, Optional, Set
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
@@ -31,7 +31,8 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
         if not cls.__abstractmethods__ and \
            cls.get_name() == CFG.strips_learner:
             learner = cls(trajectories, train_tasks, predicates,
-                          segmented_trajs, verify_harmlessness, annotations, verbose)
+                          segmented_trajs, verify_harmlessness, annotations,
+                          verbose)
             break
     else:
         raise ValueError(f"Unrecognized STRIPS learner: {CFG.strips_learner}")

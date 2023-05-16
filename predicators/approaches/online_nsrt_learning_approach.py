@@ -94,7 +94,8 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
             self._update_dataset(traj)
         # Re-learn the NSRTs.
         self._learn_nsrts(self._dataset.trajectories,
-                          self._online_learning_cycle)
+                          self._online_learning_cycle,
+                          annotations=self._dataset.annotations)
         # Advance the online learning cycle.
         self._online_learning_cycle += 1
 
