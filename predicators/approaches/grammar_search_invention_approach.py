@@ -892,6 +892,93 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         """Cluster segments from the atom_dataset into clusters corresponding
         to operators and use this to select predicates."""
 
+        if CFG.grammar_search_pred_clusterer == "option-types-sample":
+            # Algorithm: 
+            # Step 1: cluster by option 
+            # Step 2: cluster by types of objects involved in add effects
+            # Step 3: cluster by sample (k-means on sample) if sample exists
+
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
+            from functools import reduce 
+            flattened_segmented_trajs = reduce(lambda a, b: a+b, segmented_trajs)
+
+            # Step 1: 
+            option_to_segments = {}
+            for s in flattened_segmented_trajs:
+                n = s.get_option().name
+                if n in option_to_segments:
+                    option_to_segments[n].append(s)
+                else:
+                    option_to_segments[n] = [s]
+
+            # Step 2:
+            all_clusters = []
+            for option, segments in option_to_segments.items():
+                clusters = {}
+                for seg in segments:
+                    types = tuple(sorted(list(set.union(*[set(a.predicate.types) for a in seg.add_effects]))))
+                    if types in clusters:
+                        clusters[types].append(seg)
+                    else:
+                        clusters[types] = [seg]
+                print(f"STEP 2, generated {len(clusters.values())} clusters for {option}")
+                for c in clusters.values():
+                    all_clusters.append(c)
+
+            # Step 3: 
+            final_clusters = []
+            for cluster in all_clusters:
+                example_segment = cluster[0]
+                option_name = example_segment.get_option().name
+                if len(example_segment.get_option().params) == 0:
+                    final_clusters.append(cluster)
+                    print(f"STEP 3, generated {0} clusters for {option_name}")
+                else:
+                    # Do model selection between 
+                    # a uniform distribution and a gaussian mixture?
+                    import numpy as np 
+                    from sklearn.mixture import GaussianMixture as GMM
+                    data = np.array([seg.get_option().params for seg in cluster])
+
+                    n_components = np.arange(1, 10)
+                    models = [GMM(n, covariance_type="full", random_state=0).fit(data)
+                        for n in n_components]
+                    bic = [m.bic(data) for m in models]
+                    # TODO: add some penalty based on how it gets less data in each cluster 
+
+                    # if option_name == "Paint":
+                    #     import pdb; pdb.set_trace()
+
+                    best = models[np.argmin(bic)]
+                    assignments = best.predict(data)
+
+                    sub_clusters = {}
+                    for i, assignment in enumerate(assignments):
+                        if assignment in sub_clusters:
+                            sub_clusters[assignment].append(cluster[i])
+                        else:
+                            sub_clusters[assignment] = [cluster[i]]
+
+                    print(f"STEP 3, generated {len(sub_clusters.values())} clusters for {option_name}")
+                    for c in sub_clusters.values():
+                        final_clusters.append(c)
+
+            # import pdb; pdb.set_trace()
+
+            all_add_effects = set()
+            for c in final_clusters:
+                add_effects_per_segment = [s.add_effects for s in c]
+                ungrounded_add_effects_per_segment = []
+                for add_effects in add_effects_per_segment:
+                    ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+                add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+                all_add_effects |= add_effects
+            return all_add_effects
+
+            # Consistency check 
+
+
         if CFG.grammar_search_pred_clusterer == "oracle":
             assert CFG.offline_data_method == "demo+gt_operators"
             assert dataset.annotations is not None and len(
