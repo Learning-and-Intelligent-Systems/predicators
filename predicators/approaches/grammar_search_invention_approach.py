@@ -744,6 +744,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
+        self._clusters: List[List[List[Segment]]] = []
         self._num_inventions = 0
 
     @classmethod
@@ -774,7 +775,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset, candidates, self._train_tasks)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
-        self._learned_predicates = self._select_predicates_to_keep(
+        self._learned_predicates, self._clusters = self._select_predicates_to_keep(
             candidates, score_function, self._initial_predicates, atom_dataset,
             self._train_tasks)
         logging.info("Done.")
@@ -920,15 +921,20 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     clusters[types].append(seg)
                 else:
                     clusters[types] = [seg]
+
+            # # construct feature from state + sample 
+            # feature = []
+            # for seg in segments:
+            #     # probably want to treat the label differently
+            #     # so keep it as (x, y) 
+            #     # since we want to cluster the samples, really, but kind of 
+            #     # conditional on the state? 
+            #     param = seg.get_option().params 
+            #     objects = seg.get_option().objects 
+            #     state = seg.vec(objects)
+
             # import pdb; pdb.set_trace()
-            return list(clusters.values()) 
-            # if len(clusters) > 1:
-            #     return list(clusters.values()) 
-            # else:
-            #     # if this doesn't work, try to cluster the segments by 
-            #     # the same add effects 
-            #     clusters = []
-            #     for j, seg in enumerate(segments):
+            return list(clusters.values())
 
         # # try k means 
         # def cluster(segments):
@@ -1008,16 +1014,23 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #     cluster(segments)
 
         all_add_effects = set()
+        clusters = []
         for option, segments in option_to_segments.items():
-            for clus in cluster(segments):
-                add_effects_per_segment = [s.add_effects for s in clus]
-                ungrounded_add_effects_per_segment = []
-                for add_effects in add_effects_per_segment:
-                    ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
-                add_effects = set.intersection(*ungrounded_add_effects_per_segment)
-                all_add_effects |= add_effects
-                list_add_effects = list(add_effects)
-        return all_add_effects
+            if option == "Pick":
+                for seg in segments:
+                    print(seg.get_option().params)
+                import pdb; pdb.set_trace()
+                cluster(segments)
+            # for clus in cluster(segments):
+            #     clusters.append(clus)
+            #     add_effects_per_segment = [s.add_effects for s in clus]
+            #     ungrounded_add_effects_per_segment = []
+            #     for add_effects in add_effects_per_segment:
+            #         ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+            #     add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+            #     all_add_effects |= add_effects
+            #     list_add_effects = list(add_effects)
+        return all_add_effects, clusters 
 
 
         # # now, get the add effects per controller 

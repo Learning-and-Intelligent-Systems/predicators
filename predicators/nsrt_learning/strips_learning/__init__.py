@@ -35,3 +35,25 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
     else:
         raise ValueError(f"Unrecognized STRIPS learner: {CFG.strips_learner}")
     return learner.learn()
+
+def learn_strips_operators2(trajectories: List[LowLevelTrajectory],
+                           train_tasks: List[Task],
+                           predicates: Set[Predicate],
+                           segmented_trajs: List[List[Segment]],
+                           clusters: List[List[List[Segment]]],
+                           verify_harmlessness: bool,
+                           verbose: bool = True) -> List[PNAD]:
+    """Learn strips operators on the given data segments.
+
+    Return a list of PNADs with op (STRIPSOperator), datastore, and
+    option_spec fields filled in (but not sampler).
+    """
+    for cls in utils.get_all_subclasses(BaseSTRIPSLearner):
+        if not cls.__abstractmethods__ and \
+           cls.get_name() == CFG.strips_learner:
+            learner = cls(trajectories, train_tasks, predicates,
+                          segmented_trajs, clusters, verify_harmlessness, verbose)
+            break
+    else:
+        raise ValueError(f"Unrecognized STRIPS learner: {CFG.strips_learner}")
+    return learner.learn()

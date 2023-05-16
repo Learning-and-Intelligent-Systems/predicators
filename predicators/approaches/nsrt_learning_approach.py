@@ -102,6 +102,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   self._initial_options,
                                   self._action_space,
                                   ground_atom_dataset,
+                                  self._clusters,
                                   sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:

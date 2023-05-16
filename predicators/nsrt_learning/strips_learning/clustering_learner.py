@@ -16,68 +16,168 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for a clustering-based STRIPS learner."""
 
     def _learn(self) -> List[PNAD]:
-        segments = [seg for segs in self._segmented_trajs for seg in segs]
-        # Cluster the segments according to common option and effects.
+        import pdb; pdb.set_trace()
         pnads: List[PNAD] = []
-        for segment in segments:
-            if segment.has_option():
+        for j, subgroup in enumerate(self._clusters): # List[Segment]
+            pnad = None
+            # first, get the set of add effects that is the intersection of add effects in this group 
+            add_effects_per_segment = [s.add_effects for s in subgroup]
+            ungrounded_add_effects_per_segment = []
+            for add_effects in add_effects_per_segment:
+                ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
+            add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+            del_effects_per_segment = [s.delete_effects for s in subgroup]
+            ungrounded_del_effects_per_segment = []
+            for del_effects in del_effects_per_segment:
+                ungrounded_del_effects_per_segment.append(set(a.predicate for a in del_effects))
+            delete_effects = set.intersection(*ungrounded_del_effects_per_segment)
+
+            for k, segment in enumerate(subgroup): # Segment
                 segment_option = segment.get_option()
                 segment_param_option = segment_option.parent
                 segment_option_objs = tuple(segment_option.objects)
-            else:
-                segment_param_option = DummyOption.parent
-                segment_option_objs = tuple()
-            for pnad in pnads:
-                # Try to unify this transition with existing effects.
-                # Note that both add and delete effects must unify,
-                # and also the objects that are arguments to the options.
-                (pnad_param_option, pnad_option_vars) = pnad.option_spec
-                suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
-                    frozenset(),  # no preconditions
-                    frozenset(),  # no preconditions
-                    frozenset(segment.add_effects),
-                    frozenset(pnad.op.add_effects),
-                    frozenset(segment.delete_effects),
-                    frozenset(pnad.op.delete_effects),
-                    segment_param_option,
-                    pnad_param_option,
-                    segment_option_objs,
-                    tuple(pnad_option_vars))
-                sub = cast(VarToObjSub,
-                           {v: o
-                            for o, v in ent_to_ent_sub.items()})
-                if suc:
-                    # Add to this PNAD.
+                # create a new PNAD for each j => when k = 0
+                if k == 0:
+                    relevant_add_effects = set(a for a in segment.add_effects if a.predicate in add_effects)
+                    relevant_delete_effects = set(a for a in segment.add_effects if a.predicate in delete_effects)
+                    # objects = {o for atom in segment.add_effects |
+                    #    segment.delete_effects for o in atom.objects} | \
+                    #   set(segment_option_objs)
+                    objects = {o for atom in relevant_add_effects |
+                       relevant_delete_effects for o in atom.objects} | \
+                      set(segment_option_objs)
+                    objects_lst = sorted(objects)
+                    params = utils.create_new_variables(
+                        [o.type for o in objects_lst])
+                    preconds: Set[LiftedAtom] = set()  # will be learned later
+                    obj_to_var = dict(zip(objects_lst, params))
+                    var_to_obj = dict(zip(params, objects_lst))
+                    # add_effects = {
+                    #     atom.lift(obj_to_var)
+                    #     for atom in segment.add_effects
+                    # }
+                    add_effects = {
+                        atom.lift(obj_to_var)
+                        for atom in relevant_add_effects
+                    }
+                    # delete_effects = {
+                    #     atom.lift(obj_to_var)
+                    #     for atom in segment.delete_effects
+                    # }
+                    delete_effects = {
+                        atom.lift(obj_to_var)
+                        for atom in relevant_delete_effects
+                    }
+                    ignore_effects: Set[Predicate] = set()  # will be learned later
+                    op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
+                                        add_effects, delete_effects,
+                                        ignore_effects)
+                    datastore = [(segment, var_to_obj)]
+                    option_vars = [obj_to_var[o] for o in segment_option_objs]
+                    option_spec = (segment_param_option, option_vars)
+                    pnad = PNAD(op, datastore, option_spec)
+                    pnads.append(pnad)
+
+                else:
+                    break
+                    # add to existing pnad
+                    (pnad_param_option, pnad_option_vars) = pnad.option_spec
+                    suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
+                        frozenset(),  # no preconditions
+                        frozenset(),  # no preconditions
+                        frozenset(segment.add_effects),
+                        frozenset(pnad.op.add_effects),
+                        frozenset(segment.delete_effects),
+                        frozenset(pnad.op.delete_effects),
+                        segment_param_option,
+                        pnad_param_option,
+                        segment_option_objs,
+                        tuple(pnad_option_vars))
+                    sub = cast(VarToObjSub,
+                               {v: o
+                                for o, v in ent_to_ent_sub.items()})
+                    if not suc:
+                        import pdb; pdb.set_trace()
+                        suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
+                            frozenset(),  # no preconditions
+                            frozenset(),  # no preconditions
+                            frozenset(segment.add_effects),
+                            frozenset(pnad.op.add_effects),
+                            frozenset(segment.delete_effects),
+                            frozenset(pnad.op.delete_effects),
+                            segment_param_option,
+                            pnad_param_option,
+                            segment_option_objs,
+                            tuple(pnad_option_vars))
+                    assert suc 
                     assert set(sub.keys()) == set(pnad.op.parameters)
                     pnad.add_to_datastore((segment, sub))
-                    break
-            else:
-                # Otherwise, create a new PNAD.
-                objects = {o for atom in segment.add_effects |
-                           segment.delete_effects for o in atom.objects} | \
-                          set(segment_option_objs)
-                objects_lst = sorted(objects)
-                params = utils.create_new_variables(
-                    [o.type for o in objects_lst])
-                preconds: Set[LiftedAtom] = set()  # will be learned later
-                obj_to_var = dict(zip(objects_lst, params))
-                var_to_obj = dict(zip(params, objects_lst))
-                add_effects = {
-                    atom.lift(obj_to_var)
-                    for atom in segment.add_effects
-                }
-                delete_effects = {
-                    atom.lift(obj_to_var)
-                    for atom in segment.delete_effects
-                }
-                ignore_effects: Set[Predicate] = set()  # will be learned later
-                op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
-                                    add_effects, delete_effects,
-                                    ignore_effects)
-                datastore = [(segment, var_to_obj)]
-                option_vars = [obj_to_var[o] for o in segment_option_objs]
-                option_spec = (segment_param_option, option_vars)
-                pnads.append(PNAD(op, datastore, option_spec))
+        import pdb; pdb.set_trace()
+
+        ##########################
+
+        # segments = [seg for segs in self._segmented_trajs for seg in segs]
+        # # Cluster the segments according to common option and effects.
+        # pnads: List[PNAD] = []
+        # for segment in segments:
+        #     if segment.has_option():
+        #         segment_option = segment.get_option()
+        #         segment_param_option = segment_option.parent
+        #         segment_option_objs = tuple(segment_option.objects)
+        #     else:
+        #         segment_param_option = DummyOption.parent
+        #         segment_option_objs = tuple()
+        #     for pnad in pnads:
+        #         # Try to unify this transition with existing effects.
+        #         # Note that both add and delete effects must unify,
+        #         # and also the objects that are arguments to the options.
+        #         (pnad_param_option, pnad_option_vars) = pnad.option_spec
+        #         suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
+        #             frozenset(),  # no preconditions
+        #             frozenset(),  # no preconditions
+        #             frozenset(segment.add_effects),
+        #             frozenset(pnad.op.add_effects),
+        #             frozenset(segment.delete_effects),
+        #             frozenset(pnad.op.delete_effects),
+        #             segment_param_option,
+        #             pnad_param_option,
+        #             segment_option_objs,
+        #             tuple(pnad_option_vars))
+        #         sub = cast(VarToObjSub,
+        #                    {v: o
+        #                     for o, v in ent_to_ent_sub.items()})
+        #         if suc:
+        #             # Add to this PNAD.
+        #             assert set(sub.keys()) == set(pnad.op.parameters)
+        #             pnad.add_to_datastore((segment, sub))
+        #             break
+        #     else:
+        #         # Otherwise, create a new PNAD.
+        #         objects = {o for atom in segment.add_effects |
+        #                    segment.delete_effects for o in atom.objects} | \
+        #                   set(segment_option_objs)
+        #         objects_lst = sorted(objects)
+        #         params = utils.create_new_variables(
+        #             [o.type for o in objects_lst])
+        #         preconds: Set[LiftedAtom] = set()  # will be learned later
+        #         obj_to_var = dict(zip(objects_lst, params))
+        #         var_to_obj = dict(zip(params, objects_lst))
+        #         add_effects = {
+        #             atom.lift(obj_to_var)
+        #             for atom in segment.add_effects
+        #         }
+        #         delete_effects = {
+        #             atom.lift(obj_to_var)
+        #             for atom in segment.delete_effects
+        #         }
+        #         ignore_effects: Set[Predicate] = set()  # will be learned later
+        #         op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
+        #                             add_effects, delete_effects,
+        #                             ignore_effects)
+        #         datastore = [(segment, var_to_obj)]
+        #         option_vars = [obj_to_var[o] for o in segment_option_objs]
+        #         option_spec = (segment_param_option, option_vars)
+        #         pnads.append(PNAD(op, datastore, option_spec))
 
         # Learn the preconditions of the operators in the PNADs. This part
         # is flexible; subclasses choose how to implement it.

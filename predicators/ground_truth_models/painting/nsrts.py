@@ -78,8 +78,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         parameters = [obj, robot]
         option_vars = [robot, obj]
-        option = Pick
-        # option = PickFromTop
+        # option = Pick
+        option = PickFromTop
         preconditions = {
             LiftedAtom(GripperOpen, [robot]),
             LiftedAtom(OnTable, [obj])
@@ -109,8 +109,8 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         parameters = [obj, robot]
         option_vars = [robot, obj]
-        option = Pick
-        # option = PickFromSide
+        # option = Pick
+        option = PickFromSide
         preconditions = {
             LiftedAtom(GripperOpen, [robot]),
             LiftedAtom(OnTable, [obj])

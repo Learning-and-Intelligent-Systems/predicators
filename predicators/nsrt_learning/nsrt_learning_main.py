@@ -12,7 +12,7 @@ from predicators.nsrt_learning.option_learning import \
     KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
 from predicators.nsrt_learning.sampler_learning import learn_samplers
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.nsrt_learning.strips_learning import learn_strips_operators2
 from predicators.settings import CFG
 from predicators.structs import NSRT, PNAD, GroundAtomTrajectory, \
     LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task
@@ -22,7 +22,7 @@ def learn_nsrts_from_data(
     trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
     action_space: Box, ground_atom_dataset: List[GroundAtomTrajectory],
-    sampler_learner: str
+    clusters: List[List[List[Segment]]], sampler_learner: str
 ) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates.
@@ -77,11 +77,12 @@ def learn_nsrts_from_data(
         #         produce PNAD objects. Each PNAD
         #         contains a STRIPSOperator, Datastore, and OptionSpec. The
         #         samplers will be filled in on a later step.
-        pnads = learn_strips_operators(
+        pnads = learn_strips_operators2(
             trajectories,
             train_tasks,
             predicates,
             segmented_trajs,
+            clusters,
             verify_harmlessness=True,
             verbose=(CFG.option_learner != "no_learning"))
 

@@ -15,11 +15,28 @@ from predicators.structs import PNAD, DummyOption, GroundAtom, LiftedAtom, \
 class BaseSTRIPSLearner(abc.ABC):
     """Base class definition."""
 
+    # def __init__(self,
+    #              trajectories: List[LowLevelTrajectory],
+    #              train_tasks: List[Task],
+    #              predicates: Set[Predicate],
+    #              segmented_trajs: List[List[Segment]],
+    #              verify_harmlessness: bool,
+    #              verbose: bool = True) -> None:
+    #     self._trajectories = trajectories
+    #     self._train_tasks = train_tasks
+    #     self._predicates = predicates
+    #     self._segmented_trajs = segmented_trajs
+    #     self._verify_harmlessness = verify_harmlessness
+    #     self._verbose = verbose
+    #     self._num_segments = sum(len(t) for t in segmented_trajs)
+    #     assert len(self._trajectories) == len(self._segmented_trajs)
+
     def __init__(self,
                  trajectories: List[LowLevelTrajectory],
                  train_tasks: List[Task],
                  predicates: Set[Predicate],
                  segmented_trajs: List[List[Segment]],
+                 clusters: List[List[List[Segment]]],
                  verify_harmlessness: bool,
                  verbose: bool = True) -> None:
         self._trajectories = trajectories
@@ -29,6 +46,7 @@ class BaseSTRIPSLearner(abc.ABC):
         self._verify_harmlessness = verify_harmlessness
         self._verbose = verbose
         self._num_segments = sum(len(t) for t in segmented_trajs)
+        self._clusters = clusters 
         assert len(self._trajectories) == len(self._segmented_trajs)
 
     def learn(self) -> List[PNAD]:

@@ -34,6 +34,9 @@ class OracleApproach(BilevelPlanningApproach):
                          max_skeletons_optimized)
         self._nsrts = get_gt_nsrts(CFG.env, self._initial_predicates,
                                    self._initial_options)
+        print("NSRTS:")
+        for n in self._nsrts:
+            print(n)
 
     @classmethod
     def get_name(cls) -> str:
