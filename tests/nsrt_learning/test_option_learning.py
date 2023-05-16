@@ -55,7 +55,7 @@ def test_known_options_option_learner():
                                    env.predicates,
                                    segmented_trajs,
                                    verify_harmlessness=True,
-                                   annotations=dataset.annotations)
+                                   annotations=None)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 5
@@ -100,7 +100,7 @@ def test_oracle_option_learner_cover():
                                    env.predicates,
                                    segmented_trajs,
                                    verify_harmlessness=True,
-                                   annotations=dataset.annotations)
+                                   annotations=None)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 4
@@ -150,7 +150,7 @@ def test_oracle_option_learner_blocks():
                                    env.predicates,
                                    segmented_trajs,
                                    verify_harmlessness=True,
-                                   annotations=dataset.annotations)
+                                   annotations=None)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 4
