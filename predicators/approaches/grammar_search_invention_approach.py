@@ -923,8 +923,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     else:
                         clusters[types] = [seg]
                 print(f"STEP 2, generated {len(clusters.values())} clusters for {option}")
+                # for t in clusters.keys():
+                    # print("type: ", t)
                 for c in clusters.values():
                     all_clusters.append(c)
+                    # print("len of this cluster: ", len(c))
+                    # !c[0].get_option()
 
             # Step 3: 
             final_clusters = []
@@ -940,15 +944,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     import numpy as np 
                     from sklearn.mixture import GaussianMixture as GMM
                     data = np.array([seg.get_option().params for seg in cluster])
-
-                    n_components = np.arange(1, 10)
+                    max_components = 10 
+                    n_components = np.arange(1, max_components)
+                    if len(data) < max_components:
+                        # This happens in cover. 
+                        # There are 7 segments in which the only predicates that 
+                        # go from false to true are those involving only the block type, 
+                        # and not the robot or target types. 
+                        n_components = np.arange(1, len(data))
                     models = [GMM(n, covariance_type="full", random_state=0).fit(data)
                         for n in n_components]
                     bic = [m.bic(data) for m in models]
-                    # TODO: add some penalty based on how it gets less data in each cluster 
-
-                    # if option_name == "Paint":
-                    #     import pdb; pdb.set_trace()
+                    # TODO: add some penalty based on how it gets less data in each cluster.
 
                     best = models[np.argmin(bic)]
                     assignments = best.predict(data)
@@ -965,6 +972,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         final_clusters.append(c)
 
             # import pdb; pdb.set_trace()
+            print(f"Total {len(final_clusters)} clusters.")
 
             all_add_effects = set()
             for c in final_clusters:
@@ -977,7 +985,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             return all_add_effects
 
             # Consistency check 
-
 
         if CFG.grammar_search_pred_clusterer == "oracle":
             assert CFG.offline_data_method == "demo+gt_operators"
