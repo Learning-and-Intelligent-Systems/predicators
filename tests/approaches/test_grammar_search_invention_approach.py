@@ -205,6 +205,12 @@ def test_unary_free_forall_classifier():
 
 
 def test_unrecognized_clusterer():
+    """Tests that a dummy name for the 'clusterer' argument will trigger a
+    failure.
+
+    Note that most of the coverage for the clusterer comes from
+    test_nsrt_learning_approach.py.
+    """
     utils.update_config({
         "env": "cover",
         "segmenter": "atom_changes",
