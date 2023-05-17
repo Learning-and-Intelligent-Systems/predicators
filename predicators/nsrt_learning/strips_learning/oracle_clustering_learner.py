@@ -1,12 +1,13 @@
 """Oracle for STRIPS learning."""
 
-from typing import List, Set
+from typing import List, Set, Tuple
 
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import NSRT, PNAD, Datastore, DummyOption, LiftedAtom
+from predicators.structs import NSRT, PNAD, Datastore, DummyOption, \
+    LiftedAtom, ParameterizedOption, Variable
 
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
@@ -60,7 +61,8 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
         gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env_options)
         pnads: List[PNAD] = []
         for nsrt in gt_nsrts:
-            option_spec = (DummyOption.parent, [])
+            option_spec: Tuple[ParameterizedOption,
+                               List[Variable]] = (DummyOption.parent, [])
             # If options are unknown, use a dummy option spec.
             if CFG.option_learner == "no_learning":
                 option_spec = (nsrt.option, list(nsrt.option_vars))
