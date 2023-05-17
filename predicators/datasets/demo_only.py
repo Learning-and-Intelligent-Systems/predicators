@@ -30,13 +30,10 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         saving_ground_atoms=False)
     os.makedirs(CFG.data_dir, exist_ok=True)
     if CFG.load_data:
-        dataset = _create_demo_data_with_loading(
-            env,
-            train_tasks,
-            known_options,
-            dataset_fname_template,
-            dataset_fname,
-            annotate_with_gt_ops=annotate_with_gt_ops)
+        dataset = _create_demo_data_with_loading(env, train_tasks,
+                                                 known_options,
+                                                 dataset_fname_template,
+                                                 dataset_fname)
     else:
         dataset = _generate_demonstrations(
             env,
@@ -54,12 +51,14 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
 def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
                                    known_options: Set[ParameterizedOption],
                                    dataset_fname_template: str,
-                                   dataset_fname: str,
-                                   annotate_with_gt_ops: bool) -> Dataset:
+                                   dataset_fname: str) -> Dataset:
     """Create demonstration data while handling loading from disk.
 
     This method takes care of three cases: the demonstrations on disk
-    are exactly the desired number, too many, or too few.
+    are exactly the desired number, too many, or too few. Note that we
+    can only load datasets with annotations of exactly the right size;
+    attempting to load annotations for smaller or bigger datasets will
+    fail.
     """
     if os.path.exists(dataset_fname):
         # Case 1: we already have a file with the exact name that we need
@@ -109,34 +108,18 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
     with open(os.path.join(CFG.data_dir, fname), "rb") as f:
         dataset = pkl.load(f)
     loaded_trajectories = dataset.trajectories
-    if dataset.has_annotations:
-        loaded_annotations = dataset.annotations
-    else:
-        loaded_annotations = None
-    # If we're trying to annotate with ground truth operators,
-    # then check that the dataset we're loading has annotations.
-    if annotate_with_gt_ops:
-        assert len(loaded_annotations) == len(loaded_trajectories)
     generated_dataset = _generate_demonstrations(
         env,
         train_tasks,
         known_options,
         train_tasks_start_idx=train_tasks_start_idx,
-        annotate_with_gt_ops=annotate_with_gt_ops)
+        annotate_with_gt_ops=False)
     generated_trajectories = generated_dataset.trajectories
-    if generated_dataset.has_annotations:
-        generated_annotations = generated_dataset.annotations
-    else:
-        generated_annotations = None
     logging.info(f"\n\nLOADED DATASET OF {len(loaded_trajectories)} "
                  "DEMONSTRATIONS")
     logging.info(
         f"CREATED {len(generated_dataset.trajectories)} DEMONSTRATIONS")
-    if generated_annotations is not None and loaded_annotations is not None:
-        dataset = Dataset(loaded_trajectories + generated_trajectories,
-                          loaded_annotations + generated_annotations)
-    else:
-        dataset = Dataset(loaded_trajectories + generated_trajectories)
+    dataset = Dataset(loaded_trajectories + generated_trajectories)
     with open(dataset_fname, "wb") as f:
         pkl.dump(dataset, f)
     return dataset

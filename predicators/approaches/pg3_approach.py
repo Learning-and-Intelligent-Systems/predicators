@@ -151,7 +151,7 @@ class PG3Approach(NSRTLearningApproach):
         # First, learn NSRTs.
         annotations = None
         if dataset.has_annotations:
-            annotations = dataset.annotations
+            annotations = dataset.annotations  # pragma: no cover
         self._learn_nsrts(dataset.trajectories,
                           online_learning_cycle=None,
                           annotations=annotations)

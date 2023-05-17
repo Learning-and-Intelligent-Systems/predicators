@@ -48,18 +48,6 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                     datastore.append((segment, var_to_obj_sub))
         return datastore
 
-    def _find_add_effect_intersection_preds(
-            self, segments: List[Segment]) -> Set[Predicate]:
-        unique_add_effect_preds: Set[Predicate] = set()
-        for seg in segments:
-            if len(unique_add_effect_preds) == 0:
-                unique_add_effect_preds = set(atom.predicate
-                                              for atom in seg.add_effects)
-            else:
-                unique_add_effect_preds &= set(atom.predicate
-                                               for atom in seg.add_effects)
-        return unique_add_effect_preds
-
     def _learn(self) -> List[PNAD]:
         # For this learner to work, we need annotations to be non-null
         # and the length of the annotations to match the length of
@@ -73,11 +61,10 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
         gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env_options)
         pnads: List[PNAD] = []
         for nsrt in gt_nsrts:
+            option_spec = (DummyOption.parent, [])
             # If options are unknown, use a dummy option spec.
             if CFG.option_learner == "no_learning":
                 option_spec = (nsrt.option, list(nsrt.option_vars))
-            else:
-                option_spec = (DummyOption.parent, [])
 
             datastore = self._compute_datastores_given_nsrt(nsrt)
             pnad = PNAD(nsrt.op, datastore, option_spec)

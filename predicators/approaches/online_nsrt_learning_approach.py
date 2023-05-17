@@ -95,7 +95,7 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
         # Re-learn the NSRTs.
         annotations = None
         if self._dataset.has_annotations:
-            annotations = self._dataset.annotations
+            annotations = self._dataset.annotations  # pragma: no cover
         self._learn_nsrts(self._dataset.trajectories,
                           self._online_learning_cycle,
                           annotations=annotations)

@@ -49,12 +49,10 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
-        annotations = None
-        if dataset.has_annotations:
-            annotations = dataset.annotations
         self._learn_nsrts(dataset.trajectories,
                           online_learning_cycle=None,
-                          annotations=annotations)
+                          annotations=(dataset.annotations
+                                       if dataset.has_annotations else None))
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
