@@ -786,6 +786,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         self._learn_nsrts(dataset.trajectories,
                           online_learning_cycle=None,
                           annotations=dataset.annotations)
+        print("NUM NSRTS: ", len(self._nsrts))
 
     def _select_predicates_by_score_hillclimbing(
             self, candidates: Dict[Predicate, float],
@@ -932,7 +933,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # Step 3: 
             final_clusters = []
-            for cluster in all_clusters:
+            for j, cluster in enumerate(all_clusters):
                 example_segment = cluster[0]
                 option_name = example_segment.get_option().name
                 if len(example_segment.get_option().params) == 0:
@@ -967,7 +968,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         else:
                             sub_clusters[assignment] = [cluster[i]]
 
-                    print(f"STEP 3, generated {len(sub_clusters.values())} clusters for {option_name}")
+                    print(f"STEP 3, generated {len(sub_clusters.values())} clusters for {option_name} out of the {j+1}th cluster from STEP 2.")
                     for c in sub_clusters.values():
                         final_clusters.append(c)
 
@@ -985,6 +986,42 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             return all_add_effects
 
             # Consistency check 
+            predicates_to_keep: Set[Predicate] = set()
+            for pred in all_add_effects:
+                keep_pred = True 
+                for seg_list in final_clusters:
+                    seg_0 = seg_list[0]
+                    pred_in_add_effs_0 = pred in [
+                        atom.predicate for atom in seg_0.add_effects
+                    ]
+                    pred_in_del_effs_0 = pred in [
+                        atom.predicate for atom in seg_0.delete_effects
+                    ]
+                    for seg in seg_list[1:]:
+                        pred_in_curr_add_effs = pred in [
+                            atom.predicate for atom in seg.add_effects
+                        ]
+                        pred_in_curr_del_effs = pred in [
+                            atom.predicate for atom in seg.delete_effects
+                        ]
+                        if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
+                                and
+                                (pred_in_del_effs_0 == pred_in_curr_del_effs)):
+                            keep_pred = False
+                            break
+                    if not keep_pred:
+                        break
+                if keep_pred:
+                    predicates_to_keep.add(pred)
+
+            # Remove all the initial predicates. 
+            predicates_to_keep -= initial_predicates 
+            logging.info(
+                f"\nSelected {len(predicates_to_keep)} predicates out of "
+                f"{len(candidates)} candidates:")
+            for pred in predicates_to_keep:
+                logging.info(f"\t{pred}")
+            return predicates_to_keep
 
         if CFG.grammar_search_pred_clusterer == "oracle":
             assert CFG.offline_data_method == "demo+gt_operators"
