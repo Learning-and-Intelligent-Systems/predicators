@@ -767,13 +767,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             dataset.trajectories,
             set(candidates) | self._initial_predicates)
         logging.info("Done.")
-        # Create the score function that will be used to guide search.
-        score_function = create_score_function(
-            CFG.grammar_search_score_function, self._initial_predicates,
-            atom_dataset, candidates, self._train_tasks)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         if CFG.grammar_search_pred_selection_approach == "score_optimization":
+            # Create the score function that will be used to guide search.
+            score_function = create_score_function(
+                CFG.grammar_search_score_function, self._initial_predicates,
+                atom_dataset, candidates, self._train_tasks)
             self._learned_predicates = \
                 self._select_predicates_by_score_hillclimbing(
                 candidates, score_function, self._initial_predicates,
@@ -905,38 +905,48 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ]
             assert len(segmented_trajs) == len(dataset.annotations)
             # First, get the set of all ground truth operator names.
-            all_gt_op_names = set(ground_nsrt.parent.name
-                                  for anno_list in dataset.annotations
-                                  for ground_nsrt in anno_list)
+            all_gt_ops = set(ground_nsrt.parent
+                             for anno_list in dataset.annotations
+                             for ground_nsrt in anno_list)
             # Next, make a dictionary mapping operator name to segments
             # where that operator was used.
             gt_op_to_segments: Dict[str, List[Segment]] = {
                 op_name: []
-                for op_name in all_gt_op_names
+                for op_name in all_gt_ops
             }
             for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
                 assert len(seg_list) == len(op_list)
                 for ground_nsrt, segment in zip(op_list, seg_list):
-                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
-            consistent_add_effs_preds: Set[Predicate] = set()
-            # First, select predicates that change as add effects consistently
-            # within clusters.
-            for seg_list in gt_op_to_segments.values():
-                unique_add_effect_preds: Set[Predicate] = set()
-                for seg in seg_list:
-                    if len(unique_add_effect_preds) == 0:
-                        unique_add_effect_preds = set(
-                            atom.predicate for atom in seg.add_effects)
-                    else:
-                        unique_add_effect_preds &= set(
-                            atom.predicate for atom in seg.add_effects)
-                consistent_add_effs_preds |= unique_add_effect_preds
+                    gt_op_to_segments[ground_nsrt.parent].append(segment)
+            # consistent_add_effs_preds: Set[Predicate] = set()
+            # # Now, select predicates that change as add effects consistently
+            # # within all segments that map to a particular operator.
+            # for seg_list in gt_op_to_segments.values():
+            #     unique_add_effect_preds: Set[Predicate] = set()
+            #     for seg in seg_list:
+            #         if len(unique_add_effect_preds) == 0:
+            #             unique_add_effect_preds = set(
+            #                 atom.predicate for atom in seg.add_effects)
+            #         else:
+            #             unique_add_effect_preds &= set(
+            #                 atom.predicate for atom in seg.add_effects)
+            #     consistent_add_effs_preds |= unique_add_effect_preds
 
-            # Next, select predicates that are consistent (either, it is
+            # Before selecting some subset of predicates to keep, we first
+            # get the set of all predicates that ever change.
+            non_static_predicates: Set[Predicate] = set()
+            for segment in {x for v in gt_op_to_segments.values() for x in v}:
+                for add_eff in segment.add_effects:
+                    non_static_predicates.add(add_eff.predicate)
+                for del_eff in segment.delete_effects:
+                    non_static_predicates.add(del_eff.predicate)
+
+            # Finally, select predicates that are consistent (either, it is
             # an add effect, or a delete effect, or doesn't change)
             # within all demos.
             predicates_to_keep: Set[Predicate] = set()
-            for pred in consistent_add_effs_preds:
+            # for pred in consistent_add_effs_preds:
+            for pred in non_static_predicates:
                 keep_pred = True
                 for seg_list in gt_op_to_segments.values():
                     segment_0 = seg_list[0]
@@ -964,7 +974,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 else:
                     predicates_to_keep.add(pred)
 
-            # Remove all the initial predicates.
+            # Before returning, remove all the initial predicates.
             predicates_to_keep -= initial_predicates
             logging.info(
                 f"\nSelected {len(predicates_to_keep)} predicates out of "
