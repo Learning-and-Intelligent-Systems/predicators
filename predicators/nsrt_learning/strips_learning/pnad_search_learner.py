@@ -213,7 +213,7 @@ class _BackChainingHeuristic(_PNADSearchHeuristic):
         # accurate measures that also take into account the add effects,
         # arity, etc. (though this might involve changing the weighting
         # of the coverage term).
-        complexity_term = len(curr_pnads)
+        complexity_term = 0.0 #len(curr_pnads)
         return coverage_term + complexity_term
 
 
