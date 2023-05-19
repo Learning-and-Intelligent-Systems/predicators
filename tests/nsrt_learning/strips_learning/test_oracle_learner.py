@@ -18,7 +18,8 @@ def test_oracle_strips_learner():
     pnads = learn_strips_operators([],
                                    None,
                                    None, [],
-                                   verify_harmlessness=True)
+                                   verify_harmlessness=True,
+                                   annotations=None)
     assert not pnads
     # With sufficiently representative data, all operators should be learned.
     env = create_new_env("blocks")
@@ -33,7 +34,8 @@ def test_oracle_strips_learner():
                                    train_tasks,
                                    env.predicates,
                                    segmented_trajs,
-                                   verify_harmlessness=True)
+                                   verify_harmlessness=True,
+                                   annotations=None)
     assert str(sorted(pnads, key=str)) == """[STRIPS-PickFromTable:
     Parameters: [?block:block, ?robot:robot]
     Preconditions: [Clear(?block:block), GripperOpen(?robot:robot), OnTable(?block:block)]
@@ -80,7 +82,8 @@ def test_oracle_strips_learner():
                                    train_tasks,
                                    env.predicates,
                                    segmented_trajs,
-                                   verify_harmlessness=True)
+                                   verify_harmlessness=True,
+                                   annotations=None)
     assert str(sorted(pnads, key=str)) == """[STRIPS-PickFromTable:
     Parameters: [?block:block, ?robot:robot]
     Preconditions: [Clear(?block:block), GripperOpen(?robot:robot), OnTable(?block:block)]

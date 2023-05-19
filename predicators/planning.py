@@ -45,22 +45,23 @@ class _Node:
 
 
 def sesame_plan(
-        task: Task,
-        option_model: _OptionModelBase,
-        nsrts: Set[NSRT],
-        predicates: Set[Predicate],
-        types: Set[Type],
-        timeout: float,
-        seed: int,
-        task_planning_heuristic: str,
-        max_skeletons_optimized: int,
-        max_horizon: int,
-        abstract_policy: Optional[AbstractPolicy] = None,
-        max_policy_guided_rollout: int = 0,
-        refinement_estimator: Optional[BaseRefinementEstimator] = None,
-        check_dr_reachable: bool = True,
-        allow_noops: bool = False,
-        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
+    task: Task,
+    option_model: _OptionModelBase,
+    nsrts: Set[NSRT],
+    predicates: Set[Predicate],
+    types: Set[Type],
+    timeout: float,
+    seed: int,
+    task_planning_heuristic: str,
+    max_skeletons_optimized: int,
+    max_horizon: int,
+    abstract_policy: Optional[AbstractPolicy] = None,
+    max_policy_guided_rollout: int = 0,
+    refinement_estimator: Optional[BaseRefinementEstimator] = None,
+    check_dr_reachable: bool = True,
+    allow_noops: bool = False,
+    use_visited_state_set: bool = False
+) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
@@ -104,22 +105,23 @@ def sesame_plan(
 
 
 def _sesame_plan_with_astar(
-        task: Task,
-        option_model: _OptionModelBase,
-        nsrts: Set[NSRT],
-        predicates: Set[Predicate],
-        types: Set[Type],
-        timeout: float,
-        seed: int,
-        task_planning_heuristic: str,
-        max_skeletons_optimized: int,
-        max_horizon: int,
-        abstract_policy: Optional[AbstractPolicy] = None,
-        max_policy_guided_rollout: int = 0,
-        refinement_estimator: Optional[BaseRefinementEstimator] = None,
-        check_dr_reachable: bool = True,
-        allow_noops: bool = False,
-        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
+    task: Task,
+    option_model: _OptionModelBase,
+    nsrts: Set[NSRT],
+    predicates: Set[Predicate],
+    types: Set[Type],
+    timeout: float,
+    seed: int,
+    task_planning_heuristic: str,
+    max_skeletons_optimized: int,
+    max_horizon: int,
+    abstract_policy: Optional[AbstractPolicy] = None,
+    max_policy_guided_rollout: int = 0,
+    refinement_estimator: Optional[BaseRefinementEstimator] = None,
+    check_dr_reachable: bool = True,
+    allow_noops: bool = False,
+    use_visited_state_set: bool = False
+) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -186,7 +188,7 @@ def _sesame_plan_with_astar(
                         f" samples, discovering "
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
-                    return plan, metrics
+                    return plan, skeleton, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout(
@@ -1013,10 +1015,10 @@ def fd_plan_from_sas_file(
 
 
 def _sesame_plan_with_fast_downward(
-        task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
-        predicates: Set[Predicate], types: Set[Type], timeout: float,
-        seed: int, max_horizon: int,
-        optimal: bool) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
+    task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
+    predicates: Set[Predicate], types: Set[Type], timeout: float, seed: int,
+    max_horizon: int, optimal: bool
+) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:  # pragma: no cover
     """A version of SeSamE that runs the Fast Downward planner to produce a
     single skeleton, then calls run_low_level_search() to turn it into a plan.
 
@@ -1071,7 +1073,7 @@ def _sesame_plan_with_fast_downward(
                     raise PlanningTimeout("Planning timed out in refinement!")
                 raise PlanningFailure("Skeleton produced by FD not refinable!")
             metrics["plan_length"] = len(plan)
-            return plan, metrics
+            return plan, skeleton, metrics
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
