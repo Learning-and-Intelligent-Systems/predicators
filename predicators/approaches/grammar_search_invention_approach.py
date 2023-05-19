@@ -918,19 +918,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 assert len(seg_list) == len(op_list)
                 for ground_nsrt, segment in zip(op_list, seg_list):
                     gt_op_to_segments[ground_nsrt.parent].append(segment)
-            # consistent_add_effs_preds: Set[Predicate] = set()
-            # # Now, select predicates that change as add effects consistently
-            # # within all segments that map to a particular operator.
-            # for seg_list in gt_op_to_segments.values():
-            #     unique_add_effect_preds: Set[Predicate] = set()
-            #     for seg in seg_list:
-            #         if len(unique_add_effect_preds) == 0:
-            #             unique_add_effect_preds = set(
-            #                 atom.predicate for atom in seg.add_effects)
-            #         else:
-            #             unique_add_effect_preds &= set(
-            #                 atom.predicate for atom in seg.add_effects)
-            #     consistent_add_effs_preds |= unique_add_effect_preds
 
             # Before selecting some subset of predicates to keep, we first
             # get the set of all predicates that ever change.
