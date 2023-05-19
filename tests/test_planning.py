@@ -49,7 +49,7 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder, expectation,
     task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
     with expectation as e:
-        plan, metrics = sesame_plan(
+        plan, _, metrics = sesame_plan(
             task,
             option_model,
             nsrts,
@@ -333,7 +333,7 @@ def test_sesame_check_static_object_changes():
     env_task = env.get_test_tasks()[0]
     task = env_task.task
     option_model = create_option_model(CFG.option_model_name)
-    plan, _ = sesame_plan(
+    plan, _, _ = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -520,7 +520,7 @@ def test_policy_guided_sesame():
     option_model = create_option_model(CFG.option_model_name)
     # With a trivial policy, we would expect the number of nodes to be the
     # same as it would be if we planned with no policy.
-    unguided_plan, unguided_metrics = sesame_plan(
+    unguided_plan, _, unguided_metrics = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -533,7 +533,7 @@ def test_policy_guided_sesame():
         max_horizon=CFG.horizon,
     )
     trivial_policy = lambda a, o, g: None
-    guided_plan, guided_metrics = sesame_plan(
+    guided_plan, _, guided_metrics = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -580,7 +580,7 @@ def test_policy_guided_sesame():
         block = unrealized_blocks[0]
         return pick_nsrt.ground([block])
 
-    _, metrics = sesame_plan(
+    _, _, metrics = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -610,7 +610,7 @@ def test_policy_guided_sesame():
                 return ground_nsrt
         raise Exception("Should not happen.")  # pragma: no cover
 
-    _, invalid_policy_metrics = sesame_plan(
+    _, _, invalid_policy_metrics = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -670,7 +670,7 @@ def test_sesame_plan_fast_downward():
         task = env_task.task
         option_model = create_option_model(CFG.option_model_name)
         try:
-            plan, metrics = sesame_plan(
+            plan, _, metrics = sesame_plan(
                 task,
                 option_model,
                 nsrts,
