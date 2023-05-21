@@ -11,9 +11,9 @@ ALL_ENVS=(
     "repeated_nextto_single_option"
     "repeated_nextto_painting"
     "screws"
-    "painting"
-    "satellites"
-    "satellites_simple"
+    # "painting"
+    # "satellites"
+    # "satellites_simple"
 )
 NUM_DEMOS=(
     # 5
