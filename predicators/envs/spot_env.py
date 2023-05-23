@@ -379,9 +379,9 @@ class SpotBikeEnv(SpotEnv):
                                   lambda s, o: False)
         self._On = Predicate("On", [self._tool_type, self._surface_type],
                              _create_predicate_classifier(self._temp_On))
-        self._temp_InBag = Predicate("In", [self._tool_type, self._bag_type],
+        self._temp_InBag = Predicate("InBag", [self._tool_type, self._bag_type],
                                   lambda s, o: False)
-        self._InBag = Predicate("On", [self._tool_type, self._bag_type],
+        self._InBag = Predicate("InBag", [self._tool_type, self._bag_type],
                              _create_predicate_classifier(self._temp_InBag))
         self._temp_HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                          lambda s, o: False)
@@ -646,7 +646,7 @@ class SpotBikeEnv(SpotEnv):
                     GroundAtom(self._On, [hammer, low_wall_rack]),
                     GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
                 }, [spot, hammer, low_wall_rack, bag, movable_platform])
-            goal = {GroundAtom(self._HoldingTool, [spot, hammer])}
+            goal = {GroundAtom(self._InBag, [hammer, bag])}
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
