@@ -24,7 +24,7 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import SpotControllers
 from predicators.structs import NSRT, Action, GroundAtom, Metrics, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option, Object
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -76,6 +76,21 @@ class BilevelPlanningApproach(BaseApproach):
             policy = utils.option_plan_to_policy(plan)
 
         self._save_metrics(metrics, nsrts, preds)
+
+        try:
+            spot_controllers = SpotControllers()
+            _obj_type = Type("object", [])
+            obj1 = Object("obj1", _obj_type)
+            objects = [obj1]
+            params = [0.0, 0.0, 270]
+            spot_controllers.navigateToController(objects, params)
+        except (bosdyn.client.exceptions.ProxyConnectionError,
+                RuntimeError) as e:
+            print(e)
+            print("Could not connect to Spot!")
+        quit()
+
+
 
         if CFG.env == "realworld_spot":  # pragma: no cover
             try:
