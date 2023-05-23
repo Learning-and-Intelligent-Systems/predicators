@@ -441,7 +441,7 @@ class SpotBikeEnv(SpotEnv):
             lambda s, o: False)
         self._SurfaceNotTooHigh = Predicate(
             "SurfaceNotTooHigh", [self._robot_type, self._surface_type],
-            _create_predicate_classifier(self._temp_SurfaceTooHigh))
+            _create_predicate_classifier(self._temp_SurfaceNotTooHigh))
         self._temp_PlatformNear = Predicate(
             "PlatformNear", [self._platform_type, self._surface_type],
             lambda s, o: False)
@@ -639,14 +639,14 @@ class SpotBikeEnv(SpotEnv):
         bag = Object("toolbag", self._bag_type)
         movable_platform = Object("movable_platform", self._platform_type)
 
-        # TODO
         for _ in range(num_tasks):
             init_state = _PDDLEnvState.from_ground_atoms(
                 {
                     GroundAtom(self._HandEmpty, [spot]),
-                    GroundAtom(self._On, [hammer, low_wall_rack])
+                    GroundAtom(self._On, [hammer, low_wall_rack]),
+                    GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
                 }, [spot, hammer, low_wall_rack, bag, movable_platform])
-            goal = {GroundAtom(self._InBag, [hammer, bag])}
+            goal = {GroundAtom(self._HoldingTool, [spot, hammer])}
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
