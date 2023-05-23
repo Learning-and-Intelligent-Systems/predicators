@@ -35,7 +35,7 @@ def test_spot_grocery_env():
 
 
 def test_spot_bike_env():
-    """Tests for SpotGroceryEnv class."""
+    """Tests for SpotBikeEnv class."""
     utils.reset_config({
         "env": "spot_bike_env",
         "num_train_tasks": 1,
