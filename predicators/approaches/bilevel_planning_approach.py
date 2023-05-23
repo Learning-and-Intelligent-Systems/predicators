@@ -24,7 +24,7 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import SpotControllers
 from predicators.structs import NSRT, Action, GroundAtom, Metrics, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option, Object
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
 class BilevelPlanningApproach(BaseApproach):
