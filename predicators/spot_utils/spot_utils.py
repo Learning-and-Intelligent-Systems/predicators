@@ -58,7 +58,14 @@ graph_nav_loc_to_id = {
 # pylint: disable=no-member
 class SpotControllers():
     """Implementation of interface with low-level controllers for the Spot
-    robot."""
+    robot.
+    
+    Controllers:
+
+    navigateToController(objs, [float:x, float:y])
+    graspController(objs, [0:Any,1:Top,-1:Side])
+    placeOntopController(objs, [float:distance])
+    """
 
     def __init__(self) -> None:
         self._hostname = CFG.spot_robot_ip
