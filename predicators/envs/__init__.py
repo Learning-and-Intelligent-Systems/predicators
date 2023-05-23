@@ -11,6 +11,7 @@ _MOST_RECENT_ENV_INSTANCE = {}
 # Find the subclasses.
 utils.import_submodules(__path__, __name__)
 
+
 def create_new_env(name: str,
                    do_cache: bool = True,
                    use_gui: bool = True) -> BaseEnv:

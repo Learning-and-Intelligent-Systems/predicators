@@ -12,14 +12,15 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op, \
-    _PDDLEnvState, _create_predicate_classifier
+    _create_predicate_classifier, _PDDLEnvState
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    State, STRIPSOperator, Variable, Predicate, Type, LiftedAtom
+from predicators.structs import Action, EnvironmentTask, GroundAtom, \
+    LiftedAtom, Object, Predicate, State, STRIPSOperator, Type, Variable
 
 ###############################################################################
 #                                Base Class                                   #
 ###############################################################################
+
 
 class SpotEnv(BaseEnv):
     """An environment containing tasks for a real Spot robot to execute.
@@ -31,11 +32,12 @@ class SpotEnv(BaseEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         self._strips_operators: Set[STRIPSOperator] = set()
-        self._ordered_strips_operators: List[STRIPSOperator] = list(self._strips_operators)
+        self._ordered_strips_operators: List[STRIPSOperator] = list(
+            self._strips_operators)
 
-    @classmethod
-    def get_name(cls) -> str:
-        return "spot_base_env"
+    # @classmethod
+    # def get_name(cls) -> str:
+    #     return "spot_base_env"
 
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
@@ -172,9 +174,11 @@ class SpotEnv(BaseEnv):
                 json_dict["language_goal"], object_name_to_object)
         return EnvironmentTask(init_state, goal)
 
+
 ###############################################################################
 #                                Grocery Env                                  #
 ###############################################################################
+
 
 class SpotGroceryEnv(SpotEnv):
     """An environment containing tasks for a real Spot robot to execute.
@@ -293,26 +297,6 @@ class SpotGroceryEnv(SpotEnv):
     def get_name(cls) -> str:
         return "spot_grocery_env"
 
-    def simulate(self, state: State, action: Action) -> State:
-        assert isinstance(state, _PDDLEnvState)
-        assert self.action_space.contains(action.arr)
-        ordered_objs = list(state)
-        # Convert the state into a Set[GroundAtom].
-        ground_atoms = state.get_ground_atoms()
-        # Convert the action into a _GroundSTRIPSOperator.
-        ground_op = _action_to_ground_strips_op(action, ordered_objs,
-                                                self._ordered_strips_operators)
-        # If the operator is not applicable in this state, noop.
-        if ground_op is None or not ground_op.preconditions.issubset(
-                ground_atoms):
-            return state.copy()
-        # Apply the operator.
-        next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
-        # Convert back into a State.
-        next_state = _PDDLEnvState.from_ground_atoms(next_ground_atoms,
-                                                     ordered_objs)
-        return next_state
-
     def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         spot = Object("spot", self._robot_type)
@@ -351,9 +335,11 @@ class SpotGroceryEnv(SpotEnv):
 """
         return prompt
 
+
 ###############################################################################
 #                                Bike Repair Env                              #
 ###############################################################################
+
 
 class SpotBikeEnv(SpotEnv):
     """An environment containing bike-repair related tasks for a real Spot
@@ -379,18 +365,19 @@ class SpotBikeEnv(SpotEnv):
                                   lambda s, o: False)
         self._On = Predicate("On", [self._tool_type, self._surface_type],
                              _create_predicate_classifier(self._temp_On))
-        self._temp_InBag = Predicate("InBag", [self._tool_type, self._bag_type],
-                                  lambda s, o: False)
+        self._temp_InBag = Predicate("InBag",
+                                     [self._tool_type, self._bag_type],
+                                     lambda s, o: False)
         self._InBag = Predicate("InBag", [self._tool_type, self._bag_type],
-                             _create_predicate_classifier(self._temp_InBag))
+                                _create_predicate_classifier(self._temp_InBag))
         self._temp_HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                          lambda s, o: False)
         self._HandEmpty = Predicate(
             "HandEmpty", [self._robot_type],
             _create_predicate_classifier(self._temp_HandEmpty))
         self._temp_HoldingTool = Predicate("HoldingTool",
-                                          [self._robot_type, self._tool_type],
-                                          lambda s, o: False)
+                                           [self._robot_type, self._tool_type],
+                                           lambda s, o: False)
         self._HoldingTool = Predicate(
             "HoldingTool", [self._robot_type, self._tool_type],
             _create_predicate_classifier(self._temp_HoldingTool))
@@ -400,15 +387,15 @@ class SpotBikeEnv(SpotEnv):
         self._HoldingBag = Predicate(
             "HoldingTool", [self._robot_type, self._bag_type],
             _create_predicate_classifier(self._temp_HoldingBag))
-        self._temp_HoldingPlatformLeash = Predicate("HoldingPlatformLeash",
-                                          [self._robot_type, self._platform_type],
-                                          lambda s, o: False)
+        self._temp_HoldingPlatformLeash = Predicate(
+            "HoldingPlatformLeash", [self._robot_type, self._platform_type],
+            lambda s, o: False)
         self._HoldingPlatformLeash = Predicate(
             "HoldingPlatformLeash", [self._robot_type, self._platform_type],
             _create_predicate_classifier(self._temp_HoldingPlatformLeash))
-        self._temp_ReachableTool = Predicate("ReachableTool",
-                                            [self._robot_type, self._tool_type],
-                                            lambda s, o: False)
+        self._temp_ReachableTool = Predicate(
+            "ReachableTool", [self._robot_type, self._tool_type],
+            lambda s, o: False)
         self._ReachableTool = Predicate(
             "ReachableTool", [self._robot_type, self._tool_type],
             _create_predicate_classifier(self._temp_ReachableTool))
@@ -417,10 +404,10 @@ class SpotBikeEnv(SpotEnv):
                                             lambda s, o: False)
         self._ReachableBag = Predicate(
             "ReachableBag", [self._robot_type, self._bag_type],
-            _create_predicate_classifier(self._temp_ReachableBag)) 
-        self._temp_ReachablePlatform = Predicate("ReachablePlatform",
-                                            [self._robot_type, self._platform_type],
-                                            lambda s, o: False)
+            _create_predicate_classifier(self._temp_ReachableBag))
+        self._temp_ReachablePlatform = Predicate(
+            "ReachablePlatform", [self._robot_type, self._platform_type],
+            lambda s, o: False)
         self._ReachablePlatform = Predicate(
             "ReachablePlatform", [self._robot_type, self._platform_type],
             _create_predicate_classifier(self._temp_ReachablePlatform))
@@ -454,14 +441,20 @@ class SpotBikeEnv(SpotEnv):
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         add_effs = {LiftedAtom(self._ReachableTool, [spot, tool])}
-        ignore_effs = {self._ReachableTool, self._ReachableBag, self._XYReachableSurface, self._ReachablePlatform}
+        ignore_effs = {
+            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform
+        }
         self._MoveToToolOp = STRIPSOperator("MoveToTool", [spot, tool], set(),
-                                           add_effs, set(), ignore_effs)
+                                            add_effs, set(), ignore_effs)
         # MoveToSurface
         spot = Variable("?robot", self._robot_type)
         surface = Variable("?surface", self._surface_type)
         add_effs = {LiftedAtom(self._XYReachableSurface, [spot, surface])}
-        ignore_effs = {self._ReachableTool, self._ReachableBag, self._XYReachableSurface, self._ReachablePlatform}
+        ignore_effs = {
+            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform
+        }
         self._MoveToSurfaceOp = STRIPSOperator("MoveToSurface",
                                                [spot, surface], set(),
                                                add_effs, set(), ignore_effs)
@@ -469,18 +462,23 @@ class SpotBikeEnv(SpotEnv):
         spot = Variable("?robot", self._robot_type)
         platform = Variable("?platform", self._platform_type)
         add_effs = {LiftedAtom(self._ReachablePlatform, [spot, platform])}
-        ignore_effs = {self._ReachableTool, self._ReachableBag, self._XYReachableSurface, self._ReachablePlatform}
+        ignore_effs = {
+            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform
+        }
         self._MoveToPlatformOp = STRIPSOperator("MoveToPlatform",
-                                               [spot, platform], set(),
-                                               add_effs, set(), ignore_effs)
+                                                [spot, platform], set(),
+                                                add_effs, set(), ignore_effs)
         # MoveToBag
         spot = Variable("?robot", self._robot_type)
         bag = Variable("?platform", self._bag_type)
         add_effs = {LiftedAtom(self._ReachableBag, [spot, bag])}
-        ignore_effs = {self._ReachableTool, self._ReachableBag, self._XYReachableSurface, self._ReachablePlatform}
-        self._MoveToBagOp = STRIPSOperator("MoveToBag",
-                                               [spot, bag], set(),
-                                               add_effs, set(), ignore_effs)
+        ignore_effs = {
+            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform
+        }
+        self._MoveToBagOp = STRIPSOperator("MoveToBag", [spot, bag], set(),
+                                           add_effs, set(), ignore_effs)
         # GraspToolFromNotHigh
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -496,8 +494,10 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._On, [tool, surface]),
             LiftedAtom(self._HandEmpty, [spot])
         }
-        self._GraspToolFromNotHighOp = STRIPSOperator("GraspToolFromNotHigh", [spot, tool, surface],
-                                          preconds, add_effs, del_effs, set())
+        self._GraspToolFromNotHighOp = STRIPSOperator("GraspToolFromNotHigh",
+                                                      [spot, tool, surface],
+                                                      preconds, add_effs,
+                                                      del_effs, set())
         # GrabPlatformLeash
         spot = Variable("?robot", self._robot_type)
         platform = Variable("?platform", self._platform_type)
@@ -506,11 +506,10 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._HandEmpty, [spot]),
         }
         add_effs = {LiftedAtom(self._HoldingPlatformLeash, [spot, platform])}
-        del_effs = {
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        self._GraspPlatformLeashOp = STRIPSOperator("GraspPlatformLeash", [spot, platform],
-                                          preconds, add_effs, del_effs, set())
+        del_effs = {LiftedAtom(self._HandEmpty, [spot])}
+        self._GraspPlatformLeashOp = STRIPSOperator("GraspPlatformLeash",
+                                                    [spot, platform], preconds,
+                                                    add_effs, del_effs, set())
         # DragPlatform
         spot = Variable("?robot", self._robot_type)
         platform = Variable("?platform", self._platform_type)
@@ -518,13 +517,15 @@ class SpotBikeEnv(SpotEnv):
         preconds = {
             LiftedAtom(self._HoldingPlatformLeash, [spot, platform]),
         }
-        add_effs = {LiftedAtom(self._PlatformNear, [platform, surface]), 
-                    LiftedAtom(self._HandEmpty, [spot])}
-        del_effs = {
-            LiftedAtom(self._HoldingPlatformLeash, [spot, platform])
+        add_effs = {
+            LiftedAtom(self._PlatformNear, [platform, surface]),
+            LiftedAtom(self._HandEmpty, [spot])
         }
-        self._DragPlatformOp = STRIPSOperator("DragPlatform", [spot, platform, surface],
-                                          preconds, add_effs, del_effs, set())
+        del_effs = {LiftedAtom(self._HoldingPlatformLeash, [spot, platform])}
+        self._DragPlatformOp = STRIPSOperator("DragPlatform",
+                                              [spot, platform, surface],
+                                              preconds, add_effs, del_effs,
+                                              set())
         # GraspToolFromHigh
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -542,8 +543,9 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._On, [tool, surface]),
             LiftedAtom(self._HandEmpty, [spot])
         }
-        self._GraspToolFromHighOp = STRIPSOperator("GraspToolFromHigh", [spot, tool, platform, surface],
-                                          preconds, add_effs, del_effs, set())
+        self._GraspToolFromHighOp = STRIPSOperator(
+            "GraspToolFromHigh", [spot, tool, platform, surface], preconds,
+            add_effs, del_effs, set())
         # GraspBag
         spot = Variable("?robot", self._robot_type)
         bag = Variable("?bag", self._bag_type)
@@ -552,11 +554,9 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._HandEmpty, [spot]),
         }
         add_effs = {LiftedAtom(self._HoldingBag, [spot, bag])}
-        del_effs = {
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        self._GraspBagOp = STRIPSOperator("GraspBag", [spot, bag],
-                                          preconds, add_effs, del_effs, set())
+        del_effs = {LiftedAtom(self._HandEmpty, [spot])}
+        self._GraspBagOp = STRIPSOperator("GraspBag", [spot, bag], preconds,
+                                          add_effs, del_effs, set())
         # PlaceToolOnNotHighSurface
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -572,8 +572,9 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {LiftedAtom(self._HoldingTool, [spot, tool])}
         self._PlaceToolNotHighOp = STRIPSOperator("PlaceToolNotHigh",
-                                          [spot, tool, surface], preconds,
-                                          add_effs, del_effs, set())
+                                                  [spot, tool, surface],
+                                                  preconds, add_effs, del_effs,
+                                                  set())
         # PlaceIntoBag
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -588,26 +589,30 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {LiftedAtom(self._HoldingTool, [spot, tool])}
         self._PlaceIntoBagOp = STRIPSOperator("PlaceIntoBag",
-                                          [spot, tool, bag], preconds,
-                                          add_effs, del_effs, set())
+                                              [spot, tool, bag], preconds,
+                                              add_effs, del_effs, set())
 
-        self._strips_operators = {self._MoveToToolOp,
-                self._MoveToSurfaceOp,
-                self._MoveToPlatformOp,
-                self._MoveToBagOp,
-                self._GraspToolFromNotHighOp,
-                self._GraspPlatformLeashOp,
-                self._DragPlatformOp,
-                self._GraspToolFromHighOp,
-                self._GraspBagOp,
-                self._PlaceToolNotHighOp,
-                self._PlaceIntoBagOp,
+        self._strips_operators = {
+            self._MoveToToolOp,
+            self._MoveToSurfaceOp,
+            self._MoveToPlatformOp,
+            self._MoveToBagOp,
+            self._GraspToolFromNotHighOp,
+            self._GraspPlatformLeashOp,
+            self._DragPlatformOp,
+            self._GraspToolFromHighOp,
+            self._GraspBagOp,
+            self._PlaceToolNotHighOp,
+            self._PlaceIntoBagOp,
         }
         self._ordered_strips_operators = sorted(self._strips_operators)
 
     @property
     def types(self) -> Set[Type]:
-        return {self._robot_type, self._tool_type, self._surface_type, self._bag_type, self._platform_type}
+        return {
+            self._robot_type, self._tool_type, self._surface_type,
+            self._bag_type, self._platform_type
+        }
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -624,7 +629,7 @@ class SpotBikeEnv(SpotEnv):
             self._XYReachableSurface,
             self._SurfaceTooHigh,
             self._SurfaceNotTooHigh,
-            self._PlatformNear,            
+            self._PlatformNear,
         }
 
     @classmethod
@@ -656,19 +661,18 @@ class SpotBikeEnv(SpotEnv):
 
     def _get_language_goal_prompt_prefix(self,
                                          object_names: Collection[str]) -> str:
-#         # pylint:disable=line-too-long
-#         available_predicates = ", ".join(
-#             [p.name for p in sorted(self.goal_predicates)])
-#         available_objects = ", ".join(sorted(object_names))
-#         # We could extract the object names, but this is simpler.
-#         assert {"spot", "counter", "snack_table",
-#                 "soda_can"}.issubset(object_names)
-#         prompt = f"""# The available predicates are: {available_predicates}
-# # The available objects are: {available_objects}
-# # Use the available predicates and objects to convert natural language goals into JSON goals.
-        
-# # Hey spot, can you move the soda can to the snack table?
-# {{"On": [["soda_can", "snack_table"]]}}
-# """
-#         return prompt
-        raise NotImplementedError
+        # pylint:disable=line-too-long
+        available_predicates = ", ".join(
+            [p.name for p in sorted(self.goal_predicates)])
+        available_objects = ", ".join(sorted(object_names))
+        # We could extract the object names, but this is simpler.
+        assert {"spot", "hammer", "bag",
+                "low_wall_rack"}.issubset(object_names)
+        prompt = f"""# The available predicates are: {available_predicates}
+# The available objects are: {available_objects}
+# Use the available predicates and objects to convert natural language goals into JSON goals.
+
+# Hey spot, can you put the hammer into the bag?
+{{"InBag": [["hammer", "bag"]]}}
+"""
+        return prompt

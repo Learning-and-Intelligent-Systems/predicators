@@ -4,6 +4,5 @@ from .nsrts import SpotEnvsGroundTruthNSRTFactory
 from .options import SpotEnvsGroundTruthOptionFactory
 
 __all__ = [
-    "SpotEnvsGroundTruthNSRTFactory",
-    "SpotEnvsGroundTruthOptionFactory"
+    "SpotEnvsGroundTruthNSRTFactory", "SpotEnvsGroundTruthOptionFactory"
 ]

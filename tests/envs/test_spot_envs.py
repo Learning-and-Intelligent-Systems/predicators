@@ -5,11 +5,11 @@ from pathlib import Path
 import pytest
 
 from predicators import utils
-from predicators.envs.spot_envs.spot_grocery_env import SpotGroceryEnv
+from predicators.envs.spot_env import SpotBikeEnv, SpotGroceryEnv
 from predicators.ground_truth_models import get_gt_options
 
 
-def test_spot_env():
+def test_spot_grocery_env():
     """Tests for SpotGroceryEnv class."""
     utils.reset_config({
         "env": "spot_grocery_env",
@@ -32,6 +32,17 @@ def test_spot_env():
     assert len(env.strips_operators) == 4
     with pytest.raises(NotImplementedError):
         env.render_state_plt(task.init, task)
+
+
+def test_spot_bike_env():
+    """Tests for SpotGroceryEnv class."""
+    utils.reset_config({
+        "env": "spot_bike_env",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1
+    })
+    env = SpotBikeEnv()
+    assert {pred.name for pred in env.goal_predicates} == {"On", "InBag"}
 
 
 def test_spot_env_simulate():
@@ -98,6 +109,15 @@ def test_natural_language_goal_prompt_prefix():
     'available predicates and objects to convert natural language ' +\
     'goals into JSON goals.\n        \n# Hey spot, can you move the ' +\
     'soda can to the snack table?\n{"On": [["soda_can", "snack_table"]]}\n'
+
+    env = SpotBikeEnv()
+    object_names = {"spot", "hammer", "bag", "low_wall_rack"}
+    prompt = env._get_language_goal_prompt_prefix(object_names)  # pylint: disable=W0212
+    assert prompt == '# The available predicates are: InBag, On\n# The available ' +\
+    'objects are: bag, hammer, low_wall_rack, spot\n# Use the available ' +\
+    'predicates and objects to convert natural language goals into JSON ' +\
+    'goals.\n\n# Hey spot, can you put the hammer into the bag?\n{"InBag": ' +\
+    '[["hammer", "bag"]]}\n'
 
 
 def test_json_loading():
