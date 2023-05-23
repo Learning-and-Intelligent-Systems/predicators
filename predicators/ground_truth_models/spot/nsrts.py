@@ -9,12 +9,12 @@ from predicators.structs import NSRT, ParameterizedOption, Predicate, Type
 from predicators.utils import null_sampler
 
 
-class SpotEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
+class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the Spot Env."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"realworld_spot"}
+        return {"spot_grocery_env", "spot_bike_env"}
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],

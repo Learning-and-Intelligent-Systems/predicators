@@ -5,18 +5,18 @@ from pathlib import Path
 import pytest
 
 from predicators import utils
-from predicators.envs.spot_env import SpotEnv
+from predicators.envs.spot_envs.spot_grocery_env import SpotGroceryEnv
 from predicators.ground_truth_models import get_gt_options
 
 
 def test_spot_env():
-    """Tests for SpotEnv class."""
+    """Tests for SpotGroceryEnv class."""
     utils.reset_config({
-        "env": "realworld_spot",
+        "env": "spot_grocery_env",
         "num_train_tasks": 1,
         "num_test_tasks": 1
     })
-    env = SpotEnv()
+    env = SpotGroceryEnv()
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -40,7 +40,7 @@ def test_spot_env_simulate():
         "env": "repeated_nextto",
         "approach": "nsrt_learning",
     })
-    env = SpotEnv()
+    env = SpotGroceryEnv()
     options = get_gt_options(env.get_name())
     MoveToSurface = [o for o in options if o.name == "MoveToSurface"][0]
     MoveToCan = [o for o in options if o.name == "MoveToCan"][0]
@@ -90,7 +90,7 @@ def test_spot_env_simulate():
 
 def test_natural_language_goal_prompt_prefix():
     """Test the prompt prefix creation function."""
-    env = SpotEnv()
+    env = SpotGroceryEnv()
     object_names = {"spot", "counter", "snack_table", "soda_can"}
     prompt = env._get_language_goal_prompt_prefix(object_names)  # pylint: disable=W0212
     assert prompt == '# The available predicates are: On\n# The available ' +\
@@ -102,7 +102,7 @@ def test_natural_language_goal_prompt_prefix():
 
 def test_json_loading():
     """Test JSON loading from a specially-created test JSON file."""
-    env = SpotEnv()
+    env = SpotGroceryEnv()
     output_task = env._load_task_from_json(  # pylint: disable=W0212
         Path('predicators/spot_utils/json_tasks/test.json'))
     assert str(

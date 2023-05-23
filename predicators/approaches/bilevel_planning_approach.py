@@ -77,7 +77,7 @@ class BilevelPlanningApproach(BaseApproach):
 
         self._save_metrics(metrics, nsrts, preds)
 
-        if CFG.env == "realworld_spot":  # pragma: no cover
+        if CFG.env == "spot_grocery_env":  # pragma: no cover
             try:
                 spot_controllers = SpotControllers()
                 for op in plan:
