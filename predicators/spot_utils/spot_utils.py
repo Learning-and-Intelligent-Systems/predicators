@@ -45,25 +45,26 @@ g_image_click = None
 g_image_display = None
 
 graph_nav_loc_to_id = {
-    "microwave_0": "sudden-buck-mZtfRKlks3p+yJjac4NenQ==",
-    "kitchen_counter_0": "spoken-sawfly-sv+CrbBRCfenw7QX5dvrPQ==",
-    "compost_bin_0": "punic-cicada-65HnkpdVrQtpteI4nG.qUw==",
-    "dishwasher_0": "urbane-otter-bP2FTCyWk.bKjBub.WwShA==",
-    "sink_0": "titled-rabbit-2wr0E8RQx5YH7lNsO9zD+Q==",
-    "fridge_0": "blabby-howler-sukc2NseJ9SYW0zkSR4NcQ==",
-    "kitchen_counter_1": "hunted-equid-AjeBjxUoRRzymDHNNakkgA==",
-    "room_0_outside_0": "germy-fly-WtbLPt6S3+9ns4oOjsAUkQ==",
-    "room_0_inside_0": "hectic-collie-Fg0izmsfWi8kgURPvGk0qw==",
-    "room_0_outside_1": "rize-buck-rV5ZXQ12GxQuDIUGKVu6Mg==",
-    "room_1_outside_0": "votive-jaguar-putQqtZVgU9Hvxx5eIm2Fg==",
-    "room_1_inside_0": "boss-pug-wi6QuZZbAtr5V7krU.ewkQ===",
-    "room_1_outside_1": "fleet-bunny-2bZe9+H+l1qbECZ9ED6IYw==",
-    "storage_room_0_outside_0": "missed-falcon-DMuRgeXB0EXMZS4MYSd5kQ==",
-    "storage_room_0_inside_0": "abuzz-newt-Rx1E8Dzhs7jLRhmono.YXA==",
-    "storage_room_0_outside_1": "curly-colt-28WukUdR02W3QbBCSzqUsw==",
-    "room_2_outside_0": "averse-dayfly-sl2pPLUDDSiRvCjdt6jj9g==",
-    "room_2_room_0_inside_0": "unary-amoeba-WGnqua.JuUXk1xFO3JalXQ==",
-    "room_2_room_0_outside_1": "ace-worm-opjd54QQSj5acIX19ve8jg=="
+    "start": "stone-prawn-2b0kiMuHQBhKfgwhNH3PLA==",
+    "6-12_front": "linked-puffin-JpuZjUsLbqMMA7Ym5IwyGQ==",
+    "6-12_table": "logy-impala-xc9w.jwUDuckZdITrner6g==",
+    "front_tool_room": "dented-marlin-HZHTzO56529oo0oGfAFHdg==",
+    "tool_room_table": "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw==",
+    "tool_room_bag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
+    "tool_room_tool_stand": "roving-gibbon-3eduef4VV0itZzkpHZueNQ==",
+    "tool_room_platform": "comfy-auk-W0iygJ1WJyKR1eB3qe2mlg==",
+    "tool_room_tool_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+    "6-08_front": "curled-spawn-m19jn1Alc5XrrIcIoOSnaw==",
+    "6-08_table": "maiden-oryx-zLyJUTDIg0ZNB3T4J1A8IQ==",
+    "6-07_front": "moldy-cuckoo-RUdyBHBeLWD5pmNUEcW1Ng==",
+    "6-07_table": "combed-gaur-dGWSpydRmOFNEAlBaABI4g==",
+    "center": "unmown-botfly-8OaXOF1VG5LJWF47h.dRpQ==",
+    "6-09_front": "ninth-jackal-g6onxC+AUQyIDznGUH3Fkw==",
+    "6-09_bike": "sodden-hare-OxrK.cEZ1ZKHjb8jjwKrWA==",
+    "6-09_table": "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA==",
+    "outside_table": "causal-fleece-fPaNlwN1dMO5vQ00ZjocmQ==",
+    "6-13_corner": "gooey-mamba-nbmRlRr8J0KPsCztt0Wkyw==",
+    "trash": "holy-aphid-SuqZLSjvRUjUxCDywLIFhw=="
 }
 
 
