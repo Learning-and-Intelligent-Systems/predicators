@@ -145,7 +145,7 @@ class SpotControllers():
         assert len(params) == 3
 
         waypoint_id = ""
-        # TODO Fix this mapping
+        # TODO Fix this mapping (Connect objects to locations)
         # if objs[1].name == 'soda_can':
         #     waypoint_id = graph_nav_loc_to_id['kitchen_counter_1']
         # elif objs[1].name == 'counter':
@@ -154,7 +154,10 @@ class SpotControllers():
         #     waypoint_id = graph_nav_loc_to_id['room_0_inside_0']
         # else:
         #     raise NotImplementedError()
-        waypoint_id = "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA=="
+        if 'bag' in objs[1].name:
+            waypoint_id = "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA=="
+        else:
+            waypoint_id = "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw=="
         self.navigate_to(waypoint_id, params)
 
     def graspController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
@@ -405,15 +408,23 @@ class SpotControllers():
 
         time.sleep(1.0)
 
-        ### (wmcclinton) Does not work!!! Stow the arm
+        ### TODO (wmcclinton) Does not work!!! Stow the arm
+        # To allow stowing
+        grasp_carry_state_override = manipulation_api_pb2.ApiGraspedCarryStateOverride(override_request=3)
+        grasp_override_request = manipulation_api_pb2.ApiGraspOverrideRequest(carry_state_override=grasp_carry_state_override)
+        cmd_response = self.manipulation_api_client.grasp_override_command(grasp_override_request)
+        #
+
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         stow_command_id = self.robot_command_client.robot_command(stow_cmd)
         self.robot.logger.info("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client, stow_command_id,
                                 3.0)
-        ###
 
         self.robot.logger.info('Finished grasp.')
+
+        g_image_click = None
+        g_image_display = None  
 
         time.sleep(2.0)
 
@@ -536,7 +547,8 @@ class SpotControllers():
             self.graph_nav_command_line.navigate_to([waypoint_id])
 
             # (5) Offset by params
-            self.relative_move(params[0], params[1], params[2])
+            if params != [0.0, 0.0, 0.0]:
+                self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
             print(e)
