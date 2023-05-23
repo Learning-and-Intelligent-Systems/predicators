@@ -77,22 +77,8 @@ class BilevelPlanningApproach(BaseApproach):
 
         self._save_metrics(metrics, nsrts, preds)
 
-        try:
-            spot_controllers = SpotControllers()
-            _obj_type = Type("object", [])
-            obj1 = Object("obj1", _obj_type)
-            objects = [obj1]
-            params = [0.0, 0.0, 270]
-            spot_controllers.navigateToController(objects, params)
-        except (bosdyn.client.exceptions.ProxyConnectionError,
-                RuntimeError) as e:
-            print(e)
-            print("Could not connect to Spot!")
-        quit()
-
-
-
-        if CFG.env == "realworld_spot":  # pragma: no cover
+        if CFG.env in ["spot_grocery_env",
+                       "spot_bike_env"]:  # pragma: no cover
             try:
                 spot_controllers = SpotControllers()
                 for op in plan:

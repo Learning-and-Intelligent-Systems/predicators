@@ -13,12 +13,12 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Type
 
 
-class SpotEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
+class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for PDDL environments."""
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"realworld_spot"}
+        return {"spot_grocery_env", "spot_bike_env"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
