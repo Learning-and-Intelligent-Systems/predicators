@@ -75,8 +75,8 @@ class SpotControllers():
     
     Controllers:
 
-    navigateToController(objs, [float:dx, float:dy, float:dr])
-    graspController(objs, [0:Any,1:Top,-1:Side])
+    navigateToController(objs, [float:dx, float:dy, float:dyaw])
+    graspController(objs, [(0:Any,1:Top,-1:Side)])
     placeOntopController(objs, [float:distance])
     """
 
@@ -86,7 +86,7 @@ class SpotControllers():
         self._force_45_angle_grasp = False
         self._force_horizontal_grasp = False
         self._force_squeeze_grasp = False
-        self._force_top_down_grasp = True
+        self._force_top_down_grasp = False
         self._image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
@@ -142,8 +142,10 @@ class SpotControllers():
     def navigateToController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
         """Controller that navigates to specific pre-specified locations."""
         print("NavigateTo", objs)
+        assert len(params) == 3
 
         waypoint_id = ""
+        # TODO Fix this mapping
         # if objs[1].name == 'soda_can':
         #     waypoint_id = graph_nav_loc_to_id['kitchen_counter_1']
         # elif objs[1].name == 'counter':
@@ -158,12 +160,21 @@ class SpotControllers():
     def graspController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
         """Wrapper method for grasp controller."""
         print("Grasp", objs)
+        assert len(params) == 1
+        assert params[0] in [0, 1, -1]
+        if params[0] == 1:
+            self._force_horizontal_grasp = False
+            self._force_top_down_grasp = True
+        elif params[0] == -1:
+            self._force_horizontal_grasp = True
+            self._force_top_down_grasp = False
         self.arm_object_grasp()
 
     def placeOntopController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
         """Wrapper method for placeOnTop controller."""
         print("PlaceOntop", objs)
-        self.hand_movement()
+        assert len(params) == 1
+        self.hand_movement(params)
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
@@ -426,7 +437,7 @@ class SpotControllers():
                 break
             time.sleep(0.1)
 
-    def hand_movement(self) -> None:
+    def hand_movement(self, params: Sequence[float]) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -442,7 +453,8 @@ class SpotControllers():
         # Make the arm pose RobotCommand
         # Build a position to move the arm to (in meters, relative to and
         # expressed in the gravity aligned body frame).
-        x = self.hand_x
+        assert params[0] >= -0.5 and params[0] <= 0.5 
+        x = self.hand_x + params[0] # dx hand
         y = self.hand_y
         z = self.hand_z
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
