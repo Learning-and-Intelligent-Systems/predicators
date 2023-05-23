@@ -24,6 +24,12 @@ from bosdyn.client.robot_command import RobotCommandBuilder, \
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME, VISION_FRAME_NAME
+from bosdyn.client.math_helpers import SE2Pose
+from bosdyn.client.robot_command import RobotCommandBuilder
+from spot_msgs.action import RobotCommand
+import spot_driver.conversions as conv
+
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
@@ -126,7 +132,7 @@ class SpotControllers():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def navigateToController(self, objs: Sequence[Object]) -> None:
+    def navigateToController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
         """Controller that navigates to specific pre-specified locations."""
         print("NavigateTo", objs)
 
@@ -141,12 +147,12 @@ class SpotControllers():
             raise NotImplementedError()
         self.navigate_to(waypoint_id)
 
-    def graspController(self, objs: Sequence[Object]) -> None:
+    def graspController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
         """Wrapper method for grasp controller."""
         print("Grasp", objs)
         self.arm_object_grasp()
 
-    def placeOntopController(self, objs: Sequence[Object]) -> None:
+    def placeOntopController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
         """Wrapper method for placeOnTop controller."""
         print("PlaceOntop", objs)
         self.hand_movement()
@@ -511,3 +517,17 @@ class SpotControllers():
 
         except Exception as e:
             print(e)
+
+    def walk_forward_with_world_frame_goal(self):
+        # Where we want the robot to walk to relative to itself
+        ROBOT_T_GOAL = SE2Pose(1.0, 0.0, 0.0) #X, Y, Z
+        self.robot.logger.info('Walking forward')
+        world_t_robot = None #TODO
+        world_t_goal = world_t_robot * ROBOT_T_GOAL
+        proto_goal = RobotCommandBuilder.synchro_se2_trajectory_point_command(
+            goal_x=world_t_goal.x, goal_y=world_t_goal.y, goal_heading=world_t_goal.angle,
+            frame_name=VISION_FRAME_NAME)
+        action_goal = RobotCommand.Goal()
+        conv.convert_proto_to_bosdyn_msgs_robot_command(proto_goal, action_goal.command)
+        self._robot_command_client.send_goal_and_wait(action_goal)
+        self.robot.logger.info('Successfully walked forward')

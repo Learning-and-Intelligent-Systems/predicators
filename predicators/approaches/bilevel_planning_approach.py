@@ -82,13 +82,13 @@ class BilevelPlanningApproach(BaseApproach):
                 spot_controllers = SpotControllers()
                 for op in plan:
                     if op.name == 'MoveToSurface':
-                        spot_controllers.navigateToController(op.objects)
+                        spot_controllers.navigateToController(op.objects, op.params)
                     elif op.name == 'MoveToCan':
-                        spot_controllers.navigateToController(op.objects)
+                        spot_controllers.navigateToController(op.objects, op.params)
                     elif op.name == 'GraspCan':
-                        spot_controllers.graspController(op.objects)
+                        spot_controllers.graspController(op.objects, op.params)
                     elif op.name == 'PlaceCanOntop':
-                        spot_controllers.placeOntopController(op.objects)
+                        spot_controllers.placeOntopController(op.objects, op.params)
             except (bosdyn.client.exceptions.ProxyConnectionError,
                     RuntimeError):
                 logging.info("Could not connect to Spot!")
