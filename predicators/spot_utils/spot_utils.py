@@ -13,10 +13,12 @@ import cv2
 import numpy as np
 from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2, \
     geometry_pb2, image_pb2, manipulation_api_pb2
+from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
+from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.frame_helpers import GRAV_ALIGNED_BODY_FRAME_NAME, \
-    ODOM_FRAME_NAME, VISION_FRAME_NAME, get_a_tform_b, get_vision_tform_body, \
-    math_helpers
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
+    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, \
+    get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
 from bosdyn.client.image import ImageClient
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
@@ -33,32 +35,40 @@ g_image_click = None
 g_image_display = None
 
 graph_nav_loc_to_id = {
-    "microwave_0": "sudden-buck-mZtfRKlks3p+yJjac4NenQ==",
-    "kitchen_counter_0": "spoken-sawfly-sv+CrbBRCfenw7QX5dvrPQ==",
-    "compost_bin_0": "punic-cicada-65HnkpdVrQtpteI4nG.qUw==",
-    "dishwasher_0": "urbane-otter-bP2FTCyWk.bKjBub.WwShA==",
-    "sink_0": "titled-rabbit-2wr0E8RQx5YH7lNsO9zD+Q==",
-    "fridge_0": "blabby-howler-sukc2NseJ9SYW0zkSR4NcQ==",
-    "kitchen_counter_1": "hunted-equid-AjeBjxUoRRzymDHNNakkgA==",
-    "room_0_outside_0": "germy-fly-WtbLPt6S3+9ns4oOjsAUkQ==",
-    "room_0_inside_0": "hectic-collie-Fg0izmsfWi8kgURPvGk0qw==",
-    "room_0_outside_1": "rize-buck-rV5ZXQ12GxQuDIUGKVu6Mg==",
-    "room_1_outside_0": "votive-jaguar-putQqtZVgU9Hvxx5eIm2Fg==",
-    "room_1_inside_0": "boss-pug-wi6QuZZbAtr5V7krU.ewkQ===",
-    "room_1_outside_1": "fleet-bunny-2bZe9+H+l1qbECZ9ED6IYw==",
-    "storage_room_0_outside_0": "missed-falcon-DMuRgeXB0EXMZS4MYSd5kQ==",
-    "storage_room_0_inside_0": "abuzz-newt-Rx1E8Dzhs7jLRhmono.YXA==",
-    "storage_room_0_outside_1": "curly-colt-28WukUdR02W3QbBCSzqUsw==",
-    "room_2_outside_0": "averse-dayfly-sl2pPLUDDSiRvCjdt6jj9g==",
-    "room_2_room_0_inside_0": "unary-amoeba-WGnqua.JuUXk1xFO3JalXQ==",
-    "room_2_room_0_outside_1": "ace-worm-opjd54QQSj5acIX19ve8jg=="
+    "start": "stone-prawn-2b0kiMuHQBhKfgwhNH3PLA==",
+    "6-12_front": "linked-puffin-JpuZjUsLbqMMA7Ym5IwyGQ==",
+    "6-12_table": "logy-impala-xc9w.jwUDuckZdITrner6g==",
+    "front_tool_room": "dented-marlin-HZHTzO56529oo0oGfAFHdg==",
+    "tool_room_table": "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw==",
+    "tool_room_bag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
+    "tool_room_tool_stand": "roving-gibbon-3eduef4VV0itZzkpHZueNQ==",
+    "tool_room_platform": "comfy-auk-W0iygJ1WJyKR1eB3qe2mlg==",
+    "tool_room_tool_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+    "6-08_front": "curled-spawn-m19jn1Alc5XrrIcIoOSnaw==",
+    "6-08_table": "maiden-oryx-zLyJUTDIg0ZNB3T4J1A8IQ==",
+    "6-07_front": "moldy-cuckoo-RUdyBHBeLWD5pmNUEcW1Ng==",
+    "6-07_table": "combed-gaur-dGWSpydRmOFNEAlBaABI4g==",
+    "center": "unmown-botfly-8OaXOF1VG5LJWF47h.dRpQ==",
+    "6-09_front": "ninth-jackal-g6onxC+AUQyIDznGUH3Fkw==",
+    "6-09_bike": "sodden-hare-OxrK.cEZ1ZKHjb8jjwKrWA==",
+    "6-09_table": "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA==",
+    "outside_table": "causal-fleece-fPaNlwN1dMO5vQ00ZjocmQ==",
+    "6-13_corner": "gooey-mamba-nbmRlRr8J0KPsCztt0Wkyw==",
+    "trash": "holy-aphid-SuqZLSjvRUjUxCDywLIFhw=="
 }
 
 
 # pylint: disable=no-member
 class SpotControllers():
     """Implementation of interface with low-level controllers for the Spot
-    robot."""
+    robot.
+
+    Controllers:
+
+    navigateToController(objs, [float:dx, float:dy, float:dyaw])
+    graspController(objs, [(0:Any,1:Top,-1:Side)])
+    placeOntopController(objs, [float:distance])
+    """
 
     def __init__(self) -> None:
         self._hostname = CFG.spot_robot_ip
@@ -66,7 +76,7 @@ class SpotControllers():
         self._force_45_angle_grasp = False
         self._force_horizontal_grasp = False
         self._force_squeeze_grasp = False
-        self._force_top_down_grasp = True
+        self._force_top_down_grasp = False
         self._image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
@@ -103,7 +113,7 @@ class SpotControllers():
             self.lease_client, must_acquire=True, return_at_exit=True)
 
         # Create Graph Nav Command Line
-        self.upload_filepath = "predicators/spot_utils/kitchen/" + \
+        self.upload_filepath = "predicators/spot_utils/bike_env/" + \
             "downloaded_graph/"
         self.graph_nav_command_line = GraphNavInterface(
             self.robot, self.upload_filepath, self.lease_client,
@@ -119,30 +129,50 @@ class SpotControllers():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def navigateToController(self, objs: Sequence[Object]) -> None:
-        """Controller that navigates to specific pre-specified locations."""
+    def navigateToController(self, objs: Sequence[Object],
+                             params: Sequence[float]) -> None:
+        """Controller that navigates to specific pre-specified locations.
+
+        Params are [dx, dy, d-yaw]
+        """
         print("NavigateTo", objs)
+        assert len(params) == 3
 
         waypoint_id = ""
-        if objs[1].name == 'soda_can':
-            waypoint_id = graph_nav_loc_to_id['kitchen_counter_1']
-        elif objs[1].name == 'counter':
-            waypoint_id = graph_nav_loc_to_id['kitchen_counter_1']
-        elif objs[1].name == 'snack_table':
-            waypoint_id = graph_nav_loc_to_id['room_0_inside_0']
+        if 'bag' in objs[1].name:
+            waypoint_id = "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA=="
         else:
-            raise NotImplementedError()
-        self.navigate_to(waypoint_id)
+            waypoint_id = "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw=="
+        self.navigate_to(waypoint_id, params)
 
-    def graspController(self, objs: Sequence[Object]) -> None:
-        """Wrapper method for grasp controller."""
+    def graspController(self, objs: Sequence[Object],
+                        params: Sequence[float]) -> None:
+        """Wrapper method for grasp controller.
+
+        Params are just one-dimensional corresponding to a top-down
+        grasp (1), side grasp (-1) or any (0).
+        """
         print("Grasp", objs)
+        assert len(params) == 1
+        assert params[0] in [0, 1, -1]
+        if params[0] == 1:
+            self._force_horizontal_grasp = False
+            self._force_top_down_grasp = True
+        elif params[0] == -1:
+            self._force_horizontal_grasp = True
+            self._force_top_down_grasp = False
         self.arm_object_grasp()
 
-    def placeOntopController(self, objs: Sequence[Object]) -> None:
-        """Wrapper method for placeOnTop controller."""
+    def placeOntopController(self, objs: Sequence[Object],
+                             params: Sequence[float]) -> None:
+        """Wrapper method for placeOnTop controller.
+
+        Params is one-dimensional corresponding to the extension of the
+        arm from the robot when placing.
+        """
         print("PlaceOntop", objs)
-        self.hand_movement()
+        assert len(params) == 1
+        self.hand_movement(params)
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
@@ -305,7 +335,7 @@ class SpotControllers():
         cv2.namedWindow(image_title)
         cv2.setMouseCallback(image_title, self.cv_mouse_callback)
 
-        # pylint: disable=global-variable-not-assigned
+        # pylint: disable=global-variable-not-assigned, global-statement
         global g_image_click, g_image_display
         g_image_display = img
         cv2.imshow(image_title, g_image_display)
@@ -316,9 +346,10 @@ class SpotControllers():
                 print('"q" pressed, exiting.')
                 sys.exit()
 
+        # pylint: disable=unsubscriptable-object
         self.robot.\
             logger.info(f"Object at ({g_image_click[0]}, {g_image_click[1]})")
-
+        # pylint: disable=unsubscriptable-object
         pick_vec = geometry_pb2.Vec2(x=g_image_click[0], y=g_image_click[1])
 
         # Build the proto
@@ -373,15 +404,25 @@ class SpotControllers():
 
         time.sleep(1.0)
 
-        ### (wmcclinton) Does not work!!! Stow the arm
+        # Allow Stowing and Stow Arm
+        grasp_carry_state_override = manipulation_api_pb2.\
+            ApiGraspedCarryStateOverride(override_request=3)
+        grasp_override_request = manipulation_api_pb2.\
+            ApiGraspOverrideRequest(
+            carry_state_override=grasp_carry_state_override)
+        cmd_response = self.manipulation_api_client.\
+            grasp_override_command(grasp_override_request)
+
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         stow_command_id = self.robot_command_client.robot_command(stow_cmd)
         self.robot.logger.info("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client, stow_command_id,
                                 3.0)
-        ###
 
         self.robot.logger.info('Finished grasp.')
+
+        g_image_click = None
+        g_image_display = None
 
         time.sleep(2.0)
 
@@ -405,7 +446,7 @@ class SpotControllers():
                 break
             time.sleep(0.1)
 
-    def hand_movement(self) -> None:
+    def hand_movement(self, params: Sequence[float]) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -421,7 +462,8 @@ class SpotControllers():
         # Make the arm pose RobotCommand
         # Build a position to move the arm to (in meters, relative to and
         # expressed in the gravity aligned body frame).
-        x = self.hand_x
+        assert params[0] >= -0.5 and params[0] <= 0.5
+        x = self.hand_x + params[0]  # dx hand
         y = self.hand_y
         z = self.hand_z
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
@@ -489,7 +531,7 @@ class SpotControllers():
         block_until_arm_arrives(self.robot_command_client, stow_command_id,
                                 3.0)
 
-    def navigate_to(self, waypoint_id: str) -> None:
+    def navigate_to(self, waypoint_id: str, params: Sequence[float]) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
         # pylint: disable=broad-except
         try:
@@ -502,5 +544,60 @@ class SpotControllers():
             # (4) Navigate to
             self.graph_nav_command_line.navigate_to([waypoint_id])
 
+            # (5) Offset by params
+            if params != [0.0, 0.0, 0.0]:
+                self.relative_move(params[0], params[1], params[2])
+
         except Exception as e:
             print(e)
+
+    def relative_move(self,
+                      dx: float,
+                      dy: float,
+                      dyaw: float,
+                      stairs: bool = False) -> bool:
+        """Move to relative robot position in body frame."""
+        transforms = self.robot_state_client.get_robot_state(
+        ).kinematic_state.transforms_snapshot
+
+        # Build the transform for where we want the robot to be
+        # relative to where the body currently is.
+        body_tform_goal = math_helpers.SE2Pose(x=dx, y=dy, angle=dyaw)
+        # We do not want to command this goal in body frame because
+        # the body will move, thus shifting our goal. Instead, we
+        # transform this offset to get the goal position in the output
+        # frame (which will be either odom or vision).
+        out_tform_body = get_se2_a_tform_b(transforms, ODOM_FRAME_NAME,
+                                           BODY_FRAME_NAME)
+        out_tform_goal = out_tform_body * body_tform_goal
+
+        # Command the robot to go to the goal point in the specified
+        # frame. The command will stop at the new position.
+        robot_cmd = RobotCommandBuilder.synchro_se2_trajectory_point_command(
+            goal_x=out_tform_goal.x,
+            goal_y=out_tform_goal.y,
+            goal_heading=out_tform_goal.angle,
+            frame_name=ODOM_FRAME_NAME,
+            params=RobotCommandBuilder.mobility_params(stair_hint=stairs))
+        end_time = 10.0
+        cmd_id = self.robot_command_client.robot_command(
+            lease=None,
+            command=robot_cmd,
+            end_time_secs=time.time() + end_time)
+        # Wait until the robot has reached the goal.
+        while True:
+            feedback = self.robot_command_client.\
+                robot_command_feedback(cmd_id)
+            mobility_feedback = feedback.feedback.\
+                synchronized_feedback.mobility_command_feedback
+            if mobility_feedback.status != \
+                RobotCommandFeedbackStatus.STATUS_PROCESSING:
+                print("Failed to reach the goal")
+                return False
+            traj_feedback = mobility_feedback.se2_trajectory_feedback
+            if (traj_feedback.status == traj_feedback.STATUS_AT_GOAL
+                    and traj_feedback.body_movement_status
+                    == traj_feedback.BODY_STATUS_SETTLED):
+                print("Arrived at the goal.")
+                return True
+            time.sleep(1)
