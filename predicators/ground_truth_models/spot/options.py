@@ -61,6 +61,14 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
             act_arr[1:(len(obj_idxs) + 1)] = obj_idxs
             return Action(act_arr)
 
+        params_space = Box(0, 1, (0, ))
+        if "MoveTo" in op.name:
+            params_space = Box(-5.0, 5.0, (3, ))
+        elif "Grasp" in op.name:
+            params_space = Box(-1.0, 1.0, (1, ))
+        elif "Place" in op.name:
+            params_space = Box(-5.0, 5.0, (1, ))
+
         # Note: the initiable is deliberately always True. This only makes a
         # difference for exploration. If the initiable took into account the
         # ground-truth preconditions, that would make exploration too easy,
@@ -68,4 +76,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
         # preconditions hold. Instead, with always-True initiable, there is a
         # difficult exploration problem because most options will have trivial
         # effects on the environment.
-        return utils.SingletonParameterizedOption(name, policy, types)
+        return utils.SingletonParameterizedOption(name,
+                                                  policy,
+                                                  types,
+                                                  params_space=params_space)
