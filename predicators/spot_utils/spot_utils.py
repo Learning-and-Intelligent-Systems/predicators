@@ -1,5 +1,6 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
+import os
 import sys
 import time
 from typing import Any, Sequence
@@ -10,9 +11,8 @@ import bosdyn.client.lease
 import bosdyn.client.util
 import cv2
 import numpy as np
-from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2
-from bosdyn.api import geometry_pb2
-from bosdyn.api import image_pb2, manipulation_api_pb2
+from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2, \
+    geometry_pb2, image_pb2, manipulation_api_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
@@ -86,9 +86,9 @@ class SpotControllers():
 
         self.sdk = bosdyn.client.create_standard_sdk('SesameClient')
         self.robot: Robot = self.sdk.create_robot(self._hostname)
-        # if not os.environ.get('BOSDYN_CLIENT_USERNAME') or not os.environ.get(
-        #         'BOSDYN_CLIENT_PASSWORD'):
-        #     raise RuntimeError("Spot environment variables unset.")
+        if not os.environ.get('BOSDYN_CLIENT_USERNAME') or not os.environ.get(
+                'BOSDYN_CLIENT_PASSWORD'):
+            raise RuntimeError("Spot environment variables unset.")
         bosdyn.client.util.authenticate(self.robot)
         self.robot.time_sync.wait_for_sync()
 
@@ -324,7 +324,7 @@ class SpotControllers():
         cv2.namedWindow(image_title)
         cv2.setMouseCallback(image_title, self.cv_mouse_callback)
 
-        # pylint: disable=global-variable-not-assigned
+        # pylint: disable=global-variable-not-assigned, global-statement
         global g_image_click, g_image_display
         g_image_display = img
         cv2.imshow(image_title, g_image_display)
@@ -335,9 +335,10 @@ class SpotControllers():
                 print('"q" pressed, exiting.')
                 sys.exit()
 
+        # pylint: disable=unsubscriptable-object
         self.robot.\
             logger.info(f"Object at ({g_image_click[0]}, {g_image_click[1]})")
-
+        # pylint: disable=unsubscriptable-object
         pick_vec = geometry_pb2.Vec2(x=g_image_click[0], y=g_image_click[1])
 
         # Build the proto
