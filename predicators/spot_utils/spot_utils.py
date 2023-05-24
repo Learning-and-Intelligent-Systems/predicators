@@ -1,9 +1,10 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
 import os
+import re
 import sys
 import time
-from typing import Any, Sequence
+from typing import Any, Sequence, Set
 
 import bosdyn.client
 import bosdyn.client.estop
@@ -29,7 +30,7 @@ from bosdyn.client.sdk import Robot
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.structs import Object
+from predicators.structs import GroundAtom, Object
 
 g_image_click = None
 g_image_display = None
@@ -70,7 +71,7 @@ class SpotControllers():
     placeOntopController(objs, [float:distance])
     """
 
-    def __init__(self) -> None:
+    def __init__(self, init_atoms: Set[GroundAtom]) -> None:
         self._hostname = CFG.spot_robot_ip
         self._verbose = False
         self._force_45_angle_grasp = False
@@ -78,6 +79,7 @@ class SpotControllers():
         self._force_squeeze_grasp = False
         self._force_top_down_grasp = False
         self._image_source = "hand_color_image"
+        self._init_atoms = init_atoms
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
 
@@ -137,12 +139,23 @@ class SpotControllers():
         """
         print("NavigateTo", objs)
         assert len(params) == 3
-
         waypoint_id = ""
         if 'bag' in objs[1].name:
             waypoint_id = "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA=="
         else:
-            waypoint_id = "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw=="
+            curr_tool = objs[1].name
+            surfaces_for_objs = re.findall(
+                ("On\(" + f"{curr_tool}:tool, " + "(.*?):flat_surface\)"),
+                str(self._init_atoms))
+            if not surfaces_for_objs:
+                assert len(surfaces_for_objs) == 1
+                surface = surfaces_for_objs[0]
+                if "rack" in surface:
+                    waypoint_id = graph_nav_loc_to_id["tool_room_tool_rack"]
+                else:
+                    waypoint_id = graph_nav_loc_to_id[surface]
+            else:
+                waypoint_id = "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw=="
         self.navigate_to(waypoint_id, params)
 
     def graspController(self, objs: Sequence[Object],
