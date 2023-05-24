@@ -132,7 +132,9 @@ class SpotControllers():
     def navigateToController(self, objs: Sequence[Object],
                              params: Sequence[float]) -> None:
         """Controller that navigates to specific pre-specified locations.
-        Params are [dx, dy, d-yaw]"""
+
+        Params are [dx, dy, d-yaw]
+        """
         print("NavigateTo", objs)
         assert len(params) == 3
 
@@ -146,9 +148,10 @@ class SpotControllers():
     def graspController(self, objs: Sequence[Object],
                         params: Sequence[float]) -> None:
         """Wrapper method for grasp controller.
-        Params are just one-dimensional corresponding to
-        a top-down grasp (1), side grasp (-1) or any
-        (0)."""
+
+        Params are just one-dimensional corresponding to a top-down
+        grasp (1), side grasp (-1) or any (0).
+        """
         print("Grasp", objs)
         assert len(params) == 1
         assert params[0] in [0, 1, -1]
@@ -163,8 +166,10 @@ class SpotControllers():
     def placeOntopController(self, objs: Sequence[Object],
                              params: Sequence[float]) -> None:
         """Wrapper method for placeOnTop controller.
-        Params is one-dimensional corresponding to the extension
-        of the arm from the robot when placing."""
+
+        Params is one-dimensional corresponding to the extension of the
+        arm from the robot when placing.
+        """
         print("PlaceOntop", objs)
         assert len(params) == 1
         self.hand_movement(params)
