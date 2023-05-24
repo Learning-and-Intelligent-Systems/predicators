@@ -285,12 +285,9 @@ class BaseEnv(abc.ABC):
         for pred, args in pred_to_args.items():
             for id_args in args:
                 obj_args = [id_to_obj[a] for a in id_args]
-                try:
-                    goal_atom = GroundAtom(pred, obj_args)
-                except:
-                    import ipdb; ipdb.set_trace()
+                goal_atom = GroundAtom(pred, obj_args)
                 goal.add(goal_atom)
-                
+
         return goal
 
     def _parse_language_goal_from_json(
