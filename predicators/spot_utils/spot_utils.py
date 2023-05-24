@@ -1,6 +1,5 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
-import os
 import sys
 import time
 from typing import Any, Sequence
@@ -11,12 +10,15 @@ import bosdyn.client.lease
 import bosdyn.client.util
 import cv2
 import numpy as np
-from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2, \
-    geometry_pb2, image_pb2, manipulation_api_pb2
+from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2
+from bosdyn.api import geometry_pb2
+from bosdyn.api import image_pb2, manipulation_api_pb2
+from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
+from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.frame_helpers import GRAV_ALIGNED_BODY_FRAME_NAME, \
-    ODOM_FRAME_NAME, VISION_FRAME_NAME, get_a_tform_b, get_vision_tform_body, \
-    math_helpers
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
+    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, \
+    get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
 from bosdyn.client.image import ImageClient
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
@@ -28,18 +30,6 @@ from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
 from predicators.structs import Object
-
-import bosdyn.client.util
-from bosdyn.api import basic_command_pb2
-from bosdyn.api import geometry_pb2 as geo
-from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
-from bosdyn.client import math_helpers
-from bosdyn.client.frame_helpers import (BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME,
-                                         get_se2_a_tform_b)
-from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.robot_command import (RobotCommandBuilder, RobotCommandClient,
-                                         block_for_trajectory_cmd, blocking_stand)
-from bosdyn.client.robot_state import RobotStateClient
 
 g_image_click = None
 g_image_display = None
@@ -72,7 +62,7 @@ graph_nav_loc_to_id = {
 class SpotControllers():
     """Implementation of interface with low-level controllers for the Spot
     robot.
-    
+
     Controllers:
 
     navigateToController(objs, [float:dx, float:dy, float:dyaw])
@@ -139,28 +129,21 @@ class SpotControllers():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def navigateToController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
+    def navigateToController(self, objs: Sequence[Object],
+                             params: Sequence[float]) -> None:
         """Controller that navigates to specific pre-specified locations."""
         print("NavigateTo", objs)
         assert len(params) == 3
 
         waypoint_id = ""
-        # TODO Fix this mapping (Connect objects to locations)
-        # if objs[1].name == 'soda_can':
-        #     waypoint_id = graph_nav_loc_to_id['kitchen_counter_1']
-        # elif objs[1].name == 'counter':
-        #     waypoint_id = graph_nav_loc_to_id['kitchen_counter_1']
-        # elif objs[1].name == 'snack_table':
-        #     waypoint_id = graph_nav_loc_to_id['room_0_inside_0']
-        # else:
-        #     raise NotImplementedError()
         if 'bag' in objs[1].name:
             waypoint_id = "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA=="
         else:
             waypoint_id = "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw=="
         self.navigate_to(waypoint_id, params)
 
-    def graspController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
+    def graspController(self, objs: Sequence[Object],
+                        params: Sequence[float]) -> None:
         """Wrapper method for grasp controller."""
         print("Grasp", objs)
         assert len(params) == 1
@@ -173,7 +156,8 @@ class SpotControllers():
             self._force_top_down_grasp = False
         self.arm_object_grasp()
 
-    def placeOntopController(self, objs: Sequence[Object], params: Sequence[float]) -> None:
+    def placeOntopController(self, objs: Sequence[Object],
+                             params: Sequence[float]) -> None:
         """Wrapper method for placeOnTop controller."""
         print("PlaceOntop", objs)
         assert len(params) == 1
@@ -408,12 +392,14 @@ class SpotControllers():
 
         time.sleep(1.0)
 
-        ### TODO (wmcclinton) Does not work!!! Stow the arm
-        # To allow stowing
-        grasp_carry_state_override = manipulation_api_pb2.ApiGraspedCarryStateOverride(override_request=3)
-        grasp_override_request = manipulation_api_pb2.ApiGraspOverrideRequest(carry_state_override=grasp_carry_state_override)
-        cmd_response = self.manipulation_api_client.grasp_override_command(grasp_override_request)
-        #
+        # Allow Stowing and Stow Arm
+        grasp_carry_state_override = manipulation_api_pb2.\
+            ApiGraspedCarryStateOverride(override_request=3)
+        grasp_override_request = manipulation_api_pb2.\
+            ApiGraspOverrideRequest(
+            carry_state_override=grasp_carry_state_override)
+        cmd_response = self.manipulation_api_client.\
+            grasp_override_command(grasp_override_request)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         stow_command_id = self.robot_command_client.robot_command(stow_cmd)
@@ -424,7 +410,7 @@ class SpotControllers():
         self.robot.logger.info('Finished grasp.')
 
         g_image_click = None
-        g_image_display = None  
+        g_image_display = None
 
         time.sleep(2.0)
 
@@ -464,8 +450,8 @@ class SpotControllers():
         # Make the arm pose RobotCommand
         # Build a position to move the arm to (in meters, relative to and
         # expressed in the gravity aligned body frame).
-        assert params[0] >= -0.5 and params[0] <= 0.5 
-        x = self.hand_x + params[0] # dx hand
+        assert params[0] >= -0.5 and params[0] <= 0.5
+        x = self.hand_x + params[0]  # dx hand
         y = self.hand_y
         z = self.hand_z
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
@@ -553,35 +539,53 @@ class SpotControllers():
         except Exception as e:
             print(e)
 
-    def relative_move(self, dx, dy, dyaw, stairs=False):
-        transforms = self.robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
+    def relative_move(self,
+                      dx: float,
+                      dy: float,
+                      dyaw: float,
+                      stairs: bool = False) -> bool:
+        """Move to relative robot position in body frame."""
+        transforms = self.robot_state_client.get_robot_state(
+        ).kinematic_state.transforms_snapshot
 
-        # Build the transform for where we want the robot to be relative to where the body currently is.
+        # Build the transform for where we want the robot to be
+        # relative to where the body currently is.
         body_tform_goal = math_helpers.SE2Pose(x=dx, y=dy, angle=dyaw)
-        # We do not want to command this goal in body frame because the body will move, thus shifting
-        # our goal. Instead, we transform this offset to get the goal position in the output frame
-        # (which will be either odom or vision).
-        out_tform_body = get_se2_a_tform_b(transforms, ODOM_FRAME_NAME, BODY_FRAME_NAME)
+        # We do not want to command this goal in body frame because
+        # the body will move, thus shifting our goal. Instead, we
+        # transform this offset to get the goal position in the output
+        # frame (which will be either odom or vision).
+        out_tform_body = get_se2_a_tform_b(transforms, ODOM_FRAME_NAME,
+                                           BODY_FRAME_NAME)
         out_tform_goal = out_tform_body * body_tform_goal
 
-        # Command the robot to go to the goal point in the specified frame. The command will stop at the
-        # new position.
+        # Command the robot to go to the goal point in the specified
+        # frame. The command will stop at the new position.
         robot_cmd = RobotCommandBuilder.synchro_se2_trajectory_point_command(
-            goal_x=out_tform_goal.x, goal_y=out_tform_goal.y, goal_heading=out_tform_goal.angle,
-            frame_name=ODOM_FRAME_NAME, params=RobotCommandBuilder.mobility_params(stair_hint=stairs))
+            goal_x=out_tform_goal.x,
+            goal_y=out_tform_goal.y,
+            goal_heading=out_tform_goal.angle,
+            frame_name=ODOM_FRAME_NAME,
+            params=RobotCommandBuilder.mobility_params(stair_hint=stairs))
         end_time = 10.0
-        cmd_id = self.robot_command_client.robot_command(lease=None, command=robot_cmd,
-                                                    end_time_secs=time.time() + end_time)
+        cmd_id = self.robot_command_client.robot_command(
+            lease=None,
+            command=robot_cmd,
+            end_time_secs=time.time() + end_time)
         # Wait until the robot has reached the goal.
         while True:
-            feedback = self.robot_command_client.robot_command_feedback(cmd_id)
-            mobility_feedback = feedback.feedback.synchronized_feedback.mobility_command_feedback
-            if mobility_feedback.status != RobotCommandFeedbackStatus.STATUS_PROCESSING:
+            feedback = self.robot_command_client.\
+                robot_command_feedback(cmd_id)
+            mobility_feedback = feedback.feedback.\
+                synchronized_feedback.mobility_command_feedback
+            if mobility_feedback.status != \
+                RobotCommandFeedbackStatus.STATUS_PROCESSING:
                 print("Failed to reach the goal")
                 return False
             traj_feedback = mobility_feedback.se2_trajectory_feedback
-            if (traj_feedback.status == traj_feedback.STATUS_AT_GOAL and
-                    traj_feedback.body_movement_status == traj_feedback.BODY_STATUS_SETTLED):
+            if (traj_feedback.status == traj_feedback.STATUS_AT_GOAL
+                    and traj_feedback.body_movement_status
+                    == traj_feedback.BODY_STATUS_SETTLED):
                 print("Arrived at the goal.")
                 return True
             time.sleep(1)

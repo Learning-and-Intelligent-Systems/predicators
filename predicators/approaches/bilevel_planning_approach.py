@@ -80,17 +80,23 @@ class BilevelPlanningApproach(BaseApproach):
         if CFG.env in ["spot_grocery_env",
                        "spot_bike_env"]:  # pragma: no cover
             try:
-                # TODO Connect Controllers to Controller Names
                 spot_controllers = SpotControllers()
                 for op in plan:
                     if 'MoveToBag' in op.name:
-                        spot_controllers.navigateToController(op.objects, [0.5, 0.0, 0.0])
+                        spot_controllers.navigateToController(
+                            op.objects, [0.5, 0.0, 0.0])
                     elif 'MoveTo' in op.name:
-                        spot_controllers.navigateToController(op.objects, [-0.25, 0.0, 0.0])
+                        spot_controllers.navigateToController(
+                            op.objects, [-0.25, 0.0, 0.0])
                     elif 'Grasp' in op.name:
                         spot_controllers.graspController(op.objects, [0])
                     elif 'Place' in op.name:
-                        spot_controllers.placeOntopController(op.objects, [0.0])
+                        spot_controllers.placeOntopController(
+                            op.objects, [0.0])
+                    else:
+                        logging.info(op.name)
+                        raise NotImplementedError(
+                            "Spot controller not implemented")
             except (bosdyn.client.exceptions.ProxyConnectionError,
                     RuntimeError):
                 logging.info("Could not connect to Spot!")
