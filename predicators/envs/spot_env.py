@@ -137,26 +137,10 @@ class SpotEnv(BaseEnv):
 
         Environments can override this method to handle different formats.
         """
+        with open(json_file, "r", encoding="utf-8") as f:
+            json_dict = json.load(f)
         object_name_to_object: Dict[str, Object] = {}
-        if CFG.override_json_with_input:
-            json_dict = {
-                'objects': {},
-                'init': {},
-                'init_preds': {},
-                'language_goal': None
-            }
-            tasks = self._generate_tasks(num_tasks=1)
-            init_state = tasks[0].init
-            json_dict["init"] = init_state
-            for obj, obj_dict in init_state.data.items():
-                object_name_to_object[obj.name] = obj
-            print("\n\nInit State:", init_state.simulator_state, "\n")
-            print(f"\n{object_name_to_object}\n")
-            json_dict['language_goal'] = input(
-                "\n[ChatGPT-Spot] What do you need from me?\n\n>> ")
-        else:
-            with open(json_file, "r", encoding="utf-8") as f:
-                json_dict = json.load(f)
+        if not CFG.override_json_with_input:
             # Parse objects.
             type_name_to_type = {t.name: t for t in self.types}
             for obj_name, type_name in json_dict["objects"].items():
@@ -174,7 +158,6 @@ class SpotEnv(BaseEnv):
             for obj_name, obj_dict in json_dict["init"].items():
                 obj = object_name_to_object[obj_name]
                 init_dict[obj] = obj_dict.copy()
-
             # NOTE: We need to parse out init preds to create a simulator state.
             init_preds = self._parse_init_preds_from_json(
                 json_dict["init_preds"], object_name_to_object)
@@ -182,6 +165,17 @@ class SpotEnv(BaseEnv):
             # predicates into the PDDLEnvState when the signature actually
             # expects Arrays.
             init_state = _PDDLEnvState(init_dict, init_preds)  # type: ignore
+        else:
+            tasks = self._generate_tasks(num_tasks=1)
+            assert isinstance(tasks[0].init, _PDDLEnvState)
+            init_state = tasks[0].init
+            json_dict["init"] = init_state
+            for obj, obj_dict in init_state.data.items():
+                object_name_to_object[obj.name] = obj
+            print("\n\nInit State:", init_state.simulator_state, "\n")
+            print(f"\n{object_name_to_object}\n")
+            json_dict['language_goal'] = input(
+                "\n[ChatGPT-Spot] What do you need from me?\n\n>> ")
 
         # Parse goal.
         if "goal" in json_dict:
