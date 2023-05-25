@@ -140,9 +140,9 @@ class SpotControllers():
         """
         print("NavigateTo", objs)
         assert len(params) == 3
-
+        waypoint_id = ""
         if graph_nav_loc_to_id.get(objs[1].name) is not None:
-            waypoint_id = graph_nav_loc_to_id.get(objs[1].name)
+            waypoint_id = graph_nav_loc_to_id[objs[1].name]
         else:
             curr_tool = objs[1].name
             surfaces_for_objs = re.findall(
