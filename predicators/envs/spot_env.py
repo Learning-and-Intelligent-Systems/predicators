@@ -166,16 +166,9 @@ class SpotEnv(BaseEnv):
             # expects Arrays.
             init_state = _PDDLEnvState(init_dict, init_preds)  # type: ignore
         else:
-            tasks = self._generate_tasks(num_tasks=1)
-            assert isinstance(tasks[0].init, _PDDLEnvState)
-            init_state = tasks[0].init
-            json_dict["init"] = init_state
-            for obj, obj_dict in init_state.data.items():
-                object_name_to_object[obj.name] = obj
-            print("\n\nInit State:", init_state.simulator_state, "\n")
-            print(f"\n{object_name_to_object}\n")
-            json_dict['language_goal'] = input(
-                "\n[ChatGPT-Spot] What do you need from me?\n\n>> ")
+            parsed_init_state = self._parse_init_state_from_env()
+            assert isinstance(parsed_init_state, _PDDLEnvState)
+            init_state = parsed_init_state
 
         # Parse goal.
         if "goal" in json_dict:
@@ -183,14 +176,13 @@ class SpotEnv(BaseEnv):
                                               object_name_to_object)
         else:  # pragma: no cover
             assert "language_goal" in json_dict
-            goal = self._parse_language_goal_from_json(
-                json_dict["language_goal"], object_name_to_object)
-        print("\nGoal: ", goal)
-        if not CFG.override_json_with_input or input(
-                "\nSubmit Goal? [y/n] >> ") == "y":
-            return EnvironmentTask(init_state, goal)
-        # Try Again, overriding json input results in wrong goal.
-        return self._load_task_from_json(json_file)
+            if CFG.override_json_with_input:
+                goal = self._parse_goal_from_input_to_json(
+                    init_state, json_dict, object_name_to_object)
+            else:
+                goal = self._parse_language_goal_from_json(
+                    json_dict["language_goal"], object_name_to_object)
+        return EnvironmentTask(init_state, goal)
 
 
 ###############################################################################
