@@ -145,7 +145,7 @@ class SpotControllers():
         else:
             curr_tool = objs[1].name
             surfaces_for_objs = re.findall(
-                ("On\(" + f"{curr_tool}:tool, " + "(.*?):flat_surface\)"),
+                (r"On\(" + f"{curr_tool}:tool, " + r"(.*?):flat_surface\)"),
                 str(self._init_atoms))
             if not surfaces_for_objs:
                 assert len(surfaces_for_objs) == 1
