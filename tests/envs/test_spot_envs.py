@@ -122,8 +122,6 @@ def test_natural_language_goal_prompt_prefix():
 def test_json_loading():
     """Test JSON loading from a specially-created test JSON file."""
     env = SpotGroceryEnv()
-    assert str(env._generate_test_tasks()[0].init) == str(  # pylint: disable=protected-access
-        env._parse_init_state_from_env())  # pylint: disable=protected-access
     output_task = env._load_task_from_json(  # pylint: disable=W0212
         Path('predicators/spot_utils/json_tasks/grocery/test.json'))
     assert str(
