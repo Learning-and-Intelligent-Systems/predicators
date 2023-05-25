@@ -249,7 +249,6 @@ class BaseEnv(abc.ABC):
             obj = object_name_to_object[obj_name]
             init_dict[obj] = obj_dict.copy()
         init_state = utils.create_state_from_dict(init_dict)
-
         # Parse goal.
         if "goal" in json_dict:
             goal = self._parse_goal_from_json(json_dict["goal"],
@@ -295,7 +294,6 @@ class BaseEnv(abc.ABC):
                 obj_args = [id_to_obj[a] for a in id_args]
                 goal_atom = GroundAtom(pred, obj_args)
                 goal.add(goal_atom)
-
         return goal
 
     def _parse_language_goal_from_json(
