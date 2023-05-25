@@ -3,7 +3,7 @@
 import abc
 import json
 from pathlib import Path
-from typing import Callable, Collection, Dict, List, Optional, Set
+from typing import Any, Callable, Collection, Dict, List, Optional, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -178,6 +178,7 @@ class BaseEnv(abc.ABC):
                     for f in files[:CFG.num_test_tasks]
                 ]
             else:
+                assert not CFG.override_json_with_input
                 self._test_tasks = self._generate_test_tasks()
         return self._test_tasks
 
@@ -229,16 +230,18 @@ class BaseEnv(abc.ABC):
         """
         with open(json_file, "r", encoding="utf-8") as f:
             json_dict = json.load(f)
+        object_name_to_object: Dict[str, Object] = {}
         # Parse objects.
         type_name_to_type = {t.name: t for t in self.types}
-        object_name_to_object: Dict[str, Object] = {}
         for obj_name, type_name in json_dict["objects"].items():
             obj_type = type_name_to_type[type_name]
             obj = Object(obj_name, obj_type)
             object_name_to_object[obj_name] = obj
-        assert set(object_name_to_object).issubset(set(json_dict["init"])), \
+        assert set(object_name_to_object).\
+            issubset(set(json_dict["init"])), \
             "The init state can only include objects in `objects`."
-        assert set(object_name_to_object).issuperset(set(json_dict["init"])), \
+        assert set(object_name_to_object).\
+            issuperset(set(json_dict["init"])), \
             "The init state must include every object in `objects`."
         # Parse initial state.
         init_dict: Dict[Object, Dict[str, float]] = {}
@@ -250,10 +253,14 @@ class BaseEnv(abc.ABC):
         if "goal" in json_dict:
             goal = self._parse_goal_from_json(json_dict["goal"],
                                               object_name_to_object)
-        else:
-            assert "language_goal" in json_dict
-            goal = self._parse_language_goal_from_json(
-                json_dict["language_goal"], object_name_to_object)
+        else:  # pragma: no cover
+            if CFG.override_json_with_input:
+                goal = self._parse_goal_from_input_to_json(
+                    init_state, json_dict, object_name_to_object)
+            else:
+                assert "language_goal" in json_dict
+                goal = self._parse_language_goal_from_json(
+                    json_dict["language_goal"], object_name_to_object)
         return EnvironmentTask(init_state, goal)
 
     def _get_language_goal_prompt_prefix(self,
@@ -307,6 +314,29 @@ class BaseEnv(abc.ABC):
         # responses until we find one that can be parsed.
         goal_spec = json.loads(response)
         return self._parse_goal_from_json(goal_spec, id_to_obj)
+
+    def _parse_goal_from_input_to_json(
+            self, init_state: State, json_dict: Any,
+            object_name_to_object: Dict[str, Object])\
+            -> Set[GroundAtom]:  # pragma: no cover
+        """Helper for parsing language-based goals from terminal input."""
+        json_dict["init"] = init_state
+        for obj, _ in init_state.data.items():
+            object_name_to_object[obj.name] = obj
+        print("\n\nInit State:", init_state, "\n")
+        print(f"\n{object_name_to_object}\n")
+        json_dict['language_goal'] = input(
+            "\n[ChatGPT] What do you need from me?\n\n>> ")
+
+        goal = self._parse_language_goal_from_json(json_dict["language_goal"],
+                                                   object_name_to_object)
+        print("\nGoal: ", goal)
+        if not CFG.override_json_with_input or input(
+                "\nSubmit Goal? [y/n] >> ") == "y":
+            return goal
+        # Try Again, overriding json input results in wrong goal.
+        return self._parse_goal_from_input_to_json(init_state, json_dict,
+                                                   object_name_to_object)
 
     def get_task(self, train_or_test: str, task_idx: int) -> EnvironmentTask:
         """Return the train or test task at the given index."""
