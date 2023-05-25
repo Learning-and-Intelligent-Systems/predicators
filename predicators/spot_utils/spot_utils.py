@@ -41,10 +41,11 @@ graph_nav_loc_to_id = {
     "6-12_table": "logy-impala-xc9w.jwUDuckZdITrner6g==",
     "front_tool_room": "dented-marlin-HZHTzO56529oo0oGfAFHdg==",
     "tool_room_table": "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw==",
-    "tool_room_bag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
+    "toolbag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
     "tool_room_tool_stand": "roving-gibbon-3eduef4VV0itZzkpHZueNQ==",
     "tool_room_platform": "comfy-auk-W0iygJ1WJyKR1eB3qe2mlg==",
-    "tool_room_tool_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+    "low_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+    "high_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
     "6-08_front": "curled-spawn-m19jn1Alc5XrrIcIoOSnaw==",
     "6-08_table": "maiden-oryx-zLyJUTDIg0ZNB3T4J1A8IQ==",
     "6-07_front": "moldy-cuckoo-RUdyBHBeLWD5pmNUEcW1Ng==",
@@ -139,23 +140,21 @@ class SpotControllers():
         """
         print("NavigateTo", objs)
         assert len(params) == 3
-        waypoint_id = ""
-        if 'bag' in objs[1].name:
-            waypoint_id = "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA=="
+
+        if graph_nav_loc_to_id.get(objs[1].name) is not None:
+            waypoint_id = graph_nav_loc_to_id.get(objs[1].name)
         else:
             curr_tool = objs[1].name
             surfaces_for_objs = re.findall(
                 (r"On\(" + f"{curr_tool}:tool, " + r"(.*?):flat_surface\)"),
                 str(self._init_atoms))
-            if not surfaces_for_objs:
+            if surfaces_for_objs:
                 assert len(surfaces_for_objs) == 1
                 surface = surfaces_for_objs[0]
-                if "rack" in surface:
-                    waypoint_id = graph_nav_loc_to_id["tool_room_tool_rack"]
-                else:
-                    waypoint_id = graph_nav_loc_to_id[surface]
+                waypoint_id = graph_nav_loc_to_id[surface]
             else:
-                waypoint_id = "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw=="
+                raise NotImplementedError
+
         self.navigate_to(waypoint_id, params)
 
     def graspController(self, objs: Sequence[Object],
