@@ -322,7 +322,8 @@ class BaseEnv(abc.ABC):
 
     def _parse_goal_from_input_to_json(
             self, init_state: State, json_dict: Any,
-            object_name_to_object: Dict[str, Object]) -> Set[GroundAtom]:
+            object_name_to_object: Dict[str, Object])\
+            -> Set[GroundAtom]:  # pragma: no cover
         """Helper for parsing language-based goals from terminal input."""
         json_dict["init"] = init_state
         for obj, _ in init_state.data.items():

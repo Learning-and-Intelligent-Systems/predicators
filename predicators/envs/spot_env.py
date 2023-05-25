@@ -165,7 +165,7 @@ class SpotEnv(BaseEnv):
             # predicates into the PDDLEnvState when the signature actually
             # expects Arrays.
             init_state = _PDDLEnvState(init_dict, init_preds)  # type: ignore
-        else:
+        else:  # pragma: no cover
             del json_dict["goal"]
             parsed_init_state = self._parse_init_state_from_env()
             assert isinstance(parsed_init_state, _PDDLEnvState)
