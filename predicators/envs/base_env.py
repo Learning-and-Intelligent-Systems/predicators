@@ -250,6 +250,7 @@ class BaseEnv(abc.ABC):
                 init_dict[obj] = obj_dict.copy()
             init_state = utils.create_state_from_dict(init_dict)
         else:
+            del json_dict["goal"]
             init_state = self._parse_init_state_from_env()
 
         # Parse goal.
@@ -257,11 +258,11 @@ class BaseEnv(abc.ABC):
             goal = self._parse_goal_from_json(json_dict["goal"],
                                               object_name_to_object)
         else:  # pragma: no cover
-            assert "language_goal" in json_dict
             if CFG.override_json_with_input:
                 goal = self._parse_goal_from_input_to_json(
                     init_state, json_dict, object_name_to_object)
             else:
+                assert "language_goal" in json_dict
                 goal = self._parse_language_goal_from_json(
                     json_dict["language_goal"], object_name_to_object)
         return EnvironmentTask(init_state, goal)

@@ -8,6 +8,8 @@ from predicators import utils
 from predicators.envs.spot_env import SpotBikeEnv, SpotGroceryEnv
 from predicators.ground_truth_models import get_gt_options
 
+from io import StringIO
+from predicators.settings import CFG
 
 def test_spot_grocery_env():
     """Tests for SpotGroceryEnv class."""

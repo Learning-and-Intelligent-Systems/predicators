@@ -166,6 +166,7 @@ class SpotEnv(BaseEnv):
             # expects Arrays.
             init_state = _PDDLEnvState(init_dict, init_preds)  # type: ignore
         else:
+            del json_dict["goal"]
             parsed_init_state = self._parse_init_state_from_env()
             assert isinstance(parsed_init_state, _PDDLEnvState)
             init_state = parsed_init_state
@@ -175,11 +176,11 @@ class SpotEnv(BaseEnv):
             goal = self._parse_goal_from_json(json_dict["goal"],
                                               object_name_to_object)
         else:  # pragma: no cover
-            assert "language_goal" in json_dict
             if CFG.override_json_with_input:
                 goal = self._parse_goal_from_input_to_json(
                     init_state, json_dict, object_name_to_object)
             else:
+                assert "language_goal" in json_dict
                 goal = self._parse_language_goal_from_json(
                     json_dict["language_goal"], object_name_to_object)
         return EnvironmentTask(init_state, goal)
