@@ -249,7 +249,7 @@ class BaseEnv(abc.ABC):
                 obj = object_name_to_object[obj_name]
                 init_dict[obj] = obj_dict.copy()
             init_state = utils.create_state_from_dict(init_dict)
-        else:
+        else:  # pragma: no cover
             del json_dict["goal"]
             init_state = self._parse_init_state_from_env()
 
