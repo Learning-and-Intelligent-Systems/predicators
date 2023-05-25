@@ -140,36 +140,30 @@ class SpotEnv(BaseEnv):
         with open(json_file, "r", encoding="utf-8") as f:
             json_dict = json.load(f)
         object_name_to_object: Dict[str, Object] = {}
-        if not CFG.override_json_with_input:
-            # Parse objects.
-            type_name_to_type = {t.name: t for t in self.types}
-            for obj_name, type_name in json_dict["objects"].items():
-                obj_type = type_name_to_type[type_name]
-                obj = Object(obj_name, obj_type)
-                object_name_to_object[obj_name] = obj
-            assert set(object_name_to_object).\
-                issubset(set(json_dict["init"])), \
-                "The init state can only include objects in `objects`."
-            assert set(object_name_to_object).\
-                issuperset(set(json_dict["init"])), \
-                "The init state must include every object in `objects`."
-            # Parse initial state.
-            init_dict: Dict[Object, Dict[str, float]] = {}
-            for obj_name, obj_dict in json_dict["init"].items():
-                obj = object_name_to_object[obj_name]
-                init_dict[obj] = obj_dict.copy()
-            # NOTE: We need to parse out init preds to create a simulator state.
-            init_preds = self._parse_init_preds_from_json(
-                json_dict["init_preds"], object_name_to_object)
-            # NOTE: mypy gets mad at this usage here because we're putting
-            # predicates into the PDDLEnvState when the signature actually
-            # expects Arrays.
-            init_state = _PDDLEnvState(init_dict, init_preds)  # type: ignore
-        else:  # pragma: no cover
-            del json_dict["goal"]
-            parsed_init_state = self._parse_init_state_from_env()
-            assert isinstance(parsed_init_state, _PDDLEnvState)
-            init_state = parsed_init_state
+        # Parse objects.
+        type_name_to_type = {t.name: t for t in self.types}
+        for obj_name, type_name in json_dict["objects"].items():
+            obj_type = type_name_to_type[type_name]
+            obj = Object(obj_name, obj_type)
+            object_name_to_object[obj_name] = obj
+        assert set(object_name_to_object).\
+            issubset(set(json_dict["init"])), \
+            "The init state can only include objects in `objects`."
+        assert set(object_name_to_object).\
+            issuperset(set(json_dict["init"])), \
+            "The init state must include every object in `objects`."
+        # Parse initial state.
+        init_dict: Dict[Object, Dict[str, float]] = {}
+        for obj_name, obj_dict in json_dict["init"].items():
+            obj = object_name_to_object[obj_name]
+            init_dict[obj] = obj_dict.copy()
+        # NOTE: We need to parse out init preds to create a simulator state.
+        init_preds = self._parse_init_preds_from_json(json_dict["init_preds"],
+                                                      object_name_to_object)
+        # NOTE: mypy gets mad at this usage here because we're putting
+        # predicates into the PDDLEnvState when the signature actually
+        # expects Arrays.
+        init_state = _PDDLEnvState(init_dict, init_preds)  # type: ignore
 
         # Parse goal.
         if "goal" in json_dict:

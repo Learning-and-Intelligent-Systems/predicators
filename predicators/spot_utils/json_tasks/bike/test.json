@@ -1,0 +1,17 @@
+{"objects":
+    {"spot": "robot",
+    "hammer": "tool",
+    "low_wall_rack": "flat_surface",
+    "movable_platform": "platform",
+    "toolbag": "bag"},
+    "init": 
+    {"spot": {},
+    "hammer": {},
+    "low_wall_rack": {},
+    "movable_platform": {},
+    "toolbag": {}},
+    "init_preds":
+    {"HandEmpty": [["spot"]],
+    "On": [["hammer", "low_wall_rack"]],
+    "SurfaceNotTooHigh": [["spot", "low_wall_rack"]]},
+    "language_goal": "Hey Spot! Could you put the hammer in the toolbag?"}
