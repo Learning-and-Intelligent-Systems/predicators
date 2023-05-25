@@ -326,7 +326,7 @@ class BaseEnv(abc.ABC):
         print("\n\nInit State:", init_state, "\n")
         print(f"\n{object_name_to_object}\n")
         json_dict['language_goal'] = input(
-            "\n[ChatGPT-Spot] What do you need from me?\n\n>> ")
+            "\n[ChatGPT] What do you need from me?\n\n>> ")
 
         goal = self._parse_language_goal_from_json(json_dict["language_goal"],
                                                    object_name_to_object)
