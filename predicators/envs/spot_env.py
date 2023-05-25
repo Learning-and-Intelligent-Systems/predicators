@@ -640,7 +640,12 @@ class SpotBikeEnv(SpotEnv):
         tasks: List[EnvironmentTask] = []
         spot = Object("spot", self._robot_type)
         hammer = Object("hammer", self._tool_type)
+        hex_key = Object("hex_key", self._tool_type)
+        hex_screwdriver = Object("hex_screwdriver", self._tool_type)
+        brush = Object("brush", self._tool_type)
+        tool_room_table = Object("tool_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
+        high_wall_rack = Object("high_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
         movable_platform = Object("movable_platform", self._platform_type)
 
@@ -649,9 +654,18 @@ class SpotBikeEnv(SpotEnv):
                 {
                     GroundAtom(self._HandEmpty, [spot]),
                     GroundAtom(self._On, [hammer, low_wall_rack]),
+                    GroundAtom(self._On, [hex_key, low_wall_rack]),
+                    GroundAtom(self._On, [brush, tool_room_table]),
+                    GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
                     GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
+                    GroundAtom(self._SurfaceNotTooHigh,
+                               [spot, tool_room_table]),
+                    GroundAtom(self._SurfaceTooHigh, [spot, high_wall_rack]),
                 }, [spot, hammer, low_wall_rack, bag, movable_platform])
-            goal = {GroundAtom(self._InBag, [hammer, bag])}
+            goal = {
+                GroundAtom(self._InBag, [hammer, bag]),
+                GroundAtom(self._InBag, [brush, bag])
+            }
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
