@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from predicators import utils
@@ -68,33 +69,40 @@ def test_spot_env_simulate():
     soda_can = [obj for obj in objs if obj.name == "soda_can"][0]
     spot = [obj for obj in objs if obj.name == "spot"][0]
     # Try moving to the counter.
-    act = MoveToSurface.ground([spot, counter], []).policy(task.init)
+    act = MoveToSurface.ground([spot, counter],
+                               np.array([0.0, 0.0, 0.0])).policy(task.init)
     counter_state = env.simulate(task.init, act)
     assert "ReachableSurface(spot:robot, counter:flat_surface)" in str(
         counter_state.simulator_state)
     # Try moving to the can.
-    act = MoveToCan.ground([spot, soda_can], []).policy(task.init)
+    act = MoveToCan.ground([spot, soda_can], np.array([0.0, 0.0,
+                                                       0.0])).policy(task.init)
     can_state = env.simulate(task.init, act)
     assert "ReachableCan(spot:robot, soda_can:soda_can)" in str(
         can_state.simulator_state)
     # Try grasping the can when it is reachable.
-    act = GraspCan.ground([spot, soda_can, counter], []).policy(can_state)
+    act = GraspCan.ground([spot, soda_can, counter],
+                          np.array([0.0])).policy(can_state)
     can_held_state = env.simulate(can_state, act)
     assert "HoldingCan(spot:robot, soda_can:soda_can)}" in str(
         can_held_state.simulator_state)
     # Try grasping the can when it's not reachable.
-    act = GraspCan.ground([spot, soda_can, counter], []).policy(task.init)
+    act = GraspCan.ground([spot, soda_can, counter],
+                          np.array([0.0])).policy(task.init)
     init_state = env.simulate(task.init, act)
     assert task.init.allclose(init_state)
     # Try placing the can after it has been held.
-    act = MoveToSurface.ground([spot, counter], []).policy(can_held_state)
+    act = MoveToSurface.ground([spot, counter],
+                               np.array([0.0, 0.0,
+                                         0.0])).policy(can_held_state)
     counter_holding_state = env.simulate(can_held_state, act)
     act = PlaceCanOnTop.ground([spot, soda_can, counter],
-                               []).policy(counter_holding_state)
+                               np.array([0.0])).policy(counter_holding_state)
     can_putdown_state = env.simulate(counter_holding_state, act)
     assert can_putdown_state.allclose(counter_state)
     # Try placing the can when it isn't held.
-    act = PlaceCanOnTop.ground([spot, soda_can, counter], []).policy(task.init)
+    act = PlaceCanOnTop.ground([spot, soda_can, counter],
+                               np.array([0.0])).policy(task.init)
     init_state = env.simulate(task.init, act)
     assert task.init.allclose(init_state)
 

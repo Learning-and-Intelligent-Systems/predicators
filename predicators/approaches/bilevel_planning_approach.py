@@ -85,15 +85,16 @@ class BilevelPlanningApproach(BaseApproach):
                 for op in plan:
                     if 'MoveToBag' in op.name:
                         spot_controllers.navigateToController(
-                            op.objects, [0.5, 0.0, 0.0])
+                            op.objects, list(op.params))
                     elif 'MoveTo' in op.name:
                         spot_controllers.navigateToController(
-                            op.objects, [-0.25, 0.0, 0.0])
+                            op.objects, list(op.params))
                     elif 'Grasp' in op.name:
-                        spot_controllers.graspController(op.objects, [0])
+                        spot_controllers.graspController(
+                            op.objects, list(op.params))
                     elif 'Place' in op.name:
                         spot_controllers.placeOntopController(
-                            op.objects, [0.0])
+                            op.objects, list(op.params))
                     else:
                         logging.info(op.name)
                         raise NotImplementedError(
