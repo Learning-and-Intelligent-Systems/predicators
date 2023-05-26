@@ -308,7 +308,9 @@ class BridgePolicyApproach(OracleApproach):
             for nsrt in nsrts:
                 for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
                     add_atoms = frozenset(ground_nsrt.add_effects)
-                    effects_to_ground_nsrt[add_atoms] = ground_nsrt
+                    del_atoms = frozenset(ground_nsrt.delete_effects)
+                    ground_effects = (add_atoms, del_atoms)
+                    effects_to_ground_nsrt[ground_effects] = ground_nsrt
 
             # Collect the irrational transitions and turn atom changes into
             # ground NSRTs.
@@ -319,8 +321,10 @@ class BridgePolicyApproach(OracleApproach):
                 # Step was irrational, so include it.
                 # Assume all changes were necessary; we don't know otherwise.
                 add_atoms = frozenset(atoms[t + 1] - atoms[t])
+                del_atoms = frozenset(atoms[t] - atoms[t + 1])
+                ground_effects = (add_atoms, del_atoms)
                 try:
-                    ground_nsrt = effects_to_ground_nsrt[add_atoms]
+                    ground_nsrt = effects_to_ground_nsrt[ground_effects]
                 except KeyError:  # pragma: no cover
                     logging.warning("WARNING: no NSRT found for add atoms "
                                     f"{add_atoms}. Skipping transition.")

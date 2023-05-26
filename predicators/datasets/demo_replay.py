@@ -17,7 +17,10 @@ def create_demo_replay_data(
         env: BaseEnv, train_tasks: List[Task],
         known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline datasets by collecting demos and replaying."""
-    demo_dataset = create_demo_data(env, train_tasks, known_options)
+    demo_dataset = create_demo_data(env,
+                                    train_tasks,
+                                    known_options,
+                                    annotate_with_gt_ops=False)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining
     # all states into one list, is that we want to compute

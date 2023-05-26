@@ -7,12 +7,14 @@ import pytest
 
 from predicators import utils
 from predicators.approaches.grammar_search_invention_approach import \
-    _AttributeDiffCompareClassifier, _create_grammar, \
-    _DataBasedPredicateGrammar, _FeatureDiffInequalitiesPredicateGrammar, \
-    _ForallClassifier, _halving_constant_generator, _NegationClassifier, \
-    _PredicateGrammar, _SingleAttributeCompareClassifier, \
+    GrammarSearchInventionApproach, _AttributeDiffCompareClassifier, \
+    _create_grammar, _DataBasedPredicateGrammar, \
+    _FeatureDiffInequalitiesPredicateGrammar, _ForallClassifier, \
+    _halving_constant_generator, _NegationClassifier, _PredicateGrammar, \
+    _SingleAttributeCompareClassifier, \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
 from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, Object, \
     Predicate, State, Type
@@ -200,3 +202,39 @@ def test_unary_free_forall_classifier():
     assert str(classifier3) == "NOT-Forall[1:plate_type].[NOT-On(0,1)]"
     assert classifier3.pretty_str() == ("?x:cup_type",
                                         "¬(∀ ?y:plate_type . ¬On(?x, ?y))")
+
+
+def test_unrecognized_clusterer():
+    """Tests that a dummy name for the 'clusterer' argument will trigger a
+    failure.
+
+    Note that most of the coverage for the clusterer comes from
+    test_nsrt_learning_approach.py.
+    """
+    utils.update_config({
+        "env": "cover",
+        "segmenter": "atom_changes",
+        "grammar_search_pred_selection_approach": "clustering",
+        "grammar_search_pred_clusterer": "NotARealClusterer"
+    })
+    env = CoverEnv()
+    train_task = env.get_train_tasks()[0].task
+    state = train_task.init
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    block = [o for o in state if o.name == "block0"][0]
+    state.set(robby, "hand", 0.5)
+    other_state.set(robby, "hand", 0.8)
+    state.set(block, "grasp", -1)
+    other_state.set(block, "grasp", 1)
+    dataset = Dataset([
+        LowLevelTrajectory([state, other_state],
+                           [Action(np.zeros(1, dtype=np.float32))])
+    ])
+    approach = GrammarSearchInventionApproach(env.predicates,
+                                              get_gt_options(env.get_name()),
+                                              env.types, env.action_space,
+                                              [train_task])
+    with pytest.raises(NotImplementedError) as e:
+        approach.learn_from_offline_dataset(dataset)
+    assert "Unrecognized clusterer" in str(e)

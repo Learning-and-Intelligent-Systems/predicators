@@ -149,7 +149,12 @@ class PG3Approach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First, learn NSRTs.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
+        annotations = None
+        if dataset.has_annotations:
+            annotations = dataset.annotations  # pragma: no cover
+        self._learn_nsrts(dataset.trajectories,
+                          online_learning_cycle=None,
+                          annotations=annotations)
         # Now, learn the LDL policy.
         self._learn_ldl(online_learning_cycle=None)
 

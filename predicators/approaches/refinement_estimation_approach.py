@@ -17,7 +17,7 @@ from predicators.refinement_estimators import BaseRefinementEstimator, \
     create_refinement_estimator
 from predicators.settings import CFG
 from predicators.structs import NSRT, Metrics, ParameterizedOption, \
-    Predicate, Task, Type, _Option
+    Predicate, Task, Type, _GroundNSRT, _Option
 
 
 class RefinementEstimationApproach(OracleApproach):
@@ -59,9 +59,10 @@ class RefinementEstimationApproach(OracleApproach):
     def get_name(cls) -> str:
         return "refinement_estimation"
 
-    def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
-                         preds: Set[Predicate], timeout: float, seed: int,
-                         **kwargs: Any) -> Tuple[List[_Option], Metrics]:
+    def _run_sesame_plan(
+            self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+            timeout: float, seed: int,
+            **kwargs: Any) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
         """Generates a plan choosing the best skeletons based on a given
         refinement cost estimator."""
         result = super()._run_sesame_plan(
