@@ -56,7 +56,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
             nonlocal name
             nonlocal predicates
 
-            try: # pragma: no cover
+            try:  # pragma: no cover
                 spot_controllers = SpotControllers()
                 if 'MoveToBag' in name:
                     spot_controllers.navigateToController(
