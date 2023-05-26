@@ -80,7 +80,8 @@ class BilevelPlanningApproach(BaseApproach):
         if CFG.env in ["spot_grocery_env",
                        "spot_bike_env"]:  # pragma: no cover
             try:
-                spot_controllers = SpotControllers()
+                spot_controllers = SpotControllers(
+                    utils.abstract(task.init, preds))
                 for op in plan:
                     if 'MoveToBag' in op.name:
                         spot_controllers.navigateToController(

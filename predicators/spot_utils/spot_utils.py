@@ -1,9 +1,10 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
 import os
+import re
 import sys
 import time
-from typing import Any, Sequence
+from typing import Any, Sequence, Set
 
 import bosdyn.client
 import bosdyn.client.estop
@@ -29,7 +30,7 @@ from bosdyn.client.sdk import Robot
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.structs import Object
+from predicators.structs import GroundAtom, Object
 
 g_image_click = None
 g_image_display = None
@@ -40,10 +41,11 @@ graph_nav_loc_to_id = {
     "6-12_table": "logy-impala-xc9w.jwUDuckZdITrner6g==",
     "front_tool_room": "dented-marlin-HZHTzO56529oo0oGfAFHdg==",
     "tool_room_table": "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw==",
-    "tool_room_bag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
+    "toolbag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
     "tool_room_tool_stand": "roving-gibbon-3eduef4VV0itZzkpHZueNQ==",
     "tool_room_platform": "comfy-auk-W0iygJ1WJyKR1eB3qe2mlg==",
-    "tool_room_tool_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+    "low_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+    "high_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
     "6-08_front": "curled-spawn-m19jn1Alc5XrrIcIoOSnaw==",
     "6-08_table": "maiden-oryx-zLyJUTDIg0ZNB3T4J1A8IQ==",
     "6-07_front": "moldy-cuckoo-RUdyBHBeLWD5pmNUEcW1Ng==",
@@ -70,7 +72,7 @@ class SpotControllers():
     placeOntopController(objs, [float:distance])
     """
 
-    def __init__(self) -> None:
+    def __init__(self, init_atoms: Set[GroundAtom]) -> None:
         self._hostname = CFG.spot_robot_ip
         self._verbose = False
         self._force_45_angle_grasp = False
@@ -78,6 +80,7 @@ class SpotControllers():
         self._force_squeeze_grasp = False
         self._force_top_down_grasp = False
         self._image_source = "hand_color_image"
+        self._init_atoms = init_atoms
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
 
@@ -137,12 +140,21 @@ class SpotControllers():
         """
         print("NavigateTo", objs)
         assert len(params) == 3
-
         waypoint_id = ""
-        if 'bag' in objs[1].name:
-            waypoint_id = "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA=="
+        if graph_nav_loc_to_id.get(objs[1].name) is not None:
+            waypoint_id = graph_nav_loc_to_id[objs[1].name]
         else:
-            waypoint_id = "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw=="
+            curr_tool = objs[1].name
+            surfaces_for_objs = re.findall(
+                (r"On\(" + f"{curr_tool}:tool, " + r"(.*?):flat_surface\)"),
+                str(self._init_atoms))
+            if surfaces_for_objs:
+                assert len(surfaces_for_objs) == 1
+                surface = surfaces_for_objs[0]
+                waypoint_id = graph_nav_loc_to_id[surface]
+            else:
+                raise NotImplementedError
+
         self.navigate_to(waypoint_id, params)
 
     def graspController(self, objs: Sequence[Object],
