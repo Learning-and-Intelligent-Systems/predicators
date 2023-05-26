@@ -1,7 +1,9 @@
 """Ground-truth options for PDDL environments."""
 
+import logging
 from typing import Dict, List, Sequence, Set
 
+import bosdyn
 import numpy as np
 from gym.spaces import Box
 
@@ -9,6 +11,7 @@ from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.spot_utils.spot_utils import SpotControllers
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Type
 
@@ -34,7 +37,8 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
         # we will actually implement these with robot-specific API calls.
         options = {
             cls._strips_operator_to_parameterized_option(
-                op, ordered_strips_operators, action_space.shape[0])
+                op, ordered_strips_operators, action_space.shape[0],
+                list(predicates.values()))
             for op in ordered_strips_operators
         }
         return options
@@ -42,13 +46,35 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
     @staticmethod
     def _strips_operator_to_parameterized_option(
             op: STRIPSOperator, ordered_operators: List[STRIPSOperator],
-            action_dims: int) -> ParameterizedOption:
+            action_dims: int,
+            predicates: Sequence[Predicate]) -> ParameterizedOption:
         name = op.name
         types = [p.type for p in op.parameters]
         op_idx = ordered_operators.index(op)
 
         def policy(s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
-            del m, p  # unused
+            nonlocal name
+            nonlocal predicates
+
+            try: # pragma: no cover
+                spot_controllers = SpotControllers()
+                if 'MoveToBag' in name:
+                    spot_controllers.navigateToController(
+                        utils.abstract(s, predicates), o, list(p))
+                elif 'MoveTo' in name:
+                    spot_controllers.navigateToController(
+                        m['start_state'].simulator_state, o, list(p))
+                elif 'Grasp' in name:
+                    spot_controllers.graspController(o, list(p))
+                elif 'Place' in name:
+                    spot_controllers.placeOntopController(o, list(p))
+                else:
+                    raise NotImplementedError(
+                        f"Spot controller not implemented for operator {name}")
+            except (bosdyn.client.exceptions.ProxyConnectionError,
+                    RuntimeError):
+                logging.info("Could not connect to Spot!")
+
             ordered_objs = list(s)
             # The first dimension of an action encodes the operator.
             # The second dimension of an action encodes the first object

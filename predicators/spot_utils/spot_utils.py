@@ -72,7 +72,7 @@ class SpotControllers():
     placeOntopController(objs, [float:distance])
     """
 
-    def __init__(self, init_atoms: Set[GroundAtom]) -> None:
+    def __init__(self) -> None:
         self._hostname = CFG.spot_robot_ip
         self._verbose = False
         self._force_45_angle_grasp = False
@@ -80,7 +80,6 @@ class SpotControllers():
         self._force_squeeze_grasp = False
         self._force_top_down_grasp = False
         self._image_source = "hand_color_image"
-        self._init_atoms = init_atoms
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
 
@@ -132,7 +131,8 @@ class SpotControllers():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def navigateToController(self, objs: Sequence[Object],
+    def navigateToController(self, curr_atoms: Set[GroundAtom],
+                             objs: Sequence[Object],
                              params: Sequence[float]) -> None:
         """Controller that navigates to specific pre-specified locations.
 
@@ -147,7 +147,7 @@ class SpotControllers():
             curr_tool = objs[1].name
             surfaces_for_objs = re.findall(
                 (r"On\(" + f"{curr_tool}:tool, " + r"(.*?):flat_surface\)"),
-                str(self._init_atoms))
+                str(curr_atoms))
             if surfaces_for_objs:
                 assert len(surfaces_for_objs) == 1
                 surface = surfaces_for_objs[0]

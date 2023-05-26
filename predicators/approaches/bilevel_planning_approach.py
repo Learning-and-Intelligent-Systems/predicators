@@ -5,13 +5,11 @@ then Execution.
 """
 
 import abc
-import logging
 import os
 import sys
 import time
 from typing import Any, Callable, List, Set, Tuple
 
-import bosdyn
 from gym.spaces import Box
 
 from predicators import utils
@@ -22,7 +20,6 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
     fd_plan_from_sas_file, generate_sas_file_for_fd, sesame_plan, task_plan, \
     task_plan_grounding
 from predicators.settings import CFG
-from predicators.spot_utils.spot_utils import SpotControllers
 from predicators.structs import NSRT, Action, GroundAtom, Metrics, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
@@ -77,32 +74,6 @@ class BilevelPlanningApproach(BaseApproach):
             policy = utils.option_plan_to_policy(option_plan)
 
         self._save_metrics(metrics, nsrts, preds)
-
-        if CFG.env in ["spot_grocery_env",
-                       "spot_bike_env"]:  # pragma: no cover
-            try:
-                spot_controllers = SpotControllers(
-                    utils.abstract(task.init, preds))
-                for op in plan:
-                    if 'MoveToBag' in op.name:
-                        spot_controllers.navigateToController(
-                            op.objects, list(op.params))
-                    elif 'MoveTo' in op.name:
-                        spot_controllers.navigateToController(
-                            op.objects, list(op.params))
-                    elif 'Grasp' in op.name:
-                        spot_controllers.graspController(
-                            op.objects, list(op.params))
-                    elif 'Place' in op.name:
-                        spot_controllers.placeOntopController(
-                            op.objects, list(op.params))
-                    else:
-                        logging.info(op.name)
-                        raise NotImplementedError(
-                            "Spot controller not implemented")
-            except (bosdyn.client.exceptions.ProxyConnectionError,
-                    RuntimeError):
-                logging.info("Could not connect to Spot!")
 
         def _policy(s: State) -> Action:
             try:

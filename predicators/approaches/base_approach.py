@@ -2,7 +2,7 @@
 
 import abc
 from collections import defaultdict
-from typing import Callable, List, Optional, Sequence, Set
+from typing import Any, Callable, List, Optional, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
@@ -51,6 +51,16 @@ class BaseApproach(abc.ABC):
         A policy maps states to low-level actions.
         """
         raise NotImplementedError("Override me!")
+
+    def get_execution_monitoring_info(self) -> List[Any]:
+        """Provide any info the execution monitoring system might need to
+        perform its job.
+
+        For instance, a planning based approach might provide a symbolic
+        plan that the monitor can check is being followed precisely
+        during execution.
+        """
+        return []
 
     def solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Light wrapper around the abstract self._solve().
