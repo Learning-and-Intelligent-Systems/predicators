@@ -139,23 +139,24 @@ class SpotEnv(BaseEnv):
         """
         with open(json_file, "r", encoding="utf-8") as f:
             json_dict = json.load(f)
+        object_name_to_object: Dict[str, Object] = {}
         # Parse objects.
         type_name_to_type = {t.name: t for t in self.types}
-        object_name_to_object: Dict[str, Object] = {}
         for obj_name, type_name in json_dict["objects"].items():
             obj_type = type_name_to_type[type_name]
             obj = Object(obj_name, obj_type)
             object_name_to_object[obj_name] = obj
-        assert set(object_name_to_object).issubset(set(json_dict["init"])), \
+        assert set(object_name_to_object).\
+            issubset(set(json_dict["init"])), \
             "The init state can only include objects in `objects`."
-        assert set(object_name_to_object).issuperset(set(json_dict["init"])), \
+        assert set(object_name_to_object).\
+            issuperset(set(json_dict["init"])), \
             "The init state must include every object in `objects`."
         # Parse initial state.
         init_dict: Dict[Object, Dict[str, float]] = {}
         for obj_name, obj_dict in json_dict["init"].items():
             obj = object_name_to_object[obj_name]
             init_dict[obj] = obj_dict.copy()
-
         # NOTE: We need to parse out init preds to create a simulator state.
         init_preds = self._parse_init_preds_from_json(json_dict["init_preds"],
                                                       object_name_to_object)
@@ -169,9 +170,13 @@ class SpotEnv(BaseEnv):
             goal = self._parse_goal_from_json(json_dict["goal"],
                                               object_name_to_object)
         else:  # pragma: no cover
-            assert "language_goal" in json_dict
-            goal = self._parse_language_goal_from_json(
-                json_dict["language_goal"], object_name_to_object)
+            if CFG.override_json_with_input:
+                goal = self._parse_goal_from_input_to_json(
+                    init_state, json_dict, object_name_to_object)
+            else:
+                assert "language_goal" in json_dict
+                goal = self._parse_language_goal_from_json(
+                    json_dict["language_goal"], object_name_to_object)
         return EnvironmentTask(init_state, goal)
 
 
@@ -382,7 +387,7 @@ class SpotBikeEnv(SpotEnv):
                                           [self._robot_type, self._bag_type],
                                           lambda s, o: False)
         self._HoldingBag = Predicate(
-            "HoldingTool", [self._robot_type, self._bag_type],
+            "HoldingBag", [self._robot_type, self._bag_type],
             _create_predicate_classifier(self._temp_HoldingBag))
         self._temp_HoldingPlatformLeash = Predicate(
             "HoldingPlatformLeash", [self._robot_type, self._platform_type],
@@ -674,22 +679,30 @@ class SpotBikeEnv(SpotEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._InBag}
+        return self.predicates
 
     def _get_language_goal_prompt_prefix(self,
                                          object_names: Collection[str]) -> str:
         # pylint:disable=line-too-long
-        available_predicates = ", ".join(
-            [p.name for p in sorted(self.goal_predicates)])
+        available_predicates = ", ".join([
+            str((p.name, p.types, p.arity))
+            for p in sorted(self.goal_predicates)
+        ])
         available_objects = ", ".join(sorted(object_names))
         # We could extract the object names, but this is simpler.
-        assert {"spot", "hammer", "bag",
+        assert {"spot", "hammer", "toolbag",
                 "low_wall_rack"}.issubset(object_names)
         prompt = f"""# The available predicates are: {available_predicates}
 # The available objects are: {available_objects}
 # Use the available predicates and objects to convert natural language goals into JSON goals.
 
 # Hey spot, can you put the hammer into the bag?
-{{"InBag": [["hammer", "bag"]]}}
+{{"InBag": [["hammer", "toolbag"]]}}
+
+# Will you put the bag onto the low rack, please?
+{{"On": [["toolbag", "low_wall_rack"]],"HandEmpty": [["spot"]]}}
+
+# Go to the low_wall_rack.
+{{"ReachableSurface": [["spot", "low_wall_rack"]]}}
 """
         return prompt
