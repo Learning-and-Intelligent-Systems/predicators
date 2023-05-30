@@ -134,7 +134,7 @@ def test_json_loading():
         Path('predicators/spot_utils/json_tasks/grocery/test.json'))
     assert str(
         output_task
-    ) == "EnvironmentTask(init_obs=_PDDLEnvState(data={counter:flat_" +\
+    ) == "EnvironmentTask(init_obs=_PartialPerceptionState(data={counter:flat_" +\
         "surface: {}, snack_table:flat_surface: {}, soda_can:soda_can: {}, " +\
         "spot:robot: {}}, simulator_state={On(soda_can:soda_can, " +\
         "counter:flat_surface), HandEmpty(spot:robot)}), " +\
