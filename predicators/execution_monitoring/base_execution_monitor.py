@@ -9,7 +9,7 @@ from predicators.structs import State, Task
 class BaseExecutionMonitor(abc.ABC):
     """An execution monitor consumes states and decides whether to replan."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._approach_info: List[Any] = []
 
     @classmethod

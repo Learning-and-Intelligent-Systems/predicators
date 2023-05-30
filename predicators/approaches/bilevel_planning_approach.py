@@ -48,6 +48,7 @@ class BilevelPlanningApproach(BaseApproach):
         self._num_calls = 0
         self._last_plan: List[_Option] = []  # used if plan WITH sim
         self._last_nsrt_plan: List[_GroundNSRT] = []  # plan WITHOUT sim
+        self._last_atoms_seq: List[Set[GroundAtom]]  # plan WITHOUT sim
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
@@ -59,9 +60,10 @@ class BilevelPlanningApproach(BaseApproach):
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:
-            nsrt_plan, _, metrics = self._run_task_plan(
+            nsrt_plan, atoms_seq, metrics = self._run_task_plan(
                 task, nsrts, preds, timeout, seed)
             self._last_nsrt_plan = nsrt_plan
+            self._last_atoms_seq = atoms_seq
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
                                                       self._rng)
 
@@ -239,3 +241,18 @@ class BilevelPlanningApproach(BaseApproach):
         """
         assert self.get_name() == "oracle"
         return self._last_nsrt_plan
+
+    def get_last_atoms_seq(self) -> List[Set[GroundAtom]]:
+        """Similar to get_last_plan() in that only oracle should use this.
+
+        And this will only be used when bilevel_plan_without_sim is
+        True.
+        """
+        assert self.get_name() == "oracle"
+        assert self._plan_without_sim
+        return self._last_atoms_seq
+
+    def get_execution_monitoring_info(self) -> List[Set[GroundAtom]]:
+        if self._plan_without_sim:
+            return self.get_last_atoms_seq()
+        return []
