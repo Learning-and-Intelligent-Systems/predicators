@@ -255,5 +255,4 @@ class BilevelPlanningApproach(BaseApproach):
     def get_execution_monitoring_info(self) -> List[Set[GroundAtom]]:
         if self._plan_without_sim:
             return self.get_last_atoms_seq()
-        else:
-            return []
+        return []
