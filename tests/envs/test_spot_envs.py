@@ -49,8 +49,8 @@ def test_spot_bike_env():
                   for pred in env.predicates}
 
 
-def test_spot_env_simulate():
-    """Tests for the simulate() function."""
+def test_spot_env_step():
+    """Tests for the step() function."""
     utils.reset_config({
         "env": "repeated_nextto",
         "approach": "nsrt_learning",
@@ -62,52 +62,53 @@ def test_spot_env_simulate():
     GraspCan = [o for o in options if o.name == "GraspCan"][0]
     PlaceCanOnTop = [o for o in options if o.name == "PlaceCanOntop"][0]
 
-    task = env.get_train_tasks()[0]
-    state = task.init
-    assert len(state.simulator_state) == 2
+    state = env.reset("train", 0)
+    assert len(state.simulator_state["atoms"]) == 2
     assert "On(soda_can:soda_can, counter:flat_surface)" in str(state)
     assert "HandEmpty(spot:robot)" in str(state)
-    objs = list(task.init)
+    objs = list(state)
     counter = [obj for obj in objs if obj.name == "counter"][0]
     soda_can = [obj for obj in objs if obj.name == "soda_can"][0]
     spot = [obj for obj in objs if obj.name == "spot"][0]
-    # Try moving to the counter.
-    act = MoveToSurface.ground([spot, counter],
-                               np.array([0.0, 0.0, 0.0])).policy(task.init)
-    counter_state = env.simulate(task.init, act)
-    assert "ReachableSurface(spot:robot, counter:flat_surface)" in str(
-        counter_state.simulator_state)
-    # Try moving to the can.
-    act = MoveToCan.ground([spot, soda_can], np.array([0.0, 0.0,
-                                                       0.0])).policy(task.init)
-    can_state = env.simulate(task.init, act)
-    assert "ReachableCan(spot:robot, soda_can:soda_can)" in str(
-        can_state.simulator_state)
-    # Try grasping the can when it is reachable.
-    act = GraspCan.ground([spot, soda_can, counter],
-                          np.array([0.0])).policy(can_state)
-    can_held_state = env.simulate(can_state, act)
-    assert "HoldingCan(spot:robot, soda_can:soda_can)}" in str(
-        can_held_state.simulator_state)
     # Try grasping the can when it's not reachable.
+    act = MoveToSurface.ground([spot, counter], np.array([0.0, 0.0,
+                                                          0.0])).policy(state)
+    state = env.step(act)
     act = GraspCan.ground([spot, soda_can, counter],
-                          np.array([0.0])).policy(task.init)
-    init_state = env.simulate(task.init, act)
-    assert task.init.allclose(init_state)
-    # Try placing the can after it has been held.
-    act = MoveToSurface.ground([spot, counter],
-                               np.array([0.0, 0.0,
-                                         0.0])).policy(can_held_state)
-    counter_holding_state = env.simulate(can_held_state, act)
-    act = PlaceCanOnTop.ground([spot, soda_can, counter],
-                               np.array([0.0])).policy(counter_holding_state)
-    can_putdown_state = env.simulate(counter_holding_state, act)
-    assert can_putdown_state.allclose(counter_state)
+                          np.array([0.0])).policy(state)
+    new_state = env.step(act)
+    assert new_state.allclose(state)
     # Try placing the can when it isn't held.
     act = PlaceCanOnTop.ground([spot, soda_can, counter],
-                               np.array([0.0])).policy(task.init)
-    init_state = env.simulate(task.init, act)
-    assert task.init.allclose(init_state)
+                               np.array([0.0])).policy(state)
+    new_state = env.step(act)
+    assert new_state.allclose(state)
+    # Try moving to the counter.
+    act = MoveToSurface.ground([spot, counter], np.array([0.0, 0.0,
+                                                          0.0])).policy(state)
+    state = env.step(act)
+    assert "ReachableSurface(spot:robot, counter:flat_surface)" in str(
+        state.simulator_state["atoms"])
+    # Try moving to the can.
+    act = MoveToCan.ground([spot, soda_can], np.array([0.0, 0.0,
+                                                       0.0])).policy(state)
+    state = env.step(act)
+    assert "ReachableCan(spot:robot, soda_can:soda_can)" in str(
+        state.simulator_state["atoms"])
+    # Try grasping the can when it is reachable.
+    act = GraspCan.ground([spot, soda_can, counter],
+                          np.array([0.0])).policy(state)
+    state = env.step(act)
+    assert "HoldingCan(spot:robot, soda_can:soda_can)}" in str(
+        state.simulator_state["atoms"])
+    # Try placing the can after it has been held (first move to counter).
+    act = MoveToSurface.ground([spot, counter], np.array([0.0, 0.0,
+                                                          0.0])).policy(state)
+    state = env.step(act)
+    act = PlaceCanOnTop.ground([spot, soda_can, counter],
+                               np.array([0.0])).policy(state)
+    state = env.step(act)
+    assert "HandEmpty(spot:robot)" in str(state.simulator_state["atoms"])
 
 
 def test_natural_language_goal_prompt_prefix():
@@ -134,8 +135,4 @@ def test_json_loading():
         Path('predicators/spot_utils/json_tasks/grocery/test.json'))
     assert str(
         output_task
-    ) == "EnvironmentTask(init_obs=_PartialPerceptionState(data={counter:flat_" +\
-        "surface: {}, snack_table:flat_surface: {}, soda_can:soda_can: {}, " +\
-        "spot:robot: {}}, simulator_state={On(soda_can:soda_can, " +\
-        "counter:flat_surface), HandEmpty(spot:robot)}), " +\
-        "goal_description={On(soda_can:soda_can, snack_table:flat_surface)})"
+    ) == "EnvironmentTask(init_obs=_PartialPerceptionState(data={counter:flat_surface: array([], dtype=float32), snack_table:flat_surface: array([], dtype=float32), soda_can:soda_can: array([], dtype=float32), spot:robot: array([], dtype=float32)}, simulator_state={'predicates': {ReachableSurface, On, HoldingCan, HandEmpty, ReachableCan}, 'atoms': {On(soda_can:soda_can, counter:flat_surface), HandEmpty(spot:robot)}}), goal_description={On(soda_can:soda_can, snack_table:flat_surface)})"  # pylint:disable=line-too-long

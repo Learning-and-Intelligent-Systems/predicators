@@ -171,6 +171,11 @@ class State:
            other.simulator_state is not None:
             raise NotImplementedError("Cannot use allclose when "
                                       "simulator_state is not None.")
+
+        return self._allclose(other)
+
+    def _allclose(self, other: State) -> bool:
+        """Helper for allclose() that does not check simulator states."""
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
