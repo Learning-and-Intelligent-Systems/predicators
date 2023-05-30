@@ -1,5 +1,6 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
+import functools
 import os
 import re
 import sys
@@ -61,7 +62,7 @@ graph_nav_loc_to_id = {
 
 
 # pylint: disable=no-member
-class SpotControllers():
+class _SpotControllers():
     """Implementation of interface with low-level controllers for the Spot
     robot.
 
@@ -111,6 +112,7 @@ class SpotControllers():
             ImageClient.default_service_name)
         self.manipulation_api_client = self.robot.ensure_client(
             ManipulationApiClient.default_service_name)
+        self.lease_client.take()
         self.lease_keepalive = bosdyn.client.lease.LeaseKeepAlive(
             self.lease_client, must_acquire=True, return_at_exit=True)
 
@@ -613,3 +615,9 @@ class SpotControllers():
                 print("Arrived at the goal.")
                 return True
             time.sleep(1)
+
+
+@functools.lru_cache(maxsize=None)
+def get_spot_controllers() -> _SpotControllers:
+    """Ensure that _SpotControllers is only created once."""
+    return _SpotControllers()
