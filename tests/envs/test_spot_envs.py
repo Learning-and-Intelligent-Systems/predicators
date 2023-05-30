@@ -71,9 +71,6 @@ def test_spot_env_step():
     soda_can = [obj for obj in objs if obj.name == "soda_can"][0]
     spot = [obj for obj in objs if obj.name == "spot"][0]
     # Try grasping the can when it's not reachable.
-    act = MoveToSurface.ground([spot, counter], np.array([0.0, 0.0,
-                                                          0.0])).policy(state)
-    state = env.step(act)
     act = GraspCan.ground([spot, soda_can, counter],
                           np.array([0.0])).policy(state)
     new_state = env.step(act)
