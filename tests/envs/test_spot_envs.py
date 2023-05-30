@@ -98,7 +98,9 @@ def test_spot_env_step():
     # Try grasping the can when it is reachable.
     act = GraspCan.ground([spot, soda_can, counter],
                           np.array([0.0])).policy(state)
-    state = env.step(act)
+    next_state = env.step(act)
+    assert not state.allclose(next_state)
+    state = next_state
     assert "HoldingCan(spot:robot, soda_can:soda_can)}" in str(
         state.simulator_state["atoms"])
     # Try placing the can after it has been held (first move to counter).
