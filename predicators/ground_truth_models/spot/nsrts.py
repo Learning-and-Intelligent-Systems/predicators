@@ -36,7 +36,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def grasp_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            del state, goal, rng, objs
+            del state, goal, rng
             if objs[1].type.name == "bag":
                 return np.array([0.5, 0.0, 0.0])
             if objs[2].type.name == "low_wall_rack":
@@ -46,7 +46,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            del state, goal, rng, objs
+            del state, goal, rng
             if objs[1].type.name == "bag":
                 return np.array([0.0, 0.0, -0.25])
             return np.array([0.0, 0.0, 0.0])

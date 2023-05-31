@@ -436,6 +436,7 @@ class _SpotControllers():
             carry_state_override=grasp_carry_state_override)
         cmd_response = self.manipulation_api_client.\
             grasp_override_command(grasp_override_request)
+        self.robot.logger.info(cmd_response)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         stow_command_id = self.robot_command_client.robot_command(stow_cmd)
