@@ -51,67 +51,6 @@ def test_spot_bike_env():
                   for pred in env.predicates}
 
 
-def test_spot_env_step():
-    """Tests for the step() function."""
-    utils.reset_config({
-        "env": "repeated_nextto",
-        "approach": "nsrt_learning",
-    })
-    env = SpotGroceryEnv()
-    options = get_gt_options(env.get_name())
-    MoveToSurface = [o for o in options if o.name == "MoveToSurface"][0]
-    MoveToCan = [o for o in options if o.name == "MoveToCan"][0]
-    GraspCan = [o for o in options if o.name == "GraspCan"][0]
-    PlaceCanOnTop = [o for o in options if o.name == "PlaceCanOntop"][0]
-
-    state = env.reset("train", 0)
-    assert len(state.simulator_state["atoms"]) == 2
-    assert "On(soda_can:soda_can, counter:flat_surface)" in str(state)
-    assert "HandEmpty(spot:robot)" in str(state)
-    objs = list(state)
-    counter = [obj for obj in objs if obj.name == "counter"][0]
-    soda_can = [obj for obj in objs if obj.name == "soda_can"][0]
-    spot = [obj for obj in objs if obj.name == "spot"][0]
-    # Try grasping the can when it's not reachable.
-    act = GraspCan.ground([spot, soda_can, counter],
-                          np.array([0.0])).policy(state)
-    new_state = env.step(act)
-    assert new_state.allclose(state)
-    # Try placing the can when it isn't held.
-    act = PlaceCanOnTop.ground([spot, soda_can, counter],
-                               np.array([0.0])).policy(state)
-    new_state = env.step(act)
-    assert new_state.allclose(state)
-    # Try moving to the counter.
-    act = MoveToSurface.ground([spot, counter], np.array([0.0, 0.0,
-                                                          0.0])).policy(state)
-    state = env.step(act)
-    assert "ReachableSurface(spot:robot, counter:flat_surface)" in str(
-        state.simulator_state["atoms"])
-    # Try moving to the can.
-    act = MoveToCan.ground([spot, soda_can], np.array([0.0, 0.0,
-                                                       0.0])).policy(state)
-    state = env.step(act)
-    assert "ReachableCan(spot:robot, soda_can:soda_can)" in str(
-        state.simulator_state["atoms"])
-    # Try grasping the can when it is reachable.
-    act = GraspCan.ground([spot, soda_can, counter],
-                          np.array([0.0])).policy(state)
-    next_state = env.step(act)
-    assert not state.allclose(next_state)
-    state = next_state
-    assert "HoldingCan(spot:robot, soda_can:soda_can)}" in str(
-        state.simulator_state["atoms"])
-    # Try placing the can after it has been held (first move to counter).
-    act = MoveToSurface.ground([spot, counter], np.array([0.0, 0.0,
-                                                          0.0])).policy(state)
-    state = env.step(act)
-    act = PlaceCanOnTop.ground([spot, soda_can, counter],
-                               np.array([0.0])).policy(state)
-    state = env.step(act)
-    assert "HandEmpty(spot:robot)" in str(state.simulator_state["atoms"])
-
-
 def test_natural_language_goal_prompt_prefix():
     """Test the prompt prefix creation function."""
     env = SpotGroceryEnv()

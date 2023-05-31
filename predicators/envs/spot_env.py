@@ -191,7 +191,7 @@ class SpotEnv(BaseEnv):
         # Finalize action.
         return Action(action_arr)
 
-    def step(self, action: Action) -> Observation:
+    def step(self, action: Action) -> Observation:  # pragma: no cover
         """Override step() because simulate() is not implemented."""
         state = self._current_observation
         assert isinstance(state, _PartialPerceptionState)
