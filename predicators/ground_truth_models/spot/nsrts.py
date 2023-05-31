@@ -29,7 +29,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                          objs: Sequence[Object]) -> Array:
             del state, goal, rng
             assert len(objs) == 2
-            if objs[1].type.name == "bag":
+            if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.5, 0.0, 0.0])
             return np.array([-0.25, 0.0, 0.0])
 
