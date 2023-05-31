@@ -166,7 +166,7 @@ class _SpotControllers():
             return self.navigateToController(current_atoms, objects, params)
         if name == "grasp":
             return self.graspController(objects, params)
-        assert name == "placeonTop"
+        assert name == "placeOnTop"
         return self.placeOntopController(objects, params)
 
     def navigateToController(self, curr_atoms: Set[GroundAtom],
