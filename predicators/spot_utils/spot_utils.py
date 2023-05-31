@@ -1,6 +1,7 @@
 """Utility functions to interface with the Boston Dynamics Spot robot."""
 
 import functools
+import logging
 import os
 import re
 import sys
@@ -85,6 +86,19 @@ class _SpotControllers():
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
 
+        # Try to connect to the robot. If this fails, still maintain the
+        # instance for testing, but assert that it succeeded within the
+        # controller calls.
+        self._connected_to_spot = False
+        try:
+            self._connect_to_spot()
+            self._connected_to_spot = True
+        except (bosdyn.client.exceptions.ProxyConnectionError,
+                bosdyn.client.exceptions.UnableToConnectToRobotError,
+                RuntimeError):
+            logging.warning("Could not connect to Spot!")
+
+    def _connect_to_spot(self) -> None:
         # See hello_spot.py for an explanation of these lines.
         bosdyn.client.util.setup_logging(self._verbose)
 
@@ -146,6 +160,7 @@ class _SpotControllers():
     def execute(self, name: str, current_atoms: Set[GroundAtom],
                 objects: Sequence[Object], params: Array) -> None:
         """Run the controller based on the given name."""
+        assert self._connected_to_spot
         if name == "navigate":
             return self.navigateToController(current_atoms, objects, params)
         if name == "grasp":
