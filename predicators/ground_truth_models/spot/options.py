@@ -11,7 +11,7 @@ from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.spot_utils.spot_utils import get_spot_controllers
+from predicators.spot_utils.spot_utils import get_spot_interface
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Type
 
@@ -57,17 +57,17 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
             nonlocal predicates
 
             try:  # pragma: no cover
-                spot_controllers = get_spot_controllers()
+                spot_interface = get_spot_interface()
                 if 'MoveToBag' in name:
-                    spot_controllers.navigateToController(
+                    spot_interface.navigateToController(
                         utils.abstract(s, predicates), o, list(p))
                 elif 'MoveTo' in name:
-                    spot_controllers.navigateToController(
+                    spot_interface.navigateToController(
                         m['start_state'].simulator_state, o, list(p))
                 elif 'Grasp' in name:
-                    spot_controllers.graspController(o, list(p))
+                    spot_interface.graspController(o, list(p))
                 elif 'Place' in name:
-                    spot_controllers.placeOntopController(o, list(p))
+                    spot_interface.placeOntopController(o, list(p))
                 else:
                     raise NotImplementedError(
                         f"Spot controller not implemented for operator {name}")

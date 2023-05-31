@@ -13,6 +13,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
+from predicators.spot_utils.spot_utils import get_spot_interface
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
     Variable
@@ -82,6 +83,7 @@ class SpotEnv(BaseEnv):
         self._strips_operators: Set[STRIPSOperator] = set()
         self._ordered_strips_operators: List[STRIPSOperator] = list(
             self._strips_operators)
+        self._spot_interface = get_spot_interface()
 
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
@@ -465,6 +467,7 @@ class SpotGroceryEnv(SpotEnv):
 ###############################################################################
 
 
+# TODO: make sure ot grab the observation of the gripper open percentage
 class SpotBikeEnv(SpotEnv):
     """An environment containing bike-repair related tasks for a real Spot
     robot to execute."""
@@ -473,7 +476,7 @@ class SpotBikeEnv(SpotEnv):
         super().__init__(use_gui)
 
         # Types
-        self._robot_type = Type("robot", [])
+        self._robot_type = Type("robot", ["gripper_open_percentage"])
         self._tool_type = Type("tool", [])
         self._surface_type = Type("flat_surface", [])
         self._bag_type = Type("bag", [])
@@ -492,30 +495,17 @@ class SpotBikeEnv(SpotEnv):
         self._InBag = Predicate(
             "InBag", [self._tool_type, self._bag_type],
             _create_dummy_predicate_classifier(self._temp_InBag))
-        self._temp_HandEmpty = Predicate("HandEmpty", [self._robot_type],
-                                         lambda s, o: False)
-        self._HandEmpty = Predicate(
-            "HandEmpty", [self._robot_type],
-            _create_dummy_predicate_classifier(self._temp_HandEmpty))
-        self._temp_HoldingTool = Predicate("HoldingTool",
-                                           [self._robot_type, self._tool_type],
-                                           lambda s, o: False)
-        self._HoldingTool = Predicate(
-            "HoldingTool", [self._robot_type, self._tool_type],
-            _create_dummy_predicate_classifier(self._temp_HoldingTool))
-        self._temp_HoldingBag = Predicate("HoldingBag",
-                                          [self._robot_type, self._bag_type],
-                                          lambda s, o: False)
-        self._HoldingBag = Predicate(
-            "HoldingBag", [self._robot_type, self._bag_type],
-            _create_dummy_predicate_classifier(self._temp_HoldingBag))
-        self._temp_HoldingPlatformLeash = Predicate(
-            "HoldingPlatformLeash", [self._robot_type, self._platform_type],
-            lambda s, o: False)
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._handempty_classifier)
+        self._HoldingTool = Predicate("HoldingTool",
+                                      [self._robot_type, self._tool_type],
+                                      self._holding_classifier)
+        self._HoldingBag = Predicate("HoldingBag",
+                                     [self._robot_type, self._bag_type],
+                                     self._holding_classifier)
         self._HoldingPlatformLeash = Predicate(
             "HoldingPlatformLeash", [self._robot_type, self._platform_type],
-            _create_dummy_predicate_classifier(
-                self._temp_HoldingPlatformLeash))
+            self._holding_classifier)
         self._temp_ReachableTool = Predicate(
             "ReachableTool", [self._robot_type, self._tool_type],
             lambda s, o: False)
@@ -754,6 +744,19 @@ class SpotBikeEnv(SpotEnv):
             self._SurfaceNotTooHigh,
             self._PlatformNear,
         }
+
+    def _holding_classifier(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        # IMPORTANT NOTE: This only works if the gripper is CLOSED. Thus, we need
+        # to make sure that we always close the gripper before running this
+        # classifier!
+        spot, _ = objects
+        gripper_open_percentage = state.get(spot, "gripper_open_percentage")
+        return gripper_open_percentage > 1.0
+
+    def _handempty_classifier(self, state: State,
+                              objects: Sequence[Object]) -> bool:
+        return not self._holding_classifier(state, objects)
 
     @classmethod
     def get_name(cls) -> str:
