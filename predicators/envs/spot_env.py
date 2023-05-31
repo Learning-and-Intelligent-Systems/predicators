@@ -86,13 +86,23 @@ class SpotEnv(BaseEnv):
         # class because they're used to update the symbolic
         # parts of the state during execution.
         self._strips_operators: Set[STRIPSOperator] = set()
-        self._ordered_strips_operators: List[STRIPSOperator] = list(
-            self._strips_operators)
-        self._num_operators = len(self._strips_operators)
-        self._max_operator_arity = max(
-            len(o.parameters) for o in self._strips_operators)
-        self._max_controller_params = max(
-            p.shape[0] for p in self._spot_controllers.params_spaces.values())
+
+    @property
+    def _ordered_strips_operators(self) -> List[STRIPSOperator]:
+        return sorted(self._strips_operators)
+
+    @property
+    def _num_operators(self) -> int:
+        return len(self._strips_operators)
+
+    @property
+    def _max_operator_arity(self) -> int:
+        return max(len(o.parameters) for o in self._strips_operators)
+
+    @property
+    def _max_controller_params(self) -> int:
+        return max(p.shape[0]
+                   for p in self._spot_controllers.params_spaces.values())
 
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
@@ -476,7 +486,6 @@ class SpotGroceryEnv(SpotEnv):
             self._MoveToCanOp, self._MoveToSurfaceOp, self._GraspCanOp,
             self._PlaceCanOp
         }
-        self._ordered_strips_operators = sorted(self._strips_operators)
 
     @property
     def types(self) -> Set[Type]:
@@ -806,7 +815,6 @@ class SpotBikeEnv(SpotEnv):
             self._PlaceToolNotHighOp,
             self._PlaceIntoBagOp,
         }
-        self._ordered_strips_operators = sorted(self._strips_operators)
 
     @property
     def types(self) -> Set[Type]:
