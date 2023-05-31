@@ -264,6 +264,7 @@ class SpotEnv(BaseEnv):
 
     def _get_continuous_observation(self) -> State:
         """Helper for step()."""
+        # pragma: no cover
         # Nontrivial implementation coming soon.
         return State(self._current_observation.data.copy())
 
