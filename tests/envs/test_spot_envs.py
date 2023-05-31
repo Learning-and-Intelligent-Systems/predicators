@@ -119,6 +119,10 @@ def test_spot_env_oracle_nsrts():
     next_atoms = env._get_next_simulator_state(state, act)  # pylint:disable=protected-access
     assert next_atoms is None
 
+    # More interesting tests coming soon.
+    next_state = env._get_continuous_observation()  # pylint:disable=protected-access
+    assert set(next_state) == set(state)
+
 
 def test_natural_language_goal_prompt_prefix():
     """Test the prompt prefix creation function."""
