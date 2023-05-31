@@ -37,13 +37,19 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del state, goal, rng, objs
+            if objs[1].type.name == "bag":
+                return np.array([0.5, 0.0, 0.0])
+            if objs[2].type.name == "low_wall_rack":
+                return np.array([0.07, 0.0, 0.15])
             return np.array([0])
 
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del state, goal, rng, objs
-            return np.array([0.0])
+            if objs[1].type.name == "bag":
+                return np.array([0.0, 0.0, -0.25])
+            return np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)
         assert isinstance(env, SpotEnv)
