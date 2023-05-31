@@ -39,4 +39,5 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         # we don't have to replan.
         if self._approach_info[self._curr_plan_timestep].issubset(curr_atoms):
             return False
+        import ipdb; ipdb.set_trace()
         return True
