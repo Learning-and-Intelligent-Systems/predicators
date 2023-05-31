@@ -467,7 +467,7 @@ class SpotGroceryEnv(SpotEnv):
 ###############################################################################
 
 
-# TODO: make sure ot grab the observation of the gripper open percentage
+# TODO: make sure to grab the observation of the gripper open percentage
 class SpotBikeEnv(SpotEnv):
     """An environment containing bike-repair related tasks for a real Spot
     robot to execute."""
@@ -747,9 +747,9 @@ class SpotBikeEnv(SpotEnv):
 
     def _holding_classifier(self, state: State,
                             objects: Sequence[Object]) -> bool:
-        # IMPORTANT NOTE: This only works if the gripper is CLOSED. Thus, we need
-        # to make sure that we always close the gripper before running this
-        # classifier!
+        # IMPORTANT NOTE: This only works if the gripper is CLOSED. Thus, we 
+        # need to make sure that we always close the gripper before running
+        # this classifier!
         spot, _ = objects
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
         return gripper_open_percentage > 1.0

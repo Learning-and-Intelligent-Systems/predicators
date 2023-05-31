@@ -636,4 +636,4 @@ class _SpotInterface():
 @functools.lru_cache(maxsize=None)
 def get_spot_interface() -> _SpotInterface:
     """Ensure that _SpotControllers is only created once."""
-    return _SpotInterface
+    return _SpotInterface()
