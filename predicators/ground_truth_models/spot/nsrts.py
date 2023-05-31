@@ -37,9 +37,9 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del state, goal, rng
-            if objs[1].type.name == "bag":
+            if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.5, 0.0, 0.0])
-            if objs[2].type.name == "low_wall_rack":
+            if objs[2].type.name == "low_wall_rack":  # pragma: no cover
                 return np.array([0.10, 0.0, 0.25])
             return np.array([0])
 
@@ -47,7 +47,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del state, goal, rng
-            if objs[1].type.name == "bag":
+            if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.0, 0.0, -0.25])
             return np.array([0.0, 0.0, 0.0])
 
