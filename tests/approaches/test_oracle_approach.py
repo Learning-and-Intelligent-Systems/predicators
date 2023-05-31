@@ -725,18 +725,12 @@ def test_oracle_approach_spot_envs(env_name, env_cls):
         "num_test_tasks": 1,
         "bilevel_plan_without_sim": True,
     })
+    # Test planning, but don't execute the plan, because we're not connected
+    # to a robot during testing.
     env = env_cls(use_gui=False)
     train_tasks = [t.task for t in env.get_train_tasks()]
     task = env.get_test_tasks()[0].task
     approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
                               env.types, env.action_space, train_tasks)
     policy = approach.solve(task, timeout=500)
-    state = env.reset("test", 0)
-    goal_reached = False
-    for _ in range(CFG.horizon):
-        act = policy(state)
-        state = env.step(act)
-        if task.goal_holds(state):
-            goal_reached = True
-            break
-    assert goal_reached
+    assert policy

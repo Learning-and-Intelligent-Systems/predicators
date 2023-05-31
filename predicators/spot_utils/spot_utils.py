@@ -154,7 +154,8 @@ class _SpotControllers():
         return {
             "navigate": Box(-5.0, 5.0, (3, )),
             "grasp": Box(-1.0, 1.0, (1, )),
-            "placeOnTop": Box(-5.0, 5.0, (1, ))
+            "placeOnTop": Box(-5.0, 5.0, (1, )),
+            "noop": Box(0, 1, (0, ))
         }
 
     def execute(self, name: str, current_atoms: Set[GroundAtom],

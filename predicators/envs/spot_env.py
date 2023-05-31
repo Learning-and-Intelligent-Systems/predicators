@@ -161,8 +161,8 @@ class SpotEnv(BaseEnv):
             return "grasp"
         if "Place" in operator.name:
             return "placeOnTop"
-        raise NotImplementedError(
-            f"Spot controller not implemented for operator {operator.name}")
+        # Forthcoming controllers.
+        return "noop"
 
     def controller_name_to_param_space(self, name: str) -> Box:
         """Helper for defining the controller param spaces.
