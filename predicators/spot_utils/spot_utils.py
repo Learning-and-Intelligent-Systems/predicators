@@ -153,8 +153,8 @@ class _SpotControllers():
         """The parameter spaces for each of the controllers."""
         return {
             "navigate": Box(-5.0, 5.0, (3, )),
-            "grasp": Box(-1.0, 1.0, (1, )),
-            "placeOnTop": Box(-5.0, 5.0, (1, )),
+            "grasp": Box(-1.0, 1.0, (4, )),
+            "placeOnTop": Box(-5.0, 5.0, (3, )),
             "noop": Box(0, 1, (0, ))
         }
 
@@ -211,7 +211,7 @@ class _SpotControllers():
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
         self.arm_object_grasp()
-        self.hand_movement(params[:3])
+        self.hand_movement(params[:3], open_gripper=False)
         self.stow_arm()
 
     def placeOntopController(self, objs: Sequence[Object],
@@ -499,7 +499,7 @@ class _SpotControllers():
                 break
             time.sleep(0.1)
 
-    def hand_movement(self, params: Array) -> None:
+    def hand_movement(self, params: Array, open_gripper: bool = True) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -542,7 +542,7 @@ class _SpotControllers():
             odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z,
             ODOM_FRAME_NAME, seconds)
 
-        # Make the open gripper RobotCommand
+        # Make the close gripper RobotCommand
         gripper_command = RobotCommandBuilder.\
             claw_gripper_open_fraction_command(0.0)
 
@@ -561,9 +561,12 @@ class _SpotControllers():
 
         time.sleep(2)
 
-        # Make the open gripper RobotCommand
-        gripper_command = RobotCommandBuilder.\
-            claw_gripper_open_fraction_command(1.0)
+        if not open_gripper:
+            gripper_command = RobotCommandBuilder.\
+                claw_gripper_open_fraction_command(0.0)
+        else:
+            gripper_command = RobotCommandBuilder.\
+                claw_gripper_open_fraction_command(1.0)
 
         # Combine the arm and gripper commands into one RobotCommand
         command = RobotCommandBuilder.build_synchro_command(
