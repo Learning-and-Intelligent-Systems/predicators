@@ -86,9 +86,9 @@ def test_spot_env_oracle_nsrts():
     assert objs == [spot, counter]
     assert np.allclose(params, ground_option.params)
     # Test simulate with valid action.
-    next_state = env._get_next_simulator_state(state, action)  # pylint:disable=protected-access
-    assert not next_state.allclose(state)
-    
+    next_atoms = env._get_next_simulator_state(state, act)  # pylint:disable=protected-access
+    assert next_atoms != state.simulator_state["atoms"]
+
     ground_nsrt = MoveToCan.ground([spot, soda_can])
     ground_option = ground_nsrt.sample_option(state, set(), rng)
     act = ground_option.policy(state)
@@ -116,8 +116,8 @@ def test_spot_env_oracle_nsrts():
     assert objs == [spot, soda_can, counter]
     assert np.allclose(params, ground_option.params)
     # Test simulate with invalid action.
-    next_state = env._get_next_simulator_state(state, action)  # pylint:disable=protected-access
-    assert next_state.allclose(state)
+    next_atoms = env._get_next_simulator_state(state, act)  # pylint:disable=protected-access
+    assert next_atoms is None
 
 
 def test_natural_language_goal_prompt_prefix():
