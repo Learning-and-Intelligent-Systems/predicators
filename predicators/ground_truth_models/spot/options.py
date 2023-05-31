@@ -1,17 +1,13 @@
 """Ground-truth options for PDDL environments."""
 
-import logging
-from typing import Dict, List, Sequence, Set
+from typing import Dict, Sequence, Set
 
-import bosdyn
-import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.spot_utils.spot_utils import get_spot_controllers
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Type
 
@@ -41,6 +37,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
             op: STRIPSOperator, env: SpotEnv) -> ParameterizedOption:
 
         def policy(s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
+            del m  # unused
             return env.build_action(s, op, o, p)
 
         controller_name = env.operator_to_controller_name(op)
