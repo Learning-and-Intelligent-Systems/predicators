@@ -211,7 +211,8 @@ class _SpotControllers():
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
         self.arm_object_grasp()
-        self.hand_movement(params[:3], open_gripper=False)
+        if not all(params[:3] == [0.0, 0.0, 0.0]):
+            self.hand_movement(params[:3], open_gripper=False)
         self.stow_arm()
 
     def placeOntopController(self, objs: Sequence[Object],
@@ -443,16 +444,6 @@ class _SpotControllers():
                 MANIP_STATE_GRASP_FAILED]:
                 break
 
-        # Unstow the arm
-        unstow = RobotCommandBuilder.arm_ready_command()
-
-        # Issue the command via the RobotCommandClient
-        unstow_command_id = self.robot_command_client.robot_command(unstow)
-
-        self.robot.logger.info("Unstow command issued.")
-        block_until_arm_arrives(self.robot_command_client, unstow_command_id,
-                                3.0)
-
         time.sleep(1.0)
         g_image_click = None
         g_image_display = None
@@ -603,7 +594,7 @@ class _SpotControllers():
             self.graph_nav_command_line.navigate_to([waypoint_id])
 
             # (5) Offset by params
-            if params != [0.0, 0.0, 0.0]:
+            if not all(params == [0.0, 0.0, 0.0]):
                 self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
