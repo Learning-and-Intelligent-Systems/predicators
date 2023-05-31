@@ -164,28 +164,31 @@ class _SpotControllers():
         """Wrapper method for grasp controller.
 
         Params are just one-dimensional corresponding to a top-down
-        grasp (1), side grasp (-1) or any (0).
+        grasp (1), side grasp (-1) or any (0), and dx, dy, dz of post
+        grasp position.
         """
         print("Grasp", objs)
-        assert len(params) == 1
-        assert params[0] in [0, 1, -1]
-        if params[0] == 1:
+        assert len(params) == 4
+        assert params[3] in [0, 1, -1]
+        if params[3] == 1:
             self._force_horizontal_grasp = False
             self._force_top_down_grasp = True
-        elif params[0] == -1:
+        elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
         self.arm_object_grasp()
+        self.hand_movement(params[:3])
+        self.stow_arm()
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Sequence[float]) -> None:
         """Wrapper method for placeOnTop controller.
 
-        Params is one-dimensional corresponding to the extension of the
+        Params is dx, dy, and dz corresponding to the location of the
         arm from the robot when placing.
         """
         print("PlaceOntop", objs)
-        assert len(params) == 1
+        assert len(params) == 3
         self.hand_movement(params)
 
     def verify_estop(self, robot: Any) -> None:
@@ -417,6 +420,13 @@ class _SpotControllers():
                                 3.0)
 
         time.sleep(1.0)
+        g_image_click = None
+        g_image_display = None
+        self.robot.logger.info('Finished grasp.')
+
+    def stow_arm(self) -> None:
+        """A simple example of using the Boston Dynamics API to stow Spot's
+        arm."""
 
         # Allow Stowing and Stow Arm
         grasp_carry_state_override = manipulation_api_pb2.\
@@ -432,13 +442,7 @@ class _SpotControllers():
         self.robot.logger.info("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client, stow_command_id,
                                 3.0)
-
-        self.robot.logger.info('Finished grasp.')
-
-        g_image_click = None
-        g_image_display = None
-
-        time.sleep(2.0)
+        time.sleep(1.0)
 
     def block_until_arm_arrives_with_prints(self, robot: Robot,
                                             command_client: RobotCommandClient,
@@ -477,9 +481,11 @@ class _SpotControllers():
         # Build a position to move the arm to (in meters, relative to and
         # expressed in the gravity aligned body frame).
         assert params[0] >= -0.5 and params[0] <= 0.5
+        assert params[1] >= -0.5 and params[1] <= 0.5
+        assert params[2] >= -0.25 and params[2] <= 0.25
         x = self.hand_x + params[0]  # dx hand
-        y = self.hand_y
-        z = self.hand_z
+        y = self.hand_y + params[1]
+        z = self.hand_z + params[2]
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
         flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body,
