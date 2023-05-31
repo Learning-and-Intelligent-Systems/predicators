@@ -92,9 +92,9 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
         if "MoveTo" in op.name:
             params_space = Box(-5.0, 5.0, (3, ))
         elif "Grasp" in op.name:
-            params_space = Box(-1.0, 1.0, (1, ))
+            params_space = Box(-1.0, 1.0, (4, ))
         elif "Place" in op.name:
-            params_space = Box(-5.0, 5.0, (1, ))
+            params_space = Box(-5.0, 5.0, (3, ))
 
         # Note: the initiable is deliberately always True. This only makes a
         # difference for exploration. If the initiable took into account the
