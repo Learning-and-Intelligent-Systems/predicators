@@ -44,7 +44,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
         params_space = env.controller_name_to_param_space(controller_name)
         types = [p.type for p in op.parameters]
 
-        return utils.SingletonParameterizedOption(controller_name,
+        return utils.SingletonParameterizedOption(op.name,
                                                   policy,
                                                   types,
                                                   params_space=params_space)
