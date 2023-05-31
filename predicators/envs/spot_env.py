@@ -3,7 +3,8 @@
 import abc
 import json
 from pathlib import Path
-from typing import Callable, Collection, Dict, List, Optional, Sequence, Set
+from typing import Callable, Collection, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import numpy as np
@@ -13,6 +14,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
+from predicators.spot_utils.spot_utils import get_spot_controllers
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
     Variable
@@ -79,9 +81,28 @@ class SpotEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+        self._spot_controllers = get_spot_controllers()
+        # Note that we need to include the operators in this
+        # class because they're used to update the symbolic
+        # parts of the state during execution.
         self._strips_operators: Set[STRIPSOperator] = set()
-        self._ordered_strips_operators: List[STRIPSOperator] = list(
-            self._strips_operators)
+
+    @property
+    def _ordered_strips_operators(self) -> List[STRIPSOperator]:
+        return sorted(self._strips_operators)
+
+    @property
+    def _num_operators(self) -> int:
+        return len(self._strips_operators)
+
+    @property
+    def _max_operator_arity(self) -> int:
+        return max(len(o.parameters) for o in self._strips_operators)
+
+    @property
+    def _max_controller_params(self) -> int:
+        return max(p.shape[0]
+                   for p in self._spot_controllers.params_spaces.values())
 
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
@@ -96,26 +117,99 @@ class SpotEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # See class docstring for explanation.
-        num_ops = len(self._strips_operators)
-        max_arity = max(len(op.parameters) for op in self._strips_operators)
-        lb = np.array([0.0 for _ in range(max_arity + 1)], dtype=np.float32)
-        ub = np.array([num_ops - 1.0] + [np.inf for _ in range(max_arity)],
-                      dtype=np.float32)
-        return Box(lb, ub, dtype=np.float32)
+        # The first entry is the controller identity.
+        lb = [0.0]
+        ub = [self._num_operators - 1.0]
+        # The next max_arity entries are the object identities.
+        for _ in range(self._max_operator_arity):
+            lb.append(0.0)
+            ub.append(np.inf)
+        # The next max_params entries are the parameters.
+        for _ in range(self._max_controller_params):
+            lb.append(-np.inf)
+            ub.append(np.inf)
+        lb_arr = np.array(lb, dtype=np.float32)
+        ub_arr = np.array(ub, dtype=np.float32)
+        return Box(lb_arr, ub_arr, dtype=np.float32)
 
-    def step(self, action: Action) -> Observation:
+    def _parse_action(self, state: State,
+                      action: Action) -> Tuple[str, List[Object], Array]:
+        # Convert the first action part into a _GroundSTRIPSOperator.
+        first_action_part_len = self._max_operator_arity + 1
+        op_action = Action(action.arr[:first_action_part_len])
+        ordered_objs = list(state)
+        ground_op = _action_to_ground_strips_op(op_action, ordered_objs,
+                                                self._ordered_strips_operators)
+        assert ground_op is not None
+        # Convert the operator into a controller (name).
+        controller_name = self.operator_to_controller_name(ground_op.parent)
+        # Extract the objects.
+        objects = list(ground_op.objects)
+        # Extract the parameters.
+        n = self.controller_name_to_param_space(controller_name).shape[0]
+        params = action.arr[first_action_part_len:first_action_part_len + n]
+        return controller_name, objects, params
+
+    def operator_to_controller_name(self, operator: STRIPSOperator) -> str:
+        """Helper to convert operators to controllers.
+
+        Exposed for use by oracle options.
+        """
+        if "MoveTo" in operator.name:
+            return "navigate"
+        if "Grasp" in operator.name:
+            return "grasp"
+        if "Place" in operator.name:
+            return "placeOnTop"
+        # Forthcoming controllers.
+        return "noop"
+
+    def controller_name_to_param_space(self, name: str) -> Box:
+        """Helper for defining the controller param spaces.
+
+        Exposed for use by oracle options.
+        """
+        return self._spot_controllers.params_spaces[name]
+
+    def build_action(self, state: State, op: STRIPSOperator,
+                     objects: Sequence[Object], params: Array) -> Action:
+        """Helper function exposed for use by oracle options."""
+        # Initialize the action array.
+        action_arr = np.zeros(self.action_space.shape[0], dtype=np.float32)
+        # Add the operator index.
+        op_idx = self._ordered_strips_operators.index(op)
+        action_arr[0] = op_idx
+        # Add the object indices.
+        ordered_objects = list(state)
+        for i, o in enumerate(objects):
+            obj_idx = ordered_objects.index(o)
+            action_arr[i + 1] = obj_idx
+        # Add the parameters.
+        first_action_part_len = self._max_operator_arity + 1
+        n = len(params)
+        action_arr[first_action_part_len:first_action_part_len + n] = params
+        # Finalize action.
+        return Action(action_arr)
+
+    def step(self, action: Action) -> Observation:  # pragma: no cover
         """Override step() because simulate() is not implemented."""
-        # First process the ground atoms part of the state (in simulator_state).
         state = self._current_observation
         assert isinstance(state, _PartialPerceptionState)
         assert self.action_space.contains(action.arr)
+        # Parse the action into the components needed for a controller.
+        name, objects, params = self._parse_action(state, action)
+        # Execute the controller in the real environment.
+        current_atoms = utils.abstract(state, self.predicates)
+        self._spot_controllers.execute(name, current_atoms, objects, params)
+        # Get the part of the new state that is determined based on
+        # continuous feature values.
+        next_state = self._get_continuous_observation()
+        # Now update the part of the state that is cheated based on the
+        # ground-truth STRIPS operators.
         next_sim_state_ground_atoms = self._get_next_simulator_state(
             state, action)
         if next_sim_state_ground_atoms is None:  # inapplicable action
             return state.copy()
-        # Now process the regular continuous-feature part of the state.
-        next_state = self._get_next_continuous_state(state, action)
         # Combine the two to get the new _PartialPerceptionState.
         self._current_observation = self._build_partial_perception_state(
             next_state.data, next_sim_state_ground_atoms)
@@ -168,16 +262,10 @@ class SpotEnv(BaseEnv):
             if a.predicate not in self.continuous_feature_predicates
         }
 
-    def _get_next_continuous_state(self, state: _PartialPerceptionState,
-                                   action: Action) -> State:
-        """Helper for step().
-
-        This should be deprecated soon when we move to regular State
-        instances in this class.
-        """
+    def _get_continuous_observation(self) -> State:
+        """Helper for step()."""
         # Nontrivial implementation coming soon.
-        del action
-        return State(state.data.copy())
+        return State(self._current_observation.data.copy())
 
     def simulate(self, state: State, action: Action) -> State:
         raise NotImplementedError("Simulate not implemented for SpotEnv.")
@@ -398,7 +486,6 @@ class SpotGroceryEnv(SpotEnv):
             self._MoveToCanOp, self._MoveToSurfaceOp, self._GraspCanOp,
             self._PlaceCanOp
         }
-        self._ordered_strips_operators = sorted(self._strips_operators)
 
     @property
     def types(self) -> Set[Type]:
@@ -728,7 +815,6 @@ class SpotBikeEnv(SpotEnv):
             self._PlaceToolNotHighOp,
             self._PlaceIntoBagOp,
         }
-        self._ordered_strips_operators = sorted(self._strips_operators)
 
     @property
     def types(self) -> Set[Type]:
