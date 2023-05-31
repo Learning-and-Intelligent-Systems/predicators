@@ -3,7 +3,7 @@
 import abc
 import json
 from pathlib import Path
-from typing import Collection, Dict, List, Optional, Set
+from typing import Callable, Collection, Dict, List, Optional, Sequence, Set
 
 import matplotlib
 import numpy as np
@@ -11,15 +11,63 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.envs.pddl_env import _action_to_ground_strips_op, \
-    _create_predicate_classifier, _PDDLEnvState
+from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
-from predicators.structs import Action, EnvironmentTask, GroundAtom, \
-    LiftedAtom, Object, Predicate, State, STRIPSOperator, Type, Variable
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
+    Variable
 
 ###############################################################################
 #                                Base Class                                   #
 ###############################################################################
+
+
+class _PartialPerceptionState(State):
+    """Some continuous object features, and ground atoms in simulator_state.
+
+    The main idea here is that we have some predicates with actual
+    classifiers implemented, but not all.
+    """
+
+    @property
+    def _simulator_state_predicates(self) -> Set[Predicate]:
+        assert isinstance(self.simulator_state, Dict)
+        return self.simulator_state["predicates"]
+
+    @property
+    def _simulator_state_atoms(self) -> Set[GroundAtom]:
+        assert isinstance(self.simulator_state, Dict)
+        return self.simulator_state["atoms"]
+
+    def simulator_state_atom_holds(self, atom: GroundAtom) -> bool:
+        """Check whether an atom holds in the simulator state."""
+        assert atom.predicate in self._simulator_state_predicates
+        return atom in self._simulator_state_atoms
+
+    def allclose(self, other: State) -> bool:
+        if self.simulator_state != other.simulator_state:
+            return False
+        return self._allclose(other)
+
+    def copy(self) -> State:
+        state_copy = {o: self._copy_state_value(self.data[o]) for o in self}
+        sim_state_copy = {
+            "predicates": self._simulator_state_predicates.copy(),
+            "atoms": self._simulator_state_atoms.copy()
+        }
+        return _PartialPerceptionState(state_copy,
+                                       simulator_state=sim_state_copy)
+
+
+def _create_dummy_predicate_classifier(
+        pred: Predicate) -> Callable[[State, Sequence[Object]], bool]:
+
+    def _classifier(s: State, objs: Sequence[Object]) -> bool:
+        assert isinstance(s, _PartialPerceptionState)
+        atom = GroundAtom(pred, objs)
+        return s.simulator_state_atom_holds(atom)
+
+    return _classifier
 
 
 class SpotEnv(BaseEnv):
@@ -35,14 +83,16 @@ class SpotEnv(BaseEnv):
         self._ordered_strips_operators: List[STRIPSOperator] = list(
             self._strips_operators)
 
-    # @classmethod
-    # def get_name(cls) -> str:
-    #     return "spot_base_env"
-
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
         """Expose the STRIPSOperators for use by oracles."""
         return self._strips_operators
+
+    @property
+    def continuous_feature_predicates(self) -> Set[Predicate]:
+        """The predicates that are NOT stored in the simulator state."""
+        # Nontrivial predicates coming soon.
+        return set()
 
     @property
     def action_space(self) -> Box:
@@ -54,25 +104,83 @@ class SpotEnv(BaseEnv):
                       dtype=np.float32)
         return Box(lb, ub, dtype=np.float32)
 
-    def simulate(self, state: State, action: Action) -> State:
-        assert isinstance(state, _PDDLEnvState)
+    def step(self, action: Action) -> Observation:
+        """Override step() because simulate() is not implemented."""
+        # First process the ground atoms part of the state (in simulator_state).
+        state = self._current_observation
+        assert isinstance(state, _PartialPerceptionState)
         assert self.action_space.contains(action.arr)
+        next_sim_state_ground_atoms = self._get_next_simulator_state(
+            state, action)
+        if next_sim_state_ground_atoms is None:  # inapplicable action
+            return state.copy()
+        # Now process the regular continuous-feature part of the state.
+        next_state = self._get_next_continuous_state(state, action)
+        # Combine the two to get the new _PartialPerceptionState.
+        self._current_observation = self._build_partial_perception_state(
+            next_state.data, next_sim_state_ground_atoms)
+        return self._current_observation.copy()
+
+    def _build_partial_perception_state(
+            self, state_data: Dict[Object, Array],
+            ground_atoms: Set[GroundAtom]) -> _PartialPerceptionState:
+        """Helper for building a new _PartialPerceptionState().
+
+        This is an environment method because the predicates stored in
+        the simulator_state may vary per environment.
+        """
+        sim_state_preds = self.predicates - self.continuous_feature_predicates
+        assert all(a.predicate in sim_state_preds for a in ground_atoms)
+        simulator_state = {
+            "predicates": sim_state_preds,
+            "atoms": ground_atoms
+        }
+        return _PartialPerceptionState(state_data.copy(),
+                                       simulator_state=simulator_state)
+
+    def _get_next_simulator_state(self, state: _PartialPerceptionState,
+                                  action: Action) -> Optional[Set[GroundAtom]]:
+        """Helper for step().
+
+        Returns None if the action is not applicable. This should be
+        deprecated soon when we move to regular State instances in this
+        class.
+        """
         ordered_objs = list(state)
-        # Convert the state into a Set[GroundAtom].
-        ground_atoms = state.get_ground_atoms()
+        # Get the high-level state (i.e. set of GroundAtoms) by abstracting
+        # the low-level state. Note that this will automatically take
+        # care of using the hardcoded predicates vs. actually running
+        # classifier functions where appropriate.
+        ground_atoms = utils.abstract(state, self.predicates)
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
         # If the operator is not applicable in this state, noop.
         if ground_op is None or not ground_op.preconditions.issubset(
                 ground_atoms):
-            return state.copy()
+            return None
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
-        # Convert back into a State.
-        next_state = _PDDLEnvState.from_ground_atoms(next_ground_atoms,
-                                                     ordered_objs)
-        return next_state
+        # Return only the atoms for the non-continuous-feature predicates.
+        return {
+            a
+            for a in next_ground_atoms
+            if a.predicate not in self.continuous_feature_predicates
+        }
+
+    def _get_next_continuous_state(self, state: _PartialPerceptionState,
+                                   action: Action) -> State:
+        """Helper for step().
+
+        This should be deprecated soon when we move to regular State
+        instances in this class.
+        """
+        # Nontrivial implementation coming soon.
+        del action
+        return State(state.data.copy())
+
+    def simulate(self, state: State, action: Action) -> State:
+        raise NotImplementedError("Simulate not implemented for SpotEnv.")
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._generate_tasks(CFG.num_train_tasks)
@@ -153,18 +261,23 @@ class SpotEnv(BaseEnv):
             issuperset(set(json_dict["init"])), \
             "The init state must include every object in `objects`."
         # Parse initial state.
-        init_dict: Dict[Object, Dict[str, float]] = {}
-        for obj_name, obj_dict in json_dict["init"].items():
-            obj = object_name_to_object[obj_name]
-            init_dict[obj] = obj_dict.copy()
+        # NOTE: this is currently ignored; we will update after we add
+        # predicates that are defined in terms of the continuous state.
+        init_dict: Dict[Object, Array] = {
+            o: np.zeros(0, dtype=np.float32)
+            for o in object_name_to_object.values()
+        }
         # NOTE: We need to parse out init preds to create a simulator state.
-        init_preds = self._parse_init_preds_from_json(json_dict["init_preds"],
+        init_atoms = self._parse_init_preds_from_json(json_dict["init_preds"],
                                                       object_name_to_object)
-        # NOTE: mypy gets mad at this usage here because we're putting
-        # predicates into the PDDLEnvState when the signature actually
-        # expects Arrays.
-        init_state = _PDDLEnvState(init_dict, init_preds)  # type: ignore
-
+        # Remove any atoms that are defined via classifiers.
+        init_atoms = {
+            a
+            for a in init_atoms
+            if a.predicate not in self.continuous_feature_predicates
+        }
+        init_state = self._build_partial_perception_state(
+            init_dict, init_atoms)
         # Parse goal.
         if "goal" in json_dict:
             goal = self._parse_goal_from_json(json_dict["goal"],
@@ -207,30 +320,30 @@ class SpotGroceryEnv(SpotEnv):
         self._temp_On = Predicate("On", [self._can_type, self._surface_type],
                                   lambda s, o: False)
         self._On = Predicate("On", [self._can_type, self._surface_type],
-                             _create_predicate_classifier(self._temp_On))
+                             _create_dummy_predicate_classifier(self._temp_On))
         self._temp_HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                          lambda s, o: False)
         self._HandEmpty = Predicate(
             "HandEmpty", [self._robot_type],
-            _create_predicate_classifier(self._temp_HandEmpty))
+            _create_dummy_predicate_classifier(self._temp_HandEmpty))
         self._temp_HoldingCan = Predicate("HoldingCan",
                                           [self._robot_type, self._can_type],
                                           lambda s, o: False)
         self._HoldingCan = Predicate(
             "HoldingCan", [self._robot_type, self._can_type],
-            _create_predicate_classifier(self._temp_HoldingCan))
+            _create_dummy_predicate_classifier(self._temp_HoldingCan))
         self._temp_ReachableCan = Predicate("ReachableCan",
                                             [self._robot_type, self._can_type],
                                             lambda s, o: False)
         self._ReachableCan = Predicate(
             "ReachableCan", [self._robot_type, self._can_type],
-            _create_predicate_classifier(self._temp_ReachableCan))
+            _create_dummy_predicate_classifier(self._temp_ReachableCan))
         self._temp_ReachableSurface = Predicate(
             "ReachableSurface", [self._robot_type, self._surface_type],
             lambda s, o: False)
         self._ReachableSurface = Predicate(
             "ReachableSurface", [self._robot_type, self._surface_type],
-            _create_predicate_classifier(self._temp_ReachableSurface))
+            _create_dummy_predicate_classifier(self._temp_ReachableSurface))
 
         # STRIPS Operators (needed for option creation)
         # MoveToCan
@@ -308,12 +421,18 @@ class SpotGroceryEnv(SpotEnv):
         kitchen_counter = Object("counter", self._surface_type)
         snack_table = Object("snack_table", self._surface_type)
         soda_can = Object("soda_can", self._can_type)
+        objects = [spot, kitchen_counter, snack_table, soda_can]
         for _ in range(num_tasks):
-            init_state = _PDDLEnvState.from_ground_atoms(
-                {
-                    GroundAtom(self._HandEmpty, [spot]),
-                    GroundAtom(self._On, [soda_can, kitchen_counter])
-                }, [spot, kitchen_counter, snack_table, soda_can])
+            init_dict: Dict[Object, Array] = {
+                o: np.zeros(0, dtype=np.float32)
+                for o in objects
+            }
+            init_atoms = {
+                GroundAtom(self._HandEmpty, [spot]),
+                GroundAtom(self._On, [soda_can, kitchen_counter])
+            }
+            init_state = self._build_partial_perception_state(
+                init_dict, init_atoms)
             goal = {GroundAtom(self._On, [soda_can, snack_table])}
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
@@ -366,77 +485,79 @@ class SpotBikeEnv(SpotEnv):
         self._temp_On = Predicate("On", [self._tool_type, self._surface_type],
                                   lambda s, o: False)
         self._On = Predicate("On", [self._tool_type, self._surface_type],
-                             _create_predicate_classifier(self._temp_On))
+                             _create_dummy_predicate_classifier(self._temp_On))
         self._temp_InBag = Predicate("InBag",
                                      [self._tool_type, self._bag_type],
                                      lambda s, o: False)
-        self._InBag = Predicate("InBag", [self._tool_type, self._bag_type],
-                                _create_predicate_classifier(self._temp_InBag))
+        self._InBag = Predicate(
+            "InBag", [self._tool_type, self._bag_type],
+            _create_dummy_predicate_classifier(self._temp_InBag))
         self._temp_HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                          lambda s, o: False)
         self._HandEmpty = Predicate(
             "HandEmpty", [self._robot_type],
-            _create_predicate_classifier(self._temp_HandEmpty))
+            _create_dummy_predicate_classifier(self._temp_HandEmpty))
         self._temp_HoldingTool = Predicate("HoldingTool",
                                            [self._robot_type, self._tool_type],
                                            lambda s, o: False)
         self._HoldingTool = Predicate(
             "HoldingTool", [self._robot_type, self._tool_type],
-            _create_predicate_classifier(self._temp_HoldingTool))
+            _create_dummy_predicate_classifier(self._temp_HoldingTool))
         self._temp_HoldingBag = Predicate("HoldingBag",
                                           [self._robot_type, self._bag_type],
                                           lambda s, o: False)
         self._HoldingBag = Predicate(
             "HoldingBag", [self._robot_type, self._bag_type],
-            _create_predicate_classifier(self._temp_HoldingBag))
+            _create_dummy_predicate_classifier(self._temp_HoldingBag))
         self._temp_HoldingPlatformLeash = Predicate(
             "HoldingPlatformLeash", [self._robot_type, self._platform_type],
             lambda s, o: False)
         self._HoldingPlatformLeash = Predicate(
             "HoldingPlatformLeash", [self._robot_type, self._platform_type],
-            _create_predicate_classifier(self._temp_HoldingPlatformLeash))
+            _create_dummy_predicate_classifier(
+                self._temp_HoldingPlatformLeash))
         self._temp_ReachableTool = Predicate(
             "ReachableTool", [self._robot_type, self._tool_type],
             lambda s, o: False)
         self._ReachableTool = Predicate(
             "ReachableTool", [self._robot_type, self._tool_type],
-            _create_predicate_classifier(self._temp_ReachableTool))
+            _create_dummy_predicate_classifier(self._temp_ReachableTool))
         self._temp_ReachableBag = Predicate("ReachableBag",
                                             [self._robot_type, self._bag_type],
                                             lambda s, o: False)
         self._ReachableBag = Predicate(
             "ReachableBag", [self._robot_type, self._bag_type],
-            _create_predicate_classifier(self._temp_ReachableBag))
+            _create_dummy_predicate_classifier(self._temp_ReachableBag))
         self._temp_ReachablePlatform = Predicate(
             "ReachablePlatform", [self._robot_type, self._platform_type],
             lambda s, o: False)
         self._ReachablePlatform = Predicate(
             "ReachablePlatform", [self._robot_type, self._platform_type],
-            _create_predicate_classifier(self._temp_ReachablePlatform))
+            _create_dummy_predicate_classifier(self._temp_ReachablePlatform))
         self._temp_XYReachableSurface = Predicate(
             "ReachableSurface", [self._robot_type, self._surface_type],
             lambda s, o: False)
         self._XYReachableSurface = Predicate(
             "ReachableSurface", [self._robot_type, self._surface_type],
-            _create_predicate_classifier(self._temp_XYReachableSurface))
+            _create_dummy_predicate_classifier(self._temp_XYReachableSurface))
         self._temp_SurfaceTooHigh = Predicate(
             "SurfaceTooHigh", [self._robot_type, self._surface_type],
             lambda s, o: False)
         self._SurfaceTooHigh = Predicate(
             "SurfaceTooHigh", [self._robot_type, self._surface_type],
-            _create_predicate_classifier(self._temp_SurfaceTooHigh))
+            _create_dummy_predicate_classifier(self._temp_SurfaceTooHigh))
         self._temp_SurfaceNotTooHigh = Predicate(
             "SurfaceNotTooHigh", [self._robot_type, self._surface_type],
             lambda s, o: False)
         self._SurfaceNotTooHigh = Predicate(
             "SurfaceNotTooHigh", [self._robot_type, self._surface_type],
-            _create_predicate_classifier(self._temp_SurfaceNotTooHigh))
+            _create_dummy_predicate_classifier(self._temp_SurfaceNotTooHigh))
         self._temp_PlatformNear = Predicate(
             "PlatformNear", [self._platform_type, self._surface_type],
             lambda s, o: False)
         self._PlatformNear = Predicate(
             "PlatformNear", [self._platform_type, self._surface_type],
-            _create_predicate_classifier(self._temp_PlatformNear))
+            _create_dummy_predicate_classifier(self._temp_PlatformNear))
 
         # STRIPS Operators (needed for option creation)
         # MoveToTool
@@ -650,24 +771,28 @@ class SpotBikeEnv(SpotEnv):
         high_wall_rack = Object("high_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
         movable_platform = Object("movable_platform", self._platform_type)
+        objects = [
+            spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
+            low_wall_rack, high_wall_rack, bag, movable_platform
+        ]
 
         for _ in range(num_tasks):
-            init_state = _PDDLEnvState.from_ground_atoms(
-                {
-                    GroundAtom(self._HandEmpty, [spot]),
-                    GroundAtom(self._On, [hammer, low_wall_rack]),
-                    GroundAtom(self._On, [hex_key, low_wall_rack]),
-                    GroundAtom(self._On, [brush, tool_room_table]),
-                    GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
-                    GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
-                    GroundAtom(self._SurfaceNotTooHigh,
-                               [spot, tool_room_table]),
-                    GroundAtom(self._SurfaceTooHigh, [spot, high_wall_rack]),
-                }, [
-                    spot, hammer, low_wall_rack, bag, movable_platform,
-                    hex_key, hex_screwdriver, brush, tool_room_table,
-                    high_wall_rack, movable_platform
-                ])
+            init_dict: Dict[Object, Array] = {
+                o: np.zeros(0, dtype=np.float32)
+                for o in objects
+            }
+            init_atoms = {
+                GroundAtom(self._HandEmpty, [spot]),
+                GroundAtom(self._On, [hammer, low_wall_rack]),
+                GroundAtom(self._On, [hex_key, low_wall_rack]),
+                GroundAtom(self._On, [brush, tool_room_table]),
+                GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
+                GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
+                GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
+                GroundAtom(self._SurfaceTooHigh, [spot, high_wall_rack]),
+            }
+            init_state = self._build_partial_perception_state(
+                init_dict, init_atoms)
             goal = {
                 GroundAtom(self._InBag, [hammer, bag]),
                 GroundAtom(self._InBag, [brush, bag]),

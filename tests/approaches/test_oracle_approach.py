@@ -45,29 +45,39 @@ from predicators.structs import NSRT, Action, ParameterizedOption, Task, \
 _PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 
 ENV_NAME_AND_CLS = [
-    ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),
+    ("cover", CoverEnv),
+    ("cover_typed_options", CoverEnvTypedOptions),
     ("cover_hierarchical_types", CoverEnvHierarchicalTypes),
     ("cover_regrasp", CoverEnvRegrasp),
     ("cover_multistep_options", CoverMultistepOptions),
     ("cluttered_table", ClutteredTableEnv),
-    ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
-    ("exit_garage", ExitGarageEnv), ("narrow_passage", NarrowPassageEnv),
-    ("painting", PaintingEnv), ("sandwich", SandwichEnv), ("tools", ToolsEnv),
-    ("playroom", PlayroomEnv), ("repeated_nextto", RepeatedNextToEnv),
+    ("cluttered_table_place", ClutteredTablePlaceEnv),
+    ("blocks", BlocksEnv),
+    ("exit_garage", ExitGarageEnv),
+    ("narrow_passage", NarrowPassageEnv),
+    ("painting", PaintingEnv),
+    ("sandwich", SandwichEnv),
+    ("tools", ToolsEnv),
+    ("playroom", PlayroomEnv),
+    ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
-    ("satellites", SatellitesEnv), ("satellites_simple", SatellitesSimpleEnv),
+    ("satellites", SatellitesEnv),
+    ("satellites_simple", SatellitesSimpleEnv),
     ("screws", ScrewsEnv),
     ("repeated_nextto_painting", RepeatedNextToPaintingEnv),
     ("pddl_blocks_fixed_tasks", FixedTasksBlocksPDDLEnv),
     ("pddl_blocks_procedural_tasks", ProceduralTasksBlocksPDDLEnv),
     ("pddl_delivery_procedural_tasks", ProceduralTasksDeliveryPDDLEnv),
     ("pddl_easy_delivery_procedural_tasks",
-     ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
-    ("touch_point_param", TouchPointEnvParam), ("touch_open", TouchOpenEnv),
-    ("stick_button", StickButtonEnv), ("doors", DoorsEnv),
-    ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv),
-    ("spot_grocery_env", SpotGroceryEnv), ("spot_bike_env", SpotBikeEnv)
+     ProceduralTasksEasyDeliveryPDDLEnv),
+    ("touch_point", TouchPointEnv),
+    ("touch_point_param", TouchPointEnvParam),
+    ("touch_open", TouchOpenEnv),
+    ("stick_button", StickButtonEnv),
+    ("doors", DoorsEnv),
+    ("coffee", CoffeeEnv),
+    ("pybullet_blocks", PyBulletBlocksEnv),
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
@@ -702,3 +712,31 @@ def test_playroom_get_gt_nsrts():
         state, train_task.goal, rng)
     movedoortodoor_action = movedoortodoor_option.policy(state)
     assert env.action_space.contains(movedoortodoor_action.arr)
+
+
+@pytest.mark.parametrize("env_name,env_cls",
+                         [("spot_grocery_env", SpotGroceryEnv),
+                          ("spot_bike_env", SpotBikeEnv)])
+def test_oracle_approach_spot_envs(env_name, env_cls):
+    """Test oracle approach for SpotEnvs, which don't have simulate()."""
+    utils.reset_config({
+        "env": env_name,
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "bilevel_plan_without_sim": True,
+    })
+    env = env_cls(use_gui=False)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    task = env.get_test_tasks()[0].task
+    approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
+                              env.types, env.action_space, train_tasks)
+    policy = approach.solve(task, timeout=500)
+    state = env.reset("test", 0)
+    goal_reached = False
+    for _ in range(CFG.horizon):
+        act = policy(state)
+        state = env.step(act)
+        if task.goal_holds(state):
+            goal_reached = True
+            break
+    assert goal_reached

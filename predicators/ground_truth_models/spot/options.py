@@ -72,6 +72,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
                     raise NotImplementedError(
                         f"Spot controller not implemented for operator {name}")
             except (bosdyn.client.exceptions.ProxyConnectionError,
+                    bosdyn.client.exceptions.UnableToConnectToRobotError,
                     RuntimeError):
                 logging.info("Could not connect to Spot!")
 

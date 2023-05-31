@@ -164,7 +164,7 @@ class GlobalSettings:
     ikfast_norm = np.inf  # norm ord for np.linalg.norm
 
     # Spot robot parameters
-    spot_robot_ip = "10.17.4.35"  # Corresponds to 'pluto'.
+    spot_robot_ip = "invalid-IP-address"
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
