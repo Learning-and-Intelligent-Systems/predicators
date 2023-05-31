@@ -5,7 +5,7 @@ import os
 import re
 import sys
 import time
-from typing import Any, Sequence, Set
+from typing import Any, Dict, Sequence, Set
 
 import bosdyn.client
 import bosdyn.client.estop
@@ -27,11 +27,12 @@ from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
+from gym.spaces import Box
 
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.structs import GroundAtom, Object
+from predicators.structs import Array, GroundAtom, Object
 
 g_image_click = None
 g_image_display = None
@@ -133,9 +134,27 @@ class _SpotControllers():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
+    @property
+    def params_spaces(self) -> Dict[str, Box]:
+        """The parameter spaces for each of the controllers."""
+        return {
+            "navigate": Box(-5.0, 5.0, (3, )),
+            "grasp": Box(-1.0, 1.0, (1, )),
+            "placeOnTop": Box(-5.0, 5.0, (1, ))
+        }
+
+    def execute(self, name: str, current_atoms: Set[GroundAtom],
+                objects: Sequence[Object], params: Array) -> None:
+        """Run the controller based on the given name."""
+        if name == "navigate":
+            return self.navigateToController(current_atoms, objects, params)
+        if name == "grasp":
+            return self.graspController(objects, params)
+        assert name == "placeonTop"
+        return self.placeOntopController(objects, params)
+
     def navigateToController(self, curr_atoms: Set[GroundAtom],
-                             objs: Sequence[Object],
-                             params: Sequence[float]) -> None:
+                             objs: Sequence[Object], params: Array) -> None:
         """Controller that navigates to specific pre-specified locations.
 
         Params are [dx, dy, d-yaw]
@@ -159,8 +178,7 @@ class _SpotControllers():
 
         self.navigate_to(waypoint_id, params)
 
-    def graspController(self, objs: Sequence[Object],
-                        params: Sequence[float]) -> None:
+    def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
 
         Params are just one-dimensional corresponding to a top-down
@@ -178,7 +196,7 @@ class _SpotControllers():
         self.arm_object_grasp()
 
     def placeOntopController(self, objs: Sequence[Object],
-                             params: Sequence[float]) -> None:
+                             params: Array) -> None:
         """Wrapper method for placeOnTop controller.
 
         Params is one-dimensional corresponding to the extension of the
@@ -460,7 +478,7 @@ class _SpotControllers():
                 break
             time.sleep(0.1)
 
-    def hand_movement(self, params: Sequence[float]) -> None:
+    def hand_movement(self, params: Array) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -545,7 +563,7 @@ class _SpotControllers():
         block_until_arm_arrives(self.robot_command_client, stow_command_id,
                                 3.0)
 
-    def navigate_to(self, waypoint_id: str, params: Sequence[float]) -> None:
+    def navigate_to(self, waypoint_id: str, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
         # pylint: disable=broad-except
         try:
