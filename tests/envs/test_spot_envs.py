@@ -33,6 +33,8 @@ def test_spot_grocery_env():
     assert len(env.strips_operators) == 4
     with pytest.raises(NotImplementedError):
         env.render_state_plt(task.init, task)
+    with pytest.raises(NotImplementedError):
+        env.simulate(task.init, [])
 
 
 def test_spot_bike_env():
