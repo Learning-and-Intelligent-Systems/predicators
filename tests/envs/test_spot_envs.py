@@ -7,7 +7,7 @@ import pytest
 
 from predicators import utils
 from predicators.envs.spot_env import SpotBikeEnv, SpotGroceryEnv
-from predicators.ground_truth_models import get_gt_options
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 
 
 def test_spot_grocery_env():
@@ -51,20 +51,24 @@ def test_spot_bike_env():
                   for pred in env.predicates}
 
 
-def test_spot_env_step():
-    """Tests for the step() function."""
-    utils.reset_config({
-        "env": "repeated_nextto",
-        "approach": "nsrt_learning",
-    })
+def test_spot_env_oracle_nsrts():
+    """Tests for the oracle policies and samplers."""
+
+    utils.reset_config()
+    rng = np.random.default_rng(123)
     env = SpotGroceryEnv()
     options = get_gt_options(env.get_name())
-    MoveToSurface = [o for o in options if o.name == "MoveToSurface"][0]
-    MoveToCan = [o for o in options if o.name == "MoveToCan"][0]
-    GraspCan = [o for o in options if o.name == "GraspCan"][0]
-    PlaceCanOnTop = [o for o in options if o.name == "PlaceCanOntop"][0]
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    MoveToSurface = [o for o in nsrts if o.name == "MoveToSurface"][0]
+    MoveToCan = [o for o in nsrts if o.name == "MoveToCan"][0]
+    GraspCan = [o for o in nsrts if o.name == "GraspCan"][0]
+    PlaceCanOnTop = [o for o in nsrts if o.name == "PlaceCanOntop"][0]
 
     state = env.reset("train", 0)
+    state_copy = state.copy()
+    assert state.allclose(state_copy)
+    state_copy.simulator_state["atoms"].clear()
+    assert not state.allclose(state_copy)
     assert len(state.simulator_state["atoms"]) == 2
     assert "On(soda_can:soda_can, counter:flat_surface)" in str(state)
     assert "HandEmpty(spot:robot)" in str(state)
@@ -72,44 +76,52 @@ def test_spot_env_step():
     counter = [obj for obj in objs if obj.name == "counter"][0]
     soda_can = [obj for obj in objs if obj.name == "soda_can"][0]
     spot = [obj for obj in objs if obj.name == "spot"][0]
-    # Try grasping the can when it's not reachable.
-    act = GraspCan.ground([spot, soda_can, counter],
-                          np.array([0.0])).policy(state)
-    new_state = env.step(act)
-    assert new_state.allclose(state)
-    # Try placing the can when it isn't held.
-    act = PlaceCanOnTop.ground([spot, soda_can, counter],
-                               np.array([0.0])).policy(state)
-    new_state = env.step(act)
-    assert new_state.allclose(state)
-    # Try moving to the counter.
-    act = MoveToSurface.ground([spot, counter], np.array([0.0, 0.0,
-                                                          0.0])).policy(state)
-    state = env.step(act)
-    assert "ReachableSurface(spot:robot, counter:flat_surface)" in str(
-        state.simulator_state["atoms"])
-    # Try moving to the can.
-    act = MoveToCan.ground([spot, soda_can], np.array([0.0, 0.0,
-                                                       0.0])).policy(state)
-    state = env.step(act)
-    assert "ReachableCan(spot:robot, soda_can:soda_can)" in str(
-        state.simulator_state["atoms"])
-    # Try grasping the can when it is reachable.
-    act = GraspCan.ground([spot, soda_can, counter],
-                          np.array([0.0])).policy(state)
-    next_state = env.step(act)
-    assert not state.allclose(next_state)
-    state = next_state
-    assert "HoldingCan(spot:robot, soda_can:soda_can)}" in str(
-        state.simulator_state["atoms"])
-    # Try placing the can after it has been held (first move to counter).
-    act = MoveToSurface.ground([spot, counter], np.array([0.0, 0.0,
-                                                          0.0])).policy(state)
-    state = env.step(act)
-    act = PlaceCanOnTop.ground([spot, soda_can, counter],
-                               np.array([0.0])).policy(state)
-    state = env.step(act)
-    assert "HandEmpty(spot:robot)" in str(state.simulator_state["atoms"])
+
+    ground_nsrt = MoveToSurface.ground([spot, counter])
+    ground_option = ground_nsrt.sample_option(state, set(), rng)
+    act = ground_option.policy(state)
+    assert env.action_space.contains(act.arr)
+    name, objs, params = env._parse_action(state, act)  # pylint:disable=protected-access
+    assert name == "navigate"
+    assert objs == [spot, counter]
+    assert np.allclose(params, ground_option.params)
+    # Test simulate with valid action.
+    next_atoms = env._get_next_simulator_state(state, act)  # pylint:disable=protected-access
+    assert next_atoms != state.simulator_state["atoms"]
+
+    ground_nsrt = MoveToCan.ground([spot, soda_can])
+    ground_option = ground_nsrt.sample_option(state, set(), rng)
+    act = ground_option.policy(state)
+    assert env.action_space.contains(act.arr)
+    name, objs, params = env._parse_action(state, act)  # pylint:disable=protected-access
+    assert name == "navigate"
+    assert objs == [spot, soda_can]
+    assert np.allclose(params, ground_option.params)
+
+    ground_nsrt = GraspCan.ground([spot, soda_can, counter])
+    ground_option = ground_nsrt.sample_option(state, set(), rng)
+    act = ground_option.policy(state)
+    assert env.action_space.contains(act.arr)
+    name, objs, params = env._parse_action(state, act)  # pylint:disable=protected-access
+    assert name == "grasp"
+    assert objs == [spot, soda_can, counter]
+    assert np.allclose(params, ground_option.params)
+
+    ground_nsrt = PlaceCanOnTop.ground([spot, soda_can, counter])
+    ground_option = ground_nsrt.sample_option(state, set(), rng)
+    act = ground_option.policy(state)
+    assert env.action_space.contains(act.arr)
+    name, objs, params = env._parse_action(state, act)  # pylint:disable=protected-access
+    assert name == "placeOnTop"
+    assert objs == [spot, soda_can, counter]
+    assert np.allclose(params, ground_option.params)
+    # Test simulate with invalid action.
+    next_atoms = env._get_next_simulator_state(state, act)  # pylint:disable=protected-access
+    assert next_atoms is None
+
+    # More interesting tests coming soon.
+    next_state = env._get_continuous_observation()  # pylint:disable=protected-access
+    assert set(next_state) == set(state)
 
 
 def test_natural_language_goal_prompt_prefix():
