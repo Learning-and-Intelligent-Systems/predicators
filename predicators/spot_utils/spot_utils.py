@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import time
-from typing import Any, Dict, Sequence, Set
+from typing import Any, Dict, Sequence, Set, Tuple
 
 import bosdyn.client
 import bosdyn.client.estop
@@ -62,6 +62,48 @@ graph_nav_loc_to_id = {
     "trash": "holy-aphid-SuqZLSjvRUjUxCDywLIFhw=="
 }
 
+
+# Object-specific color-based grasp detection.
+OBJECT_CROPS = {
+    # min_x, max_x, min_y, max_y
+    "hammer": (160, 350, 160, 350),
+    "hex_key": (350, 450, 160, 350),
+    "brush": (100, 400, 350, 480),
+}
+
+OBJECT_COLOR_BOUNDS = {
+    # (min B, min G, min R), (max B, max G, max R)
+    "hammer": ((0, 0, 50), (40, 40, 200)),
+    "hex_key": ((0, 100, 100), (40, 150, 200)),
+    "brush": ((0, 140, 140), (40, 255, 255)),
+}
+
+
+def _find_object_center(img: cv2.Image, obj_name: str) -> Tuple[int, int]:
+    # Crop
+    crop_min_x, crop_max_x, crop_min_y, crop_max_y = OBJECT_CROPS[obj_name]
+    cropped_img = img[crop_min_y:crop_max_y, crop_min_x:crop_max_x]
+
+    # Mask color.
+    lo, hi = OBJECT_COLOR_BOUNDS[obj_name]
+    lower = np.array(lo)
+    upper = np.array(hi)
+    mask = cv2.inRange(cropped_img, lower, upper)
+
+    # Apply blur.
+    mask = cv2.GaussianBlur(mask,(5,5),0)
+
+    # Find center.
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
+    M = cv2.moments(contours[0])
+    cropped_x = round(M['m10'] / M['m00'])
+    cropped_y = round(M['m01'] / M['m00'])
+
+    x = cropped_x + crop_min_x
+    y = cropped_y + crop_min_y
+
+    return (x, y)
 
 # pylint: disable=no-member
 class _SpotInterface():
@@ -391,9 +433,11 @@ class _SpotInterface():
         else:
             img = cv2.imdecode(img, -1)
 
+        global g_image_click, g_image_display
+
         # If the object is known, use hacky sampling technique.
-        if obj.name == "hammer":
-            import ipdb; ipdb.set_trace()
+        if obj.name in ["hammer", "hex_key", "brush"]:
+            g_image_click = _find_object_center(img, obj.name)
 
         # Unknown object, ask for manual sample.
         else:
@@ -404,11 +448,9 @@ class _SpotInterface():
             cv2.setMouseCallback(image_title, self.cv_mouse_callback)
 
             # pylint: disable=global-variable-not-assigned, global-statement
-            global g_image_click, g_image_display
             g_image_display = img
 
             cv2.imshow(image_title, g_image_display)
-
 
             while g_image_click is None:
                 key = cv2.waitKey(1) & 0xFF
