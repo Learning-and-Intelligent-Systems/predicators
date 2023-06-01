@@ -20,7 +20,7 @@ class BaseExecutionMonitor(abc.ABC):
 
     def reset(self, task: Task) -> None:
         """Reset after replanning."""
-        del task # unused
+        del task  # unused
         self._curr_plan_timestep = 0
 
     @abc.abstractmethod

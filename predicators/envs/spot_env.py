@@ -248,9 +248,6 @@ class SpotEnv(BaseEnv):
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
-
-        print(ground_op)
-
         # If the operator is not applicable in this state, noop.
         if ground_op is None or not ground_op.preconditions.issubset(
                 ground_atoms):
@@ -862,7 +859,6 @@ class SpotBikeEnv(SpotEnv):
                               objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        print("GRIPPER OPEN PERCENTAGE:", gripper_open_percentage)
         return gripper_open_percentage <= 1.5
 
     def _nothandempty_classifier(self, state: State,
