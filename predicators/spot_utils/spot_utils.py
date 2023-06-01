@@ -403,13 +403,11 @@ class _SpotInterface():
         cv2.imshow(image_title, g_image_display)
 
         ####
-        import cv2
         import apriltag
 
         # load the input image and convert it to grayscale
         print("[INFO] loading image...")
-        image = img
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # define the AprilTags detector options and then detect the AprilTags
         # in the input image
@@ -418,6 +416,7 @@ class _SpotInterface():
         detector = apriltag.Detector(options)
         results = detector.detect(gray)
         print("[INFO] {} total AprilTags detected".format(len(results)))
+        g_image_click = results[0].center
 
         ####
         while g_image_click is None:
