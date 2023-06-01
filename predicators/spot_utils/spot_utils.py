@@ -14,8 +14,8 @@ import bosdyn.client.lease
 import bosdyn.client.util
 import cv2
 import numpy as np
-from bosdyn.api import basic_command_pb2, estop_pb2, \
-    geometry_pb2, image_pb2, manipulation_api_pb2
+from bosdyn.api import basic_command_pb2, estop_pb2, geometry_pb2, image_pb2, \
+    manipulation_api_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
