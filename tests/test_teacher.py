@@ -5,10 +5,10 @@ import pytest
 from predicators import utils
 from predicators.envs import create_new_env
 from predicators.ground_truth_models import _get_predicates_by_names
-from predicators.structs import DemonstrationQuery, DemonstrationResponse, \
-    GroundAtom, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    InteractionRequest, LowLevelTrajectory, PathToStateQuery, \
-    PathToStateResponse, Query, Task
+from predicators.structs import Action, DemonstrationQuery, \
+    DemonstrationResponse, GroundAtom, GroundAtomsHoldQuery, \
+    GroundAtomsHoldResponse, InteractionRequest, LowLevelTrajectory, \
+    PathToStateQuery, PathToStateResponse, Query, Task
 from predicators.teacher import Teacher, TeacherInteractionMonitor, \
     TeacherInteractionMonitorWithVideo
 
@@ -66,6 +66,8 @@ def test_DemonstrationQuery():
     task = train_tasks[train_task_idx]
     state = task.init
     goal = task.goal
+    # To be resolved in #1443
+    teacher._env.reset("train", train_task_idx)  # pylint: disable=protected-access
     # Test normal usage
     query = DemonstrationQuery(train_task_idx)
     response = teacher.answer_query(state, query)
@@ -206,14 +208,17 @@ def test_TeacherInteractionMonitor():
     monitor = TeacherInteractionMonitor(request, teacher)
     assert monitor.get_query_cost() == 0.0
     assert monitor.get_responses() == []
-    state = train_tasks[0].init
+    train_task_idx = 0
+    state = train_tasks[train_task_idx].init
     action = env.action_space.sample()
-    monitor.observe(state, action)
+    # To be resolved in #1443
+    monitor._teacher_env.reset("train", train_task_idx)  # pylint: disable=protected-access
+    monitor.observe(state, Action(action))
     assert monitor.get_query_cost() == 1.0
     assert len(monitor.get_responses()) == 1
-    state = train_tasks[0].init
+    monitor._teacher_env.reset("train", train_task_idx)  # pylint: disable=protected-access
     action = env.action_space.sample()
-    monitor.observe(state, action)
+    monitor.observe(state, Action(action))
     assert monitor.get_query_cost() == 2.0
     assert len(monitor.get_responses()) == 2
     # Cover not making queries
@@ -221,13 +226,15 @@ def test_TeacherInteractionMonitor():
     query_policy = lambda s: None
     act_policy = lambda _: env.action_space.sample()
     termination_function = lambda s: True  # terminate immediately
-    request = InteractionRequest(0, act_policy, query_policy,
+    request = InteractionRequest(train_task_idx, act_policy, query_policy,
                                  termination_function)
     train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     monitor = TeacherInteractionMonitor(request, teacher)
-    state = env.reset("train", 0)
-    action = env.action_space.sample()
+    state = env.reset("train", train_task_idx)
+    action = Action(env.action_space.sample())
+    # To be resolved in #1443
+    monitor._teacher_env.reset("train", train_task_idx)  # pylint: disable=protected-access
     monitor.observe(state, action)
 
 
@@ -255,8 +262,11 @@ def test_TeacherInteractionMonitorWithVideo():
     monitor = TeacherInteractionMonitorWithVideo(env.render, request, teacher)
     assert monitor.get_query_cost() == 0.0
     assert monitor.get_responses() == []
-    state = train_tasks[0].init
-    action = env.action_space.sample()
+    train_task_idx = 0
+    state = train_tasks[train_task_idx].init
+    action = Action(env.action_space.sample())
+    # To be resolved in #1443
+    monitor._teacher_env.reset("train", train_task_idx)  # pylint: disable=protected-access
     monitor.observe(state, action)
     assert monitor.get_query_cost() == 1.0
     assert len(monitor.get_responses()) == 1
@@ -268,13 +278,15 @@ def test_TeacherInteractionMonitorWithVideo():
     query_policy = lambda s: None
     act_policy = lambda _: env.action_space.sample()
     termination_function = lambda s: True  # terminate immediately
-    request = InteractionRequest(0, act_policy, query_policy,
+    request = InteractionRequest(train_task_idx, act_policy, query_policy,
                                  termination_function)
     train_tasks = [t.task for t in env.get_train_tasks()]
     teacher = Teacher(train_tasks)
     monitor = TeacherInteractionMonitorWithVideo(env.render, request, teacher)
-    state = env.reset("train", 0)
-    action = env.action_space.sample()
+    state = env.reset("train", train_task_idx)
+    action = Action(env.action_space.sample())
+    # To be resolved in #1443
+    monitor._teacher_env.reset("train", train_task_idx)  # pylint: disable=protected-access
     monitor.observe(state, action)
 
 

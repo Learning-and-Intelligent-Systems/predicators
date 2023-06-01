@@ -287,6 +287,18 @@ class GlobalSettings:
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
 
+    # exit_garage env parameters
+    exit_garage_pick_place_refine_penalty = 0.2
+    exit_garage_min_num_obstacles = 2
+    exit_garage_max_num_obstacles = 4  # inclusive
+    exit_garage_rrt_extend_fn_threshold = 1e-4
+    exit_garage_rrt_num_control_samples = 100
+    exit_garage_rrt_num_attempts = 10
+    exit_garage_rrt_num_iters = 100
+    exit_garage_rrt_sample_goal_eps = 0.1
+    exit_garage_motion_planning_ignore_obstacles = False
+    exit_garage_raise_environment_failure = False
+
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
@@ -499,10 +511,10 @@ class GlobalSettings:
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
-    refinement_estimation_num_skeletons_generated = 3
+    refinement_estimation_num_skeletons_generated = 8
 
     # refinement data collection parameters
-    refinement_data_num_skeletons = 3
+    refinement_data_num_skeletons = 8
     refinement_data_skeleton_generator_timeout = 20
     refinement_data_low_level_search_timeout = 5  # timeout for refinement try
     refinement_data_failed_refinement_penalty = 5  # added time on failure
@@ -513,7 +525,7 @@ class GlobalSettings:
     cnn_refinement_estimator_downsample = 2
 
     # bridge policy parameters
-    bridge_policy = "oracle"  # default bridge policy
+    bridge_policy = "learned_ldl"  # default bridge policy
 
     # glib explorer parameters
     glib_min_goal_size = 1
@@ -530,6 +542,8 @@ class GlobalSettings:
     grammar_search_grammar_includes_foralls = True
     grammar_search_grammar_use_diff_features = False
     grammar_search_use_handcoded_debug_grammar = False
+    grammar_search_pred_selection_approach = "score_optimization"
+    grammar_search_pred_clusterer = "oracle"
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
@@ -562,6 +576,10 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
+            # The method used for perception: now only "trivial" or "sokoban".
+            perceiver=defaultdict(lambda: "trivial", {
+                "sokoban": "sokoban",
+            })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
             horizon=defaultdict(
@@ -625,6 +643,7 @@ class GlobalSettings:
                 {
                     # For these environments, allow more skeletons.
                     "coffee": 1000,
+                    "exit_garage": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
                 })[args.get("env", "")],
@@ -657,6 +676,8 @@ def get_allowed_query_type_names() -> Set[str]:
         return {"PathToStateQuery"}
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
+    if CFG.approach == "bridge_policy":
+        return {"DemonstrationQuery"}
     if CFG.approach == "unittest":
         return {
             "GroundAtomsHoldQuery",

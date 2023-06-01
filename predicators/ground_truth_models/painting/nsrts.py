@@ -45,6 +45,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         IsDry = predicates["IsDry"]
         IsDirty = predicates["IsDirty"]
         IsClean = predicates["IsClean"]
+        IsOpen = predicates["IsOpen"]
 
         # Options
         Pick = options["Pick"]
@@ -332,7 +333,7 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = [robot, lid]
         option = OpenLid
         preconditions = {LiftedAtom(GripperOpen, [robot])}
-        add_effects = set()
+        add_effects = {LiftedAtom(IsOpen, [lid])}
         delete_effects = set()
 
         openlid_nsrt = NSRT("OpenLid", parameters, preconditions, add_effects,
@@ -341,75 +342,76 @@ class PaintingGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(openlid_nsrt)
 
         # PlaceOnTable
-        obj = Variable("?obj", obj_type)
-        robot = Variable("?robot", robot_type)
-        parameters = [obj, robot]
-        option_vars = [robot]
-        option = Place
-        if env_name == "painting":
-            # The environment is a little weird: the object is technically
-            # already OnTable when we go to place it on the table, because
-            # of how the classifier is implemented.
-            preconditions = {
-                LiftedAtom(Holding, [obj]),
-                LiftedAtom(OnTable, [obj]),
-            }
-            add_effects = {
-                LiftedAtom(GripperOpen, [robot]),
-            }
-            delete_effects = {
-                LiftedAtom(Holding, [obj]),
-                LiftedAtom(HoldingTop, [obj]),
-                LiftedAtom(HoldingSide, [obj]),
-            }
-        elif env_name == "repeated_nextto_painting":
-            preconditions = {
-                LiftedAtom(Holding, [obj]),
-                LiftedAtom(NextTo, [robot, obj]),
-                LiftedAtom(NextToTable, [robot]),
-            }
-            add_effects = {
-                LiftedAtom(GripperOpen, [robot]),
-                LiftedAtom(OnTable, [obj]),
-            }
-            delete_effects = {
-                LiftedAtom(Holding, [obj]),
-                LiftedAtom(HoldingTop, [obj]),
-                LiftedAtom(HoldingSide, [obj]),
-                LiftedAtom(NotOnTable, [obj]),
-            }
-
-        def placeontable_sampler(state: State, goal: Set[GroundAtom],
-                                 rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
-            del goal  # unused
-            x = state.get(objs[0], "pose_x")
+        for HoldingSideOrTop in [HoldingSide, HoldingTop]:
+            obj = Variable("?obj", obj_type)
+            robot = Variable("?robot", robot_type)
+            parameters = [obj, robot]
+            option_vars = [robot]
+            option = Place
             if env_name == "painting":
-                # Always release the object where it is, to avoid the
-                # possibility of collisions with other objects.
-                y = state.get(objs[0], "pose_y")
-                z = state.get(objs[0], "pose_z")
+                # The environment is a little weird: the object is technically
+                # already OnTable when we go to place it on the table, because
+                # of how the classifier is implemented.
+                preconditions = {
+                    LiftedAtom(Holding, [obj]),
+                    LiftedAtom(OnTable, [obj]),
+                    LiftedAtom(HoldingSideOrTop, [obj]),
+                }
+                add_effects = {
+                    LiftedAtom(GripperOpen, [robot]),
+                }
+                delete_effects = {
+                    LiftedAtom(Holding, [obj]),
+                    LiftedAtom(HoldingSideOrTop, [obj]),
+                }
             elif env_name == "repeated_nextto_painting":
-                # Release the object at a randomly-chosen position on the table
-                # such that it is NextTo the robot.
-                robot_y = state.get(objs[1], "pose_y")
-                table_lb = RepeatedNextToPaintingEnv.table_lb
-                table_ub = RepeatedNextToPaintingEnv.table_ub
-                y = state.get(objs[0], "pose_y")
-                z = state.get(objs[0], "pose_z")
-                if table_lb < robot_y < table_ub:
-                    nextto_thresh = RepeatedNextToPaintingEnv.nextto_thresh
-                    y_sample_lb = max(table_lb, robot_y - nextto_thresh)
-                    y_sample_ub = min(table_ub, robot_y + nextto_thresh)
-                    y = rng.uniform(y_sample_lb, y_sample_ub)
-                    z = RepeatedNextToPaintingEnv.obj_z
-            return np.array([x, y, z], dtype=np.float32)
+                preconditions = {
+                    LiftedAtom(Holding, [obj]),
+                    LiftedAtom(NextTo, [robot, obj]),
+                    LiftedAtom(NextToTable, [robot]),
+                    LiftedAtom(HoldingSideOrTop, [obj]),
+                }
+                add_effects = {
+                    LiftedAtom(GripperOpen, [robot]),
+                    LiftedAtom(OnTable, [obj]),
+                }
+                delete_effects = {
+                    LiftedAtom(Holding, [obj]),
+                    LiftedAtom(HoldingSideOrTop, [obj]),
+                    LiftedAtom(NotOnTable, [obj]),
+                }
 
-        placeontable_nsrt = NSRT("PlaceOnTable", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 placeontable_sampler)
-        nsrts.add(placeontable_nsrt)
+            def placeontable_sampler(state: State, goal: Set[GroundAtom],
+                                     rng: np.random.Generator,
+                                     objs: Sequence[Object]) -> Array:
+                del goal  # unused
+                x = state.get(objs[0], "pose_x")
+                if env_name == "painting":
+                    # Always release the object where it is, to avoid the
+                    # possibility of collisions with other objects.
+                    y = state.get(objs[0], "pose_y")
+                    z = state.get(objs[0], "pose_z")
+                elif env_name == "repeated_nextto_painting":
+                    # Release the object at a randomly-chosen position on
+                    # the table such that it is NextTo the robot.
+                    robot_y = state.get(objs[1], "pose_y")
+                    table_lb = RepeatedNextToPaintingEnv.table_lb
+                    table_ub = RepeatedNextToPaintingEnv.table_ub
+                    y = state.get(objs[0], "pose_y")
+                    z = state.get(objs[0], "pose_z")
+                    if table_lb < robot_y < table_ub:
+                        nextto_thresh = RepeatedNextToPaintingEnv.nextto_thresh
+                        y_sample_lb = max(table_lb, robot_y - nextto_thresh)
+                        y_sample_ub = min(table_ub, robot_y + nextto_thresh)
+                        y = rng.uniform(y_sample_lb, y_sample_ub)
+                        z = RepeatedNextToPaintingEnv.obj_z
+                return np.array([x, y, z], dtype=np.float32)
+
+            placeontable_nsrt = NSRT(
+                f"PlaceOnTableFrom{HoldingSideOrTop.name}", parameters,
+                preconditions, add_effects, delete_effects, set(), option,
+                option_vars, placeontable_sampler)
+            nsrts.add(placeontable_nsrt)
 
         if env_name == "repeated_nextto_painting":
 

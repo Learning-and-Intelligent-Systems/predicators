@@ -1,0 +1,14 @@
+(define (policy)
+    (:rule OpenLid
+        :parameters (?lid - lid ?robot - robot)
+        :preconditions (and (GripperOpen ?robot) (PlaceFailed_arg0 ?robot) (not (IsOpen ?lid)))
+        :goals ()
+        :action (OpenLid ?lid ?robot)
+    )
+    (:rule PlaceOnTableFromHoldingTop
+        :parameters (?obj - obj ?robot - robot)
+        :preconditions (and (Holding ?obj) (HoldingTop ?obj) (IsClean ?obj) (IsDry ?obj) (OnTable ?obj) (PlaceFailed_arg0 ?robot) (not (GripperOpen ?robot)))
+        :goals ()
+        :action (PlaceOnTableFromHoldingTop ?obj ?robot)
+    )
+)

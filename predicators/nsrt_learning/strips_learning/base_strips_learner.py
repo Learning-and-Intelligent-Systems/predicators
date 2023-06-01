@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from predicators import utils
 from predicators.planning import task_plan_with_option_plan_constraint
@@ -21,6 +21,7 @@ class BaseSTRIPSLearner(abc.ABC):
                  predicates: Set[Predicate],
                  segmented_trajs: List[List[Segment]],
                  verify_harmlessness: bool,
+                 annotations: Optional[List[Any]],
                  verbose: bool = True) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
@@ -29,6 +30,7 @@ class BaseSTRIPSLearner(abc.ABC):
         self._verify_harmlessness = verify_harmlessness
         self._verbose = verbose
         self._num_segments = sum(len(t) for t in segmented_trajs)
+        self._annotations = annotations
         assert len(self._trajectories) == len(self._segmented_trajs)
 
     def learn(self) -> List[PNAD]:

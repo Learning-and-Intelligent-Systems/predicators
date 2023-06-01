@@ -22,7 +22,7 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
-    Object, ParameterizedOption, Predicate, State, Task, Type
+    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -767,100 +767,209 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             dataset.trajectories,
             set(candidates) | self._initial_predicates)
         logging.info("Done.")
-        # Create the score function that will be used to guide search.
-        score_function = create_score_function(
-            CFG.grammar_search_score_function, self._initial_predicates,
-            atom_dataset, candidates, self._train_tasks)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
-        self._learned_predicates = _select_predicates_to_keep(
-            candidates, score_function, self._initial_predicates, atom_dataset,
-            self._train_tasks)
+        if CFG.grammar_search_pred_selection_approach == "score_optimization":
+            # Create the score function that will be used to guide search.
+            score_function = create_score_function(
+                CFG.grammar_search_score_function, self._initial_predicates,
+                atom_dataset, candidates, self._train_tasks)
+            self._learned_predicates = \
+                self._select_predicates_by_score_hillclimbing(
+                candidates, score_function, self._initial_predicates,
+                atom_dataset, self._train_tasks)
+        elif CFG.grammar_search_pred_selection_approach == "clustering":
+            self._learned_predicates = self._select_predicates_by_clustering(
+                candidates, self._initial_predicates, dataset, atom_dataset)
         logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
+        annotations = None
+        if dataset.has_annotations:
+            annotations = dataset.annotations
+        self._learn_nsrts(dataset.trajectories,
+                          online_learning_cycle=None,
+                          annotations=annotations)
 
+    def _select_predicates_by_score_hillclimbing(
+            self, candidates: Dict[Predicate, float],
+            score_function: _PredicateSearchScoreFunction,
+            initial_predicates: Set[Predicate],
+            atom_dataset: List[GroundAtomTrajectory],
+            train_tasks: List[Task]) -> Set[Predicate]:
+        """Perform a greedy search over predicate sets."""
 
-def _select_predicates_to_keep(candidates: Dict[Predicate, float],
-                               score_function: _PredicateSearchScoreFunction,
-                               initial_predicates: set[Predicate],
-                               atom_dataset: List[GroundAtomTrajectory],
-                               train_tasks: List[Task]) -> Set[Predicate]:
-    """Perform a greedy search over predicate sets."""
+        # There are no goal states for this search; run until exhausted.
+        def _check_goal(s: FrozenSet[Predicate]) -> bool:
+            del s  # unused
+            return False
 
-    # There are no goal states for this search; run until exhausted.
-    def _check_goal(s: FrozenSet[Predicate]) -> bool:
-        del s  # unused
-        return False
+        # Successively consider larger predicate sets.
+        def _get_successors(
+            s: FrozenSet[Predicate]
+        ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+            for predicate in sorted(set(candidates) - s):  # determinism
+                # Actions not needed. Frozensets for hashing. The cost of
+                # 1.0 is irrelevant because we're doing GBFS / hill
+                # climbing and not A* (because we don't care about the
+                # path).
+                yield (None, frozenset(s | {predicate}), 1.0)
 
-    # Successively consider larger predicate sets.
-    def _get_successors(
-        s: FrozenSet[Predicate]
-    ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-        for predicate in sorted(set(candidates) - s):  # determinism
-            # Actions not needed. Frozensets for hashing. The cost of
-            # 1.0 is irrelevant because we're doing GBFS / hill
-            # climbing and not A* (because we don't care about the
-            # path).
-            yield (None, frozenset(s | {predicate}), 1.0)
+        # Start the search with no candidates.
+        init: FrozenSet[Predicate] = frozenset()
 
-    # Start the search with no candidates.
-    init: FrozenSet[Predicate] = frozenset()
+        # Greedy local hill climbing search.
+        if CFG.grammar_search_search_algorithm == "hill_climbing":
+            path, _, heuristics = utils.run_hill_climbing(
+                init,
+                _check_goal,
+                _get_successors,
+                score_function.evaluate,
+                enforced_depth=CFG.grammar_search_hill_climbing_depth,
+                parallelize=CFG.grammar_search_parallelize_hill_climbing)
+            logging.info("\nHill climbing summary:")
+            for i in range(1, len(path)):
+                new_additions = path[i] - path[i - 1]
+                assert len(new_additions) == 1
+                new_addition = next(iter(new_additions))
+                h = heuristics[i]
+                prev_h = heuristics[i - 1]
+                logging.info(f"\tOn step {i}, added {new_addition}, with "
+                             f"heuristic {h:.3f} (an improvement of "
+                             f"{prev_h - h:.3f} over the previous step)")
+        elif CFG.grammar_search_search_algorithm == "gbfs":
+            path, _ = utils.run_gbfs(
+                init,
+                _check_goal,
+                _get_successors,
+                score_function.evaluate,
+                max_evals=CFG.grammar_search_gbfs_num_evals)
+        else:
+            raise NotImplementedError(
+                "Unrecognized grammar_search_search_algorithm: "
+                f"{CFG.grammar_search_search_algorithm}.")
+        kept_predicates = path[-1]
+        # The total number of predicate sets evaluated is just the
+        # ((number of candidates selected) + 1) * total number of candidates.
+        # However, since 'path' always has length one more than the
+        # number of selected candidates (since it evaluates the empty
+        # predicate set first), we can just compute it as below.
+        assert self._metrics.get("total_num_predicate_evaluations") is None
+        self._metrics["total_num_predicate_evaluations"] = len(path) * len(
+            candidates)
 
-    # Greedy local hill climbing search.
-    if CFG.grammar_search_search_algorithm == "hill_climbing":
-        path, _, heuristics = utils.run_hill_climbing(
-            init,
-            _check_goal,
-            _get_successors,
-            score_function.evaluate,
-            enforced_depth=CFG.grammar_search_hill_climbing_depth,
-            parallelize=CFG.grammar_search_parallelize_hill_climbing)
-        logging.info("\nHill climbing summary:")
-        for i in range(1, len(path)):
-            new_additions = path[i] - path[i - 1]
-            assert len(new_additions) == 1
-            new_addition = next(iter(new_additions))
-            h = heuristics[i]
-            prev_h = heuristics[i - 1]
-            logging.info(f"\tOn step {i}, added {new_addition}, with "
-                         f"heuristic {h:.3f} (an improvement of "
-                         f"{prev_h - h:.3f} over the previous step)")
-    elif CFG.grammar_search_search_algorithm == "gbfs":
-        path, _ = utils.run_gbfs(init,
-                                 _check_goal,
-                                 _get_successors,
-                                 score_function.evaluate,
-                                 max_evals=CFG.grammar_search_gbfs_num_evals)
-    else:
+        # Filter out predicates that don't appear in some operator
+        # preconditions.
+        logging.info("\nFiltering out predicates that don't appear in "
+                     "preconditions...")
+        pruned_atom_data = utils.prune_ground_atom_dataset(
+            atom_dataset, kept_predicates | initial_predicates)
+        segmented_trajs = [
+            segment_trajectory(traj) for traj in pruned_atom_data
+        ]
+        low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+        preds_in_preconds = set()
+        for pnad in learn_strips_operators(low_level_trajs,
+                                           train_tasks,
+                                           set(kept_predicates
+                                               | initial_predicates),
+                                           segmented_trajs,
+                                           verify_harmlessness=False,
+                                           annotations=None,
+                                           verbose=False):
+            for atom in pnad.op.preconditions:
+                preds_in_preconds.add(atom.predicate)
+        kept_predicates &= preds_in_preconds
+
+        logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
+                     f"{len(candidates)} candidates:")
+        for pred in kept_predicates:
+            logging.info(f"\t{pred}")
+        score_function.evaluate(kept_predicates)  # log useful numbers
+
+        return set(kept_predicates)
+
+    def _select_predicates_by_clustering(
+            self, candidates: Dict[Predicate, float],
+            initial_predicates: Set[Predicate], dataset: Dataset,
+            atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
+        """Cluster segments from the atom_dataset into clusters corresponding
+        to operators and use this to select predicates."""
+
+        if CFG.grammar_search_pred_clusterer == "oracle":
+            assert CFG.offline_data_method == "demo+gt_operators"
+            assert dataset.annotations is not None and len(
+                dataset.annotations) == len(dataset.trajectories)
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in atom_dataset
+            ]
+            assert len(segmented_trajs) == len(dataset.annotations)
+            # First, get the set of all ground truth operator names.
+            all_gt_ops = set(ground_nsrt.parent
+                             for anno_list in dataset.annotations
+                             for ground_nsrt in anno_list)
+            # Next, make a dictionary mapping operator name to segments
+            # where that operator was used.
+            gt_op_to_segments: Dict[str, List[Segment]] = {
+                op_name: []
+                for op_name in all_gt_ops
+            }
+            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+                assert len(seg_list) == len(op_list)
+                for ground_nsrt, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[ground_nsrt.parent].append(segment)
+
+            # Before selecting some subset of predicates to keep, we first
+            # get the set of all predicates that ever change.
+            non_static_predicates: Set[Predicate] = set()
+            for segment in {x for v in gt_op_to_segments.values() for x in v}:
+                for add_eff in segment.add_effects:
+                    non_static_predicates.add(add_eff.predicate)
+                for del_eff in segment.delete_effects:
+                    non_static_predicates.add(del_eff.predicate)
+
+            # Finally, select predicates that are consistent (either, it is
+            # an add effect, or a delete effect, or doesn't change)
+            # within all demos.
+            predicates_to_keep: Set[Predicate] = set()
+            # for pred in consistent_add_effs_preds:
+            for pred in non_static_predicates:
+                keep_pred = True
+                for seg_list in gt_op_to_segments.values():
+                    segment_0 = seg_list[0]
+                    pred_in_add_effs_0 = pred in [
+                        atom.predicate for atom in segment_0.add_effects
+                    ]
+                    pred_in_del_effs_0 = pred in [
+                        atom.predicate for atom in segment_0.delete_effects
+                    ]
+                    for seg in seg_list[1:]:
+                        pred_in_curr_add_effs = pred in [
+                            atom.predicate for atom in seg.add_effects
+                        ]
+                        pred_in_curr_del_effs = pred in [
+                            atom.predicate for atom in seg.delete_effects
+                        ]
+                        if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
+                                and
+                                (pred_in_del_effs_0 == pred_in_curr_del_effs)):
+                            keep_pred = False
+                            break
+                    if not keep_pred:
+                        break
+
+                else:
+                    predicates_to_keep.add(pred)
+
+            # Before returning, remove all the initial predicates.
+            predicates_to_keep -= initial_predicates
+            logging.info(
+                f"\nSelected {len(predicates_to_keep)} predicates out of "
+                f"{len(candidates)} candidates:")
+            for pred in predicates_to_keep:
+                logging.info(f"\t{pred}")
+            return predicates_to_keep
+
         raise NotImplementedError(
-            "Unrecognized grammar_search_search_algorithm: "
-            f"{CFG.grammar_search_search_algorithm}.")
-    kept_predicates = path[-1]
-
-    # Filter out predicates that don't appear in some operator preconditions.
-    logging.info("\nFiltering out predicates that don't appear in "
-                 "preconditions...")
-    pruned_atom_data = utils.prune_ground_atom_dataset(
-        atom_dataset, kept_predicates | initial_predicates)
-    segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
-    low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
-    preds_in_preconds = set()
-    for pnad in learn_strips_operators(low_level_trajs,
-                                       train_tasks,
-                                       set(kept_predicates
-                                           | initial_predicates),
-                                       segmented_trajs,
-                                       verify_harmlessness=False,
-                                       verbose=False):
-        for atom in pnad.op.preconditions:
-            preds_in_preconds.add(atom.predicate)
-    kept_predicates &= preds_in_preconds
-
-    logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
-                 f"{len(candidates)} candidates:")
-    for pred in kept_predicates:
-        logging.info(f"\t{pred}")
-    score_function.evaluate(kept_predicates)  # log useful numbers
-
-    return set(kept_predicates)
+            "Unrecognized clusterer for predicate " +
+            f"invention {CFG.grammar_search_pred_clusterer}.")

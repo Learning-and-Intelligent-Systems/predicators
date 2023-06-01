@@ -20,11 +20,22 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
     Some or all of this data may be loaded from disk.
     """
     if CFG.offline_data_method == "demo":
-        return create_demo_data(env, train_tasks, known_options)
+        return create_demo_data(env,
+                                train_tasks,
+                                known_options,
+                                annotate_with_gt_ops=False)
+    if CFG.offline_data_method == "demo+gt_operators":
+        return create_demo_data(env,
+                                train_tasks,
+                                known_options,
+                                annotate_with_gt_ops=True)
     if CFG.offline_data_method == "demo+replay":
         return create_demo_replay_data(env, train_tasks, known_options)
     if CFG.offline_data_method == "demo+ground_atoms":
-        base_dataset = create_demo_data(env, train_tasks, known_options)
+        base_dataset = create_demo_data(env,
+                                        train_tasks,
+                                        known_options,
+                                        annotate_with_gt_ops=False)
         _, excluded_preds = utils.parse_config_excluded_predicates(env)
         n = int(CFG.teacher_dataset_num_examples)
         assert n >= 1, "Must have at least 1 example of each predicate"

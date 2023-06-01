@@ -566,6 +566,9 @@ def test_run_policy():
         def __init__(self):
             self.num_observations = 0
 
+        def reset(self, train_or_test, task_idx):
+            self.num_observations = 0
+
         def observe(self, obs, action):
             self.num_observations += 1
 
@@ -702,10 +705,14 @@ def test_run_policy_with_simulator():
     # Test with monitor.
     class _NullMonitor(utils.LoggingMonitor):
 
+        def reset(self, train_or_test, task_idx):
+            pass
+
         def observe(self, obs, action):
             pass
 
     monitor = _NullMonitor()
+    monitor.reset("train", 0)
     traj = utils.run_policy_with_simulator(_policy,
                                            _simulator,
                                            state,
@@ -721,6 +728,9 @@ def test_run_policy_with_simulator():
         def __init__(self):
             self.num_observations = 0
 
+        def reset(self, train_or_test, task_idx):
+            self.num_observations = 0
+
         def observe(self, obs, action):
             self.num_observations += 1
 
@@ -728,6 +738,7 @@ def test_run_policy_with_simulator():
         raise ValueError("mock error")
 
     monitor = _CountingMonitor()
+    monitor.reset("train", 0)
     try:
         utils.run_policy_with_simulator(_policy,
                                         _simulator,
@@ -785,7 +796,8 @@ def test_option_plan_to_policy():
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
     plate = plate_type("plate")
-    state = State({cup: [0.5], plate: [1.0, 1.2]})
+    init_state = State({cup: [0.5], plate: [1.0, 1.2]})
+    state = init_state
 
     def _simulator(s, a):
         ns = s.copy()
@@ -810,9 +822,10 @@ def test_option_plan_to_policy():
     option = parameterized_option.ground([], params)
     plan = [option]
     policy = utils.option_plan_to_policy(plan)
-    with pytest.raises(AssertionError):
+    with pytest.raises(utils.OptionExecutionFailure) as e:
         # option is not initiable from start state
         policy(state)
+    assert "Unsound option policy" in str(e)
     params = [0.5]
     option = parameterized_option.ground([], params)
     plan = [option]
@@ -831,9 +844,77 @@ def test_option_plan_to_policy():
         assert np.allclose(action.arr, traj.actions[t].arr)
         state = _simulator(state, action)
     assert option.terminal(state)
-    with pytest.raises(utils.OptionExecutionFailure):
+    with pytest.raises(utils.OptionExecutionFailure) as e:
         # Ran out of options
         policy(state)
+    assert "Option plan exhausted" in str(e)
+    # Test max steps exceeded.
+    state = init_state
+    option = parameterized_option.ground([], params)
+    plan = [option]
+    policy = utils.option_plan_to_policy(plan, max_option_steps=5)
+    assert option.initiable(state)
+    with pytest.raises(utils.OptionExecutionFailure) as e:
+        traj = utils.run_policy_with_simulator(policy,
+                                               _simulator,
+                                               state,
+                                               option.terminal,
+                                               max_num_steps=100)
+    assert "Exceeded max option steps" in str(e)
+
+
+def test_nsrt_plan_to_greedy_policy():
+    """Tests for nsrt_plan_to_greedy_policy()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: False)
+    cup_var = cup_type("?cup")
+    plate1_var = plate_type("?plate1")
+    plate2_var = plate_type("?plate1")
+    parameters = [cup_var, plate1_var, plate2_var]
+    preconditions = {not_on([cup_var, plate1_var])}
+    add_effects = {on([cup_var, plate1_var])}
+    delete_effects = {not_on([cup_var, plate1_var])}
+    params_space = Box(0, 1, (0, ))
+    parameterized_option = ParameterizedOption(
+        "Pick", [cup_type], params_space,
+        lambda s, m, o, p: Action(np.array([0])), lambda s, m, o, p: True,
+        lambda s, m, o, p: True)
+    nsrt = NSRT("PickNSRT",
+                parameters,
+                preconditions,
+                add_effects,
+                delete_effects,
+                set(),
+                parameterized_option, [parameters[0]],
+                _sampler=utils.null_sampler)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    nsrt_plan = [
+        nsrt.ground([cup1, plate1, plate2]),
+        nsrt.ground([cup2, plate1, plate2]),
+    ]
+    necessary_atoms_seq = [set(), {not_on([cup1, plate1])}, set()]
+    state = State({cup1: [1.0], cup2: [0.5], plate1: [1.0], plate2: [-9.0]})
+    goal = {not_on([cup2, plate1])}
+    rng = np.random.default_rng(123)
+    policy = utils.nsrt_plan_to_greedy_policy(
+        nsrt_plan, goal, rng, necessary_atoms_seq=necessary_atoms_seq)
+
+    def _simulator(s, a):
+        del a  # unused
+        return s.copy()
+
+    with pytest.raises(utils.OptionExecutionFailure) as e:
+        utils.run_policy_with_simulator(policy,
+                                        _simulator,
+                                        state,
+                                        lambda s: False,
+                                        max_num_steps=100)
+    assert "Executing the NSRT failed to achieve the necessary atoms" in str(e)
 
 
 def test_action_arrs_to_policy():
@@ -3147,3 +3228,27 @@ def test_parse_ldl_from_str():
                          get_gt_options(env.get_name()))
     ldl = utils.parse_ldl_from_str(ldl_str, env.types, env.predicates, nsrts)
     assert str(ldl) == ldl_str
+
+
+def test_motion_planning():
+    """Basic assertion test for BiRRT."""
+    # Create dummy functions to pass into BiRRT.
+    dummy_sample_fn = lambda x: x
+    dummy_extend_fn = lambda x, y: [x, y]
+    dummy_collision_fn = lambda x: False
+    dummy_distance_fn = lambda x, y: 0.0
+
+    birrt = utils.BiRRT(
+        dummy_sample_fn,
+        dummy_extend_fn,
+        dummy_collision_fn,
+        dummy_distance_fn,
+        np.random.default_rng(0),
+        num_attempts=1,
+        num_iters=1,
+        smooth_amt=0,
+    )
+
+    # Test that query_to_goal_fn for BiRRT raises a NotImplementedError
+    with pytest.raises(NotImplementedError):
+        birrt.query_to_goal_fn(0, lambda: 1, lambda x: False)

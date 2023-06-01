@@ -400,3 +400,20 @@ def test_oracle_strips_and_segmenter_learning():
                    num_train_tasks=1,
                    try_solving=False,
                    additional_settings=additional_settings)
+
+
+def test_predicate_invention_with_oracle_clustering():
+    """Test for predicate invention via clustering assuming access to clusters
+    from ground truth operators."""
+    additional_settings = {
+        "grammar_search_pred_selection_approach": "clustering",
+        "grammar_search_pred_clusterer": "oracle",
+        "segmenter": "option_changes",
+    }
+    _test_approach(env_name="blocks",
+                   num_train_tasks=1,
+                   approach_name="grammar_search_invention",
+                   strips_learner="oracle_clustering",
+                   offline_data_method="demo+gt_operators",
+                   solve_exceptions=ApproachFailure,
+                   additional_settings=additional_settings)

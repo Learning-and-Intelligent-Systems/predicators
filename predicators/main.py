@@ -78,6 +78,7 @@ def main() -> None:
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
                         handlers=handlers)
+    logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
     if CFG.log_file:
         logging.info(f"Logging to {CFG.log_file}")
     logging.info(f"Running command: python {str_args}")
@@ -434,6 +435,8 @@ def _run_episode(
     """
     if do_env_reset:
         env.reset(train_or_test, task_idx)
+        if monitor is not None:
+            monitor.reset(train_or_test, task_idx)
     obs = env.get_observation()
     observations = [obs]
     actions: List[Action] = []

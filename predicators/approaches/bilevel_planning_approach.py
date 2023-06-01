@@ -67,10 +67,11 @@ class BilevelPlanningApproach(BaseApproach):
 
         # Run full bilevel planning.
         else:
-            plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
-                                                  seed)
-            self._last_plan = plan
-            policy = utils.option_plan_to_policy(plan)
+            option_plan, nsrt_plan, metrics = self._run_sesame_plan(
+                task, nsrts, preds, timeout, seed)
+            self._last_plan = option_plan
+            self._last_nsrt_plan = nsrt_plan
+            policy = utils.option_plan_to_policy(option_plan)
 
         self._save_metrics(metrics, nsrts, preds)
 
@@ -82,15 +83,16 @@ class BilevelPlanningApproach(BaseApproach):
 
         return _policy
 
-    def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
-                         preds: Set[Predicate], timeout: float, seed: int,
-                         **kwargs: Any) -> Tuple[List[_Option], Metrics]:
+    def _run_sesame_plan(
+            self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+            timeout: float, seed: int,
+            **kwargs: Any) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
         """Subclasses may override.
 
         For example, PG4 inserts an abstract policy into kwargs.
         """
         try:
-            plan, metrics = sesame_plan(
+            option_plan, nsrt_plan, metrics = sesame_plan(
                 task,
                 self._option_model,
                 nsrts,
@@ -109,7 +111,7 @@ class BilevelPlanningApproach(BaseApproach):
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
 
-        return plan, metrics
+        return option_plan, nsrt_plan, metrics
 
     def _run_task_plan(
         self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
@@ -236,5 +238,4 @@ class BilevelPlanningApproach(BaseApproach):
         True.
         """
         assert self.get_name() == "oracle"
-        assert self._plan_without_sim
         return self._last_nsrt_plan

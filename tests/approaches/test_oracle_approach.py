@@ -17,6 +17,7 @@ from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
 from predicators.envs.doors import DoorsEnv
+from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
@@ -49,9 +50,9 @@ ENV_NAME_AND_CLS = [
     ("cover_multistep_options", CoverMultistepOptions),
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
-    ("narrow_passage", NarrowPassageEnv), ("painting", PaintingEnv),
-    ("sandwich", SandwichEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
-    ("repeated_nextto", RepeatedNextToEnv),
+    ("exit_garage", ExitGarageEnv), ("narrow_passage", NarrowPassageEnv),
+    ("painting", PaintingEnv), ("sandwich", SandwichEnv), ("tools", ToolsEnv),
+    ("playroom", PlayroomEnv), ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
     ("satellites", SatellitesEnv), ("satellites_simple", SatellitesSimpleEnv),
@@ -155,7 +156,32 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_min_obstacles_per_room": 1,
     "doors_max_obstacles_per_room": 1,
 }]
+EXTRA_ARGS_ORACLE_APPROACH["exit_garage"] = [{
+    "exit_garage_pick_place_refine_penalty":
+    0,
+    "exit_garage_min_num_obstacles":
+    1,
+    "exit_garage_max_num_obstacles":
+    1,
+    "exit_garage_rrt_num_control_samples":
+    15,
+    "exit_garage_rrt_sample_goal_eps":
+    0.3,
+}, {
+    "exit_garage_pick_place_refine_penalty":
+    0,
+    "exit_garage_min_num_obstacles":
+    3,
+    "exit_garage_max_num_obstacles":
+    3,
+    "exit_garage_raise_environment_failure":
+    True,
+    "exit_garage_motion_planning_ignore_obstacles":
+    True,
+}]
 EXTRA_ARGS_ORACLE_APPROACH["narrow_passage"] = [{
+    "narrow_passage_open_door_refine_penalty":
+    0,
     "narrow_passage_door_width_padding_lb":
     0.075,
     "narrow_passage_door_width_padding_ub":
@@ -297,7 +323,7 @@ def test_planning_without_sim():
     # Running the policy again should fail because the plan is empty.
     with pytest.raises(ApproachFailure) as e:
         _policy_solves_task(policy, task, env.simulate)
-    assert "Greedy option plan exhausted." in str(e)
+    assert "NSRT plan exhausted." in str(e)
 
     # Cover case where unknown task planner is used.
     utils.reset_config({
@@ -374,7 +400,7 @@ def test_planning_without_sim():
     policy = approach.solve(task, timeout=500)
     with pytest.raises(ApproachFailure) as e:
         policy(task.init)
-    assert "Greedy option not initiable." in str(e)
+    assert "Unsound option policy." in str(e)
 
 
 def test_get_gt_nsrts():
@@ -569,7 +595,7 @@ def test_repeated_nextto_painting_get_gt_nsrts():
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
     ptables = [nsrt for nsrt in nsrts if nsrt.name.startswith("PlaceOnTable")]
-    assert len(ptables) == 1
+    assert len(ptables) == 2
     ptable = ptables[0]
     opt = ptable.ground([obj0, robby]).sample_option(init, set(), rng)
     assert opt.objects == [robby]
