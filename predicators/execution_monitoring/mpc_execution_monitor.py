@@ -1,9 +1,7 @@
 """A model-predictive control monitor that always suggests replanning."""
-import logging
-
 from predicators.execution_monitoring.base_execution_monitor import \
     BaseExecutionMonitor
-from predicators.structs import State, Task
+from predicators.structs import State
 
 
 class MpcExecutionMonitor(BaseExecutionMonitor):

@@ -18,9 +18,9 @@ class BaseExecutionMonitor(abc.ABC):
     def get_name(cls) -> str:
         """Get the unique name of this execution monitor."""
 
-    @abc.abstractmethod
     def reset(self, task: Task) -> None:
         """Reset after replanning."""
+        del task # unused
         self._curr_plan_timestep = 0
 
     @abc.abstractmethod

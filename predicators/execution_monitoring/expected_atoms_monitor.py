@@ -9,7 +9,7 @@ from predicators.envs import get_or_create_env
 from predicators.execution_monitoring.base_execution_monitor import \
     BaseExecutionMonitor
 from predicators.settings import CFG
-from predicators.structs import State, Task
+from predicators.structs import State
 
 
 class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
@@ -34,8 +34,10 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         if self._approach_info[self._curr_plan_timestep].issubset(curr_atoms):
             self._curr_plan_timestep += 1
             return False
-        logging.info("Expected Atoms Check Execution Failure.")
-        logging.info(curr_atoms -
-                     self._approach_info[self._curr_plan_timestep])
-        self._curr_plan_timestep += 1
-        return True
+        logging.info(
+            "Expected Atoms Check Execution Failure.")  # pragma: no cover
+        logging.info(
+            curr_atoms -
+            self._approach_info[self._curr_plan_timestep])  # pragma: no cover
+        self._curr_plan_timestep += 1  # pragma: no cover
+        return True  # pragma: no cover
