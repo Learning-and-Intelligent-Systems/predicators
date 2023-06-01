@@ -11,12 +11,14 @@ OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
     "hammer": (160, 350, 160, 350),
     "hex_key": (350, 450, 160, 350),
+    "brush": (100, 400, 350, 480),
 }
 
 OBJECT_COLOR_BOUNDS = {
     # (min B, min G, min R), (max B, max G, max R)
     "hammer": ((0, 0, 50), (40, 40, 200)),
     "hex_key": ((0, 100, 100), (40, 150, 200)),
+    "brush": ((0, 140, 140), (40, 255, 255)),
 }
 
 
@@ -85,6 +87,14 @@ def _main() -> None:
         img_file = Path(f"sampler_images/wall/img{n}.png")
         outfile = Path(f"sampler_images/wall/labelled_{obj_name}{n}.png")
         _find_center(img_file, obj_name, outfile)
+
+    # Brush
+    obj_name = "brush"
+    img_nums = [1, 3, 4, 5]
+    for n in img_nums:
+        img_file = Path(f"sampler_images/table/img{n}.png")
+        outfile = Path(f"sampler_images/table/labelled_{obj_name}{n}.png")
+        _find_center(img_file, obj_name, outfile) 
 
 
 if __name__ == "__main__":
