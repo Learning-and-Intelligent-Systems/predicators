@@ -554,9 +554,9 @@ class _SpotInterface():
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
-        self.block_until_arm_arrives_with_prints(self.robot,
-                                                 self.robot_command_client,
-                                                 cmd_id)
+        block_until_arm_arrives(self.robot,
+                                self.robot_command_client,
+                                cmd_id)
 
         time.sleep(2)
 
@@ -576,12 +576,10 @@ class _SpotInterface():
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
-        self.block_until_arm_arrives_with_prints(self.robot,
+        block_until_arm_arrives(self.robot,
                                                  self.robot_command_client,
                                                  cmd_id)
-
         time.sleep(2)
-
         # Finally, stow the arm and close the gripper.
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         gripper_close_command = RobotCommandBuilder.\
