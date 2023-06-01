@@ -11,6 +11,7 @@ class BaseExecutionMonitor(abc.ABC):
 
     def __init__(self) -> None:
         self._approach_info: List[Any] = []
+        self._curr_plan_timestep = 0
 
     @classmethod
     @abc.abstractmethod
@@ -20,6 +21,7 @@ class BaseExecutionMonitor(abc.ABC):
     @abc.abstractmethod
     def reset(self, task: Task) -> None:
         """Reset after replanning."""
+        self._curr_plan_timestep = 0
 
     @abc.abstractmethod
     def step(self, state: State) -> bool:

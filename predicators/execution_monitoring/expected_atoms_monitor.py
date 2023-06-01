@@ -16,17 +16,9 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
     """An execution monitor that only suggests replanning when we're doing
     bilevel planning and the expected atoms check fails."""
 
-    def __init__(self) -> None:
-        super().__init__()
-        self._curr_plan_timestep = 0
-
     @classmethod
     def get_name(cls) -> str:
         return "expected_atoms"
-
-    def reset(self, task: Task) -> None:
-        logging.info("EXECUTION MONITOR RESET")
-        self._curr_plan_timestep = 0
 
     def step(self, state: State) -> bool:
         # This monitor only makes sense to use with an oracle

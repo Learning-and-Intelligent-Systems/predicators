@@ -112,7 +112,6 @@ class SpotEnv(BaseEnv):
     @property
     def continuous_feature_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
-        # Nontrivial predicates coming soon.
         return set()
 
     @property
@@ -267,7 +266,6 @@ class SpotEnv(BaseEnv):
 
     def _get_continuous_observation(self) -> State:
         """Helper for step()."""
-        # Nontrivial implementation coming soon.
         return State(self._current_observation.data.copy())
 
     def simulate(self, state: State, action: Action) -> State:
@@ -864,7 +862,7 @@ class SpotBikeEnv(SpotEnv):
                               objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= 1.0
+        return gripper_open_percentage <= 1.5
 
     def _nothandempty_classifier(self, state: State,
                                  objects: Sequence[Object]) -> bool:
@@ -877,12 +875,10 @@ class SpotBikeEnv(SpotEnv):
     @property
     def continuous_feature_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
-        # Nontrivial predicates coming soon.
         return {self._HandEmpty}
 
     def _get_continuous_observation(self) -> State:  # pragma: no cover
         """Helper for step()."""
-        # Nontrivial implementation coming soon.
         curr_state = State(
             {k: v.copy()
              for k, v in self._current_observation.data.items()})
