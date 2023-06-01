@@ -10,11 +10,13 @@ from typing import Optional, Tuple
 OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
     "hammer": (160, 350, 160, 350),
+    "hex_key": (350, 450, 160, 350),
 }
 
 OBJECT_COLOR_BOUNDS = {
     # (min B, min G, min R), (max B, max G, max R)
     "hammer": ((0, 0, 50), (40, 40, 200)),
+    "hex_key": ((0, 100, 100), (40, 150, 200)),
 }
 
 
@@ -73,9 +75,16 @@ def _main() -> None:
     img_nums = [2, 6, 7, 8, 9, 10]
     for n in img_nums:
         img_file = Path(f"sampler_images/wall/img{n}.png")
-        outfile = Path(f"sampler_images/wall/labelled_img{n}.png")
+        outfile = Path(f"sampler_images/wall/labelled_{obj_name}{n}.png")
         _find_center(img_file, obj_name, outfile)
-        
+    
+    # Hex Key
+    obj_name = "hex_key"
+    img_nums = [2, 6, 7, 8, 9, 10]
+    for n in img_nums:
+        img_file = Path(f"sampler_images/wall/img{n}.png")
+        outfile = Path(f"sampler_images/wall/labelled_{obj_name}{n}.png")
+        _find_center(img_file, obj_name, outfile)
 
 
 if __name__ == "__main__":
