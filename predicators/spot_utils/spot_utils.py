@@ -14,8 +14,8 @@ import bosdyn.client.lease
 import bosdyn.client.util
 import cv2
 import numpy as np
-from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2, \
-    geometry_pb2, image_pb2, manipulation_api_pb2
+from bosdyn.api import basic_command_pb2, estop_pb2, geometry_pb2, image_pb2, \
+    manipulation_api_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
@@ -479,26 +479,6 @@ class _SpotInterface():
                                 3.0)
         time.sleep(1.0)
 
-    def block_until_arm_arrives_with_prints(self, robot: Robot,
-                                            command_client: RobotCommandClient,
-                                            cmd_id: int) -> None:
-        """Block until the arm arrives at the goal and print the distance
-        remaining.
-
-        Note: a version of this function is available as a helper in
-        robot_command without the prints.
-        """
-        while True:
-            feedback_resp = command_client.robot_command_feedback(cmd_id)
-
-            if feedback_resp.feedback.synchronized_feedback.\
-                arm_command_feedback.arm_cartesian_feedback.status == \
-                arm_command_pb2.ArmCartesianCommand.Feedback.\
-                    STATUS_TRAJECTORY_COMPLETE:
-                robot.logger.info('Move complete.')
-                break
-            time.sleep(0.1)
-
     def hand_movement(self, params: Array, open_gripper: bool = True) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
@@ -555,7 +535,7 @@ class _SpotInterface():
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
-        block_until_arm_arrives(self.robot, self.robot_command_client, cmd_id)
+        block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
 
         time.sleep(2)
 
@@ -575,7 +555,7 @@ class _SpotInterface():
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
-        block_until_arm_arrives(self.robot, self.robot_command_client, cmd_id)
+        block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
         time.sleep(2)
         # Finally, stow the arm and close the gripper.
         stow_cmd = RobotCommandBuilder.arm_stow_command()
