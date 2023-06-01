@@ -401,6 +401,25 @@ class _SpotInterface():
         global g_image_click, g_image_display
         g_image_display = img
         cv2.imshow(image_title, g_image_display)
+
+        ####
+        import cv2
+        import apriltag
+
+        # load the input image and convert it to grayscale
+        print("[INFO] loading image...")
+        image = img
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # define the AprilTags detector options and then detect the AprilTags
+        # in the input image
+        print("[INFO] detecting AprilTags...")
+        options = apriltag.DetectorOptions(families="tag36h11")
+        detector = apriltag.Detector(options)
+        results = detector.detect(gray)
+        print("[INFO] {} total AprilTags detected".format(len(results)))
+
+        ####
         while g_image_click is None:
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == ord('Q'):
