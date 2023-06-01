@@ -2,7 +2,6 @@
 suggest replanning when the expected atoms check is not met."""
 
 import logging
-
 from typing import Set
 
 from predicators import utils
@@ -45,7 +44,7 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
             return False
         logging.info("Expected Atoms Check Execution Failure.")
         logging.info(self._curr_plan_timestep)
-        logging.info(curr_atoms - self._approach_info[self._curr_plan_timestep])
-        import ipdb; ipdb.set_trace()
+        logging.info(curr_atoms -
+                     self._approach_info[self._curr_plan_timestep])
         self._curr_plan_timestep += 1
         return True

@@ -156,6 +156,7 @@ class _SpotInterface():
         gripper."""
         robot_state = self.robot_state_client.get_robot_state()
         return robot_state.manipulator_state.gripper_open_percentage
+
     @property
     def params_spaces(self) -> Dict[str, Box]:
         """The parameter spaces for each of the controllers."""
