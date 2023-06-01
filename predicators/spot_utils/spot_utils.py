@@ -234,6 +234,7 @@ class _SpotInterface():
         print("PlaceOntop", objs)
         assert len(params) == 3
         self.hand_movement(params)
+        time.sleep(1.0)
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
