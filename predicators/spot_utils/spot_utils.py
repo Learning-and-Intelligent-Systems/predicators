@@ -153,8 +153,8 @@ class _SpotControllers():
         """The parameter spaces for each of the controllers."""
         return {
             "navigate": Box(-5.0, 5.0, (3, )),
-            "grasp": Box(-1.0, 1.0, (1, )),
-            "placeOnTop": Box(-5.0, 5.0, (1, )),
+            "grasp": Box(-1.0, 1.0, (4, )),
+            "placeOnTop": Box(-5.0, 5.0, (3, )),
             "noop": Box(0, 1, (0, ))
         }
 
@@ -197,29 +197,33 @@ class _SpotControllers():
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
 
-        Params are just one-dimensional corresponding to a top-down
-        grasp (1), side grasp (-1) or any (0).
+        Params are 4 dimensional corresponding to a top-down grasp (1),
+        side grasp (-1) or any (0), and dx, dy, dz of post grasp
+        position.
         """
         print("Grasp", objs)
-        assert len(params) == 1
-        assert params[0] in [0, 1, -1]
-        if params[0] == 1:
+        assert len(params) == 4
+        assert params[3] in [0, 1, -1]
+        if params[3] == 1:
             self._force_horizontal_grasp = False
             self._force_top_down_grasp = True
-        elif params[0] == -1:
+        elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
         self.arm_object_grasp()
+        if not all(params[:3] == [0.0, 0.0, 0.0]):
+            self.hand_movement(params[:3], open_gripper=False)
+        self.stow_arm()
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Array) -> None:
         """Wrapper method for placeOnTop controller.
 
-        Params is one-dimensional corresponding to the extension of the
+        Params is dx, dy, and dz corresponding to the location of the
         arm from the robot when placing.
         """
         print("PlaceOntop", objs)
-        assert len(params) == 1
+        assert len(params) == 3
         self.hand_movement(params)
 
     def verify_estop(self, robot: Any) -> None:
@@ -430,27 +434,23 @@ class _SpotControllers():
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            print(
-                'Current state: ',
-                manipulation_api_pb2.ManipulationFeedbackState.Name(
-                    response.current_state))
+            logging.debug(f"""Current state:
+                {manipulation_api_pb2.ManipulationFeedbackState.Name(
+                    response.current_state)}""")
 
             if response.current_state in [manipulation_api_pb2.\
                 MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2.\
                 MANIP_STATE_GRASP_FAILED]:
                 break
 
-        # Unstow the arm
-        unstow = RobotCommandBuilder.arm_ready_command()
-
-        # Issue the command via the RobotCommandClient
-        unstow_command_id = self.robot_command_client.robot_command(unstow)
-
-        self.robot.logger.info("Unstow command issued.")
-        block_until_arm_arrives(self.robot_command_client, unstow_command_id,
-                                3.0)
-
         time.sleep(1.0)
+        g_image_click = None
+        g_image_display = None
+        self.robot.logger.info('Finished grasp.')
+
+    def stow_arm(self) -> None:
+        """A simple example of using the Boston Dynamics API to stow Spot's
+        arm."""
 
         # Allow Stowing and Stow Arm
         grasp_carry_state_override = manipulation_api_pb2.\
@@ -460,19 +460,14 @@ class _SpotControllers():
             carry_state_override=grasp_carry_state_override)
         cmd_response = self.manipulation_api_client.\
             grasp_override_command(grasp_override_request)
+        self.robot.logger.info(cmd_response)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         stow_command_id = self.robot_command_client.robot_command(stow_cmd)
         self.robot.logger.info("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client, stow_command_id,
                                 3.0)
-
-        self.robot.logger.info('Finished grasp.')
-
-        g_image_click = None
-        g_image_display = None
-
-        time.sleep(2.0)
+        time.sleep(1.0)
 
     def block_until_arm_arrives_with_prints(self, robot: Robot,
                                             command_client: RobotCommandClient,
@@ -494,7 +489,7 @@ class _SpotControllers():
                 break
             time.sleep(0.1)
 
-    def hand_movement(self, params: Array) -> None:
+    def hand_movement(self, params: Array, open_gripper: bool = True) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -511,9 +506,11 @@ class _SpotControllers():
         # Build a position to move the arm to (in meters, relative to and
         # expressed in the gravity aligned body frame).
         assert params[0] >= -0.5 and params[0] <= 0.5
+        assert params[1] >= -0.5 and params[1] <= 0.5
+        assert params[2] >= -0.25 and params[2] <= 0.25
         x = self.hand_x + params[0]  # dx hand
-        y = self.hand_y
-        z = self.hand_z
+        y = self.hand_y + params[1]
+        z = self.hand_z + params[2]
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
         flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body,
@@ -535,7 +532,7 @@ class _SpotControllers():
             odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z,
             ODOM_FRAME_NAME, seconds)
 
-        # Make the open gripper RobotCommand
+        # Make the close gripper RobotCommand
         gripper_command = RobotCommandBuilder.\
             claw_gripper_open_fraction_command(0.0)
 
@@ -554,9 +551,12 @@ class _SpotControllers():
 
         time.sleep(2)
 
-        # Make the open gripper RobotCommand
-        gripper_command = RobotCommandBuilder.\
-            claw_gripper_open_fraction_command(1.0)
+        if not open_gripper:
+            gripper_command = RobotCommandBuilder.\
+                claw_gripper_open_fraction_command(0.0)
+        else:
+            gripper_command = RobotCommandBuilder.\
+                claw_gripper_open_fraction_command(1.0)
 
         # Combine the arm and gripper commands into one RobotCommand
         command = RobotCommandBuilder.build_synchro_command(
@@ -593,11 +593,11 @@ class _SpotControllers():
             self.graph_nav_command_line.navigate_to([waypoint_id])
 
             # (5) Offset by params
-            if params != [0.0, 0.0, 0.0]:
+            if not all(params == [0.0, 0.0, 0.0]):
                 self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
-            print(e)
+            logging.info(e)
 
     def relative_move(self,
                       dx: float,
@@ -640,13 +640,13 @@ class _SpotControllers():
                 synchronized_feedback.mobility_command_feedback
             if mobility_feedback.status != \
                 RobotCommandFeedbackStatus.STATUS_PROCESSING:
-                print("Failed to reach the goal")
+                logging.info("Failed to reach the goal")
                 return False
             traj_feedback = mobility_feedback.se2_trajectory_feedback
             if (traj_feedback.status == traj_feedback.STATUS_AT_GOAL
                     and traj_feedback.body_movement_status
                     == traj_feedback.BODY_STATUS_SETTLED):
-                print("Arrived at the goal.")
+                logging.info("Arrived at the goal.")
                 return True
             time.sleep(1)
 
