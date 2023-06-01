@@ -43,7 +43,6 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
             self._curr_plan_timestep += 1
             return False
         logging.info("Expected Atoms Check Execution Failure.")
-        logging.info(self._curr_plan_timestep)
         logging.info(curr_atoms -
                      self._approach_info[self._curr_plan_timestep])
         self._curr_plan_timestep += 1

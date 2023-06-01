@@ -200,8 +200,6 @@ class SpotEnv(BaseEnv):
         name, objects, params = self._parse_action(state, action)
         # Execute the controller in the real environment.
         current_atoms = utils.abstract(state, self.predicates)
-        print("AT THE BEGINNING OF STEP, THE CURRENT ATOMS ARE:")
-        print(current_atoms)
         self._spot_interface.execute(name, current_atoms, objects, params)
         # Get the part of the new state that is determined based on
         # continuous feature values.
@@ -211,11 +209,7 @@ class SpotEnv(BaseEnv):
         next_sim_state_ground_atoms = self._get_next_simulator_state(
             state, action)
         if next_sim_state_ground_atoms is None:  # inapplicable action
-            print("INAPPLICABLE ACTION!!!!!!!")
-            print(action)
             return state.copy()
-        print("ENV STEP IS RETURNING THE GROUND ATOMS:")
-        print(sorted(next_sim_state_ground_atoms))
         # Combine the two to get the new _PartialPerceptionState.
         self._current_observation = self._build_partial_perception_state(
             next_state.data, next_sim_state_ground_atoms)
@@ -886,7 +880,7 @@ class SpotBikeEnv(SpotEnv):
         # Nontrivial predicates coming soon.
         return {self._HandEmpty}
 
-    def _get_continuous_observation(self) -> State:
+    def _get_continuous_observation(self) -> State:  # pragma: no cover
         """Helper for step()."""
         # Nontrivial implementation coming soon.
         curr_state = State(

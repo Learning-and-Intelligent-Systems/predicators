@@ -3,8 +3,8 @@
 Uses the SeSamE bilevel planning strategy: SEarch-and-SAMple planning,
 then Execution.
 """
-
 import abc
+import logging
 import os
 import sys
 import time
@@ -66,6 +66,9 @@ class BilevelPlanningApproach(BaseApproach):
             self._last_atoms_seq = atoms_seq
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
                                                       self._rng)
+            logging.debug("Current Task Plan:")
+            for act in nsrt_plan:
+                logging.debug(act)
 
         # Run full bilevel planning.
         else:
