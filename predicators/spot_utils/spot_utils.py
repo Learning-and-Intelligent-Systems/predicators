@@ -197,9 +197,9 @@ class _SpotControllers():
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
 
-        Params are just one-dimensional corresponding to a top-down
-        grasp (1), side grasp (-1) or any (0), and dx, dy, dz of post
-        grasp position.
+        Params are 4 dimensional corresponding to a top-down grasp (1),
+        side grasp (-1) or any (0), and dx, dy, dz of post grasp
+        position.
         """
         print("Grasp", objs)
         assert len(params) == 4
@@ -434,7 +434,7 @@ class _SpotControllers():
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            print(
+            logging.debug(
                 'Current state: ',
                 manipulation_api_pb2.ManipulationFeedbackState.Name(
                     response.current_state))
@@ -598,7 +598,7 @@ class _SpotControllers():
                 self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
-            print(e)
+            logging.info(e)
 
     def relative_move(self,
                       dx: float,
@@ -641,13 +641,13 @@ class _SpotControllers():
                 synchronized_feedback.mobility_command_feedback
             if mobility_feedback.status != \
                 RobotCommandFeedbackStatus.STATUS_PROCESSING:
-                print("Failed to reach the goal")
+                logging.info("Failed to reach the goal")
                 return False
             traj_feedback = mobility_feedback.se2_trajectory_feedback
             if (traj_feedback.status == traj_feedback.STATUS_AT_GOAL
                     and traj_feedback.body_movement_status
                     == traj_feedback.BODY_STATUS_SETTLED):
-                print("Arrived at the goal.")
+                logging.info("Arrived at the goal.")
                 return True
             time.sleep(1)
 
