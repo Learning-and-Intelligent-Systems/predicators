@@ -1,6 +1,8 @@
 """An execution monitor that leverages knowledge of the high-level plan to only
 suggest replanning when the expected atoms check is not met."""
 
+import logging
+
 from typing import Set
 
 from predicators import utils
@@ -24,6 +26,7 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         return "expected_atoms"
 
     def reset(self, task: Task) -> None:
+        logging.info("EXECUTION MONITOR RESET")
         self._curr_plan_timestep = 0
 
     def step(self, state: State) -> bool:
@@ -38,6 +41,11 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         # If the expected atoms are a subset of the current atoms, then
         # we don't have to replan.
         if self._approach_info[self._curr_plan_timestep].issubset(curr_atoms):
+            self._curr_plan_timestep += 1
             return False
+        logging.info("Expected Atoms Check Execution Failure.")
+        logging.info(self._curr_plan_timestep)
+        logging.info(curr_atoms - self._approach_info[self._curr_plan_timestep])
         import ipdb; ipdb.set_trace()
+        self._curr_plan_timestep += 1
         return True

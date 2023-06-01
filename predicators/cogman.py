@@ -48,6 +48,9 @@ class CogMan:
             new_policy = self._approach.solve(task, timeout=CFG.timeout)
             self._current_policy = new_policy
             self._exec_monitor.reset(task)
+            self._exec_monitor.update_approach_info(
+                self._approach.get_execution_monitoring_info())
+            assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
         act = self._current_policy(state)
         return act
