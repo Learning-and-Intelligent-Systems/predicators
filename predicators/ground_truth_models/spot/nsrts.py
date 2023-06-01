@@ -39,7 +39,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             del state, goal, rng
             if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.0, 0.0, 0.0, 0.0])
-            if objs[2].type.name == "low_wall_rack":  # pragma: no cover
+            if objs[2].name == "low_wall_rack":  # pragma: no cover
                 return np.array([0.0, 0.0, 0.15, -1.0])
             return np.array([0.0, 0.0, 0.0, 0.0])
 
