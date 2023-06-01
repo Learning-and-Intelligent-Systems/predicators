@@ -64,12 +64,15 @@ graph_nav_loc_to_id = {
 
 
 # pylint: disable=no-member
-class _SpotControllers():
-    """Implementation of interface with low-level controllers for the Spot
-    robot.
+class _SpotInterface():
+    """Implementation of interface with low-level controllers and sensor data
+    grabbing for the Spot robot.
+
+    Perception/Sensor Data:
+    get_gripper_obs() -> Returns number corresponding to gripper open
+                           percentage.
 
     Controllers:
-
     navigateToController(objs, [float:dx, float:dy, float:dyaw])
     graspController(objs, [(0:Any,1:Top,-1:Side)])
     placeOntopController(objs, [float:distance])
@@ -148,6 +151,12 @@ class _SpotControllers():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
+    def get_gripper_obs(self) -> Array:
+        """Grabs the current observation of relevant quantities from the
+        gripper."""
+        robot_state = self.robot_state_client.get_robot_state()
+        return robot_state.manipulator_state.gripper_open_percentage
+
     @property
     def params_spaces(self) -> Dict[str, Box]:
         """The parameter spaces for each of the controllers."""
@@ -225,6 +234,7 @@ class _SpotControllers():
         print("PlaceOntop", objs)
         assert len(params) == 3
         self.hand_movement(params)
+        time.sleep(1.0)
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
@@ -545,9 +555,7 @@ class _SpotControllers():
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
-        self.block_until_arm_arrives_with_prints(self.robot,
-                                                 self.robot_command_client,
-                                                 cmd_id)
+        block_until_arm_arrives(self.robot, self.robot_command_client, cmd_id)
 
         time.sleep(2)
 
@@ -567,17 +575,20 @@ class _SpotControllers():
         self.robot.logger.info('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
-        self.block_until_arm_arrives_with_prints(self.robot,
-                                                 self.robot_command_client,
-                                                 cmd_id)
-
+        block_until_arm_arrives(self.robot, self.robot_command_client, cmd_id)
         time.sleep(2)
-
+        # Finally, stow the arm and close the gripper.
         stow_cmd = RobotCommandBuilder.arm_stow_command()
-        stow_command_id = self.robot_command_client.robot_command(stow_cmd)
+        gripper_close_command = RobotCommandBuilder.\
+            claw_gripper_open_fraction_command(0.0)
+        # Combine the arm and gripper commands into one RobotCommand
+        stow_and_close_command = RobotCommandBuilder.build_synchro_command(
+            gripper_close_command, stow_cmd)
+        stow_and_close_command_id = self.robot_command_client.robot_command(
+            stow_and_close_command)
         self.robot.logger.info("Stow command issued.")
-        block_until_arm_arrives(self.robot_command_client, stow_command_id,
-                                3.0)
+        block_until_arm_arrives(self.robot_command_client,
+                                stow_and_close_command_id, 3.0)
 
     def navigate_to(self, waypoint_id: str, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
@@ -652,6 +663,6 @@ class _SpotControllers():
 
 
 @functools.lru_cache(maxsize=None)
-def get_spot_controllers() -> _SpotControllers:
+def get_spot_interface() -> _SpotInterface:
     """Ensure that _SpotControllers is only created once."""
-    return _SpotControllers()
+    return _SpotInterface()

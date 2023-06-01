@@ -11,15 +11,17 @@ class BaseExecutionMonitor(abc.ABC):
 
     def __init__(self) -> None:
         self._approach_info: List[Any] = []
+        self._curr_plan_timestep = 0
 
     @classmethod
     @abc.abstractmethod
     def get_name(cls) -> str:
         """Get the unique name of this execution monitor."""
 
-    @abc.abstractmethod
     def reset(self, task: Task) -> None:
         """Reset after replanning."""
+        del task  # unused
+        self._curr_plan_timestep = 0
 
     @abc.abstractmethod
     def step(self, state: State) -> bool:
