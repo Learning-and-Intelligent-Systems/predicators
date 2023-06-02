@@ -1,16 +1,16 @@
 """A sokoban-specific perceiver."""
 
-from typing import Dict, Tuple, Set, List
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 
-from predicators.settings import CFG
-from predicators.envs.spot_env import _PartialPerceptionState, SpotBikeEnv
-from predicators.perception.base_perceiver import BasePerceiver
-from predicators.structs import EnvironmentTask, GroundAtom, Object, \
-    Observation, State, Task, Action
-from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
 from predicators.envs import get_or_create_env
+from predicators.envs.spot_env import SpotBikeEnv, _PartialPerceptionState
+from predicators.perception.base_perceiver import BasePerceiver
+from predicators.settings import CFG
+from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
+from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+    Observation, State, Task
 
 # Each observation is a tuple of four 2D boolean masks (numpy arrays).
 # The order is: free, goals, boxes, player.
