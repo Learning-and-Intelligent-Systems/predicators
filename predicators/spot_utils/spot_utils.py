@@ -81,6 +81,9 @@ OBJECT_COLOR_BOUNDS = {
 
 
 def _find_object_center(img: Image, obj_name: str) -> Tuple[int, int]:
+    # Copy to make sure we don't modify the image.
+    img = img.copy()
+
     # Crop
     crop_min_x, crop_max_x, crop_min_y, crop_max_y = OBJECT_CROPS[obj_name]
     cropped_img = img[crop_min_y:crop_max_y, crop_min_x:crop_max_x]
@@ -448,8 +451,6 @@ class _SpotInterface():
 
         # pylint: disable=global-variable-not-assigned, global-statement
         global g_image_click, g_image_display
-        g_image_display = img
-        cv2.imshow(image_title, g_image_display)
 
         if CFG.spot_grasp_use_apriltag:
             # Convert Image to grayscale
@@ -471,6 +472,10 @@ class _SpotInterface():
         elif CFG.spot_grasp_use_cv2:
             if obj.name in ["hammer", "hex_key", "brush", "hex_screwdriver"]:
                 g_image_click = _find_object_center(img, obj.name)
+
+        if g_image_click is None:
+            g_image_display = img
+            cv2.imshow(image_title, g_image_display)
 
         while g_image_click is None:
             key = cv2.waitKey(1) & 0xFF
