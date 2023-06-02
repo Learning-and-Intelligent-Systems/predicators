@@ -94,6 +94,8 @@ OBJECT_GRASP_OFFSET = {
     "hex_screwdriver": (0, 0),
 }
 
+COMMAND_TIMEOUT = 20.0
+
 
 def _find_object_center(img: Image,
                         obj_name: str) -> Optional[Tuple[int, int]]:
@@ -539,8 +541,9 @@ class _SpotInterface():
         cmd_response = self.manipulation_api_client.manipulation_api_command(
             manipulation_api_request=grasp_request)
 
-        # Get feedback from the robot
-        while True:
+        # Get feedback from the robot and execute grasping.
+        start_time = time.perf_counter()
+        while (time.perf_counter() - start_time) <= COMMAND_TIMEOUT:
             feedback_request = manipulation_api_pb2.\
                 ManipulationApiFeedbackRequest(manipulation_cmd_id=\
                     cmd_response.manipulation_cmd_id)
@@ -558,6 +561,8 @@ class _SpotInterface():
                 MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2.\
                 MANIP_STATE_GRASP_FAILED]:
                 break
+        if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
+            logging.info("Timed out waiting for grasp to execute!")
 
         time.sleep(1.0)
         g_image_click = None
@@ -724,13 +729,12 @@ class _SpotInterface():
             goal_heading=out_tform_goal.angle,
             frame_name=ODOM_FRAME_NAME,
             params=RobotCommandBuilder.mobility_params(stair_hint=stairs))
-        end_time = 10.0
         cmd_id = self.robot_command_client.robot_command(
             lease=None,
             command=robot_cmd,
-            end_time_secs=time.time() + end_time)
-        # Wait until the robot has reached the goal.
-        while True:
+            end_time_secs=time.time() + COMMAND_TIMEOUT)
+        start_time = time.perf_counter()
+        while (time.perf_counter() - start_time) <= COMMAND_TIMEOUT:
             feedback = self.robot_command_client.\
                 robot_command_feedback(cmd_id)
             mobility_feedback = feedback.feedback.\
@@ -746,6 +750,9 @@ class _SpotInterface():
                 logging.info("Arrived at the goal.")
                 return True
             time.sleep(1)
+        if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
+            logging.info("Timed out waiting for movement to execute!")
+        return False
 
 
 @functools.lru_cache(maxsize=None)
