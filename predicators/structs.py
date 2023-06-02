@@ -113,7 +113,11 @@ class State:
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
         for obj in self:
-            assert len(self[obj]) == obj.type.dim
+            try:
+                assert len(self[obj]) == obj.type.dim
+            except AssertionError:
+                import ipdb
+                ipdb.set_trace()
 
     def __iter__(self) -> Iterator[Object]:
         """An iterator over the state's objects, in sorted order."""

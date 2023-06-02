@@ -133,10 +133,10 @@ class SpotEnv(BaseEnv):
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
     def parse_action(self, state: State,
-                      action: Action) -> Tuple[str, List[Object], Array]:
-        """(Only for this environment) A convenience method that converts
-        low-level actions into more interpretable high-level actions by
-        exploiting knowledge of how we encode actions."""
+                     action: Action) -> Tuple[str, List[Object], Array]:
+        """(Only for this environment) A convenience method that converts low-
+        level actions into more interpretable high-level actions by exploiting
+        knowledge of how we encode actions."""
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
@@ -871,8 +871,8 @@ class SpotBikeEnv(SpotEnv):
         spot, obj_to_grasp = objects
         assert obj_name_to_apriltag_id.get(obj_to_grasp.name) is not None
         spot_holding_obj_id = state.get(spot, "curr_held_item_id")
-        return spot_holding_obj_id == obj_name_to_apriltag_id[
-            obj_to_grasp.name]
+        return int(spot_holding_obj_id) == int(
+            obj_name_to_apriltag_id[obj_to_grasp.name])
 
     @classmethod
     def get_name(cls) -> str:
@@ -891,6 +891,8 @@ class SpotBikeEnv(SpotEnv):
         new_gripper_open_perc = self._spot_interface.get_gripper_obs()
         spot = curr_state.get_objects(self._robot_type)[0]
         curr_state.set(spot, "gripper_open_percentage", new_gripper_open_perc)
+        # curr_holding_item = curr_state.get(spot, "curr_held_item_id")
+        # curr_state.set(spot, "curr_held_item_id", curr_holding_item)
         return curr_state
 
     def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
@@ -910,7 +912,7 @@ class SpotBikeEnv(SpotEnv):
             low_wall_rack, high_wall_rack, bag, movable_platform
         ]
         for _ in range(num_tasks):
-            init_dict = {spot: np.array([0.0])}
+            init_dict = {spot: np.array([0.0, 0.0])}
 
             for obj in objects:
                 if obj != spot:

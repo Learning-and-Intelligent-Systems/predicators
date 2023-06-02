@@ -64,10 +64,10 @@ graph_nav_loc_to_id = {
 }
 
 obj_name_to_apriltag_id = {
-    "hammer": "401",
-    "brush": "402",
-    "hex_key": "403",
-    "hex_screwdriver": "404"
+    "hammer": 401,
+    "brush": 402,
+    "hex_key": 403,
+    "hex_screwdriver": 404
 }
 
 
