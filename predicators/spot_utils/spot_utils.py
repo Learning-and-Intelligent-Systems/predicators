@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import time
-from typing import Any, Dict, Sequence, Set
+from typing import Any, Dict, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -34,7 +34,7 @@ from gym.spaces import Box
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.structs import Array, GroundAtom, Object
+from predicators.structs import Array, GroundAtom, Image, Object
 
 g_image_click = None
 g_image_display = None
@@ -62,6 +62,54 @@ graph_nav_loc_to_id = {
     "6-13_corner": "gooey-mamba-nbmRlRr8J0KPsCztt0Wkyw==",
     "trash": "holy-aphid-SuqZLSjvRUjUxCDywLIFhw=="
 }
+
+OBJECT_CROPS = {
+    # min_x, max_x, min_y, max_y
+    "hammer": (160, 450, 160, 350),
+    "hex_key": (160, 450, 160, 350),
+    "brush": (100, 400, 350, 480),
+    "hex_screwdriver": (100, 400, 350, 480),
+}
+
+OBJECT_COLOR_BOUNDS = {
+    # (min B, min G, min R), (max B, max G, max R)
+    "hammer": ((0, 0, 50), (40, 40, 200)),
+    "hex_key": ((0, 50, 50), (40, 150, 200)),
+    "brush": ((0, 100, 200), (80, 255, 255)),
+    "hex_screwdriver": ((0, 0, 50), (40, 40, 200)),
+}
+
+
+def _find_object_center(img: Image, obj_name: str) -> Tuple[int, int]:
+    # Crop
+    crop_min_x, crop_max_x, crop_min_y, crop_max_y = OBJECT_CROPS[obj_name]
+    cropped_img = img[crop_min_y:crop_max_y, crop_min_x:crop_max_x]
+
+    # Mask color.
+    lo, hi = OBJECT_COLOR_BOUNDS[obj_name]
+    lower = np.array(lo)
+    upper = np.array(hi)
+    mask = cv2.inRange(cropped_img, lower, upper)
+
+    # Apply blur.
+    mask = cv2.GaussianBlur(mask, (5, 5), 0)
+
+    # Connected components with stats.
+    nb_components, _, stats, centroids = cv2.connectedComponentsWithStats(
+        mask, connectivity=4)
+
+    # Find the largest non background component.
+    # Note: range() starts from 1 since 0 is the background label.
+    max_label, _ = max(
+        ((i, stats[i, cv2.CC_STAT_AREA]) for i in range(1, nb_components)),
+        key=lambda x: x[1])
+
+    cropped_x, cropped_y = map(int, centroids[max_label])
+
+    x = cropped_x + crop_min_x
+    y = cropped_y + crop_min_y
+
+    return (x, y)
 
 
 # pylint: disable=no-member
@@ -220,7 +268,7 @@ class _SpotInterface():
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
-        self.arm_object_grasp()
+        self.arm_object_grasp(objs[1])
         if not all(params[:3] == [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
         self.stow_arm()
@@ -364,7 +412,7 @@ class _SpotInterface():
 
         return grasp
 
-    def arm_object_grasp(self) -> None:
+    def arm_object_grasp(self, obj: Object) -> None:
         """A simple example of using the Boston Dynamics API to command Spot's
         arm."""
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -419,6 +467,10 @@ class _SpotInterface():
             # based grasping.
             if len(results) > 0:
                 g_image_click = results[0].center
+
+        elif CFG.spot_grasp_use_cv2:
+            if obj.name in ["hammer", "hex_key", "brush", "hex_screwdriver"]:
+                g_image_click = _find_object_center(img, obj.name)
 
         while g_image_click is None:
             key = cv2.waitKey(1) & 0xFF

@@ -166,6 +166,7 @@ class GlobalSettings:
     # SpotEnv parameters
     spot_robot_ip = "invalid-IP-address"
     spot_grasp_use_apriltag = False
+    spot_grasp_use_cv2 = True
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
