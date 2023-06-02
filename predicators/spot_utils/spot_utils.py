@@ -63,6 +63,13 @@ graph_nav_loc_to_id = {
     "trash": "holy-aphid-SuqZLSjvRUjUxCDywLIFhw=="
 }
 
+obj_name_to_apriltag_id = {
+    "hammer": "401",
+    "brush": "402",
+    "hex_key": "403",
+    "hex_screwdriver": "404"
+}
+
 OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
     "hammer": (160, 450, 160, 350),
@@ -428,6 +435,7 @@ class _SpotInterface():
 
         # Take a picture with a camera
         self.robot.logger.info(f'Getting an image from: {self._image_source}')
+        time.sleep(1)
         image_responses = self.image_client.get_image_from_sources(
             [self._image_source])
 
@@ -456,17 +464,14 @@ class _SpotInterface():
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
             # Define the AprilTags detector options and then detect the tags.
-            self.robot.logger("[INFO] detecting AprilTags...")
+            self.robot.logger.info("[INFO] detecting AprilTags...")
             options = apriltag.DetectorOptions(families="tag36h11")
             detector = apriltag.Detector(options)
             results = detector.detect(gray)
-            self.robot.logger(f"[INFO] {len(results)} AprilTags detected")
-
-            # Make center of first Apriltag found as grasp location.
-            # If None are found grasp will remain None and default to click
-            # based grasping.
-            if len(results) > 0:
-                g_image_click = results[0].center
+            self.robot.logger.info(f"[INFO] {len(results)} AprilTags detected")
+            for result in results:
+                if str(result.tag_id) == obj_name_to_apriltag_id[obj.name]:
+                    g_image_click = results[0].center
 
         elif CFG.spot_grasp_use_cv2:
             if obj.name in ["hammer", "hex_key", "brush", "hex_screwdriver"]:
