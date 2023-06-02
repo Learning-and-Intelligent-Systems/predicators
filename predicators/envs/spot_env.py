@@ -14,7 +14,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
-from predicators.spot_utils.spot_utils import get_spot_interface
+from predicators.spot_utils.spot_utils import get_spot_interface, obj_name_to_apriltag_id
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
     Variable
@@ -558,7 +558,8 @@ class SpotBikeEnv(SpotEnv):
         super().__init__(use_gui)
 
         # Types
-        self._robot_type = Type("robot", ["gripper_open_percentage"])
+        self._robot_type = Type(
+            "robot", ["gripper_open_percentage", "curr_held_item_id"])
         self._tool_type = Type("tool", [])
         self._surface_type = Type("flat_surface", [])
         self._bag_type = Type("bag", [])
@@ -581,13 +582,9 @@ class SpotBikeEnv(SpotEnv):
                                     self._handempty_classifier)
         self._notHandEmpty = Predicate("Not-HandEmpty", [self._robot_type],
                                        self._nothandempty_classifier)
-
-        self._temp_HoldingTool = Predicate("HoldingTool",
-                                           [self._robot_type, self._tool_type],
-                                           lambda s, o: False)
-        self._HoldingTool = Predicate(
-            "HoldingTool", [self._robot_type, self._tool_type],
-            _create_dummy_predicate_classifier(self._temp_HoldingTool))
+        self._HoldingTool = Predicate("HoldingTool",
+                                      [self._robot_type, self._tool_type],
+                                      self._holding_tool_classifier)
         self._temp_HoldingBag = Predicate("HoldingBag",
                                           [self._robot_type, self._bag_type],
                                           lambda s, o: False)
@@ -864,6 +861,14 @@ class SpotBikeEnv(SpotEnv):
     def _nothandempty_classifier(self, state: State,
                                  objects: Sequence[Object]) -> bool:
         return not self._handempty_classifier(state, objects)
+
+    def _holding_tool_classifier(self, state: State,
+                                 objects: Sequence[Object]) -> bool:
+        spot, obj_to_grasp = objects
+        assert obj_name_to_apriltag_id.get(obj_to_grasp.name) is not None
+        spot_holding_obj_id = state.get(spot, "curr_held_item_id")
+        return spot_holding_obj_id == obj_name_to_apriltag_id[
+            obj_to_grasp.name]
 
     @classmethod
     def get_name(cls) -> str:
