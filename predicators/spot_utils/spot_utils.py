@@ -86,6 +86,14 @@ OBJECT_COLOR_BOUNDS = {
     "hex_screwdriver": ((0, 0, 50), (40, 40, 200)),
 }
 
+OBJECT_GRASP_OFFSET = {
+    # dx, dy
+    "hammer": (0, 0),
+    "hex_key": (0, 50),
+    "brush": (0, 0),
+    "hex_screwdriver": (0, 0),
+}
+
 
 def _find_object_center(img: Image,
                         obj_name: str) -> Optional[Tuple[int, int]]:
@@ -123,6 +131,11 @@ def _find_object_center(img: Image,
 
     x = cropped_x + crop_min_x
     y = cropped_y + crop_min_y
+
+    # Apply offset.
+    dx, dy = OBJECT_GRASP_OFFSET[obj_name]
+    x = np.clip(x + dx, 0, img.shape[1])
+    y = np.clip(y + dy, 0, img.shape[0])
 
     return (x, y)
 
