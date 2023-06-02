@@ -258,6 +258,14 @@ class SpotEnv(BaseEnv):
             return None
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
+
+        # HACK! We put back in the delete effects so that if the execution
+        # monitor ever returns that we should replan, then we will not hit
+        # dr-reachable errors. We should remove this once we have actual
+        # predicate functions implemented for all our predicates.
+        if CFG.execution_monitor == "expected_atoms":
+            next_ground_atoms |= ground_op.delete_effects
+
         # Return only the atoms for the non-continuous-feature predicates.
         return {
             a
