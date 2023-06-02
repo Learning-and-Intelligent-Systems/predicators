@@ -872,7 +872,7 @@ class SpotBikeEnv(SpotEnv):
         assert obj_name_to_apriltag_id.get(obj_to_grasp.name) is not None
         spot_holding_obj_id = state.get(spot, "curr_held_item_id")
         return int(spot_holding_obj_id) == int(
-            obj_name_to_apriltag_id[obj_to_grasp.name])
+            obj_name_to_apriltag_id[obj_to_grasp.name]) and self._nothandempty_classifier(state, [spot])
 
     @classmethod
     def get_name(cls) -> str:
@@ -891,9 +891,13 @@ class SpotBikeEnv(SpotEnv):
         new_gripper_open_perc = self._spot_interface.get_gripper_obs()
         spot = curr_state.get_objects(self._robot_type)[0]
         curr_state.set(spot, "gripper_open_percentage", new_gripper_open_perc)
-        # curr_holding_item = curr_state.get(spot, "curr_held_item_id")
-        # curr_state.set(spot, "curr_held_item_id", curr_holding_item)
         return curr_state
+    
+    def update_observation(self, updated_obs: Observation) -> None: # pragma: no cover
+        """Necessary so that the perceiver can update the environment's
+        current state."""
+        self._current_observation = updated_obs
+
 
     def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
