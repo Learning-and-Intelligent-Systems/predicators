@@ -26,4 +26,3 @@ class BasePerceiver(abc.ABC):
         """In some cases, the perceiver might need to know the action that was
         taken (e.g. if the agent is trying to grasp an object, the perceiver
         needs to know which object this is)."""
-        pass

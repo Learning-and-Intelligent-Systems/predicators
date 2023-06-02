@@ -1,15 +1,13 @@
 """A sokoban-specific perceiver."""
 
-from typing import Dict, List, Set, Tuple
+from typing import Set, Optional
 
-import numpy as np
-
-from predicators.envs import get_or_create_env
+from predicators.envs import get_or_create_env, BaseEnv
 from predicators.envs.spot_env import SpotBikeEnv, _PartialPerceptionState
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
+from predicators.structs import Action, EnvironmentTask, Object, \
     Observation, State, Task
 
 # Each observation is a tuple of four 2D boolean masks (numpy arrays).
@@ -21,11 +19,10 @@ class SpotBikePerceiver(BasePerceiver):
 
     def __init__(self) -> None:
         super().__init__()
-        self._prev_action: Action = None
-        self._object_attempting_to_be_grasped: Object = None
+        self._prev_action: Optional[Action] = None
         self._curr_task_objects: Set[Object] = set()
         assert CFG.env == "spot_bike_env"
-        self._curr_env: SpotBikeEnv = None
+        self._curr_env: Optional[BaseEnv] = None
 
     @classmethod
     def get_name(cls) -> str:
@@ -37,8 +34,8 @@ class SpotBikePerceiver(BasePerceiver):
         # We currently have hardcoded logic that expects
         # certain items to be in the state; we can generalize
         # this later.
-        assert set("hex_key", "hammer", "hex_screwdriver",
-                   "brush").issubset(obj.name
+        assert set(["hex_key", "hammer", "hex_screwdriver",
+                   "brush"]).issubset(obj.name
                                      for obj in self._curr_task_objects)
         self._curr_env = get_or_create_env("spot_bike_env")
         assert isinstance(self._curr_env, SpotBikeEnv)
@@ -50,8 +47,8 @@ class SpotBikePerceiver(BasePerceiver):
     def step(self, observation: Observation) -> State:
         assert isinstance(observation, _PartialPerceptionState)
         if self._prev_action is not None:
-            assert self._curr_env is not None
-            controller_name, objects, _ = self._curr_env._parse_action(
+            assert self._curr_env is not None and isinstance(self._curr_env, SpotBikeEnv)
+            controller_name, objects, _ = self._curr_env.parse_action(
                 observation, self._prev_action)
             if "grasp" in controller_name.lower():
                 # We know that the object that we attempted to grasp was

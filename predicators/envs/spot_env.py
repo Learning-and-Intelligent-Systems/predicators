@@ -132,8 +132,11 @@ class SpotEnv(BaseEnv):
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
-    def _parse_action(self, state: State,
+    def parse_action(self, state: State,
                       action: Action) -> Tuple[str, List[Object], Array]:
+        """(Only for this environment) A convenience method that converts
+        low-level actions into more interpretable high-level actions by
+        exploiting knowledge of how we encode actions."""
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
@@ -197,7 +200,7 @@ class SpotEnv(BaseEnv):
         assert isinstance(state, _PartialPerceptionState)
         assert self.action_space.contains(action.arr)
         # Parse the action into the components needed for a controller.
-        name, objects, params = self._parse_action(state, action)
+        name, objects, params = self.parse_action(state, action)
         # Execute the controller in the real environment.
         current_atoms = utils.abstract(state, self.predicates)
         self._spot_interface.execute(name, current_atoms, objects, params)
