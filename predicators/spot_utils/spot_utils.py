@@ -94,7 +94,7 @@ OBJECT_GRASP_OFFSET = {
     "hex_screwdriver": (0, 0),
 }
 
-COMMAND_TIMEOUT = 10.0
+COMMAND_TIMEOUT = 20.0
 
 
 def _find_object_center(img: Image,
@@ -752,6 +752,7 @@ class _SpotInterface():
             time.sleep(1)
         if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
             logging.info("Timed out waiting for movement to execute!")
+        return False
 
 
 @functools.lru_cache(maxsize=None)
