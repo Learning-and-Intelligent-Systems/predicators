@@ -408,11 +408,11 @@ class _SpotInterface():
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
             # Define the AprilTags detector options and then detect the tags.
-            self.robot.logger("[INFO] detecting AprilTags...")
+            self.robot.logger.info("[INFO] detecting AprilTags...")
             options = apriltag.DetectorOptions(families="tag36h11")
             detector = apriltag.Detector(options)
             results = detector.detect(gray)
-            self.robot.logger(f"[INFO] {len(results)} AprilTags detected")
+            self.robot.logger.info(f"[INFO] {len(results)} AprilTags detected")
 
             # Make center of first Apriltag found as grasp location.
             # If None are found grasp will remain None and default to click
