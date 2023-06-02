@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import time
-from typing import Any, Dict, Sequence, Set, Tuple
+from typing import Any, Dict, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -80,7 +80,8 @@ OBJECT_COLOR_BOUNDS = {
 }
 
 
-def _find_object_center(img: Image, obj_name: str) -> Tuple[int, int]:
+def _find_object_center(img: Image,
+                        obj_name: str) -> Optional[Tuple[int, int]]:
     # Copy to make sure we don't modify the image.
     img = img.copy()
 
@@ -100,6 +101,10 @@ def _find_object_center(img: Image, obj_name: str) -> Tuple[int, int]:
     # Connected components with stats.
     nb_components, _, stats, centroids = cv2.connectedComponentsWithStats(
         mask, connectivity=4)
+
+    # Fail if nothing found.
+    if nb_components <= 1:
+        return None
 
     # Find the largest non background component.
     # Note: range() starts from 1 since 0 is the background label.
@@ -443,12 +448,6 @@ class _SpotInterface():
         else:
             img = cv2.imdecode(img, -1)
 
-        # Show the image to the user and wait for them to click on a pixel
-        self.robot.logger.info('Click on an object to start grasping...')
-        image_title = 'Click to grasp'
-        cv2.namedWindow(image_title)
-        cv2.setMouseCallback(image_title, self.cv_mouse_callback)
-
         # pylint: disable=global-variable-not-assigned, global-statement
         global g_image_click, g_image_display
 
@@ -474,6 +473,11 @@ class _SpotInterface():
                 g_image_click = _find_object_center(img, obj.name)
 
         if g_image_click is None:
+            # Show the image to the user and wait for them to click on a pixel
+            self.robot.logger.info('Click on an object to start grasping...')
+            image_title = 'Click to grasp'
+            cv2.namedWindow(image_title)
+            cv2.setMouseCallback(image_title, self.cv_mouse_callback)
             g_image_display = img
             cv2.imshow(image_title, g_image_display)
 
