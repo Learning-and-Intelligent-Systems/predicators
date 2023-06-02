@@ -8,6 +8,7 @@ import sys
 import time
 from typing import Any, Dict, Sequence, Set
 
+import apriltag
 import bosdyn.client
 import bosdyn.client.estop
 import bosdyn.client.lease
@@ -402,23 +403,23 @@ class _SpotInterface():
         g_image_display = img
         cv2.imshow(image_title, g_image_display)
 
-        ####
-        import apriltag
+        if CFG.spot_grasp_use_apriltag:
+            # Convert Image to grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # load the input image and convert it to grayscale
-        print("[INFO] loading image...")
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # Define the AprilTags detector options and then detect the tags.
+            print("[INFO] detecting AprilTags...")
+            options = apriltag.DetectorOptions(families="tag36h11")
+            detector = apriltag.Detector(options)
+            results = detector.detect(gray)
+            print(f"[INFO] {len(results)} total AprilTags detected")
 
-        # define the AprilTags detector options and then detect the AprilTags
-        # in the input image
-        print("[INFO] detecting AprilTags...")
-        options = apriltag.DetectorOptions(families="tag36h11")
-        detector = apriltag.Detector(options)
-        results = detector.detect(gray)
-        print("[INFO] {} total AprilTags detected".format(len(results)))
-        g_image_click = results[0].center
+            # Make center of first Apriltag found as grasp location.
+            # If None are found grasp will remain None and default to click
+            # based grasping.
+            if len(results) > 0:
+                g_image_click = results[0].center
 
-        ####
         while g_image_click is None:
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == ord('Q'):
