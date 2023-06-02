@@ -493,6 +493,14 @@ class _SpotInterface():
                 print('"q" pressed, exiting.')
                 sys.exit()
 
+        # Uncomment to debug.
+        # g_image_display = img.copy()
+        # image_title = "Selected grasp"
+        # cv2.namedWindow(image_title)
+        # cv2.circle(g_image_display, g_image_click, 3, (0, 255, 0), 3)
+        # cv2.imshow(image_title, g_image_display)
+        # cv2.waitKey(0)
+
         # pylint: disable=unsubscriptable-object
         self.robot.\
             logger.info(f"Object at ({g_image_click[0]}, {g_image_click[1]})")
