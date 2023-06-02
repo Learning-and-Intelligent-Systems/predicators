@@ -32,6 +32,7 @@ setup(
         "types-PyYAML",
         "lisdf",
         "seaborn",
+        "apriltag",
         "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
         "bosdyn-client >= 3.1",
         "opencv-python >= 3.4.2.17",

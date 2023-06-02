@@ -8,6 +8,7 @@ import sys
 import time
 from typing import Any, Dict, Sequence, Set
 
+import apriltag
 import bosdyn.client
 import bosdyn.client.estop
 import bosdyn.client.lease
@@ -401,6 +402,24 @@ class _SpotInterface():
         global g_image_click, g_image_display
         g_image_display = img
         cv2.imshow(image_title, g_image_display)
+
+        if CFG.spot_grasp_use_apriltag:
+            # Convert Image to grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            # Define the AprilTags detector options and then detect the tags.
+            self.robot.logger("[INFO] detecting AprilTags...")
+            options = apriltag.DetectorOptions(families="tag36h11")
+            detector = apriltag.Detector(options)
+            results = detector.detect(gray)
+            self.robot.logger(f"[INFO] {len(results)} AprilTags detected")
+
+            # Make center of first Apriltag found as grasp location.
+            # If None are found grasp will remain None and default to click
+            # based grasping.
+            if len(results) > 0:
+                g_image_click = results[0].center
+
         while g_image_click is None:
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == ord('Q'):
