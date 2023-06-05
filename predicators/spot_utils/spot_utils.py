@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import time
-from typing import Any, Dict, Sequence, Set
+from typing import Any, Dict, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -34,7 +34,7 @@ from gym.spaces import Box
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.structs import Array, GroundAtom, Object
+from predicators.structs import Array, GroundAtom, Image, Object
 
 g_image_click = None
 g_image_display = None
@@ -69,6 +69,77 @@ obj_name_to_apriltag_id = {
     "hex_key": "403",
     "hex_screwdriver": "404"
 }
+
+OBJECT_CROPS = {
+    # min_x, max_x, min_y, max_y
+    "hammer": (160, 450, 160, 350),
+    "hex_key": (160, 450, 160, 350),
+    "brush": (100, 400, 350, 480),
+    "hex_screwdriver": (100, 400, 350, 480),
+}
+
+OBJECT_COLOR_BOUNDS = {
+    # (min B, min G, min R), (max B, max G, max R)
+    "hammer": ((0, 0, 50), (40, 40, 200)),
+    "hex_key": ((0, 50, 50), (40, 150, 200)),
+    "brush": ((0, 100, 200), (80, 255, 255)),
+    "hex_screwdriver": ((0, 0, 50), (40, 40, 200)),
+}
+
+OBJECT_GRASP_OFFSET = {
+    # dx, dy
+    "hammer": (0, 0),
+    "hex_key": (0, 50),
+    "brush": (0, 0),
+    "hex_screwdriver": (0, 0),
+}
+
+COMMAND_TIMEOUT = 20.0
+
+
+def _find_object_center(img: Image,
+                        obj_name: str) -> Optional[Tuple[int, int]]:
+    # Copy to make sure we don't modify the image.
+    img = img.copy()
+
+    # Crop
+    crop_min_x, crop_max_x, crop_min_y, crop_max_y = OBJECT_CROPS[obj_name]
+    cropped_img = img[crop_min_y:crop_max_y, crop_min_x:crop_max_x]
+
+    # Mask color.
+    lo, hi = OBJECT_COLOR_BOUNDS[obj_name]
+    lower = np.array(lo)
+    upper = np.array(hi)
+    mask = cv2.inRange(cropped_img, lower, upper)
+
+    # Apply blur.
+    mask = cv2.GaussianBlur(mask, (5, 5), 0)
+
+    # Connected components with stats.
+    nb_components, _, stats, centroids = cv2.connectedComponentsWithStats(
+        mask, connectivity=4)
+
+    # Fail if nothing found.
+    if nb_components <= 1:
+        return None
+
+    # Find the largest non background component.
+    # Note: range() starts from 1 since 0 is the background label.
+    max_label, _ = max(
+        ((i, stats[i, cv2.CC_STAT_AREA]) for i in range(1, nb_components)),
+        key=lambda x: x[1])
+
+    cropped_x, cropped_y = map(int, centroids[max_label])
+
+    x = cropped_x + crop_min_x
+    y = cropped_y + crop_min_y
+
+    # Apply offset.
+    dx, dy = OBJECT_GRASP_OFFSET[obj_name]
+    x = np.clip(x + dx, 0, img.shape[1])
+    y = np.clip(y + dy, 0, img.shape[0])
+
+    return (x, y)
 
 
 # pylint: disable=no-member
@@ -400,16 +471,8 @@ class _SpotInterface():
         else:
             img = cv2.imdecode(img, -1)
 
-        # Show the image to the user and wait for them to click on a pixel
-        self.robot.logger.info('Click on an object to start grasping...')
-        image_title = 'Click to grasp'
-        cv2.namedWindow(image_title)
-        cv2.setMouseCallback(image_title, self.cv_mouse_callback)
-
         # pylint: disable=global-variable-not-assigned, global-statement
         global g_image_click, g_image_display
-        g_image_display = img
-        cv2.imshow(image_title, g_image_display)
 
         if CFG.spot_grasp_use_apriltag:
             # Convert Image to grayscale
@@ -425,12 +488,33 @@ class _SpotInterface():
                 if str(result.tag_id) == obj_name_to_apriltag_id[obj.name]:
                     g_image_click = results[0].center
 
+        elif CFG.spot_grasp_use_cv2:
+            if obj.name in ["hammer", "hex_key", "brush", "hex_screwdriver"]:
+                g_image_click = _find_object_center(img, obj.name)
+
+        if g_image_click is None:
+            # Show the image to the user and wait for them to click on a pixel
+            self.robot.logger.info('Click on an object to start grasping...')
+            image_title = 'Click to grasp'
+            cv2.namedWindow(image_title)
+            cv2.setMouseCallback(image_title, self.cv_mouse_callback)
+            g_image_display = img
+            cv2.imshow(image_title, g_image_display)
+
         while g_image_click is None:
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == ord('Q'):
                 # Quit
                 print('"q" pressed, exiting.')
                 sys.exit()
+
+        # Uncomment to debug.
+        # g_image_display = img.copy()
+        # image_title = "Selected grasp"
+        # cv2.namedWindow(image_title)
+        # cv2.circle(g_image_display, g_image_click, 3, (0, 255, 0), 3)
+        # cv2.imshow(image_title, g_image_display)
+        # cv2.waitKey(0)
 
         # pylint: disable=unsubscriptable-object
         self.robot.\
@@ -457,8 +541,9 @@ class _SpotInterface():
         cmd_response = self.manipulation_api_client.manipulation_api_command(
             manipulation_api_request=grasp_request)
 
-        # Get feedback from the robot
-        while True:
+        # Get feedback from the robot and execute grasping.
+        start_time = time.perf_counter()
+        while (time.perf_counter() - start_time) <= COMMAND_TIMEOUT:
             feedback_request = manipulation_api_pb2.\
                 ManipulationApiFeedbackRequest(manipulation_cmd_id=\
                     cmd_response.manipulation_cmd_id)
@@ -476,6 +561,8 @@ class _SpotInterface():
                 MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2.\
                 MANIP_STATE_GRASP_FAILED]:
                 break
+        if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
+            logging.info("Timed out waiting for grasp to execute!")
 
         time.sleep(1.0)
         g_image_click = None
@@ -642,13 +729,12 @@ class _SpotInterface():
             goal_heading=out_tform_goal.angle,
             frame_name=ODOM_FRAME_NAME,
             params=RobotCommandBuilder.mobility_params(stair_hint=stairs))
-        end_time = 10.0
         cmd_id = self.robot_command_client.robot_command(
             lease=None,
             command=robot_cmd,
-            end_time_secs=time.time() + end_time)
-        # Wait until the robot has reached the goal.
-        while True:
+            end_time_secs=time.time() + COMMAND_TIMEOUT)
+        start_time = time.perf_counter()
+        while (time.perf_counter() - start_time) <= COMMAND_TIMEOUT:
             feedback = self.robot_command_client.\
                 robot_command_feedback(cmd_id)
             mobility_feedback = feedback.feedback.\
@@ -664,6 +750,9 @@ class _SpotInterface():
                 logging.info("Arrived at the goal.")
                 return True
             time.sleep(1)
+        if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
+            logging.info("Timed out waiting for movement to execute!")
+        return False
 
 
 @functools.lru_cache(maxsize=None)
