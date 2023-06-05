@@ -264,7 +264,9 @@ class SpotEnv(BaseEnv):
         # dr-reachable errors. We should remove this once we have actual
         # predicate functions implemented for all our predicates.
         if CFG.execution_monitor == "expected_atoms":
-            next_ground_atoms |= ground_op.delete_effects
+            # TODO: this crosses the line into do-not-merge, but let's see
+            # if it works.
+            next_ground_atoms |= {a for a in ground_op.delete_effects if "Reachable" not in str(a)}
 
         # Return only the atoms for the non-continuous-feature predicates.
         return {
@@ -712,7 +714,8 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {
             LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachableTool, [spot, tool]),
         }
         self._GraspToolFromNotHighOp = STRIPSOperator("GraspToolFromNotHigh",
                                                       [spot, tool, surface],
@@ -729,7 +732,10 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._HoldingPlatformLeash, [spot, platform]),
             LiftedAtom(self._notHandEmpty, [spot])
         }
-        del_effs = {LiftedAtom(self._HandEmpty, [spot])}
+        del_effs = {
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachablePlatform, [spot, platform]),
+        }
         self._GraspPlatformLeashOp = STRIPSOperator("GraspPlatformLeash",
                                                     [spot, platform], preconds,
                                                     add_effs, del_effs, set())
@@ -771,7 +777,8 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {
             LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachableTool, [spot, tool]),
         }
         self._GraspToolFromHighOp = STRIPSOperator(
             "GraspToolFromHigh", [spot, tool, platform, surface], preconds,
@@ -785,9 +792,12 @@ class SpotBikeEnv(SpotEnv):
         }
         add_effs = {
             LiftedAtom(self._HoldingBag, [spot, bag]),
-            LiftedAtom(self._notHandEmpty, [spot])
+            LiftedAtom(self._notHandEmpty, [spot]),
         }
-        del_effs = {LiftedAtom(self._HandEmpty, [spot])}
+        del_effs = {
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachableBag, [spot, bag]),
+        }
         self._GraspBagOp = STRIPSOperator("GraspBag", [spot, bag], preconds,
                                           add_effs, del_effs, set())
         # PlaceToolOnNotHighSurface
@@ -806,7 +816,8 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot])
+            LiftedAtom(self._notHandEmpty, [spot]),
+            LiftedAtom(self._XYReachableSurface, [spot, surface]),
         }
         self._PlaceToolNotHighOp = STRIPSOperator("PlaceToolNotHigh",
                                                   [spot, tool, surface],
@@ -827,7 +838,8 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot])
+            LiftedAtom(self._notHandEmpty, [spot]),
+            LiftedAtom(self._ReachableBag, [spot, bag]),
         }
         self._PlaceIntoBagOp = STRIPSOperator("PlaceIntoBag",
                                               [spot, tool, bag], preconds,
