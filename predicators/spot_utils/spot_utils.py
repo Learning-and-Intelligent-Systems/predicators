@@ -612,7 +612,8 @@ class _SpotInterface():
             body_T_hand = get_a_tform_b(
                 robot_state.kinematic_state.transforms_snapshot,
                 BODY_FRAME_NAME, "hand")
-            qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x, body_T_hand.rot.y, body_T_hand.rot.z
+            qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x,\
+                body_T_hand.rot.y, body_T_hand.rot.z
         else:
             # Set downward place rotation as a quaternion.
             qw = np.cos((np.pi / 4))
