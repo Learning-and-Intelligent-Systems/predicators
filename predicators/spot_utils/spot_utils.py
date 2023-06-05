@@ -261,13 +261,18 @@ class _SpotInterface():
             img = cv2.imdecode(img, -1)
 
         # detect given fiducial in image and return the bounding box of it
-        bboxes = self.detect_fiducial_in_image(img, (width, height), source_name)
+        bboxes, ids = self.detect_fiducial_in_image(img, (width, height), source_name)
         assert bboxes
-        tvec = self.pixel_coords_to_camera_coords(bboxes, self._intrinsics, source_name)
-        vision_tform_fiducial_position = self.compute_fiducial_in_world_frame(tvec)
-        fiducial_rt_world = geometry_pb2.Vec3(x=vision_tform_fiducial_position[0],
-                                                y=vision_tform_fiducial_position[1],
-                                                z=vision_tform_fiducial_position[2])
+        def bbox_to_coords(bbox):
+            bboxes = [bbox]
+            tvec = self.pixel_coords_to_camera_coords(bboxes, self._intrinsics, source_name)
+            vision_tform_fiducial_position = self.compute_fiducial_in_world_frame(tvec)
+            fiducial_rt_world = geometry_pb2.Vec3(x=vision_tform_fiducial_position[0],
+                                                    y=vision_tform_fiducial_position[1],
+                                                    z=vision_tform_fiducial_position[2])
+            return fiducial_rt_world
+        for i, bbox in enumerate(bboxes):
+            print("id:", ids[i],"fiducial_rt_world:", bbox_to_coords(bbox))
         
         import ipdb; ipdb.set_trace()
 
@@ -285,6 +290,7 @@ class _SpotInterface():
         detections = detector.detect(image_grey)
 
         bboxes = []
+        ids = []
         for r in detections:
 
             # extract the bounding box (x, y)-coordinates for the AprilTag
@@ -302,11 +308,12 @@ class _SpotInterface():
 
             #['lb-rb-rt-lt']
             bboxes.append((bottom_left, bottom_right, top_right, top_left))
+            ids.append(r.tag_id)
 
         cv2.imwrite("bbox.png", img)
         # import ipdb; ipdb.set_trace()
 
-        return bboxes
+        return bboxes, ids
 
     def compute_fiducial_in_world_frame(self, tvec):
         """Transform the tag position from camera coordinates to world coordinates."""
