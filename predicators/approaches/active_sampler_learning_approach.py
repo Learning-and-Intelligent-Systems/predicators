@@ -16,7 +16,8 @@ Bumpy cover easy:
         --num_test_tasks 10 \
         --max_num_steps_interaction_request 10 \
         --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1
+        --bumpy_cover_spaces_per_bump 1 \
+        --mlp_classifier_balance_data False
 
 
 Bumpy cover medium:
@@ -30,7 +31,8 @@ Bumpy cover medium:
         --max_initial_demos 1 \
         --num_train_tasks 1000 \
         --num_test_tasks 10 \
-        --max_num_steps_interaction_request 100
+        --max_num_steps_interaction_request 100 \
+        --mlp_classifier_balance_data False
 
 TODO: do we actually need this new class? Probably yes because we need to try to solve the
 training tasks first and then explore. But maybe that's just an explorer?

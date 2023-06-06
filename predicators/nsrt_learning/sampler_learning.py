@@ -415,11 +415,36 @@ class _ResidualSampler:
             goal_obj = goal_atom.objects[0]
             x_lst.extend(state[goal_obj])  # add goal state
         x = np.array(x_lst)
+
+
+        # TODO obviously remove
+        if "Holding" in str(goal):
+            assert len(objects) == 1
+            from predicators.envs import get_or_create_env
+            from matplotlib import pyplot as plt
+            env = get_or_create_env(CFG.env)
+            fig = env.render_state_plt(state, None)
+            ax = fig.axes[0]
+            candidates = np.linspace(0.0, 1.0, num=1000)
+            predictions = []
+            for candidate in candidates:
+                prediction = self._classifier.classify(np.r_[x, [candidate]])
+                predictions.append(prediction)
+                color = 'g' if prediction else 'r'
+                circle = plt.Circle((candidate, -0.16), 0.001, color=color, alpha=0.1)
+                ax.add_patch(circle)
+            fig.savefig('debug.png')
+            import ipdb; ipdb.set_trace()
+
+
         num_rejections = 0
         while num_rejections <= CFG.max_rejection_sampling_tries:
             params = self._base_sampler(state, goal, rng, objects)
             if self._param_option.params_space.contains(params) and \
                self._classifier.classify(np.r_[x, params]):
+                print(f"Found params after {num_rejections} sampling attempts")
                 break
             num_rejections += 1
+        else:
+            print("PARAMS NOT FOUND")
         return params
