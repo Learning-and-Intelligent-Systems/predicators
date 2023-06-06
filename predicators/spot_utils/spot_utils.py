@@ -231,7 +231,7 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-        source_name = "frontright_fisheye_image"
+        source_name = "front_fisheye_image"
 
 
         img_req = build_image_request(source_name, quality_percent=100,
@@ -259,20 +259,39 @@ class _SpotInterface():
             img = img.reshape(image_response[0].shot.image.rows, image_response[0].shot.image.cols)
         else:
             img = cv2.imdecode(img, -1)
+        cv2.imwrite("fid.jpg", self.rotate_image(img, source_name))
 
         # detect given fiducial in image and return the bounding box of it
         bboxes, ids = self.detect_fiducial_in_image(img, (width, height), source_name)
         assert bboxes
-        def bbox_to_coords(bbox):
-            bboxes = [bbox]
-            tvec = self.pixel_coords_to_camera_coords(bboxes, self._intrinsics, source_name)
-            vision_tform_fiducial_position = self.compute_fiducial_in_world_frame(tvec)
+        def apriltag_id_to_coords(tag_id):
+            # tvec = self.pixel_coords_to_camera_coords(bboxes, self._intrinsics, source_name)
+            options = apriltag.DetectorOptions(families="tag36h11")
+            # TODO check ^ options to see if height is set there or if the better refine pose flag is not checked
+            options.refine_pose = 1
+            detector = apriltag.Detector(options)
+            # Rotate each image such that it is upright
+            image_grey = cv2.cvtColor(self.rotate_image(img, source_name), cv2.COLOR_BGR2GRAY)
+            detections = detector.detect(image_grey)
+            detection = [d for d in detections if d.tag_id == tag_id][0]
+            pose = detector.detection_pose(detection, (self._intrinsics.focal_length.x, self._intrinsics.focal_length.y, self._intrinsics.principal_point.x, self._intrinsics.principal_point.y), 76.2)[0]
+            tx, ty, tz, tw = pose[:, -1]
+            print("Pose in inches:", tx*0.0393701, ty*0.0393701, tz*0.0393701)
+            # Convert to ...:
+            # tx = 1000 * tx
+            # ty = 1000 * ty
+            # tz = 1000 * tz
+            assert np.isclose(tw, 1.0)
+            vision_tform_fiducial_position = self.compute_fiducial_in_world_frame([tx, ty, tz])
             fiducial_rt_world = geometry_pb2.Vec3(x=vision_tform_fiducial_position[0],
                                                     y=vision_tform_fiducial_position[1],
-                                                    z=vision_tform_fiducial_position[2])
+                                                    z=vision_tform_fiducial_position[2],
+                                                    )
             return fiducial_rt_world
-        for i, bbox in enumerate(bboxes):
-            print("id:", ids[i],"fiducial_rt_world:", bbox_to_coords(bbox))
+        for tag_id in ids:
+            if 401 == tag_id:
+                print("id:", tag_id,"\nfiducial_rt_world:\n", apriltag_id_to_coords(tag_id))
+        print("Robot pose", self._body_tform_world.x, self._body_tform_world.y, self._body_tform_world.z, self._body_tform_world.rot)
         
         import ipdb; ipdb.set_trace()
 
@@ -318,9 +337,9 @@ class _SpotInterface():
     def compute_fiducial_in_world_frame(self, tvec):
         """Transform the tag position from camera coordinates to world coordinates."""
         fiducial_rt_camera_frame = np.array(
-            [float(tvec[0][0]) / 1000.0,
-             float(tvec[1][0]) / 1000.0,
-             float(tvec[2][0]) / 1000.0])
+            [float(tvec[0]) / 1000.0,
+             float(tvec[1]) / 1000.0,
+             float(tvec[2]) / 1000.0])
         body_tform_fiducial = (self._camera_tform_body.inverse()).transform_point(
             fiducial_rt_camera_frame[0], fiducial_rt_camera_frame[1], fiducial_rt_camera_frame[2])
         fiducial_rt_world = self._body_tform_world.inverse().transform_point(
@@ -331,7 +350,7 @@ class _SpotInterface():
         """Determine the object points and image points for the bounding box.
            The origin in object coordinates = top left corner of the fiducial.
            Order both points sets following: (TL,TR, BL, BR)"""
-        fiducial_height_and_width = 146  #mm
+        fiducial_height_and_width = 146  #mm #76.2
         obj_pts = np.array([[0, 0], [fiducial_height_and_width, 0], [0, fiducial_height_and_width],
                             [fiducial_height_and_width, fiducial_height_and_width]],
                            dtype=np.float32)
