@@ -7,6 +7,7 @@ Bumpy cover easy:
     python predicators/main.py --approach active_sampler_learning --env bumpy_cover \
         --seed 0 \
         --strips_learner oracle \
+        --sampler_learner oracle_residual \
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
