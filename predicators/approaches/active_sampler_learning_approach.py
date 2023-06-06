@@ -14,10 +14,23 @@ Bumpy cover easy:
         --max_initial_demos 1 \
         --num_train_tasks 1000 \
         --num_test_tasks 10 \
-        --max_num_steps_interaction_request 100 \
+        --max_num_steps_interaction_request 10 \
         --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1 \
-        --bumpy_cover_thr_percent 1.0
+        --bumpy_cover_spaces_per_bump 1
+
+
+Bumpy cover medium:
+    python predicators/main.py --approach active_sampler_learning --env bumpy_cover \
+        --seed 0 \
+        --strips_learner oracle \
+        --sampler_learner oracle_residual \
+        --bilevel_plan_without_sim True \
+        --offline_data_bilevel_plan_without_sim False \
+        --explorer random_nsrts \
+        --max_initial_demos 1 \
+        --num_train_tasks 1000 \
+        --num_test_tasks 10 \
+        --max_num_steps_interaction_request 100
 
 TODO: do we actually need this new class? Probably yes because we need to try to solve the
 training tasks first and then explore. But maybe that's just an explorer?
