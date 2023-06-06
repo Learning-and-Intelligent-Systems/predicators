@@ -2,7 +2,6 @@
 
 import functools
 import logging
-import math
 import os
 import re
 import sys
@@ -231,15 +230,20 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def get_apriltag_pose_from_camera(self,
-                                      source_name: str = "left_fisheye_image",
-                                      fiducial_size: float = 76.2):
+    def get_apriltag_pose_from_camera(
+            self,
+            source_name: str = "hand_color_image",
+            fiducial_size: float = 76.2
+    ) -> Dict[int, Tuple[float, float, float]]:
         """Get the poses of all fiducials in camera view.
 
         This only works with these camera sources: "hand_color_image",
         "back_fisheye_image", "left_fisheye_image". Also, the fiducial
         size has to be correctly defined in arguments (in mm). Also, it
         only works for tags that start with "40" in their ID.
+
+        Returns a dict mapping the integer of the tag id to an (x, y, z)
+        position tuple in the map frame.
         """
 
         # Get image  and camera transform from source_name.
@@ -254,7 +258,7 @@ class _SpotInterface():
             image_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
 
         # Camera intrinsics for the given source camera.
-        self._intrinsics = image_response[0].source.pinhole.intrinsics
+        intrinsics = image_response[0].source.pinhole.intrinsics
 
         # Format image befor detecting apriltags.
         if image_response[0].shot.image.pixel_format == image_pb2.Image.\
@@ -279,14 +283,13 @@ class _SpotInterface():
         options.refine_pose = 1
         detector = apriltag.Detector(options)
         detections = detector.detect(image_grey)
-        obj_poses = {}
+        obj_poses: Dict[int, Tuple[float, float, float]] = {}
         # For every detection find location in graph_nav frame.
         for detection in detections:
             pose = detector.detection_pose(
-                detection, (self._intrinsics.focal_length.x,
-                            self._intrinsics.focal_length.y,
-                            self._intrinsics.principal_point.x,
-                            self._intrinsics.principal_point.y),
+                detection,
+                (intrinsics.focal_length.x, intrinsics.focal_length.y,
+                 intrinsics.principal_point.x, intrinsics.principal_point.y),
                 fiducial_size)[0]
             tx, ty, tz, tw = pose[:, -1]
             assert np.isclose(tw, 1.0)
@@ -302,8 +305,8 @@ class _SpotInterface():
 
             # Get graph_nav to body frame.
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            state = self.graph_nav_command_line._graph_nav_client.get_localization_state(
-            )
+            state = self.graph_nav_command_line.graph_nav_client.\
+                get_localization_state()
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
@@ -319,7 +322,7 @@ class _SpotInterface():
         return obj_poses
 
     @staticmethod
-    def rotate_image(image, source_name):
+    def rotate_image(image: Array, source_name: str) -> Array:
         """Rotate the image so that it is always displayed upright."""
         if source_name == "frontleft_fisheye_image":
             image = cv2.rotate(image, rotateCode=0)

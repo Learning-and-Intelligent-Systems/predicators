@@ -46,7 +46,7 @@ class GraphNavInterface():
         self._lease_keepalive = lease_keepalive
 
         # Create the client for the Graph Nav main service.
-        self._graph_nav_client = self._robot.ensure_client(
+        self.graph_nav_client = self._robot.ensure_client(
             GraphNavClient.default_service_name)
 
         # Create a power client for the robot.
@@ -94,7 +94,7 @@ class GraphNavInterface():
 
     def get_localization_state(self) -> None:
         """Get the current localization and state of the robot."""
-        state = self._graph_nav_client.get_localization_state()
+        state = self.graph_nav_client.get_localization_state()
         print(f'Got localization: \n{str(state.localization)}')
         odom_tform_body = get_odom_tform_body(
             state.robot_kinematics.transforms_snapshot)
@@ -108,7 +108,7 @@ class GraphNavInterface():
         # Create an empty instance for initial localization since we are
         # asking it to localize based on the nearest fiducial.
         localization = nav_pb2.Localization()
-        self._graph_nav_client.set_localization(
+        self.graph_nav_client.set_localization(
             initial_guess_localization=localization,
             ko_tform_body=current_odom_tform_body)
 
@@ -118,13 +118,13 @@ class GraphNavInterface():
         del args
 
         # Download current graph
-        graph = self._graph_nav_client.download_graph()
+        graph = self.graph_nav_client.download_graph()
         if graph is None:
             print("Empty graph.")
             return
         self._current_graph = graph
 
-        localization_id = self._graph_nav_client.get_localization_state(
+        localization_id = self.graph_nav_client.get_localization_state(
         ).localization.waypoint_id
 
         # Update and print waypoints and edges
@@ -168,22 +168,22 @@ class GraphNavInterface():
         # Upload the graph to the robot.
         print("Uploading the graph and snapshots to the robot...")
         true_if_empty = not len(self._current_graph.anchoring.anchors)
-        response = self._graph_nav_client.upload_graph(
+        response = self.graph_nav_client.upload_graph(
             graph=self._current_graph, generate_new_anchoring=true_if_empty)
         # Upload the snapshots to the robot.
         for snapshot_id in response.unknown_waypoint_snapshot_ids:
             waypoint_snapshot = self._current_waypoint_snapshots[snapshot_id]
-            self._graph_nav_client.upload_waypoint_snapshot(waypoint_snapshot)
+            self.graph_nav_client.upload_waypoint_snapshot(waypoint_snapshot)
             print(f"Uploaded {waypoint_snapshot.id}")
         for snapshot_id in response.unknown_edge_snapshot_ids:
             edge_snapshot = self._current_edge_snapshots[snapshot_id]
-            self._graph_nav_client.upload_edge_snapshot(edge_snapshot)
+            self.graph_nav_client.upload_edge_snapshot(edge_snapshot)
             print(f"Uploaded {edge_snapshot.id}")
 
         # The upload is complete! Check that the robot is localized to the
         # graph, and if it is not, prompt the user to localize the robot
         # before attempting any navigation commands.
-        localization_state = self._graph_nav_client.get_localization_state()
+        localization_state = self.graph_nav_client.get_localization_state()
         if not localization_state.localization.waypoint_id:
             # The robot is not localized to the newly uploaded graph.
             print("\n")
@@ -208,8 +208,7 @@ class GraphNavInterface():
         if len(args[0]) in [4, 7]:
             seed_T_goal.z = float(args[0][2])
         else:
-            localization_state = self._graph_nav_client.get_localization_state(
-            )
+            localization_state = self.graph_nav_client.get_localization_state()
             if not localization_state.localization.waypoint_id:
                 print("Robot not localized")
                 return
@@ -238,7 +237,7 @@ class GraphNavInterface():
             # easy to terminate the navigation command (with estop or killing
             # the program).
             try:
-                nav_to_cmd_id = self._graph_nav_client.navigate_to_anchor(
+                nav_to_cmd_id = self.graph_nav_client.navigate_to_anchor(
                     seed_T_goal.to_proto(), 1.0, command_id=nav_to_cmd_id)
             except ResponseError as e:
                 print(f"Error while navigating {e}")
@@ -275,7 +274,7 @@ class GraphNavInterface():
             # it is easy to terminate the navigation command (with estop or
             # killing the program).
             try:
-                nav_to_cmd_id = self._graph_nav_client.navigate_to(
+                nav_to_cmd_id = self.graph_nav_client.navigate_to(
                     destination_waypoint, 1.0, command_id=nav_to_cmd_id)
             except ResponseError as e:
                 print(f"Error while navigating {e}")
@@ -329,7 +328,7 @@ class GraphNavInterface():
         if command_id == -1:
             # No command, so we have no status to check.
             return False
-        status = self._graph_nav_client.navigation_feedback(command_id)
+        status = self.graph_nav_client.navigation_feedback(command_id)
         if status.status == \
             graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL:
             # Successfully completed the navigation commands!
