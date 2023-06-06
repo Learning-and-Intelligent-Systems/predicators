@@ -231,7 +231,7 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-        source_name = "front_fisheye_image"
+        source_name = "back_fisheye_image"
 
 
         img_req = build_image_request(source_name, quality_percent=100,
