@@ -380,6 +380,7 @@ class _SpotInterface():
                 raise NotImplementedError
 
         self.navigate_to(waypoint_id, params)
+        self.stow_arm()
 
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
@@ -411,8 +412,9 @@ class _SpotInterface():
         """
         print("PlaceOntop", objs)
         assert len(params) == 3
-        self.hand_movement(params)
+        self.hand_movement(params, keep_hand_pose=False)
         time.sleep(1.0)
+        self.stow_arm()
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
@@ -683,23 +685,40 @@ class _SpotInterface():
         self.robot.logger.info(cmd_response)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()
-        stow_command_id = self.robot_command_client.robot_command(stow_cmd)
+        gripper_close_command = RobotCommandBuilder.\
+            claw_gripper_open_fraction_command(0.0)
+        # Combine the arm and gripper commands into one RobotCommand
+        stow_and_close_command = RobotCommandBuilder.build_synchro_command(
+            gripper_close_command, stow_cmd)
+        stow_and_close_command_id = self.robot_command_client.robot_command(
+            stow_and_close_command)
         self.robot.logger.info("Stow command issued.")
-        block_until_arm_arrives(self.robot_command_client, stow_command_id,
-                                3.0)
-        time.sleep(1.0)
+        block_until_arm_arrives(self.robot_command_client,
+                                stow_and_close_command_id, 3.0)
 
-    def hand_movement(self, params: Array, open_gripper: bool = True) -> None:
+    def hand_movement(self,
+                      params: Array,
+                      open_gripper: bool = True,
+                      keep_hand_pose: bool = True) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
 
-        # Rotation as a quaternion
-        qw = np.cos((np.pi / 4) / 2)
-        qx = 0
-        qy = np.sin((np.pi / 4) / 2)
-        qz = 0
+        if keep_hand_pose:
+            # Get current hand quaternion.
+            robot_state = self.robot_state_client.get_robot_state()
+            body_T_hand = get_a_tform_b(
+                robot_state.kinematic_state.transforms_snapshot,
+                BODY_FRAME_NAME, "hand")
+            qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x,\
+                body_T_hand.rot.y, body_T_hand.rot.z
+        else:
+            # Set downward place rotation as a quaternion.
+            qw = np.cos((np.pi / 4))
+            qx = 0
+            qy = np.sin((np.pi / 4))
+            qz = 0
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
         # Make the arm pose RobotCommand
@@ -767,18 +786,6 @@ class _SpotInterface():
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
         time.sleep(2)
-        # Finally, stow the arm and close the gripper.
-        stow_cmd = RobotCommandBuilder.arm_stow_command()
-        gripper_close_command = RobotCommandBuilder.\
-            claw_gripper_open_fraction_command(0.0)
-        # Combine the arm and gripper commands into one RobotCommand
-        stow_and_close_command = RobotCommandBuilder.build_synchro_command(
-            gripper_close_command, stow_cmd)
-        stow_and_close_command_id = self.robot_command_client.robot_command(
-            stow_and_close_command)
-        self.robot.logger.info("Stow command issued.")
-        block_until_arm_arrives(self.robot_command_client,
-                                stow_and_close_command_id, 3.0)
 
     def navigate_to(self, waypoint_id: str, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
