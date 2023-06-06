@@ -14,8 +14,9 @@ from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
 from predicators.envs.coffee import CoffeeEnv
-from predicators.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
-    CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
+from predicators.envs.cover import BumpyCoverEnv, CoverEnv, \
+    CoverEnvHierarchicalTypes, CoverEnvRegrasp, CoverEnvTypedOptions, \
+    CoverMultistepOptions
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.envs.narrow_passage import NarrowPassageEnv
@@ -46,7 +47,7 @@ _PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 ENV_NAME_AND_CLS = [
     ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),
     ("cover_hierarchical_types", CoverEnvHierarchicalTypes),
-    ("cover_regrasp", CoverEnvRegrasp),
+    ("cover_regrasp", CoverEnvRegrasp), ("bumpy_cover", BumpyCoverEnv),
     ("cover_multistep_options", CoverMultistepOptions),
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
