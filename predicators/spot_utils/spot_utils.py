@@ -2,6 +2,7 @@
 
 import functools
 import logging
+import math
 import os
 import re
 import sys
@@ -14,7 +15,6 @@ import bosdyn.client.estop
 import bosdyn.client.lease
 import bosdyn.client.util
 import cv2
-import math
 import numpy as np
 from bosdyn.api import basic_command_pb2, estop_pb2, geometry_pb2, image_pb2, \
     manipulation_api_pb2
@@ -231,147 +231,97 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-        source_name = "back_fisheye_image"
+        obj_poses = self.get_apriltag_pose_from_camera()
+        print(obj_poses)
+        import ipdb
+        ipdb.set_trace()
 
+    def get_apriltag_pose_from_camera(self,
+                                      source_name: str = "left_fisheye_image",
+                                      fiducial_size: float = 76.2):
+        """Get the poses of all fiducials in camera view.
 
-        img_req = build_image_request(source_name, quality_percent=100,
-                                        # image_format=image_pb2.Image.FORMAT_RAW,
-                                        pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+        This only works with these camera sources: "hand_color_image",
+        "back_fisheye_image", "left_fisheye_image". Also, the fiducial
+        size has to be correctly defined in arguments (in mm).
+        """
+
+        # Get image  and camera transform from source_name.
+        img_req = build_image_request(
+            source_name,
+            quality_percent=100,
+            # image_format=image_pb2.Image.FORMAT_RAW,
+            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
         image_response = self.image_client.get_image([img_req])
-        self._camera_tform_body = get_a_tform_b(image_response[0].shot.transforms_snapshot,
-                                                image_response[0].shot.frame_name_image_sensor,
-                                                BODY_FRAME_NAME)
-        self._body_tform_world = get_a_tform_b(image_response[0].shot.transforms_snapshot,
-                                                BODY_FRAME_NAME, VISION_FRAME_NAME)
+        camera_tform_body = get_a_tform_b(
+            image_response[0].shot.transforms_snapshot,
+            image_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
 
         # Camera intrinsics for the given source camera.
         self._intrinsics = image_response[0].source.pinhole.intrinsics
-        width = image_response[0].shot.image.cols
-        height = image_response[0].shot.image.rows
 
+        # Format image befor detecting apriltags.
         if image_response[0].shot.image.pixel_format == image_pb2.Image.\
             PIXEL_FORMAT_DEPTH_U16:
             dtype = np.uint16  # type: ignore
         else:
             dtype = np.uint8  # type: ignore
-        img = np.fromstring(image_response[0].shot.image.data, dtype=dtype)  # type: ignore
+        img = np.fromstring(image_response[0].shot.image.data,
+                            dtype=dtype)  # type: ignore
         if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
-            img = img.reshape(image_response[0].shot.image.rows, image_response[0].shot.image.cols)
+            img = img.reshape(image_response[0].shot.image.rows,
+                              image_response[0].shot.image.cols)
         else:
             img = cv2.imdecode(img, -1)
-        cv2.imwrite("fid.jpg", self.rotate_image(img, source_name))
 
-        # detect given fiducial in image and return the bounding box of it
-        bboxes, ids = self.detect_fiducial_in_image(img, (width, height), source_name)
-        assert bboxes
-        def apriltag_id_to_coords(tag_id):
-            # tvec = self.pixel_coords_to_camera_coords(bboxes, self._intrinsics, source_name)
-            options = apriltag.DetectorOptions(families="tag36h11")
-            # TODO check ^ options to see if height is set there or if the better refine pose flag is not checked
-            options.refine_pose = 1
-            detector = apriltag.Detector(options)
-            # Rotate each image such that it is upright
-            image_grey = cv2.cvtColor(self.rotate_image(img, source_name), cv2.COLOR_BGR2GRAY)
-            detections = detector.detect(image_grey)
-            detection = [d for d in detections if d.tag_id == tag_id][0]
-            pose = detector.detection_pose(detection, (self._intrinsics.focal_length.x, self._intrinsics.focal_length.y, self._intrinsics.principal_point.x, self._intrinsics.principal_point.y), 76.2)[0]
-            tx, ty, tz, tw = pose[:, -1]
-            print("Pose in inches:", tx*0.0393701, ty*0.0393701, tz*0.0393701)
-            # Convert to ...:
-            # tx = 1000 * tx
-            # ty = 1000 * ty
-            # tz = 1000 * tz
-            assert np.isclose(tw, 1.0)
-            vision_tform_fiducial_position = self.compute_fiducial_in_world_frame([tx, ty, tz])
-            fiducial_rt_world = geometry_pb2.Vec3(x=vision_tform_fiducial_position[0],
-                                                    y=vision_tform_fiducial_position[1],
-                                                    z=vision_tform_fiducial_position[2],
-                                                    )
-            return fiducial_rt_world
-        for tag_id in ids:
-            if 401 == tag_id:
-                print("id:", tag_id,"\nfiducial_rt_world:\n", apriltag_id_to_coords(tag_id))
-        print("Robot pose", self._body_tform_world.x, self._body_tform_world.y, self._body_tform_world.z, self._body_tform_world.rot)
-        
-        import ipdb; ipdb.set_trace()
+        # Rotate each image such that it is upright and make it gray.
+        image_grey = cv2.cvtColor(self.rotate_image(img, source_name),
+                                  cv2.COLOR_BGR2GRAY)
 
-    def detect_fiducial_in_image(self, img, dim, source_name):
-        """Detect the fiducial within a single image and return its bounding box."""
-
-        #Rotate each image such that it is upright
-        img = self.rotate_image(img, source_name)
-
-        image_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        #Make the image greyscale to use bounding box detections
+        # Create apriltag detector and get all apriltag locations.
         options = apriltag.DetectorOptions(families="tag36h11")
+        options.refine_pose = 1
         detector = apriltag.Detector(options)
         detections = detector.detect(image_grey)
+        obj_poses = {}
+        # For every detection find location in graph_nav frame.
+        for detection in detections:
+            pose = detector.detection_pose(
+                detection, (self._intrinsics.focal_length.x,
+                            self._intrinsics.focal_length.y,
+                            self._intrinsics.principal_point.x,
+                            self._intrinsics.principal_point.y),
+                fiducial_size)[0]
+            tx, ty, tz, tw = pose[:, -1]
+            assert np.isclose(tw, 1.0)
+            fiducial_rt_camera_frame = np.array(
+                [float(tx) / 1000.0,
+                 float(ty) / 1000.0,
+                 float(tz) / 1000.0])
 
-        bboxes = []
-        ids = []
-        for r in detections:
+            body_tform_fiducial = (
+                camera_tform_body.inverse()).transform_point(
+                    fiducial_rt_camera_frame[0], fiducial_rt_camera_frame[1],
+                    fiducial_rt_camera_frame[2])
 
-            # extract the bounding box (x, y)-coordinates for the AprilTag
-            # and convert each of the (x, y)-coordinate pairs to integers
-            (bottom_left, bottom_right, top_right, top_left) = r.corners
-            # ptB = (int(ptB[0]), int(ptB[1]))
-            # ptC = (int(ptC[0]), int(ptC[1]))
-            # ptD = (int(ptD[0]), int(ptD[1]))
-            # ptA = (int(ptA[0]), int(ptA[1]))
-            # # draw the bounding box of the AprilTag detection
-            # cv2.line(img, ptA, ptB, (0, 255, 0), 2)
-            # cv2.line(img, ptB, ptC, (0, 255, 0), 2)
-            # cv2.line(img, ptC, ptD, (0, 255, 0), 2)
-            # cv2.line(img, ptD, ptA, (0, 255, 0), 2)
+            # Get graph_nav to body frame.
+            self.graph_nav_command_line.set_initial_localization_fiducial()
+            state = self.graph_nav_command_line._graph_nav_client.get_localization_state(
+            )
+            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+                state.localization.seed_tform_body)
 
-            #['lb-rb-rt-lt']
-            bboxes.append((bottom_left, bottom_right, top_right, top_left))
-            ids.append(r.tag_id)
+            # Apply transform to fiducial to body location
+            fiducial_rt_gn_origin = gn_origin_tform_body.transform_point(
+                body_tform_fiducial[0], body_tform_fiducial[1],
+                body_tform_fiducial[2])
 
-        cv2.imwrite("bbox.png", img)
-        # import ipdb; ipdb.set_trace()
+            # This only works for small fiducials because of initial size.
+            if "40" in str(detection.tag_id):
+                obj_poses[detection.tag_id] = fiducial_rt_gn_origin
 
-        return bboxes, ids
+        return obj_poses
 
-    def compute_fiducial_in_world_frame(self, tvec):
-        """Transform the tag position from camera coordinates to world coordinates."""
-        fiducial_rt_camera_frame = np.array(
-            [float(tvec[0]) / 1000.0,
-             float(tvec[1]) / 1000.0,
-             float(tvec[2]) / 1000.0])
-        body_tform_fiducial = (self._camera_tform_body.inverse()).transform_point(
-            fiducial_rt_camera_frame[0], fiducial_rt_camera_frame[1], fiducial_rt_camera_frame[2])
-        fiducial_rt_world = self._body_tform_world.inverse().transform_point(
-            body_tform_fiducial[0], body_tform_fiducial[1], body_tform_fiducial[2])
-        return fiducial_rt_world
-
-    def bbox_to_image_object_pts(self, bbox):
-        """Determine the object points and image points for the bounding box.
-           The origin in object coordinates = top left corner of the fiducial.
-           Order both points sets following: (TL,TR, BL, BR)"""
-        fiducial_height_and_width = 146  #mm #76.2
-        obj_pts = np.array([[0, 0], [fiducial_height_and_width, 0], [0, fiducial_height_and_width],
-                            [fiducial_height_and_width, fiducial_height_and_width]],
-                           dtype=np.float32)
-        #insert a 0 as the third coordinate (xyz)
-        obj_points = np.insert(obj_pts, 2, 0, axis=1)
-
-        #['lb-rb-rt-lt']
-        img_pts = np.array([[bbox[3][0], bbox[3][1]], [bbox[2][0], bbox[2][1]],
-                            [bbox[0][0], bbox[0][1]], [bbox[1][0], bbox[1][1]]], dtype=np.float32)
-        return obj_points, img_pts
-
-    def pixel_coords_to_camera_coords(self, bboxs, intrinsics, source_name):
-        """Compute transformation of 2d pixel coordinates to 3d camera coordinates."""
-        camera = self.make_camera_matrix(intrinsics)
-        # For now, assume that there's just one bbox
-        assert len(bboxs) == 1
-        bbox = bboxs[0]
-        obj_points, img_points = self.bbox_to_image_object_pts(bbox)
-        _, rvec, tvec = cv2.solvePnP(obj_points, img_points, camera, np.zeros((5, 1)))
-        return tvec    
-    
     @staticmethod
     def rotate_image(image, source_name):
         """Rotate the image so that it is always displayed upright."""
@@ -382,14 +332,6 @@ class _SpotInterface():
         elif source_name == "frontright_fisheye_image":
             image = cv2.rotate(image, rotateCode=0)
         return image
-
-    @staticmethod
-    def make_camera_matrix(ints):
-        """Transform the ImageResponse proto intrinsics into a camera matrix."""
-        camera_matrix = np.array([[ints.focal_length.x, ints.skew.x, ints.principal_point.x],
-                                  [ints.skew.y, ints.focal_length.y, ints.principal_point.y],
-                                  [0, 0, 1]])
-        return camera_matrix
 
     def get_gripper_obs(self) -> Array:
         """Grabs the current observation of relevant quantities from the
