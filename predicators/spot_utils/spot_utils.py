@@ -231,11 +231,6 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-        obj_poses = self.get_apriltag_pose_from_camera()
-        print(obj_poses)
-        import ipdb
-        ipdb.set_trace()
-
     def get_apriltag_pose_from_camera(self,
                                       source_name: str = "left_fisheye_image",
                                       fiducial_size: float = 76.2):
@@ -243,7 +238,8 @@ class _SpotInterface():
 
         This only works with these camera sources: "hand_color_image",
         "back_fisheye_image", "left_fisheye_image". Also, the fiducial
-        size has to be correctly defined in arguments (in mm).
+        size has to be correctly defined in arguments (in mm). Also, it
+        only works for tags that start with "40" in their ID.
         """
 
         # Get image  and camera transform from source_name.
