@@ -23,7 +23,7 @@ from bosdyn.client.estop import EstopClient
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
     GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, \
     get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
-from bosdyn.client.image import ImageClient
+from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives, blocking_stand
@@ -229,6 +229,108 @@ class _SpotInterface():
         self.robot.logger.info("Commanding robot to stand...")
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
+
+    def get_apriltag_pose_from_camera(
+            self,
+            source_name: str = "hand_color_image",
+            fiducial_size: float = 76.2
+    ) -> Dict[int, Tuple[float, float, float]]:
+        """Get the poses of all fiducials in camera view.
+
+        This only works with these camera sources: "hand_color_image",
+        "back_fisheye_image", "left_fisheye_image". Also, the fiducial
+        size has to be correctly defined in arguments (in mm). Also, it
+        only works for tags that start with "40" in their ID.
+
+        Returns a dict mapping the integer of the tag id to an (x, y, z)
+        position tuple in the map frame.
+        """
+
+        # Get image  and camera transform from source_name.
+        img_req = build_image_request(
+            source_name,
+            quality_percent=100,
+            # image_format=image_pb2.Image.FORMAT_RAW,
+            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+        image_response = self.image_client.get_image([img_req])
+        camera_tform_body = get_a_tform_b(
+            image_response[0].shot.transforms_snapshot,
+            image_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+
+        # Camera intrinsics for the given source camera.
+        intrinsics = image_response[0].source.pinhole.intrinsics
+
+        # Format image befor detecting apriltags.
+        if image_response[0].shot.image.pixel_format == image_pb2.Image.\
+            PIXEL_FORMAT_DEPTH_U16:
+            dtype = np.uint16  # type: ignore
+        else:
+            dtype = np.uint8  # type: ignore
+        img = np.fromstring(image_response[0].shot.image.data,
+                            dtype=dtype)  # type: ignore
+        if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
+            img = img.reshape(image_response[0].shot.image.rows,
+                              image_response[0].shot.image.cols)
+        else:
+            img = cv2.imdecode(img, -1)
+
+        # Rotate each image such that it is upright and make it gray.
+        image_grey = cv2.cvtColor(self.rotate_image(img, source_name),
+                                  cv2.COLOR_BGR2GRAY)
+
+        # Create apriltag detector and get all apriltag locations.
+        options = apriltag.DetectorOptions(families="tag36h11")
+        options.refine_pose = 1
+        detector = apriltag.Detector(options)
+        detections = detector.detect(image_grey)
+        obj_poses: Dict[int, Tuple[float, float, float]] = {}
+        # For every detection find location in graph_nav frame.
+        for detection in detections:
+            pose = detector.detection_pose(
+                detection,
+                (intrinsics.focal_length.x, intrinsics.focal_length.y,
+                 intrinsics.principal_point.x, intrinsics.principal_point.y),
+                fiducial_size)[0]
+            tx, ty, tz, tw = pose[:, -1]
+            assert np.isclose(tw, 1.0)
+            fiducial_rt_camera_frame = np.array(
+                [float(tx) / 1000.0,
+                 float(ty) / 1000.0,
+                 float(tz) / 1000.0])
+
+            body_tform_fiducial = (
+                camera_tform_body.inverse()).transform_point(
+                    fiducial_rt_camera_frame[0], fiducial_rt_camera_frame[1],
+                    fiducial_rt_camera_frame[2])
+
+            # Get graph_nav to body frame.
+            self.graph_nav_command_line.set_initial_localization_fiducial()
+            state = self.graph_nav_command_line.graph_nav_client.\
+                get_localization_state()
+            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+                state.localization.seed_tform_body)
+
+            # Apply transform to fiducial to body location
+            fiducial_rt_gn_origin = gn_origin_tform_body.transform_point(
+                body_tform_fiducial[0], body_tform_fiducial[1],
+                body_tform_fiducial[2])
+
+            # This only works for small fiducials because of initial size.
+            if "40" in str(detection.tag_id):
+                obj_poses[detection.tag_id] = fiducial_rt_gn_origin
+
+        return obj_poses
+
+    @staticmethod
+    def rotate_image(image: Array, source_name: str) -> Array:
+        """Rotate the image so that it is always displayed upright."""
+        if source_name == "frontleft_fisheye_image":
+            image = cv2.rotate(image, rotateCode=0)
+        elif source_name == "right_fisheye_image":
+            image = cv2.rotate(image, rotateCode=1)
+        elif source_name == "frontright_fisheye_image":
+            image = cv2.rotate(image, rotateCode=0)
+        return image
 
     def get_gripper_obs(self) -> Array:
         """Grabs the current observation of relevant quantities from the
