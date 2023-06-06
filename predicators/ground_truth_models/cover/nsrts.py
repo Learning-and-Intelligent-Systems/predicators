@@ -299,4 +299,19 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                        option_vars, place_on_table_sampler)
             nsrts.add(place_on_table_nsrt)
 
+        # TODO
+        if env_name == "bumpy_cover":
+            parameters = []
+            preconditions = set()
+            add_effects = set()
+            delete_effects = set()
+            option = PickPlace
+            option_vars = []
+            noop_nsrt = NSRT("Noop", parameters,
+                                       preconditions, add_effects,
+                                       delete_effects, set(), option,
+                                       option_vars, lambda _1, _2, _3, _4: 0.5)
+            nsrts.add(noop_nsrt)
+
+
         return nsrts
