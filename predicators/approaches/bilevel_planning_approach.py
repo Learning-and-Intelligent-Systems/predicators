@@ -8,7 +8,7 @@ import abc
 import os
 import sys
 import time
-from typing import Any, Callable, List, Set, Tuple
+from typing import Any, Callable, List, Set, Tuple, Optional
 
 from gym.spaces import Box
 
@@ -34,16 +34,19 @@ class BilevelPlanningApproach(BaseApproach):
                  action_space: Box,
                  train_tasks: List[Task],
                  task_planning_heuristic: str = "default",
-                 max_skeletons_optimized: int = -1) -> None:
+                 max_skeletons_optimized: int = -1,
+                 bilevel_plan_without_sim: Optional[bool] = None) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         if task_planning_heuristic == "default":
             task_planning_heuristic = CFG.sesame_task_planning_heuristic
         if max_skeletons_optimized == -1:
             max_skeletons_optimized = CFG.sesame_max_skeletons_optimized
+        if bilevel_plan_without_sim is None:
+            bilevel_plan_without_sim = CFG.bilevel_plan_without_sim
         self._task_planning_heuristic = task_planning_heuristic
         self._max_skeletons_optimized = max_skeletons_optimized
-        self._plan_without_sim = CFG.bilevel_plan_without_sim
+        self._plan_without_sim = bilevel_plan_without_sim
         self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
         self._last_plan: List[_Option] = []  # used if plan WITH sim

@@ -66,6 +66,7 @@ class GlobalSettings:
     # bumpy cover env parameters
     bumpy_cover_num_bumps = 3
     bumpy_cover_spaces_per_bump = 10
+    bumpy_cover_thr_percent = 0.4
 
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
@@ -421,6 +422,8 @@ class GlobalSettings:
     offline_data_max_skeletons_optimized = -1
     # Number of replays used when offline_data_method is replay-based.
     offline_data_num_replays = 500
+    # Default to bilevel_plan_without_sim.
+    offline_data_bilevel_plan_without_sim = None
 
     # teacher dataset parameters
     # Number of positive examples and negative examples per predicate.

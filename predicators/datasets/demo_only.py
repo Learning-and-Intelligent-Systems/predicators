@@ -140,7 +140,8 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
             env.action_space,
             train_tasks,
             task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
-            max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
+            max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized,
+            bilevel_plan_without_sim=CFG.offline_data_bilevel_plan_without_sim)
     else:  # pragma: no cover
         # Disable all built-in keyboard shortcuts.
         keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
@@ -154,6 +155,10 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
         annotations = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
     rng = np.random.default_rng(CFG.seed)
+    if CFG.offline_data_bilevel_plan_without_sim is None:
+        bilevel_plan_without_sim = CFG.bilevel_plan_without_sim
+    else:
+        bilevel_plan_without_sim = CFG.offline_data_bilevel_plan_without_sim
     for idx, task in enumerate(train_tasks):
         if idx < train_tasks_start_idx:  # ignore demos before this index
             continue
@@ -172,7 +177,7 @@ def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
                 # the policy is actually a plan under the hood, and we
                 # can retrieve it with get_last_plan(). We do this
                 # because we want to run the full plan.
-                if CFG.bilevel_plan_without_sim:
+                if bilevel_plan_without_sim:
                     last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
                     policy = utils.nsrt_plan_to_greedy_policy(
                         last_nsrt_plan, task.goal, rng)

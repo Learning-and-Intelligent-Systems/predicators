@@ -59,6 +59,7 @@ class RandomNSRTsExplorer(BaseExplorer):
 
         def fallback_policy(state: State) -> Action:
             del state  # unused
+            print("request act policy failure!")
             raise utils.RequestActPolicyFailure(
                 "No applicable NSRT in this state!")
 
@@ -79,11 +80,14 @@ class RandomNSRTsExplorer(BaseExplorer):
                     return fallback_policy(state)
                 assert all(a.holds for a in ground_nsrt.preconditions)
 
+                print(f"sampled {ground_nsrt.name} {ground_nsrt.objects}")
+
                 # Sample an option.
                 option = ground_nsrt.sample_option(state,
                                                    goal=task.goal,
                                                    rng=self._rng)
                 cur_option = option
+                assert cur_option.initiable(state)
 
             act = cur_option.policy(state)
             return act
