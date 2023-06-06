@@ -25,7 +25,7 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_env_names(cls) -> Set[str]:
         return {
             "cover", "cover_regrasp", "cover_handempty",
-            "cover_hierarchical_types"
+            "cover_hierarchical_types", "bumpy_cover"
         }
 
     @classmethod

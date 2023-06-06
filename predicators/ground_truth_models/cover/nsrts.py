@@ -18,7 +18,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return {
             "cover", "cover_hierarchical_types", "cover_typed_options",
             "cover_regrasp", "cover_multistep_options", "pybullet_cover",
-            "cover_handempty"
+            "cover_handempty", "bumpy_cover"
         }
 
     @staticmethod
@@ -44,7 +44,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                        "cover_regrasp", "cover_handempty"):
+                        "cover_regrasp", "cover_handempty", "bumpy_cover"):
             PickPlace = options["PickPlace"]
         elif env_name in ("cover_typed_options", "cover_multistep_options"):
             Pick, Place = options["Pick"], options["Place"]
@@ -69,7 +69,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {LiftedAtom(HandEmpty, handempty_predicate_args)}
 
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                        "cover_regrasp", "cover_handempty"):
+                        "cover_regrasp", "cover_handempty", "bumpy_cover"):
             option = PickPlace
             option_vars = []
         elif env_name == "cover_typed_options":
@@ -146,7 +146,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     ub = float(state.get(b, "width") / 2)
                 elif env_name in ("cover", "pybullet_cover",
                                   "cover_hierarchical_types", "cover_regrasp",
-                                  "cover_handempty"):
+                                  "cover_handempty", "bumpy_cover"):
                     lb = float(
                         state.get(b, "pose") - state.get(b, "width") / 2)
                     lb = max(lb, 0.0)
@@ -179,13 +179,13 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Covers, [block, target])
         }
         delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
-        if env_name == "cover_regrasp":
+        if env_name in ("cover_regrasp", "bumpy_cover"):
             Clear = predicates["Clear"]
             preconditions.add(LiftedAtom(Clear, [target]))
             delete_effects.add(LiftedAtom(Clear, [target]))
 
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                        "cover_regrasp", "cover_handempty"):
+                        "cover_regrasp", "cover_handempty", "bumpy_cover"):
             option = PickPlace
             option_vars = []
         elif env_name == "cover_typed_options":
