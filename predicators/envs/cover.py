@@ -156,7 +156,7 @@ class CoverEnv(BaseEnv):
             plt.plot([hand_lb, hand_rb], [-0.08, -0.08],
                      color="red",
                      alpha=0.5,
-                     lw=8.,
+                     lw=1.,
                      label=label)
         # Draw hand
         plt.scatter(state.get(self._robot, "hand"),
@@ -993,3 +993,96 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
                (block_pose+block_width/2 >= target_pose+target_width/2) and \
                (by - bh == 0)
+
+
+class BumpyCoverEnv(CoverEnvRegrasp):
+    """A variation on the cover regrasp environment where some blocks are
+    'bumpy', as indicated by a new feature of blocks.
+
+    If they are bumpy, then the allowed hand region for picking the
+    blocks is complicated, making it hard to sample a good grasp. Non-
+    bumpy blocks have a simple allowed hand region. This environment is
+    intended for use with reset-free sampler learning, so it's important
+    that the blocks can be picked up off the targets after they have
+    already been placed, which is why this environment inherits from
+    CoverEnvRegrasp.
+    """
+    _allow_free_space_placing: ClassVar[bool] = False
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Need to include "bumpy" feature to distinguish bumpy from smooth
+        # blocks. Otherwise the sampler couldn't possibly know which is which.
+        self._block_type = Type(
+            "block",
+            ["is_block", "is_target", "width", "pose", "grasp", "bumpy"])
+
+        # Need to override predicate creation  for blocks because the types are
+        # now different (in terms of equality).
+        self._IsBlock = Predicate("IsBlock", [self._block_type],
+                                  self._IsBlock_holds)
+        self._Covers = Predicate("Covers",
+                                 [self._block_type, self._target_type],
+                                 self._Covers_holds)
+        self._Holding = Predicate("Holding", [self._block_type],
+                                  self._Holding_holds)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "bumpy_cover"
+
+    def _create_initial_state(self, blocks: List[Object],
+                              targets: List[Object],
+                              rng: np.random.Generator) -> State:
+        data: Dict[Object, Array] = {}
+        assert len(CFG.cover_block_widths) == len(blocks)
+        for i, (block, width) in enumerate(zip(blocks,
+                                               CFG.cover_block_widths)):
+            while True:
+                pose = rng.uniform(width / 2, 1.0 - width / 2)
+                if not self._any_intersection(pose, width, data):
+                    break
+            # [is_block, is_target, width, pose, grasp, bumpy]
+            if i % 2 == 0:
+                bumpy = 1.0
+            else:
+                bumpy = 0.0
+            data[block] = np.array([1.0, 0.0, width, pose, -1.0, bumpy])
+        assert len(CFG.cover_target_widths) == len(targets)
+        for target, width in zip(targets, CFG.cover_target_widths):
+            while True:
+                pose = rng.uniform(width / 2, 1.0 - width / 2)
+                if not self._any_intersection(
+                        pose, width, data, larger_gap=True):
+                    break
+            # [is_block, is_target, width, pose]
+            data[target] = np.array([0.0, 1.0, width, pose])
+        # [hand, pose_x, pose_z]
+        data[self._robot] = np.array([0.5, self.workspace_x, self.workspace_z])
+        state = State(data)
+        return state
+
+    def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
+        hand_regions = []
+        for block in state.get_objects(self._block_type):
+            bumpy = abs(state.get(block, "bumpy") - 1.0) < 1e-3
+            if bumpy:
+                # Evenly spaced intervals.
+                start = state.get(block,
+                                  "pose") - state.get(block, "width") / 2
+                end = state.get(block, "pose") + state.get(block, "width") / 2
+                skip = (1 + CFG.bumpy_cover_spaces_per_bump)
+                num_points = skip * CFG.bumpy_cover_num_bumps
+                points = np.linspace(start, end, num=num_points)
+                for left, right in zip(points[::skip], points[1::skip]):
+                    hand_regions.append((left, right))
+            else:
+                hand_regions.append(
+                    (state.get(block, "pose") - state.get(block, "width") / 2,
+                     state.get(block, "pose") + state.get(block, "width") / 2))
+        for targ in state.get_objects(self._target_type):
+            hand_regions.append(
+                (state.get(targ, "pose") - state.get(targ, "width") / 10,
+                 state.get(targ, "pose") + state.get(targ, "width") / 10))
+        return hand_regions
