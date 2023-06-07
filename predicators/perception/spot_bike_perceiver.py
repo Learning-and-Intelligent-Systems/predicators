@@ -10,12 +10,9 @@ from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
 from predicators.structs import Action, EnvironmentTask, Object, Observation, \
     State, Task
 
-# Each observation is a tuple of four 2D boolean masks (numpy arrays).
-# The order is: free, goals, boxes, player.
-
 
 class SpotBikePerceiver(BasePerceiver):
-    """A spot-bike-env-specific perceiver."""
+    """A perceiver specific to the spot bike env."""
 
     def __init__(self) -> None:
         super().__init__()
