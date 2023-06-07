@@ -17,7 +17,8 @@ Bumpy cover easy:
         --num_test_tasks 10 \
         --max_num_steps_interaction_request 10 \
         --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1
+        --bumpy_cover_spaces_per_bump 1 \
+        --sampler_mlp_classifier_max_itr 100000
 
 
 Bumpy cover medium:
@@ -32,7 +33,10 @@ Bumpy cover medium:
         --max_initial_demos 1 \
         --num_train_tasks 1000 \
         --num_test_tasks 10 \
-        --max_num_steps_interaction_request 100
+        --max_num_steps_interaction_request 100 \
+        --bumpy_cover_num_bumps 2 \
+        --bumpy_cover_spaces_per_bump 5 \
+        --sampler_mlp_classifier_max_itr 100000
 """
 
 from dataclasses import dataclass
