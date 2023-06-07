@@ -107,7 +107,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Update the sampler data.
         self._update_sampler_data(trajectories)
         # Re-learn sampler classifiers. Updates the NSRTs.
-        self._learn_sampler_classifiers()
+        self._learn_sampler_classifiers(online_learning_cycle)
 
     def _update_sampler_data(self, trajectories: List[LowLevelTrajectory]):
         # TODO: deal with multi-step options; refactor to use segments.
@@ -140,7 +140,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         return ground_nsrt.add_effects.issubset(
             next_atoms) and not ground_nsrt.delete_effects.issubset(next_atoms)
 
-    def _learn_sampler_classifiers(self) -> None:
+    def _learn_sampler_classifiers(self, online_learning_cycle: Optional[int]) -> None:
         """Learn classifiers to re-weight the base samplers.
 
         Update the NSRTs in place.
@@ -175,6 +175,14 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 sampler_mlp_classifier_n_reinitialize_tries,
                 weight_init="default")
             classifier.fit(X_arr_classifier, y_arr_classifier)
+
+            # Save the sampler classifier for external analysis.
+            approach_save_path = utils.get_approach_save_path_str()
+            save_path = f"{approach_save_path}_{option.name}_{online_learning_cycle}.sampler_classifier"
+            with open(save_path, "wb") as f:
+                pkl.dump(classifier, f)
+            logging.info(f"Saved sampler classifier to {save_path}.")
+
             nsrt = next(n for n in self._nsrts if n.option == option)
             base_sampler = nsrt._sampler
             wrapped_sampler = _WrappedSampler(base_sampler, classifier,
