@@ -384,6 +384,9 @@ class _SpotInterface():
 
         self.navigate_to(waypoint_id, params)
         self.stow_arm()
+        # NOTE: time.sleep(2.0) required afer each option execution
+        # to allow time for sensor readings to settle.
+        time.sleep(2.0)
 
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
@@ -405,6 +408,9 @@ class _SpotInterface():
         if not all(params[:3] == [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
         self.stow_arm()
+        # NOTE: time.sleep(2.0) required afer each option execution
+        # to allow time for sensor readings to settle.
+        time.sleep(2.0)
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Array) -> None:
@@ -418,6 +424,9 @@ class _SpotInterface():
         self.hand_movement(params, keep_hand_pose=False)
         time.sleep(1.0)
         self.stow_arm()
+        # NOTE: time.sleep(2.0) required afer each option execution
+        # to allow time for sensor readings to settle.
+        time.sleep(2.0)
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
@@ -697,7 +706,7 @@ class _SpotInterface():
             stow_and_close_command)
         self.robot.logger.info("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client,
-                                stow_and_close_command_id, 3.0)
+                                stow_and_close_command_id, 4.5)
 
     def hand_movement(self,
                       params: Array,
