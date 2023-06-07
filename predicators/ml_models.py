@@ -387,6 +387,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
         The input is NOT normalized.
         """
+        if self._do_single_class_prediction:
+            return float(self._predicted_single_class)
         norm_x = (x - self._input_shift) / self._input_scale
         return self._forward_single_input_np(norm_x)
 

@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Optional, Sequence, Set, Tuple
+from typing import Any, List, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -22,9 +22,8 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
                    datastores: List[Datastore], option_specs: List[OptionSpec],
                    sampler_learner: str) -> List[NSRTSampler]:
     """Learn all samplers for each operator's option parameters."""
-    oracle_samplers = _extract_oracle_samplers(strips_ops, option_specs)
     if sampler_learner == "oracle":
-        return oracle_samplers
+        return _extract_oracle_samplers(strips_ops, option_specs)
     samplers = []
     for i, op in enumerate(strips_ops):
         param_option, _ = option_specs[i]
@@ -35,12 +34,6 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
             sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
                                             op.preconditions, op.add_effects,
                                             op.delete_effects, param_option, i)
-        elif sampler_learner == "oracle_residual":
-            oracle_sampler = oracle_samplers[i]
-            sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
-                                            op.preconditions, op.add_effects,
-                                            op.delete_effects, param_option, i,
-                                            base_sampler=oracle_sampler)           
         else:
             raise NotImplementedError("Unknown sampler_learner: "
                                       f"{CFG.sampler_learner}")
@@ -125,8 +118,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                           add_effects: Set[LiftedAtom],
                           delete_effects: Set[LiftedAtom],
                           param_option: ParameterizedOption,
-                          datastore_idx: int,
-                          base_sampler: Optional[NSRTSampler] = None) -> NSRTSampler:
+                          datastore_idx: int) -> NSRTSampler:
     """Learn a neural network sampler given data.
 
     Transitions are clustered, so that they can be used for generating
@@ -179,13 +171,6 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
         weight_init="default")
     classifier.fit(X_arr_classifier, y_arr_classifier)
-
-    # If a base sampler is provided, use it as the regressor.
-    if base_sampler is not None:
-        # Construct and return sampler
-        return _ResidualSampler(classifier, base_sampler, variables,
-                                param_option).sampler
-
 
     # Fit regressor to data
     logging.info("Fitting regressor...")
@@ -383,68 +368,3 @@ class _RandomSampler:
         """
         del state, goal, rng, objects  # unused
         return self._param_option.params_space.sample()
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class _ResidualSampler:
-    """TODO: describe and refactor."""
-    _classifier: BinaryClassifier
-    _base_sampler: NSRTSampler
-    _variables: Sequence[Variable]
-    _param_option: ParameterizedOption
-
-    def sampler(self, state: State, goal: Set[GroundAtom],
-                rng: np.random.Generator, objects: Sequence[Object]) -> Array:
-        """The sampler corresponding to the given models.
-
-        May be used as the _sampler field in an NSRT.
-        """
-        assert not CFG.sampler_disable_classifier
-        x_lst: List[Any] = [1.0]  # start with bias term
-        sub = dict(zip(self._variables, objects))
-        for var in self._variables:
-            x_lst.extend(state[sub[var]])
-        if CFG.sampler_learning_use_goals:
-            # For goal-conditioned sampler learning, we currently make the
-            # extremely limiting assumption that there is one goal atom, with
-            # one goal object. This will not be true in most cases. This is a
-            # placeholder for better methods to come.
-            assert len(goal) == 1
-            goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
-            goal_obj = goal_atom.objects[0]
-            x_lst.extend(state[goal_obj])  # add goal state
-        x = np.array(x_lst)
-
-
-        # TODO obviously remove
-        if "Holding" in str(goal):
-            assert len(objects) == 1
-            from predicators.envs import get_or_create_env
-            from matplotlib import pyplot as plt
-            env = get_or_create_env(CFG.env)
-            fig = env.render_state_plt(state, None)
-            ax = fig.axes[0]
-            candidates = np.linspace(0.0, 1.0, num=1000)
-            predictions = []
-            for candidate in candidates:
-                prediction = self._classifier.classify(np.r_[x, [candidate]])
-                predictions.append(prediction)
-                color = 'g' if prediction else 'r'
-                circle = plt.Circle((candidate, -0.16), 0.001, color=color, alpha=0.1)
-                ax.add_patch(circle)
-            fig.savefig('debug.png')
-            import ipdb; ipdb.set_trace()
-
-
-        num_rejections = 0
-        while num_rejections <= CFG.max_rejection_sampling_tries:
-            params = self._base_sampler(state, goal, rng, objects)
-            if self._param_option.params_space.contains(params) and \
-               self._classifier.classify(np.r_[x, params]):
-                print(f"Found params after {num_rejections} sampling attempts")
-                break
-            num_rejections += 1
-        else:
-            print("PARAMS NOT FOUND")
-        return params

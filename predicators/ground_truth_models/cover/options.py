@@ -25,7 +25,7 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_env_names(cls) -> Set[str]:
         return {
             "cover", "cover_regrasp", "cover_handempty",
-            "cover_hierarchical_types", "bumpy_cover"
+            "cover_hierarchical_types"
         }
 
     @classmethod
@@ -44,6 +44,41 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                                                            0, 1, (1, )))
 
         return {PickPlace}
+
+
+class BumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the bumpy cover environment."""
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"bumpy_cover"}
+
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
+
+        def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                    params: Array) -> Action:
+            del state, memory, objects  # unused
+            return Action(params)  # action is simply the parameter
+
+        block_type = types["block"]
+        target_type = types["target"]
+
+        Pick = utils.SingletonParameterizedOption("Pick",
+                                                       _policy,
+                                                  types=[block_type],
+                                                       params_space=Box(
+                                                           0, 1, (1, )))
+
+        Place = utils.SingletonParameterizedOption("Place",
+                                                       _policy,
+                                                  types=[block_type, target_type],
+                                                       params_space=Box(
+                                                           0, 1, (1, )))
+
+        return {Pick, Place}
 
 
 class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):

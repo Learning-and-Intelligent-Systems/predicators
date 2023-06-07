@@ -44,9 +44,9 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                        "cover_regrasp", "cover_handempty", "bumpy_cover"):
+                        "cover_regrasp", "cover_handempty"):
             PickPlace = options["PickPlace"]
-        elif env_name in ("cover_typed_options", "cover_multistep_options"):
+        elif env_name in ("cover_typed_options", "cover_multistep_options", "bumpy_cover"):
             Pick, Place = options["Pick"], options["Place"]
 
         nsrts = set()
@@ -69,9 +69,12 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {LiftedAtom(HandEmpty, handempty_predicate_args)}
 
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                        "cover_regrasp", "cover_handempty", "bumpy_cover"):
+                        "cover_regrasp", "cover_handempty"):
             option = PickPlace
             option_vars = []
+        elif env_name == "bumpy_cover":
+            option = Pick
+            option_vars = [block]
         elif env_name == "cover_typed_options":
             option = Pick
             option_vars = [block]
@@ -185,9 +188,12 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             delete_effects.add(LiftedAtom(Clear, [target]))
 
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                        "cover_regrasp", "cover_handempty", "bumpy_cover"):
+                        "cover_regrasp", "cover_handempty"):
             option = PickPlace
             option_vars = []
+        elif env_name == "bumpy_cover":
+            option = Place
+            option_vars = [block, target]
         elif env_name == "cover_typed_options":
             option = Place
             option_vars = [target]
@@ -299,19 +305,19 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                        option_vars, place_on_table_sampler)
             nsrts.add(place_on_table_nsrt)
 
-        # TODO
-        if env_name == "bumpy_cover":
-            parameters = []
-            preconditions = set()
-            add_effects = set()
-            delete_effects = set()
-            option = PickPlace
-            option_vars = []
-            noop_nsrt = NSRT("Noop", parameters,
-                                       preconditions, add_effects,
-                                       delete_effects, set(), option,
-                                       option_vars, lambda _1, _2, _3, _4: 0.5)
-            nsrts.add(noop_nsrt)
+        # # TODO
+        # if env_name == "bumpy_cover":
+        #     parameters = []
+        #     preconditions = set()
+        #     add_effects = set()
+        #     delete_effects = set()
+        #     option = PickPlace
+        #     option_vars = []
+        #     noop_nsrt = NSRT("Noop", parameters,
+        #                                preconditions, add_effects,
+        #                                delete_effects, set(), option,
+        #                                option_vars, lambda _1, _2, _3, _4: 0.5)
+        #     nsrts.add(noop_nsrt)
 
 
         return nsrts

@@ -4,11 +4,11 @@ from .nsrts import CoverGroundTruthNSRTFactory
 from .options import CoverGroundTruthOptionFactory, \
     CoverMultiStepOptionsGroundTruthOptionFactory, \
     CoverTypedOptionsGroundTruthOptionFactory, \
-    PyBulletCoverGroundTruthOptionFactory
+    PyBulletCoverGroundTruthOptionFactory, BumpyCoverGroundTruthOptionFactory
 
 __all__ = [
     "CoverGroundTruthOptionFactory", "CoverGroundTruthNSRTFactory",
     "CoverMultiStepOptionsGroundTruthOptionFactory",
     "CoverTypedOptionsGroundTruthOptionFactory",
-    "PyBulletCoverGroundTruthOptionFactory"
+    "PyBulletCoverGroundTruthOptionFactory", "BumpyCoverGroundTruthOptionFactory"
 ]

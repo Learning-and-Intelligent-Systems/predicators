@@ -7,7 +7,8 @@ Bumpy cover easy:
     python predicators/main.py --approach active_sampler_learning --env bumpy_cover \
         --seed 0 \
         --strips_learner oracle \
-        --sampler_learner oracle_residual \
+        --sampler_learner oracle \
+        --sampler_disable_classifier True \
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
@@ -16,30 +17,27 @@ Bumpy cover easy:
         --num_test_tasks 10 \
         --max_num_steps_interaction_request 10 \
         --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1 \
-        --mlp_classifier_balance_data False
+        --bumpy_cover_spaces_per_bump 1
 
 
 Bumpy cover medium:
     python predicators/main.py --approach active_sampler_learning --env bumpy_cover \
         --seed 0 \
         --strips_learner oracle \
-        --sampler_learner oracle_residual \
+        --sampler_learner oracle \
+        --sampler_disable_classifier True \
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
         --max_initial_demos 1 \
         --num_train_tasks 1000 \
         --num_test_tasks 10 \
-        --max_num_steps_interaction_request 100 \
-        --mlp_classifier_balance_data False
-
-TODO: do we actually need this new class? Probably yes because we need to try to solve the
-training tasks first and then explore. But maybe that's just an explorer?
+        --max_num_steps_interaction_request 100
 """
 
+from dataclasses import dataclass
 import logging
-from typing import Callable, Dict, List, Optional, Sequence, Set
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import dill as pkl
 import numpy as np
@@ -49,20 +47,172 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import OnlineNSRTLearningApproach
 from predicators.explorers import create_explorer
 from predicators.ml_models import BinaryClassifierEnsemble, \
-    KNeighborsClassifier, LearnedPredicateClassifier, MLPBinaryClassifier
+    KNeighborsClassifier, LearnedPredicateClassifier, MLPBinaryClassifier, BinaryClassifier
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, GroundAtomsHoldQuery, \
     GroundAtomsHoldResponse, InteractionRequest, InteractionResult, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Query, State, Task, \
-    Type
+    LowLevelTrajectory, Predicate, Query, State, Task, \
+    Type, ParameterizedOption, Object, Array, _Option, _GroundNSRT, NSRTSampler, Variable, NSRT
+
+
+_SamplerClassifierInput = Tuple[State, Sequence[Object], Array]
 
 
 class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
-    """Performs active sampler learning.
-    
-    Run with --strips_learner oracle so that only samplers are learned.
-    """
+    """Performs active sampler learning."""
+    def __init__(self, initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task]) -> None:
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks)
+
+        assert CFG.sampler_disable_classifier
+        assert CFG.strips_learner
+
+        # For implementation simplicity, assume that operators and options are 1:1, and that both are fixed.
+        # For each option, record all sampler inputs and parameters and whether the immediate execution of the sampler led to a success or failure.
+        self._sampler_data: Dict[ParameterizedOption, List[Tuple[_SamplerClassifierInput, bool]]] = {
+            option: [] for option in initial_options
+        }
 
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler_learning"
+
+    def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
+                    online_learning_cycle: Optional[int],
+                    annotations: Optional[List[Any]]) -> None:
+        # Start by learning NSRTs in the usual way.
+        super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
+        # Check the assumption that operators and options are 1:1.
+        # This is just an implementation convenience.
+        assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
+        for nsrt in self._nsrts:
+            assert nsrt.option_vars == nsrt.parameters
+        # Update the sampler data.
+        self._update_sampler_data(trajectories)
+        # Re-learn residual sampler classifiers. Updates the NSRTs.
+        self._learn_residual_sampler_classifiers()
+
+    def _update_sampler_data(self, trajectories: List[LowLevelTrajectory]):
+        # TODO: deal with multi-step options; refactor to use segments.
+        preds = self._get_current_predicates()
+        for traj in trajectories:
+            for state, action, next_state in zip(traj.states[:-1], traj.actions, traj.states[1:]):
+                option = action.get_option()
+                atoms = utils.abstract(state, preds)
+                next_atoms = utils.abstract(next_state, preds)
+                ground_nsrt = self._option_to_ground_nsrt(option, set(state), atoms, next_atoms)
+                classifier_input = (state, ground_nsrt.objects, option.params)
+                classifier_output = self._check_nsrt_success(ground_nsrt, next_atoms)
+                self._sampler_data[option.parent].append((classifier_input, classifier_output))
+
+    def _option_to_ground_nsrt(self, option: _Option, objects: Set[Object], atoms: Set[GroundAtom], next_atoms: Set[GroundAtom]) -> _GroundNSRT:
+        nsrt_matches = [n for n in self._nsrts if n.option == option.parent]
+        assert len(nsrt_matches) == 1
+        nsrt = nsrt_matches[0]
+        return nsrt.ground(option.objects)
+
+    def _check_nsrt_success(self, ground_nsrt: _GroundNSRT, next_atoms: Set[GroundAtom]) -> bool:
+        return ground_nsrt.add_effects.issubset(next_atoms) and not ground_nsrt.delete_effects.issubset(next_atoms)
+
+    def _learn_residual_sampler_classifiers(self) -> None:
+        new_nsrts = set()
+        for option, data in self._sampler_data.items():
+            logging.info(f"Fitting residual classifier for {option.name}...")
+            X_classifier: List[List[Array]] = []
+            y_classifier: List[int] = []
+            for (state, objects, params), label in data:
+                # input is state features and option parameters
+                X_classifier.append([np.array(1.0)])  # start with bias term
+                for obj in objects:
+                    X_classifier[-1].extend(state[obj])
+                X_classifier[-1].extend(params)
+                assert not CFG.sampler_learning_use_goals
+                y_classifier.append(label)
+            X_arr_classifier = np.array(X_classifier)
+            # output is binary signal
+            y_arr_classifier = np.array(y_classifier)
+            classifier = MLPBinaryClassifier(
+                seed=CFG.seed,
+                balance_data=CFG.mlp_classifier_balance_data,
+                max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+                learning_rate=CFG.learning_rate,
+                weight_decay=CFG.weight_decay,
+                use_torch_gpu=CFG.use_torch_gpu,
+                train_print_every=CFG.pytorch_train_print_every,
+                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+                hid_sizes=CFG.mlp_classifier_hid_sizes,
+                n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
+                weight_init="default")
+            classifier.fit(X_arr_classifier, y_arr_classifier)
+
+            nsrt = next(n for n in self._nsrts if n.option == option)
+            base_sampler = nsrt._sampler
+            wrapped_sampler = _WrappedSampler(base_sampler, classifier, nsrt.parameters, nsrt.option)
+            # Create new NSRT with wrapped sampler.
+            new_nsrt = NSRT(nsrt.name, nsrt.parameters, nsrt.preconditions, nsrt.add_effects,
+                    nsrt.delete_effects, nsrt.ignore_effects, nsrt.option,
+                    nsrt.option_vars, wrapped_sampler.sampler)
+            new_nsrts.add(new_nsrt)
+        self._nsrts = new_nsrts
+
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _WrappedSampler:
+    """A convenience class for holding the models underlying a learned
+    sampler."""
+    _base_sampler: NSRTSampler
+    _classifier: BinaryClassifier
+    _variables: Sequence[Variable]
+    _param_option: ParameterizedOption
+
+    def sampler(self, state: State, goal: Set[GroundAtom],
+                rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+        """The sampler corresponding to the given models.
+
+        May be used as the _sampler field in an NSRT.
+        """
+        x_lst: List[Any] = [1.0]  # start with bias term
+        sub = dict(zip(self._variables, objects))
+        for var in self._variables:
+            x_lst.extend(state[sub[var]])
+        assert not CFG.sampler_learning_use_goals
+        x = np.array(x_lst)
+        
+        # TODO obviously remove
+        if "Holding" in str(goal):
+            assert len(objects) == 1
+            from predicators.envs import get_or_create_env
+            from matplotlib import pyplot as plt
+            env = get_or_create_env(CFG.env)
+            fig = env.render_state_plt(state, None)
+            ax = fig.axes[0]
+            candidates = [self._base_sampler(state, goal, rng, objects)[0] for _ in range(100)]
+            predictions = []
+            for candidate in candidates:
+                prediction = self._classifier.classify(np.r_[x, [candidate]])
+                predictions.append(prediction)
+                color = 'g' if prediction else 'r'
+                circle = plt.Circle((candidate, -0.16), 0.001, color=color, alpha=0.1)
+                ax.add_patch(circle)
+            fig.savefig('debug.png')
+            import ipdb; ipdb.set_trace()
+        
+        
+        num_rejections = 0
+        best_params = None
+        best_score = -np.inf
+        while num_rejections <= CFG.max_rejection_sampling_tries:
+            params = self._base_sampler(state, goal, rng, objects)
+            assert self._param_option.params_space.contains(params)
+            score = self._classifier.predict_proba(np.r_[x, params])
+            if best_params is None or score > best_score:
+                best_score = score
+                best_params = params
+            num_rejections += 1
+        assert best_params is not None
+        return best_params
+
+
