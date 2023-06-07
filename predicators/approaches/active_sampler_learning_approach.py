@@ -182,24 +182,24 @@ class _WrappedSampler:
         assert not CFG.sampler_learning_use_goals
         x = np.array(x_lst)
         
-        # # TODO obviously remove
-        # if "Holding" in str(goal):
-        #     assert len(objects) == 1
-        #     from predicators.envs import get_or_create_env
-        #     from matplotlib import pyplot as plt
-        #     import matplotlib.cm as cm
-        #     cmap = cm.get_cmap('RdYlGn')
-        #     env = get_or_create_env(CFG.env)
-        #     fig = env.render_state_plt(state, None)
-        #     ax = fig.axes[0]
-        #     candidates = [self._base_sampler(state, goal, rng, objects)[0] for _ in range(100)]
-        #     for candidate in candidates:
-        #         proba = self._classifier.predict_proba(np.r_[x, [candidate]])
-        #         color = cmap(proba)
-        #         circle = plt.Circle((candidate, -0.16), 0.005, color=color, alpha=0.1)
-        #         ax.add_patch(circle)
-        #     fig.savefig('debug.png')
-        #     import ipdb; ipdb.set_trace()
+        # TODO obviously remove
+        if "Holding" in str(goal):
+            assert len(objects) == 1
+            from predicators.envs import get_or_create_env
+            from matplotlib import pyplot as plt
+            import matplotlib.cm as cm
+            cmap = cm.get_cmap('RdYlGn')
+            env = get_or_create_env(CFG.env)
+            fig = env.render_state_plt(state, None)
+            ax = fig.axes[0]
+            candidates = [self._base_sampler(state, goal, rng, objects)[0] for _ in range(100)]
+            for candidate in candidates:
+                proba = self._classifier.predict_proba(np.r_[x, [candidate]])
+                color = cmap(proba)
+                circle = plt.Circle((candidate, -0.16), 0.005, color=color, alpha=0.1)
+                ax.add_patch(circle)
+            fig.savefig('debug.png')
+            import ipdb; ipdb.set_trace()
         
         samples = []
         scores = []
@@ -211,7 +211,12 @@ class _WrappedSampler:
             scores.append(score)
         
         # Add a little bit of noise to promote exploration.
-        scores = scores + rng.uniform(-0.1, 0.1, size=len(scores))
+        # TODO change!!
+        if "Holding" in str(goal):
+            eps = 1e-3
+        else:
+            eps = 1e-1
+        scores = scores + rng.uniform(-eps, eps, size=len(scores))
 
         idx = np.argmax(scores)
         return samples[idx]
