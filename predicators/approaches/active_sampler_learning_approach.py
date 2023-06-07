@@ -42,6 +42,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 import dill as pkl
 import numpy as np
 from gym.spaces import Box
+from scipy.special import logsumexp
 
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import OnlineNSRTLearningApproach
@@ -181,38 +182,36 @@ class _WrappedSampler:
         assert not CFG.sampler_learning_use_goals
         x = np.array(x_lst)
         
-        # TODO obviously remove
-        if "Holding" in str(goal):
-            assert len(objects) == 1
-            from predicators.envs import get_or_create_env
-            from matplotlib import pyplot as plt
-            env = get_or_create_env(CFG.env)
-            fig = env.render_state_plt(state, None)
-            ax = fig.axes[0]
-            candidates = [self._base_sampler(state, goal, rng, objects)[0] for _ in range(100)]
-            predictions = []
-            for candidate in candidates:
-                prediction = self._classifier.classify(np.r_[x, [candidate]])
-                predictions.append(prediction)
-                color = 'g' if prediction else 'r'
-                circle = plt.Circle((candidate, -0.16), 0.001, color=color, alpha=0.1)
-                ax.add_patch(circle)
-            fig.savefig('debug.png')
-            import ipdb; ipdb.set_trace()
+        # # TODO obviously remove
+        # if "Holding" in str(goal):
+        #     assert len(objects) == 1
+        #     from predicators.envs import get_or_create_env
+        #     from matplotlib import pyplot as plt
+        #     import matplotlib.cm as cm
+        #     cmap = cm.get_cmap('RdYlGn')
+        #     env = get_or_create_env(CFG.env)
+        #     fig = env.render_state_plt(state, None)
+        #     ax = fig.axes[0]
+        #     candidates = [self._base_sampler(state, goal, rng, objects)[0] for _ in range(100)]
+        #     for candidate in candidates:
+        #         proba = self._classifier.predict_proba(np.r_[x, [candidate]])
+        #         color = cmap(proba)
+        #         circle = plt.Circle((candidate, -0.16), 0.005, color=color, alpha=0.1)
+        #         ax.add_patch(circle)
+        #     fig.savefig('debug.png')
+        #     import ipdb; ipdb.set_trace()
         
-        
-        num_rejections = 0
-        best_params = None
-        best_score = -np.inf
-        while num_rejections <= CFG.max_rejection_sampling_tries:
+        samples = []
+        scores = []
+        for _ in range(100):
             params = self._base_sampler(state, goal, rng, objects)
             assert self._param_option.params_space.contains(params)
             score = self._classifier.predict_proba(np.r_[x, params])
-            if best_params is None or score > best_score:
-                best_score = score
-                best_params = params
-            num_rejections += 1
-        assert best_params is not None
-        return best_params
+            samples.append(params)
+            scores.append(score)
+        
+        # Add a little bit of noise to promote exploration.
+        scores = scores + rng.uniform(-0.1, 0.1, size=len(scores))
 
-
+        idx = np.argmax(scores)
+        return samples[idx]
