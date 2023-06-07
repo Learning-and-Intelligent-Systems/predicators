@@ -259,15 +259,6 @@ class SpotEnv(BaseEnv):
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
 
-        # HACK! We put back in the delete effects so that if the execution
-        # monitor ever returns that we should replan, then we will not hit
-        # dr-reachable errors. We should remove this once we have actual
-        # predicate functions implemented for all our predicates.
-        if CFG.execution_monitor == "expected_atoms":
-            # TODO: this crosses the line into do-not-merge, but let's see
-            # if it works.
-            next_ground_atoms |= {a for a in ground_op.delete_effects if "Reachable" not in str(a)}
-
         # Return only the atoms for the non-continuous-feature predicates.
         return {
             a
@@ -891,8 +882,9 @@ class SpotBikeEnv(SpotEnv):
         spot, obj_to_grasp = objects
         assert obj_name_to_apriltag_id.get(obj_to_grasp.name) is not None
         spot_holding_obj_id = state.get(spot, "curr_held_item_id")
-        return int(spot_holding_obj_id) == int(
-            obj_name_to_apriltag_id[obj_to_grasp.name]) and self._nothandempty_classifier(state, [spot])
+        return int(spot_holding_obj_id) == int(obj_name_to_apriltag_id[
+            obj_to_grasp.name]) and self._nothandempty_classifier(
+                state, [spot])
 
     @classmethod
     def get_name(cls) -> str:
@@ -912,12 +904,12 @@ class SpotBikeEnv(SpotEnv):
         spot = curr_state.get_objects(self._robot_type)[0]
         curr_state.set(spot, "gripper_open_percentage", new_gripper_open_perc)
         return curr_state
-    
-    def update_observation(self, updated_obs: Observation) -> None: # pragma: no cover
-        """Necessary so that the perceiver can update the environment's
-        current state."""
-        self._current_observation = updated_obs
 
+    def update_observation(
+            self, updated_obs: Observation) -> None:  # pragma: no cover
+        """Necessary so that the perceiver can update the environment's current
+        state."""
+        self._current_observation = updated_obs
 
     def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []

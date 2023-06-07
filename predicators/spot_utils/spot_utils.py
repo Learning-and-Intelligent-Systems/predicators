@@ -589,7 +589,7 @@ class _SpotInterface():
             results = detector.detect(gray)
             self.robot.logger.info(f"[INFO] {len(results)} AprilTags detected")
             for result in results:
-                if str(result.tag_id) == obj_name_to_apriltag_id[obj.name]:
+                if result.tag_id == obj_name_to_apriltag_id[obj.name]:
                     g_image_click = results[0].center
 
         elif CFG.spot_grasp_use_cv2:
