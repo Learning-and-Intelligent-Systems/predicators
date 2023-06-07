@@ -256,9 +256,11 @@ class SpotEnv(BaseEnv):
         # We need to remove any "HoldingTool" atoms from the preconditions
         # because of current perception stuff. Note that this is a hack and
         # we should DEFINITELY remove this in the future.
-        preconditions_to_check = set(
-            atom for atom in ground_op.preconditions
-            if "HoldingTool" not in atom.predicate.name)
+        preconditions_to_check = set()
+        if ground_op is not None:
+            preconditions_to_check = set(
+                atom for atom in ground_op.preconditions
+                if "HoldingTool" not in atom.predicate.name)
 
         # If the operator is not applicable in this state, noop.
         if ground_op is None or not preconditions_to_check.issubset(
