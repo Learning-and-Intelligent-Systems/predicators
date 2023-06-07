@@ -64,10 +64,10 @@ graph_nav_loc_to_id = {
 }
 
 obj_name_to_apriltag_id = {
-    "hammer": "401",
-    "brush": "402",
-    "hex_key": "403",
-    "hex_screwdriver": "404"
+    "hammer": 401,
+    "brush": 402,
+    "hex_key": 403,
+    "hex_screwdriver": 404
 }
 
 OBJECT_CROPS = {
@@ -384,6 +384,9 @@ class _SpotInterface():
 
         self.navigate_to(waypoint_id, params)
         self.stow_arm()
+        # NOTE: time.sleep(2.0) required afer each option execution
+        # to allow time for sensor readings to settle.
+        time.sleep(2.0)
 
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
@@ -405,6 +408,9 @@ class _SpotInterface():
         if not all(params[:3] == [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
         self.stow_arm()
+        # NOTE: time.sleep(2.0) required afer each option execution
+        # to allow time for sensor readings to settle.
+        time.sleep(2.0)
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Array) -> None:
@@ -418,6 +424,9 @@ class _SpotInterface():
         self.hand_movement(params, keep_hand_pose=False)
         time.sleep(1.0)
         self.stow_arm()
+        # NOTE: time.sleep(2.0) required afer each option execution
+        # to allow time for sensor readings to settle.
+        time.sleep(2.0)
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
@@ -589,7 +598,7 @@ class _SpotInterface():
             results = detector.detect(gray)
             self.robot.logger.info(f"[INFO] {len(results)} AprilTags detected")
             for result in results:
-                if str(result.tag_id) == obj_name_to_apriltag_id[obj.name]:
+                if result.tag_id == obj_name_to_apriltag_id[obj.name]:
                     g_image_click = results[0].center
 
         elif CFG.spot_grasp_use_cv2:
@@ -697,7 +706,7 @@ class _SpotInterface():
             stow_and_close_command)
         self.robot.logger.info("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client,
-                                stow_and_close_command_id, 3.0)
+                                stow_and_close_command_id, 4.5)
 
     def hand_movement(self,
                       params: Array,

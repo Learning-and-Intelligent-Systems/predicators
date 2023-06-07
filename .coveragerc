@@ -2,6 +2,7 @@
 omit =
     predicators/third_party/**
     predicators/spot_utils/**
+    predicators/perception/spot_bike_perceiver.py
 
 [report]
 # Regexes for lines to exclude from consideration

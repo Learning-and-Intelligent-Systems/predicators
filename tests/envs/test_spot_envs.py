@@ -81,7 +81,7 @@ def test_spot_env_oracle_nsrts():
     ground_option = ground_nsrt.sample_option(state, set(), rng)
     act = ground_option.policy(state)
     assert env.action_space.contains(act.arr)
-    name, objs, params = env._parse_action(state, act)  # pylint:disable=protected-access
+    name, objs, params = env.parse_action(state, act)
     assert name == "navigate"
     assert objs == [spot, counter]
     assert np.allclose(params, ground_option.params)
@@ -93,7 +93,7 @@ def test_spot_env_oracle_nsrts():
     ground_option = ground_nsrt.sample_option(state, set(), rng)
     act = ground_option.policy(state)
     assert env.action_space.contains(act.arr)
-    name, objs, params = env._parse_action(state, act)  # pylint:disable=protected-access
+    name, objs, params = env.parse_action(state, act)
     assert name == "navigate"
     assert objs == [spot, soda_can]
     assert np.allclose(params, ground_option.params)
@@ -102,7 +102,7 @@ def test_spot_env_oracle_nsrts():
     ground_option = ground_nsrt.sample_option(state, set(), rng)
     act = ground_option.policy(state)
     assert env.action_space.contains(act.arr)
-    name, objs, params = env._parse_action(state, act)  # pylint:disable=protected-access
+    name, objs, params = env.parse_action(state, act)
     assert name == "grasp"
     assert objs == [spot, soda_can, counter]
     assert np.allclose(params, ground_option.params)
@@ -111,7 +111,7 @@ def test_spot_env_oracle_nsrts():
     ground_option = ground_nsrt.sample_option(state, set(), rng)
     act = ground_option.policy(state)
     assert env.action_space.contains(act.arr)
-    name, objs, params = env._parse_action(state, act)  # pylint:disable=protected-access
+    name, objs, params = env.parse_action(state, act)
     assert name == "placeOnTop"
     assert objs == [spot, soda_can, counter]
     assert np.allclose(params, ground_option.params)

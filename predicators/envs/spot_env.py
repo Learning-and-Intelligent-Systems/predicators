@@ -14,7 +14,8 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
-from predicators.spot_utils.spot_utils import get_spot_interface
+from predicators.spot_utils.spot_utils import get_spot_interface, \
+    obj_name_to_apriltag_id
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
     Variable
@@ -131,8 +132,11 @@ class SpotEnv(BaseEnv):
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
-    def _parse_action(self, state: State,
-                      action: Action) -> Tuple[str, List[Object], Array]:
+    def parse_action(self, state: State,
+                     action: Action) -> Tuple[str, List[Object], Array]:
+        """(Only for this environment) A convenience method that converts low-
+        level actions into more interpretable high-level actions by exploiting
+        knowledge of how we encode actions."""
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
@@ -196,7 +200,7 @@ class SpotEnv(BaseEnv):
         assert isinstance(state, _PartialPerceptionState)
         assert self.action_space.contains(action.arr)
         # Parse the action into the components needed for a controller.
-        name, objects, params = self._parse_action(state, action)
+        name, objects, params = self.parse_action(state, action)
         # Execute the controller in the real environment.
         current_atoms = utils.abstract(state, self.predicates)
         self._spot_interface.execute(name, current_atoms, objects, params)
@@ -248,8 +252,18 @@ class SpotEnv(BaseEnv):
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
+
+        # We need to remove any "HoldingTool" atoms from the preconditions
+        # because of current perception stuff. Note that this is a hack and
+        # we should DEFINITELY remove this in the future.
+        preconditions_to_check = set()
+        if ground_op is not None:
+            preconditions_to_check = set(
+                atom for atom in ground_op.preconditions
+                if "HoldingTool" not in atom.predicate.name)
+
         # If the operator is not applicable in this state, noop.
-        if ground_op is None or not ground_op.preconditions.issubset(
+        if ground_op is None or not preconditions_to_check.issubset(
                 ground_atoms):
             return None
         # Apply the operator.
@@ -558,7 +572,8 @@ class SpotBikeEnv(SpotEnv):
         super().__init__(use_gui)
 
         # Types
-        self._robot_type = Type("robot", ["gripper_open_percentage"])
+        self._robot_type = Type(
+            "robot", ["gripper_open_percentage", "curr_held_item_id"])
         self._tool_type = Type("tool", [])
         self._surface_type = Type("flat_surface", [])
         self._bag_type = Type("bag", [])
@@ -581,13 +596,9 @@ class SpotBikeEnv(SpotEnv):
                                     self._handempty_classifier)
         self._notHandEmpty = Predicate("Not-HandEmpty", [self._robot_type],
                                        self._nothandempty_classifier)
-
-        self._temp_HoldingTool = Predicate("HoldingTool",
-                                           [self._robot_type, self._tool_type],
-                                           lambda s, o: False)
-        self._HoldingTool = Predicate(
-            "HoldingTool", [self._robot_type, self._tool_type],
-            _create_dummy_predicate_classifier(self._temp_HoldingTool))
+        self._HoldingTool = Predicate("HoldingTool",
+                                      [self._robot_type, self._tool_type],
+                                      self._holding_tool_classifier)
         self._temp_HoldingBag = Predicate("HoldingBag",
                                           [self._robot_type, self._bag_type],
                                           lambda s, o: False)
@@ -703,7 +714,8 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {
             LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachableTool, [spot, tool]),
         }
         self._GraspToolFromNotHighOp = STRIPSOperator("GraspToolFromNotHigh",
                                                       [spot, tool, surface],
@@ -720,7 +732,10 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._HoldingPlatformLeash, [spot, platform]),
             LiftedAtom(self._notHandEmpty, [spot])
         }
-        del_effs = {LiftedAtom(self._HandEmpty, [spot])}
+        del_effs = {
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachablePlatform, [spot, platform]),
+        }
         self._GraspPlatformLeashOp = STRIPSOperator("GraspPlatformLeash",
                                                     [spot, platform], preconds,
                                                     add_effs, del_effs, set())
@@ -762,7 +777,8 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {
             LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachableTool, [spot, tool]),
         }
         self._GraspToolFromHighOp = STRIPSOperator(
             "GraspToolFromHigh", [spot, tool, platform, surface], preconds,
@@ -776,9 +792,12 @@ class SpotBikeEnv(SpotEnv):
         }
         add_effs = {
             LiftedAtom(self._HoldingBag, [spot, bag]),
-            LiftedAtom(self._notHandEmpty, [spot])
+            LiftedAtom(self._notHandEmpty, [spot]),
         }
-        del_effs = {LiftedAtom(self._HandEmpty, [spot])}
+        del_effs = {
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachableBag, [spot, bag]),
+        }
         self._GraspBagOp = STRIPSOperator("GraspBag", [spot, bag], preconds,
                                           add_effs, del_effs, set())
         # PlaceToolOnNotHighSurface
@@ -797,7 +816,8 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot])
+            LiftedAtom(self._notHandEmpty, [spot]),
+            LiftedAtom(self._XYReachableSurface, [spot, surface]),
         }
         self._PlaceToolNotHighOp = STRIPSOperator("PlaceToolNotHigh",
                                                   [spot, tool, surface],
@@ -818,7 +838,8 @@ class SpotBikeEnv(SpotEnv):
         }
         del_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot])
+            LiftedAtom(self._notHandEmpty, [spot]),
+            LiftedAtom(self._ReachableBag, [spot, bag]),
         }
         self._PlaceIntoBagOp = STRIPSOperator("PlaceIntoBag",
                                               [spot, tool, bag], preconds,
@@ -865,6 +886,15 @@ class SpotBikeEnv(SpotEnv):
                                  objects: Sequence[Object]) -> bool:
         return not self._handempty_classifier(state, objects)
 
+    def _holding_tool_classifier(self, state: State,
+                                 objects: Sequence[Object]) -> bool:
+        spot, obj_to_grasp = objects
+        assert obj_name_to_apriltag_id.get(obj_to_grasp.name) is not None
+        spot_holding_obj_id = state.get(spot, "curr_held_item_id")
+        return int(spot_holding_obj_id) == int(obj_name_to_apriltag_id[
+            obj_to_grasp.name]) and self._nothandempty_classifier(
+                state, [spot])
+
     @classmethod
     def get_name(cls) -> str:
         return "spot_bike_env"
@@ -872,7 +902,7 @@ class SpotBikeEnv(SpotEnv):
     @property
     def continuous_feature_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
-        return {self._HandEmpty}
+        return {self._HandEmpty, self._notHandEmpty, self._HoldingTool}
 
     def _get_continuous_observation(self) -> State:  # pragma: no cover
         """Helper for step()."""
@@ -901,7 +931,7 @@ class SpotBikeEnv(SpotEnv):
             low_wall_rack, high_wall_rack, bag, movable_platform
         ]
         for _ in range(num_tasks):
-            init_dict = {spot: np.array([0.0])}
+            init_dict = {spot: np.array([0.0, 0.0])}
 
             for obj in objects:
                 if obj != spot:

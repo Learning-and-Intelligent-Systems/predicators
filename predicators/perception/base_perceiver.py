@@ -2,7 +2,8 @@
 
 import abc
 
-from predicators.structs import EnvironmentTask, Observation, State, Task
+from predicators.structs import Action, EnvironmentTask, Observation, State, \
+    Task
 
 
 class BasePerceiver(abc.ABC):
@@ -20,3 +21,8 @@ class BasePerceiver(abc.ABC):
     @abc.abstractmethod
     def step(self, observation: Observation) -> State:
         """Produce a State given the current and past observations."""
+
+    def update_perceiver_with_action(self, action: Action) -> None:
+        """In some cases, the perceiver might need to know the action that was
+        taken (e.g. if the agent is trying to grasp an object, the perceiver
+        needs to know which object this is)."""
