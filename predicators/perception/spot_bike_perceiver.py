@@ -20,6 +20,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._curr_task_objects: Set[Object] = set()
         assert CFG.env == "spot_bike_env"
         self._curr_env: Optional[BaseEnv] = None
+        self._holding_item_id_feature = 0.0
 
     @classmethod
     def get_name(cls) -> str:
@@ -48,16 +49,19 @@ class SpotBikePerceiver(BasePerceiver):
                 self._curr_env, SpotBikeEnv)
             controller_name, objects, _ = self._curr_env.parse_action(
                 observation, self._prev_action)
+            # The robot is always the 0th argument of an
+            # operator!
+            spot = objects[0]
             if "grasp" in controller_name.lower():
+                assert self._holding_item_id_feature == 0.0
                 # We know that the object that we attempted to grasp was
                 # the second argument to the controller.
                 object_attempted_to_grasp = objects[1].name
                 grasp_obj_id = obj_name_to_apriltag_id[
                     object_attempted_to_grasp]
-                robot_object = objects[0]
-                observation.set(robot_object, "curr_held_item_id",
-                                grasp_obj_id)
+                self._holding_item_id_feature = grasp_obj_id
             elif "place" in controller_name.lower():
-                robot_object = objects[0]
-                observation.set(robot_object, "curr_held_item_id", 0.0)
+                self._holding_item_id_feature = 0.0
+            observation.set(spot, "curr_held_item_id",
+                            self._holding_item_id_feature)
         return observation
