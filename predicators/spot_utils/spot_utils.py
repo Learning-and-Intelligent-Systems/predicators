@@ -310,10 +310,14 @@ class _SpotInterface():
                     fiducial_rt_camera_frame[2])
 
             # Get graph_nav to body frame.
-            self.graph_nav_command_line.set_initial_localization_fiducial()
-            state = self.graph_nav_command_line.graph_nav_client.\
-                get_localization_state()
-            assert str(state.localization.seed_tform_body) != ''
+            done = False
+            while not done:
+                self.graph_nav_command_line.set_initial_localization_fiducial()
+                state = self.graph_nav_command_line.graph_nav_client.\
+                    get_localization_state()
+                if str(state.localization.seed_tform_body) != '':
+                    done = True
+                time.sleep(1)
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
@@ -739,10 +743,14 @@ class _SpotInterface():
         # Make the arm pose RobotCommand
         if use_object_location:
             # Get graph_nav to body frame.
-            self.graph_nav_command_line.set_initial_localization_fiducial()
-            state = self.graph_nav_command_line.graph_nav_client.\
-                get_localization_state()
-            assert str(state.localization.seed_tform_body) != ''
+            done = False
+            while not done:
+                self.graph_nav_command_line.set_initial_localization_fiducial()
+                state = self.graph_nav_command_line.graph_nav_client.\
+                    get_localization_state()
+                if str(state.localization.seed_tform_body) != '':
+                    done = True
+                time.sleep(1)
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
