@@ -6,7 +6,7 @@ truth NSRTs. If an NSRT's option is not included, that NSRT will not be
 generated at all.
 """
 
-from typing import List, Set, Optional
+from typing import List, Optional, Set
 
 from gym.spaces import Box
 

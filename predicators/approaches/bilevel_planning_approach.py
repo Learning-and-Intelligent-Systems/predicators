@@ -8,7 +8,7 @@ import abc
 import os
 import sys
 import time
-from typing import Any, Callable, List, Set, Tuple, Optional
+from typing import Any, Callable, List, Optional, Set, Tuple
 
 from gym.spaces import Box
 

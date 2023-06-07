@@ -46,7 +46,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
                         "cover_regrasp", "cover_handempty"):
             PickPlace = options["PickPlace"]
-        elif env_name in ("cover_typed_options", "cover_multistep_options", "bumpy_cover"):
+        elif env_name in ("cover_typed_options", "cover_multistep_options",
+                          "bumpy_cover"):
             Pick, Place = options["Pick"], options["Place"]
 
         nsrts = set()
@@ -318,6 +319,5 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         #                                delete_effects, set(), option,
         #                                option_vars, lambda _1, _2, _3, _4: 0.5)
         #     nsrts.add(noop_nsrt)
-
 
         return nsrts

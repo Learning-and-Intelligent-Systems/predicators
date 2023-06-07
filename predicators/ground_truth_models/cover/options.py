@@ -67,16 +67,16 @@ class BumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         target_type = types["target"]
 
         Pick = utils.SingletonParameterizedOption("Pick",
-                                                       _policy,
+                                                  _policy,
                                                   types=[block_type],
-                                                       params_space=Box(
-                                                           0, 1, (1, )))
+                                                  params_space=Box(
+                                                      0, 1, (1, )))
 
-        Place = utils.SingletonParameterizedOption("Place",
-                                                       _policy,
-                                                  types=[block_type, target_type],
-                                                       params_space=Box(
-                                                           0, 1, (1, )))
+        Place = utils.SingletonParameterizedOption(
+            "Place",
+            _policy,
+            types=[block_type, target_type],
+            params_space=Box(0, 1, (1, )))
 
         return {Pick, Place}
 

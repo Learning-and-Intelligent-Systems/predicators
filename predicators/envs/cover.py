@@ -1088,7 +1088,6 @@ class BumpyCoverEnv(CoverEnvRegrasp):
         for i, targ in enumerate(state.get_objects(self._target_type)):
             tw = state.get(targ, "width")
             region_length = tw * CFG.bumpy_cover_thr_percent
-            hand_regions.append(
-                (state.get(targ, "pose") - region_length / 2,
-                 state.get(targ, "pose") + region_length / 2))
+            hand_regions.append((state.get(targ, "pose") - region_length / 2,
+                                 state.get(targ, "pose") + region_length / 2))
         return hand_regions
