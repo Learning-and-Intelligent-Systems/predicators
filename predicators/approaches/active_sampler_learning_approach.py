@@ -1,5 +1,11 @@
 """An approach that performs active sampler learning.
 
+The current implementation assumes for convenience that NSRTs and options are 1:1 and
+share the same parameters (like a PDDL environment). It is straightforward conceptually
+to remove this assumption, because the approach uses its own NSRTs to select options,
+but it is difficult implementation-wise, so we're punting for now.
+
+
 Example commands
 ----------------
 
@@ -74,7 +80,6 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert CFG.sampler_disable_classifier
         assert CFG.strips_learner
 
-        # For implementation simplicity, assume that operators and options are 1:1, and that both are fixed.
         # For each option, record all sampler inputs and parameters and whether the immediate execution of the sampler led to a success or failure.
         self._sampler_data: Dict[ParameterizedOption, List[Tuple[_SamplerClassifierInput, bool]]] = {
             option: [] for option in initial_options
@@ -96,8 +101,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             assert nsrt.option_vars == nsrt.parameters
         # Update the sampler data.
         self._update_sampler_data(trajectories)
-        # Re-learn residual sampler classifiers. Updates the NSRTs.
-        self._learn_residual_sampler_classifiers()
+        # Re-learn sampler classifiers. Updates the NSRTs.
+        self._learn_sampler_classifiers()
 
     def _update_sampler_data(self, trajectories: List[LowLevelTrajectory]):
         # TODO: deal with multi-step options; refactor to use segments.
@@ -121,7 +126,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def _check_nsrt_success(self, ground_nsrt: _GroundNSRT, next_atoms: Set[GroundAtom]) -> bool:
         return ground_nsrt.add_effects.issubset(next_atoms) and not ground_nsrt.delete_effects.issubset(next_atoms)
 
-    def _learn_residual_sampler_classifiers(self) -> None:
+    def _learn_sampler_classifiers(self) -> None:
+        """Learn classifiers to re-weight the base samplers. Update the NSRTs in place."""
         new_nsrts = set()
         for option, data in self._sampler_data.items():
             logging.info(f"Fitting residual classifier for {option.name}...")
@@ -151,7 +157,6 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
                 weight_init="default")
             classifier.fit(X_arr_classifier, y_arr_classifier)
-
             nsrt = next(n for n in self._nsrts if n.option == option)
             base_sampler = nsrt._sampler
             wrapped_sampler = _WrappedSampler(base_sampler, classifier, nsrt.parameters, nsrt.option)
@@ -166,8 +171,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _WrappedSampler:
-    """A convenience class for holding the models underlying a learned
-    sampler."""
+    """Wraps a base sampler with a classifier.
+    
+    The class probabilities of the classifier are used to select among
+    multiple candidate samples from the base sampler.
+    """
     _base_sampler: NSRTSampler
     _classifier: BinaryClassifier
     _variables: Sequence[Variable]
@@ -186,28 +194,9 @@ class _WrappedSampler:
         assert not CFG.sampler_learning_use_goals
         x = np.array(x_lst)
         
-        # TODO obviously remove
-        if "Holding" in str(goal):
-            assert len(objects) == 1
-            from predicators.envs import get_or_create_env
-            from matplotlib import pyplot as plt
-            import matplotlib.cm as cm
-            cmap = cm.get_cmap('RdYlGn')
-            env = get_or_create_env(CFG.env)
-            fig = env.render_state_plt(state, None)
-            ax = fig.axes[0]
-            candidates = [self._base_sampler(state, goal, rng, objects)[0] for _ in range(100)]
-            for candidate in candidates:
-                proba = self._classifier.predict_proba(np.r_[x, [candidate]])
-                color = cmap(proba)
-                circle = plt.Circle((candidate, -0.16), 0.005, color=color, alpha=0.1)
-                ax.add_patch(circle)
-            fig.savefig('debug.png')
-            import ipdb; ipdb.set_trace()
-        
         samples = []
         scores = []
-        for _ in range(100):
+        for _ in range(CFG.active_sampler_learning_num_samples):
             params = self._base_sampler(state, goal, rng, objects)
             assert self._param_option.params_space.contains(params)
             score = self._classifier.predict_proba(np.r_[x, params])
@@ -215,11 +204,7 @@ class _WrappedSampler:
             scores.append(score)
         
         # Add a little bit of noise to promote exploration.
-        # TODO change!!
-        if "Holding" in str(goal):
-            eps = 1e-3
-        else:
-            eps = 1e-1
+        eps = CFG.active_sampler_learning_score_eps
         scores = scores + rng.uniform(-eps, eps, size=len(scores))
 
         idx = np.argmax(scores)

@@ -516,6 +516,10 @@ class GlobalSettings:
     online_learning_max_novelty_count = 0
     online_learning_lifelong = False
 
+    # active sampler learning parameters
+    active_sampler_learning_score_eps = 1e-3
+    active_sampler_learning_num_samples = 100
+
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
     refinement_estimation_num_skeletons_generated = 8
