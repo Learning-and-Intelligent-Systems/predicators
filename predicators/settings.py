@@ -421,6 +421,8 @@ class GlobalSettings:
     offline_data_max_skeletons_optimized = -1
     # Number of replays used when offline_data_method is replay-based.
     offline_data_num_replays = 500
+    # Default to bilevel_plan_without_sim.
+    offline_data_bilevel_plan_without_sim = None
 
     # teacher dataset parameters
     # Number of positive examples and negative examples per predicate.
