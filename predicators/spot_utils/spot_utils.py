@@ -231,11 +231,7 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-        # self.robot.logger.info("Constructing Initial State.")
-        # waypoints_to_explore = ["tool_room_table", "toolbag", "low_wall_rack"]
-        # obj_poses = self.construct_initState(waypoints_to_explore)
-
-        self.obj_poses = {
+        self.obj_poses: Dict[int, Tuple[float, float, float]] = {
             401: (9.88033592963138, -7.1021749878621065, 0.6151642905726489),
             404: (6.353829809477876, -6.079001328160755, 0.2739325241499811),
             405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
@@ -444,7 +440,7 @@ class _SpotInterface():
             self,
             waypoints: Sequence[str]) -> Dict[int, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
-        obj_poses = {}
+        obj_poses: Dict[int, Tuple[float, float, float]] = {}
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
@@ -782,7 +778,8 @@ class _SpotInterface():
                 state.localization.seed_tform_body)
 
             # Apply transform to fiducial pose to get relative body location.
-            tag_id = int(obj_name_to_apriltag_id[obj.name])
+            assert isinstance(obj, Object)
+            tag_id: int = int(obj_name_to_apriltag_id[obj.name])
             body_tform_fiducial = gn_origin_tform_body.inverse(
             ).transform_point(self.obj_poses[tag_id][0],
                               self.obj_poses[tag_id][1],
