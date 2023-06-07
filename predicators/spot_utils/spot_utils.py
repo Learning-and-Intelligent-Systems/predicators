@@ -231,9 +231,16 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-        # self.obj_poses = self.get_apriltag_pose_from_camera(source_name="back_fisheye_image")
+        # self.robot.logger.info("Constructing Initial State.")
+        # waypoints_to_explore = ["tool_room_table", "toolbag", "low_wall_rack"]
+        # obj_poses = self.construct_initState(waypoints_to_explore)
+
         self.obj_poses = {
-            405: (7.012502003835815, -8.16002435840359, -0.19144977319953185)
+            401: (9.88033592963138, -7.1021749878621065, 0.6151642905726489),
+            404: (6.353829809477876, -6.079001328160755, 0.2739325241499811),
+            405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
+            403: (9.832542636303732, -6.833666179802962, 0.6219320931241232),
+            402: (6.526055863266391, -5.950473694247712, 0.15998113374881623)
         }
 
     def get_apriltag_pose_from_camera(
@@ -432,6 +439,26 @@ class _SpotInterface():
                            use_object_location=True)
         time.sleep(1.0)
         self.stow_arm()
+
+    def construct_initState(
+            self,
+            waypoints: Sequence[str]) -> Dict[int, Tuple[float, float, float]]:
+        """Walks around and spins around to find object poses by apriltag."""
+        obj_poses = {}
+        for waypoint in waypoints:
+            waypoint_id = graph_nav_loc_to_id[waypoint]
+            self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
+            for _ in range(4):
+                for source_name in [
+                        "hand_color_image", "left_fisheye_image",
+                        "back_fisheye_image"
+                ]:
+                    viewable_obj_poses = self.get_apriltag_pose_from_camera(
+                        source_name=source_name)
+                    obj_poses = dict(obj_poses.items()
+                                     | viewable_obj_poses.items())
+                self.relative_move(0.0, 0.0, 90.0)
+        return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
