@@ -48,7 +48,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                           objs: Sequence[Object]) -> Array:
             del state, goal, rng
             if objs[2].type.name == "bag":  # pragma: no cover
-                return np.array([0.0, 0.0, -0.25])
+                return np.array([0.1, 0.0, -0.25])
             return np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)

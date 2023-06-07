@@ -67,7 +67,8 @@ obj_name_to_apriltag_id = {
     "hammer": "401",
     "brush": "402",
     "hex_key": "403",
-    "hex_screwdriver": "404"
+    "hex_screwdriver": "404",
+    "toolbag": "405"
 }
 
 OBJECT_CROPS = {
@@ -230,6 +231,11 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
+        # self.obj_poses = self.get_apriltag_pose_from_camera(source_name="back_fisheye_image")
+        self.obj_poses = {
+            405: (7.012502003835815, -8.16002435840359, -0.19144977319953185)
+        }
+
     def get_apriltag_pose_from_camera(
             self,
             source_name: str = "hand_color_image",
@@ -307,6 +313,7 @@ class _SpotInterface():
             self.graph_nav_command_line.set_initial_localization_fiducial()
             state = self.graph_nav_command_line.graph_nav_client.\
                 get_localization_state()
+            assert str(state.localization.seed_tform_body) != ''
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
@@ -415,7 +422,10 @@ class _SpotInterface():
         """
         print("PlaceOntop", objs)
         assert len(params) == 3
-        self.hand_movement(params, keep_hand_pose=False)
+        self.hand_movement(params,
+                           objs[2],
+                           keep_hand_pose=False,
+                           use_object_location=True)
         time.sleep(1.0)
         self.stow_arm()
 
@@ -701,8 +711,10 @@ class _SpotInterface():
 
     def hand_movement(self,
                       params: Array,
+                      obj: Object = None,
                       open_gripper: bool = True,
-                      keep_hand_pose: bool = True) -> None:
+                      keep_hand_pose: bool = True,
+                      use_object_location: bool = False) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -725,14 +737,34 @@ class _SpotInterface():
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
         # Make the arm pose RobotCommand
+        if use_object_location:
+            # Get graph_nav to body frame.
+            self.graph_nav_command_line.set_initial_localization_fiducial()
+            state = self.graph_nav_command_line.graph_nav_client.\
+                get_localization_state()
+            assert str(state.localization.seed_tform_body) != ''
+            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+                state.localization.seed_tform_body)
+
+            # Apply transform to fiducial pose to get relative body location.
+            tag_id = int(obj_name_to_apriltag_id[obj.name])
+            body_tform_fiducial = gn_origin_tform_body.inverse(
+            ).transform_point(self.obj_poses[tag_id][0],
+                              self.obj_poses[tag_id][1],
+                              self.obj_poses[tag_id][2])
+            hand_x, hand_y, hand_z = [
+                body_tform_fiducial[0], body_tform_fiducial[1], self.hand_z
+            ]
+        else:
+            hand_x, hand_y, hand_z = [self.hand_x, self.hand_y, self.hand_z]
         # Build a position to move the arm to (in meters, relative to and
         # expressed in the gravity aligned body frame).
         assert params[0] >= -0.5 and params[0] <= 0.5
         assert params[1] >= -0.5 and params[1] <= 0.5
         assert params[2] >= -0.25 and params[2] <= 0.25
-        x = self.hand_x + params[0]  # dx hand
-        y = self.hand_y + params[1]
-        z = self.hand_z + params[2]
+        x = hand_x + params[0]  # dx hand
+        y = hand_y + params[1]
+        z = hand_z + params[2]
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
         flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body,
