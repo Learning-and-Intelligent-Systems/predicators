@@ -55,31 +55,34 @@ def _create_test_cases(env: BaseEnv):
 
     test_cases = []
 
-    block_poses = [0.15, 0.605]
-    target_poses = [0.375, 0.815]
-    env_task = env.get_test_tasks()[0]
-    state = env_task.init
-    block0 = [b for b in state if b.name == "block0"][0]
-    block1 = [b for b in state if b.name == "block1"][0]
-    target0 = [b for b in state if b.name == "target0"][0]
-    target1 = [b for b in state if b.name == "target1"][0]
-    robot = [b for b in state if b.name == "robby"][0]
-    blocks = [block0, block1]
-    targets = [target0, target1]
-    assert len(blocks) == len(block_poses)
-    for block, pose in zip(blocks, block_poses):
-        # [is_block, is_target, width, pose, grasp]
-        state.set(block, "pose", pose)
-        # Make sure blocks are not held
-        state.set(block, "grasp", -1)
-    assert len(targets) == len(target_poses)
-    for target, pose in zip(targets, target_poses):
-        # [is_block, is_target, width, pose]
-        state.set(target, "pose", pose)
-    state.set(robot, "hand", 0.0)
-
-    test_cases.append((state, [block0]))
-    test_cases.append((state, [block1]))
+    for block_poses, target_poses in [
+        ([0.15, 0.605], [0.375, 0.815]),
+        ([0.5, 0.2], [0.375, 0.815]),
+        ([0.75, 0.1], [0.375, 0.815]),
+        ([0.3, 0.8], [0.375, 0.815]),
+    ]:
+        env_task = env.get_test_tasks()[0]
+        state = env_task.init.copy()
+        block0 = [b for b in state if b.name == "block0"][0]
+        block1 = [b for b in state if b.name == "block1"][0]
+        target0 = [b for b in state if b.name == "target0"][0]
+        target1 = [b for b in state if b.name == "target1"][0]
+        robot = [b for b in state if b.name == "robby"][0]
+        blocks = [block0, block1]
+        targets = [target0, target1]
+        assert len(blocks) == len(block_poses)
+        for block, pose in zip(blocks, block_poses):
+            # [is_block, is_target, width, pose, grasp]
+            state.set(block, "pose", pose)
+            # Make sure blocks are not held
+            state.set(block, "grasp", -1)
+        assert len(targets) == len(target_poses)
+        for target, pose in zip(targets, target_poses):
+            # [is_block, is_target, width, pose]
+            state.set(target, "pose", pose)
+        state.set(robot, "hand", 0.0)
+        test_cases.append((state, [block0]))
+        test_cases.append((state, [block1]))
 
     return test_cases
 

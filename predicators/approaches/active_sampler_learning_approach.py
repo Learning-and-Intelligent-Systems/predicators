@@ -21,7 +21,7 @@ Bumpy cover easy:
         --max_initial_demos 1 \
         --num_train_tasks 1000 \
         --num_test_tasks 10 \
-        --max_num_steps_interaction_request 10 \
+        --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1 \
         --sampler_mlp_classifier_max_itr 100000
@@ -39,7 +39,7 @@ Bumpy cover medium:
         --max_initial_demos 1 \
         --num_train_tasks 1000 \
         --num_test_tasks 10 \
-        --max_num_steps_interaction_request 100 \
+        --max_num_steps_interaction_request 10 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 5 \
         --sampler_mlp_classifier_max_itr 100000
@@ -89,6 +89,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                                                 option: []
                                                 for option in initial_options
                                             }
+        self._current_sampler_noise = 0.0  # update later
 
     @classmethod
     def get_name(cls) -> str:
@@ -186,7 +187,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             nsrt = next(n for n in self._nsrts if n.option == option)
             base_sampler = nsrt._sampler
             wrapped_sampler = _WrappedSampler(base_sampler, classifier,
-                                              nsrt.parameters, nsrt.option)
+                                              nsrt.parameters, nsrt.option,
+                                              self._get_sampler_noise)
             # Create new NSRT with wrapped sampler.
             new_nsrt = NSRT(nsrt.name, nsrt.parameters, nsrt.preconditions,
                             nsrt.add_effects, nsrt.delete_effects,
@@ -194,6 +196,18 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             wrapped_sampler.sampler)
             new_nsrts.add(new_nsrt)
         self._nsrts = new_nsrts
+
+    def _get_sampler_noise(self) -> float:
+        """Change the sampler noise depending on whether we're training on evaluating."""
+        return self._current_sampler_noise
+
+    def get_interaction_requests(self) -> List[InteractionRequest]:
+        self._current_sampler_noise = 0.25  # high noise
+        return super().get_interaction_requests()
+
+    def learn_from_interaction_results(self, results: Sequence[InteractionResult]) -> None:
+        self._current_sampler_noise = 0.01  # low noise
+        return super().learn_from_interaction_results(results)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -207,6 +221,7 @@ class _WrappedSampler:
     _classifier: BinaryClassifier
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
+    _get_explore_noise: Callable[[], float]
 
     def sampler(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:
@@ -231,7 +246,7 @@ class _WrappedSampler:
             scores.append(score)
 
         # Add a little bit of noise to promote exploration.
-        eps = CFG.active_sampler_learning_score_eps
+        eps = self._get_explore_noise()
         scores = scores + rng.uniform(-eps, eps, size=len(scores))
 
         idx = np.argmax(scores)
