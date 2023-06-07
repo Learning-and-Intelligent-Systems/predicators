@@ -57,9 +57,7 @@ class SpotBikePerceiver(BasePerceiver):
                 robot_object = objects[0]
                 observation.set(robot_object, "curr_held_item_id",
                                 grasp_obj_id)
-                self._curr_env.update_observation(observation)
             elif "place" in controller_name.lower():
                 robot_object = objects[0]
                 observation.set(robot_object, "curr_held_item_id", 0.0)
-                self._curr_env.update_observation(observation)
         return observation

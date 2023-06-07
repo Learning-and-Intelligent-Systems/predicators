@@ -252,8 +252,16 @@ class SpotEnv(BaseEnv):
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
+
+        # We need to remove any "HoldingTool" atoms from the preconditions
+        # because of current perception stuff. Note that this is a hack and
+        # we should DEFINITELY remove this in the future.
+        preconditions_to_check = set(
+            atom for atom in ground_op.preconditions
+            if "HoldingTool" not in atom.predicate.name)
+
         # If the operator is not applicable in this state, noop.
-        if ground_op is None or not ground_op.preconditions.issubset(
+        if ground_op is None or not preconditions_to_check.issubset(
                 ground_atoms):
             return None
         # Apply the operator.
@@ -892,7 +900,7 @@ class SpotBikeEnv(SpotEnv):
     @property
     def continuous_feature_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
-        return {self._HandEmpty}
+        return {self._HandEmpty, self._notHandEmpty, self._HoldingTool}
 
     def _get_continuous_observation(self) -> State:  # pragma: no cover
         """Helper for step()."""
@@ -903,12 +911,6 @@ class SpotBikeEnv(SpotEnv):
         spot = curr_state.get_objects(self._robot_type)[0]
         curr_state.set(spot, "gripper_open_percentage", new_gripper_open_perc)
         return curr_state
-
-    def update_observation(
-            self, updated_obs: Observation) -> None:  # pragma: no cover
-        """Necessary so that the perceiver can update the environment's current
-        state."""
-        self._current_observation = updated_obs
 
     def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
