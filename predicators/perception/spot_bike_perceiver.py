@@ -1,4 +1,4 @@
-"""A sokoban-specific perceiver."""
+"""A perceiver specific to the spot bike env."""
 
 from typing import Optional, Set
 

@@ -258,7 +258,6 @@ class SpotEnv(BaseEnv):
             return None
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
-
         # Return only the atoms for the non-continuous-feature predicates.
         return {
             a
