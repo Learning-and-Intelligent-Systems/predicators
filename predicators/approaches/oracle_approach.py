@@ -6,7 +6,7 @@ truth NSRTs. If an NSRT's option is not included, that NSRT will not be
 generated at all.
 """
 
-from typing import List, Set
+from typing import List, Optional, Set
 
 from gym.spaces import Box
 
@@ -28,10 +28,11 @@ class OracleApproach(BilevelPlanningApproach):
                  action_space: Box,
                  train_tasks: List[Task],
                  task_planning_heuristic: str = "default",
-                 max_skeletons_optimized: int = -1) -> None:
+                 max_skeletons_optimized: int = -1,
+                 bilevel_plan_without_sim: Optional[bool] = None) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks, task_planning_heuristic,
-                         max_skeletons_optimized)
+                         max_skeletons_optimized, bilevel_plan_without_sim)
         self._nsrts = get_gt_nsrts(CFG.env, self._initial_predicates,
                                    self._initial_options)
 
