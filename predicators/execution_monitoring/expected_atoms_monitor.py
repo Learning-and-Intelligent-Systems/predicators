@@ -36,8 +36,7 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
             return False
         logging.info(
             "Expected Atoms Check Execution Failure.")  # pragma: no cover
-        logging.info(
-            curr_atoms -
-            self._approach_info[self._curr_plan_timestep])  # pragma: no cover
+        logging.info(self._approach_info[self._curr_plan_timestep] -
+                     curr_atoms)  # pragma: no cover
         self._curr_plan_timestep += 1  # pragma: no cover
         return True  # pragma: no cover
