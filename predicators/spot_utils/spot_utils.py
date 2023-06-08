@@ -69,8 +69,8 @@ obj_name_to_apriltag_id = {
     "hex_screwdriver": 404,
     "toolbag": 405,
     "low_wall_rack": 406,
-    "tool_room_table": 407,
-    "front_tool_room": 408,
+    "front_tool_room": 407,
+    "tool_room_table": 408,
 }
 
 apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
@@ -301,14 +301,13 @@ class _SpotInterface():
         self, object_names: Collection[str]
     ) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
-        waypoints = ["front_tool_room", "low_wall_rack", "tool_room_table"]
-        obj_id_to_loc = self.helper_construct_init_state(waypoints)
+        waypoints = ["low_wall_rack", "tool_room_table"]
+        obj_name_to_loc = self.helper_construct_init_state(waypoints)
         object_views: Dict[str, Tuple[float, float, float]] = {}
         for obj_name in object_names:
-            obj_id = obj_name_to_apriltag_id[obj_name]
-            assert obj_id in obj_id_to_loc, \
+            assert obj_name in obj_name_to_loc, \
                 f"Did not locate object {obj_name}!"
-            object_views[obj_name] = obj_id_to_loc[obj_id]
+            object_views[obj_name] = obj_name_to_loc[obj_name]
             logging.debug(f"Located object {obj_name}")
         return object_views
 
@@ -509,9 +508,9 @@ class _SpotInterface():
 
     def helper_construct_init_state(
             self,
-            waypoints: Sequence[str]) -> Dict[int, Tuple[float, float, float]]:
+            waypoints: Sequence[str]) -> Dict[str, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
-        obj_poses: Dict[int, Tuple[float, float, float]] = {}
+        obj_poses: Dict[str, Tuple[float, float, float]] = {}
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
