@@ -236,6 +236,10 @@ class SpotEnv(BaseEnv):
         self._current_observation = self._build_observation(next_nonpercept)
         return self._current_observation
 
+    def get_observation(self) -> Observation:
+        return self._current_observation.copy()
+
+
     def _build_observation(self,
                            ground_atoms: Set[GroundAtom]) -> _SpotObservation:
         """Helper for building a new _SpotObservation().
