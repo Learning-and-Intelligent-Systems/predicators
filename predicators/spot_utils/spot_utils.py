@@ -300,6 +300,7 @@ class _SpotInterface():
         """Walk around and build object views."""
         waypoints = ["front_tool_room", "low_wall_rack", "tool_room_table"]
         return self.construct_initState(waypoints)
+
     def get_localized_state(self) -> Any:
         """Get localized state from GraphNav client."""
         exec_start, exec_sec = time.perf_counter(), 0.0
