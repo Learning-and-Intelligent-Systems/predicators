@@ -67,7 +67,22 @@ obj_name_to_apriltag_id = {
     "hammer": 401,
     "brush": 402,
     "hex_key": 403,
-    "hex_screwdriver": 404
+    "hex_screwdriver": 404,
+    "toolbag": 405,
+    "low_wall_rack": 406,
+    "tool_room_table": 407,
+    "front_tool_room": 408,
+}
+
+apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
+    401: (9.894476696960474, -7.13110996085628, 0.6128697884183844),
+    402: (6.492544006833252, -5.949555197001736, 0.15848369079640096),
+    403: (9.865172551128433, -6.866927111707811, 0.6057541244901083),
+    404: (6.309634003009213, -5.927127765104969, 0.28815345669215225),
+    405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
+    406: (9.985505899791097, -6.981086719041378, 0.24004802462770083),
+    407: (6.974322333685671, -8.519032350022558, 0.19594502052006785),
+    408: (6.442939585696927, -6.266242910425788, 0.026100683357255378)
 }
 
 OBJECT_CROPS = {
@@ -167,6 +182,7 @@ class _SpotInterface():
         self._image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
+        self.localization_timeout = 10
 
         # Try to connect to the robot. If this fails, still maintain the
         # instance for testing, but assert that it succeeded within the
@@ -229,6 +245,23 @@ class _SpotInterface():
         self.robot.logger.info("Commanding robot to stand...")
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
+
+    def get_localized_state(self) -> Any:
+        """Get localized state from GraphNav client."""
+        exec_start, exec_sec = time.perf_counter(), 0.0
+        # This needs to be a while loop because get_localization_state
+        # sometimes returns null pose if poorly localized. We assert JIC.
+        while exec_sec < self.localization_timeout:
+            # Localizes robot from larger graph fiducials.
+            self.graph_nav_command_line.set_initial_localization_fiducial()
+            state = self.graph_nav_command_line.graph_nav_client.\
+                get_localization_state()
+            exec_sec = time.perf_counter() - exec_start
+            if str(state.localization.seed_tform_body) != '':
+                break
+            time.sleep(1)
+        assert str(state.localization.seed_tform_body) != ''
+        return state
 
     def get_apriltag_pose_from_camera(
             self,
@@ -304,9 +337,7 @@ class _SpotInterface():
                     fiducial_rt_camera_frame[2])
 
             # Get graph_nav to body frame.
-            self.graph_nav_command_line.set_initial_localization_fiducial()
-            state = self.graph_nav_command_line.graph_nav_client.\
-                get_localization_state()
+            state = self.get_localized_state()
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
@@ -421,12 +452,34 @@ class _SpotInterface():
         """
         print("PlaceOntop", objs)
         assert len(params) == 3
-        self.hand_movement(params, keep_hand_pose=False)
+        self.hand_movement(params,
+                           objs[2],
+                           keep_hand_pose=False,
+                           use_object_location=True)
         time.sleep(1.0)
         self.stow_arm()
         # NOTE: time.sleep(2.0) required afer each option execution
         # to allow time for sensor readings to settle.
         time.sleep(2.0)
+
+    def helper_construct_init_state(
+            self,
+            waypoints: Sequence[str]) -> Dict[int, Tuple[float, float, float]]:
+        """Walks around and spins around to find object poses by apriltag."""
+        obj_poses: Dict[int, Tuple[float, float, float]] = {}
+        for waypoint in waypoints:
+            waypoint_id = graph_nav_loc_to_id[waypoint]
+            self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
+            for _ in range(8):
+                for source_name in [
+                        "hand_color_image", "left_fisheye_image",
+                        "back_fisheye_image"
+                ]:
+                    viewable_obj_poses = self.get_apriltag_pose_from_camera(
+                        source_name=source_name)
+                    obj_poses.update(viewable_obj_poses)
+                self.relative_move(0.0, 0.0, 45.0)
+        return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
         """Verify the robot is not estopped."""
@@ -710,8 +763,10 @@ class _SpotInterface():
 
     def hand_movement(self,
                       params: Array,
+                      obj: Optional[Object] = None,
                       open_gripper: bool = True,
-                      keep_hand_pose: bool = True) -> None:
+                      keep_hand_pose: bool = True,
+                      use_object_location: bool = False) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -734,14 +789,32 @@ class _SpotInterface():
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
         # Make the arm pose RobotCommand
+        if use_object_location:
+            # Get graph_nav to body frame.
+            state = self.get_localized_state()
+            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+                state.localization.seed_tform_body)
+
+            # Apply transform to fiducial pose to get relative body location.
+            assert isinstance(obj, Object)
+            tag_id = obj_name_to_apriltag_id[obj.name]
+            body_tform_fiducial = gn_origin_tform_body.inverse(
+            ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
+                              apriltag_id_to_obj_poses[tag_id][1],
+                              apriltag_id_to_obj_poses[tag_id][2])
+            hand_x, hand_y, hand_z = [
+                body_tform_fiducial[0], body_tform_fiducial[1], self.hand_z
+            ]
+        else:
+            hand_x, hand_y, hand_z = [self.hand_x, self.hand_y, self.hand_z]
         # Build a position to move the arm to (in meters, relative to and
         # expressed in the gravity aligned body frame).
         assert params[0] >= -0.5 and params[0] <= 0.5
         assert params[1] >= -0.5 and params[1] <= 0.5
         assert params[2] >= -0.25 and params[2] <= 0.25
-        x = self.hand_x + params[0]  # dx hand
-        y = self.hand_y + params[1]
-        z = self.hand_z + params[2]
+        x = hand_x + params[0]  # dx hand
+        y = hand_y + params[1]
+        z = hand_z + params[2]
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
         flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body,

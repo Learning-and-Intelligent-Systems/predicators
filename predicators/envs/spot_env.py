@@ -891,8 +891,8 @@ class SpotBikeEnv(SpotEnv):
         spot, obj_to_grasp = objects
         assert obj_name_to_apriltag_id.get(obj_to_grasp.name) is not None
         spot_holding_obj_id = state.get(spot, "curr_held_item_id")
-        return int(spot_holding_obj_id) == int(obj_name_to_apriltag_id[
-            obj_to_grasp.name]) and self._nothandempty_classifier(
+        return int(spot_holding_obj_id) == obj_name_to_apriltag_id[
+            obj_to_grasp.name] and self._nothandempty_classifier(
                 state, [spot])
 
     @classmethod
