@@ -249,6 +249,8 @@ class _SpotInterface():
     def get_localized_state(self) -> Any:
         """Get localized state from GraphNav client."""
         exec_start, exec_sec = time.perf_counter(), 0.0
+        # This needs to be a while loop because get_localization_state
+        # sometimes returns null pose if poorly localized. We assert JIC.
         while exec_sec < self.localization_timeout:
             # Localizes robot from larger graph fiducials.
             self.graph_nav_command_line.set_initial_localization_fiducial()
@@ -468,7 +470,7 @@ class _SpotInterface():
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
-            for _ in range(4):
+            for _ in range(8):
                 for source_name in [
                         "hand_color_image", "left_fisheye_image",
                         "back_fisheye_image"
@@ -476,7 +478,7 @@ class _SpotInterface():
                     viewable_obj_poses = self.get_apriltag_pose_from_camera(
                         source_name=source_name)
                     obj_poses.update(viewable_obj_poses)
-                self.relative_move(0.0, 0.0, 90.0)
+                self.relative_move(0.0, 0.0, 45.0)
         return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
