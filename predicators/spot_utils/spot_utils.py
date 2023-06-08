@@ -806,7 +806,7 @@ class _SpotInterface():
             ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
                               apriltag_id_to_obj_poses[tag_id][1],
                               apriltag_id_to_obj_poses[tag_id][2])
-            hand_x, hand_y, hand_z = [
+obj_pose = [state.get(obj_on, "x"), state.get(obj_on, "y"), state.get(obj_on, "z")]            hand_x, hand_y, hand_z = [
                 body_tform_fiducial[0], body_tform_fiducial[1], self.hand_z
             ]
         else:
