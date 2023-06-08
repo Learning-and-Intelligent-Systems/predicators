@@ -426,7 +426,8 @@ class _SpotInterface():
             "noop": Box(0, 1, (0, ))
         }
 
-    def execute(self, name: str, objects: Sequence[Object], params: Array) -> None:
+    def execute(self, name: str, objects: Sequence[Object],
+                params: Array) -> None:
         """Run the controller based on the given name."""
         assert self._connected_to_spot
         if name == "navigate":
@@ -436,7 +437,8 @@ class _SpotInterface():
         assert name == "placeOnTop"
         return self.placeOntopController(objects, params)
 
-    def navigateToController(self, objs: Sequence[Object], params: Array) -> None:
+    def navigateToController(self, objs: Sequence[Object],
+                             params: Array) -> None:
         """Controller that navigates to specific pre-specified locations.
 
         Params are [dx, dy, d-yaw]
@@ -511,7 +513,7 @@ class _SpotInterface():
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
-            for _ in range(1): #range(8):
+            for _ in range(1):  #range(8):
                 for source_name in [
                         "hand_color_image", "left_fisheye_image",
                         "back_fisheye_image"

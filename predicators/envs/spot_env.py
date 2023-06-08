@@ -34,6 +34,8 @@ class _SpotObservation:
     images: Dict[str, Image]
     # Objects that are seen in the current image and their positions in world
     objects_in_view: Dict[Object, Tuple[float, float, float]]
+    # Expose the robot object.
+    robot: Object
     # Status of the robot gripper.
     gripper_open_percentage: float
     # Ground atoms without ground-truth classifiers
@@ -152,13 +154,15 @@ class SpotEnv(BaseEnv):
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
-    def parse_action(self, action: Action, ordered_objs: List[Object]) -> Tuple[str, List[Object], Array]:
+    def parse_action(self, action: Action) -> Tuple[str, List[Object], Array]:
         """(Only for this environment) A convenience method that converts low-
         level actions into more interpretable high-level actions by exploiting
         knowledge of how we encode actions."""
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
+        all_objects = set(self._make_object_name_to_obj_dict().values())
+        ordered_objs = sorted(all_objects)
         ground_op = _action_to_ground_strips_op(op_action, ordered_objs,
                                                 self._ordered_strips_operators)
         assert ground_op is not None
@@ -192,8 +196,8 @@ class SpotEnv(BaseEnv):
         """
         return self._spot_interface.params_spaces[name]
 
-    def build_action(self, op: STRIPSOperator,
-                     objects: Sequence[Object], params: Array) -> Action:
+    def build_action(self, op: STRIPSOperator, objects: Sequence[Object],
+                     params: Array) -> Action:
         """Helper function exposed for use by oracle options."""
         # Initialize the action array.
         action_arr = np.zeros(self.action_space.shape[0], dtype=np.float32)
@@ -219,9 +223,7 @@ class SpotEnv(BaseEnv):
         assert isinstance(obs, _SpotObservation)
         assert self.action_space.contains(action.arr)
         # Parse the action into the components needed for a controller.
-        all_objects = set(self._make_object_name_to_obj_dict().values())
-        ordered_objects = sorted(all_objects)
-        name, objects, params = self.parse_action(action, ordered_objects)
+        name, objects, params = self.parse_action(action)
         # Execute the controller in the real environment.
         self._spot_interface.execute(name, objects, params)
         # Now update the part of the state that is cheated based on the
@@ -249,20 +251,20 @@ class SpotEnv(BaseEnv):
         }
 
         # Get the robot status.
+        robot = self._obj_name_to_obj("spot")
         gripper_open_percentage = self._spot_interface.get_gripper_obs()
 
         # Prepare the non-percepts.
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in ground_atoms)
-        obs = _SpotObservation(images, objects_in_view,
+        obs = _SpotObservation(images, objects_in_view, robot,
                                gripper_open_percentage, ground_atoms,
                                nonpercept_preds)
 
         return obs
 
-    def _get_next_nonpercept_atoms(
-            self, obs: _SpotObservation,
-            action: Action) -> Set[GroundAtom]:
+    def _get_next_nonpercept_atoms(self, obs: _SpotObservation,
+                                   action: Action) -> Set[GroundAtom]:
         """Helper for step().
 
         This should be deprecated eventually.
@@ -310,12 +312,14 @@ class SpotEnv(BaseEnv):
             self._obj_name_to_obj(n): v
             for n, v in object_names_in_view.items()
         }
+        robot_type = next(t for t in self.types if t.name == "robot")
+        robot = Object("spot", robot_type)
         images = self._spot_interface.get_camera_images()
         gripper_open_percentage = self._spot_interface.get_gripper_obs()
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         # assert all(a.predicate in nonpercept_preds for a in ground_atoms)
-        obs = _SpotObservation(images, objects_in_view,
+        obs = _SpotObservation(images, objects_in_view, robot,
                                gripper_open_percentage, nonpercept_atoms,
                                nonpercept_preds)
         goal = self._generate_task_goal()
@@ -346,7 +350,6 @@ class SpotEnv(BaseEnv):
         raise NotImplementedError("This env does not use Matplotlib")
 
 
-
 ###############################################################################
 #                                Grocery Env                                  #
 ###############################################################################
@@ -363,7 +366,7 @@ class SpotGroceryEnv(SpotEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
-        # Types
+        # Additional types
         self._robot_type = Type("robot", [])
         self._can_type = Type("soda_can", [])
         self._surface_type = Type("flat_surface", [])
@@ -907,4 +910,3 @@ class SpotBikeEnv(SpotEnv):
         obj_names = list(self._make_object_name_to_obj_dict().keys())
         return self._spot_interface.actively_construct_initial_object_views(
             obj_names)
-
