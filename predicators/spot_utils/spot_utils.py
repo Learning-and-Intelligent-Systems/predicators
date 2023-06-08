@@ -302,14 +302,13 @@ class _SpotInterface():
             object_names: List[str]) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
         waypoints = ["front_tool_room", "low_wall_rack", "tool_room_table"]
-        waypoint_id_to_loc_dict = self.helper_construct_init_state(waypoints)
-        waypoint_name_to_loc_dict: Dict[str, Tuple[float, float, float]] = {}
+        obj_id_to_loc_dict = self.helper_construct_init_state(waypoints)
+        object_views: Dict[str, Tuple[float, float, float]] = {}
         for obj_name in object_names:
-            assert obj_name_to_apriltag_id[
-                obj_name] in waypoint_id_to_loc_dict.keys()
-            waypoint_name_to_loc_dict[obj_name] = waypoint_id_to_loc_dict[
-                obj_name_to_apriltag_id[obj_name]]
-        return waypoint_name_to_loc_dict
+            obj_id = obj_name_to_apriltag_id[obj_name]
+            assert obj_id in obj_id_to_loc_dict
+            object_views[obj_name] = obj_id_to_loc_dict[obj_id]
+        return object_views
 
     def get_localized_state(self) -> Any:
         """Get localized state from GraphNav client."""
@@ -399,7 +398,7 @@ class _SpotInterface():
         return obj_poses
 
     @staticmethod
-    def rotate_image(image: Array, source_name: str) -> Array:
+    def rotate_image(image: Image, source_name: str) -> Image:
         """Rotate the image so that it is always displayed upright."""
         if source_name == "frontleft_fisheye_image":
             image = cv2.rotate(image, rotateCode=0)
@@ -409,11 +408,13 @@ class _SpotInterface():
             image = cv2.rotate(image, rotateCode=0)
         return image
 
-    def get_gripper_obs(self) -> Array:
+    def get_gripper_obs(self) -> float:
         """Grabs the current observation of relevant quantities from the
         gripper."""
         robot_state = self.robot_state_client.get_robot_state()
-        return robot_state.manipulator_state.gripper_open_percentage
+        arr = robot_state.manipulator_state.gripper_open_percentage
+        assert arr.shape == (1, )
+        return arr[0]
 
     @property
     def params_spaces(self) -> Dict[str, Box]:
@@ -425,39 +426,33 @@ class _SpotInterface():
             "noop": Box(0, 1, (0, ))
         }
 
-    def execute(self, name: str, current_atoms: Set[GroundAtom],
-                objects: Sequence[Object], params: Array) -> None:
+    def execute(self, name: str, objects: Sequence[Object], params: Array) -> None:
         """Run the controller based on the given name."""
         assert self._connected_to_spot
         if name == "navigate":
-            return self.navigateToController(current_atoms, objects, params)
+            return self.navigateToController(objects, params)
         if name == "grasp":
             return self.graspController(objects, params)
         assert name == "placeOnTop"
         return self.placeOntopController(objects, params)
 
-    def navigateToController(self, curr_atoms: Set[GroundAtom],
-                             objs: Sequence[Object], params: Array) -> None:
+    def navigateToController(self, objs: Sequence[Object], params: Array) -> None:
         """Controller that navigates to specific pre-specified locations.
 
         Params are [dx, dy, d-yaw]
         """
         print("NavigateTo", objs)
+        # TODO!!! introduce HaveWaypoint predicate to operators; add
+        # surface as parameter to navigate operators.
         assert len(params) == 3
-        waypoint_id = ""
+        assert len(objs) in [2, 3]
+
         if graph_nav_loc_to_id.get(objs[1].name) is not None:
             waypoint_id = graph_nav_loc_to_id[objs[1].name]
+        elif graph_nav_loc_to_id.get(objs[2].name) is not None:
+            waypoint_id = graph_nav_loc_to_id[objs[2].name]
         else:
-            curr_tool = objs[1].name
-            surfaces_for_objs = re.findall(
-                (r"On\(" + f"{curr_tool}:tool, " + r"(.*?):flat_surface\)"),
-                str(curr_atoms))
-            if surfaces_for_objs:
-                assert len(surfaces_for_objs) == 1
-                surface = surfaces_for_objs[0]
-                waypoint_id = graph_nav_loc_to_id[surface]
-            else:
-                raise NotImplementedError
+            waypoint_id = ""
 
         self.navigate_to(waypoint_id, params)
         self.stow_arm()

@@ -152,15 +152,13 @@ class SpotEnv(BaseEnv):
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
-    def parse_action(self, state: State,
-                     action: Action) -> Tuple[str, List[Object], Array]:
+    def parse_action(self, action: Action, ordered_objs: List[Object]) -> Tuple[str, List[Object], Array]:
         """(Only for this environment) A convenience method that converts low-
         level actions into more interpretable high-level actions by exploiting
         knowledge of how we encode actions."""
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
-        ordered_objs = list(state)
         ground_op = _action_to_ground_strips_op(op_action, ordered_objs,
                                                 self._ordered_strips_operators)
         assert ground_op is not None
@@ -194,7 +192,7 @@ class SpotEnv(BaseEnv):
         """
         return self._spot_interface.params_spaces[name]
 
-    def build_action(self, state: State, op: STRIPSOperator,
+    def build_action(self, all_objects: Collection[Object], op: STRIPSOperator,
                      objects: Sequence[Object], params: Array) -> Action:
         """Helper function exposed for use by oracle options."""
         # Initialize the action array.
@@ -203,7 +201,7 @@ class SpotEnv(BaseEnv):
         op_idx = self._ordered_strips_operators.index(op)
         action_arr[0] = op_idx
         # Add the object indices.
-        ordered_objects = list(state)
+        ordered_objects = sorted(all_objects)
         for i, o in enumerate(objects):
             obj_idx = ordered_objects.index(o)
             action_arr[i + 1] = obj_idx
@@ -220,10 +218,11 @@ class SpotEnv(BaseEnv):
         assert isinstance(obs, _SpotObservation)
         assert self.action_space.contains(action.arr)
         # Parse the action into the components needed for a controller.
-        name, objects, params = self.parse_action(state, action)
+        all_objects = set(self._make_object_name_to_obj_dict().values())
+        ordered_objects = sorted(all_objects)
+        name, objects, params = self.parse_action(action, ordered_objects)
         # Execute the controller in the real environment.
-        current_atoms = utils.abstract(state, self.predicates)
-        self._spot_interface.execute(name, current_atoms, objects, params)
+        self._spot_interface.execute(name, objects, params)
         # Now update the part of the state that is cheated based on the
         # ground-truth STRIPS operators.
         next_nonpercept = self._get_next_nonpercept_atoms(obs, action)
@@ -242,9 +241,6 @@ class SpotEnv(BaseEnv):
 
         # Detect objects.
         object_names_in_view = self._spot_interface.get_objects_in_view()
-
-        import ipdb
-        ipdb.set_trace()
 
         objects_in_view = {
             self._obj_name_to_obj(n): v
@@ -265,39 +261,23 @@ class SpotEnv(BaseEnv):
 
     def _get_next_nonpercept_atoms(
             self, obs: _SpotObservation,
-            action: Action) -> Optional[Set[GroundAtom]]:
+            action: Action) -> Set[GroundAtom]:
         """Helper for step().
 
-        Returns the current ground atoms if the action is not
-        applicable. This should be deprecated eventually.
+        This should be deprecated eventually.
         """
-        ordered_objs = list(state)
-        # Get the high-level state (i.e. set of GroundAtoms) by abstracting
-        # the low-level state. Note that this will automatically take
-        # care of using the hardcoded predicates vs. actually running
-        # classifier functions where appropriate.
-        percept_ground_atoms = utils.abstract(state, self.percept_predicates)
-        ground_atoms = percept_ground_atoms | obs.nonpercept_atoms
-        # Convert the action into a _GroundSTRIPSOperator.
+        # Get the ground operator.
+        all_objects = set(self._make_object_name_to_obj_dict().values())
+        ordered_objs = sorted(all_objects)
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
-
-        # We need to remove any "HoldingTool" atoms from the preconditions
-        # because of current perception stuff. Note that this is a hack and
-        # we should DEFINITELY remove this in the future.
-        preconditions_to_check = set()
-        if ground_op is not None:
-            preconditions_to_check = set(
-                atom for atom in ground_op.preconditions
-                if "HoldingTool" not in atom.predicate.name)
-
-        # If the operator is not applicable in this state, noop.
-        if ground_op is None or not preconditions_to_check.issubset(
-                ground_atoms):
-            next_ground_atoms = ground_atoms
-        else:
-            # Apply the operator.
-            next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
+        assert ground_op is not None
+        # Update the atoms using the operator.
+        next_ground_atoms = set(obs.nonpercept_atoms)
+        # Add add effects.
+        next_ground_atoms.update(ground_op.add_effects)
+        # Remove delete effects.
+        next_ground_atoms -= ground_op.delete_effects
         # Return only the atoms for the non-percept predicates.
         return {
             a
@@ -349,6 +329,10 @@ class SpotEnv(BaseEnv):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def _obj_name_to_obj(self, obj_name: str) -> Object:
         raise NotImplementedError
 
@@ -360,10 +344,6 @@ class SpotEnv(BaseEnv):
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
 
-    @abc.abstractmethod
-    def _get_language_goal_prompt_prefix(self,
-                                         object_names: Collection[str]) -> str:
-        raise NotImplementedError
 
 
 ###############################################################################
@@ -516,24 +496,6 @@ class SpotGroceryEnv(SpotEnv):
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return {self._On}
-
-    def _get_language_goal_prompt_prefix(self,
-                                         object_names: Collection[str]) -> str:
-        # pylint:disable=line-too-long
-        available_predicates = ", ".join(
-            [p.name for p in sorted(self.goal_predicates)])
-        available_objects = ", ".join(sorted(object_names))
-        # We could extract the object names, but this is simpler.
-        assert {"spot", "counter", "snack_table",
-                "soda_can"}.issubset(object_names)
-        prompt = f"""# The available predicates are: {available_predicates}
-# The available objects are: {available_objects}
-# Use the available predicates and objects to convert natural language goals into JSON goals.
-        
-# Hey spot, can you move the soda can to the snack table?
-{{"On": [["soda_can", "snack_table"]]}}
-"""
-        return prompt
 
 
 ###############################################################################
@@ -945,28 +907,3 @@ class SpotBikeEnv(SpotEnv):
         return self._spot_interface.actively_construct_initial_object_views(
             obj_names)
 
-    def _get_language_goal_prompt_prefix(self,
-                                         object_names: Collection[str]) -> str:
-        # pylint:disable=line-too-long
-        available_predicates = ", ".join([
-            str((p.name, p.types, p.arity))
-            for p in sorted(self.goal_predicates)
-        ])
-        available_objects = ", ".join(sorted(object_names))
-        # We could extract the object names, but this is simpler.
-        assert {"spot", "hammer", "toolbag",
-                "low_wall_rack"}.issubset(object_names)
-        prompt = f"""# The available predicates are: {available_predicates}
-# The available objects are: {available_objects}
-# Use the available predicates and objects to convert natural language goals into JSON goals.
-
-# Hey spot, can you put the hammer into the bag?
-{{"InBag": [["hammer", "toolbag"]]}}
-
-# Will you put the bag onto the low rack, please?
-{{"On": [["toolbag", "low_wall_rack"]],"HandEmpty": [["spot"]]}}
-
-# Go to the low_wall_rack.
-{{"ReachableSurface": [["spot", "low_wall_rack"]]}}
-"""
-        return prompt
