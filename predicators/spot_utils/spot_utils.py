@@ -302,7 +302,7 @@ class _SpotInterface():
     ) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
         waypoints = ["low_wall_rack", "tool_room_table"]
-        obj_name_to_loc = self.helper_construct_init_state(waypoints)
+        obj_name_to_loc = self._scan_for_objects(waypoints, object_names)
         object_views: Dict[str, Tuple[float, float, float]] = {}
         for obj_name in object_names:
             assert obj_name in obj_name_to_loc, \
@@ -413,9 +413,7 @@ class _SpotInterface():
         """Grabs the current observation of relevant quantities from the
         gripper."""
         robot_state = self.robot_state_client.get_robot_state()
-        arr = robot_state.manipulator_state.gripper_open_percentage
-        assert arr.shape == (1, )
-        return arr[0]
+        return float(robot_state.manipulator_state.gripper_open_percentage)
 
     @property
     def params_spaces(self) -> Dict[str, Box]:
@@ -506,17 +504,23 @@ class _SpotInterface():
         # to allow time for sensor readings to settle.
         time.sleep(2.0)
 
-    def helper_construct_init_state(
+    def _scan_for_objects(
             self,
-            waypoints: Sequence[str]) -> Dict[str, Tuple[float, float, float]]:
+            waypoints: Sequence[str],
+            objects_to_find: Collection[str]) -> Dict[str, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
         obj_poses: Dict[str, Tuple[float, float, float]] = {}
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
+            if set(objects_to_find).issubset(set(obj_poses)):
+                logging.info("All objects located!")
+                break
             for _ in range(8):
                 objects_in_view = self.get_objects_in_view()
                 obj_poses.update(objects_in_view)
+                if set(objects_to_find).issubset(set(obj_poses)):
+                    break
                 self.relative_move(0.0, 0.0, 45.0)
         return obj_poses
 
