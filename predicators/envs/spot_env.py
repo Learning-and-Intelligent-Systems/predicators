@@ -15,7 +15,7 @@ from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import get_spot_interface, \
-    obj_name_to_apriltag_id
+    obj_name_to_apriltag_id, apriltag_id_to_obj_poses
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
     Variable
@@ -573,11 +573,11 @@ class SpotBikeEnv(SpotEnv):
 
         # Types
         self._robot_type = Type(
-            "robot", ["gripper_open_percentage", "curr_held_item_id"])
-        self._tool_type = Type("tool", [])
-        self._surface_type = Type("flat_surface", [])
-        self._bag_type = Type("bag", [])
-        self._platform_type = Type("platform", [])
+            "robot", ["gripper_open_percentage", "curr_held_item_id", "x", "y", "z"])
+        self._tool_type = Type("tool", ["x", "y", "z"])
+        self._surface_type = Type("flat_surface", ["x", "y", "z"])
+        self._bag_type = Type("bag", ["x", "y", "z"])
+        self._platform_type = Type("platform", ["x", "y", "z"])
 
         # Predicates
         # Note that all classifiers assigned here just directly use
@@ -894,6 +894,20 @@ class SpotBikeEnv(SpotEnv):
         return int(spot_holding_obj_id) == obj_name_to_apriltag_id[
             obj_to_grasp.name] and self._nothandempty_classifier(
                 state, [spot])
+    
+    def _ontop_classifier(self, state: State,
+                                 objects: Sequence[Object],
+                                 threshold: float = 0.3) -> bool:
+        spot, obj_on, obj_surface = objects
+        assert obj_name_to_apriltag_id.get(obj_on.name) is not None
+        assert obj_name_to_apriltag_id.get(obj_surface.name) is not None
+
+        obj_on_pose = [state.get(obj_on, "x"), state.get(obj_on, "y"), state.get(obj_on, "z")]
+        obj_surface_pose = [state.get(obj_on, "x"), state.get(obj_on, "y"), state.get(obj_on, "z")]
+        return (obj_on_pose[0] - obj_surface_pose[0]) ** 2 <= threshold and \
+            (obj_on_pose[1] - obj_surface_pose[1]) ** 2 <= threshold and \
+            (obj_on_pose[2] - obj_surface_pose[2]) > 0.132
+    
 
     @classmethod
     def get_name(cls) -> str:
@@ -931,11 +945,19 @@ class SpotBikeEnv(SpotEnv):
             low_wall_rack, high_wall_rack, bag, movable_platform
         ]
         for _ in range(num_tasks):
-            init_dict = {spot: np.array([0.0, 0.0])}
+            init_dict = {spot: np.array([0.0, 0.0, 0.0, 0.0, 0.0])}
 
             for obj in objects:
                 if obj != spot:
-                    init_dict[obj] = np.array([])
+                    if obj.name in obj_name_to_apriltag_id.keys():
+                        tag_id = obj_name_to_apriltag_id[obj.name]
+                        if tag_id in apriltag_id_to_obj_poses.keys():
+                            init_dict[obj] = np.array(apriltag_id_to_obj_poses[tag_id])
+                            continue
+                    if obj.type.dim == 3:
+                        init_dict[obj] = np.array([0.0, 0.0, 0.0])
+                    else:
+                        init_dict[obj] = np.array([])
 
             init_atoms = {
                 GroundAtom(self._On, [hammer, low_wall_rack]),
