@@ -213,6 +213,14 @@ class SpotEnv(BaseEnv):
         # Finalize action.
         return Action(action_arr)
 
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
+        init_atoms = self._get_initial_nonpercept_atoms()
+        init_obs = self._build_observation(init_atoms)
+        goal = self._generate_task_goal()
+        self._current_task = EnvironmentTask(init_obs, goal)
+        self._current_observation = init_obs
+        return init_obs
+
     def step(self, action: Action) -> Observation:  # pragma: no cover
         """Override step() because simulate() is not implemented."""
         obs = self._current_observation
