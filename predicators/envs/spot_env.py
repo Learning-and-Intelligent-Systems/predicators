@@ -889,12 +889,10 @@ class SpotBikeEnv(SpotEnv):
         brush = Object("brush", self._tool_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
-        high_wall_rack = Object("high_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
-        movable_platform = Object("movable_platform", self._platform_type)
         objects = [
             spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
-            low_wall_rack, high_wall_rack, bag, movable_platform
+            low_wall_rack, bag
         ]
         return {o.name: o for o in objects}
 

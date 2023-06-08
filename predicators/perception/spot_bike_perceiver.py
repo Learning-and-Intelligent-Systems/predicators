@@ -46,7 +46,6 @@ class SpotBikePerceiver(BasePerceiver):
         controller_name, objects, _ = self._curr_env.parse_action(action)
         # The robot is always the 0th argument of an
         # operator!
-        spot = objects[0]
         if "grasp" in controller_name.lower():
             assert self._holding_item_id_feature == 0.0
             # We know that the object that we attempted to grasp was
