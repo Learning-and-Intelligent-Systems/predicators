@@ -1,5 +1,6 @@
 """A perceiver specific to the spot bike env."""
 
+import logging
 from typing import Dict, Optional, Set, Tuple
 
 from predicators import utils
@@ -45,6 +46,7 @@ class SpotBikePerceiver(BasePerceiver):
         controller_name, objects, _ = self._curr_env.parse_action(action)
         # The robot is always the 0th argument of an
         # operator!
+        spot = objects[0]
         if "grasp" in controller_name.lower():
             assert self._holding_item_id_feature == 0.0
             # We know that the object that we attempted to grasp was
@@ -84,11 +86,15 @@ class SpotBikePerceiver(BasePerceiver):
             }
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)
+        logging.debug("Percept state:")
+        logging.debug(percept_state.pretty_str())
         # Prepare the simulator state.
         simulator_state = {
             "predicates": self._nonpercept_predicates,
             "atoms": self._nonpercept_atoms,
         }
+        logging.debug("Simulator state:")
+        logging.debug(simulator_state)
         # Now finish the state.
         state = _PartialPerceptionState(percept_state.data,
                                         simulator_state=simulator_state)

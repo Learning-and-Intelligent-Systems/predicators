@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Collection, Dict, List, Optional, Sequence, Tuple
 
 import apriltag
 import bosdyn.client
@@ -298,16 +298,18 @@ class _SpotInterface():
         return obj_name_to_pose
 
     def actively_construct_initial_object_views(
-            self,
-            object_names: List[str]) -> Dict[str, Tuple[float, float, float]]:
+        self, object_names: Collection[str]
+    ) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
         waypoints = ["front_tool_room", "low_wall_rack", "tool_room_table"]
         obj_id_to_loc_dict = self.helper_construct_init_state(waypoints)
         object_views: Dict[str, Tuple[float, float, float]] = {}
         for obj_name in object_names:
             obj_id = obj_name_to_apriltag_id[obj_name]
-            assert obj_id in obj_id_to_loc_dict
+            assert obj_id in obj_id_to_loc_dict, \
+                f"Did not locate object {obj_name}!"
             object_views[obj_name] = obj_id_to_loc_dict[obj_id]
+            logging.debug(f"Located object {obj_name}")
         return object_views
 
     def get_localized_state(self) -> Any:

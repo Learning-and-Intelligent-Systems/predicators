@@ -907,6 +907,7 @@ class SpotBikeEnv(SpotEnv):
 
     def _actively_construct_initial_object_views(
             self) -> Dict[str, Tuple[float, float, float]]:
-        obj_names = list(self._make_object_name_to_obj_dict().keys())
+        obj_names = set(self._make_object_name_to_obj_dict().keys())
+        obj_names.remove("spot")
         return self._spot_interface.actively_construct_initial_object_views(
             obj_names)
