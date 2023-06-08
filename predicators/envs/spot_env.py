@@ -249,6 +249,12 @@ class SpotEnv(BaseEnv):
         # Detect objects.
         object_names_in_view = self._spot_interface.get_objects_in_view()
 
+        # Filter out unknown objects.
+        known_object_names = set(self._make_object_name_to_obj_dict())
+        object_names_in_view = {
+            n: p
+            for n, p in object_names_in_view.items() if n in known_object_names
+        }
         objects_in_view = {
             self._obj_name_to_obj(n): v
             for n, v in object_names_in_view.items()
