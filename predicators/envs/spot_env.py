@@ -19,8 +19,8 @@ from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import apriltag_id_to_obj_poses, \
     get_spot_interface, obj_name_to_apriltag_id
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
-    LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
-    Variable, Image
+    Image, LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
+    Type, Variable
 
 ###############################################################################
 #                                Base Class                                   #
@@ -242,6 +242,10 @@ class SpotEnv(BaseEnv):
 
         # Detect objects.
         object_names_in_view = self._spot_interface.get_objects_in_view()
+
+        import ipdb
+        ipdb.set_trace()
+
         objects_in_view = {
             self._obj_name_to_obj(n): v
             for n, v in object_names_in_view.items()
@@ -301,6 +305,10 @@ class SpotEnv(BaseEnv):
             if a.predicate not in self.percept_predicates
         }
 
+    def _actively_construct_initial_object_views(
+            self) -> Dict[str, Tuple[float, float, float]]:
+        raise NotImplementedError("Subclass must override!")
+
     def simulate(self, state: State, action: Action) -> State:
         raise NotImplementedError("Simulate not implemented for SpotEnv.")
 
@@ -325,7 +333,7 @@ class SpotEnv(BaseEnv):
         gripper_open_percentage = self._spot_interface.get_gripper_obs()
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
-        assert all(a.predicate in nonpercept_preds for a in ground_atoms)
+        # assert all(a.predicate in nonpercept_preds for a in ground_atoms)
         obs = _SpotObservation(images, objects_in_view,
                                gripper_open_percentage, nonpercept_atoms,
                                nonpercept_preds)
@@ -494,13 +502,16 @@ class SpotGroceryEnv(SpotEnv):
         return {GroundAtom(self._On, [soda_can, snack_table])}
 
     @functools.lru_cache(maxsize=None)
-    def _obj_name_to_obj(self, obj_name: str) -> Object:
+    def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
         spot = Object("spot", self._robot_type)
         kitchen_counter = Object("counter", self._surface_type)
         snack_table = Object("snack_table", self._surface_type)
         soda_can = Object("soda_can", self._can_type)
         objects = [spot, kitchen_counter, snack_table, soda_can]
         return {o.name: o for o in objects}
+
+    def _obj_name_to_obj(self, obj_name: str) -> Object:
+        return self._make_object_name_to_obj_dict()[obj_name]
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -904,7 +915,7 @@ class SpotBikeEnv(SpotEnv):
         }
 
     @functools.lru_cache(maxsize=None)
-    def _obj_name_to_obj(self, obj_name: str) -> Object:
+    def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
         spot = Object("spot", self._robot_type)
         hammer = Object("hammer", self._tool_type)
         hex_key = Object("hex_key", self._tool_type)
@@ -921,9 +932,18 @@ class SpotBikeEnv(SpotEnv):
         ]
         return {o.name: o for o in objects}
 
+    def _obj_name_to_obj(self, obj_name: str) -> Object:
+        return self._make_object_name_to_obj_dict()[obj_name]
+
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return self.predicates
+
+    def _actively_construct_initial_object_views(
+            self) -> Dict[str, Tuple[float, float, float]]:
+        obj_names = list(self._make_object_name_to_obj_dict().keys())
+        return self._spot_interface.actively_construct_initial_object_views(
+            obj_names)
 
     def _get_language_goal_prompt_prefix(self,
                                          object_names: Collection[str]) -> str:

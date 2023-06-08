@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import time
-from typing import Any, Dict, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -256,8 +256,7 @@ class _SpotInterface():
             camera_images[source_name] = img
         return camera_images
 
-    def get_single_camera_image(
-            self, source_name: str) -> Tuple[Image, Any]:
+    def get_single_camera_image(self, source_name: str) -> Tuple[Image, Any]:
         # Get image  and camera transform from source_name.
         img_req = build_image_request(
             source_name,
@@ -288,7 +287,10 @@ class _SpotInterface():
             viewable_obj_poses = self.get_apriltag_pose_from_camera(
                 source_name=source_name)
             tag_to_pose.update(viewable_obj_poses)
-        apriltag_id_to_obj_name = {v: k for k, v in obj_name_to_apriltag_id.items()}
+        apriltag_id_to_obj_name = {
+            v: k
+            for k, v in obj_name_to_apriltag_id.items()
+        }
         obj_name_to_pose = {
             apriltag_id_to_obj_name[t]: p
             for t, p in tag_to_pose.items()
@@ -296,10 +298,18 @@ class _SpotInterface():
         return obj_name_to_pose
 
     def actively_construct_initial_object_views(
-            self) -> Dict[str, Tuple[float, float, float]]:
+            self,
+            object_names: List[str]) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
         waypoints = ["front_tool_room", "low_wall_rack", "tool_room_table"]
-        return self.construct_initState(waypoints)
+        waypoint_id_to_loc_dict = self.helper_construct_init_state(waypoints)
+        waypoint_name_to_loc_dict: Dict[str, Tuple[float, float, float]] = {}
+        for obj_name in object_names:
+            assert obj_name_to_apriltag_id[
+                obj_name] in waypoint_id_to_loc_dict.keys()
+            waypoint_name_to_loc_dict[obj_name] = waypoint_id_to_loc_dict[
+                obj_name_to_apriltag_id[obj_name]]
+        return waypoint_name_to_loc_dict
 
     def get_localized_state(self) -> Any:
         """Get localized state from GraphNav client."""
@@ -506,7 +516,7 @@ class _SpotInterface():
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
-            for _ in range(8):
+            for _ in range(1): #range(8):
                 for source_name in [
                         "hand_color_image", "left_fisheye_image",
                         "back_fisheye_image"
