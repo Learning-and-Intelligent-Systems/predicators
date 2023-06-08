@@ -111,6 +111,8 @@ OBJECT_GRASP_OFFSET = {
 
 COMMAND_TIMEOUT = 20.0
 
+CAMERA_NAMES = ["hand_color_image", "left_fisheye_image", "back_fisheye_image"]
+
 
 def _find_object_center(img: Image,
                         obj_name: str) -> Optional[Tuple[int, int]]:
@@ -246,6 +248,59 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
+    def get_camera_images(self) -> Dict[str, Image]:
+        """Get all camera images."""
+        camera_images: Dict[str, Image] = {}
+        for source_name in CAMERA_NAMES:
+            img, _ = self.get_single_camera_image(source_name)
+            camera_images[source_name] = img
+        return camera_images
+
+    def get_single_camera_image(
+            self, source_name: str) -> Tuple[Image, Any]:
+        # Get image  and camera transform from source_name.
+        img_req = build_image_request(
+            source_name,
+            quality_percent=100,
+            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+        image_response = self.image_client.get_image([img_req])
+
+        # Format image before detecting apriltags.
+        if image_response[0].shot.image.pixel_format == image_pb2.Image.\
+            PIXEL_FORMAT_DEPTH_U16:
+            dtype = np.uint16  # type: ignore
+        else:
+            dtype = np.uint8  # type: ignore
+        img = np.fromstring(image_response[0].shot.image.data,
+                            dtype=dtype)  # type: ignore
+        if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
+            img = img.reshape(image_response[0].shot.image.rows,
+                              image_response[0].shot.image.cols)
+        else:
+            img = cv2.imdecode(img, -1)
+
+        return (img, image_response)
+
+    def get_objects_in_view(self) -> Dict[str, Tuple[float, float, float]]:
+        """Get objects currently in view."""
+        tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
+        for source_name in CAMERA_NAMES:
+            viewable_obj_poses = self.get_apriltag_pose_from_camera(
+                source_name=source_name)
+            tag_to_pose.update(viewable_obj_poses)
+        apriltag_id_to_obj_name = {v: k for k, v in obj_name_to_apriltag_id.items()}
+        obj_name_to_pose = {
+            apriltag_id_to_obj_name[t]: p
+            for t, p in tag_to_pose.items()
+        }
+        return obj_name_to_pose
+
+    def actively_construct_initial_object_views(
+            self) -> Dict[str, Tuple[float, float, float]]:
+        """Walk around and build object views."""
+        waypoints = ["front_tool_room", "low_wall_rack", "tool_room_table"]
+        return self.construct_initState(waypoints)
+
     def get_apriltag_pose_from_camera(
             self,
             source_name: str = "hand_color_image",
@@ -261,34 +316,15 @@ class _SpotInterface():
         Returns a dict mapping the integer of the tag id to an (x, y, z)
         position tuple in the map frame.
         """
+        img, image_response = self.get_single_camera_image(source_name)
 
-        # Get image  and camera transform from source_name.
-        img_req = build_image_request(
-            source_name,
-            quality_percent=100,
-            # image_format=image_pb2.Image.FORMAT_RAW,
-            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
-        image_response = self.image_client.get_image([img_req])
+        # Camera body transform.
         camera_tform_body = get_a_tform_b(
             image_response[0].shot.transforms_snapshot,
             image_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
 
         # Camera intrinsics for the given source camera.
         intrinsics = image_response[0].source.pinhole.intrinsics
-
-        # Format image befor detecting apriltags.
-        if image_response[0].shot.image.pixel_format == image_pb2.Image.\
-            PIXEL_FORMAT_DEPTH_U16:
-            dtype = np.uint16  # type: ignore
-        else:
-            dtype = np.uint8  # type: ignore
-        img = np.fromstring(image_response[0].shot.image.data,
-                            dtype=dtype)  # type: ignore
-        if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
-            img = img.reshape(image_response[0].shot.image.rows,
-                              image_response[0].shot.image.cols)
-        else:
-            img = cv2.imdecode(img, -1)
 
         # Rotate each image such that it is upright and make it gray.
         image_grey = cv2.cvtColor(self.rotate_image(img, source_name),
@@ -464,14 +500,8 @@ class _SpotInterface():
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
             for _ in range(4):
-                for source_name in [
-                        "hand_color_image", "left_fisheye_image",
-                        "back_fisheye_image"
-                ]:
-                    viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                        source_name=source_name)
-                    obj_poses = dict(obj_poses.items()
-                                     | viewable_obj_poses.items())
+                viewable_obj_poses = self.get_objects_in_view()
+                obj_poses.update(viewable_obj_poses)
                 self.relative_move(0.0, 0.0, 90.0)
         return obj_poses
 
@@ -806,7 +836,7 @@ class _SpotInterface():
             ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
                               apriltag_id_to_obj_poses[tag_id][1],
                               apriltag_id_to_obj_poses[tag_id][2])
-obj_pose = [state.get(obj_on, "x"), state.get(obj_on, "y"), state.get(obj_on, "z")]            hand_x, hand_y, hand_z = [
+            hand_x, hand_y, hand_z = [
                 body_tform_fiducial[0], body_tform_fiducial[1], self.hand_z
             ]
         else:
