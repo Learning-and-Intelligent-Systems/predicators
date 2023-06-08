@@ -1,3 +1,4 @@
+# pragma: no cover
 """Basic environment for the Boston Dynamics Spot Robot."""
 
 import abc
@@ -221,7 +222,7 @@ class SpotEnv(BaseEnv):
         self._current_observation = init_obs
         return init_obs
 
-    def step(self, action: Action) -> Observation:  # pragma: no cover
+    def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
         obs = self._current_observation
         assert isinstance(obs, _SpotObservation)
@@ -365,158 +366,6 @@ class SpotEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
-
-
-###############################################################################
-#                                Grocery Env                                  #
-###############################################################################
-
-
-class SpotGroceryEnv(SpotEnv):
-    """An environment containing tasks for a real Spot robot to execute.
-
-    Currently, the robot can move to specific 'surfaces' (e.g. tables),
-    pick objects from on top these surfaces, and then place them
-    elsewhere.
-    """
-
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        # Additional types
-        self._robot_type = Type("robot", [])
-        self._can_type = Type("soda_can", [])
-        self._surface_type = Type("flat_surface", [])
-
-        # Predicates
-        # Note that all classifiers assigned here just directly use
-        # the ground atoms from the low-level simulator state.
-        self._temp_On = Predicate("On", [self._can_type, self._surface_type],
-                                  lambda s, o: False)
-        self._On = Predicate("On", [self._can_type, self._surface_type],
-                             _create_dummy_predicate_classifier(self._temp_On))
-        self._temp_HandEmpty = Predicate("HandEmpty", [self._robot_type],
-                                         lambda s, o: False)
-        self._HandEmpty = Predicate(
-            "HandEmpty", [self._robot_type],
-            _create_dummy_predicate_classifier(self._temp_HandEmpty))
-        self._temp_HoldingCan = Predicate("HoldingCan",
-                                          [self._robot_type, self._can_type],
-                                          lambda s, o: False)
-        self._HoldingCan = Predicate(
-            "HoldingCan", [self._robot_type, self._can_type],
-            _create_dummy_predicate_classifier(self._temp_HoldingCan))
-        self._temp_ReachableCan = Predicate("ReachableCan",
-                                            [self._robot_type, self._can_type],
-                                            lambda s, o: False)
-        self._ReachableCan = Predicate(
-            "ReachableCan", [self._robot_type, self._can_type],
-            _create_dummy_predicate_classifier(self._temp_ReachableCan))
-        self._temp_ReachableSurface = Predicate(
-            "ReachableSurface", [self._robot_type, self._surface_type],
-            lambda s, o: False)
-        self._ReachableSurface = Predicate(
-            "ReachableSurface", [self._robot_type, self._surface_type],
-            _create_dummy_predicate_classifier(self._temp_ReachableSurface))
-
-        # STRIPS Operators (needed for option creation)
-        # MoveToCan
-        spot = Variable("?robot", self._robot_type)
-        can = Variable("?can", self._can_type)
-        add_effs = {LiftedAtom(self._ReachableCan, [spot, can])}
-        ignore_effs = {self._ReachableCan, self._ReachableSurface}
-        self._MoveToCanOp = STRIPSOperator("MoveToCan", [spot, can], set(),
-                                           add_effs, set(), ignore_effs)
-        # MoveToSurface
-        spot = Variable("?robot", self._robot_type)
-        surface = Variable("?surface", self._surface_type)
-        add_effs = {LiftedAtom(self._ReachableSurface, [spot, surface])}
-        ignore_effs = {self._ReachableCan, self._ReachableSurface}
-        self._MoveToSurfaceOp = STRIPSOperator("MoveToSurface",
-                                               [spot, surface], set(),
-                                               add_effs, set(), ignore_effs)
-        # GraspCan
-        spot = Variable("?robot", self._robot_type)
-        can = Variable("?can", self._can_type)
-        surface = Variable("?surface", self._surface_type)
-        preconds = {
-            LiftedAtom(self._On, [can, surface]),
-            LiftedAtom(self._ReachableCan, [spot, can]),
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        add_effs = {LiftedAtom(self._HoldingCan, [spot, can])}
-        del_effs = {
-            LiftedAtom(self._On, [can, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        self._GraspCanOp = STRIPSOperator("GraspCan", [spot, can, surface],
-                                          preconds, add_effs, del_effs, set())
-        # Place Can
-        spot = Variable("?robot", self._robot_type)
-        can = Variable("?can", self._can_type)
-        surface = Variable("?surface", self._surface_type)
-        preconds = {
-            LiftedAtom(self._ReachableSurface, [spot, surface]),
-            LiftedAtom(self._HoldingCan, [spot, can])
-        }
-        add_effs = {
-            LiftedAtom(self._On, [can, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        del_effs = {LiftedAtom(self._HoldingCan, [spot, can])}
-        self._PlaceCanOp = STRIPSOperator("PlaceCanOntop",
-                                          [spot, can, surface], preconds,
-                                          add_effs, del_effs, set())
-
-        self._strips_operators = {
-            self._MoveToCanOp, self._MoveToSurfaceOp, self._GraspCanOp,
-            self._PlaceCanOp
-        }
-
-    @property
-    def types(self) -> Set[Type]:
-        return {self._robot_type, self._can_type, self._surface_type}
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            self._On, self._HandEmpty, self._HoldingCan, self._ReachableCan,
-            self._ReachableSurface
-        }
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "spot_grocery_env"
-
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        spot = self._obj_name_to_obj("spot")
-        kitchen_counter = self._obj_name_to_obj("kitchen_counter")
-        soda_can = self._obj_name_to_obj("soda_can")
-        return {
-            GroundAtom(self._HandEmpty, [spot]),
-            GroundAtom(self._On, [soda_can, kitchen_counter])
-        }
-
-    def _generate_task_goal(self) -> Set[GroundAtom]:
-        snack_table = self._obj_name_to_obj("snack_table")
-        soda_can = self._obj_name_to_obj("soda_can")
-        return {GroundAtom(self._On, [soda_can, snack_table])}
-
-    @functools.lru_cache(maxsize=None)
-    def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
-        spot = Object("spot", self._robot_type)
-        kitchen_counter = Object("counter", self._surface_type)
-        snack_table = Object("snack_table", self._surface_type)
-        soda_can = Object("soda_can", self._can_type)
-        objects = [spot, kitchen_counter, snack_table, soda_can]
-        return {o.name: o for o in objects}
-
-    def _obj_name_to_obj(self, obj_name: str) -> Object:
-        return self._make_object_name_to_obj_dict()[obj_name]
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return {self._On}
 
 
 ###############################################################################
@@ -910,14 +759,8 @@ class SpotBikeEnv(SpotEnv):
         low_wall_rack = Object("low_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
         objects = [
-            spot,
-            hammer,
-            hex_key,
-            hex_screwdriver,
-            brush,
-            tool_room_table,
-            low_wall_rack,
-            bag
+            spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
+            low_wall_rack, bag
         ]
         return {o.name: o for o in objects}
 

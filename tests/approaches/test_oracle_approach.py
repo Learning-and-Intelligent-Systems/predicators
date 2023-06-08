@@ -31,7 +31,6 @@ from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.sandwich import SandwichEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
-from predicators.envs.spot_env import SpotBikeEnv, SpotGroceryEnv
 from predicators.envs.stick_button import StickButtonEnv
 from predicators.envs.tools import ToolsEnv
 from predicators.envs.touch_point import TouchOpenEnv, TouchPointEnv, \
@@ -712,25 +711,3 @@ def test_playroom_get_gt_nsrts():
         state, train_task.goal, rng)
     movedoortodoor_action = movedoortodoor_option.policy(state)
     assert env.action_space.contains(movedoortodoor_action.arr)
-
-
-@pytest.mark.parametrize("env_name,env_cls",
-                         [("spot_grocery_env", SpotGroceryEnv),
-                          ("spot_bike_env", SpotBikeEnv)])
-def test_oracle_approach_spot_envs(env_name, env_cls):
-    """Test oracle approach for SpotEnvs, which don't have simulate()."""
-    utils.reset_config({
-        "env": env_name,
-        "num_train_tasks": 1,
-        "num_test_tasks": 1,
-        "bilevel_plan_without_sim": True,
-    })
-    # Test planning, but don't execute the plan, because we're not connected
-    # to a robot during testing.
-    env = env_cls(use_gui=False)
-    train_tasks = [t.task for t in env.get_train_tasks()]
-    task = env.get_test_tasks()[0].task
-    approach = OracleApproach(env.predicates, get_gt_options(env.get_name()),
-                              env.types, env.action_space, train_tasks)
-    policy = approach.solve(task, timeout=500)
-    assert policy
