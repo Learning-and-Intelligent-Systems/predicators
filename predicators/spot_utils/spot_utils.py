@@ -3,10 +3,9 @@
 import functools
 import logging
 import os
-import re
 import sys
 import time
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import apriltag
 import bosdyn.client
@@ -34,7 +33,7 @@ from gym.spaces import Box
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.structs import Array, GroundAtom, Image, Object
+from predicators.structs import Array, Image, Object
 
 g_image_click = None
 g_image_display = None
@@ -257,7 +256,8 @@ class _SpotInterface():
         return camera_images
 
     def get_single_camera_image(self, source_name: str) -> Tuple[Image, Any]:
-        # Get image  and camera transform from source_name.
+        """Get a single source camera image and image response."""
+        # Get image and camera transform from source_name.
         img_req = build_image_request(
             source_name,
             quality_percent=100,

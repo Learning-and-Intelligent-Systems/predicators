@@ -2,22 +2,18 @@
 
 import abc
 import functools
-import json
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Callable, Collection, Dict, List, Optional, Sequence, Set, \
-    Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
 from gym.spaces import Box
 
-from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
-from predicators.spot_utils.spot_utils import apriltag_id_to_obj_poses, \
-    get_spot_interface, obj_name_to_apriltag_id
+from predicators.spot_utils.spot_utils import get_spot_interface, \
+    obj_name_to_apriltag_id
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Image, LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
     Type, Variable
@@ -610,8 +606,10 @@ class SpotBikeEnv(SpotEnv):
             self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
             self._ReachablePlatform
         }
-        self._MoveToToolOp = STRIPSOperator("MoveToTool", [spot, tool, surface], preconditions,
-                                            add_effs, set(), ignore_effs)
+        self._MoveToToolOp = STRIPSOperator("MoveToTool",
+                                            [spot, tool, surface],
+                                            preconditions, add_effs, set(),
+                                            ignore_effs)
         # MoveToSurface
         spot = Variable("?robot", self._robot_type)
         surface = Variable("?surface", self._surface_type)
