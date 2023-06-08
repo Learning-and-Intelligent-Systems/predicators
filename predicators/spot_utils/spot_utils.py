@@ -308,7 +308,7 @@ class _SpotInterface():
             assert obj_name in obj_name_to_loc, \
                 f"Did not locate object {obj_name}!"
             object_views[obj_name] = obj_name_to_loc[obj_name]
-            logging.debug(f"Located object {obj_name}")
+            logging.info(f"Located object {obj_name}")
         return object_views
 
     def get_localized_state(self) -> Any:
@@ -505,9 +505,8 @@ class _SpotInterface():
         time.sleep(2.0)
 
     def _scan_for_objects(
-            self,
-            waypoints: Sequence[str],
-            objects_to_find: Collection[str]) -> Dict[str, Tuple[float, float, float]]:
+        self, waypoints: Sequence[str], objects_to_find: Collection[str]
+    ) -> Dict[str, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
         obj_poses: Dict[str, Tuple[float, float, float]] = {}
         for waypoint in waypoints:
@@ -519,8 +518,13 @@ class _SpotInterface():
             for _ in range(8):
                 objects_in_view = self.get_objects_in_view()
                 obj_poses.update(objects_in_view)
-                if set(objects_to_find).issubset(set(obj_poses)):
+                logging.info("Seen objects:")
+                logging.info(set(obj_poses))
+                remaining_objects = set(objects_to_find) - set(obj_poses)
+                if not remaining_objects:
                     break
+                logging.info("Still searching for objects:")
+                logging.info(remaining_objects)
                 self.relative_move(0.0, 0.0, 45.0)
         return obj_poses
 
@@ -762,7 +766,7 @@ class _SpotInterface():
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            logging.debug(f"""Current state:
+            logging.info(f"""Current state:
                 {manipulation_api_pb2.ManipulationFeedbackState.Name(
                     response.current_state)}""")
 

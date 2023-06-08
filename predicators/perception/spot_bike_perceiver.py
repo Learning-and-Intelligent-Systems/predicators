@@ -75,6 +75,10 @@ class SpotBikePerceiver(BasePerceiver):
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
                 "curr_held_item_id": self._holding_item_id_feature,
+                # Coming soon
+                "x": -100,
+                "y": -100,
+                "z": -100,
             },
         }
         for obj, (x, y, z) in self._known_object_poses.items():
@@ -85,15 +89,15 @@ class SpotBikePerceiver(BasePerceiver):
             }
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)
-        logging.debug("Percept state:")
-        logging.debug(percept_state.pretty_str())
+        logging.info("Percept state:")
+        logging.info(percept_state.pretty_str())
         # Prepare the simulator state.
         simulator_state = {
             "predicates": self._nonpercept_predicates,
             "atoms": self._nonpercept_atoms,
         }
-        logging.debug("Simulator state:")
-        logging.debug(simulator_state)
+        logging.info("Simulator state:")
+        logging.info(simulator_state)
         # Now finish the state.
         state = _PartialPerceptionState(percept_state.data,
                                         simulator_state=simulator_state)
