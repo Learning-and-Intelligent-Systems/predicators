@@ -318,7 +318,7 @@ class SpotEnv(BaseEnv):
         gripper_open_percentage = self._spot_interface.get_gripper_obs()
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
-        # assert all(a.predicate in nonpercept_preds for a in ground_atoms)
+        assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
         obs = _SpotObservation(images, objects_in_view, robot,
                                gripper_open_percentage, nonpercept_atoms,
                                nonpercept_preds)
@@ -604,13 +604,13 @@ class SpotBikeEnv(SpotEnv):
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         surface = Variable("?surface", self._surface_type)
-        preconditions = {LiftedAtom[self._On, [tool, surface]]}
+        preconditions = {LiftedAtom(self._On, [tool, surface])}
         add_effs = {LiftedAtom(self._ReachableTool, [spot, tool])}
         ignore_effs = {
             self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
             self._ReachablePlatform
         }
-        self._MoveToToolOp = STRIPSOperator("MoveToTool", [spot, tool], preconditions,
+        self._MoveToToolOp = STRIPSOperator("MoveToTool", [spot, tool, surface], preconditions,
                                             add_effs, set(), ignore_effs)
         # MoveToSurface
         spot = Variable("?robot", self._robot_type)
