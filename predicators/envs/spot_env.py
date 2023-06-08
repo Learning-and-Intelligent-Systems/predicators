@@ -872,33 +872,31 @@ class SpotBikeEnv(SpotEnv):
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
         spot = self._obj_name_to_obj("spot")
         hammer = self._obj_name_to_obj("hammer")
-        # hex_key = self._obj_name_to_obj("hex_key")
+        hex_key = self._obj_name_to_obj("hex_key")
         low_wall_rack = self._obj_name_to_obj("low_wall_rack")
-        # brush = self._obj_name_to_obj("brush")
+        brush = self._obj_name_to_obj("brush")
         tool_room_table = self._obj_name_to_obj("tool_room_table")
-        # hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
-        # TODO add back
+        hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         return {
             GroundAtom(self._On, [hammer, low_wall_rack]),
-            # GroundAtom(self._On, [hex_key, low_wall_rack]),
-            # GroundAtom(self._On, [brush, tool_room_table]),
-            # GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
+            GroundAtom(self._On, [hex_key, low_wall_rack]),
+            GroundAtom(self._On, [brush, tool_room_table]),
+            GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
             GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
             GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
         }
 
     def _generate_task_goal(self) -> Set[GroundAtom]:
         hammer = self._obj_name_to_obj("hammer")
-        # hex_key = self._obj_name_to_obj("hex_key")
-        # brush = self._obj_name_to_obj("brush")
-        # hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
+        hex_key = self._obj_name_to_obj("hex_key")
+        brush = self._obj_name_to_obj("brush")
+        hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         bag = self._obj_name_to_obj("toolbag")
         return {
-            # TODO add back
             GroundAtom(self._InBag, [hammer, bag]),
-            # GroundAtom(self._InBag, [brush, bag]),
-            # GroundAtom(self._InBag, [hex_key, bag]),
-            # GroundAtom(self._InBag, [hex_screwdriver, bag]),
+            GroundAtom(self._InBag, [brush, bag]),
+            GroundAtom(self._InBag, [hex_key, bag]),
+            GroundAtom(self._InBag, [hex_screwdriver, bag]),
         }
 
     @functools.lru_cache(maxsize=None)
@@ -913,11 +911,10 @@ class SpotBikeEnv(SpotEnv):
         bag = Object("toolbag", self._bag_type)
         objects = [
             spot,
-            # TODO add back
             hammer,
-            # hex_key,
-            # hex_screwdriver,
-            # brush,
+            hex_key,
+            hex_screwdriver,
+            brush,
             tool_room_table,
             low_wall_rack,
             bag
