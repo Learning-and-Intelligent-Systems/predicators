@@ -237,7 +237,7 @@ class SpotEnv(BaseEnv):
         return self._current_observation
 
     def get_observation(self) -> Observation:
-        return self._current_observation.copy()
+        return self._current_observation
 
 
     def _build_observation(self,
