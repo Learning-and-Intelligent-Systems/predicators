@@ -603,12 +603,14 @@ class SpotBikeEnv(SpotEnv):
         # MoveToTool
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
+        surface = Variable("?surface", self._surface_type)
+        preconditions = {LiftedAtom[self._On, [tool, surface]]}
         add_effs = {LiftedAtom(self._ReachableTool, [spot, tool])}
         ignore_effs = {
             self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
             self._ReachablePlatform
         }
-        self._MoveToToolOp = STRIPSOperator("MoveToTool", [spot, tool], set(),
+        self._MoveToToolOp = STRIPSOperator("MoveToTool", [spot, tool], preconditions,
                                             add_effs, set(), ignore_effs)
         # MoveToSurface
         spot = Variable("?robot", self._robot_type)
