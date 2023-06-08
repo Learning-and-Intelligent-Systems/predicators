@@ -1,4 +1,3 @@
-# pragma: no cover
 """Basic environment for the Boston Dynamics Spot Robot."""
 
 import abc

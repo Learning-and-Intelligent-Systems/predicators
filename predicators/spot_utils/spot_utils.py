@@ -443,8 +443,6 @@ class _SpotInterface():
         Params are [dx, dy, d-yaw]
         """
         print("NavigateTo", objs)
-        # TODO!!! introduce HaveWaypoint predicate to operators; add
-        # surface as parameter to navigate operators.
         assert len(params) == 3
         assert len(objs) in [2, 3]
 
