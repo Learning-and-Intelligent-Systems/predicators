@@ -192,7 +192,7 @@ class SpotEnv(BaseEnv):
         """
         return self._spot_interface.params_spaces[name]
 
-    def build_action(self, all_objects: Collection[Object], op: STRIPSOperator,
+    def build_action(self, op: STRIPSOperator,
                      objects: Sequence[Object], params: Array) -> Action:
         """Helper function exposed for use by oracle options."""
         # Initialize the action array.
@@ -201,6 +201,7 @@ class SpotEnv(BaseEnv):
         op_idx = self._ordered_strips_operators.index(op)
         action_arr[0] = op_idx
         # Add the object indices.
+        all_objects = set(self._make_object_name_to_obj_dict().values())
         ordered_objects = sorted(all_objects)
         for i, o in enumerate(objects):
             obj_idx = ordered_objects.index(o)

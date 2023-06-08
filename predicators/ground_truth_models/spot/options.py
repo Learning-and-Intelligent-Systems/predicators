@@ -37,8 +37,8 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
             op: STRIPSOperator, env: SpotEnv) -> ParameterizedOption:
 
         def policy(s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
-            del m  # unused
-            return env.build_action(s, op, o, p)
+            del s, m  # unused
+            return env.build_action(op, o, p)
 
         controller_name = env.operator_to_controller_name(op)
         params_space = env.controller_name_to_param_space(controller_name)
