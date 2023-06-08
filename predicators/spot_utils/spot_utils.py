@@ -246,6 +246,21 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
+    def get_localized_state(self) -> Any:
+        """Get localized state from GraphNav client."""
+        exec_start, exec_sec = time.perf_counter(), 0.0
+        while exec_sec < self.localization_timeout:
+            # Localizes robot from larger graph fiducials.
+            self.graph_nav_command_line.set_initial_localization_fiducial()
+            state = self.graph_nav_command_line.graph_nav_client.\
+                get_localization_state()
+            exec_sec = time.perf_counter() - exec_start
+            if str(state.localization.seed_tform_body) != '':
+                break
+            time.sleep(1)
+        assert str(state.localization.seed_tform_body) != ''
+        return state
+
     def get_apriltag_pose_from_camera(
             self,
             source_name: str = "hand_color_image",
@@ -320,17 +335,7 @@ class _SpotInterface():
                     fiducial_rt_camera_frame[2])
 
             # Get graph_nav to body frame.
-            exec_start = time.time()
-            while True:
-                self.graph_nav_command_line.set_initial_localization_fiducial()
-                state = self.graph_nav_command_line.graph_nav_client.\
-                    get_localization_state()
-                exec_sec = time.time() - exec_start
-                if str(state.localization.seed_tform_body
-                       ) != '' or exec_sec > self.localization_timeout:
-                    break
-                time.sleep(1)
-            assert str(state.localization.seed_tform_body) != ''
+            state = self.get_localized_state()
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
@@ -455,7 +460,7 @@ class _SpotInterface():
         # to allow time for sensor readings to settle.
         time.sleep(2.0)
 
-    def construct_initState(
+    def helper_construct_init_state(
             self,
             waypoints: Sequence[str]) -> Dict[int, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
@@ -470,8 +475,7 @@ class _SpotInterface():
                 ]:
                     viewable_obj_poses = self.get_apriltag_pose_from_camera(
                         source_name=source_name)
-                    obj_poses = dict(obj_poses.items()
-                                     | viewable_obj_poses.items())
+                    obj_poses.update(viewable_obj_poses)
                 self.relative_move(0.0, 0.0, 90.0)
         return obj_poses
 
@@ -757,7 +761,7 @@ class _SpotInterface():
 
     def hand_movement(self,
                       params: Array,
-                      obj: Object = None,
+                      obj: Optional[Object] = None,
                       open_gripper: bool = True,
                       keep_hand_pose: bool = True,
                       use_object_location: bool = False) -> None:
@@ -785,23 +789,13 @@ class _SpotInterface():
         # Make the arm pose RobotCommand
         if use_object_location:
             # Get graph_nav to body frame.
-            exec_start = time.time()
-            while True:
-                self.graph_nav_command_line.set_initial_localization_fiducial()
-                state = self.graph_nav_command_line.graph_nav_client.\
-                    get_localization_state()
-                exec_sec = time.time() - exec_start
-                if str(state.localization.seed_tform_body
-                       ) != '' or exec_sec > self.localization_timeout:
-                    break
-                time.sleep(1)
-            assert str(state.localization.seed_tform_body) != ''
+            state = self.get_localized_state()
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
             # Apply transform to fiducial pose to get relative body location.
             assert isinstance(obj, Object)
-            tag_id: int = int(obj_name_to_apriltag_id[obj.name])
+            tag_id = obj_name_to_apriltag_id[obj.name]
             body_tform_fiducial = gn_origin_tform_body.inverse(
             ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
                               apriltag_id_to_obj_poses[tag_id][1],
