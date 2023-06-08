@@ -239,6 +239,9 @@ class SpotEnv(BaseEnv):
     def get_observation(self) -> Observation:
         return self._current_observation
 
+    def goal_reached(self) -> bool:
+        # We need to implement this! But we're just watching it work for now.
+        return False
 
     def _build_observation(self,
                            ground_atoms: Set[GroundAtom]) -> _SpotObservation:
