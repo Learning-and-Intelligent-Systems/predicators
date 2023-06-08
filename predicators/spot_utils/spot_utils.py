@@ -515,14 +515,9 @@ class _SpotInterface():
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
-            for _ in range(1):  #range(8):
-                for source_name in [
-                        "hand_color_image", "left_fisheye_image",
-                        "back_fisheye_image"
-                ]:
-                    viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                        source_name=source_name)
-                    obj_poses.update(viewable_obj_poses)
+            for _ in range(8):
+                objects_in_view = self.get_objects_in_view()
+                obj_poses.update(objects_in_view)
                 self.relative_move(0.0, 0.0, 45.0)
         return obj_poses
 
