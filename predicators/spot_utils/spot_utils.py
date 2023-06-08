@@ -68,7 +68,21 @@ obj_name_to_apriltag_id = {
     "brush": 402,
     "hex_key": 403,
     "hex_screwdriver": 404,
-    "toolbag": 405
+    "toolbag": 405,
+    "low_wall_rack": 406,
+    "tool_room_table": 407,
+    "front_tool_room": 408,
+}
+
+apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
+    401: (9.894476696960474, -7.13110996085628, 0.6128697884183844),
+    402: (6.492544006833252, -5.949555197001736, 0.15848369079640096),
+    403: (9.865172551128433, -6.866927111707811, 0.6057541244901083),
+    404: (6.309634003009213, -5.927127765104969, 0.28815345669215225),
+    405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
+    406: (9.985505899791097, -6.981086719041378, 0.24004802462770083),
+    407: (6.974322333685671, -8.519032350022558, 0.19594502052006785),
+    408: (6.442939585696927, -6.266242910425788, 0.026100683357255378)
 }
 
 OBJECT_CROPS = {
@@ -168,6 +182,7 @@ class _SpotInterface():
         self._image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
+        self.localization_timeout = 10
 
         # Try to connect to the robot. If this fails, still maintain the
         # instance for testing, but assert that it succeeded within the
@@ -230,14 +245,6 @@ class _SpotInterface():
         self.robot.logger.info("Commanding robot to stand...")
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
-
-        self.obj_poses: Dict[int, Tuple[float, float, float]] = {
-            401: (9.88033592963138, -7.1021749878621065, 0.6151642905726489),
-            404: (6.353829809477876, -6.079001328160755, 0.2739325241499811),
-            405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
-            403: (9.832542636303732, -6.833666179802962, 0.6219320931241232),
-            402: (6.526055863266391, -5.950473694247712, 0.15998113374881623)
-        }
 
     def get_apriltag_pose_from_camera(
             self,
@@ -313,14 +320,17 @@ class _SpotInterface():
                     fiducial_rt_camera_frame[2])
 
             # Get graph_nav to body frame.
-            done = False
-            while not done:
+            exec_start = time.time()
+            while True:
                 self.graph_nav_command_line.set_initial_localization_fiducial()
                 state = self.graph_nav_command_line.graph_nav_client.\
                     get_localization_state()
-                if str(state.localization.seed_tform_body) != '':
-                    done = True
+                exec_sec = time.time() - exec_start
+                if str(state.localization.seed_tform_body
+                       ) != '' or exec_sec > self.localization_timeout:
+                    break
                 time.sleep(1)
+            assert str(state.localization.seed_tform_body) != ''
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
@@ -775,14 +785,17 @@ class _SpotInterface():
         # Make the arm pose RobotCommand
         if use_object_location:
             # Get graph_nav to body frame.
-            done = False
-            while not done:
+            exec_start = time.time()
+            while True:
                 self.graph_nav_command_line.set_initial_localization_fiducial()
                 state = self.graph_nav_command_line.graph_nav_client.\
                     get_localization_state()
-                if str(state.localization.seed_tform_body) != '':
-                    done = True
+                exec_sec = time.time() - exec_start
+                if str(state.localization.seed_tform_body
+                       ) != '' or exec_sec > self.localization_timeout:
+                    break
                 time.sleep(1)
+            assert str(state.localization.seed_tform_body) != ''
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 state.localization.seed_tform_body)
 
@@ -790,9 +803,9 @@ class _SpotInterface():
             assert isinstance(obj, Object)
             tag_id: int = int(obj_name_to_apriltag_id[obj.name])
             body_tform_fiducial = gn_origin_tform_body.inverse(
-            ).transform_point(self.obj_poses[tag_id][0],
-                              self.obj_poses[tag_id][1],
-                              self.obj_poses[tag_id][2])
+            ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
+                              apriltag_id_to_obj_poses[tag_id][1],
+                              apriltag_id_to_obj_poses[tag_id][2])
             hand_x, hand_y, hand_z = [
                 body_tform_fiducial[0], body_tform_fiducial[1], self.hand_z
             ]
