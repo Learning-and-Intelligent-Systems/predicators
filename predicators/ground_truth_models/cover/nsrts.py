@@ -264,6 +264,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     assert len(objs) == 2
                     t = objs[-1]
                 assert t.is_instance(target_type)
+                # TODO
                 lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
                 lb = max(lb, 0.0)
                 ub = float(state.get(t, "pose") + state.get(t, "width") / 10)

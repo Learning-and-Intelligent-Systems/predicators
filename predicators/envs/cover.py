@@ -1082,7 +1082,10 @@ class BumpyCoverEnv(CoverEnvRegrasp):
                     (state.get(block, "pose") - state.get(block, "width") / 2,
                      state.get(block, "pose") + state.get(block, "width") / 2))
         for targ in state.get_objects(self._target_type):
-            hand_regions.append(
-                (state.get(targ, "pose") - state.get(targ, "width") / 10,
-                 state.get(targ, "pose") + state.get(targ, "width") / 10))
+            center = state.get(targ, "pose")
+            if CFG.bumpy_cover_left_targets:
+                center -= 5 * state.get(targ, "width") / 8
+            left = center - state.get(targ, "width") / 2
+            right = center + state.get(targ, "width") / 2
+            hand_regions.append((left, right))
         return hand_regions
