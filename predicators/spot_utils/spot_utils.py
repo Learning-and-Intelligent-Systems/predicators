@@ -652,7 +652,7 @@ class _SpotInterface():
             self.robot.logger.info(f"[INFO] {len(results)} AprilTags detected")
             for result in results:
                 if result.tag_id == obj_name_to_apriltag_id[obj.name]:
-                    g_image_click = results[0].center
+                    g_image_click = result.center
 
         elif CFG.spot_grasp_use_cv2:
             if obj.name in ["hammer", "hex_key", "brush", "hex_screwdriver"]:
