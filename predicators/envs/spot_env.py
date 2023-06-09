@@ -382,7 +382,6 @@ class SpotEnv(BaseEnv):
         objects_in_view: Dict[Object, Tuple[float, float, float]] = {}
         known_objects = set(self._make_object_name_to_obj_dict().values())
         robot: Optional[Object] = None
-        gripper_open_percentage = 0.0
         for obj in init:
             assert obj in known_objects
             if obj.name == "spot":
@@ -392,6 +391,8 @@ class SpotEnv(BaseEnv):
             objects_in_view[obj] = pos
         assert robot is not None
         gripper_open_percentage = init.get(robot, "gripper_open_percentage")
+        robot_pos = (init.get(robot, "x"), init.get(robot,
+                                                    "y"), init.get(robot, "z"))
         # Prepare the non-percepts.
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
@@ -400,6 +401,7 @@ class SpotEnv(BaseEnv):
             objects_in_view,
             robot,
             gripper_open_percentage,
+            robot_pos,
             nonpercept_atoms,
             nonpercept_preds,
         )

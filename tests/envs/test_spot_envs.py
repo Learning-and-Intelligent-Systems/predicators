@@ -75,9 +75,9 @@ def test_spot_bike_env_load_task_from_json():
             "spot": {
                 "gripper_open_percentage": 0.42733,
                 "curr_held_item_id": 0,
-                "x": -100,
-                "y": -100,
-                "z": -100,
+                "x": 8.46583,
+                "y": -6.94704,
+                "z": 0.131564,
             }
         },
         "goal": {
@@ -105,10 +105,11 @@ def test_spot_bike_env_load_task_from_json():
     task = test_tasks[0]
 
     # pylint: disable=line-too-long
+    print(task.init_obs)
     assert str(
         task.init_obs
-    ) == """_SpotObservation(images={}, objects_in_view={brush:tool: (6.43948, -6.02389, 0.174947), hammer:tool: (9.88252, -7.10786, 0.622855), hex_key:tool: (9.90738, -6.84972, 0.643172), hex_screwdriver:tool: (6.57559, -5.87017, 0.286362), low_wall_rack:flat_surface: (10.0275, -6.96979, 0.275323), tool_room_table:flat_surface: (6.49849, -6.25279, -0.0138028), toolbag:bag: (6.85457, -8.19294, -0.189187)}, robot=spot:robot, gripper_open_percentage=0.42733, nonpercept_atoms={SurfaceNotTooHigh(spot:robot, low_wall_rack:flat_surface), SurfaceNotTooHigh(spot:robot, tool_room_table:flat_surface)}, nonpercept_predicates={InBag, ReachableSurface, PlatformNear, SurfaceTooHigh, ReachableBag, HoldingBag, ReachableTool, HoldingPlatformLeash, ReachablePlatform, SurfaceNotTooHigh})"""
-
+    ) == "_SpotObservation(images={}, objects_in_view={brush:tool: (6.43948, -6.02389, 0.174947), hammer:tool: (9.88252, -7.10786, 0.622855), hex_key:tool: (9.90738, -6.84972, 0.643172), hex_screwdriver:tool: (6.57559, -5.87017, 0.286362), low_wall_rack:flat_surface: (10.0275, -6.96979, 0.275323), tool_room_table:flat_surface: (6.49849, -6.25279, -0.0138028), toolbag:bag: (6.85457, -8.19294, -0.189187)}, robot=spot:robot, gripper_open_percentage=0.42733, robot_pos=(8.46583, -6.94704, 0.131564), nonpercept_atoms={SurfaceNotTooHigh(spot:robot, low_wall_rack:flat_surface), SurfaceNotTooHigh(spot:robot, tool_room_table:flat_surface)}, nonpercept_predicates={InBag, ReachableSurface, PlatformNear, SurfaceTooHigh, ReachableBag, HoldingBag, ReachableTool, HoldingPlatformLeash, ReachablePlatform, SurfaceNotTooHigh})"
+    
     assert str(
         sorted(task.goal)
     ) == "[InBag(brush:tool, toolbag:bag), InBag(hammer:tool, toolbag:bag), InBag(hex_key:tool, toolbag:bag), InBag(hex_screwdriver:tool, toolbag:bag)]"
