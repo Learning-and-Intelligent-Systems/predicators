@@ -475,6 +475,8 @@ class _SpotInterface():
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
+        if objs[2].name == "tool_room_table":
+            self.hand_movement(params[:3], keep_hand_pose=False, angle_45=True)
         self.arm_object_grasp(objs[1])
         if not all(params[:3] == [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
@@ -744,6 +746,9 @@ class _SpotInterface():
         # only want top-down grasps or side-on grasps.
         grasp = self.add_grasp_constraint(grasp, self.robot_state_client)
 
+        # Stow Arm First
+        self.stow_arm()
+
         # Ask the robot to pick up the object
         grasp_request = manipulation_api_pb2.ManipulationApiRequest(
             pick_object_in_image=grasp)
@@ -811,7 +816,8 @@ class _SpotInterface():
                       obj: Optional[Object] = None,
                       open_gripper: bool = True,
                       keep_hand_pose: bool = True,
-                      use_object_location: bool = False) -> None:
+                      use_object_location: bool = False,
+                      angle_45: bool = False) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -825,11 +831,17 @@ class _SpotInterface():
                 BODY_FRAME_NAME, "hand")
             qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x,\
                 body_T_hand.rot.y, body_T_hand.rot.z
+        elif angle_45:
+            # Set downward place rotation as a quaternion.
+            qw = np.cos(np.pi / 8)
+            qx = 0
+            qy = np.sin(np.pi / 8)
+            qz = 0
         else:
             # Set downward place rotation as a quaternion.
-            qw = np.cos((np.pi / 4))
+            qw = np.cos(np.pi / 4)
             qx = 0
-            qy = np.sin((np.pi / 4))
+            qy = np.sin(np.pi / 4)
             qz = 0
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
