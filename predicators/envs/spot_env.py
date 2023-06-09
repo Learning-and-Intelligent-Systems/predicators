@@ -3,6 +3,7 @@
 import abc
 import functools
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
     Tuple
 
@@ -365,6 +366,42 @@ class SpotEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
+
+    def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
+        # Use the BaseEnv default code for loading from JSON, which will
+        # create a State as an observation. We'll then convert that State
+        # into a _SpotObservation instead.
+        base_env_task = super()._load_task_from_json(json_file)
+        init = base_env_task.init
+        # Images not currently saved or used.
+        images: Dict[str, Image] = {}
+        objects_in_view: Dict[Object, Tuple[float, float, float]] = {}
+        known_objects = set(self._make_object_name_to_obj_dict().values())
+        robot: Optional[Object] = None
+        gripper_open_percentage = 0.0
+        for obj in init:
+            assert obj in known_objects
+            if obj.name == "spot":
+                robot = obj
+                continue
+            pos = (init.get(obj, "x"), init.get(obj, "y"), init.get(obj, "z"))
+            objects_in_view[obj] = pos
+        assert robot is not None
+        gripper_open_percentage = init.get(robot, "gripper_open_percentage")
+        # Prepare the non-percepts.
+        nonpercept_atoms = self._get_initial_nonpercept_atoms()
+        nonpercept_preds = self.predicates - self.percept_predicates
+        init_obs = _SpotObservation(
+            images,
+            objects_in_view,
+            robot,
+            gripper_open_percentage,
+            nonpercept_atoms,
+            nonpercept_preds,
+        )
+        # The goal can remain the same.
+        goal = base_env_task.goal
+        return EnvironmentTask(init_obs, goal)
 
 
 ###############################################################################
