@@ -336,12 +336,13 @@ class SpotEnv(BaseEnv):
         robot = Object("spot", robot_type)
         images = self._spot_interface.get_camera_images()
         gripper_open_percentage = self._spot_interface.get_gripper_obs()
+        robot_pos = self._spot_interface.get_robot_pose()
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
         obs = _SpotObservation(images, objects_in_view, robot,
-                               gripper_open_percentage, nonpercept_atoms,
-                               nonpercept_preds)
+                               gripper_open_percentage, robot_pos,
+                               nonpercept_atoms, nonpercept_preds)
         goal = self._generate_task_goal()
         return [EnvironmentTask(obs, goal)]
 
