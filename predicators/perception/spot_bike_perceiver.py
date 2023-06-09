@@ -26,6 +26,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._prev_action: Optional[Action] = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
+        self._robot_pos = (0.0, 0.0, 0.0)
         assert CFG.env == "spot_bike_env"
         self._curr_env: Optional[BaseEnv] = None
 
@@ -85,6 +86,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._nonpercept_atoms = observation.nonpercept_atoms
         self._nonpercept_predicates = observation.nonpercept_predicates
         self._gripper_open_percentage = observation.gripper_open_percentage
+        self._robot_pos = observation.robot_pos
 
     def _create_state(self) -> _PartialPerceptionState:
         # Build the continuous part of the state.
@@ -94,9 +96,9 @@ class SpotBikePerceiver(BasePerceiver):
                 "gripper_open_percentage": self._gripper_open_percentage,
                 "curr_held_item_id": self._holding_item_id_feature,
                 # Coming soon
-                "x": -100,
-                "y": -100,
-                "z": -100,
+                "x": self._robot_pos[0],
+                "y": self._robot_pos[1],
+                "z": self._robot_pos[2],
             },
         }
         for obj, (x, y, z) in self._known_object_poses.items():
