@@ -833,9 +833,9 @@ class _SpotInterface():
                 body_T_hand.rot.y, body_T_hand.rot.z
         elif angle_45:
             # Set downward place rotation as a quaternion.
-            qw = np.cos((np.pi / 4) / 2)
+            qw = np.cos((np.pi / 8))
             qx = 0
-            qy = np.sin((np.pi / 4) / 2)
+            qy = np.sin((np.pi / 8))
             qz = 0
         else:
             # Set downward place rotation as a quaternion.
