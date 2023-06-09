@@ -746,9 +746,11 @@ class SpotBikeEnv(SpotEnv):
         spot = self._obj_name_to_obj("spot")
         low_wall_rack = self._obj_name_to_obj("low_wall_rack")
         tool_room_table = self._obj_name_to_obj("tool_room_table")
+        extra_room_table = self._obj_name_to_obj("extra_room_table")
         return {
             GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
             GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
+            GroundAtom(self._SurfaceNotTooHigh, [spot, extra_room_table])
         }
 
     def _generate_task_goal(self) -> Set[GroundAtom]:
@@ -757,11 +759,15 @@ class SpotBikeEnv(SpotEnv):
         brush = self._obj_name_to_obj("brush")
         hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         bag = self._obj_name_to_obj("toolbag")
+        tool_room_table = self._obj_name_to_obj("tool_room_table")
+        extra_room_table = self._obj_name_to_obj("extra_room_table")
         return {
-            GroundAtom(self._InBag, [hammer, bag]),
-            GroundAtom(self._InBag, [brush, bag]),
-            GroundAtom(self._InBag, [hex_key, bag]),
-            GroundAtom(self._InBag, [hex_screwdriver, bag]),
+            # GroundAtom(self._InBag, [hammer, bag]),
+            # GroundAtom(self._InBag, [brush, bag]),
+            # GroundAtom(self._InBag, [hex_key, bag]),
+            # GroundAtom(self._InBag, [hex_screwdriver, bag]),
+            GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
+            GroundAtom(self._On, [brush, extra_room_table]),
         }
 
     @functools.lru_cache(maxsize=None)
@@ -772,11 +778,12 @@ class SpotBikeEnv(SpotEnv):
         hex_screwdriver = Object("hex_screwdriver", self._tool_type)
         brush = Object("brush", self._tool_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
+        extra_room_table = Object("extra_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
         objects = [
             spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
-            low_wall_rack, bag
+            low_wall_rack, bag, extra_room_table
         ]
         return {o.name: o for o in objects}
 
