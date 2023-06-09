@@ -3,7 +3,8 @@
 import abc
 import functools
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import numpy as np
@@ -375,6 +376,8 @@ class SpotBikeEnv(SpotEnv):
     """An environment containing bike-repair related tasks for a real Spot
     robot to execute."""
 
+    _ontop_threshold: ClassVar[float] = 0.3
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -390,10 +393,8 @@ class SpotBikeEnv(SpotEnv):
         # Predicates
         # Note that all classifiers assigned here just directly use
         # the ground atoms from the low-level simulator state.
-        self._temp_On = Predicate("On", [self._tool_type, self._surface_type],
-                                  lambda s, o: False)
         self._On = Predicate("On", [self._tool_type, self._surface_type],
-                             _create_dummy_predicate_classifier(self._temp_On))
+                             self._ontop_classifier)
         self._temp_InBag = Predicate("InBag",
                                      [self._tool_type, self._bag_type],
                                      lambda s, o: False)
@@ -707,6 +708,29 @@ class SpotBikeEnv(SpotEnv):
             obj_to_grasp.name] and self._nothandempty_classifier(
                 state, [spot])
 
+    def _ontop_classifier(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        obj_on, obj_surface = objects
+        assert obj_name_to_apriltag_id.get(obj_on.name) is not None
+        assert obj_name_to_apriltag_id.get(obj_surface.name) is not None
+
+        obj_on_pose = [
+            state.get(obj_on, "x"),
+            state.get(obj_on, "y"),
+            state.get(obj_on, "z")
+        ]
+        obj_surface_pose = [
+            state.get(obj_surface, "x"),
+            state.get(obj_surface, "y"),
+            state.get(obj_surface, "z")
+        ]
+        is_x_same = (obj_on_pose[0] -
+                     obj_surface_pose[0])**2 <= self._ontop_threshold
+        is_y_same = (obj_on_pose[1] -
+                     obj_surface_pose[1])**2 <= self._ontop_threshold
+        is_above_z = (obj_on_pose[2] - obj_surface_pose[2]) > 0.0
+        return is_x_same and is_y_same and is_above_z
+
     @classmethod
     def get_name(cls) -> str:
         return "spot_bike_env"
@@ -714,21 +738,15 @@ class SpotBikeEnv(SpotEnv):
     @property
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
-        return {self._HandEmpty, self._notHandEmpty, self._HoldingTool}
+        return {
+            self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On
+        }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
         spot = self._obj_name_to_obj("spot")
-        hammer = self._obj_name_to_obj("hammer")
-        hex_key = self._obj_name_to_obj("hex_key")
         low_wall_rack = self._obj_name_to_obj("low_wall_rack")
-        brush = self._obj_name_to_obj("brush")
         tool_room_table = self._obj_name_to_obj("tool_room_table")
-        hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         return {
-            GroundAtom(self._On, [hammer, low_wall_rack]),
-            GroundAtom(self._On, [hex_key, low_wall_rack]),
-            GroundAtom(self._On, [brush, tool_room_table]),
-            GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
             GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
             GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
         }

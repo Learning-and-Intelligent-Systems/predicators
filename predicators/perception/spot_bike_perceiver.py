@@ -23,6 +23,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()
+        self._prev_action: Optional[Action] = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
         assert CFG.env == "spot_bike_env"
@@ -40,24 +41,41 @@ class SpotBikePerceiver(BasePerceiver):
         return Task(init_state, env_task.goal)
 
     def update_perceiver_with_action(self, action: Action) -> None:
-        # Update the curr held item when applicable.
-        assert self._curr_env is not None and isinstance(
-            self._curr_env, SpotBikeEnv)
-        controller_name, objects, _ = self._curr_env.parse_action(action)
-        # The robot is always the 0th argument of an
-        # operator!
-        if "grasp" in controller_name.lower():
-            assert self._holding_item_id_feature == 0.0
-            # We know that the object that we attempted to grasp was
-            # the second argument to the controller.
-            object_attempted_to_grasp = objects[1].name
-            grasp_obj_id = obj_name_to_apriltag_id[object_attempted_to_grasp]
-            self._holding_item_id_feature = grasp_obj_id
-        elif "place" in controller_name.lower():
-            self._holding_item_id_feature = 0.0
+        # NOTE: we need to keep track of the previous action
+        # because the step function (where we need knowledge
+        # of the previous action) occurs *after* the action
+        # has already been taken.
+        self._prev_action = action
 
     def step(self, observation: Observation) -> State:
         self._update_state_from_observation(observation)
+        # Update the curr held item when applicable.
+        assert self._curr_env is not None and isinstance(
+            self._curr_env, SpotBikeEnv)
+        if self._prev_action is not None:
+            controller_name, objects, _ = self._curr_env.parse_action(
+                self._prev_action)
+            # The robot is always the 0th argument of an
+            # operator!
+            if "grasp" in controller_name.lower():
+                assert self._holding_item_id_feature == 0.0
+                # We know that the object that we attempted to grasp was
+                # the second argument to the controller.
+                object_attempted_to_grasp = objects[1].name
+                grasp_obj_id = obj_name_to_apriltag_id[
+                    object_attempted_to_grasp]
+                # We only want to update the holding item id feature
+                # if we successfully picked something.
+                if self._gripper_open_percentage > 1.5:
+                    self._holding_item_id_feature = grasp_obj_id
+                    logging.info(f"Grabbed item id: {grasp_obj_id}")
+            elif "place" in controller_name.lower():
+                self._holding_item_id_feature = 0.0
+            else:
+                # We ensure the holding item feature is set
+                # back to 0.0 if the hand is ever empty.
+                if self._gripper_open_percentage <= 1.5:
+                    self._holding_item_id_feature = 0.0
         return self._create_state()
 
     def _update_state_from_observation(self, observation: Observation) -> None:
