@@ -475,7 +475,8 @@ class _SpotInterface():
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
-        self.hand_movement(params[:3], keep_hand_pose=False, angle_45=True)
+        if objs[2].name == "tool_room_table":
+            self.hand_movement(params[:3], keep_hand_pose=False, angle_45=True)
         self.arm_object_grasp(objs[1])
         if not all(params[:3] == [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
@@ -744,6 +745,9 @@ class _SpotInterface():
         # Optionally add a grasp constraint.  This lets you tell the robot you
         # only want top-down grasps or side-on grasps.
         grasp = self.add_grasp_constraint(grasp, self.robot_state_client)
+
+        # Stow Arm First
+        self.stow_arm()
 
         # Ask the robot to pick up the object
         grasp_request = manipulation_api_pb2.ManipulationApiRequest(
