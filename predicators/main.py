@@ -342,8 +342,11 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 "trajectory": traj,
                 "pybullet_robot": CFG.pybullet_robot
             }
-            with open(traj_file_path, "wb") as f:
-                pkl.dump(traj_data, f)
+            # Our spot controllers are not pickleable for annoying reasons,
+            # so don't try to pickle any of these environments.
+            if CFG.env not in ["spot_bike_env", "spot_grocery_env"]:
+                with open(traj_file_path, "wb") as f:
+                    pkl.dump(traj_data, f)
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
