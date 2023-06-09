@@ -9,6 +9,7 @@ import matplotlib
 import numpy as np
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
@@ -241,6 +242,7 @@ class SpotEnv(BaseEnv):
 
     def goal_reached(self) -> bool:
         # We need to implement this! But we're just watching it work for now.
+        # We might want to implement this by literally asking for human input.
         return False
 
     def _build_observation(self,
@@ -293,11 +295,8 @@ class SpotEnv(BaseEnv):
                                                 self._ordered_strips_operators)
         assert ground_op is not None
         # Update the atoms using the operator.
-        next_ground_atoms = set(obs.nonpercept_atoms)
-        # Add add effects.
-        next_ground_atoms.update(ground_op.add_effects)
-        # Remove delete effects.
-        next_ground_atoms -= ground_op.delete_effects
+        next_ground_atoms = utils.apply_operator(ground_op,
+                                                 obs.nonpercept_atoms)
         # Return only the atoms for the non-percept predicates.
         return {
             a
@@ -321,7 +320,6 @@ class SpotEnv(BaseEnv):
         return self._generate_tasks(CFG.num_test_tasks)
 
     def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
-        assert num_tasks == 1, "Use JSON loading instead"
         # Have the spot walk around the environment once to construct
         # an initial observation.
         object_names_in_view = self._actively_construct_initial_object_views()
