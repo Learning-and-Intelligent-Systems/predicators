@@ -320,6 +320,7 @@ class SpotEnv(BaseEnv):
         return self._generate_tasks(CFG.num_test_tasks)
 
     def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
+        assert num_tasks == 1
         # Have the spot walk around the environment once to construct
         # an initial observation.
         object_names_in_view = self._actively_construct_initial_object_views()
