@@ -99,35 +99,15 @@ def test_spot_bike_env_load_task_from_json():
         })
 
         env = SpotBikeEnv()
-        test_tasks = [t.task for t in env.get_test_tasks()]
+        test_tasks = env.get_test_tasks()
 
     assert len(test_tasks) == 1
     task = test_tasks[0]
 
     # pylint: disable=line-too-long
-    assert task.init.pretty_str(
-    ) == """#################################### STATE ####################################
-type: bag          x         y          z
------------  -------  --------  ---------
-toolbag      6.85457  -8.19294  -0.189187
-
-type: flat_surface           x         y           z
---------------------  --------  --------  ----------
-low_wall_rack         10.0275   -6.96979   0.275323
-tool_room_table        6.49849  -6.25279  -0.0138028
-
-type: robot      gripper_open_percentage    curr_held_item_id     x     y     z
--------------  -------------------------  -------------------  ----  ----  ----
-spot                             0.42733                    0  -100  -100  -100
-
-type: tool             x         y         z
----------------  -------  --------  --------
-brush            6.43948  -6.02389  0.174947
-hammer           9.88252  -7.10786  0.622855
-hex_key          9.90738  -6.84972  0.643172
-hex_screwdriver  6.57559  -5.87017  0.286362
-###############################################################################
-"""
+    assert str(
+        task.init_obs
+    ) == """_SpotObservation(images={}, objects_in_view={brush:tool: (6.43948, -6.02389, 0.174947), hammer:tool: (9.88252, -7.10786, 0.622855), hex_key:tool: (9.90738, -6.84972, 0.643172), hex_screwdriver:tool: (6.57559, -5.87017, 0.286362), low_wall_rack:flat_surface: (10.0275, -6.96979, 0.275323), tool_room_table:flat_surface: (6.49849, -6.25279, -0.0138028), toolbag:bag: (6.85457, -8.19294, -0.189187)}, robot=spot:robot, gripper_open_percentage=0.42733, nonpercept_atoms={SurfaceNotTooHigh(spot:robot, low_wall_rack:flat_surface), SurfaceNotTooHigh(spot:robot, tool_room_table:flat_surface)}, nonpercept_predicates={InBag, ReachableSurface, PlatformNear, SurfaceTooHigh, ReachableBag, HoldingBag, ReachableTool, HoldingPlatformLeash, ReachablePlatform, SurfaceNotTooHigh})"""
 
     assert str(
         sorted(task.goal)
