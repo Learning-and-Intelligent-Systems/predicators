@@ -3,10 +3,9 @@
 import functools
 import logging
 import os
-import re
 import sys
 import time
-from typing import Any, Dict, Optional, Sequence, Set, Tuple
+from typing import Any, Collection, Dict, Optional, Sequence, Tuple
 
 import apriltag
 import bosdyn.client
@@ -34,7 +33,7 @@ from gym.spaces import Box
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.structs import Array, GroundAtom, Image, Object
+from predicators.structs import Array, Image, Object
 
 g_image_click = None
 g_image_display = None
@@ -70,8 +69,8 @@ obj_name_to_apriltag_id = {
     "hex_screwdriver": 404,
     "toolbag": 405,
     "low_wall_rack": 406,
-    "tool_room_table": 407,
-    "front_tool_room": 408,
+    "front_tool_room": 407,
+    "tool_room_table": 408,
 }
 
 apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
@@ -110,6 +109,8 @@ OBJECT_GRASP_OFFSET = {
 }
 
 COMMAND_TIMEOUT = 20.0
+
+CAMERA_NAMES = ["hand_color_image", "left_fisheye_image", "back_fisheye_image"]
 
 
 def _find_object_center(img: Image,
@@ -246,6 +247,70 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
+    def get_camera_images(self) -> Dict[str, Image]:
+        """Get all camera images."""
+        camera_images: Dict[str, Image] = {}
+        for source_name in CAMERA_NAMES:
+            img, _ = self.get_single_camera_image(source_name)
+            camera_images[source_name] = img
+        return camera_images
+
+    def get_single_camera_image(self, source_name: str) -> Tuple[Image, Any]:
+        """Get a single source camera image and image response."""
+        # Get image and camera transform from source_name.
+        img_req = build_image_request(
+            source_name,
+            quality_percent=100,
+            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+        image_response = self.image_client.get_image([img_req])
+
+        # Format image before detecting apriltags.
+        if image_response[0].shot.image.pixel_format == image_pb2.Image.\
+            PIXEL_FORMAT_DEPTH_U16:
+            dtype = np.uint16  # type: ignore
+        else:
+            dtype = np.uint8  # type: ignore
+        img = np.fromstring(image_response[0].shot.image.data,
+                            dtype=dtype)  # type: ignore
+        if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
+            img = img.reshape(image_response[0].shot.image.rows,
+                              image_response[0].shot.image.cols)
+        else:
+            img = cv2.imdecode(img, -1)
+
+        return (img, image_response)
+
+    def get_objects_in_view(self) -> Dict[str, Tuple[float, float, float]]:
+        """Get objects currently in view."""
+        tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
+        for source_name in CAMERA_NAMES:
+            viewable_obj_poses = self.get_apriltag_pose_from_camera(
+                source_name=source_name)
+            tag_to_pose.update(viewable_obj_poses)
+        apriltag_id_to_obj_name = {
+            v: k
+            for k, v in obj_name_to_apriltag_id.items()
+        }
+        obj_name_to_pose = {
+            apriltag_id_to_obj_name[t]: p
+            for t, p in tag_to_pose.items()
+        }
+        return obj_name_to_pose
+
+    def actively_construct_initial_object_views(
+        self, object_names: Collection[str]
+    ) -> Dict[str, Tuple[float, float, float]]:
+        """Walk around and build object views."""
+        waypoints = ["tool_room_table", "low_wall_rack"]
+        obj_name_to_loc = self._scan_for_objects(waypoints, object_names)
+        object_views: Dict[str, Tuple[float, float, float]] = {}
+        for obj_name in object_names:
+            assert obj_name in obj_name_to_loc, \
+                f"Did not locate object {obj_name}!"
+            object_views[obj_name] = obj_name_to_loc[obj_name]
+            logging.info(f"Located object {obj_name}")
+        return object_views
+
     def get_localized_state(self) -> Any:
         """Get localized state from GraphNav client."""
         exec_start, exec_sec = time.perf_counter(), 0.0
@@ -278,34 +343,15 @@ class _SpotInterface():
         Returns a dict mapping the integer of the tag id to an (x, y, z)
         position tuple in the map frame.
         """
+        img, image_response = self.get_single_camera_image(source_name)
 
-        # Get image  and camera transform from source_name.
-        img_req = build_image_request(
-            source_name,
-            quality_percent=100,
-            # image_format=image_pb2.Image.FORMAT_RAW,
-            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
-        image_response = self.image_client.get_image([img_req])
+        # Camera body transform.
         camera_tform_body = get_a_tform_b(
             image_response[0].shot.transforms_snapshot,
             image_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
 
         # Camera intrinsics for the given source camera.
         intrinsics = image_response[0].source.pinhole.intrinsics
-
-        # Format image befor detecting apriltags.
-        if image_response[0].shot.image.pixel_format == image_pb2.Image.\
-            PIXEL_FORMAT_DEPTH_U16:
-            dtype = np.uint16  # type: ignore
-        else:
-            dtype = np.uint8  # type: ignore
-        img = np.fromstring(image_response[0].shot.image.data,
-                            dtype=dtype)  # type: ignore
-        if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
-            img = img.reshape(image_response[0].shot.image.rows,
-                              image_response[0].shot.image.cols)
-        else:
-            img = cv2.imdecode(img, -1)
 
         # Rotate each image such that it is upright and make it gray.
         image_grey = cv2.cvtColor(self.rotate_image(img, source_name),
@@ -353,7 +399,7 @@ class _SpotInterface():
         return obj_poses
 
     @staticmethod
-    def rotate_image(image: Array, source_name: str) -> Array:
+    def rotate_image(image: Image, source_name: str) -> Image:
         """Rotate the image so that it is always displayed upright."""
         if source_name == "frontleft_fisheye_image":
             image = cv2.rotate(image, rotateCode=0)
@@ -363,11 +409,11 @@ class _SpotInterface():
             image = cv2.rotate(image, rotateCode=0)
         return image
 
-    def get_gripper_obs(self) -> Array:
+    def get_gripper_obs(self) -> float:
         """Grabs the current observation of relevant quantities from the
         gripper."""
         robot_state = self.robot_state_client.get_robot_state()
-        return robot_state.manipulator_state.gripper_open_percentage
+        return float(robot_state.manipulator_state.gripper_open_percentage)
 
     @property
     def params_spaces(self) -> Dict[str, Box]:
@@ -379,39 +425,33 @@ class _SpotInterface():
             "noop": Box(0, 1, (0, ))
         }
 
-    def execute(self, name: str, current_atoms: Set[GroundAtom],
-                objects: Sequence[Object], params: Array) -> None:
+    def execute(self, name: str, objects: Sequence[Object],
+                params: Array) -> None:
         """Run the controller based on the given name."""
         assert self._connected_to_spot
         if name == "navigate":
-            return self.navigateToController(current_atoms, objects, params)
+            return self.navigateToController(objects, params)
         if name == "grasp":
             return self.graspController(objects, params)
         assert name == "placeOnTop"
         return self.placeOntopController(objects, params)
 
-    def navigateToController(self, curr_atoms: Set[GroundAtom],
-                             objs: Sequence[Object], params: Array) -> None:
+    def navigateToController(self, objs: Sequence[Object],
+                             params: Array) -> None:
         """Controller that navigates to specific pre-specified locations.
 
         Params are [dx, dy, d-yaw]
         """
         print("NavigateTo", objs)
         assert len(params) == 3
-        waypoint_id = ""
+        assert len(objs) in [2, 3]
+
         if graph_nav_loc_to_id.get(objs[1].name) is not None:
             waypoint_id = graph_nav_loc_to_id[objs[1].name]
+        elif graph_nav_loc_to_id.get(objs[2].name) is not None:
+            waypoint_id = graph_nav_loc_to_id[objs[2].name]
         else:
-            curr_tool = objs[1].name
-            surfaces_for_objs = re.findall(
-                (r"On\(" + f"{curr_tool}:tool, " + r"(.*?):flat_surface\)"),
-                str(curr_atoms))
-            if surfaces_for_objs:
-                assert len(surfaces_for_objs) == 1
-                surface = surfaces_for_objs[0]
-                waypoint_id = graph_nav_loc_to_id[surface]
-            else:
-                raise NotImplementedError
+            waypoint_id = ""
 
         self.navigate_to(waypoint_id, params)
         self.stow_arm()
@@ -462,22 +502,27 @@ class _SpotInterface():
         # to allow time for sensor readings to settle.
         time.sleep(2.0)
 
-    def helper_construct_init_state(
-            self,
-            waypoints: Sequence[str]) -> Dict[int, Tuple[float, float, float]]:
+    def _scan_for_objects(
+        self, waypoints: Sequence[str], objects_to_find: Collection[str]
+    ) -> Dict[str, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
-        obj_poses: Dict[int, Tuple[float, float, float]] = {}
+        obj_poses: Dict[str, Tuple[float, float, float]] = {}
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
+            if set(objects_to_find).issubset(set(obj_poses)):
+                logging.info("All objects located!")
+                break
             for _ in range(8):
-                for source_name in [
-                        "hand_color_image", "left_fisheye_image",
-                        "back_fisheye_image"
-                ]:
-                    viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                        source_name=source_name)
-                    obj_poses.update(viewable_obj_poses)
+                objects_in_view = self.get_objects_in_view()
+                obj_poses.update(objects_in_view)
+                logging.info("Seen objects:")
+                logging.info(set(obj_poses))
+                remaining_objects = set(objects_to_find) - set(obj_poses)
+                if not remaining_objects:
+                    break
+                logging.info("Still searching for objects:")
+                logging.info(remaining_objects)
                 self.relative_move(0.0, 0.0, 45.0)
         return obj_poses
 
@@ -719,7 +764,7 @@ class _SpotInterface():
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            logging.debug(f"""Current state:
+            logging.info(f"""Current state:
                 {manipulation_api_pb2.ManipulationFeedbackState.Name(
                     response.current_state)}""")
 

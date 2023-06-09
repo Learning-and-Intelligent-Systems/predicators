@@ -1,10 +1,9 @@
 """Basic environment for the Boston Dynamics Spot Robot."""
 
 import abc
-import json
-from pathlib import Path
-from typing import Callable, Collection, Dict, List, Optional, Sequence, Set, \
-    Tuple
+import functools
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
@@ -17,12 +16,29 @@ from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import get_spot_interface, \
     obj_name_to_apriltag_id
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
-    LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
-    Variable
+    Image, LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
+    Type, Variable
 
 ###############################################################################
 #                                Base Class                                   #
 ###############################################################################
+
+
+@dataclass(frozen=True)
+class _SpotObservation:
+    """An observation for a SpotEnv."""
+    # Camera name to image
+    images: Dict[str, Image]
+    # Objects that are seen in the current image and their positions in world
+    objects_in_view: Dict[Object, Tuple[float, float, float]]
+    # Expose the robot object.
+    robot: Object
+    # Status of the robot gripper.
+    gripper_open_percentage: float
+    # Ground atoms without ground-truth classifiers
+    # A placeholder until all predicates have classifiers
+    nonpercept_atoms: Set[GroundAtom]
+    nonpercept_predicates: Set[Predicate]
 
 
 class _PartialPerceptionState(State):
@@ -30,6 +46,9 @@ class _PartialPerceptionState(State):
 
     The main idea here is that we have some predicates with actual
     classifiers implemented, but not all.
+
+    NOTE: these states are only created in the perceiver, but they are used
+    in the classifier definitions for the dummy predicates
     """
 
     @property
@@ -111,7 +130,7 @@ class SpotEnv(BaseEnv):
         return self._strips_operators
 
     @property
-    def continuous_feature_predicates(self) -> Set[Predicate]:
+    def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return set()
 
@@ -132,15 +151,15 @@ class SpotEnv(BaseEnv):
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
-    def parse_action(self, state: State,
-                     action: Action) -> Tuple[str, List[Object], Array]:
+    def parse_action(self, action: Action) -> Tuple[str, List[Object], Array]:
         """(Only for this environment) A convenience method that converts low-
         level actions into more interpretable high-level actions by exploiting
         knowledge of how we encode actions."""
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
-        ordered_objs = list(state)
+        all_objects = set(self._make_object_name_to_obj_dict().values())
+        ordered_objs = sorted(all_objects)
         ground_op = _action_to_ground_strips_op(op_action, ordered_objs,
                                                 self._ordered_strips_operators)
         assert ground_op is not None
@@ -174,8 +193,8 @@ class SpotEnv(BaseEnv):
         """
         return self._spot_interface.params_spaces[name]
 
-    def build_action(self, state: State, op: STRIPSOperator,
-                     objects: Sequence[Object], params: Array) -> Action:
+    def build_action(self, op: STRIPSOperator, objects: Sequence[Object],
+                     params: Array) -> Action:
         """Helper function exposed for use by oracle options."""
         # Initialize the action array.
         action_arr = np.zeros(self.action_space.shape[0], dtype=np.float32)
@@ -183,7 +202,8 @@ class SpotEnv(BaseEnv):
         op_idx = self._ordered_strips_operators.index(op)
         action_arr[0] = op_idx
         # Add the object indices.
-        ordered_objects = list(state)
+        all_objects = set(self._make_object_name_to_obj_dict().values())
+        ordered_objects = sorted(all_objects)
         for i, o in enumerate(objects):
             obj_idx = ordered_objects.index(o)
             action_arr[i + 1] = obj_idx
@@ -194,102 +214,147 @@ class SpotEnv(BaseEnv):
         # Finalize action.
         return Action(action_arr)
 
-    def step(self, action: Action) -> Observation:  # pragma: no cover
+    def reset(self, train_or_test: str, task_idx: int) -> Observation:
+        init_atoms = self._get_initial_nonpercept_atoms()
+        init_obs = self._build_observation(init_atoms)
+        goal = self._generate_task_goal()
+        self._current_task = EnvironmentTask(init_obs, goal)
+        self._current_observation = init_obs
+        return init_obs
+
+    def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
-        state = self._current_observation
-        assert isinstance(state, _PartialPerceptionState)
+        obs = self._current_observation
+        assert isinstance(obs, _SpotObservation)
         assert self.action_space.contains(action.arr)
         # Parse the action into the components needed for a controller.
-        name, objects, params = self.parse_action(state, action)
+        name, objects, params = self.parse_action(action)
         # Execute the controller in the real environment.
-        current_atoms = utils.abstract(state, self.predicates)
-        self._spot_interface.execute(name, current_atoms, objects, params)
-        # Get the part of the new state that is determined based on
-        # continuous feature values.
-        next_state = self._get_continuous_observation()
+        self._spot_interface.execute(name, objects, params)
         # Now update the part of the state that is cheated based on the
         # ground-truth STRIPS operators.
-        next_sim_state_ground_atoms = self._get_next_simulator_state(
-            state, action)
-        if next_sim_state_ground_atoms is None:  # inapplicable action
-            return state.copy()
-        # Combine the two to get the new _PartialPerceptionState.
-        self._current_observation = self._build_partial_perception_state(
-            next_state.data, next_sim_state_ground_atoms)
-        return self._current_observation.copy()
+        next_nonpercept = self._get_next_nonpercept_atoms(obs, action)
+        self._current_observation = self._build_observation(next_nonpercept)
+        return self._current_observation
 
-    def _build_partial_perception_state(
-            self, state_data: Dict[Object, Array],
-            ground_atoms: Set[GroundAtom]) -> _PartialPerceptionState:
-        """Helper for building a new _PartialPerceptionState().
+    def get_observation(self) -> Observation:
+        return self._current_observation
 
-        This is an environment method because the predicates stored in
-        the simulator_state may vary per environment.
+    def goal_reached(self) -> bool:
+        # We need to implement this! But we're just watching it work for now.
+        # We might want to implement this by literally asking for human input.
+        return False
+
+    def _build_observation(self,
+                           ground_atoms: Set[GroundAtom]) -> _SpotObservation:
+        """Helper for building a new _SpotObservation().
+
+        This is an environment method because the nonpercept predicates
+        may vary per environment.
         """
-        sim_state_preds = self.predicates - self.continuous_feature_predicates
-        assert all(a.predicate in sim_state_preds for a in ground_atoms)
-        simulator_state = {
-            "predicates": sim_state_preds,
-            "atoms": ground_atoms
-        }
-        return _PartialPerceptionState(state_data.copy(),
-                                       simulator_state=simulator_state)
+        # Get the camera images.
+        images = self._spot_interface.get_camera_images()
 
-    def _get_next_simulator_state(self, state: _PartialPerceptionState,
-                                  action: Action) -> Optional[Set[GroundAtom]]:
+        # Detect objects.
+        object_names_in_view = self._spot_interface.get_objects_in_view()
+
+        # Filter out unknown objects.
+        known_object_names = set(self._make_object_name_to_obj_dict())
+        object_names_in_view = {
+            n: p
+            for n, p in object_names_in_view.items() if n in known_object_names
+        }
+        objects_in_view = {
+            self._obj_name_to_obj(n): v
+            for n, v in object_names_in_view.items()
+        }
+
+        # Get the robot status.
+        robot = self._obj_name_to_obj("spot")
+        gripper_open_percentage = self._spot_interface.get_gripper_obs()
+
+        # Prepare the non-percepts.
+        nonpercept_preds = self.predicates - self.percept_predicates
+        assert all(a.predicate in nonpercept_preds for a in ground_atoms)
+        obs = _SpotObservation(images, objects_in_view, robot,
+                               gripper_open_percentage, ground_atoms,
+                               nonpercept_preds)
+
+        return obs
+
+    def _get_next_nonpercept_atoms(self, obs: _SpotObservation,
+                                   action: Action) -> Set[GroundAtom]:
         """Helper for step().
 
-        Returns None if the action is not applicable. This should be
-        deprecated soon when we move to regular State instances in this
-        class.
+        This should be deprecated eventually.
         """
-        ordered_objs = list(state)
-        # Get the high-level state (i.e. set of GroundAtoms) by abstracting
-        # the low-level state. Note that this will automatically take
-        # care of using the hardcoded predicates vs. actually running
-        # classifier functions where appropriate.
-        ground_atoms = utils.abstract(state, self.predicates)
-        # Convert the action into a _GroundSTRIPSOperator.
+        # Get the ground operator.
+        all_objects = set(self._make_object_name_to_obj_dict().values())
+        ordered_objs = sorted(all_objects)
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
-
-        # We need to remove any "HoldingTool" atoms from the preconditions
-        # because of current perception stuff. Note that this is a hack and
-        # we should DEFINITELY remove this in the future.
-        preconditions_to_check = set()
-        if ground_op is not None:
-            preconditions_to_check = set(
-                atom for atom in ground_op.preconditions
-                if "HoldingTool" not in atom.predicate.name)
-
-        # If the operator is not applicable in this state, noop.
-        if ground_op is None or not preconditions_to_check.issubset(
-                ground_atoms):
-            return None
-        # Apply the operator.
-        next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
-        # Return only the atoms for the non-continuous-feature predicates.
+        assert ground_op is not None
+        # Update the atoms using the operator.
+        next_ground_atoms = utils.apply_operator(ground_op,
+                                                 obs.nonpercept_atoms)
+        # Return only the atoms for the non-percept predicates.
         return {
             a
             for a in next_ground_atoms
-            if a.predicate not in self.continuous_feature_predicates
+            if a.predicate not in self.percept_predicates
         }
 
-    def _get_continuous_observation(self) -> State:
-        """Helper for step()."""
-        return State(self._current_observation.data.copy())
+    def _actively_construct_initial_object_views(
+            self) -> Dict[str, Tuple[float, float, float]]:
+        raise NotImplementedError("Subclass must override!")
 
     def simulate(self, state: State, action: Action) -> State:
         raise NotImplementedError("Simulate not implemented for SpotEnv.")
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._generate_tasks(CFG.num_train_tasks)
+        assert CFG.num_train_tasks == 0, "Use JSON loading instead"
+        return []
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
+        assert CFG.num_test_tasks == 1, "Use JSON loading instead"
         return self._generate_tasks(CFG.num_test_tasks)
 
-    @abc.abstractmethod
     def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
+        assert num_tasks == 1
+        # Have the spot walk around the environment once to construct
+        # an initial observation.
+        object_names_in_view = self._actively_construct_initial_object_views()
+        objects_in_view = {
+            self._obj_name_to_obj(n): v
+            for n, v in object_names_in_view.items()
+        }
+        robot_type = next(t for t in self.types if t.name == "robot")
+        robot = Object("spot", robot_type)
+        images = self._spot_interface.get_camera_images()
+        gripper_open_percentage = self._spot_interface.get_gripper_obs()
+        nonpercept_atoms = self._get_initial_nonpercept_atoms()
+        nonpercept_preds = self.predicates - self.percept_predicates
+        assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
+        obs = _SpotObservation(images, objects_in_view, robot,
+                               gripper_open_percentage, nonpercept_atoms,
+                               nonpercept_preds)
+        goal = self._generate_task_goal()
+        return [EnvironmentTask(obs, goal)]
+
+    @abc.abstractmethod
+    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _generate_task_goal(self) -> Set[GroundAtom]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _obj_name_to_obj(self, obj_name: str) -> Object:
         raise NotImplementedError
 
     def render_state_plt(
@@ -299,264 +364,6 @@ class SpotEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError("This env does not use Matplotlib")
-
-    @abc.abstractmethod
-    def _get_language_goal_prompt_prefix(self,
-                                         object_names: Collection[str]) -> str:
-        raise NotImplementedError
-
-    def _parse_init_preds_from_json(
-            self, spec: Dict[str, List[List[str]]],
-            id_to_obj: Dict[str, Object]) -> Set[GroundAtom]:
-        """Helper for parsing init preds from JSON task specifications."""
-        pred_names = {p.name for p in self.predicates}
-        assert set(spec.keys()).issubset(pred_names)
-        pred_to_args = {p: spec.get(p.name, []) for p in self.predicates}
-        init_preds: Set[GroundAtom] = set()
-        for pred, args in pred_to_args.items():
-            for id_args in args:
-                obj_args = [id_to_obj[a] for a in id_args]
-                init_atom = GroundAtom(pred, obj_args)
-                init_preds.add(init_atom)
-        return init_preds
-
-    def _load_task_from_json(self, json_file: Path) -> EnvironmentTask:
-        """Create a task from a JSON file.
-
-        By default, we assume JSON files are in the following format:
-
-        {
-            "objects": {
-                <object name>: <type name>
-            }
-            "init": {
-                <object name>: {
-                    <feature name>: <value>
-                }
-            }
-            "goal": {
-                <predicate name> : [
-                    [<object name>]
-                ]
-            }
-        }
-
-        Instead of "goal", "language_goal" can also be used.
-
-        Environments can override this method to handle different formats.
-        """
-        with open(json_file, "r", encoding="utf-8") as f:
-            json_dict = json.load(f)
-        object_name_to_object: Dict[str, Object] = {}
-        # Parse objects.
-        type_name_to_type = {t.name: t for t in self.types}
-        for obj_name, type_name in json_dict["objects"].items():
-            obj_type = type_name_to_type[type_name]
-            obj = Object(obj_name, obj_type)
-            object_name_to_object[obj_name] = obj
-        assert set(object_name_to_object).\
-            issubset(set(json_dict["init"])), \
-            "The init state can only include objects in `objects`."
-        assert set(object_name_to_object).\
-            issuperset(set(json_dict["init"])), \
-            "The init state must include every object in `objects`."
-        # Parse initial state.
-        # NOTE: this is currently ignored; we will update after we add
-        # predicates that are defined in terms of the continuous state.
-        init_dict: Dict[Object, Array] = {
-            o: np.zeros(0, dtype=np.float32)
-            for o in object_name_to_object.values()
-        }
-        # NOTE: We need to parse out init preds to create a simulator state.
-        init_atoms = self._parse_init_preds_from_json(json_dict["init_preds"],
-                                                      object_name_to_object)
-        # Remove any atoms that are defined via classifiers.
-        init_atoms = {
-            a
-            for a in init_atoms
-            if a.predicate not in self.continuous_feature_predicates
-        }
-        init_state = self._build_partial_perception_state(
-            init_dict, init_atoms)
-        # Parse goal.
-        if "goal" in json_dict:
-            goal = self._parse_goal_from_json(json_dict["goal"],
-                                              object_name_to_object)
-        else:  # pragma: no cover
-            if CFG.override_json_with_input:
-                goal = self._parse_goal_from_input_to_json(
-                    init_state, json_dict, object_name_to_object)
-            else:
-                assert "language_goal" in json_dict
-                goal = self._parse_language_goal_from_json(
-                    json_dict["language_goal"], object_name_to_object)
-        return EnvironmentTask(init_state, goal)
-
-
-###############################################################################
-#                                Grocery Env                                  #
-###############################################################################
-
-
-class SpotGroceryEnv(SpotEnv):
-    """An environment containing tasks for a real Spot robot to execute.
-
-    Currently, the robot can move to specific 'surfaces' (e.g. tables),
-    pick objects from on top these surfaces, and then place them
-    elsewhere.
-    """
-
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        # Types
-        self._robot_type = Type("robot", [])
-        self._can_type = Type("soda_can", [])
-        self._surface_type = Type("flat_surface", [])
-
-        # Predicates
-        # Note that all classifiers assigned here just directly use
-        # the ground atoms from the low-level simulator state.
-        self._temp_On = Predicate("On", [self._can_type, self._surface_type],
-                                  lambda s, o: False)
-        self._On = Predicate("On", [self._can_type, self._surface_type],
-                             _create_dummy_predicate_classifier(self._temp_On))
-        self._temp_HandEmpty = Predicate("HandEmpty", [self._robot_type],
-                                         lambda s, o: False)
-        self._HandEmpty = Predicate(
-            "HandEmpty", [self._robot_type],
-            _create_dummy_predicate_classifier(self._temp_HandEmpty))
-        self._temp_HoldingCan = Predicate("HoldingCan",
-                                          [self._robot_type, self._can_type],
-                                          lambda s, o: False)
-        self._HoldingCan = Predicate(
-            "HoldingCan", [self._robot_type, self._can_type],
-            _create_dummy_predicate_classifier(self._temp_HoldingCan))
-        self._temp_ReachableCan = Predicate("ReachableCan",
-                                            [self._robot_type, self._can_type],
-                                            lambda s, o: False)
-        self._ReachableCan = Predicate(
-            "ReachableCan", [self._robot_type, self._can_type],
-            _create_dummy_predicate_classifier(self._temp_ReachableCan))
-        self._temp_ReachableSurface = Predicate(
-            "ReachableSurface", [self._robot_type, self._surface_type],
-            lambda s, o: False)
-        self._ReachableSurface = Predicate(
-            "ReachableSurface", [self._robot_type, self._surface_type],
-            _create_dummy_predicate_classifier(self._temp_ReachableSurface))
-
-        # STRIPS Operators (needed for option creation)
-        # MoveToCan
-        spot = Variable("?robot", self._robot_type)
-        can = Variable("?can", self._can_type)
-        add_effs = {LiftedAtom(self._ReachableCan, [spot, can])}
-        ignore_effs = {self._ReachableCan, self._ReachableSurface}
-        self._MoveToCanOp = STRIPSOperator("MoveToCan", [spot, can], set(),
-                                           add_effs, set(), ignore_effs)
-        # MoveToSurface
-        spot = Variable("?robot", self._robot_type)
-        surface = Variable("?surface", self._surface_type)
-        add_effs = {LiftedAtom(self._ReachableSurface, [spot, surface])}
-        ignore_effs = {self._ReachableCan, self._ReachableSurface}
-        self._MoveToSurfaceOp = STRIPSOperator("MoveToSurface",
-                                               [spot, surface], set(),
-                                               add_effs, set(), ignore_effs)
-        # GraspCan
-        spot = Variable("?robot", self._robot_type)
-        can = Variable("?can", self._can_type)
-        surface = Variable("?surface", self._surface_type)
-        preconds = {
-            LiftedAtom(self._On, [can, surface]),
-            LiftedAtom(self._ReachableCan, [spot, can]),
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        add_effs = {LiftedAtom(self._HoldingCan, [spot, can])}
-        del_effs = {
-            LiftedAtom(self._On, [can, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        self._GraspCanOp = STRIPSOperator("GraspCan", [spot, can, surface],
-                                          preconds, add_effs, del_effs, set())
-        # Place Can
-        spot = Variable("?robot", self._robot_type)
-        can = Variable("?can", self._can_type)
-        surface = Variable("?surface", self._surface_type)
-        preconds = {
-            LiftedAtom(self._ReachableSurface, [spot, surface]),
-            LiftedAtom(self._HoldingCan, [spot, can])
-        }
-        add_effs = {
-            LiftedAtom(self._On, [can, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        del_effs = {LiftedAtom(self._HoldingCan, [spot, can])}
-        self._PlaceCanOp = STRIPSOperator("PlaceCanOntop",
-                                          [spot, can, surface], preconds,
-                                          add_effs, del_effs, set())
-
-        self._strips_operators = {
-            self._MoveToCanOp, self._MoveToSurfaceOp, self._GraspCanOp,
-            self._PlaceCanOp
-        }
-
-    @property
-    def types(self) -> Set[Type]:
-        return {self._robot_type, self._can_type, self._surface_type}
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            self._On, self._HandEmpty, self._HoldingCan, self._ReachableCan,
-            self._ReachableSurface
-        }
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "spot_grocery_env"
-
-    def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
-        tasks: List[EnvironmentTask] = []
-        spot = Object("spot", self._robot_type)
-        kitchen_counter = Object("counter", self._surface_type)
-        snack_table = Object("snack_table", self._surface_type)
-        soda_can = Object("soda_can", self._can_type)
-        objects = [spot, kitchen_counter, snack_table, soda_can]
-        for _ in range(num_tasks):
-            init_dict: Dict[Object, Array] = {
-                o: np.zeros(0, dtype=np.float32)
-                for o in objects
-            }
-            init_atoms = {
-                GroundAtom(self._HandEmpty, [spot]),
-                GroundAtom(self._On, [soda_can, kitchen_counter])
-            }
-            init_state = self._build_partial_perception_state(
-                init_dict, init_atoms)
-            goal = {GroundAtom(self._On, [soda_can, snack_table])}
-            tasks.append(EnvironmentTask(init_state, goal))
-        return tasks
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return {self._On}
-
-    def _get_language_goal_prompt_prefix(self,
-                                         object_names: Collection[str]) -> str:
-        # pylint:disable=line-too-long
-        available_predicates = ", ".join(
-            [p.name for p in sorted(self.goal_predicates)])
-        available_objects = ", ".join(sorted(object_names))
-        # We could extract the object names, but this is simpler.
-        assert {"spot", "counter", "snack_table",
-                "soda_can"}.issubset(object_names)
-        prompt = f"""# The available predicates are: {available_predicates}
-# The available objects are: {available_objects}
-# Use the available predicates and objects to convert natural language goals into JSON goals.
-        
-# Hey spot, can you move the soda can to the snack table?
-{{"On": [["soda_can", "snack_table"]]}}
-"""
-        return prompt
 
 
 ###############################################################################
@@ -573,11 +380,12 @@ class SpotBikeEnv(SpotEnv):
 
         # Types
         self._robot_type = Type(
-            "robot", ["gripper_open_percentage", "curr_held_item_id"])
-        self._tool_type = Type("tool", [])
-        self._surface_type = Type("flat_surface", [])
-        self._bag_type = Type("bag", [])
-        self._platform_type = Type("platform", [])
+            "robot",
+            ["gripper_open_percentage", "curr_held_item_id", "x", "y", "z"])
+        self._tool_type = Type("tool", ["x", "y", "z"])
+        self._surface_type = Type("flat_surface", ["x", "y", "z"])
+        self._bag_type = Type("bag", ["x", "y", "z"])
+        self._platform_type = Type("platform", ["x", "y", "z"])
 
         # Predicates
         # Note that all classifiers assigned here just directly use
@@ -659,13 +467,17 @@ class SpotBikeEnv(SpotEnv):
         # MoveToTool
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
+        surface = Variable("?surface", self._surface_type)
+        preconditions = {LiftedAtom(self._On, [tool, surface])}
         add_effs = {LiftedAtom(self._ReachableTool, [spot, tool])}
         ignore_effs = {
             self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
             self._ReachablePlatform
         }
-        self._MoveToToolOp = STRIPSOperator("MoveToTool", [spot, tool], set(),
-                                            add_effs, set(), ignore_effs)
+        self._MoveToToolOp = STRIPSOperator("MoveToTool",
+                                            [spot, tool, surface],
+                                            preconditions, add_effs, set(),
+                                            ignore_effs)
         # MoveToSurface
         spot = Variable("?robot", self._robot_type)
         surface = Variable("?surface", self._surface_type)
@@ -900,22 +712,42 @@ class SpotBikeEnv(SpotEnv):
         return "spot_bike_env"
 
     @property
-    def continuous_feature_predicates(self) -> Set[Predicate]:
+    def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {self._HandEmpty, self._notHandEmpty, self._HoldingTool}
 
-    def _get_continuous_observation(self) -> State:  # pragma: no cover
-        """Helper for step()."""
-        curr_state = State(
-            {k: v.copy()
-             for k, v in self._current_observation.data.items()})
-        new_gripper_open_perc = self._spot_interface.get_gripper_obs()
-        spot = curr_state.get_objects(self._robot_type)[0]
-        curr_state.set(spot, "gripper_open_percentage", new_gripper_open_perc)
-        return curr_state
+    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
+        spot = self._obj_name_to_obj("spot")
+        hammer = self._obj_name_to_obj("hammer")
+        hex_key = self._obj_name_to_obj("hex_key")
+        low_wall_rack = self._obj_name_to_obj("low_wall_rack")
+        brush = self._obj_name_to_obj("brush")
+        tool_room_table = self._obj_name_to_obj("tool_room_table")
+        hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
+        return {
+            GroundAtom(self._On, [hammer, low_wall_rack]),
+            GroundAtom(self._On, [hex_key, low_wall_rack]),
+            GroundAtom(self._On, [brush, tool_room_table]),
+            GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
+            GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
+            GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
+        }
 
-    def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
-        tasks: List[EnvironmentTask] = []
+    def _generate_task_goal(self) -> Set[GroundAtom]:
+        hammer = self._obj_name_to_obj("hammer")
+        hex_key = self._obj_name_to_obj("hex_key")
+        brush = self._obj_name_to_obj("brush")
+        hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
+        bag = self._obj_name_to_obj("toolbag")
+        return {
+            GroundAtom(self._InBag, [hammer, bag]),
+            GroundAtom(self._InBag, [brush, bag]),
+            GroundAtom(self._InBag, [hex_key, bag]),
+            GroundAtom(self._InBag, [hex_screwdriver, bag]),
+        }
+
+    @functools.lru_cache(maxsize=None)
+    def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
         spot = Object("spot", self._robot_type)
         hammer = Object("hammer", self._tool_type)
         hex_key = Object("hex_key", self._tool_type)
@@ -923,66 +755,23 @@ class SpotBikeEnv(SpotEnv):
         brush = Object("brush", self._tool_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
-        high_wall_rack = Object("high_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
-        movable_platform = Object("movable_platform", self._platform_type)
         objects = [
             spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
-            low_wall_rack, high_wall_rack, bag, movable_platform
+            low_wall_rack, bag
         ]
-        for _ in range(num_tasks):
-            init_dict = {spot: np.array([0.0, 0.0])}
+        return {o.name: o for o in objects}
 
-            for obj in objects:
-                if obj != spot:
-                    init_dict[obj] = np.array([])
-
-            init_atoms = {
-                GroundAtom(self._On, [hammer, low_wall_rack]),
-                GroundAtom(self._On, [hex_key, low_wall_rack]),
-                GroundAtom(self._On, [brush, tool_room_table]),
-                GroundAtom(self._On, [hex_screwdriver, tool_room_table]),
-                GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
-                GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
-                GroundAtom(self._SurfaceTooHigh, [spot, high_wall_rack]),
-            }
-            init_state = self._build_partial_perception_state(
-                init_dict, init_atoms)
-            goal = {
-                GroundAtom(self._InBag, [hammer, bag]),
-                GroundAtom(self._InBag, [brush, bag]),
-                GroundAtom(self._InBag, [hex_key, bag]),
-                GroundAtom(self._InBag, [hex_screwdriver, bag]),
-            }
-            tasks.append(EnvironmentTask(init_state, goal))
-        return tasks
+    def _obj_name_to_obj(self, obj_name: str) -> Object:
+        return self._make_object_name_to_obj_dict()[obj_name]
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return self.predicates
 
-    def _get_language_goal_prompt_prefix(self,
-                                         object_names: Collection[str]) -> str:
-        # pylint:disable=line-too-long
-        available_predicates = ", ".join([
-            str((p.name, p.types, p.arity))
-            for p in sorted(self.goal_predicates)
-        ])
-        available_objects = ", ".join(sorted(object_names))
-        # We could extract the object names, but this is simpler.
-        assert {"spot", "hammer", "toolbag",
-                "low_wall_rack"}.issubset(object_names)
-        prompt = f"""# The available predicates are: {available_predicates}
-# The available objects are: {available_objects}
-# Use the available predicates and objects to convert natural language goals into JSON goals.
-
-# Hey spot, can you put the hammer into the bag?
-{{"InBag": [["hammer", "toolbag"]]}}
-
-# Will you put the bag onto the low rack, please?
-{{"On": [["toolbag", "low_wall_rack"]],"HandEmpty": [["spot"]]}}
-
-# Go to the low_wall_rack.
-{{"ReachableSurface": [["spot", "low_wall_rack"]]}}
-"""
-        return prompt
+    def _actively_construct_initial_object_views(
+            self) -> Dict[str, Tuple[float, float, float]]:
+        obj_names = set(self._make_object_name_to_obj_dict().keys())
+        obj_names.remove("spot")
+        return self._spot_interface.actively_construct_initial_object_views(
+            obj_names)
