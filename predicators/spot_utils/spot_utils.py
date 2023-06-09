@@ -301,7 +301,7 @@ class _SpotInterface():
         self, object_names: Collection[str]
     ) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
-        waypoints = ["low_wall_rack", "tool_room_table"]
+        waypoints = ["tool_room_table", "low_wall_rack"]
         obj_name_to_loc = self._scan_for_objects(waypoints, object_names)
         object_views: Dict[str, Tuple[float, float, float]] = {}
         for obj_name in object_names:
