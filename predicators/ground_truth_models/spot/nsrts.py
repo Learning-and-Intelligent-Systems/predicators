@@ -32,10 +32,12 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.5, 0.0, 0.0])
             extra_room_table_offset = np.array([-0.3, -0.3, np.pi / 2])
+            # For MoveToSurface
             if objs[1].name == "extra_room_table":
                 return extra_room_table_offset
+            # For MoveToObj
             if len(objs) == 3:
-                if objs[2].name == "extra_room_table":  # pragma: no cover
+                if objs[2].name == "extra_room_table":
                     return extra_room_table_offset
             return np.array([-0.25, 0.0, 0.0])
 
@@ -55,7 +57,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             del state, goal, rng
             if objs[2].type.name == "bag":  # pragma: no cover
                 return np.array([0.1, 0.0, -0.25])
-            if "_table" in objs[2].name:  # pragma: no cover
+            if "_table" in objs[2].name:
                 return np.array([0.1, 0.0, -0.2])
             return np.array([0.0, 0.0, 0.0])
 

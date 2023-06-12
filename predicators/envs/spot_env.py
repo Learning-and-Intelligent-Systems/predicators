@@ -813,7 +813,7 @@ class SpotBikeEnv(SpotEnv):
             GroundAtom(self._InBag, [hammer, bag]),
             GroundAtom(self._InBag, [brush, bag]),
             GroundAtom(self._InBag, [hex_key, bag]),
-            GroundAtom(self._InBag, [hex_screwdriver, bag])
+            GroundAtom(self._InBag, [hex_screwdriver, bag]),
         }
 
     @functools.lru_cache(maxsize=None)
