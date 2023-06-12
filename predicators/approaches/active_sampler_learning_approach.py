@@ -24,7 +24,8 @@ Bumpy cover easy:
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1 \
-        --mlp_regressor_max_itr 100000
+        --mlp_regressor_max_itr 100000 \
+        --pytorch_train_print_every 10000
 
 
 Bumpy cover with shifted targets:
@@ -42,7 +43,8 @@ Bumpy cover with shifted targets:
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1 \
-        --mlp_regressor_max_itr 100000 \
+        --mlp_regressor_max_itr 1000000 \
+        --pytorch_train_print_every 10000 \
         --bumpy_cover_right_targets True
 """
 
