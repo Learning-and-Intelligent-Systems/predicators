@@ -65,8 +65,8 @@ from predicators.approaches.online_nsrt_learning_approach import \
 from predicators.ml_models import MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
-    NSRTSampler, Object, ParameterizedOption, Predicate, State, Task, Type, \
-    Variable, _GroundNSRT, _Option, Segment
+    NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
+    Task, Type, Variable, _GroundNSRT, _Option
 
 # Dataset for Q learning: includes (s, a, s', r).
 _SamplerDataset = List[Tuple[State, _Option, State, float]]
