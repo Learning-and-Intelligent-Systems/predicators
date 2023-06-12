@@ -70,7 +70,7 @@ obj_name_to_apriltag_id = {
     "toolbag": 405,
     "low_wall_rack": 406,
     "front_tool_room": 407,
-    "tool_room_table": 408
+    "tool_room_table": 408,
 }
 
 apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {

@@ -777,8 +777,7 @@ class SpotBikeEnv(SpotEnv):
 
     def _surface_too_high_classifier(self, state: State,
                                      objects: Sequence[Object]) -> bool:
-        spot, surface = objects
-        del spot
+        _, surface = objects
         surface_pose = [
             state.get(surface, "x"),
             state.get(surface, "y"),
