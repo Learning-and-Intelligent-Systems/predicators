@@ -420,6 +420,7 @@ class SpotBikeEnv(SpotEnv):
     robot to execute."""
 
     _ontop_threshold: ClassVar[float] = 0.3
+    _reachable_threshold: ClassVar[float] = 1.0
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -430,6 +431,7 @@ class SpotBikeEnv(SpotEnv):
             ["gripper_open_percentage", "curr_held_item_id", "x", "y", "z"])
         self._tool_type = Type("tool", ["x", "y", "z"])
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
+        self._floor_type = Type("floor", [])
         self._bag_type = Type("bag", ["x", "y", "z"])
         self._platform_type = Type("platform", ["x", "y", "z"])
 
@@ -438,6 +440,9 @@ class SpotBikeEnv(SpotEnv):
         # the ground atoms from the low-level simulator state.
         self._On = Predicate("On", [self._tool_type, self._surface_type],
                              self._ontop_classifier)
+        self._OnFloor = Predicate("OnFloor",
+                                  [self._tool_type, self._floor_type],
+                                  self._onfloor_classifier)
         self._temp_InBag = Predicate("InBag",
                                      [self._tool_type, self._bag_type],
                                      lambda s, o: False)
@@ -464,42 +469,24 @@ class SpotBikeEnv(SpotEnv):
             "HoldingPlatformLeash", [self._robot_type, self._platform_type],
             _create_dummy_predicate_classifier(
                 self._temp_HoldingPlatformLeash))
-        self._temp_ReachableTool = Predicate(
-            "ReachableTool", [self._robot_type, self._tool_type],
-            lambda s, o: False)
-        self._ReachableTool = Predicate(
-            "ReachableTool", [self._robot_type, self._tool_type],
-            _create_dummy_predicate_classifier(self._temp_ReachableTool))
-        self._temp_ReachableBag = Predicate("ReachableBag",
-                                            [self._robot_type, self._bag_type],
-                                            lambda s, o: False)
-        self._ReachableBag = Predicate(
-            "ReachableBag", [self._robot_type, self._bag_type],
-            _create_dummy_predicate_classifier(self._temp_ReachableBag))
-        self._temp_ReachablePlatform = Predicate(
-            "ReachablePlatform", [self._robot_type, self._platform_type],
-            lambda s, o: False)
+        self._ReachableTool = Predicate("ReachableTool",
+                                        [self._robot_type, self._tool_type],
+                                        self._reachable_classifier)
+        self._ReachableBag = Predicate("ReachableBag",
+                                       [self._robot_type, self._bag_type],
+                                       self._reachable_classifier)
         self._ReachablePlatform = Predicate(
             "ReachablePlatform", [self._robot_type, self._platform_type],
-            _create_dummy_predicate_classifier(self._temp_ReachablePlatform))
-        self._temp_XYReachableSurface = Predicate(
-            "ReachableSurface", [self._robot_type, self._surface_type],
-            lambda s, o: False)
+            self._reachable_classifier)
         self._XYReachableSurface = Predicate(
             "ReachableSurface", [self._robot_type, self._surface_type],
-            _create_dummy_predicate_classifier(self._temp_XYReachableSurface))
-        self._temp_SurfaceTooHigh = Predicate(
-            "SurfaceTooHigh", [self._robot_type, self._surface_type],
-            lambda s, o: False)
+            self._reachable_classifier)
         self._SurfaceTooHigh = Predicate(
             "SurfaceTooHigh", [self._robot_type, self._surface_type],
-            _create_dummy_predicate_classifier(self._temp_SurfaceTooHigh))
-        self._temp_SurfaceNotTooHigh = Predicate(
-            "SurfaceNotTooHigh", [self._robot_type, self._surface_type],
-            lambda s, o: False)
+            self._surface_too_high_classifier)
         self._SurfaceNotTooHigh = Predicate(
             "SurfaceNotTooHigh", [self._robot_type, self._surface_type],
-            _create_dummy_predicate_classifier(self._temp_SurfaceNotTooHigh))
+            self._surface_not_too_high_classifier)
         self._temp_PlatformNear = Predicate(
             "PlatformNear", [self._platform_type, self._surface_type],
             lambda s, o: False)
@@ -729,7 +716,8 @@ class SpotBikeEnv(SpotEnv):
             self._HoldingBag, self._HoldingPlatformLeash, self._ReachableTool,
             self._ReachableBag, self._ReachablePlatform,
             self._XYReachableSurface, self._SurfaceTooHigh,
-            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty
+            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty,
+            self._OnFloor
         }
 
     def _handempty_classifier(self, state: State,
@@ -774,6 +762,49 @@ class SpotBikeEnv(SpotEnv):
         is_above_z = (obj_on_pose[2] - obj_surface_pose[2]) > 0.0
         return is_x_same and is_y_same and is_above_z
 
+    def _onfloor_classifier(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        obj_on, _ = objects
+        assert obj_name_to_apriltag_id.get(obj_on.name) is not None
+        obj_on_pose = [
+            state.get(obj_on, "x"),
+            state.get(obj_on, "y"),
+            state.get(obj_on, "z")
+        ]
+        return obj_on_pose[2] < 0.0
+
+    def _reachable_classifier(self, state: State,
+                              objects: Sequence[Object]) -> bool:
+        _, obj = objects
+        spot_pose = self._spot_interface.get_robot_pose()
+        obj_pose = [
+            state.get(obj, "x"),
+            state.get(obj, "y"),
+            state.get(obj, "z")
+        ]
+        is_x_near = (spot_pose[0] -
+                     obj_pose[0])**2 <= self._reachable_threshold
+        is_y_near = (spot_pose[1] -
+                     obj_pose[1])**2 <= self._reachable_threshold
+        is_z_near = (spot_pose[2] -
+                     obj_pose[2])**2 <= self._reachable_threshold
+        return is_x_near and is_y_near and is_z_near
+
+    def _surface_too_high_classifier(self, state: State,
+                                     objects: Sequence[Object]) -> bool:
+        spot, surface = objects
+        del spot
+        surface_pose = [
+            state.get(surface, "x"),
+            state.get(surface, "y"),
+            state.get(surface, "z")
+        ]
+        return surface_pose[2] > 1.0
+
+    def _surface_not_too_high_classifier(self, state: State,
+                                         objects: Sequence[Object]) -> bool:
+        return not self._surface_too_high_classifier(state, objects)
+
     @classmethod
     def get_name(cls) -> str:
         return "spot_bike_env"
@@ -782,17 +813,20 @@ class SpotBikeEnv(SpotEnv):
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {
-            self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On
+            self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On,
+            self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._ReachableBag,
+            self._ReachablePlatform, self._ReachableTool, self._OnFloor
         }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        spot = self._obj_name_to_obj("spot")
-        low_wall_rack = self._obj_name_to_obj("low_wall_rack")
-        tool_room_table = self._obj_name_to_obj("tool_room_table")
-        return {
-            GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
-            GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
-        }
+        # spot = self._obj_name_to_obj("spot")
+        # low_wall_rack = self._obj_name_to_obj("low_wall_rack")
+        # tool_room_table = self._obj_name_to_obj("tool_room_table")
+        # return {
+        #     GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
+        #     GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
+        # }
+        return set()
 
     def _generate_task_goal(self) -> Set[GroundAtom]:
         hammer = self._obj_name_to_obj("hammer")
@@ -817,9 +851,10 @@ class SpotBikeEnv(SpotEnv):
         tool_room_table = Object("tool_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
+        floor = Object("floor", self._floor_type)
         objects = [
             spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
-            low_wall_rack, bag
+            low_wall_rack, bag, floor
         ]
         return {o.name: o for o in objects}
 
