@@ -69,7 +69,9 @@ from predicators.structs import NSRT, Array, Dataset, GroundAtom, \
     ParameterizedOption, Predicate, Query, State, Task, Type, Variable, \
     _GroundNSRT, _Option
 
+# Helper type annotations.
 _SamplerRegressorInput = Tuple[State, Sequence[Object], Array]
+_SamplerRegressorDataset = List[Tuple[_SamplerRegressorInput, float]]
 
 
 class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
@@ -85,12 +87,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert CFG.strips_learner
 
         self._sampler_data: Dict[ParameterizedOption,
-                                 List[Tuple[_SamplerRegressorInput,
-                                            float]]] = {
-                                                option: []
-                                                for option in initial_options
-                                            }
-        self._current_sampler_noise = 0.0  # updated later
+                                 _SamplerRegressorDataset] = {
+                                     option: []
+                                     for option in initial_options
+                                 }
 
     @classmethod
     def get_name(cls) -> str:
@@ -111,7 +111,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Re-learn sampler regressors. Updates the NSRTs.
         self._learn_sampler_regressors(online_learning_cycle)
 
-    def _update_sampler_data(self, trajectories: List[LowLevelTrajectory]):
+    def _update_sampler_data(self,
+                             trajectories: List[LowLevelTrajectory]) -> None:
         # TODO: deal with multi-step options; refactor to use segments.
         preds = self._get_current_predicates()
         for traj in trajectories:
@@ -175,7 +176,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         for option, data in self._sampler_data.items():
             logging.info(f"Fitting residual regressor for {option.name}...")
             X_regressor: List[List[Array]] = []
-            y_regressor: List[List[Array]] = []
+            y_regressor: List[Array] = []
             for (state, objects, params), target in data:
                 # input is state features and option parameters
                 X_regressor.append([np.array(1.0)])  # start with bias term
@@ -183,7 +184,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                     X_regressor[-1].extend(state[obj])
                 X_regressor[-1].extend(params)
                 assert not CFG.sampler_learning_use_goals
-                y_regressor.append([target])
+                y_regressor.append(np.array([target]))
             X_arr_regressor = np.array(X_regressor)
             y_arr_regressor = np.array(y_regressor)
             regressor = MLPRegressor(
@@ -209,8 +210,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             nsrt = next(n for n in self._nsrts if n.option == option)
             base_sampler = nsrt._sampler
             wrapped_sampler = _WrappedSampler(base_sampler, regressor,
-                                              nsrt.parameters, nsrt.option,
-                                              self._get_sampler_noise)
+                                              nsrt.parameters, nsrt.option)
             # Create new NSRT with wrapped sampler.
             new_nsrt = NSRT(nsrt.name, nsrt.parameters, nsrt.preconditions,
                             nsrt.add_effects, nsrt.delete_effects,
@@ -218,20 +218,6 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             wrapped_sampler.sampler)
             new_nsrts.add(new_nsrt)
         self._nsrts = new_nsrts
-
-    def _get_sampler_noise(self) -> float:
-        """Change the sampler noise depending on whether we're training on
-        evaluating."""
-        return self._current_sampler_noise
-
-    def get_interaction_requests(self) -> List[InteractionRequest]:
-        self._current_sampler_noise = 1e-2  # higher noise
-        return super().get_interaction_requests()
-
-    def learn_from_interaction_results(
-            self, results: Sequence[InteractionResult]) -> None:
-        self._current_sampler_noise = 1e-5  # lower noise
-        return super().learn_from_interaction_results(results)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -245,7 +231,6 @@ class _WrappedSampler:
     _regressor: MLPRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
-    _get_explore_noise: Callable[[], float]
 
     def sampler(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:
@@ -269,9 +254,6 @@ class _WrappedSampler:
             samples.append(params)
             scores.append(score)
 
-        # Add a little bit of noise to promote exploration.
-        eps = self._get_explore_noise()
-        scores = scores + np.array(rng.uniform(-eps, eps, size=len(scores)))
-
+        # For now, just pick the best scoring sample.
         idx = np.argmax(scores)
         return samples[idx]

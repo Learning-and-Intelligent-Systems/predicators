@@ -20,7 +20,7 @@ from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import BumpyCoverEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
-from predicators.structs import Object, Predicate, State, Task
+from predicators.structs import EnvironmentTask, Object, Predicate, State, Video
 from scripts.analyze_results_directory import get_df_for_entry
 
 
@@ -57,7 +57,7 @@ def _main() -> None:
             imageio.imsave(img_outfile, img)
 
 
-def _create_test_cases(env: BaseEnv):
+def _create_test_cases(env: BaseEnv) -> List[Tuple[State, List[Object]]]:
     assert isinstance(env, BumpyCoverEnv)
 
     test_cases = []
@@ -94,7 +94,9 @@ def _create_test_cases(env: BaseEnv):
     return test_cases
 
 
-def _run_one_cycle_analysis(online_learning_cycle, test_cases, env):
+def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
+                            test_cases: List[Tuple[State, List[Object]]],
+                            env: BaseEnv) -> Video:
     option_name = "Pick"
     approach_save_path = utils.get_approach_save_path_str()
     save_path = f"{approach_save_path}_{option_name}_{online_learning_cycle}.sampler_regressor"
@@ -112,7 +114,8 @@ def _run_one_cycle_analysis(online_learning_cycle, test_cases, env):
     for i, (state, objects) in enumerate(test_cases):
         assert len(objects) == 1
         obj = objects[0]
-        fig = env.render_state_plt(state, None)
+        dummy_task = EnvironmentTask(state, set())
+        fig = env.render_state_plt(state, dummy_task)  # task ignored
         ax = fig.axes[0]
 
         # Construct flat state.
