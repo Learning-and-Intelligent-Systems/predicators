@@ -108,6 +108,15 @@ EXTRA_ARGS_ORACLE_APPROACH["cover_multistep_options"] = [
         "sesame_max_samples_per_step": 1
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["bumpy_cover"] = [
+    {
+        "bumpy_cover_right_targets": True,
+        "sesame_max_samples_per_step": 100,
+    },
+    {
+        "bumpy_cover_right_targets": False,
+    },
+]
 EXTRA_ARGS_ORACLE_APPROACH["cluttered_table"] = [
     {
         "cluttered_table_num_cans_train": 3,
