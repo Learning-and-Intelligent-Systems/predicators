@@ -66,11 +66,10 @@ from predicators.ml_models import MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, State, Task, Type, \
-    Variable, _GroundNSRT, _Option
+    Variable, _GroundNSRT, _Option, Segment
 
-# Helper type annotations.
-_SamplerRegressorInput = Tuple[State, Sequence[Object], Array]
-_SamplerRegressorDataset = List[Tuple[_SamplerRegressorInput, float]]
+# Dataset for Q learning: includes (s, a, s', r).
+_SamplerDataset = List[Tuple[State, _Option, State, float]]
 
 
 class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
@@ -85,11 +84,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert CFG.sampler_disable_classifier
         assert CFG.strips_learner
 
-        self._sampler_data: Dict[ParameterizedOption,
-                                 _SamplerRegressorDataset] = {
-                                     option: []
-                                     for option in initial_options
-                                 }
+        self._sampler_data: _SamplerDataset = []
 
     @classmethod
     def get_name(cls) -> str:
@@ -112,34 +107,15 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
     def _update_sampler_data(self) -> None:
         for segmented_traj in self._segmented_trajs:
-            # Label the segments according to whether the operators succeeded.
-            refinement_successes: List[bool] = []
             for segment in segmented_traj:
-                option = segment.get_option()
-                ground_nsrt = self._option_to_ground_nsrt(option)
-                success = self._check_nsrt_success(ground_nsrt,
-                                                   segment.final_atoms)
-                refinement_successes.append(success)
-            # Create regressor data.
-            for t, segment in enumerate(segmented_traj):
-                # Find the first failure.
-                first_failure_step: Optional[int] = None
-                for i in range(t, len(segmented_traj)):
-                    if not refinement_successes[i]:
-                        first_failure_step = i
-                        break
-                if first_failure_step is None:
-                    score = 0.0
-                else:
-                    dt = first_failure_step - t
-                    score = -CFG.active_sampler_learning_score_gamma**dt
-                # Set up the input.
                 state = segment.states[0]
                 option = segment.get_option()
-                ground_nsrt = self._option_to_ground_nsrt(option)
-                regressor_input = (state, ground_nsrt.objects, option.params)
-                self._sampler_data[option.parent].append(
-                    (regressor_input, score))
+                next_state = segment.states[-1]
+                if self._check_option_success(option, segment):
+                    reward = 0.0
+                else:
+                    reward = -1.0
+                self._sampler_data.append((state, option, next_state, reward))
 
     def _option_to_ground_nsrt(self, option: _Option) -> _GroundNSRT:
         nsrt_matches = [n for n in self._nsrts if n.option == option.parent]
@@ -147,10 +123,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         nsrt = nsrt_matches[0]
         return nsrt.ground(option.objects)
 
-    def _check_nsrt_success(self, ground_nsrt: _GroundNSRT,
-                            next_atoms: Set[GroundAtom]) -> bool:
+    def _check_option_success(self, option: _Option,
+                            segment: Segment) -> bool:
+        ground_nsrt = self._option_to_ground_nsrt(option)
         return ground_nsrt.add_effects.issubset(
-            next_atoms) and not ground_nsrt.delete_effects.issubset(next_atoms)
+             segment.final_atoms) and not ground_nsrt.delete_effects.issubset(segment.final_atoms)
 
     def _learn_sampler_regressors(
             self, online_learning_cycle: Optional[int]) -> None:
@@ -158,53 +135,27 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
         Update the NSRTs in place.
         """
+        # Create a new Q value estimator.
+        Q = _QValueEstimator()
+        # Fit with the current data.
+        Q.run_fitted_q_iteration(self._sampler_data)
+        # Update the NSRTs.
         new_nsrts = set()
-        for option, data in self._sampler_data.items():
-            logging.info(f"Fitting residual regressor for {option.name}...")
-            X_regressor: List[List[Array]] = []
-            y_regressor: List[Array] = []
-            for (state, objects, params), target in data:
-                # input is state features and option parameters
-                X_regressor.append([np.array(1.0)])  # start with bias term
-                for obj in objects:
-                    X_regressor[-1].extend(state[obj])
-                X_regressor[-1].extend(params)
-                assert not CFG.sampler_learning_use_goals
-                y_regressor.append(np.array([target]))
-            X_arr_regressor = np.array(X_regressor)
-            y_arr_regressor = np.array(y_regressor)
-            regressor = MLPRegressor(
-                seed=CFG.seed,
-                hid_sizes=CFG.mlp_regressor_hid_sizes,
-                max_train_iters=CFG.mlp_regressor_max_itr,
-                clip_gradients=CFG.mlp_regressor_clip_gradients,
-                clip_value=CFG.mlp_regressor_gradient_clip_value,
-                learning_rate=CFG.learning_rate,
-                weight_decay=CFG.weight_decay,
-                use_torch_gpu=CFG.use_torch_gpu,
-                train_print_every=CFG.pytorch_train_print_every,
-                n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change)
-            regressor.fit(X_arr_regressor, y_arr_regressor)
-
+        for old_nsrt, sampler in Q.get_samplers():
+            # Create new NSRT.
+            new_nsrt = NSRT(nsrt.name, nsrt.parameters, nsrt.preconditions,
+                            nsrt.add_effects, nsrt.delete_effects,
+                            nsrt.ignore_effects, nsrt.option, nsrt.option_vars,
+                            sampler.sample)
+            new_nsrts.add(new_nsrt)
             # Save the sampler regressor for external analysis.
+            regressor = sampler.get_regressor()
             approach_save_path = utils.get_approach_save_path_str()
-            save_path = f"{approach_save_path}_{option.name}_" + \
+            save_path = f"{approach_save_path}_{old_nsrt.name}_" + \
                 f"{online_learning_cycle}.sampler_regressor"
             with open(save_path, "wb") as f:
                 pkl.dump(regressor, f)
             logging.info(f"Saved sampler regressor to {save_path}.")
-
-            nsrt = next(n for n in self._nsrts if n.option == option)
-            # This is the easiest way to access the oracle sampler.
-            base_sampler = nsrt._sampler  # pylint: disable=protected-access
-            wrapped_sampler = _WrappedSampler(base_sampler, regressor,
-                                              nsrt.parameters, nsrt.option)
-            # Create new NSRT with wrapped sampler.
-            new_nsrt = NSRT(nsrt.name, nsrt.parameters, nsrt.preconditions,
-                            nsrt.add_effects, nsrt.delete_effects,
-                            nsrt.ignore_effects, nsrt.option, nsrt.option_vars,
-                            wrapped_sampler.sampler)
-            new_nsrts.add(new_nsrt)
         self._nsrts = new_nsrts
 
 
@@ -220,7 +171,11 @@ class _WrappedSampler:
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
-    def sampler(self, state: State, goal: Set[GroundAtom],
+    def get_regressor(self) -> MLPRegressor:
+        """Expose the regressor."""
+        return self._regressor
+
+    def sample(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:
         """The sampler corresponding to the given models.
 
@@ -245,3 +200,46 @@ class _WrappedSampler:
         # For now, just pick the best scoring sample.
         idx = np.argmax(scores)
         return samples[idx]
+
+
+class _QValueEstimator:
+    """Convenience class for training all of the samplers."""
+
+    # TODO: USE MOST RECENT LEARNED NSRTS, NOT BASE NSRTS
+
+    def run_fitted_q_iteration(self, data: _SamplerDataset) -> None:
+        """Fit all of the samplers."""
+        gamma = CFG.active_sampler_learning_score_gamma
+        num_a_samp = CFG.active_sampler_learning_num_next_option_samples
+        for it in range(CFG.active_sampler_learning_fitted_q_iters):
+            logging.info(f"Starting fitted Q learning iter {it}")
+            # Build inputs and outputs.
+            inputs: List[Tuple[State, _Option]] = []
+            outputs: List[float] = []
+            for s, a, ns, r in data:
+                inputs.append((s, a))
+                # Sample actions to estimate Q in infinite action space.
+                next_as = self._sample_options_from_state(ns, num=num_a_samp)
+                next_q = np.mean(self._predict(ns, na) for na in next_as)
+                output = r + gamma * next_q
+                outputs.append(output)
+            # Fit regressors for inputs and outputs.
+            self._fit_regressors(inputs, outputs)
+
+    def get_samplers(self) -> Dict[NSRT, _WrappedSampler]:
+        """Expose the fitted samplers, organized by NSRTs."""
+        import ipdb; ipdb.set_trace()
+
+    def _predict(self, state: State, option: _Option) -> float:
+        """Predict Q(s, a)."""
+        import ipdb; ipdb.set_trace()
+
+    def _sample_options_from_state(self, state: State, num: int = 1) -> List[_Option]:
+        """Use NSRTs to sample options in the current state."""
+        import ipdb; ipdb.set_trace()
+
+    def _fit_regressors(self, inputs: List[Tuple[State, _Option]], outputs: List[float]) -> None:
+        """Fit one regressor per NSRT."""
+        import ipdb; ipdb.set_trace()
+
+
