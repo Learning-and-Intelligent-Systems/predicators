@@ -491,13 +491,13 @@ class MLPRegressor(PyTorchRegressor):
                  seed: int,
                  hid_sizes: List[int],
                  max_train_iters: MaxTrainIters,
-                 n_iter_no_change: int,
                  clip_gradients: bool,
                  clip_value: float,
                  learning_rate: float,
                  weight_decay: float = 0,
                  use_torch_gpu: bool = False,
-                 train_print_every: int = 1000) -> None:
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000) -> None:
         super().__init__(seed,
                          max_train_iters,
                          clip_gradients,
