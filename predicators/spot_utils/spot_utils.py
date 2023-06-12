@@ -271,6 +271,7 @@ class _SpotInterface():
                                    keep_hand_pose=False,
                                    angle=angle)
                 obj_poses.update(self.get_apriltag_pose_from_camera())
+                apriltag_id_to_obj_poses.update(obj_poses)
                 if tag_id is not None and tag_id in obj_poses:
                     return {tag_id: obj_poses[tag_id]}
             self.stow_arm()
@@ -282,10 +283,11 @@ class _SpotInterface():
                 viewable_obj_poses = self.get_apriltag_pose_from_camera(
                     source_name=source_name)
                 obj_poses.update(viewable_obj_poses)
+                apriltag_id_to_obj_poses.update(obj_poses)
                 if tag_id is not None and tag_id in obj_poses:
                     return {tag_id: obj_poses[tag_id]}
             # Rotate
-            self.relative_move(0.0, 0.0, 45.0)
+            self.relative_move(0.0, 0.0, np.pi / 4)
         apriltag_id_to_obj_poses.update(obj_poses)
         return obj_poses
 
@@ -584,7 +586,7 @@ class _SpotInterface():
                     break
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
-                self.relative_move(0.0, 0.0, 45.0)
+                self.relative_move(0.0, 0.0, np.pi / 4)
         apriltag_id_to_obj_poses.update(
             {obj_name_to_apriltag_id[k]: v
              for k, v in obj_poses.items()})
@@ -1014,12 +1016,16 @@ class _SpotInterface():
             if not obj_poses:
                 print("Object not found")
                 return
+        # Stow arm first
+        self.stow_arm()
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
+            print("init by fid")
 
             # (2) Get localization state
             self.graph_nav_command_line.get_localization_state()
+            print("localized state")
 
             # (4) Navigate to Object
             # Get graph_nav to body frame.
