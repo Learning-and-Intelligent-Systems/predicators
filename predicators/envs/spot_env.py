@@ -759,8 +759,12 @@ class SpotBikeEnv(SpotEnv):
 
     def _reachable_classifier(self, state: State,
                               objects: Sequence[Object]) -> bool:
-        _, obj = objects
-        spot_pose = self._spot_interface.get_robot_pose()
+        spot, obj = objects
+        spot_pose = [
+            state.get(spot, "x"),
+            state.get(spot, "y"),
+            state.get(spot, "z")
+        ]
         obj_pose = [
             state.get(obj, "x"),
             state.get(obj, "y"),
@@ -777,12 +781,7 @@ class SpotBikeEnv(SpotEnv):
     def _surface_too_high_classifier(self, state: State,
                                      objects: Sequence[Object]) -> bool:
         _, surface = objects
-        surface_pose = [
-            state.get(surface, "x"),
-            state.get(surface, "y"),
-            state.get(surface, "z")
-        ]
-        return surface_pose[2] > 1.0
+        return state.get(surface, "z") > 1.0
 
     def _surface_not_too_high_classifier(self, state: State,
                                          objects: Sequence[Object]) -> bool:
