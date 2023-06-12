@@ -195,7 +195,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 learning_rate=CFG.learning_rate,
                 weight_decay=CFG.weight_decay,
                 use_torch_gpu=CFG.use_torch_gpu,
-                train_print_every=CFG.pytorch_train_print_every)
+                train_print_every=CFG.pytorch_train_print_every,
+                n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change)
             regressor.fit(X_arr_regressor, y_arr_regressor)
 
             # Save the sampler regressor for external analysis.

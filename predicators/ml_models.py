@@ -132,6 +132,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                  clip_value: float,
                  learning_rate: float,
                  weight_decay: float = 0,
+                 n_iter_no_change: int = 10000000,
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000) -> None:
         torch.manual_seed(seed)
@@ -142,6 +143,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         self._clip_value = clip_value
         self._learning_rate = learning_rate
         self._weight_decay = weight_decay
+        self._n_iter_no_change = n_iter_no_change
         self._device = _get_torch_device(use_torch_gpu)
         self._train_print_every = train_print_every
 
@@ -190,7 +192,9 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              max_train_iters=self._max_train_iters,
                              dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
-                             clip_value=self._clip_value)
+                             clip_value=self._clip_value,
+                             n_iter_no_change=self._n_iter_no_change
+                             )
 
     def _predict(self, x: Array) -> Array:
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(
@@ -488,6 +492,7 @@ class MLPRegressor(PyTorchRegressor):
                  seed: int,
                  hid_sizes: List[int],
                  max_train_iters: MaxTrainIters,
+                 n_iter_no_change: int,
                  clip_gradients: bool,
                  clip_value: float,
                  learning_rate: float,
@@ -500,6 +505,7 @@ class MLPRegressor(PyTorchRegressor):
                          clip_value,
                          learning_rate,
                          weight_decay=weight_decay,
+                         n_iter_no_change=n_iter_no_change,
                          use_torch_gpu=use_torch_gpu,
                          train_print_every=train_print_every)
         self._hid_sizes = hid_sizes
