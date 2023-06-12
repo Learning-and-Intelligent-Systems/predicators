@@ -53,24 +53,20 @@ Bumpy cover with shifted targets:
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import dill as pkl
 import numpy as np
 from gym.spaces import Box
-from scipy.special import logsumexp
 
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
-from predicators.explorers import create_explorer
 from predicators.ml_models import MLPRegressor
 from predicators.settings import CFG
-from predicators.structs import NSRT, Array, Dataset, GroundAtom, \
-    GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
-    InteractionResult, LowLevelTrajectory, NSRTSampler, Object, \
-    ParameterizedOption, Predicate, Query, State, Task, Type, Variable, \
-    _GroundNSRT, _Option
+from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
+    NSRTSampler, Object, ParameterizedOption, Predicate, State, Task, Type, \
+    Variable, _GroundNSRT, _Option
 
 # Helper type annotations.
 _SamplerRegressorInput = Tuple[State, Sequence[Object], Array]

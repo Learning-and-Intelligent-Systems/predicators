@@ -2,27 +2,20 @@
 approach."""
 
 import os
-from typing import Any, Callable, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Tuple
 
 import dill as pkl
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
 from predicators import utils
-from predicators.approaches import create_approach
-from predicators.approaches.interactive_learning_approach import \
-    InteractiveLearningApproach
 from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import BumpyCoverEnv
-from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
-from predicators.structs import EnvironmentTask, Object, Predicate, State, \
-    Video
-from scripts.analyze_results_directory import get_df_for_entry
+from predicators.structs import EnvironmentTask, Object, State, Video
 
 
 def _main() -> None:
