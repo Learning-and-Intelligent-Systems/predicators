@@ -299,8 +299,7 @@ class _QValueEstimator:
             nsrt = ground_nsrt.parent
             regressor_data[nsrt].append((regressor_input, target))
         # Fit each regressor.
-        if self._learned_samplers is None:
-            self._learned_samplers = {}
+        new_learned_samplers: Dict[NSRT, _WrappedSampler] = {}
         for nsrt, nsrt_data in regressor_data.items():
             logging.info(f"Fitting regressor for {nsrt.name}")
             regressor = self._fit_regressor(nsrt, nsrt_data)
@@ -308,7 +307,8 @@ class _QValueEstimator:
             base_sampler = nsrt._sampler  # pylint: disable=protected-access
             wrapped_sampler = _WrappedSampler(base_sampler, regressor,
                                               nsrt.parameters, nsrt.option)
-            self._learned_samplers[nsrt] = wrapped_sampler
+            new_learned_samplers[nsrt] = wrapped_sampler
+        self._learned_samplers = new_learned_samplers
 
     def _fit_regressor(self, nsrt: NSRT,
                        data: _NeuralSamplerDataset) -> MLPRegressor:
