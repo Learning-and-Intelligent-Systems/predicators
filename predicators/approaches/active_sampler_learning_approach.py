@@ -1,16 +1,18 @@
 """An approach that performs active sampler learning.
 
-The current implementation assumes for convenience that NSRTs and options are 1:1 and
-share the same parameters (like a PDDL environment). It is straightforward conceptually
-to remove this assumption, because the approach uses its own NSRTs to select options,
-but it is difficult implementation-wise, so we're punting for now.
+The current implementation assumes for convenience that NSRTs and options are
+1:1 and share the same parameters (like a PDDL environment). It is
+straightforward conceptually to remove this assumption, because the approach
+uses its own NSRTs to select options, but it is difficult implementation-wise,
+so we're punting for now.
 
 
 Example commands
 ----------------
 
 Bumpy cover easy:
-    python predicators/main.py --approach active_sampler_learning --env bumpy_cover \
+    python predicators/main.py --approach active_sampler_learning \
+        --env bumpy_cover \
         --seed 0 \
         --strips_learner oracle \
         --sampler_learner oracle \
@@ -29,7 +31,8 @@ Bumpy cover easy:
 
 
 Bumpy cover with shifted targets:
-    python predicators/main.py --approach active_sampler_learning --env bumpy_cover \
+    python predicators/main.py --approach active_sampler_learning \
+        --env bumpy_cover \
         --seed 0 \
         --strips_learner oracle \
         --sampler_learner oracle \
@@ -124,8 +127,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 next_atoms = atom_seq[t + 1]
                 objects = set(traj.states[t])
                 option = traj.actions[t].get_option()
-                ground_nsrt = self._option_to_ground_nsrt(
-                    option, objects, atoms, next_atoms)
+                ground_nsrt = self._option_to_ground_nsrt(option)
                 success = self._check_nsrt_success(ground_nsrt, next_atoms)
                 refinement_successes.append(success)
             # Create regressor data.
@@ -147,15 +149,12 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 state = traj.states[t]
                 objects = set(state)
                 option = traj.actions[t].get_option()
-                ground_nsrt = self._option_to_ground_nsrt(
-                    option, objects, atoms, next_atoms)
+                ground_nsrt = self._option_to_ground_nsrt(option)
                 regressor_input = (state, ground_nsrt.objects, option.params)
                 self._sampler_data[option.parent].append(
                     (regressor_input, score))
 
-    def _option_to_ground_nsrt(self, option: _Option, objects: Set[Object],
-                               atoms: Set[GroundAtom],
-                               next_atoms: Set[GroundAtom]) -> _GroundNSRT:
+    def _option_to_ground_nsrt(self, option: _Option) -> _GroundNSRT:
         nsrt_matches = [n for n in self._nsrts if n.option == option.parent]
         assert len(nsrt_matches) == 1
         nsrt = nsrt_matches[0]
@@ -202,13 +201,15 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
             # Save the sampler regressor for external analysis.
             approach_save_path = utils.get_approach_save_path_str()
-            save_path = f"{approach_save_path}_{option.name}_{online_learning_cycle}.sampler_regressor"
+            save_path = f"{approach_save_path}_{option.name}_" + \
+                f"{online_learning_cycle}.sampler_regressor"
             with open(save_path, "wb") as f:
                 pkl.dump(regressor, f)
             logging.info(f"Saved sampler regressor to {save_path}.")
 
             nsrt = next(n for n in self._nsrts if n.option == option)
-            base_sampler = nsrt._sampler
+            # This is the easiest way to access the oracle sampler.
+            base_sampler = nsrt._sampler  # pylint: disable=protected-access
             wrapped_sampler = _WrappedSampler(base_sampler, regressor,
                                               nsrt.parameters, nsrt.option)
             # Create new NSRT with wrapped sampler.

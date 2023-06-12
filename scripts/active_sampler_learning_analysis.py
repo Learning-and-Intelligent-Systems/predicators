@@ -20,7 +20,8 @@ from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import BumpyCoverEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
-from predicators.structs import EnvironmentTask, Object, Predicate, State, Video
+from predicators.structs import EnvironmentTask, Object, Predicate, State, \
+    Video
 from scripts.analyze_results_directory import get_df_for_entry
 
 

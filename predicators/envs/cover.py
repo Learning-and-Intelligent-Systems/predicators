@@ -244,10 +244,6 @@ class CoverEnv(BaseEnv):
         # Create blocks and targets.
         blocks, targets = self._create_blocks_and_targets()
         # Create goals.
-        # # TODO: do not merge
-        # if rng is self._test_rng:
-        #     goals = [{GroundAtom(self._Holding, [block])} for block in blocks]
-        # else:
         goal1 = {GroundAtom(self._Covers, [blocks[0], targets[0]])}
         goals = [goal1]
         if len(blocks) > 1 and len(targets) > 1:
