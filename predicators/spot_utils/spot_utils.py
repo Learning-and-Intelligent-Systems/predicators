@@ -297,6 +297,14 @@ class _SpotInterface():
         }
         return obj_name_to_pose
 
+    def get_robot_pose(self) -> Tuple[float, float, float]:
+        """Get the x, y, z positoin of the robot body."""
+        state = self.get_localized_state()
+        gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+            state.localization.seed_tform_body)
+        robot_pos = gn_origin_tform_body.transform_point(0.0, 0.0, 0.0)
+        return robot_pos
+
     def actively_construct_initial_object_views(
         self, object_names: Collection[str]
     ) -> Dict[str, Tuple[float, float, float]]:
