@@ -23,6 +23,7 @@ def test_basic_mlp_regressor():
     model = MLPRegressor(seed=123,
                          hid_sizes=[32, 32],
                          max_train_iters=100,
+                         n_iter_no_change=1000,
                          clip_gradients=True,
                          clip_value=5,
                          learning_rate=1e-3)
