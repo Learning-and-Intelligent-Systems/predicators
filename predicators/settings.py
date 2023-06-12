@@ -66,7 +66,11 @@ class GlobalSettings:
     # bumpy cover env parameters
     bumpy_cover_num_bumps = 3
     bumpy_cover_spaces_per_bump = 10
+<<<<<<< HEAD
     bumpy_cover_thr_percent = 0.4
+=======
+    bumpy_cover_right_targets = False
+>>>>>>> 7779b6230a1307dd38b995092194d128a176d65f
 
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
