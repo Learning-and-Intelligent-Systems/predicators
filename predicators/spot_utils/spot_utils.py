@@ -75,7 +75,6 @@ obj_name_to_apriltag_id = {
     "extra_room_table": 409
 }
 
-# TODO Fix
 apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
     401: (9.894476696960474, -7.13110996085628, 0.6128697884183844),
     402: (6.492544006833252, -5.949555197001736, 0.15848369079640096),
@@ -85,7 +84,7 @@ apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
     406: (9.985505899791097, -6.981086719041378, 0.24004802462770083),
     407: (6.974322333685671, -8.519032350022558, 0.19594502052006785),
     408: (6.442939585696927, -6.266242910425788, 0.026100683357255378),
-    409: (8.20282,  -6.09703 , 0.0314739)
+    409: (8.20282, -6.09703, 0.0314739)
 }
 
 OBJECT_CROPS = {
@@ -507,7 +506,7 @@ class _SpotInterface():
         print("PlaceOntop", objs)
         assert len(params) == 3
         if "_table" in objs[2].name:
-            self.relative_move(0.5, 0.0, 0.0)
+            self.relative_move(0.65, 0.0, 0.0)
         self.hand_movement(params,
                            objs[2],
                            keep_hand_pose=False,
@@ -541,7 +540,7 @@ class _SpotInterface():
                     break
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
-                self.relative_move(0.0, 0.0, np.pi/4)
+                self.relative_move(0.0, 0.0, np.pi / 4)
         return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
