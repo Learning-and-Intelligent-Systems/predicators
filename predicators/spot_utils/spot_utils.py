@@ -59,7 +59,8 @@ graph_nav_loc_to_id = {
     "6-09_table": "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA==",
     "outside_table": "causal-fleece-fPaNlwN1dMO5vQ00ZjocmQ==",
     "6-13_corner": "gooey-mamba-nbmRlRr8J0KPsCztt0Wkyw==",
-    "trash": "holy-aphid-SuqZLSjvRUjUxCDywLIFhw=="
+    "trash": "holy-aphid-SuqZLSjvRUjUxCDywLIFhw==",
+    "extra_room_table": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
 }
 
 obj_name_to_apriltag_id = {
@@ -71,6 +72,7 @@ obj_name_to_apriltag_id = {
     "low_wall_rack": 406,
     "front_tool_room": 407,
     "tool_room_table": 408,
+    "extra_room_table": 409
 }
 
 apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
@@ -81,7 +83,8 @@ apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
     405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
     406: (9.985505899791097, -6.981086719041378, 0.24004802462770083),
     407: (6.974322333685671, -8.519032350022558, 0.19594502052006785),
-    408: (6.442939585696927, -6.266242910425788, 0.026100683357255378)
+    408: (6.442939585696927, -6.266242910425788, 0.026100683357255378),
+    409: (8.20282, -6.09703, 0.0314739)
 }
 
 OBJECT_CROPS = {
@@ -448,7 +451,7 @@ class _SpotInterface():
                              params: Array) -> None:
         """Controller that navigates to specific pre-specified locations.
 
-        Params are [dx, dy, d-yaw]
+        Params are [dx, dy, d-yaw (in radians)]
         """
         print("NavigateTo", objs)
         assert len(params) == 3
@@ -483,7 +486,7 @@ class _SpotInterface():
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
-        if objs[2].name == "tool_room_table":
+        if "_table" in objs[2].name:
             self.hand_movement(params[:3], keep_hand_pose=False, angle_45=True)
         self.arm_object_grasp(objs[1])
         if not all(params[:3] == [0.0, 0.0, 0.0]):
@@ -502,6 +505,8 @@ class _SpotInterface():
         """
         print("PlaceOntop", objs)
         assert len(params) == 3
+        if "_table" in objs[2].name:
+            self.relative_move(0.65, 0.0, 0.0)
         self.hand_movement(params,
                            objs[2],
                            keep_hand_pose=False,
@@ -516,6 +521,8 @@ class _SpotInterface():
         self, waypoints: Sequence[str], objects_to_find: Collection[str]
     ) -> Dict[str, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
+        # Stow arm before
+        self.stow_arm()
         obj_poses: Dict[str, Tuple[float, float, float]] = {}
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
@@ -533,7 +540,7 @@ class _SpotInterface():
                     break
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
-                self.relative_move(0.0, 0.0, 45.0)
+                self.relative_move(0.0, 0.0, np.pi / 4)
         return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
@@ -951,7 +958,7 @@ class _SpotInterface():
             self.graph_nav_command_line.navigate_to([waypoint_id])
 
             # (5) Offset by params
-            if not all(params == [0.0, 0.0, 0.0]):
+            if not np.allclose(params, [0.0, 0.0, 0.0]):
                 self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:

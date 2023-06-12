@@ -1,4 +1,11 @@
-"""Basic environment for the Boston Dynamics Spot Robot."""
+"""Basic environment for the Boston Dynamics Spot Robot.
+
+Example usage with apriltag grasping:
+    python predicators/main.py --env spot_bike_env --approach oracle --seed 0
+     --num_train_tasks 0 --num_test_tasks 1 --spot_robot_ip $SPOT_IP
+     --bilevel_plan_without_sim True --spot_grasp_use_apriltag True
+     --perceiver spot_bike_env
+"""
 
 import abc
 import functools
@@ -789,9 +796,11 @@ class SpotBikeEnv(SpotEnv):
         spot = self._obj_name_to_obj("spot")
         low_wall_rack = self._obj_name_to_obj("low_wall_rack")
         tool_room_table = self._obj_name_to_obj("tool_room_table")
+        extra_room_table = self._obj_name_to_obj("extra_room_table")
         return {
             GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
             GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
+            GroundAtom(self._SurfaceNotTooHigh, [spot, extra_room_table])
         }
 
     def _generate_task_goal(self) -> Set[GroundAtom]:
@@ -815,11 +824,12 @@ class SpotBikeEnv(SpotEnv):
         hex_screwdriver = Object("hex_screwdriver", self._tool_type)
         brush = Object("brush", self._tool_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
+        extra_room_table = Object("extra_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
         objects = [
             spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
-            low_wall_rack, bag
+            low_wall_rack, bag, extra_room_table
         ]
         return {o.name: o for o in objects}
 
