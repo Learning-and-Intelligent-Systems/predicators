@@ -43,11 +43,11 @@ def _main() -> None:
         online_learning_cycle += 1
     # Save the videos.
     for i, video in enumerate(np.swapaxes(video_frames, 0, 1)):
-        video_outfile = f"active_sampler_learning_analysis_case_{i}.mp4"
+        video_outfile = f"active_sampler_learning_case_{i}.mp4"
         utils.save_video(video_outfile, video)
         # Save the frames individually too.
         for t, img in enumerate(video):
-            img_outfile = f"videos/active_sampler_learning_analysis_case_{i}_{t}.png"
+            img_outfile = f"videos/active_sampler_learning_case_{i}_{t}.png"
             imageio.imsave(img_outfile, img)
 
 
@@ -93,7 +93,8 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
                             env: BaseEnv) -> Video:
     option_name = "Pick"
     approach_save_path = utils.get_approach_save_path_str()
-    save_path = f"{approach_save_path}_{option_name}_{online_learning_cycle}.sampler_regressor"
+    save_path = f"{approach_save_path}_{option_name}_" + \
+        f"{online_learning_cycle}.sampler_regressor"
     if not os.path.exists(save_path):
         raise FileNotFoundError
     with open(save_path, "rb") as f:
@@ -105,7 +106,7 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
 
     imgs = []
 
-    for i, (state, objects) in enumerate(test_cases):
+    for state, objects in test_cases:
         assert len(objects) == 1
         obj = objects[0]
         dummy_task = EnvironmentTask(state, set())

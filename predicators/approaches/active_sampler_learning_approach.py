@@ -119,9 +119,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             refinement_successes: List[bool] = []
             atom_seq = [utils.abstract(state, preds) for state in traj.states]
             for t in range(len(atom_seq) - 1):
-                atoms = atom_seq[t]
                 next_atoms = atom_seq[t + 1]
-                objects = set(traj.states[t])
                 option = traj.actions[t].get_option()
                 ground_nsrt = self._option_to_ground_nsrt(option)
                 success = self._check_nsrt_success(ground_nsrt, next_atoms)
@@ -140,10 +138,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                     dt = first_failure_step - t
                     score = -CFG.active_sampler_learning_score_gamma**dt
                 # Set up the input.
-                atoms = atom_seq[t]
                 next_atoms = atom_seq[t + 1]
                 state = traj.states[t]
-                objects = set(state)
                 option = traj.actions[t].get_option()
                 ground_nsrt = self._option_to_ground_nsrt(option)
                 regressor_input = (state, ground_nsrt.objects, option.params)
