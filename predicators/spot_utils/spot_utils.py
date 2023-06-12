@@ -958,7 +958,7 @@ class _SpotInterface():
             self.graph_nav_command_line.navigate_to([waypoint_id])
 
             # (5) Offset by params
-            if not all(params == [0.0, 0.0, 0.0]):
+            if not np.allclose(params, [0.0, 0.0, 0.0]):
                 self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
