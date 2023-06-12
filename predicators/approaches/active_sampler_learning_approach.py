@@ -62,7 +62,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
-from predicators.ml_models import MLPRegressor, KNeighborsRegressor
+from predicators.ml_models import MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
@@ -236,7 +236,7 @@ class _QValueEstimator:
                 inputs.append((s, a))
                 # Sample actions to estimate Q in infinite action space.
                 next_as = self._sample_options_from_state(ns, num=num_a_samp)
-                next_q = max(self._predict(ns, na) for na in next_as)
+                next_q = np.mean([self._predict(ns, na) for na in next_as])
                 # NOTE: there is no terminal state because we're in a lifelong
                 # (reset-free) setup.
                 output = r + gamma * next_q
@@ -324,18 +324,17 @@ class _QValueEstimator:
             y_regressor.append(np.array([target]))
         X_arr_regressor = np.array(X_regressor)
         y_arr_regressor = np.array(y_regressor)
-        # regressor = MLPRegressor(
-        #     seed=CFG.seed,
-        #     hid_sizes=CFG.mlp_regressor_hid_sizes,
-        #     max_train_iters=CFG.mlp_regressor_max_itr,
-        #     clip_gradients=CFG.mlp_regressor_clip_gradients,
-        #     clip_value=CFG.mlp_regressor_gradient_clip_value,
-        #     learning_rate=CFG.learning_rate,
-        #     weight_decay=CFG.weight_decay,
-        #     use_torch_gpu=CFG.use_torch_gpu,
-        #     train_print_every=CFG.pytorch_train_print_every,
-        #     n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change)
-        regressor = KNeighborsRegressor(seed=CFG.seed, n_neighbors=min(len(X_regressor), 5))
+        regressor = MLPRegressor(
+            seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every,
+            n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change)
         regressor.fit(X_arr_regressor, y_arr_regressor)
         # Save the sampler regressor for external analysis.
         approach_save_path = utils.get_approach_save_path_str()

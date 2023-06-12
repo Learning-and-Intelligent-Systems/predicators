@@ -253,8 +253,7 @@ class CoverEnv(BaseEnv):
                 GroundAtom(self._Covers, [blocks[0], targets[0]]),
                 GroundAtom(self._Covers, [blocks[1], targets[1]])
             }
-            # TODO add back
-            # goals.append(goal3)
+            goals.append(goal3)
         for i in range(num):
             init = self._create_initial_state(blocks, targets, rng)
             assert init.get_objects(self._block_type) == blocks
@@ -1038,8 +1037,6 @@ class BumpyCoverEnv(CoverEnvRegrasp):
                               rng: np.random.Generator) -> State:
         data: Dict[Object, Array] = {}
         assert len(CFG.cover_block_widths) == len(blocks)
-        # TODO REMOVE!!!!
-        rng = np.random.default_rng(12982183)
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):
             while True:
