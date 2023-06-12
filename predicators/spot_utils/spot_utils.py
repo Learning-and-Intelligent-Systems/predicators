@@ -462,7 +462,6 @@ class _SpotInterface():
             waypoint_id = ""
 
         self.navigate_to(waypoint_id, params)
-
         self.stow_arm()
         # NOTE: time.sleep(2.0) required afer each option execution
         # to allow time for sensor readings to settle.

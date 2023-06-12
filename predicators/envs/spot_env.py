@@ -431,7 +431,6 @@ class SpotBikeEnv(SpotEnv):
             ["gripper_open_percentage", "curr_held_item_id", "x", "y", "z"])
         self._tool_type = Type("tool", ["x", "y", "z"])
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
-        self._floor_type = Type("floor", [])
         self._bag_type = Type("bag", ["x", "y", "z"])
         self._platform_type = Type("platform", ["x", "y", "z"])
 
