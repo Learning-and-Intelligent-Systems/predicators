@@ -264,9 +264,18 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     assert len(objs) == 2
                     t = objs[-1]
                 assert t.is_instance(target_type)
-                lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
+                if env_name == "bumpy_cover":
+                    center = float(state.get(t, "pose"))
+                    if CFG.bumpy_cover_right_targets:
+                        center += 3 * state.get(t, "width") / 4
+                    lb = center - state.get(t, "width") / 2
+                    ub = center + state.get(t, "width") / 2
+                else:
+                    lb = float(
+                        state.get(t, "pose") - state.get(t, "width") / 10)
+                    ub = float(
+                        state.get(t, "pose") + state.get(t, "width") / 10)
                 lb = max(lb, 0.0)
-                ub = float(state.get(t, "pose") + state.get(t, "width") / 10)
                 ub = min(ub, 1.0)
                 return np.array(rng.uniform(lb, ub, size=(1, )),
                                 dtype=np.float32)
