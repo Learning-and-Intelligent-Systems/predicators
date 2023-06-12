@@ -236,7 +236,7 @@ class _QValueEstimator:
                 inputs.append((s, a))
                 # Sample actions to estimate Q in infinite action space.
                 next_as = self._sample_options_from_state(ns, num=num_a_samp)
-                next_q = np.mean([self._predict(ns, na) for na in next_as])
+                next_q = max(self._predict(ns, na) for na in next_as)
                 # NOTE: there is no terminal state because we're in a lifelong
                 # (reset-free) setup.
                 output = r + gamma * next_q
