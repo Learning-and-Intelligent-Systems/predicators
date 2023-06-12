@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, Sequence, Tuple, Type
+from typing import Any, Collection, Dict, Optional, Sequence, Tuple
 
 import apriltag
 import bosdyn.client
@@ -70,19 +70,18 @@ obj_name_to_apriltag_id = {
     "toolbag": 405,
     "low_wall_rack": 406,
     "front_tool_room": 407,
-    "tool_room_table": 408,
-    "floor": 0,
+    "tool_room_table": 408
 }
 
 apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
-    # 401: (9.894476696960474, -7.13110996085628, 0.6128697884183844),
-    # 402: (6.492544006833252, -5.949555197001736, 0.15848369079640096),
-    # 403: (9.865172551128433, -6.866927111707811, 0.6057541244901083),
-    # 404: (6.309634003009213, -5.927127765104969, 0.28815345669215225),
-    # 405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
-    # 406: (9.985505899791097, -6.981086719041378, 0.24004802462770083),
-    # 407: (6.974322333685671, -8.519032350022558, 0.19594502052006785),
-    # 408: (6.442939585696927, -6.266242910425788, 0.026100683357255378)
+    401: (9.894476696960474, -7.13110996085628, 0.6128697884183844),
+    402: (6.492544006833252, -5.949555197001736, 0.15848369079640096),
+    403: (9.865172551128433, -6.866927111707811, 0.6057541244901083),
+    404: (6.309634003009213, -5.927127765104969, 0.28815345669215225),
+    405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
+    406: (9.985505899791097, -6.981086719041378, 0.24004802462770083),
+    407: (6.974322333685671, -8.519032350022558, 0.19594502052006785),
+    408: (6.442939585696927, -6.266242910425788, 0.026100683357255378)
 }
 
 OBJECT_CROPS = {
@@ -248,49 +247,6 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def helper_find_object(
-        self,
-        obj_name_to_find: Optional[str] = None
-    ) -> Dict[int, Tuple[float, float, float]]:
-        """Walks around and spins around to find object poses by apriltag.
-
-        If obj_name_to_find is None is will walk around till completion,
-        and return all the objects it has found.
-        """
-        obj_poses: Dict[int, Tuple[float, float, float]] = {}
-        angles = [(np.cos(np.pi / 8), 0.0, np.sin(np.pi / 8), 0.0),
-                  (np.cos(np.pi / 4), 0.0, np.sin(np.pi / 4), 0.0)]
-        if obj_name_to_find is not None:
-            tag_id = obj_name_to_apriltag_id[obj_name_to_find]
-        else:
-            tag_id = None
-        for _ in range(8):
-            # Look via hand at differnt angles.
-            for angle in angles:
-                self.hand_movement(np.array([-0.2, 0.0, -0.25]),
-                                   keep_hand_pose=False,
-                                   angle=angle)
-                obj_poses.update(self.get_apriltag_pose_from_camera())
-                apriltag_id_to_obj_poses.update(obj_poses)
-                if tag_id is not None and tag_id in obj_poses:
-                    return {tag_id: obj_poses[tag_id]}
-            self.stow_arm()
-            # Look via body cameras.
-            for source_name in [
-                    "hand_color_image", "left_fisheye_image",
-                    "back_fisheye_image"
-            ]:
-                viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                    source_name=source_name)
-                obj_poses.update(viewable_obj_poses)
-                apriltag_id_to_obj_poses.update(obj_poses)
-                if tag_id is not None and tag_id in obj_poses:
-                    return {tag_id: obj_poses[tag_id]}
-            # Rotate
-            self.relative_move(0.0, 0.0, np.pi / 4)
-        apriltag_id_to_obj_poses.update(obj_poses)
-        return obj_poses
-
     def get_camera_images(self) -> Dict[str, Image]:
         """Get all camera images."""
         camera_images: Dict[str, Image] = {}
@@ -445,7 +401,7 @@ class _SpotInterface():
                 body_tform_fiducial[2])
 
             # This only works for small fiducials because of initial size.
-            if detection.tag_id in obj_name_to_apriltag_id.values():
+            if detection.tag_id in apriltag_id_to_obj_poses:
                 obj_poses[detection.tag_id] = fiducial_rt_gn_origin
 
         return obj_poses
@@ -505,10 +461,7 @@ class _SpotInterface():
         else:
             waypoint_id = ""
 
-        if len(objs) == 3 and objs[2].name == "floor":
-            self.navigate_to_obj(objs[1], params)
-        else:
-            self.navigate_to(waypoint_id, params)
+        self.navigate_to(waypoint_id, params)
 
         self.stow_arm()
         # NOTE: time.sleep(2.0) required afer each option execution
@@ -532,10 +485,7 @@ class _SpotInterface():
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
         if objs[2].name == "tool_room_table":
-            self.hand_movement(params[:3],
-                               keep_hand_pose=False,
-                               angle=(np.cos(np.pi / 8), 0, np.sin(np.pi / 8),
-                                      0))
+            self.hand_movement(params[:3], keep_hand_pose=False, angle_45=True)
         self.arm_object_grasp(objs[1])
         if not all(params[:3] == [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
@@ -567,9 +517,7 @@ class _SpotInterface():
         self, waypoints: Sequence[str], objects_to_find: Collection[str]
     ) -> Dict[str, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
-        obj_poses: Dict[str, Tuple[float, float, float]] = {
-            "floor": (0.0, 0.0, -1.0)
-        }
+        obj_poses: Dict[str, Tuple[float, float, float]] = {}
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
@@ -587,9 +535,6 @@ class _SpotInterface():
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
                 self.relative_move(0.0, 0.0, np.pi / 4)
-        apriltag_id_to_obj_poses.update(
-            {obj_name_to_apriltag_id[k]: v
-             for k, v in obj_poses.items()})
         return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
@@ -875,16 +820,13 @@ class _SpotInterface():
         block_until_arm_arrives(self.robot_command_client,
                                 stow_and_close_command_id, 4.5)
 
-    def hand_movement(
-        self,
-        params: Array,
-        obj: Optional[Object] = None,
-        open_gripper: bool = True,
-        keep_hand_pose: bool = True,
-        use_object_location: bool = False,
-        angle: Tuple[float, float, float,
-                     float] = (np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0)
-    ) -> None:
+    def hand_movement(self,
+                      params: Array,
+                      obj: Optional[Object] = None,
+                      open_gripper: bool = True,
+                      keep_hand_pose: bool = True,
+                      use_object_location: bool = False,
+                      angle_45: bool = False) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -898,8 +840,18 @@ class _SpotInterface():
                 BODY_FRAME_NAME, "hand")
             qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x,\
                 body_T_hand.rot.y, body_T_hand.rot.z
+        elif angle_45:
+            # Set downward place rotation as a quaternion.
+            qw = np.cos(np.pi / 8)
+            qx = 0
+            qy = np.sin(np.pi / 8)
+            qz = 0
         else:
-            qw, qx, qy, qz = angle
+            # Set downward place rotation as a quaternion.
+            qw = np.cos(np.pi / 4)
+            qx = 0
+            qy = np.sin(np.pi / 4)
+            qz = 0
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
         # Make the arm pose RobotCommand
@@ -1002,50 +954,6 @@ class _SpotInterface():
             # (5) Offset by params
             if not all(params == [0.0, 0.0, 0.0]):
                 self.relative_move(params[0], params[1], params[2])
-
-        except Exception as e:
-            logging.info(e)
-
-    def navigate_to_obj(self, obj: Object, params: Array) -> None:
-        """Use GraphNavInterface to localize robot and go to an object."""
-        # pylint: disable=broad-except
-        assert obj.name in obj_name_to_apriltag_id
-        # Try to find object if pose is not known
-        if obj_name_to_apriltag_id[obj.name] not in apriltag_id_to_obj_poses:
-            obj_poses = self.helper_find_object(obj.name)
-            if not obj_poses:
-                print("Object not found")
-                return
-        # Stow arm first
-        self.stow_arm()
-        try:
-            # (1) Initialize location
-            self.graph_nav_command_line.set_initial_localization_fiducial()
-            print("init by fid")
-
-            # (2) Get localization state
-            self.graph_nav_command_line.get_localization_state()
-            print("localized state")
-
-            # (4) Navigate to Object
-            # Get graph_nav to body frame.
-            state = self.get_localized_state()
-            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
-                state.localization.seed_tform_body)
-
-            # Apply transform to fiducial pose to get relative body location.
-            assert isinstance(obj, Object)
-            tag_id = obj_name_to_apriltag_id[obj.name]
-            body_tform_fiducial = gn_origin_tform_body.inverse(
-            ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
-                              apriltag_id_to_obj_poses[tag_id][1],
-                              apriltag_id_to_obj_poses[tag_id][2])
-            obj_x, obj_y, obj_z = [
-                body_tform_fiducial[0], body_tform_fiducial[1],
-                body_tform_fiducial[2]
-            ]
-            self.relative_move(obj_x + params[0], obj_y + params[1],
-                               obj_z + params[2])
 
         except Exception as e:
             logging.info(e)

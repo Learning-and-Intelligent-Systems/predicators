@@ -440,9 +440,6 @@ class SpotBikeEnv(SpotEnv):
         # the ground atoms from the low-level simulator state.
         self._On = Predicate("On", [self._tool_type, self._surface_type],
                              self._ontop_classifier)
-        self._OnFloor = Predicate("OnFloor",
-                                  [self._tool_type, self._floor_type],
-                                  self._onfloor_classifier)
         self._temp_InBag = Predicate("InBag",
                                      [self._tool_type, self._bag_type],
                                      lambda s, o: False)
@@ -716,8 +713,7 @@ class SpotBikeEnv(SpotEnv):
             self._HoldingBag, self._HoldingPlatformLeash, self._ReachableTool,
             self._ReachableBag, self._ReachablePlatform,
             self._XYReachableSurface, self._SurfaceTooHigh,
-            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty,
-            self._OnFloor
+            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty
         }
 
     def _handempty_classifier(self, state: State,
@@ -762,17 +758,6 @@ class SpotBikeEnv(SpotEnv):
         is_above_z = (obj_on_pose[2] - obj_surface_pose[2]) > 0.0
         return is_x_same and is_y_same and is_above_z
 
-    def _onfloor_classifier(self, state: State,
-                            objects: Sequence[Object]) -> bool:
-        obj_on, _ = objects
-        assert obj_name_to_apriltag_id.get(obj_on.name) is not None
-        obj_on_pose = [
-            state.get(obj_on, "x"),
-            state.get(obj_on, "y"),
-            state.get(obj_on, "z")
-        ]
-        return obj_on_pose[2] < 0.0
-
     def _reachable_classifier(self, state: State,
                               objects: Sequence[Object]) -> bool:
         _, obj = objects
@@ -815,17 +800,10 @@ class SpotBikeEnv(SpotEnv):
         return {
             self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On,
             self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._ReachableBag,
-            self._ReachablePlatform, self._ReachableTool, self._OnFloor
+            self._ReachablePlatform, self._ReachableTool
         }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        # spot = self._obj_name_to_obj("spot")
-        # low_wall_rack = self._obj_name_to_obj("low_wall_rack")
-        # tool_room_table = self._obj_name_to_obj("tool_room_table")
-        # return {
-        #     GroundAtom(self._SurfaceNotTooHigh, [spot, low_wall_rack]),
-        #     GroundAtom(self._SurfaceNotTooHigh, [spot, tool_room_table]),
-        # }
         return set()
 
     def _generate_task_goal(self) -> Set[GroundAtom]:
@@ -851,10 +829,9 @@ class SpotBikeEnv(SpotEnv):
         tool_room_table = Object("tool_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
-        floor = Object("floor", self._floor_type)
         objects = [
             spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
-            low_wall_rack, bag, floor
+            low_wall_rack, bag
         ]
         return {o.name: o for o in objects}
 
