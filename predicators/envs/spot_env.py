@@ -1,4 +1,11 @@
-"""Basic environment for the Boston Dynamics Spot Robot."""
+"""Basic environment for the Boston Dynamics Spot Robot.
+
+Example usage with apriltag grasping:
+    python predicators/main.py --env spot_bike_env --approach oracle --seed 0
+     --num_train_tasks 0 --num_test_tasks 1 --spot_robot_ip $SPOT_IP
+     --bilevel_plan_without_sim True --spot_grasp_use_apriltag True
+     --perceiver spot_bike_env
+"""
 
 import abc
 import functools
@@ -803,8 +810,8 @@ class SpotBikeEnv(SpotEnv):
         hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         bag = self._obj_name_to_obj("toolbag")
         return {
-            GroundAtom(self._InBag, [brush, bag]),
             GroundAtom(self._InBag, [hammer, bag]),
+            GroundAtom(self._InBag, [brush, bag]),
             GroundAtom(self._InBag, [hex_key, bag]),
             GroundAtom(self._InBag, [hex_screwdriver, bag])
         }
