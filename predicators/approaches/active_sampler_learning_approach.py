@@ -24,7 +24,7 @@ Bumpy cover easy:
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1 \
-        --sampler_mlp_classifier_max_itr 100000
+        --mlp_regressor_max_itr 100000
 
 
 Bumpy cover with shifted targets:
@@ -42,7 +42,7 @@ Bumpy cover with shifted targets:
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1 \
-        --sampler_mlp_classifier_max_itr 100000 \
+        --mlp_regressor_max_itr 100000 \
         --bumpy_cover_right_targets True
 """
 
@@ -59,8 +59,7 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import create_explorer
-from predicators.ml_models import BinaryClassifier, BinaryClassifierEnsemble, \
-    KNeighborsClassifier, LearnedPredicateClassifier, MLPBinaryClassifier
+from predicators.ml_models import MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, Dataset, GroundAtom, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
@@ -68,7 +67,7 @@ from predicators.structs import NSRT, Array, Dataset, GroundAtom, \
     ParameterizedOption, Predicate, Query, State, Task, Type, Variable, \
     _GroundNSRT, _Option
 
-_SamplerClassifierInput = Tuple[State, Sequence[Object], Array]
+_SamplerRegressorInput = Tuple[State, Sequence[Object], Array]
 
 
 class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
@@ -83,14 +82,13 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert CFG.sampler_disable_classifier
         assert CFG.strips_learner
 
-        # For each option, record all sampler inputs and parameters and whether the immediate execution of the sampler led to a success or failure.
         self._sampler_data: Dict[ParameterizedOption,
-                                 List[Tuple[_SamplerClassifierInput,
-                                            bool]]] = {
+                                 List[Tuple[_SamplerRegressorInput,
+                                            float]]] = {
                                                 option: []
                                                 for option in initial_options
                                             }
-        self._current_sampler_noise = 0.0  # update later
+        self._current_sampler_noise = 0.0  # updated later
 
     @classmethod
     def get_name(cls) -> str:
@@ -108,26 +106,49 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             assert nsrt.option_vars == nsrt.parameters
         # Update the sampler data.
         self._update_sampler_data(trajectories)
-        # Re-learn sampler classifiers. Updates the NSRTs.
-        self._learn_sampler_classifiers(online_learning_cycle)
+        # Re-learn sampler regressors. Updates the NSRTs.
+        self._learn_sampler_regressors(online_learning_cycle)
 
     def _update_sampler_data(self, trajectories: List[LowLevelTrajectory]):
         # TODO: deal with multi-step options; refactor to use segments.
         preds = self._get_current_predicates()
         for traj in trajectories:
-            for state, action, next_state in zip(traj.states[:-1],
-                                                 traj.actions,
-                                                 traj.states[1:]):
-                option = action.get_option()
-                atoms = utils.abstract(state, preds)
-                next_atoms = utils.abstract(next_state, preds)
+            # Label the steps according to whether the operators succeeded.
+            refinement_successes: List[bool] = []
+            atom_seq = [utils.abstract(state, preds) for state in traj.states]
+            for t in range(len(atom_seq) - 1):
+                atoms = atom_seq[t]
+                next_atoms = atom_seq[t + 1]
+                objects = set(traj.states[t])
+                option = traj.actions[t].get_option()
                 ground_nsrt = self._option_to_ground_nsrt(
-                    option, set(state), atoms, next_atoms)
-                classifier_input = (state, ground_nsrt.objects, option.params)
-                classifier_output = self._check_nsrt_success(
-                    ground_nsrt, next_atoms)
+                    option, objects, atoms, next_atoms)
+                success = self._check_nsrt_success(ground_nsrt, next_atoms)
+                refinement_successes.append(success)
+            # Create regressor data.
+            for t in range(len(atom_seq) - 1):
+                # Find the first failure.
+                first_failure_step: Optional[int] = None
+                for i in range(t, len(atom_seq) - 1):
+                    if not refinement_successes[i]:
+                        first_failure_step = i
+                        break
+                if first_failure_step is None:
+                    score = 0.0
+                else:
+                    dt = first_failure_step - t
+                    score = -CFG.active_sampler_learning_score_gamma**dt
+                # Set up the input.
+                atoms = atom_seq[t]
+                next_atoms = atom_seq[t + 1]
+                state = traj.states[t]
+                objects = set(state)
+                option = traj.actions[t].get_option()
+                ground_nsrt = self._option_to_ground_nsrt(
+                    option, objects, atoms, next_atoms)
+                regressor_input = (state, ground_nsrt.objects, option.params)
                 self._sampler_data[option.parent].append(
-                    (classifier_input, classifier_output))
+                    (regressor_input, score))
 
     def _option_to_ground_nsrt(self, option: _Option, objects: Set[Object],
                                atoms: Set[GroundAtom],
@@ -142,52 +163,49 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         return ground_nsrt.add_effects.issubset(
             next_atoms) and not ground_nsrt.delete_effects.issubset(next_atoms)
 
-    def _learn_sampler_classifiers(self, online_learning_cycle: Optional[int]) -> None:
-        """Learn classifiers to re-weight the base samplers.
+    def _learn_sampler_regressors(
+            self, online_learning_cycle: Optional[int]) -> None:
+        """Learn regressors to re-weight the base samplers.
 
         Update the NSRTs in place.
         """
         new_nsrts = set()
         for option, data in self._sampler_data.items():
-            logging.info(f"Fitting residual classifier for {option.name}...")
-            X_classifier: List[List[Array]] = []
-            y_classifier: List[int] = []
-            for (state, objects, params), label in data:
+            logging.info(f"Fitting residual regressor for {option.name}...")
+            X_regressor: List[List[Array]] = []
+            y_regressor: List[List[Array]] = []
+            for (state, objects, params), target in data:
                 # input is state features and option parameters
-                X_classifier.append([np.array(1.0)])  # start with bias term
+                X_regressor.append([np.array(1.0)])  # start with bias term
                 for obj in objects:
-                    X_classifier[-1].extend(state[obj])
-                X_classifier[-1].extend(params)
+                    X_regressor[-1].extend(state[obj])
+                X_regressor[-1].extend(params)
                 assert not CFG.sampler_learning_use_goals
-                y_classifier.append(label)
-            X_arr_classifier = np.array(X_classifier)
-            # output is binary signal
-            y_arr_classifier = np.array(y_classifier)
-            classifier = MLPBinaryClassifier(
+                y_regressor.append([target])
+            X_arr_regressor = np.array(X_regressor)
+            y_arr_regressor = np.array(y_regressor)
+            regressor = MLPRegressor(
                 seed=CFG.seed,
-                balance_data=CFG.mlp_classifier_balance_data,
-                max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+                hid_sizes=CFG.mlp_regressor_hid_sizes,
+                max_train_iters=CFG.mlp_regressor_max_itr,
+                clip_gradients=CFG.mlp_regressor_clip_gradients,
+                clip_value=CFG.mlp_regressor_gradient_clip_value,
                 learning_rate=CFG.learning_rate,
                 weight_decay=CFG.weight_decay,
                 use_torch_gpu=CFG.use_torch_gpu,
-                train_print_every=CFG.pytorch_train_print_every,
-                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-                hid_sizes=CFG.mlp_classifier_hid_sizes,
-                n_reinitialize_tries=CFG.
-                sampler_mlp_classifier_n_reinitialize_tries,
-                weight_init="default")
-            classifier.fit(X_arr_classifier, y_arr_classifier)
+                train_print_every=CFG.pytorch_train_print_every)
+            regressor.fit(X_arr_regressor, y_arr_regressor)
 
-            # Save the sampler classifier for external analysis.
+            # Save the sampler regressor for external analysis.
             approach_save_path = utils.get_approach_save_path_str()
-            save_path = f"{approach_save_path}_{option.name}_{online_learning_cycle}.sampler_classifier"
+            save_path = f"{approach_save_path}_{option.name}_{online_learning_cycle}.sampler_regressor"
             with open(save_path, "wb") as f:
-                pkl.dump(classifier, f)
-            logging.info(f"Saved sampler classifier to {save_path}.")
+                pkl.dump(regressor, f)
+            logging.info(f"Saved sampler regressor to {save_path}.")
 
             nsrt = next(n for n in self._nsrts if n.option == option)
             base_sampler = nsrt._sampler
-            wrapped_sampler = _WrappedSampler(base_sampler, classifier,
+            wrapped_sampler = _WrappedSampler(base_sampler, regressor,
                                               nsrt.parameters, nsrt.option,
                                               self._get_sampler_noise)
             # Create new NSRT with wrapped sampler.
@@ -199,27 +217,29 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._nsrts = new_nsrts
 
     def _get_sampler_noise(self) -> float:
-        """Change the sampler noise depending on whether we're training on evaluating."""
+        """Change the sampler noise depending on whether we're training on
+        evaluating."""
         return self._current_sampler_noise
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         self._current_sampler_noise = 0.25  # high noise
         return super().get_interaction_requests()
 
-    def learn_from_interaction_results(self, results: Sequence[InteractionResult]) -> None:
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
         self._current_sampler_noise = 0.01  # low noise
         return super().learn_from_interaction_results(results)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _WrappedSampler:
-    """Wraps a base sampler with a classifier.
+    """Wraps a base sampler with a regressor.
 
-    The class probabilities of the classifier are used to select among
-    multiple candidate samples from the base sampler.
+    The outputs of the regressor are used to select among multiple
+    candidate samples from the base sampler.
     """
     _base_sampler: NSRTSampler
-    _classifier: BinaryClassifier
+    _regressor: MLPRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
     _get_explore_noise: Callable[[], float]
@@ -242,13 +262,13 @@ class _WrappedSampler:
         for _ in range(CFG.active_sampler_learning_num_samples):
             params = self._base_sampler(state, goal, rng, objects)
             assert self._param_option.params_space.contains(params)
-            score = self._classifier.predict_proba(np.r_[x, params])
+            score = self._regressor.predict(np.r_[x, params])[0]
             samples.append(params)
             scores.append(score)
 
         # Add a little bit of noise to promote exploration.
         eps = self._get_explore_noise()
-        scores = scores + rng.uniform(-eps, eps, size=len(scores))
+        scores = scores + np.array(rng.uniform(-eps, eps, size=len(scores)))
 
         idx = np.argmax(scores)
         return samples[idx]

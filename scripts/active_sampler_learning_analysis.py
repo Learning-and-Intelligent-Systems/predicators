@@ -1,13 +1,15 @@
-"""Script to analyze samplers learned through the active sampler learning approach."""
+"""Script to analyze samplers learned through the active sampler learning
+approach."""
 
 import os
 from typing import Any, Callable, List, Optional, Set, Tuple
 
 import dill as pkl
 import matplotlib.pyplot as plt
-from matplotlib import colormaps
-import pandas as pd
 import numpy as np
+import pandas as pd
+from matplotlib import colormaps
+from matplotlib.colors import Normalize
 
 from predicators import utils
 from predicators.approaches import create_approach
@@ -38,7 +40,8 @@ def _main() -> None:
     online_learning_cycle = 1
     while True:
         try:
-            imgs = _run_one_cycle_analysis(online_learning_cycle, test_cases, env)
+            imgs = _run_one_cycle_analysis(online_learning_cycle, test_cases,
+                                           env)
             video_frames.append(imgs)
         except FileNotFoundError:
             break
@@ -47,7 +50,6 @@ def _main() -> None:
     for i, video in enumerate(np.swapaxes(video_frames, 0, 1)):
         outfile = f"active_sampler_learning_analysis_case_{i}.mp4"
         utils.save_video(outfile, video)
-
 
 
 def _create_test_cases(env: BaseEnv):
@@ -90,23 +92,24 @@ def _create_test_cases(env: BaseEnv):
 def _run_one_cycle_analysis(online_learning_cycle, test_cases, env):
     option_name = "Pick"
     approach_save_path = utils.get_approach_save_path_str()
-    save_path = f"{approach_save_path}_{option_name}_{online_learning_cycle}.sampler_classifier"
+    save_path = f"{approach_save_path}_{option_name}_{online_learning_cycle}.sampler_regressor"
     if not os.path.exists(save_path):
         raise FileNotFoundError
     with open(save_path, "rb") as f:
-        classifier = pkl.load(f)
-    print(f"Loaded sampler classifier from {save_path}.")
+        regressor = pkl.load(f)
+    print(f"Loaded sampler regressor from {save_path}.")
 
     cmap = colormaps.get_cmap('RdYlGn')
+    norm = Normalize(vmin=-1.0, vmax=0.0)
 
     imgs = []
-    
+
     for i, (state, objects) in enumerate(test_cases):
         assert len(objects) == 1
         obj = objects[0]
         fig = env.render_state_plt(state, None)
         ax = fig.axes[0]
-        
+
         # Construct flat state.
         x_lst: List[Any] = [1.0]  # start with bias term
         for obj in objects:
@@ -121,9 +124,12 @@ def _run_one_cycle_analysis(online_learning_cycle, test_cases, env):
         hi = obj_pose + obj_width / 2
         candidates = np.linspace(lo, hi, num=100)
         for candidate in candidates:
-            proba = classifier.predict_proba(np.r_[x, [candidate]])
-            color = cmap(proba)
-            circle = plt.Circle((candidate, -0.16), 0.005, color=color, alpha=0.1)
+            score = regressor.predict(np.r_[x, [candidate]])[0]
+            color = cmap(norm(score))
+            circle = plt.Circle((candidate, -0.16),
+                                0.005,
+                                color=color,
+                                alpha=0.1)
             ax.add_patch(circle)
         img = utils.fig2data(fig, dpi=150)
         imgs.append(img)

@@ -518,6 +518,7 @@ class GlobalSettings:
     # active sampler learning parameters
     active_sampler_learning_score_eps = 1e-3
     active_sampler_learning_num_samples = 100
+    active_sampler_learning_score_gamma = 0.5
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
