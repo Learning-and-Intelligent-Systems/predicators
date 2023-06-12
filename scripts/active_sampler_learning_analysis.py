@@ -6,6 +6,7 @@ from typing import Any, Callable, List, Optional, Set, Tuple
 
 import dill as pkl
 import matplotlib.pyplot as plt
+import imageio
 import numpy as np
 import pandas as pd
 from matplotlib import colormaps
@@ -48,8 +49,12 @@ def _main() -> None:
         online_learning_cycle += 1
     # Save the videos.
     for i, video in enumerate(np.swapaxes(video_frames, 0, 1)):
-        outfile = f"active_sampler_learning_analysis_case_{i}.mp4"
-        utils.save_video(outfile, video)
+        video_outfile = f"active_sampler_learning_analysis_case_{i}.mp4"
+        utils.save_video(video_outfile, video)
+        # Save the frames individually too.
+        for t, img in enumerate(video):
+            img_outfile = f"videos/active_sampler_learning_analysis_case_{i}_{t}.png"
+            imageio.imsave(img_outfile, img)
 
 
 def _create_test_cases(env: BaseEnv):
