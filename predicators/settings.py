@@ -514,7 +514,6 @@ class GlobalSettings:
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
-    online_learning_lifelong = False
 
     # active sampler learning parameters
     active_sampler_learning_score_eps = 1e-3
