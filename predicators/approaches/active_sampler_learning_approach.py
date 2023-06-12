@@ -85,6 +85,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert CFG.strips_learner
 
         self._sampler_data: _SamplerDataset = []
+        self._most_recent_nsrts: Optional[None] = None
 
     @classmethod
     def get_name(cls) -> str:
@@ -136,7 +137,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         Update the NSRTs in place.
         """
         # Create a new Q value estimator.
-        Q = _QValueEstimator()
+        Q = _QValueEstimator(nsrts=self._get_most_recent_nsrts())
         # Fit with the current data.
         Q.run_fitted_q_iteration(self._sampler_data)
         # Update the NSRTs.
@@ -157,6 +158,13 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 pkl.dump(regressor, f)
             logging.info(f"Saved sampler regressor to {save_path}.")
         self._nsrts = new_nsrts
+        # The most_recent_nsrts are not changed by super()._learn_nsrts().
+        self._most_recent_nsrts = new_nsrts
+
+    def _get_most_recent_nsrts(self) -> Set[NSRT]:
+        if self._most_recent_nsrts is None:
+            return self._nsrts
+        return self._most_recent_nsrts
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -202,10 +210,12 @@ class _WrappedSampler:
         return samples[idx]
 
 
+@dataclass
 class _QValueEstimator:
     """Convenience class for training all of the samplers."""
 
-    # TODO: USE MOST RECENT LEARNED NSRTS, NOT BASE NSRTS
+    # The most recent learned NSRTs.
+    _nsrts: Set[NSRT]
 
     def run_fitted_q_iteration(self, data: _SamplerDataset) -> None:
         """Fit all of the samplers."""
