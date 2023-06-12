@@ -193,8 +193,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value,
-                             n_iter_no_change=self._n_iter_no_change
-                             )
+                             n_iter_no_change=self._n_iter_no_change)
 
     def _predict(self, x: Array) -> Array:
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(

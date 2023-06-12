@@ -5,8 +5,8 @@ import os
 from typing import Any, Callable, List, Optional, Set, Tuple
 
 import dill as pkl
-import matplotlib.pyplot as plt
 import imageio
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib import colormaps

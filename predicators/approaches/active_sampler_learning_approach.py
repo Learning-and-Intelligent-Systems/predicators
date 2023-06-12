@@ -225,12 +225,12 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         return self._current_sampler_noise
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
-        self._current_sampler_noise = 0.25  # high noise
+        self._current_sampler_noise = 1e-2  # higher noise
         return super().get_interaction_requests()
 
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
-        self._current_sampler_noise = 0.01  # low noise
+        self._current_sampler_noise = 1e-5  # lower noise
         return super().learn_from_interaction_results(results)
 
 
