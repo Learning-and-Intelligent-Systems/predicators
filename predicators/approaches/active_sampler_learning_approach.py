@@ -105,30 +105,26 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
         for nsrt in self._nsrts:
             assert nsrt.option_vars == nsrt.parameters
-        # Update the sampler data.
-        self._update_sampler_data(trajectories)
+        # Update the sampler data using the updated self._segmented_trajs.
+        self._update_sampler_data()
         # Re-learn sampler regressors. Updates the NSRTs.
         self._learn_sampler_regressors(online_learning_cycle)
 
-    def _update_sampler_data(self,
-                             trajectories: List[LowLevelTrajectory]) -> None:
-        # TODO: deal with multi-step options; refactor to use segments.
-        preds = self._get_current_predicates()
-        for traj in trajectories:
-            # Label the steps according to whether the operators succeeded.
+    def _update_sampler_data(self) -> None:
+        for segmented_traj in self._segmented_trajs:
+            # Label the segments according to whether the operators succeeded.
             refinement_successes: List[bool] = []
-            atom_seq = [utils.abstract(state, preds) for state in traj.states]
-            for t in range(len(atom_seq) - 1):
-                next_atoms = atom_seq[t + 1]
-                option = traj.actions[t].get_option()
+            for segment in segmented_traj:
+                option = segment.get_option()
                 ground_nsrt = self._option_to_ground_nsrt(option)
-                success = self._check_nsrt_success(ground_nsrt, next_atoms)
+                success = self._check_nsrt_success(ground_nsrt,
+                                                   segment.final_atoms)
                 refinement_successes.append(success)
             # Create regressor data.
-            for t in range(len(atom_seq) - 1):
+            for t, segment in enumerate(segmented_traj):
                 # Find the first failure.
                 first_failure_step: Optional[int] = None
-                for i in range(t, len(atom_seq) - 1):
+                for i in range(t, len(segmented_traj)):
                     if not refinement_successes[i]:
                         first_failure_step = i
                         break
@@ -138,9 +134,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                     dt = first_failure_step - t
                     score = -CFG.active_sampler_learning_score_gamma**dt
                 # Set up the input.
-                next_atoms = atom_seq[t + 1]
-                state = traj.states[t]
-                option = traj.actions[t].get_option()
+                state = segment.states[0]
+                option = segment.get_option()
                 ground_nsrt = self._option_to_ground_nsrt(option)
                 regressor_input = (state, ground_nsrt.objects, option.params)
                 self._sampler_data[option.parent].append(
