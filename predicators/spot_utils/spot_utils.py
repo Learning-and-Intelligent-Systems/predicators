@@ -489,7 +489,7 @@ class _SpotInterface():
         if "_table" in objs[2].name:
             self.hand_movement(params[:3], keep_hand_pose=False, angle_45=True)
         self.arm_object_grasp(objs[1])
-        if not all(params[:3] == [0.0, 0.0, 0.0]):
+        if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
         self.stow_arm()
         # NOTE: time.sleep(2.0) required afer each option execution
