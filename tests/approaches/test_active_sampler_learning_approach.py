@@ -2,7 +2,6 @@
 import pytest
 
 from predicators import utils
-from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.active_sampler_learning_approach import \
     ActiveSamplerLearningApproach
 from predicators.datasets import create_dataset
@@ -28,7 +27,7 @@ def test_active_sampler_learning_approach():
         "online_nsrt_learning_requests_per_cycle": 1,
         "sampler_mlp_classifier_max_itr": 10,
         "num_train_tasks": 3,
-        "num_test_tasks": 3,
+        "num_test_tasks": 1,
         "explorer": "random_nsrts",
     })
     env = BumpyCoverEnv()
@@ -53,9 +52,9 @@ def test_active_sampler_learning_approach():
     with pytest.raises(FileNotFoundError):
         approach.load(online_learning_cycle=1)
     for task in env.get_test_tasks():
-        try:
-            approach.solve(task, timeout=CFG.timeout)
-        except (ApproachTimeout, ApproachFailure):  # pragma: no cover
-            pass
-        # We won't check the policy here because we don't want unit tests to
-        # have to train very good models, since that would be slow.
+        policy = approach.solve(task, timeout=CFG.timeout)
+        # We won't fully check the policy here because we don't want tests to
+        # have to train very good models, since that would be slow. But we will
+        # test that the policy at least produces an action.
+        action = policy(task.init)
+        assert env.action_space.contains(action.arr)
