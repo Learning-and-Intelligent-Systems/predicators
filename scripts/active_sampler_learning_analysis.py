@@ -52,7 +52,8 @@ def _main() -> None:
 
 
 def _create_test_cases(env: BaseEnv) -> List[Tuple[State, List[Object]]]:
-    assert isinstance(env, BumpyCoverEnv)
+    if not isinstance(env, BumpyCoverEnv):
+        raise NotImplementedError
 
     test_cases = []
 

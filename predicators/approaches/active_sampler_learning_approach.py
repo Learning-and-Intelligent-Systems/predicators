@@ -16,7 +16,6 @@ Bumpy cover easy:
         --seed 0 \
         --strips_learner oracle \
         --sampler_learner oracle \
-        --sampler_disable_classifier True \
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
@@ -34,7 +33,6 @@ Bumpy cover with shifted targets:
         --seed 0 \
         --strips_learner oracle \
         --sampler_learner oracle \
-        --sampler_disable_classifier True \
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
@@ -78,8 +76,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
 
-        assert CFG.sampler_disable_classifier
-        assert CFG.strips_learner
+        # The current implementation assumes that NSRTs are not changing.
+        assert CFG.strips_learner == "oracle"
+        # The base sampler should also be unchanging and from the oracle.
+        assert CFG.sampler_learner == "oracle"
 
         self._sampler_data: _SamplerDataset = {}
 
