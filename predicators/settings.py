@@ -515,6 +515,9 @@ class GlobalSettings:
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
 
+    # active sampler learning parameters
+    active_sampler_learning_num_samples = 100
+
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
     refinement_estimation_num_skeletons_generated = 8
