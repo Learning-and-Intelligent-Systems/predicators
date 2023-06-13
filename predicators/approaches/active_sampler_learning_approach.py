@@ -64,9 +64,9 @@ from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
     Task, Type, _GroundNSRT, _Option
 
-# Dataset for sampler learning: includes (s, option, s', label) per NSRT.
-_NSRTSamplerDataset = List[Tuple[State, _Option, State, Any]]
-_SamplerDataset = Dict[ParameterizedOption, _NSRTSamplerDataset]
+# Dataset for sampler learning: includes (s, option, s', label) per param opt.
+_OptionSamplerDataset = List[Tuple[State, _Option, State, Any]]
+_SamplerDataset = Dict[ParameterizedOption, _OptionSamplerDataset]
 
 
 class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
@@ -115,10 +115,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
                 # Store transition per ParameterizedOption. Don't store by
                 # NSRT because those change as we re-learn.
-                nsrt = o.parent
-                if nsrt not in self._sampler_data:
-                    self._sampler_data[nsrt] = []
-                self._sampler_data[nsrt].append((s, o, ns, label))
+                if o.parent not in self._sampler_data:
+                    self._sampler_data[o.parent] = []
+                self._sampler_data[o.parent].append((s, o, ns, label))
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
@@ -181,7 +180,7 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
             new_samplers[nsrt] = self._learn_nsrt_sampler(nsrt_data, nsrt)
         self._learned_samplers = new_samplers
 
-    def _learn_nsrt_sampler(self, nsrt_data: _NSRTSamplerDataset,
+    def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
                             nsrt: NSRT) -> NSRTSampler:
         logging.info(f"Fitting wrapped sampler classifier for {nsrt.name}...")
         X_classifier: List[List[Array]] = []
