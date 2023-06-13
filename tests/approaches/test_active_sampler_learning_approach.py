@@ -3,10 +3,10 @@ import pytest
 
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
-from predicators.approaches.active_sampler_learning import \
+from predicators.approaches.active_sampler_learning_approach import \
     ActiveSamplerLearningApproach
 from predicators.datasets import create_dataset
-from predicators.envs.cover import CoverEnv
+from predicators.envs.cover import BumpyCoverEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
 from predicators.settings import CFG
@@ -17,19 +17,21 @@ from predicators.teacher import Teacher
 def test_active_sampler_learning_approach():
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
-        "env": "cover",
+        "env": "bumpy_cover",
         "approach": "active_sampler_learning",
         "timeout": 10,
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
         "sampler_disable_classifier": True,
         "num_online_learning_cycles": 1,
+        "max_num_steps_interaction_request": 4,
         "online_nsrt_learning_requests_per_cycle": 1,
+        "sampler_mlp_classifier_max_itr": 10,
         "num_train_tasks": 3,
         "num_test_tasks": 3,
-        "explorer": "random_options",
+        "explorer": "random_nsrts",
     })
-    env = CoverEnv()
+    env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
     approach = ActiveSamplerLearningApproach(env.predicates,
                                              get_gt_options(env.get_name()),
