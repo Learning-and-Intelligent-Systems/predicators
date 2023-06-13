@@ -426,8 +426,8 @@ class SpotBikeEnv(SpotEnv):
     """An environment containing bike-repair related tasks for a real Spot
     robot to execute."""
 
-    _ontop_threshold: ClassVar[float] = 0.3
-    _reachable_threshold: ClassVar[float] = 1.0
+    _ontop_threshold: ClassVar[float] = 0.55
+    _reachable_threshold: ClassVar[float] = 1.7
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -757,10 +757,10 @@ class SpotBikeEnv(SpotEnv):
             state.get(obj_surface, "y"),
             state.get(obj_surface, "z")
         ]
-        is_x_same = (obj_on_pose[0] -
-                     obj_surface_pose[0])**2 <= self._ontop_threshold
-        is_y_same = (obj_on_pose[1] -
-                     obj_surface_pose[1])**2 <= self._ontop_threshold
+        is_x_same = np.sqrt(
+            (obj_on_pose[0] - obj_surface_pose[0])**2) <= self._ontop_threshold
+        is_y_same = np.sqrt(
+            (obj_on_pose[1] - obj_surface_pose[1])**2) <= self._ontop_threshold
         is_above_z = (obj_on_pose[2] - obj_surface_pose[2]) > 0.0
         return is_x_same and is_y_same and is_above_z
 
@@ -777,13 +777,11 @@ class SpotBikeEnv(SpotEnv):
             state.get(obj, "y"),
             state.get(obj, "z")
         ]
-        is_x_near = (spot_pose[0] -
-                     obj_pose[0])**2 <= self._reachable_threshold
-        is_y_near = (spot_pose[1] -
-                     obj_pose[1])**2 <= self._reachable_threshold
-        is_z_near = (spot_pose[2] -
-                     obj_pose[2])**2 <= self._reachable_threshold
-        return is_x_near and is_y_near and is_z_near
+        is_xy_near = np.sqrt(
+            (spot_pose[0] - obj_pose[0])**2 +
+            (spot_pose[1] - obj_pose[1])**2) <= self._reachable_threshold
+        is_z_near = np.sqrt((spot_pose[2] - obj_pose[2])**2) <= 0.85
+        return is_xy_near and is_z_near
 
     def _surface_too_high_classifier(self, state: State,
                                      objects: Sequence[Object]) -> bool:
