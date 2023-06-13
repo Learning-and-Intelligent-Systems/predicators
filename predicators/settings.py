@@ -516,7 +516,12 @@ class GlobalSettings:
     online_learning_max_novelty_count = 0
 
     # active sampler learning parameters
+    active_sampler_learning_model = "myopic_classifier"
     active_sampler_learning_num_samples = 100
+    active_sampler_learning_score_gamma = 0.5
+    active_sampler_learning_n_iter_no_change = 5000
+    active_sampler_learning_fitted_q_iters = 5
+    active_sampler_learning_num_next_option_samples = 5
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
