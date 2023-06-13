@@ -94,15 +94,15 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
     option_name = "Pick"
     approach_save_path = utils.get_approach_save_path_str()
     save_path = f"{approach_save_path}_{option_name}_" + \
-        f"{online_learning_cycle}.sampler_regressor"
+        f"{online_learning_cycle}.sampler_classifier"
     if not os.path.exists(save_path):
         raise FileNotFoundError
     with open(save_path, "rb") as f:
         regressor = pkl.load(f)
-    print(f"Loaded sampler regressor from {save_path}.")
+    print(f"Loaded sampler classifier from {save_path}.")
 
     cmap = colormaps.get_cmap('RdYlGn')
-    norm = Normalize(vmin=-1.0, vmax=0.0)
+    norm = Normalize(vmin=0.0, vmax=1.0)
 
     imgs = []
 
@@ -127,7 +127,7 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
         hi = obj_pose + obj_width / 2
         candidates = np.linspace(lo, hi, num=100)
         for candidate in candidates:
-            score = regressor.predict(np.r_[x, [candidate]])[0]
+            score = regressor.predict_proba(np.r_[x, candidate])
             color = cmap(norm(score))
             circle = plt.Circle((candidate, -0.16),
                                 0.005,

@@ -257,8 +257,10 @@ class ActiveSamplerLearningWithTeacherApproach(ActiveSamplerLearningApproach):
                                                    segment.final_atoms)
                 refinement_successes.append(success)
             # Create classifier dataset.
-            idx_of_failure = self._diagnose_demo_failure(segmented_traj)
-            for i in range(idx_of_failure):
+            success_list = self._diagnose_demo_failure(segmented_traj)
+            assert len(success_list) == len(segmented_traj)
+
+            for i in range(len(segmented_traj)):
                 curr_seg = segmented_traj[i]
                 # Set up the input.
                 state = curr_seg.states[0]
@@ -266,38 +268,32 @@ class ActiveSamplerLearningWithTeacherApproach(ActiveSamplerLearningApproach):
                 ground_nsrt = self._option_to_ground_nsrt(option)
                 classifier_input = (state, ground_nsrt.objects, option.params)
                 self._sampler_data[option.parent].append(
-                    (classifier_input, True))
-            if idx_of_failure < len(segmented_traj):
-                curr_seg = segmented_traj[idx_of_failure]
-                # Set up the input.
-                state = curr_seg.states[0]
-                option = curr_seg.get_option()
-                ground_nsrt = self._option_to_ground_nsrt(option)
-                classifier_input = (state, ground_nsrt.objects, option.params)
-                self._sampler_data[option.parent].append(
-                    (classifier_input, False))
+                    (classifier_input, success_list[i]))
+            # if idx_of_failure < len(segmented_traj):
+            #     curr_seg = segmented_traj[idx_of_failure]
+            #     # Set up the input.
+            #     state = curr_seg.states[0]
+            #     option = curr_seg.get_option()
+            #     ground_nsrt = self._option_to_ground_nsrt(option)
+            #     classifier_input = (state, ground_nsrt.objects, option.params)
+            #     self._sampler_data[option.parent].append(
+            #         (classifier_input, False))
 
 
-    def _diagnose_demo_failure(self, segmented_traj: List[Segment]):
+    def _diagnose_demo_failure(self, segmented_traj: List[Segment]) -> List[bool]:
         """Return the index into the trajectory where the demonstration failed. If the demonstration didn't fail,
         then return the length of the input demonstration trajectory."""
+        success_list = []
         if CFG.env == "bumpy_cover":
-            for i, segment in enumerate(segmented_traj):
+            for segment in segmented_traj:
                 option = segment.get_option()
                 ground_nsrt = self._option_to_ground_nsrt(option)
                 success = self._check_nsrt_success(ground_nsrt,
                                                    segment.final_atoms)
-                if not success:
-                    # The current action has failed the expected atoms
-                    # check.
-                    # First check that the nsrt's preconditions actually held.
-                    if ground_nsrt.preconditions.issubset(segment.init_atoms):
-                        continue
-                    # NOTE: this only works since in this variant of the environment,
-                    # the hand region is always the entire target.
-                    return i
+                if ground_nsrt.preconditions.issubset(segment.init_atoms):
+                    success_list.append(success)
 
-            return len(segmented_traj)
+            return success_list
             
         else:
             raise NotImplementedError(f"Oracle failure diagnosis not implemented yet for env {CFG.env}")
