@@ -25,9 +25,7 @@ Bumpy cover easy:
         --num_test_tasks 10 \
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1 \
-        --mlp_regressor_max_itr 100000 \
-        --pytorch_train_print_every 10000
+        --bumpy_cover_spaces_per_bump 1
 
 
 Bumpy cover with shifted targets:
@@ -46,15 +44,12 @@ Bumpy cover with shifted targets:
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1 \
-        --mlp_regressor_max_itr 1000000 \
-        --pytorch_train_print_every 10000 \
         --bumpy_cover_right_targets True
 """
 
 import abc
 import logging
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import dill as pkl
 import numpy as np
@@ -63,17 +58,15 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
-from predicators.ml_models import MLPRegressor
+from predicators.ml_models import MLPBinaryClassifier
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
-    Task, Type, Variable, _GroundNSRT, _Option
+    Task, Type, _GroundNSRT, _Option
 
 # Dataset for sampler learning: includes (s, option, s', label) per NSRT.
 _NSRTSamplerDataset = List[Tuple[State, _Option, State, Any]]
 _SamplerDataset = Dict[ParameterizedOption, _NSRTSamplerDataset]
-# Score function used to wrap samplers.
-_ScoreFn = Callable[[State, Sequence[Object], List[Array]], List[float]]
 
 
 class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
@@ -117,12 +110,12 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 ns = segment.states[-1]
 
                 # Forthcoming implementations may change the label here.
-                success = self._check_option_success(option, segment)
+                success = self._check_option_success(o, segment)
                 label = success
 
                 # Store transition per ParameterizedOption. Don't store by
                 # NSRT because those change as we re-learn.
-                self._sampler_data[option.parent].append((s, o, ns, label))
+                self._sampler_data[o.parent].append((s, o, ns, label))
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
@@ -130,13 +123,13 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             segment.final_atoms) and not ground_nsrt.delete_effects.issubset(
                 segment.final_atoms)
 
-    def _learn_wrapped_samplers(
-            self, online_learning_cycle: Optional[int]) -> None:
+    def _learn_wrapped_samplers(self,
+                                online_learning_cycle: Optional[int]) -> None:
         """Update the NSRTs in place."""
         # Forthcoming approaches may use a different learner.
-        learner = _ClassifierWrappedSamplerLearner(self._get_current_nsrts(),
-                             self._get_current_predicates(),
-                             online_learning_cycle)
+        learner = _ClassifierWrappedSamplerLearner(
+            self._get_current_nsrts(), self._get_current_predicates(),
+            online_learning_cycle)
         # Fit with the current data.
         learner.learn(self._sampler_data)
         wrapped_samplers = learner.get_samplers()
@@ -175,10 +168,7 @@ class _WrappedSamplerLearner(abc.ABC):
 
 class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
     """Using boolean class labels on transitions, learn a classifier, and then
-    use the probability of predicting True to select parameters.
-
-    TODO: don't forget to save classifiers for external analysis.
-    """"
+    use the probability of predicting True to select parameters."""
 
     def learn(self, data: _SamplerDataset) -> None:
         # Learn the sampler for each NSRT independently.
@@ -188,11 +178,14 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
             new_samplers[nsrt] = self._learn_nsrt_sampler(nsrt_data, nsrt)
         self._learned_samplers = new_samplers
 
-    def _learn_nsrt_sampler(self, nsrt_data: _NSRTSamplerDataset, nsrt: NSRT) -> NSRTSampler:
+    def _learn_nsrt_sampler(self, nsrt_data: _NSRTSamplerDataset,
+                            nsrt: NSRT) -> NSRTSampler:
         logging.info(f"Fitting wrapped sampler classifier for {nsrt.name}...")
         X_classifier: List[List[Array]] = []
         y_classifier: List[int] = []
-        for (state, objects, params), label in data:
+        for state, option, _, label in nsrt_data:
+            objects = option.objects
+            params = option.params
             # input is state features and option parameters
             X_classifier.append([np.array(1.0)])  # start with bias term
             for obj in objects:
@@ -220,24 +213,25 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
 
         # Save the sampler classifier for external analysis.
         approach_save_path = utils.get_approach_save_path_str()
-        save_path = f"{approach_save_path}_{nsrt.name}_{self._online_learning_cycle}.sampler_classifier"
+        save_path = f"{approach_save_path}_{nsrt.name}_" + \
+            f"{self._online_learning_cycle}.sampler_classifier"
         with open(save_path, "wb") as f:
             pkl.dump(classifier, f)
         logging.info(f"Saved sampler classifier to {save_path}.")
 
         # Easiest way to access the base sampler.
-        base_sampler = nsrt._sampler
+        base_sampler = nsrt._sampler  # pylint: disable=protected-access
         score_fn = _classifier_to_score_fn(classifier, nsrt)
         wrapped_sampler = _wrap_sampler(base_sampler, score_fn)
 
         return wrapped_sampler
 
 
-
 # Helper functions.
-def _param_option_to_nsrt(param_option: ParameterizedOption, nsrts: Set[NSRT]) -> NSRT:
+def _param_option_to_nsrt(param_option: ParameterizedOption,
+                          nsrts: Set[NSRT]) -> NSRT:
     """Assumes 1:1 options and NSRTs, see note in file docstring."""
-    nsrt_matches = [n for n in nsrts if n.option == option.parent]
+    nsrt_matches = [n for n in nsrts if n.option == param_option]
     assert len(nsrt_matches) == 1
     nsrt = nsrt_matches[0]
     return nsrt
@@ -249,11 +243,15 @@ def _option_to_ground_nsrt(option: _Option, nsrts: Set[NSRT]) -> _GroundNSRT:
     return nsrt.ground(option.objects)
 
 
-def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn) -> NSRTSampler:
-    """Create a wrapped sampler that uses a score function to select among candidates from a base sampler."""
+def _wrap_sampler(
+    base_sampler: NSRTSampler,
+    score_fn: Callable[[State, Sequence[Object], List[Array]], List[float]]
+) -> NSRTSampler:
+    """Create a wrapped sampler that uses a score function to select among
+    candidates from a base sampler."""
 
-    def _sample(state: State, goal: Set[GroundAtom],
-               rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+    def _sample(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
+                objects: Sequence[Object]) -> Array:
         samples = [
             base_sampler(state, goal, rng, objects)
             for _ in range(CFG.active_sampler_learning_num_samples)
@@ -266,10 +264,13 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn) -> NSRTSampler:
     return _sample
 
 
-def _classifier_to_score_fn(classifier: MLPBinaryClassifier, nsrt: NSRT) -> _ScoreFn:
+def _classifier_to_score_fn(
+    classifier: MLPBinaryClassifier, nsrt: NSRT
+) -> Callable[[State, Sequence[Object], List[Array]], List[float]]:
     """Use predict_proba() to produce scores."""
 
-    def _score_fn(state: State, objects: Sequence[Object], param_lst: List[Array]) -> List[float]:
+    def _score_fn(state: State, objects: Sequence[Object],
+                  param_lst: List[Array]) -> List[float]:
         x_lst: List[Any] = [1.0]  # start with bias term
         sub = dict(zip(nsrt.parameters, objects))
         for var in nsrt.parameters:
