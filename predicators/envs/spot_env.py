@@ -394,6 +394,8 @@ class SpotEnv(BaseEnv):
             if obj.name == "spot":
                 robot = obj
                 continue
+            if obj.name == "floor":
+                continue
             pos = (init.get(obj, "x"), init.get(obj, "y"), init.get(obj, "z"))
             objects_in_view[obj] = pos
         assert robot is not None
@@ -427,7 +429,7 @@ class SpotBikeEnv(SpotEnv):
     robot to execute."""
 
     _ontop_threshold: ClassVar[float] = 0.55
-    _reachable_threshold: ClassVar[float] = 1.7
+    _reachable_threshold: ClassVar[float] = 1.83
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -440,12 +442,16 @@ class SpotBikeEnv(SpotEnv):
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
         self._bag_type = Type("bag", ["x", "y", "z"])
         self._platform_type = Type("platform", ["x", "y", "z"])
+        self._floor_type = Type("floor", [])
 
         # Predicates
         # Note that all classifiers assigned here just directly use
         # the ground atoms from the low-level simulator state.
         self._On = Predicate("On", [self._tool_type, self._surface_type],
                              self._ontop_classifier)
+        self._OnFloor = Predicate("OnFloor",
+                                  [self._tool_type, self._floor_type],
+                                  self._onfloor_classifier)
         self._temp_InBag = Predicate("InBag",
                                      [self._tool_type, self._bag_type],
                                      lambda s, o: False)
@@ -512,6 +518,20 @@ class SpotBikeEnv(SpotEnv):
                                             [spot, tool, surface],
                                             preconditions, add_effs, set(),
                                             ignore_effs)
+        # MoveToToolOnFloor
+        spot = Variable("?robot", self._robot_type)
+        tool = Variable("?tool", self._tool_type)
+        floor = Variable("?floor", self._floor_type)
+        preconditions = {LiftedAtom(self._OnFloor, [tool, floor])}
+        add_effs = {LiftedAtom(self._ReachableTool, [spot, tool])}
+        ignore_effs = {
+            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform
+        }
+        self._MoveToToolOnFloorOp = STRIPSOperator("MoveToToolOnFloor",
+                                            [spot, tool, floor],
+                                            preconditions, add_effs, set(),
+                                            ignore_effs)
         # MoveToSurface
         spot = Variable("?robot", self._robot_type)
         surface = Variable("?surface", self._surface_type)
@@ -565,6 +585,28 @@ class SpotBikeEnv(SpotEnv):
         }
         self._GraspToolFromNotHighOp = STRIPSOperator("GraspToolFromNotHigh",
                                                       [spot, tool, surface],
+                                                      preconds, add_effs,
+                                                      del_effs, set())
+        # GraspToolFromFloor
+        spot = Variable("?robot", self._robot_type)
+        tool = Variable("?tool", self._tool_type)
+        floor = Variable("?floor", self._floor_type)
+        preconds = {
+            LiftedAtom(self._OnFloor, [tool, floor]),
+            LiftedAtom(self._ReachableTool, [spot, tool]),
+            LiftedAtom(self._HandEmpty, [spot]),
+        }
+        add_effs = {
+            LiftedAtom(self._HoldingTool, [spot, tool]),
+            LiftedAtom(self._notHandEmpty, [spot])
+        }
+        del_effs = {
+            LiftedAtom(self._OnFloor, [tool, floor]),
+            LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._ReachableTool, [spot, tool]),
+        }
+        self._GraspToolFromFloorOp = STRIPSOperator("GraspToolFromFloor",
+                                                      [spot, tool, floor],
                                                       preconds, add_effs,
                                                       del_effs, set())
         # GrabPlatformLeash
@@ -703,13 +745,15 @@ class SpotBikeEnv(SpotEnv):
             self._GraspBagOp,
             self._PlaceToolNotHighOp,
             self._PlaceIntoBagOp,
+            self._MoveToToolOnFloorOp,
+            self._GraspToolFromFloorOp,
         }
 
     @property
     def types(self) -> Set[Type]:
         return {
             self._robot_type, self._tool_type, self._surface_type,
-            self._bag_type, self._platform_type
+            self._bag_type, self._platform_type, self._floor_type
         }
 
     @property
@@ -719,7 +763,8 @@ class SpotBikeEnv(SpotEnv):
             self._HoldingBag, self._HoldingPlatformLeash, self._ReachableTool,
             self._ReachableBag, self._ReachablePlatform,
             self._XYReachableSurface, self._SurfaceTooHigh,
-            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty
+            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty,
+            self._OnFloor
         }
 
     def _handempty_classifier(self, state: State,
@@ -763,6 +808,12 @@ class SpotBikeEnv(SpotEnv):
             (obj_on_pose[1] - obj_surface_pose[1])**2) <= self._ontop_threshold
         is_above_z = (obj_on_pose[2] - obj_surface_pose[2]) > 0.0
         return is_x_same and is_y_same and is_above_z
+    
+    def _onfloor_classifier(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        obj_on, _ = objects
+        assert obj_name_to_apriltag_id.get(obj_on.name) is not None
+        return state.get(obj_on, "z") < 0.0
 
     def _reachable_classifier(self, state: State,
                               objects: Sequence[Object]) -> bool:
@@ -832,9 +883,10 @@ class SpotBikeEnv(SpotEnv):
         extra_room_table = Object("extra_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
+        floor = Object("floor", self._floor_type)
         objects = [
             spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
-            low_wall_rack, bag, extra_room_table
+            low_wall_rack, bag, extra_room_table, floor
         ]
         return {o.name: o for o in objects}
 
