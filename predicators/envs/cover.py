@@ -1036,6 +1036,20 @@ class BumpyCoverEnv(CoverEnvRegrasp):
                               targets: List[Object],
                               rng: np.random.Generator) -> State:
         data: Dict[Object, Array] = {}
+        assert len(CFG.cover_target_widths) == len(targets)
+        for target, width in zip(targets, CFG.cover_target_widths):
+            target_ub = 1.0
+            # If there is a special bumpy region, keep targets away from it
+            # to make things simpler.
+            if CFG.bumpy_cover_bumpy_regional:
+                target_ub = CFG.bumpy_cover_bumpy_region_start - width / 2
+            while True:
+                pose = rng.uniform(width / 2, target_ub - width / 2)
+                if not self._any_intersection(
+                        pose, width, data, larger_gap=True):
+                    break
+            # [is_block, is_target, width, pose]
+            data[target] = np.array([0.0, 1.0, width, pose])
         assert len(CFG.cover_block_widths) == len(blocks)
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):
@@ -1049,15 +1063,6 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             else:
                 bumpy = 0.0
             data[block] = np.array([1.0, 0.0, width, pose, -1.0, bumpy])
-        assert len(CFG.cover_target_widths) == len(targets)
-        for target, width in zip(targets, CFG.cover_target_widths):
-            while True:
-                pose = rng.uniform(width / 2, 1.0 - width / 2)
-                if not self._any_intersection(
-                        pose, width, data, larger_gap=True):
-                    break
-            # [is_block, is_target, width, pose]
-            data[target] = np.array([0.0, 1.0, width, pose])
         # [hand, pose_x, pose_z]
         data[self._robot] = np.array([0.5, self.workspace_x, self.workspace_z])
         state = State(data)
@@ -1066,21 +1071,22 @@ class BumpyCoverEnv(CoverEnvRegrasp):
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
         for block in state.get_objects(self._block_type):
+            pose = state.get(block, "pose")
             bumpy = abs(state.get(block, "bumpy") - 1.0) < 1e-3
-            if bumpy:
+            in_bumpy_region = not CFG.bumpy_cover_bumpy_regional or \
+                pose > CFG.bumpy_cover_bumpy_region_start
+            if bumpy and in_bumpy_region:
                 # Evenly spaced intervals.
-                start = state.get(block,
-                                  "pose") - state.get(block, "width") / 2
-                end = state.get(block, "pose") + state.get(block, "width") / 2
+                start = pose - state.get(block, "width") / 2
+                end = pose + state.get(block, "width") / 2
                 skip = (1 + CFG.bumpy_cover_spaces_per_bump)
                 num_points = skip * CFG.bumpy_cover_num_bumps
                 points = np.linspace(start, end, num=num_points)
                 for left, right in zip(points[::skip], points[1::skip]):
                     hand_regions.append((left, right))
             else:
-                hand_regions.append(
-                    (state.get(block, "pose") - state.get(block, "width") / 2,
-                     state.get(block, "pose") + state.get(block, "width") / 2))
+                hand_regions.append((pose - state.get(block, "width") / 2,
+                                     pose + state.get(block, "width") / 2))
         for targ in state.get_objects(self._target_type):
             center = state.get(targ, "pose")
             if CFG.bumpy_cover_right_targets:
@@ -1089,3 +1095,16 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             right = center + state.get(targ, "width") / 2
             hand_regions.append((left, right))
         return hand_regions
+
+    def render_state_plt(
+            self,
+            state: State,
+            task: EnvironmentTask,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        fig = super().render_state_plt(state, task, action, caption)
+        if CFG.bumpy_cover_bumpy_regional:
+            x = CFG.bumpy_cover_bumpy_region_start
+            plt.plot([x, x], [-100, 100], color="gray", label="bump region lb")
+            plt.legend()
+        return fig

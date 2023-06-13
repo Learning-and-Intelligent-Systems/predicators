@@ -115,6 +115,7 @@ EXTRA_ARGS_ORACLE_APPROACH["bumpy_cover"] = [
     },
     {
         "bumpy_cover_right_targets": False,
+        "bumpy_cover_bumpy_regional": True,
     },
 ]
 EXTRA_ARGS_ORACLE_APPROACH["cluttered_table"] = [

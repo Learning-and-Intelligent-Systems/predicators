@@ -64,9 +64,11 @@ class GlobalSettings:
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
     # bumpy cover env parameters
-    bumpy_cover_num_bumps = 3
-    bumpy_cover_spaces_per_bump = 10
+    bumpy_cover_num_bumps = 2
+    bumpy_cover_spaces_per_bump = 1
     bumpy_cover_right_targets = False
+    bumpy_cover_bumpy_regional = False
+    bumpy_cover_bumpy_region_start = 0.8
 
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
