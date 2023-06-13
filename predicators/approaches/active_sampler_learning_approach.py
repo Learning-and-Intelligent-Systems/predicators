@@ -145,6 +145,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             sampler)
             new_nsrts.add(new_nsrt)
         self._nsrts = new_nsrts
+        # Re-save the NSRTs now that we've updated them.
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
+            pkl.dump(self._nsrts, f)
 
 
 class _WrappedSamplerLearner(abc.ABC):
