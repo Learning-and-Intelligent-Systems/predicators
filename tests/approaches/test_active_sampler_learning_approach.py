@@ -33,7 +33,7 @@ def test_active_sampler_learning_approach(model_name):
         "num_test_tasks": 1,
         "explorer": "random_nsrts",
         "active_sampler_learning_num_samples": 5,
-        "active_sampler_learning_fitted_q_iters": 1,
+        "active_sampler_learning_fitted_q_iters": 2,
         "active_sampler_learning_num_next_option_samples": 2,
     })
     env = BumpyCoverEnv()
