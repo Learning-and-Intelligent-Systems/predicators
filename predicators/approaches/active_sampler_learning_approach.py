@@ -115,7 +115,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
                 # Store transition per ParameterizedOption. Don't store by
                 # NSRT because those change as we re-learn.
-                self._sampler_data[o.parent].append((s, o, ns, label))
+                nsrt = o.parent
+                if nsrt not in self._sampler_data:
+                    self._sampler_data[nsrt] = []
+                self._sampler_data[nsrt].append((s, o, ns, label))
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
