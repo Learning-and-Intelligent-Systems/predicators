@@ -13,11 +13,13 @@ from predicators.structs import Dataset
 from predicators.teacher import Teacher
 
 
-def test_active_sampler_learning_approach():
+@pytest.mark.parametrize("model_name", ["myopic_classifier", "fitted_q"])
+def test_active_sampler_learning_approach(model_name):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
         "env": "bumpy_cover",
         "approach": "active_sampler_learning",
+        "active_sampler_learning_model": model_name,
         "timeout": 10,
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
@@ -26,9 +28,13 @@ def test_active_sampler_learning_approach():
         "max_num_steps_interaction_request": 4,
         "online_nsrt_learning_requests_per_cycle": 1,
         "sampler_mlp_classifier_max_itr": 10,
+        "mlp_regressor_max_itr": 10,
         "num_train_tasks": 3,
         "num_test_tasks": 1,
         "explorer": "random_nsrts",
+        "active_sampler_learning_num_samples": 5,
+        "active_sampler_learning_fitted_q_iters": 1,
+        "active_sampler_learning_num_next_option_samples": 2,
     })
     env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]

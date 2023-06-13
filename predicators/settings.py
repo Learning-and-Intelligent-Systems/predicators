@@ -517,7 +517,6 @@ class GlobalSettings:
 
     # active sampler learning parameters
     active_sampler_learning_model = "myopic_classifier"
-    active_sampler_learning_score_eps = 1e-3
     active_sampler_learning_num_samples = 100
     active_sampler_learning_score_gamma = 0.5
     active_sampler_learning_n_iter_no_change = 5000
