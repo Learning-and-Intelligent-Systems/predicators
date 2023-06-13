@@ -67,7 +67,6 @@ class GlobalSettings:
     bumpy_cover_num_bumps = 2
     bumpy_cover_spaces_per_bump = 1
     bumpy_cover_right_targets = False
-    bumpy_cover_bumpy_regional = False
     bumpy_cover_bumpy_region_start = 0.8
 
     # blocks env parameters

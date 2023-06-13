@@ -18,7 +18,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return {
             "cover", "cover_hierarchical_types", "cover_typed_options",
             "cover_regrasp", "cover_multistep_options", "pybullet_cover",
-            "cover_handempty", "bumpy_cover"
+            "cover_handempty", "bumpy_cover", "regional_bumpy_cover"
         }
 
     @staticmethod
@@ -47,8 +47,12 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         "cover_regrasp", "cover_handempty"):
             PickPlace = options["PickPlace"]
         elif env_name in ("cover_typed_options", "cover_multistep_options",
-                          "bumpy_cover"):
+                          "bumpy_cover", "regional_bumpy_cover"):
             Pick, Place = options["Pick"], options["Place"]
+        if env_name == "regional_bumpy_cover":
+            InBumpyRegion = predicates["InBumpyRegion"]
+            PickFromBumpy = options["PickFromBumpy"]
+            PlaceOnBumpy = options["PlaceOnBumpy"]
 
         nsrts = set()
 
@@ -73,7 +77,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         "cover_regrasp", "cover_handempty"):
             option = PickPlace
             option_vars = []
-        elif env_name == "bumpy_cover":
+        elif env_name in ("bumpy_cover", "regional_bumpy_cover"):
             option = Pick
             option_vars = [block]
         elif env_name == "cover_typed_options":
@@ -150,7 +154,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     ub = float(state.get(b, "width") / 2)
                 elif env_name in ("cover", "pybullet_cover",
                                   "cover_hierarchical_types", "cover_regrasp",
-                                  "cover_handempty", "bumpy_cover"):
+                                  "cover_handempty", "bumpy_cover",
+                                  "regional_bumpy_cover"):
                     lb = float(
                         state.get(b, "pose") - state.get(b, "width") / 2)
                     lb = max(lb, 0.0)
@@ -183,7 +188,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(Covers, [block, target])
         }
         delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
-        if env_name in ("cover_regrasp", "bumpy_cover"):
+        if env_name in ("cover_regrasp", "bumpy_cover", "regional_bumpy_cover"):
             Clear = predicates["Clear"]
             preconditions.add(LiftedAtom(Clear, [target]))
             delete_effects.add(LiftedAtom(Clear, [target]))
@@ -192,7 +197,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         "cover_regrasp", "cover_handempty"):
             option = PickPlace
             option_vars = []
-        elif env_name == "bumpy_cover":
+        elif env_name in ("bumpy_cover", "regional_bumpy_cover"):
             option = Place
             option_vars = [block, target]
         elif env_name == "cover_typed_options":
@@ -264,7 +269,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     assert len(objs) == 2
                     t = objs[-1]
                 assert t.is_instance(target_type)
-                if env_name == "bumpy_cover":
+                if env_name in ("bumpy_cover", "regional_bumpy_cover"):
                     center = float(state.get(t, "pose"))
                     if CFG.bumpy_cover_right_targets:
                         center += 3 * state.get(t, "width") / 4
@@ -314,5 +319,60 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                        delete_effects, set(), option,
                                        option_vars, place_on_table_sampler)
             nsrts.add(place_on_table_nsrt)
+
+        if env_name == "regional_bumpy_cover":
+
+            # TODO: need to add NotInBumpyRegion so that we're forced to use
+            # the PickFromBumpy NSRT specifically. Otherwise we'll never see it.
+
+            # Place in bumpy region
+            parameters = [block]
+            preconditions = {
+                LiftedAtom(IsBlock, [block]),
+                LiftedAtom(Holding, [block])
+            }
+            add_effects = {
+                LiftedAtom(HandEmpty, handempty_predicate_args),
+                LiftedAtom(InBumpyRegion, [block])
+            }
+            delete_effects = {LiftedAtom(Holding, [block])}
+            option = PlaceOnBumpy
+            option_vars = []
+
+            def place_on_bumpy_sampler(state: State, goal: Set[GroundAtom],
+                                       rng: np.random.Generator,
+                                       objs: Sequence[Object]) -> Array:
+                del goal  # unused
+                lb = CFG.bumpy_cover_bumpy_region_start
+                ub = 1.0
+                return np.array(rng.uniform(lb, ub, size=(1, )),
+                                dtype=np.float32)
+
+            place_on_bumpy_nsrt = NSRT("PlaceOnBumpy", parameters,
+                                       preconditions, add_effects,
+                                       delete_effects, set(), option,
+                                       option_vars, place_on_bumpy_sampler)
+            nsrts.add(place_on_bumpy_nsrt)
+
+            # Pick from bumpy region
+            parameters = [block]
+            preconditions = {
+                LiftedAtom(HandEmpty, handempty_predicate_args),
+                LiftedAtom(InBumpyRegion, [block])
+            }
+            add_effects = {
+                LiftedAtom(Holding, [block]),
+            }
+            delete_effects = {LiftedAtom(HandEmpty, handempty_predicate_args),
+                LiftedAtom(InBumpyRegion, [block])}
+            option = PickFromBumpy
+            option_vars = []
+
+            pick_from_bumpy_nsrt = NSRT("PickFromBumpy", parameters,
+                                       preconditions, add_effects,
+                                       delete_effects, set(), option,
+                                       option_vars, pick_sampler)
+            nsrts.add(pick_from_bumpy_nsrt)
+
 
         return nsrts

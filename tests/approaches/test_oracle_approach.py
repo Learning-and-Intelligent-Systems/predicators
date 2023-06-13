@@ -16,7 +16,7 @@ from predicators.envs.cluttered_table import ClutteredTableEnv, \
 from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.cover import BumpyCoverEnv, CoverEnv, \
     CoverEnvHierarchicalTypes, CoverEnvRegrasp, CoverEnvTypedOptions, \
-    CoverMultistepOptions
+    CoverMultistepOptions, RegionalBumpyCoverEnv
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.envs.narrow_passage import NarrowPassageEnv
@@ -49,6 +49,7 @@ ENV_NAME_AND_CLS = [
     ("cover_hierarchical_types", CoverEnvHierarchicalTypes),
     ("cover_regrasp", CoverEnvRegrasp), ("bumpy_cover", BumpyCoverEnv),
     ("cover_multistep_options", CoverMultistepOptions),
+    ("regional_bumpy_cover", RegionalBumpyCoverEnv),
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
     ("exit_garage", ExitGarageEnv), ("narrow_passage", NarrowPassageEnv),
@@ -115,7 +116,6 @@ EXTRA_ARGS_ORACLE_APPROACH["bumpy_cover"] = [
     },
     {
         "bumpy_cover_right_targets": False,
-        "bumpy_cover_bumpy_regional": True,
     },
 ]
 EXTRA_ARGS_ORACLE_APPROACH["cluttered_table"] = [

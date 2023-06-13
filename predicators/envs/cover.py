@@ -1008,6 +1008,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
     CoverEnvRegrasp.
     """
     _allow_free_space_placing: ClassVar[bool] = False
+    _bumps_regional: ClassVar[bool] = False
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -1041,7 +1042,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             target_ub = 1.0
             # If there is a special bumpy region, keep targets away from it
             # to make things simpler.
-            if CFG.bumpy_cover_bumpy_regional:
+            if self._bumps_regional:
                 target_ub = CFG.bumpy_cover_bumpy_region_start - width / 2
             while True:
                 pose = rng.uniform(width / 2, target_ub - width / 2)
@@ -1073,7 +1074,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
         for block in state.get_objects(self._block_type):
             pose = state.get(block, "pose")
             bumpy = abs(state.get(block, "bumpy") - 1.0) < 1e-3
-            in_bumpy_region = not CFG.bumpy_cover_bumpy_regional or \
+            in_bumpy_region = not self._bumps_regional or \
                 pose > CFG.bumpy_cover_bumpy_region_start
             if bumpy and in_bumpy_region:
                 # Evenly spaced intervals.
@@ -1096,6 +1097,28 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             hand_regions.append((left, right))
         return hand_regions
 
+
+class RegionalBumpyCoverEnv(BumpyCoverEnv):
+    """Variation of bumpy cover where bumpy appear only in a region."""
+    
+    _allow_free_space_placing: ClassVar[bool] = True
+    _bumps_regional: ClassVar[bool] = True
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Add InBumpyRegion predicate.
+        self._InBumpyRegion = Predicate("InBumpyRegion", [self._block_type],
+                                  self._InBumpyRegion_holds)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "regional_bumpy_cover"
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return super().predicates | {self._InBumpyRegion}
+
     def render_state_plt(
             self,
             state: State,
@@ -1103,8 +1126,14 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig = super().render_state_plt(state, task, action, caption)
-        if CFG.bumpy_cover_bumpy_regional:
-            x = CFG.bumpy_cover_bumpy_region_start
-            plt.plot([x, x], [-100, 100], color="gray", label="bump region lb")
-            plt.legend()
+        x = CFG.bumpy_cover_bumpy_region_start
+        plt.plot([x, x], [-100, 100], color="gray", label="bump region lb")
+        plt.legend()
         return fig
+
+    def _InBumpyRegion_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        if self._Holding_holds(state, objects):
+            return False
+        block, = objects
+        return state.get(block, "pose") > CFG.bumpy_cover_bumpy_region_start
+    
