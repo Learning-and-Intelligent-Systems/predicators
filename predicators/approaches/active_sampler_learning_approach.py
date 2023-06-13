@@ -82,6 +82,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert CFG.sampler_learner == "oracle"
 
         self._sampler_data: _SamplerDataset = {}
+        self._last_seen_segment_traj_idx = -1
 
     @classmethod
     def get_name(cls) -> str:
@@ -103,7 +104,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._learn_wrapped_samplers(online_learning_cycle)
 
     def _update_sampler_data(self) -> None:
-        for segmented_traj in self._segmented_trajs:
+        new_trajs = self._segmented_trajs[self._last_seen_segment_traj_idx:]
+        for segmented_traj in new_trajs:
+            self._last_seen_segment_traj_idx += 1
             for segment in segmented_traj:
                 s = segment.states[0]
                 o = segment.get_option()
