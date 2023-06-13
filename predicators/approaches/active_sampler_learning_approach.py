@@ -107,6 +107,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
     def _update_sampler_data(self) -> None:
         new_trajs = self._segmented_trajs[self._last_seen_segment_traj_idx:]
+        just_made_incorrect_pick = False
         for segmented_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             for segment in segmented_traj:
@@ -114,6 +115,25 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 o = segment.get_option()
                 ns = segment.states[-1]
                 success = self._check_option_success(o, segment)
+
+                if CFG.env == "bumpy_cover" and CFG.bumpy_cover_right_targets:
+                    # In bumpy cover with the 'bumpy_cover_right_targets'
+                    # flag set, picking from the left is bad and can potentially
+                    # lead to failures to place. We will say that picking from
+                    # left fails, and also skip adding all the subsequent
+                    # 'Place' actions.
+                    if o.name == "Pick":
+                        block = o.objects[0]
+                        block_center = s.get(block, "pose")
+                        block_width = s.get(block, "width")
+                        if block_center - block_width < o.params[
+                                0] < block_center:
+                            success = False
+                            just_made_incorrect_pick = True
+                        elif success:
+                            just_made_incorrect_pick = False
+                    if o.name == "Place" and just_made_incorrect_pick:
+                        continue
 
                 if CFG.active_sampler_learning_model == "myopic_classifier":
                     label: Any = success
