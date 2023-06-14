@@ -19,9 +19,9 @@ Bumpy cover easy:
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
-        --max_initial_demos 1 \
+        --max_initial_demos 0 \
         --num_train_tasks 1000 \
-        --num_test_tasks 10 \
+        --num_test_tasks 100 \
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1
@@ -36,9 +36,9 @@ Bumpy cover with shifted targets:
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
-        --max_initial_demos 1 \
+        --max_initial_demos 0 \
         --num_train_tasks 1000 \
-        --num_test_tasks 10 \
+        --num_test_tasks 100 \
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1 \
@@ -178,6 +178,13 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             nsrt.ignore_effects, nsrt.option, nsrt.option_vars,
                             sampler)
             new_nsrts.add(new_nsrt)
+        # Special case, especially on the first iteration: if there was no
+        # data for the sampler, then we didn't learn a wrapped sampler, so
+        # we should just use the original NSRT.
+        new_nsrt_options = {n.option for n in new_nsrts}
+        for old_nsrt in self._nsrts:
+            if old_nsrt.option not in new_nsrt_options:
+                new_nsrts.add(old_nsrt)
         self._nsrts = new_nsrts
         # Re-save the NSRTs now that we've updated them.
         save_path = utils.get_approach_save_path_str()
@@ -325,6 +332,10 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         if self._nsrt_score_fns is None:
             return 0.0  # initialize to 0.0
         ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
+        # Special case: we haven't seen any data for the parent NSRT, so we
+        # haven't learned a score function for it.
+        if ground_nsrt.parent not in self._nsrt_score_fns:
+            return 0.0
         score_fn = self._nsrt_score_fns[ground_nsrt.parent]
         return score_fn(state, ground_nsrt.objects, [option.params])[0]
 

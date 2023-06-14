@@ -105,7 +105,13 @@ def learn_nsrts_from_data(
     del ground_atom_dataset
 
     # STEP 3: Learn options (option_learning.py) and update PNADs.
-    _learn_pnad_options(pnads, known_options, action_space)  # in-place update
+    # In the special case where all NSRT learning components are oracle, skip
+    # this step, because there may be empty PNADs, and option learning assumes
+    # in several places that the PNADs are not empty.
+    if CFG.strips_learner != "oracle" or CFG.sampler_learner != "oracle" or \
+       CFG.option_learner != "no_learning":
+        # Updates the PNADs in-place.
+        _learn_pnad_options(pnads, known_options, action_space)
 
     # STEP 4: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
