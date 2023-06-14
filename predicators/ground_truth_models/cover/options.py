@@ -46,6 +46,88 @@ class CoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {PickPlace}
 
 
+class BumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the bumpy cover environment."""
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"bumpy_cover"}
+
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
+
+        def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                    params: Array) -> Action:
+            del state, memory, objects  # unused
+            return Action(params)  # action is simply the parameter
+
+        block_type = types["block"]
+        target_type = types["target"]
+
+        Pick = utils.SingletonParameterizedOption("Pick",
+                                                  _policy,
+                                                  types=[block_type],
+                                                  params_space=Box(
+                                                      0, 1, (1, )))
+
+        Place = utils.SingletonParameterizedOption(
+            "Place",
+            _policy,
+            types=[block_type, target_type],
+            params_space=Box(0, 1, (1, )))
+
+        return {Pick, Place}
+
+
+class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
+    """Ground-truth options for the regional bumpy cover environment."""
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"regional_bumpy_cover"}
+
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
+
+        def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                    params: Array) -> Action:
+            del state, memory, objects  # unused
+            return Action(params)  # action is simply the parameter
+
+        block_type = types["block"]
+        target_type = types["target"]
+
+        PickFromSmooth = utils.SingletonParameterizedOption("PickFromSmooth",
+                                                            _policy,
+                                                            types=[block_type],
+                                                            params_space=Box(
+                                                                0, 1, (1, )))
+
+        PickFromBumpy = utils.SingletonParameterizedOption("PickFromBumpy",
+                                                           _policy,
+                                                           types=[block_type],
+                                                           params_space=Box(
+                                                               0, 1, (1, )))
+
+        PlaceOnTarget = utils.SingletonParameterizedOption(
+            "PlaceOnTarget",
+            _policy,
+            types=[block_type, target_type],
+            params_space=Box(0, 1, (1, )))
+
+        PlaceOnBumpy = utils.SingletonParameterizedOption("PlaceOnBumpy",
+                                                          _policy,
+                                                          types=[block_type],
+                                                          params_space=Box(
+                                                              0, 1, (1, )))
+
+        return {PickFromSmooth, PickFromBumpy, PlaceOnTarget, PlaceOnBumpy}
+
+
 class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the cover_typed_options environment."""
 
