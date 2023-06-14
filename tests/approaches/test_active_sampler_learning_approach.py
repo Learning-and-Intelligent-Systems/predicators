@@ -16,7 +16,7 @@ from predicators.teacher import Teacher
 @pytest.mark.parametrize("model_name,right_targets,num_demo",
                          [("myopic_classifier", False, 0),
                           ("myopic_classifier", True, 1),
-                          ("fitted_q", False, 0), ("fitted_q", True, 1)])
+                          ("fitted_q", False, 0), ("fitted_q", True, 0)])
 def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
