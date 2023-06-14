@@ -4,7 +4,6 @@ import pytest
 from predicators import utils
 from predicators.approaches.active_sampler_learning_approach import \
     ActiveSamplerLearningApproach
-from predicators.approaches.base_approach import ApproachFailure
 from predicators.datasets import create_dataset
 from predicators.envs.cover import BumpyCoverEnv
 from predicators.ground_truth_models import get_gt_options
@@ -63,13 +62,10 @@ def test_active_sampler_learning_approach(model_name, right_targets):
     with pytest.raises(FileNotFoundError):
         approach.load(online_learning_cycle=1)
     for task in env.get_test_tasks():
-        try:
-            policy = approach.solve(task, timeout=CFG.timeout)
-            # We won't fully check the policy here because we don't want
-            # tests to have to train very good models, since that would
-            # be slow. But we will test that the policy at least produces
-            # an action.
-            action = policy(task.init)
-            assert env.action_space.contains(action.arr)
-        except ApproachFailure as e:
-            assert "Planning ran out of skeletons!" in str(e)
+        policy = approach.solve(task, timeout=CFG.timeout)
+        # We won't fully check the policy here because we don't want
+        # tests to have to train very good models, since that would
+        # be slow. But we will test that the policy at least produces
+        # an action.
+        action = policy(task.init)
+        assert env.action_space.contains(action.arr)

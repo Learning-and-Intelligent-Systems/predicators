@@ -8,14 +8,14 @@ from predicators import utils
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
     CoverMultistepOptions
-from predicators.ground_truth_models import get_gt_options
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.structs import Action, EnvironmentTask
 
 
 @pytest.mark.parametrize("env_name", ["cover", "cover_handempty"])
 def test_cover(env_name):
     """Tests for CoverEnv class."""
-    utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
+    utils.reset_config({"env": env_name, "cover_initial_holding_prob": 0.0})
     env = create_new_env(env_name)
     for task in env.get_train_tasks():
         for obj in task.init:
@@ -660,3 +660,60 @@ def test_cover_multistep_options():
     assert thr_found
     # Assert off-center hand region
     assert abs(m - tx) > tw / 5
+
+
+def test_regional_bumpy_cover_env():
+    """Test coverage for RegionalBumpyCoverEnv."""
+    env_name = "regional_bumpy_cover"
+    utils.reset_config({
+        "env": env_name,
+        "bumpy_cover_init_bumpy_prob": 1.0,
+        "bumpy_cover_bumpy_region_start": 0.5,
+    })
+    env = create_new_env(env_name)
+    for task in env.get_train_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    for task in env.get_test_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding,
+    # Clear, InBumpyRegion, InSmoothRegion}.
+    assert len(env.predicates) == 8
+    # Goal predicates should be {Covers}.
+    assert {pred.name for pred in env.goal_predicates} == {"Covers"}
+    # Options should be {PickFromBumpy, PickFromSmooth, PlaceOnTarget,
+    # PlaceOnBumpy}.
+    options = get_gt_options(env.get_name())
+    assert len(options) == 4
+    # Types should be {block, target, robot}
+    assert len(env.types) == 3
+    # Action space should be 1-dimensional.
+    assert env.action_space == Box(0, 1, (1, ))
+    # Cover rendering.
+    task = env.get_train_tasks()[0].task
+    state = task.init
+    env.render_state(state, task, caption="caption")
+    # Create a state where a block is held.
+    block_type = [t for t in env.types if t.name == "block"][0]
+    block = [
+        b for b in state.get_objects(block_type) if state.get(b, "bumpy") < 0.5
+    ][0]
+    block_pose = state.get(block, "pose")
+    action = Action(np.array([block_pose], dtype=np.float32))
+    held_state = env.simulate(state, action)
+    # InSmoothRegion and InBumpyRegion should be false.
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+    Holding = pred_name_to_pred["Holding"]
+    InSmoothRegion = pred_name_to_pred["InSmoothRegion"]
+    InBumpyRegion = pred_name_to_pred["InBumpyRegion"]
+    assert Holding.holds(held_state, [block])
+    assert not InSmoothRegion.holds(held_state, [block])
+    assert not InBumpyRegion.holds(held_state, [block])
+    # Test PlaceOnBumpy NSRT because it's never used in oracle planning.
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    PlaceOnBumpy = [n for n in nsrts if n.name == "PlaceOnBumpy"][0]
+    ground_nsrt = PlaceOnBumpy.ground([block])
+    rng = np.random.default_rng(123)
+    option = ground_nsrt.sample_option(held_state, set(), rng)
+    assert option.params[0] > 0.5
