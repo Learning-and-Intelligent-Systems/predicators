@@ -36,6 +36,7 @@ class BilevelPlanningExplorer(BaseExplorer):
         seed = self._seed + self._num_calls
         # Note: subclasses are responsible for catching PlanningFailure and
         # PlanningTimeout and handling them accordingly.
+        assert not CFG.bilevel_plan_without_sim
         plan, _, _ = sesame_plan(
             task,
             self._option_model,
