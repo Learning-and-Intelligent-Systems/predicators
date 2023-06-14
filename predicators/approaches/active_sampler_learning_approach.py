@@ -21,7 +21,7 @@ Bumpy cover easy:
         --explorer random_nsrts \
         --max_initial_demos 0 \
         --num_train_tasks 1000 \
-        --num_test_tasks 10 \
+        --num_test_tasks 100 \
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1
@@ -38,7 +38,7 @@ Bumpy cover with shifted targets:
         --explorer random_nsrts \
         --max_initial_demos 0 \
         --num_train_tasks 1000 \
-        --num_test_tasks 10 \
+        --num_test_tasks 100 \
         --max_num_steps_interaction_request 4 \
         --bumpy_cover_num_bumps 2 \
         --bumpy_cover_spaces_per_bump 1 \
@@ -332,6 +332,10 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         if self._nsrt_score_fns is None:
             return 0.0  # initialize to 0.0
         ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
+        # Special case: we haven't seen any data for the parent NSRT, so we
+        # haven't learned a score function for it.
+        if ground_nsrt.parent not in self._nsrt_score_fns:
+            return 0.0
         score_fn = self._nsrt_score_fns[ground_nsrt.parent]
         return score_fn(state, ground_nsrt.objects, [option.params])[0]
 
