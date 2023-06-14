@@ -394,8 +394,6 @@ class SpotEnv(BaseEnv):
             if obj.name == "spot":
                 robot = obj
                 continue
-            if obj.name == "floor":
-                continue
             pos = (init.get(obj, "x"), init.get(obj, "y"), init.get(obj, "z"))
             objects_in_view[obj] = pos
         assert robot is not None
@@ -442,7 +440,7 @@ class SpotBikeEnv(SpotEnv):
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
         self._bag_type = Type("bag", ["x", "y", "z"])
         self._platform_type = Type("platform", ["x", "y", "z"])
-        self._floor_type = Type("floor", [])
+        self._floor_type = Type("floor", ["x", "y", "z"])
 
         # Predicates
         # Note that all classifiers assigned here just directly use

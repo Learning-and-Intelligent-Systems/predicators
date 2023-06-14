@@ -241,48 +241,6 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def helper_find_object(
-        self,
-        obj_name_to_find: Optional[str] = None
-    ) -> Dict[int, Tuple[float, float, float]]:
-        """Walks around and spins around to find object poses by apriltag.
-        If obj_name_to_find is None is will walk around till completion,
-        and return all the objects it has found.
-        """
-        obj_poses: Dict[int, Tuple[float, float, float]] = {}
-        angles = [(np.cos(np.pi / 8), 0.0, np.sin(np.pi / 8), 0.0),
-                  (np.cos(np.pi / 4), 0.0, np.sin(np.pi / 4), 0.0)]
-        if obj_name_to_find is not None:
-            tag_id = obj_name_to_apriltag_id[obj_name_to_find]
-        else:
-            tag_id = None
-        for _ in range(8):
-            # Look via hand at differnt angles.
-            for angle in angles:
-                self.hand_movement(np.array([-0.2, 0.0, -0.25]),
-                                   keep_hand_pose=False,
-                                   angle=angle)
-                obj_poses.update(self.get_apriltag_pose_from_camera())
-                apriltag_id_to_obj_poses.update(obj_poses)
-                if tag_id is not None and tag_id in obj_poses:
-                    return {tag_id: obj_poses[tag_id]}
-            self.stow_arm()
-            # Look via body cameras.
-            for source_name in [
-                    "hand_color_image", "left_fisheye_image",
-                    "back_fisheye_image"
-            ]:
-                viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                    source_name=source_name)
-                obj_poses.update(viewable_obj_poses)
-                apriltag_id_to_obj_poses.update(obj_poses)
-                if tag_id is not None and tag_id in obj_poses:
-                    return {tag_id: obj_poses[tag_id]}
-            # Rotate
-            self.relative_move(0.0, 0.0, np.pi / 4)
-        apriltag_id_to_obj_poses.update(obj_poses)
-        return obj_poses
-
     def get_camera_images(self) -> Dict[str, Image]:
         """Get all camera images."""
         camera_images: Dict[str, Image] = {}
@@ -522,10 +480,16 @@ class _SpotInterface():
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
+        # TODO Move to moveController
         if "_table" in objs[2].name:
             self.hand_movement(params[:3],
                                keep_hand_pose=False,
                                angle=(np.cos(np.pi / 8), 0, np.sin(np.pi / 8),
+                                      0))
+        elif "floor" in objs[2].name:
+            self.hand_movement(params[:3],
+                               keep_hand_pose=False,
+                               angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4),
                                       0))
         self.arm_object_grasp(objs[1])
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
@@ -1055,6 +1019,49 @@ class _SpotInterface():
             logging.info("Timed out waiting for movement to execute!")
         return False
     
+    def helper_find_object(
+        self,
+        obj_name_to_find: Optional[str] = None
+    ) -> Dict[int, Tuple[float, float, float]]:
+        """Walks around and spins around to find object poses by apriltag.
+        If obj_name_to_find is None is will walk around till completion,
+        and return all the objects it has found.
+        """
+        obj_poses: Dict[int, Tuple[float, float, float]] = {}
+        angles = [(np.cos(np.pi / 8), 0.0, np.sin(np.pi / 8), 0.0),
+                  (np.cos(np.pi / 4), 0.0, np.sin(np.pi / 4), 0.0)]
+        if obj_name_to_find is not None:
+            tag_id = obj_name_to_apriltag_id[obj_name_to_find]
+        else:
+            tag_id = None
+        for _ in range(8):
+            # Look via hand at differnt angles.
+            for angle in angles:
+                self.hand_movement(np.array([-0.2, 0.0, -0.25]),
+                                   keep_hand_pose=False,
+                                   angle=angle)
+                obj_poses.update(self.get_apriltag_pose_from_camera())
+                apriltag_id_to_obj_poses.update(obj_poses)
+                if tag_id is not None and tag_id in obj_poses:
+                    return {tag_id: obj_poses[tag_id]}
+            self.stow_arm()
+            # Look via body cameras.
+            for source_name in [
+                    "hand_color_image", "left_fisheye_image",
+                    "back_fisheye_image"
+            ]:
+                viewable_obj_poses = self.get_apriltag_pose_from_camera(
+                    source_name=source_name)
+                obj_poses.update(viewable_obj_poses)
+                apriltag_id_to_obj_poses.update(obj_poses)
+                if tag_id is not None and tag_id in obj_poses:
+                    return {tag_id: obj_poses[tag_id]}
+            # Rotate
+            self.relative_move(0.0, 0.0, np.pi / 4)
+        apriltag_id_to_obj_poses.update(obj_poses)
+        return obj_poses
+
+
     def navigate_to_obj(self, obj: Object, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to an object."""
         # pylint: disable=broad-except
@@ -1093,10 +1100,25 @@ class _SpotInterface():
                 body_tform_fiducial[0], body_tform_fiducial[1],
                 body_tform_fiducial[2]
             ]
-            self.relative_move(obj_x + params[0], obj_y + params[1],
-                               obj_z + params[2])
+
+            spot_xy = np.array([0.0, 0.0])
+            obj = np.array([obj_x, obj_y])
+            distance = np.linalg.norm(obj - spot_xy)
+            unit_vector = (obj - spot_xy) / distance
+
+            move_distance = 1
+            new_xy = spot_xy + unit_vector * (distance - move_distance)
+
+            # Find the angle change needed to look at object
+            angle = np.arccos(np.clip(np.dot(np.array([1.0, 0.0]), obj), -1.0, 1.0))
+            # TODO Check which direction with allclose
+            # if not np.allclose(obj, [np.sin(angle), np.cos(angle)]):
+            #     angle = -angle
+
+            self.relative_move(new_xy[0] + params[0], new_xy[1] + params[1], angle + params[2])
 
         except Exception as e:
+            import ipdb; ipdb.set_trace()
             logging.info(e)
 
 
