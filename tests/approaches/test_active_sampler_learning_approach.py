@@ -13,11 +13,11 @@ from predicators.structs import Dataset
 from predicators.teacher import Teacher
 
 
-@pytest.mark.parametrize("model_name,right_targets",
-                         [("myopic_classifier", False),
-                          ("myopic_classifier", True), ("fitted_q", False),
-                          ("fitted_q", True)])
-def test_active_sampler_learning_approach(model_name, right_targets):
+@pytest.mark.parametrize("model_name,right_targets,num_demo",
+                         [("myopic_classifier", False, 0),
+                          ("myopic_classifier", True, 1),
+                          ("fitted_q", False, 0), ("fitted_q", True, 0)])
+def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
         "env": "bumpy_cover",
@@ -33,6 +33,7 @@ def test_active_sampler_learning_approach(model_name, right_targets):
         "sampler_mlp_classifier_max_itr": 10,
         "mlp_regressor_max_itr": 10,
         "num_train_tasks": 3,
+        "max_initial_demos": num_demo,
         "num_test_tasks": 1,
         "explorer": "random_nsrts",
         "active_sampler_learning_num_samples": 5,
