@@ -1,6 +1,7 @@
 """Ground-truth models for cover environment and variants."""
 
-from .nsrts import CoverGroundTruthNSRTFactory
+from .nsrts import CoverGroundTruthNSRTFactory, \
+    RegionalBumpyCoverGroundTruthNSRTFactory
 from .options import BumpyCoverGroundTruthOptionFactory, \
     CoverGroundTruthOptionFactory, \
     CoverMultiStepOptionsGroundTruthOptionFactory, \
@@ -12,5 +13,6 @@ __all__ = [
     "CoverMultiStepOptionsGroundTruthOptionFactory",
     "CoverTypedOptionsGroundTruthOptionFactory",
     "PyBulletCoverGroundTruthOptionFactory",
-    "BumpyCoverGroundTruthOptionFactory"
+    "BumpyCoverGroundTruthOptionFactory",
+    "RegionalBumpyCoverGroundTruthNSRTFactory"
 ]

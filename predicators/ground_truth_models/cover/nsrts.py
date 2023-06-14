@@ -316,3 +316,160 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             nsrts.add(place_on_table_nsrt)
 
         return nsrts
+
+
+class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
+    """Ground-truth NSRTs for the RegionalBumpyCoverEnv."""
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"regional_bumpy_cover"}
+
+    @staticmethod
+    def get_nsrts(env_name: str, types: Dict[str, Type],
+                  predicates: Dict[str, Predicate],
+                  options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
+        # Types
+        block_type = types["block"]
+        target_type = types["target"]
+
+        # Objects
+        block = Variable("?block", block_type)
+        target = Variable("?target", target_type)
+
+        # Predicates
+        Covers = predicates["Covers"]
+        HandEmpty = predicates["HandEmpty"]
+        Holding = predicates["Holding"]
+        Clear = predicates["Clear"]
+        InBumpyRegion = predicates["InBumpyRegion"]
+        InSmoothRegion = predicates["InSmoothRegion"]
+
+        # Options
+        PickFromSmooth = options["PickFromSmooth"]
+        PickFromBumpy = options["PickFromBumpy"]
+        PlaceOnTarget = options["PlaceOnTarget"]
+        PlaceOnBumpy = options["PlaceOnBumpy"]
+
+        nsrts = set()
+
+        # Pick from smooth region
+        parameters = [block]
+        preconditions = {
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(InSmoothRegion, [block])
+        }
+        add_effects = {
+            LiftedAtom(Holding, [block]),
+        }
+        delete_effects = {
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(InSmoothRegion, [block])
+        }
+        option = PickFromSmooth
+        option_vars = parameters
+
+        def pick_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object]) -> Array:
+            del goal  # unused
+            b, = objs
+            assert b.is_instance(block_type)
+            lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
+            lb = max(lb, 0.0)
+            ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
+            ub = min(ub, 1.0)
+            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+
+        pick_from_smooth_nsrt = NSRT("PickFromSmooth", parameters,
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, pick_sampler)
+        nsrts.add(pick_from_smooth_nsrt)
+
+        # Pick from bumpy region
+        parameters = [block]
+        preconditions = {
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(InBumpyRegion, [block])
+        }
+        add_effects = {
+            LiftedAtom(Holding, [block]),
+        }
+        delete_effects = {
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(InBumpyRegion, [block])
+        }
+        option = PickFromBumpy
+        option_vars = parameters
+
+        pick_from_bumpy_nsrt = NSRT("PickFromBumpy", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    set(), option, option_vars, pick_sampler)
+        nsrts.add(pick_from_bumpy_nsrt)
+
+        # Place on target
+        parameters = [block, target]
+        preconditions = {
+            LiftedAtom(Holding, [block]),
+            LiftedAtom(Clear, [target]),
+        }
+        add_effects = {
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(InSmoothRegion, [block]),
+            LiftedAtom(Covers, [block, target]),
+        }
+        delete_effects = {
+            LiftedAtom(Holding, [block]),
+            LiftedAtom(Clear, [target])
+        }
+        option = PlaceOnTarget
+        option_vars = parameters
+
+        def place_on_target_sampler(state: State, goal: Set[GroundAtom],
+                                    rng: np.random.Generator,
+                                    objs: Sequence[Object]) -> Array:
+            del goal  # unused
+            _, t = objs
+            assert t.is_instance(target_type)
+            center = float(state.get(t, "pose"))
+            if CFG.bumpy_cover_right_targets:
+                center += 3 * state.get(t, "width") / 4
+            lb = center - state.get(t, "width") / 2
+            ub = center + state.get(t, "width") / 2
+            lb = max(lb, 0.0)
+            ub = min(ub, 1.0)
+            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+
+        place_on_target_nsrt = NSRT("PlaceOnTarget", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    set(), option, option_vars,
+                                    place_on_target_sampler)
+        nsrts.add(place_on_target_nsrt)
+
+        # Place in bumpy region. Note that targets are never in bumpy regions.
+        parameters = [block]
+        preconditions = {LiftedAtom(Holding, [block])}
+        add_effects = {
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(InBumpyRegion, [block])
+        }
+        delete_effects = {LiftedAtom(Holding, [block])}
+        option = PlaceOnBumpy
+        option_vars = parameters
+
+        def place_on_bumpy_sampler(state: State, goal: Set[GroundAtom],
+                                   rng: np.random.Generator,
+                                   objs: Sequence[Object]) -> Array:
+            del state, objs, goal  # unused
+            lb = CFG.bumpy_cover_bumpy_region_start
+            ub = 1.0
+            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+
+        place_on_bumpy_nsrt = NSRT("PlaceOnBumpy", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   set(), option, option_vars,
+                                   place_on_bumpy_sampler)
+        nsrts.add(place_on_bumpy_nsrt)
+
+        return nsrts
