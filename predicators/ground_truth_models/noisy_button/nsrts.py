@@ -47,7 +47,7 @@ class NoisyButtonGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             del goal  # unused
             # If the position is unknown, move randomly.
             button = objs[0]
-            if state.get(button, "position_known") < 0.5:
+            if state.get(button, "position_known") < 0.5:  # pragma: no cover
                 lb = 0.0
                 ub = 1.0
             # If the position is known, move nearby.

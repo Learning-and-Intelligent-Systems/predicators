@@ -27,7 +27,7 @@ def _get_wrapper_cls_from_name(name: str) -> TypeType[BaseApproachWrapper]:
     for cls in utils.get_all_subclasses(BaseApproachWrapper):
         if not cls.__abstractmethods__ and cls.get_name() == name:
             return cls
-    raise NotImplementedError(f"Unknown approach: {name}")
+    raise NotImplementedError(f"Unknown wrapper approach: {name}")
 
 
 def create_approach(name: str, initial_predicates: Set[Predicate],
