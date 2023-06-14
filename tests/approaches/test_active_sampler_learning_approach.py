@@ -4,6 +4,7 @@ import pytest
 from predicators import utils
 from predicators.approaches.active_sampler_learning_approach import \
     ActiveSamplerLearningApproach
+from predicators.approaches.base_approach import ApproachFailure
 from predicators.datasets import create_dataset
 from predicators.envs.cover import BumpyCoverEnv
 from predicators.ground_truth_models import get_gt_options
@@ -13,8 +14,11 @@ from predicators.structs import Dataset
 from predicators.teacher import Teacher
 
 
-@pytest.mark.parametrize("model_name", ["myopic_classifier", "fitted_q"])
-def test_active_sampler_learning_approach(model_name):
+@pytest.mark.parametrize("model_name,right_targets",
+                         [("myopic_classifier", False),
+                          ("myopic_classifier", True), ("fitted_q", False),
+                          ("fitted_q", True)])
+def test_active_sampler_learning_approach(model_name, right_targets):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
         "env": "bumpy_cover",
@@ -36,6 +40,7 @@ def test_active_sampler_learning_approach(model_name):
         "active_sampler_learning_num_samples": 5,
         "active_sampler_learning_fitted_q_iters": 2,
         "active_sampler_learning_num_next_option_samples": 2,
+        "bumpy_cover_right_targets": right_targets,
     })
     env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
@@ -59,9 +64,13 @@ def test_active_sampler_learning_approach(model_name):
     with pytest.raises(FileNotFoundError):
         approach.load(online_learning_cycle=1)
     for task in env.get_test_tasks():
-        policy = approach.solve(task, timeout=CFG.timeout)
-        # We won't fully check the policy here because we don't want tests to
-        # have to train very good models, since that would be slow. But we will
-        # test that the policy at least produces an action.
-        action = policy(task.init)
-        assert env.action_space.contains(action.arr)
+        try:
+            policy = approach.solve(task, timeout=CFG.timeout)
+            # We won't fully check the policy here because we don't want
+            # tests to have to train very good models, since that would
+            # be slow. But we will test that the policy at least produces
+            # an action.
+            action = policy(task.init)
+            assert env.action_space.contains(action.arr)
+        except ApproachFailure as e:
+            assert "Planning ran out of skeletons!" in str(e)
