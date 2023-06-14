@@ -341,13 +341,14 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Covers = predicates["Covers"]
         HandEmpty = predicates["HandEmpty"]
         Holding = predicates["Holding"]
+        Clear = predicates["Clear"]
         InBumpyRegion = predicates["InBumpyRegion"]
         InSmoothRegion = predicates["InSmoothRegion"]
 
         # Options
         PickFromSmooth = options["PickFromSmooth"]
         PickFromBumpy = options["PickFromBumpy"]
-        PlaceOnSmooth = options["PlaceOnSmooth"]
+        PlaceOnTarget = options["PlaceOnTarget"]
         PlaceOnBumpy = options["PlaceOnBumpy"]
 
         nsrts = set()
@@ -407,30 +408,44 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                     set(), option, option_vars, pick_sampler)
         nsrts.add(pick_from_bumpy_nsrt)
 
-        # Place in smooth region
-        parameters = [block]
-        preconditions = {LiftedAtom(Holding, [block])}
+        # Place on target
+        parameters = [block, target]
+        preconditions = {
+            LiftedAtom(Holding, [block]),
+            LiftedAtom(Clear, [target]),
+        }
         add_effects = {
             LiftedAtom(HandEmpty, []),
-            LiftedAtom(InSmoothRegion, [block])
+            LiftedAtom(InSmoothRegion, [block]),
+            LiftedAtom(Covers, [block, target]),
         }
-        delete_effects = {LiftedAtom(Holding, [block])}
-        option = PlaceOnSmooth
+        delete_effects = {
+            LiftedAtom(Holding, [block]),
+            LiftedAtom(Clear, [target])
+        }
+        option = PlaceOnTarget
         option_vars = parameters
 
-        def place_on_smooth_sampler(state: State, goal: Set[GroundAtom],
+        def place_on_target_sampler(state: State, goal: Set[GroundAtom],
                                     rng: np.random.Generator,
                                     objs: Sequence[Object]) -> Array:
             del goal  # unused
-            lb = 0.0
-            ub = CFG.bumpy_cover_bumpy_region_start
+            _, t = objs
+            assert t.is_instance(target_type)
+            center = float(state.get(t, "pose"))
+            if CFG.bumpy_cover_right_targets:
+                center += 3 * state.get(t, "width") / 4
+            lb = center - state.get(t, "width") / 2
+            ub = center + state.get(t, "width") / 2
+            lb = max(lb, 0.0)
+            ub = min(ub, 1.0)
             return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
 
-        place_on_smooth_nsrt = NSRT("PlaceOnSmooth", parameters,
+        place_on_target_nsrt = NSRT("PlaceOnTarget", parameters,
                                     preconditions, add_effects, delete_effects,
                                     set(), option, option_vars,
-                                    place_on_smooth_sampler)
-        nsrts.add(place_on_smooth_nsrt)
+                                    place_on_target_sampler)
+        nsrts.add(place_on_target_nsrt)
 
         # Place in bumpy region
         parameters = [block]
@@ -446,7 +461,7 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def place_on_bumpy_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
-            del goal  # unused
+            del state, objs, goal  # unused
             lb = CFG.bumpy_cover_bumpy_region_start
             ub = 1.0
             return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)

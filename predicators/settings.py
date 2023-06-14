@@ -68,6 +68,7 @@ class GlobalSettings:
     bumpy_cover_spaces_per_bump = 1
     bumpy_cover_right_targets = False
     bumpy_cover_bumpy_region_start = 0.8
+    bumpy_cover_init_bumpy_prob = 0.5
 
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]

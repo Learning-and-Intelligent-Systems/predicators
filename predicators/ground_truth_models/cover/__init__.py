@@ -13,5 +13,6 @@ __all__ = [
     "CoverMultiStepOptionsGroundTruthOptionFactory",
     "CoverTypedOptionsGroundTruthOptionFactory",
     "PyBulletCoverGroundTruthOptionFactory",
-    "BumpyCoverGroundTruthOptionFactory"
+    "BumpyCoverGroundTruthOptionFactory",
+    "RegionalBumpyCoverGroundTruthNSRTFactory"
 ]

@@ -1055,7 +1055,13 @@ class BumpyCoverEnv(CoverEnvRegrasp):
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):
             while True:
-                pose = rng.uniform(width / 2, 1.0 - width / 2)
+                bp = CFG.bumpy_cover_init_bumpy_prob
+                if self._bumps_regional and rng.uniform() < bp:
+                    lb = max(width / 2, CFG.bumpy_cover_bumpy_region_start)
+                else:
+                    lb = width / 2
+                ub = 1.0 - width / 2
+                pose = rng.uniform(lb, ub)
                 if not self._any_intersection(pose, width, data):
                     break
             # [is_block, is_target, width, pose, grasp, bumpy]

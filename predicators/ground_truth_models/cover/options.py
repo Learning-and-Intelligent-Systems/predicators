@@ -113,8 +113,8 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                                                            params_space=Box(
                                                                0, 1, (1, )))
 
-        PlaceOnSmooth = utils.SingletonParameterizedOption(
-            "PlaceOnSmooth",
+        PlaceOnTarget = utils.SingletonParameterizedOption(
+            "PlaceOnTarget",
             _policy,
             types=[block_type, target_type],
             params_space=Box(0, 1, (1, )))
@@ -125,7 +125,7 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                                                           params_space=Box(
                                                               0, 1, (1, )))
 
-        return {PickFromSmooth, PickFromBumpy, PlaceOnSmooth, PlaceOnBumpy}
+        return {PickFromSmooth, PickFromBumpy, PlaceOnTarget, PlaceOnBumpy}
 
 
 class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
