@@ -23,6 +23,7 @@ def test_basic_mlp_regressor():
     model = MLPRegressor(seed=123,
                          hid_sizes=[32, 32],
                          max_train_iters=100,
+                         n_iter_no_change=1000,
                          clip_gradients=True,
                          clip_value=5,
                          learning_rate=1e-3)
@@ -241,6 +242,8 @@ def test_mlp_classifier():
     assert not prediction
     prediction = model.classify(np.ones(input_size))
     assert not prediction
+    proba = model.predict_proba(np.zeros(input_size))
+    assert abs(proba - 0.0) < 1e-6
     # Test with no negative examples.
     y = np.ones(len(X))
     model = MLPBinaryClassifier(seed=123,
@@ -259,6 +262,8 @@ def test_mlp_classifier():
     assert prediction
     prediction = model.classify(np.ones(input_size))
     assert prediction
+    proba = model.predict_proba(np.zeros(input_size))
+    assert abs(proba - 1.0) < 1e-6
     # Test with non-default weight initialization.
     X = np.concatenate([
         np.zeros((num_class_samples, input_size)),

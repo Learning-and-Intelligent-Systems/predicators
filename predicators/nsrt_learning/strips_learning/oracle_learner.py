@@ -27,6 +27,13 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                 option_spec = (DummyOption.parent, [])
             pnads.append(PNAD(nsrt.op, datastore, option_spec))
         self._recompute_datastores_from_segments(pnads)
+        # If we are using oracle sampler and option learning in addition to
+        # oracle strips learning, then we do not need to filter out PNADs with
+        # no data. But if we are sampler learning, we do need to filter,
+        # because sampler learning will crash if there are PNADs without data.
+        if CFG.sampler_learner == "oracle" and \
+           CFG.option_learner == "no_learning":
+            return pnads
         # Filter out any pnad that has an empty datastore. This can occur when
         # using non-standard settings with environments that cause certain
         # operators to be unnecessary. For example, in painting, when using

@@ -84,6 +84,7 @@ class RandomNSRTsExplorer(BaseExplorer):
                                                    goal=task.goal,
                                                    rng=self._rng)
                 cur_option = option
+                assert cur_option.initiable(state)
 
             act = cur_option.policy(state)
             return act
