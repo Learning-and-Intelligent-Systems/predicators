@@ -19,7 +19,7 @@ Bumpy cover easy:
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
-        --max_initial_demos 1 \
+        --max_initial_demos 0 \
         --num_train_tasks 1000 \
         --num_test_tasks 10 \
         --max_num_steps_interaction_request 4 \
@@ -36,7 +36,7 @@ Bumpy cover with shifted targets:
         --bilevel_plan_without_sim True \
         --offline_data_bilevel_plan_without_sim False \
         --explorer random_nsrts \
-        --max_initial_demos 1 \
+        --max_initial_demos 0 \
         --num_train_tasks 1000 \
         --num_test_tasks 10 \
         --max_num_steps_interaction_request 4 \
@@ -157,6 +157,13 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             nsrt.ignore_effects, nsrt.option, nsrt.option_vars,
                             sampler)
             new_nsrts.add(new_nsrt)
+        # Special case, especially on the first iteration: if there was no
+        # data for the sampler, then we didn't learn a wrapped sampler, so
+        # we should just use the original NSRT.
+        new_nsrt_options = {n.option for n in new_nsrts}
+        for old_nsrt in self._nsrts:
+            if old_nsrt.option not in new_nsrt_options:
+                new_nsrts.add(old_nsrt)
         self._nsrts = new_nsrts
         # Re-save the NSRTs now that we've updated them.
         save_path = utils.get_approach_save_path_str()
