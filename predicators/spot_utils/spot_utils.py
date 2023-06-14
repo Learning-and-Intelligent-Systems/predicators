@@ -76,8 +76,6 @@ obj_name_to_apriltag_id = {
     "floor": 0
 }
 
-apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {}
-
 OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
     "hammer": (160, 450, 160, 350),
@@ -551,9 +549,6 @@ class _SpotInterface():
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
                 self.relative_move(0.0, 0.0, np.pi / 4)
-        apriltag_id_to_obj_poses.update(
-            {obj_name_to_apriltag_id[k]: v
-             for k, v in obj_poses.items()})
         return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
@@ -870,6 +865,7 @@ class _SpotInterface():
             x = params[0]  # dx hand
             y = params[1]
             z = params[2]
+            import ipdb; ipdb.set_trace()
         else:
             hand_x, hand_y, hand_z = [self.hand_x, self.hand_y, self.hand_z]
             # Build a position to move the arm to (in meters, relative to and
