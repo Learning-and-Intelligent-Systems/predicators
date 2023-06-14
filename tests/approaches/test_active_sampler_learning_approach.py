@@ -30,6 +30,7 @@ def test_active_sampler_learning_approach(model_name):
         "sampler_mlp_classifier_max_itr": 10,
         "mlp_regressor_max_itr": 10,
         "num_train_tasks": 3,
+        "max_initial_demos": 0,
         "num_test_tasks": 1,
         "explorer": "random_nsrts",
         "active_sampler_learning_num_samples": 5,
