@@ -316,6 +316,19 @@ def test_oracle_samplers():
                    num_train_tasks=3)
 
 
+def test_full_oracle_no_data():
+    """Test NSRTLearningApproach with oracle everything and no data."""
+    # Oracle sampler learning should work (and be fast) in cover and blocks.
+    # We can even check that the policy succeeds!
+    _test_approach(env_name="cover",
+                   approach_name="nsrt_learning",
+                   strips_learner="oracle",
+                   sampler_learner="oracle",
+                   offline_data_method="demo",
+                   check_solution=True,
+                   num_train_tasks=0)
+
+
 def test_degenerate_mlp_sampler_learning():
     """Tests for NSRTLearningApproach() with a degenerate MLP sampler."""
     _test_approach(env_name="cover",
