@@ -122,6 +122,18 @@ class BaseApproach(abc.ABC):
         self._metrics = defaultdict(float)
 
 
+class BaseApproachWrapper(BaseApproach):
+    """Base class for an approach that wraps another approach."""
+
+    def __init__(self, base_approach: BaseApproach,
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task]) -> None:
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks)
+        self._base_approach = base_approach
+
+
 class ApproachTimeout(ExceptionWithInfo):
     """Exception raised when approach.solve() times out."""
 

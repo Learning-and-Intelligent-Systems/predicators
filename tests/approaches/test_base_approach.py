@@ -106,3 +106,7 @@ def test_create_approach():
         create_approach("Not a real approach", env.predicates,
                         get_gt_options(env.get_name()), env.types,
                         env.action_space, train_tasks)
+    with pytest.raises(NotImplementedError):
+        create_approach("fake-wrapper[oracle]", env.predicates,
+                        get_gt_options(env.get_name()), env.types,
+                        env.action_space, train_tasks)
