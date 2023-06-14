@@ -7,7 +7,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
-    CoverMultistepOptions, RegionalBumpyCoverEnv
+    CoverMultistepOptions
 from predicators.ground_truth_models import get_gt_options
 from predicators.structs import Action, EnvironmentTask
 
