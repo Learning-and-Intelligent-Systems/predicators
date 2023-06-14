@@ -466,16 +466,16 @@ class _SpotInterface():
         if len(objs) == 3:
             if "_table" in objs[2].name:
                 self.hand_movement(np.array([0.0, 0.0, 0.0]),
-                                keep_hand_pose=False,
-                                angle=(np.cos(np.pi / 8), 0, np.sin(np.pi / 8),
-                                        0))
+                                   keep_hand_pose=False,
+                                   angle=(np.cos(np.pi / 8), 0,
+                                          np.sin(np.pi / 8), 0))
                 time.sleep(2.0)
                 return
             elif "floor" in objs[2].name:
-                self.hand_movement(np.array([0.0, 0.0, 0.0]),
-                                keep_hand_pose=False,
-                                angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4),
-                                        0))
+                self.hand_movement(np.array([-0.2, 0.0, -0.25]),
+                                   keep_hand_pose=False,
+                                   angle=(np.cos(np.pi / 6), 0,
+                                          np.sin(np.pi / 6), 0))
                 time.sleep(2.0)
                 return
         self.stow_arm()
@@ -517,9 +517,8 @@ class _SpotInterface():
         if "_table" in objs[2].name:
             self.relative_move(0.65, 0.0, 0.0)
         self.hand_movement(params,
-                           objs[2],
                            keep_hand_pose=False,
-                           use_object_location=True)
+                           relative_to_default_pose=False)
         time.sleep(1.0)
         self.stow_arm()
         # NOTE: time.sleep(2.0) required afer each option execution
@@ -843,10 +842,9 @@ class _SpotInterface():
     def hand_movement(
         self,
         params: Array,
-        obj: Optional[Object] = None,
         open_gripper: bool = True,
+        relative_to_default_pose: bool = True,
         keep_hand_pose: bool = True,
-        use_object_location: bool = False,
         angle: Tuple[float, float, float,
                      float] = (np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0)
     ) -> None:
@@ -868,33 +866,20 @@ class _SpotInterface():
             qw, qx, qy, qz = angle
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
-        # Make the arm pose RobotCommand
-        if use_object_location:
-            # Get graph_nav to body frame.
-            state = self.get_localized_state()
-            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
-                state.localization.seed_tform_body)
-
-            # Apply transform to fiducial pose to get relative body location.
-            assert isinstance(obj, Object)
-            tag_id = obj_name_to_apriltag_id[obj.name]
-            body_tform_fiducial = gn_origin_tform_body.inverse(
-            ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
-                              apriltag_id_to_obj_poses[tag_id][1],
-                              apriltag_id_to_obj_poses[tag_id][2])
-            hand_x, hand_y, hand_z = [
-                body_tform_fiducial[0], body_tform_fiducial[1], self.hand_z
-            ]
+        if not relative_to_default_pose:
+            x = params[0]  # dx hand
+            y = params[1]
+            z = params[2]
         else:
             hand_x, hand_y, hand_z = [self.hand_x, self.hand_y, self.hand_z]
-        # Build a position to move the arm to (in meters, relative to and
-        # expressed in the gravity aligned body frame).
-        assert params[0] >= -0.5 and params[0] <= 0.5
-        assert params[1] >= -0.5 and params[1] <= 0.5
-        assert params[2] >= -0.25 and params[2] <= 0.25
-        x = hand_x + params[0]  # dx hand
-        y = hand_y + params[1]
-        z = hand_z + params[2]
+            # Build a position to move the arm to (in meters, relative to and
+            # expressed in the gravity aligned body frame).
+            assert params[0] >= -0.5 and params[0] <= 0.5
+            assert params[1] >= -0.5 and params[1] <= 0.5
+            assert params[2] >= -0.25 and params[2] <= 0.25
+            x = hand_x + params[0]  # dx hand
+            y = hand_y + params[1]
+            z = hand_z + params[2]
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
         flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body,
@@ -1024,12 +1009,10 @@ class _SpotInterface():
         if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
             logging.info("Timed out waiting for movement to execute!")
         return False
-    
+
     def navigate_to_obj(self, obj: Object, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to an object."""
         # pylint: disable=broad-except
-        assert obj.name in obj_name_to_apriltag_id
-        assert obj_name_to_apriltag_id[obj.name] in apriltag_id_to_obj_poses
 
         # Stow arm first
         self.stow_arm()
@@ -1042,39 +1025,8 @@ class _SpotInterface():
             self.graph_nav_command_line.get_localization_state()
             print("localized state")
 
-            # (4) Navigate to Object
-            # Get graph_nav to body frame.
-            state = self.get_localized_state()
-            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
-                state.localization.seed_tform_body)
-
-            # Apply transform to fiducial pose to get relative body location.
-            assert isinstance(obj, Object)
-            tag_id = obj_name_to_apriltag_id[obj.name]
-            body_tform_fiducial = gn_origin_tform_body.inverse(
-            ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
-                              apriltag_id_to_obj_poses[tag_id][1],
-                              apriltag_id_to_obj_poses[tag_id][2])
-            obj_x, obj_y, obj_z = [
-                body_tform_fiducial[0], body_tform_fiducial[1],
-                body_tform_fiducial[2]
-            ]
-
-            spot_xy = np.array([0.0, 0.0])
-            obj = np.array([obj_x, obj_y])
-            distance = np.linalg.norm(obj - spot_xy)
-            unit_vector = (obj - spot_xy) / distance
-
-            move_distance = 1
-            new_xy = spot_xy + unit_vector * (distance - move_distance)
-
-            # Find the angle change needed to look at object
-            angle = np.arccos(np.clip(np.dot(np.array([1.0, 0.0]), obj), -1.0, 1.0))
-            # TODO Check which direction with allclose
-            # if not np.allclose(obj, [np.sin(angle), np.cos(angle)]):
-            #     angle = -angle
-
-            self.relative_move(new_xy[0] + params[0], new_xy[1] + params[1], angle + params[2])
+            # (3) Just move
+            self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
             logging.info(e)

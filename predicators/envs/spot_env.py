@@ -527,9 +527,9 @@ class SpotBikeEnv(SpotEnv):
             self._ReachablePlatform
         }
         self._MoveToToolOnFloorOp = STRIPSOperator("MoveToToolOnFloor",
-                                            [spot, tool, floor],
-                                            preconditions, add_effs, set(),
-                                            ignore_effs)
+                                                   [spot, tool, floor],
+                                                   preconditions, add_effs,
+                                                   set(), ignore_effs)
         # MoveToSurface
         spot = Variable("?robot", self._robot_type)
         surface = Variable("?surface", self._surface_type)
@@ -604,9 +604,9 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._ReachableTool, [spot, tool]),
         }
         self._GraspToolFromFloorOp = STRIPSOperator("GraspToolFromFloor",
-                                                      [spot, tool, floor],
-                                                      preconds, add_effs,
-                                                      del_effs, set())
+                                                    [spot, tool, floor],
+                                                    preconds, add_effs,
+                                                    del_effs, set())
         # GrabPlatformLeash
         spot = Variable("?robot", self._robot_type)
         platform = Variable("?platform", self._platform_type)
@@ -806,7 +806,7 @@ class SpotBikeEnv(SpotEnv):
             (obj_on_pose[1] - obj_surface_pose[1])**2) <= self._ontop_threshold
         is_above_z = (obj_on_pose[2] - obj_surface_pose[2]) > 0.0
         return is_x_same and is_y_same and is_above_z
-    
+
     def _onfloor_classifier(self, state: State,
                             objects: Sequence[Object]) -> bool:
         obj_on, _ = objects

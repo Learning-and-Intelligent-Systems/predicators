@@ -3,10 +3,13 @@
 from typing import Dict, Sequence, Set
 
 import numpy as np
+from bosdyn.client import math_helpers
 
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
+from predicators.spot_utils.spot_utils import get_spot_interface, \
+    obj_name_to_apriltag_id
 from predicators.structs import NSRT, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Type
 from predicators.utils import null_sampler
@@ -24,10 +27,12 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   predicates: Dict[str, Predicate],
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
 
+        _spot_interface = get_spot_interface()
+
         def move_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            del state, goal, rng
+            del goal, rng
             assert len(objs) in [2, 3]
             if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.5, 0.0, 0.0])
@@ -42,7 +47,36 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # For MoveToObjOnFloor
             if len(objs) == 3:
                 if objs[2].name == "floor":
-                    return np.array([0.0, 0.0, 0.0])
+                    obj = objs[1]
+                    # Get graph_nav to body frame.
+                    gn_state = _spot_interface.get_localized_state()
+                    gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+                        gn_state.localization.seed_tform_body)
+
+                    # Apply transform to fiducial pose to get relative body location.
+                    assert isinstance(obj, Object)
+                    body_tform_fiducial = gn_origin_tform_body.inverse(
+                    ).transform_point(state.get(obj, "x"), state.get(obj, "y"),
+                                      state.get(obj, "z"))
+                    obj_x, obj_y = [
+                        body_tform_fiducial[0], body_tform_fiducial[1]
+                    ]
+
+                    spot_xy = np.array([0.0, 0.0])
+                    obj = np.array([obj_x, obj_y])
+                    distance = np.linalg.norm(obj - spot_xy)
+                    unit_vector = (obj - spot_xy) / distance
+
+                    move_distance = 1
+                    new_xy = spot_xy + unit_vector * (distance - move_distance)
+
+                    # Find the angle change needed to look at object
+                    angle = np.arccos(
+                        np.clip(np.dot(np.array([1.0, 0.0]), obj), -1.0, 1.0))
+                    # TODO Check which direction with allclose
+                    # if not np.allclose(obj, [np.sin(angle), np.cos(angle)]):
+                    #     angle = -angle
+                    return np.array([new_xy[0], new_xy[1], angle])
             return np.array([-0.25, 0.0, 0.0])
 
         def grasp_sampler(state: State, goal: Set[GroundAtom],
@@ -58,11 +92,28 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            del state, goal, rng
+            del goal, rng
+            # Get graph_nav to body frame.
+            gn_state = _spot_interface.get_localized_state()
+            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+                gn_state.localization.seed_tform_body)
+
+            obj = objs[2]
+            # Apply transform to fiducial pose to get relative body location.
+            assert isinstance(obj, Object)
+            body_tform_fiducial = gn_origin_tform_body.inverse(
+            ).transform_point(state.get(obj, "x"), state.get(obj, "y"),
+                              state.get(obj, "z"))
+            offset_from_default_hand_pose = np.array([
+                body_tform_fiducial[0], body_tform_fiducial[1],
+                _spot_interface.z
+            ])
             if objs[2].type.name == "bag":  # pragma: no cover
-                return np.array([0.1, 0.0, -0.25])
+                return offset_from_default_hand_pose + np.array(
+                    [0.1, 0.0, -0.25])
             if "_table" in objs[2].name:
-                return np.array([0.1, 0.0, -0.2])
+                return offset_from_default_hand_pose + np.array(
+                    [0.1, 0.0, -0.2])
             return np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)
