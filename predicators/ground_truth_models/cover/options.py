@@ -101,31 +101,31 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         block_type = types["block"]
         target_type = types["target"]
 
-        Pick = utils.SingletonParameterizedOption("Pick",
-                                                  _policy,
-                                                  types=[block_type],
-                                                  params_space=Box(
-                                                      0, 1, (1, )))
+        PickFromSmooth = utils.SingletonParameterizedOption("PickFromSmooth",
+                                                            _policy,
+                                                            types=[block_type],
+                                                            params_space=Box(
+                                                                0, 1, (1, )))
 
         PickFromBumpy = utils.SingletonParameterizedOption("PickFromBumpy",
-                                            _policy,
-                                            types=[block_type],
-                                            params_space=Box(
-                                                0, 1, (1, )))
-        
-        Place = utils.SingletonParameterizedOption(
-            "Place",
+                                                           _policy,
+                                                           types=[block_type],
+                                                           params_space=Box(
+                                                               0, 1, (1, )))
+
+        PlaceOnSmooth = utils.SingletonParameterizedOption(
+            "PlaceOnSmooth",
             _policy,
             types=[block_type, target_type],
             params_space=Box(0, 1, (1, )))
 
         PlaceOnBumpy = utils.SingletonParameterizedOption("PlaceOnBumpy",
-                                    _policy,
-                                    types=[block_type],
-                                    params_space=Box(
-                                        0, 1, (1, )))
+                                                          _policy,
+                                                          types=[block_type],
+                                                          params_space=Box(
+                                                              0, 1, (1, )))
 
-        return {Pick, PickFromBumpy, Place, PlaceOnBumpy}
+        return {PickFromSmooth, PickFromBumpy, PlaceOnSmooth, PlaceOnBumpy}
 
 
 class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
