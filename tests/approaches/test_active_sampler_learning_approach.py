@@ -4,7 +4,6 @@ import pytest
 from predicators import utils
 from predicators.approaches.active_sampler_learning_approach import \
     ActiveSamplerLearningApproach
-from predicators.approaches.base_approach import ApproachFailure
 from predicators.datasets import create_dataset
 from predicators.envs.cover import BumpyCoverEnv
 from predicators.ground_truth_models import get_gt_options
