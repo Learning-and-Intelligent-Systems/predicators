@@ -27,7 +27,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def move_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            #del state, goal, rng
+            del state, goal, rng
             assert len(objs) in [2, 3]
             if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.5, 0.0, 0.0])
@@ -38,7 +38,8 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # For MoveToObj
             if len(objs) == 3:
                 if objs[2].name == "extra_room_table":
-                    return extra_room_table_offset# For MoveToObjOnFloor
+                    return extra_room_table_offset
+            # For MoveToObjOnFloor
             if len(objs) == 3:
                 if objs[2].name == "floor":
                     return np.array([0.0, 0.0, 0.0])

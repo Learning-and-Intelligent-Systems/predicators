@@ -459,9 +459,26 @@ class _SpotInterface():
             self.navigate_to_obj(objs[1], params)
         else:
             self.navigate_to(waypoint_id, params)
-        self.stow_arm()
+
+        # Set arm view pose
         # NOTE: time.sleep(2.0) required afer each option execution
         # to allow time for sensor readings to settle.
+        if len(objs) == 3:
+            if "_table" in objs[2].name:
+                self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                                keep_hand_pose=False,
+                                angle=(np.cos(np.pi / 8), 0, np.sin(np.pi / 8),
+                                        0))
+                time.sleep(2.0)
+                return
+            elif "floor" in objs[2].name:
+                self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                                keep_hand_pose=False,
+                                angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4),
+                                        0))
+                time.sleep(2.0)
+                return
+        self.stow_arm()
         time.sleep(2.0)
 
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
@@ -480,17 +497,6 @@ class _SpotInterface():
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
-        # TODO Move to moveController
-        if "_table" in objs[2].name:
-            self.hand_movement(params[:3],
-                               keep_hand_pose=False,
-                               angle=(np.cos(np.pi / 8), 0, np.sin(np.pi / 8),
-                                      0))
-        elif "floor" in objs[2].name:
-            self.hand_movement(params[:3],
-                               keep_hand_pose=False,
-                               angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4),
-                                      0))
         self.arm_object_grasp(objs[1])
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
@@ -1019,59 +1025,12 @@ class _SpotInterface():
             logging.info("Timed out waiting for movement to execute!")
         return False
     
-    def helper_find_object(
-        self,
-        obj_name_to_find: Optional[str] = None
-    ) -> Dict[int, Tuple[float, float, float]]:
-        """Walks around and spins around to find object poses by apriltag.
-        If obj_name_to_find is None is will walk around till completion,
-        and return all the objects it has found.
-        """
-        obj_poses: Dict[int, Tuple[float, float, float]] = {}
-        angles = [(np.cos(np.pi / 8), 0.0, np.sin(np.pi / 8), 0.0),
-                  (np.cos(np.pi / 4), 0.0, np.sin(np.pi / 4), 0.0)]
-        if obj_name_to_find is not None:
-            tag_id = obj_name_to_apriltag_id[obj_name_to_find]
-        else:
-            tag_id = None
-        for _ in range(8):
-            # Look via hand at differnt angles.
-            for angle in angles:
-                self.hand_movement(np.array([-0.2, 0.0, -0.25]),
-                                   keep_hand_pose=False,
-                                   angle=angle)
-                obj_poses.update(self.get_apriltag_pose_from_camera())
-                apriltag_id_to_obj_poses.update(obj_poses)
-                if tag_id is not None and tag_id in obj_poses:
-                    return {tag_id: obj_poses[tag_id]}
-            self.stow_arm()
-            # Look via body cameras.
-            for source_name in [
-                    "hand_color_image", "left_fisheye_image",
-                    "back_fisheye_image"
-            ]:
-                viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                    source_name=source_name)
-                obj_poses.update(viewable_obj_poses)
-                apriltag_id_to_obj_poses.update(obj_poses)
-                if tag_id is not None and tag_id in obj_poses:
-                    return {tag_id: obj_poses[tag_id]}
-            # Rotate
-            self.relative_move(0.0, 0.0, np.pi / 4)
-        apriltag_id_to_obj_poses.update(obj_poses)
-        return obj_poses
-
-
     def navigate_to_obj(self, obj: Object, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to an object."""
         # pylint: disable=broad-except
         assert obj.name in obj_name_to_apriltag_id
-        # Try to find object if pose is not known
-        if obj_name_to_apriltag_id[obj.name] not in apriltag_id_to_obj_poses:
-            obj_poses = self.helper_find_object(obj.name)
-            if not obj_poses:
-                print("Object not found")
-                return
+        assert obj_name_to_apriltag_id[obj.name] in apriltag_id_to_obj_poses
+
         # Stow arm first
         self.stow_arm()
         try:
@@ -1118,7 +1077,6 @@ class _SpotInterface():
             self.relative_move(new_xy[0] + params[0], new_xy[1] + params[1], angle + params[2])
 
         except Exception as e:
-            import ipdb; ipdb.set_trace()
             logging.info(e)
 
 
