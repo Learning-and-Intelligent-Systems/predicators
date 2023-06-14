@@ -447,7 +447,7 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                     place_on_target_sampler)
         nsrts.add(place_on_target_nsrt)
 
-        # Place in bumpy region
+        # Place in bumpy region. Note that targets are never in bumpy regions.
         parameters = [block]
         preconditions = {LiftedAtom(Holding, [block])}
         add_effects = {
