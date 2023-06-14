@@ -1,7 +1,7 @@
 """Handle creation of approaches."""
 
 from typing import List, Set
-from typing import Type as TypeType
+from typing import Type as TypingType
 
 from gym.spaces import Box
 
@@ -16,14 +16,14 @@ __all__ = ["BaseApproach", "ApproachTimeout", "ApproachFailure"]
 utils.import_submodules(__path__, __name__)
 
 
-def _get_approach_cls_from_name(name: str) -> TypeType[BaseApproach]:
+def _get_approach_cls_from_name(name: str) -> TypingType[BaseApproach]:
     for cls in utils.get_all_subclasses(BaseApproach):
         if not cls.__abstractmethods__ and cls.get_name() == name:
             return cls
     raise NotImplementedError(f"Unknown approach: {name}")
 
 
-def _get_wrapper_cls_from_name(name: str) -> TypeType[BaseApproachWrapper]:
+def _get_wrapper_cls_from_name(name: str) -> TypingType[BaseApproachWrapper]:
     for cls in utils.get_all_subclasses(BaseApproachWrapper):
         if not cls.__abstractmethods__ and cls.get_name() == name:
             return cls
