@@ -283,10 +283,12 @@ class _SpotInterface():
 
         return (img, image_response)
 
-    def get_objects_in_view(self) -> Dict[str, Tuple[float, float, float]]:
+    def get_objects_in_view(
+            self, just_hand: False) -> Dict[str, Tuple[float, float, float]]:
         """Get objects currently in view."""
         tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
-        for source_name in CAMERA_NAMES:
+        source_names = CAMERA_NAMES if just_hand else ["hand_color_image"]
+        for source_name in source_names:
             viewable_obj_poses = self.get_apriltag_pose_from_camera(
                 source_name=source_name)
             tag_to_pose.update(viewable_obj_poses)
