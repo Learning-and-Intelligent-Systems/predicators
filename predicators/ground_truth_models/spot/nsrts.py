@@ -74,8 +74,8 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     angle = np.arccos(
                         np.clip(np.dot(np.array([1.0, 0.0]), obj), -1.0, 1.0))
                     # TODO Check which direction with allclose
-                    # if not np.allclose(obj, [np.sin(angle), np.cos(angle)]):
-                    #     angle = -angle
+                    if not np.allclose(obj, [np.cos(angle), np.sin(angle)], atol=0.1):
+                        angle = -angle
                     return np.array([new_xy[0], new_xy[1], angle])
             return np.array([-0.25, 0.0, 0.0])
 
@@ -106,7 +106,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                               state.get(obj, "z"))
             offset_from_default_hand_pose = np.array([
                 body_tform_fiducial[0], body_tform_fiducial[1],
-                _spot_interface.z
+                _spot_interface.hand_z
             ])
             if objs[2].type.name == "bag":  # pragma: no cover
                 return offset_from_default_hand_pose + np.array(
@@ -114,7 +114,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if "_table" in objs[2].name:
                 return offset_from_default_hand_pose + np.array(
                     [0.1, 0.0, -0.2])
-            return np.array([0.0, 0.0, 0.0])
+            return offset_from_default_hand_pose + np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)
         assert isinstance(env, SpotEnv)
