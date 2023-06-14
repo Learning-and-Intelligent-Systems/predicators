@@ -8,7 +8,7 @@ from predicators import utils
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
     CoverMultistepOptions
-from predicators.ground_truth_models import get_gt_options
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.structs import Action, EnvironmentTask
 
 
@@ -684,7 +684,8 @@ def test_regional_bumpy_cover_env():
     assert {pred.name for pred in env.goal_predicates} == {"Covers"}
     # Options should be {PickFromBumpy, PickFromSmooth, PlaceOnTarget,
     # PlaceOnBumpy}.
-    assert len(get_gt_options(env.get_name())) == 4
+    options = get_gt_options(env.get_name())
+    assert len(options) == 4
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 1-dimensional.
@@ -693,3 +694,26 @@ def test_regional_bumpy_cover_env():
     task = env.get_train_tasks()[0].task
     state = task.init
     env.render_state(state, task, caption="caption")
+    # Create a state where a block is held.
+    block_type = [t for t in env.types if t.name == "block"][0]
+    block = [
+        b for b in state.get_objects(block_type) if state.get(b, "bumpy") < 0.5
+    ][0]
+    block_pose = state.get(block, "pose")
+    action = Action(np.array([block_pose], dtype=np.float32))
+    held_state = env.simulate(state, action)
+    # InSmoothRegion and InBumpyRegion should be false.
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+    Holding = pred_name_to_pred["Holding"]
+    InSmoothRegion = pred_name_to_pred["InSmoothRegion"]
+    InBumpyRegion = pred_name_to_pred["InBumpyRegion"]
+    assert Holding.holds(held_state, [block])
+    assert not InSmoothRegion.holds(held_state, [block])
+    assert not InBumpyRegion.holds(held_state, [block])
+    # Test PlaceOnBumpy NSRT because it's never used in oracle planning.
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    PlaceOnBumpy = [n for n in nsrts if n.name == "PlaceOnBumpy"][0]
+    ground_nsrt = PlaceOnBumpy.ground([block])
+    rng = np.random.default_rng(123)
+    option = ground_nsrt.sample_option(held_state, set(), rng)
+    assert option.params[0] > 0.5

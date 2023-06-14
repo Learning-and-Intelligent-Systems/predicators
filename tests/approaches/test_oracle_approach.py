@@ -118,12 +118,16 @@ EXTRA_ARGS_ORACLE_APPROACH["bumpy_cover"] = [
         "bumpy_cover_right_targets": False,
     },
 ]
-EXTRA_ARGS_ORACLE_APPROACH["regional_bumpy_cover"] = [{
-    "bumpy_cover_init_bumpy_prob":
-    1.0,
-    "bumpy_cover_bumpy_region_start":
-    0.5
-}]
+EXTRA_ARGS_ORACLE_APPROACH["regional_bumpy_cover"] = [
+    {
+        "bumpy_cover_init_bumpy_prob": 1.0,
+        "bumpy_cover_bumpy_region_start": 0.5
+    },
+    {
+        "bumpy_cover_right_targets": True,
+        "sesame_max_samples_per_step": 100,
+    },
+]
 EXTRA_ARGS_ORACLE_APPROACH["cluttered_table"] = [
     {
         "cluttered_table_num_cans_train": 3,
