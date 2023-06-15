@@ -1062,7 +1062,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
         assert len(CFG.cover_block_widths) == len(blocks)
-        want_block_in_bumpy = rng.uniform() < FG.bumpy_cover_init_bumpy_prob
+        want_block_in_bumpy = rng.uniform() < CFG.bumpy_cover_init_bumpy_prob
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):
             if i % 2 == 0:
