@@ -175,6 +175,9 @@ class _SpotInterface():
         self._image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
+        self.hand_x_bounds = (0.3, 0.9)
+        self.hand_y_bounds = (-0.5, 0.5)
+        self.hand_z_bounds = (0.2, 0.7)
         self.localization_timeout = 10
 
         # Try to connect to the robot. If this fails, still maintain the
@@ -868,13 +871,16 @@ class _SpotInterface():
             y = self.hand_y + params[1]
             z = self.hand_z + params[2]
 
-        x_cliped = np.clip(x, 0.3, 0.9)
-        y_cliped = np.clip(y, -0.5, 0.5)
-        z_cliped = np.clip(z, 0.2, 0.7)
-        self.relative_move((x - x_cliped), (y - y_cliped), 0.0)
-        x = x_cliped
-        y = y_cliped
-        z = z_cliped
+        # Here we are making sure the hand pose is within our range and
+        # if it is not we are clipping it to be, and then displacing the
+        # robot respectively.
+        x_clipped = np.clip(x, self.hand_x_bounds[0], self.hand_x_bounds[1])
+        y_clipped = np.clip(y, self.hand_y_bounds[0], self.hand_y_bounds[1])
+        z_clipped = np.clip(z, self.hand_z_bounds[0], self.hand_z_bounds[1])
+        self.relative_move((x - x_clipped), (y - y_clipped), 0.0)
+        x = x_clipped
+        y = y_clipped
+        z = z_clipped
 
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
