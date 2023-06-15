@@ -463,17 +463,6 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             place_pose = target_center + grasp
             return np.array([place_pose], dtype=np.float32)
 
-            # _, t = objs
-            # assert t.is_instance(target_type)
-            # center = float(state.get(t, "pose"))
-            # if CFG.bumpy_cover_right_targets:
-            #     center += 3 * state.get(t, "width") / 4
-            # lb = center - state.get(t, "width") / 2
-            # ub = center + state.get(t, "width") / 2
-            # lb = max(lb, 0.0)
-            # ub = min(ub, 1.0)
-            # return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
-
         place_on_target_nsrt = NSRT("PlaceOnTarget", parameters,
                                     preconditions, add_effects, delete_effects,
                                     set(), option, option_vars,
@@ -494,9 +483,11 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def place_on_bumpy_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
-            del state, objs, goal  # unused
-            lb = CFG.bumpy_cover_bumpy_region_start
-            ub = 1.0
+            del goal  # unused
+            b, = objs
+            w = state.get(b, "width") / 2
+            lb = CFG.bumpy_cover_bumpy_region_start + w
+            ub = 1.0 - w
             return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
 
         place_on_bumpy_nsrt = NSRT("PlaceOnBumpy", parameters,

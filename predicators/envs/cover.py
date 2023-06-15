@@ -92,11 +92,12 @@ class CoverEnv(BaseEnv):
                                        or above_block is None):
             new_pose = pose - state.get(held_block, "grasp")
             # Prevent collisions with other blocks.
-            if self._any_intersection(new_pose,
-                                      state.get(held_block, "width"),
-                                      state.data,
-                                      block_only=True,
-                                      excluded_object=held_block):
+            if not self._disable_collisions and self._any_intersection(
+                    new_pose,
+                    state.get(held_block, "width"),
+                    state.data,
+                    block_only=True,
+                    excluded_object=held_block):
                 return next_state
             # Only place if free space placing is allowed, or if we're
             # placing onto some target.
