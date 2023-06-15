@@ -23,6 +23,7 @@ class CoverEnv(BaseEnv):
 
     _allow_free_space_placing: ClassVar[bool] = False
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
+    _disable_collisions: ClassVar[bool] = False
 
     workspace_x: ClassVar[float] = 1.35
     workspace_z: ClassVar[float] = 0.65
@@ -87,7 +88,8 @@ class CoverEnv(BaseEnv):
             next_state.set(above_block, "grasp", grasp)
         # If we are holding something, place it.
         # Disallow placing on another block.
-        if held_block is not None and above_block is None:
+        if held_block is not None and (self._disable_collisions
+                                       or above_block is None):
             new_pose = pose - state.get(held_block, "grasp")
             # Prevent collisions with other blocks.
             if self._any_intersection(new_pose,
@@ -1113,6 +1115,7 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
 
     _allow_free_space_placing: ClassVar[bool] = True
     _bumps_regional: ClassVar[bool] = True
+    _disable_collisions: ClassVar[bool] = True
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
