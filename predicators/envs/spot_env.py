@@ -364,7 +364,7 @@ class SpotEnv(BaseEnv):
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
-        obs = _SpotObservation(images, objects_in_view, robot,
+        obs = _SpotObservation(images, objects_in_view, [], robot,
                                gripper_open_percentage, robot_pos,
                                nonpercept_atoms, nonpercept_preds)
         goal = self._generate_task_goal()
@@ -422,6 +422,7 @@ class SpotEnv(BaseEnv):
         init_obs = _SpotObservation(
             images,
             objects_in_view,
+            [],
             robot,
             gripper_open_percentage,
             robot_pos,
@@ -452,7 +453,7 @@ class SpotBikeEnv(SpotEnv):
         self._robot_type = Type(
             "robot",
             ["gripper_open_percentage", "curr_held_item_id", "x", "y", "z"])
-        self._tool_type = Type("tool", ["x", "y", "z"], "in_view")
+        self._tool_type = Type("tool", ["x", "y", "z", "in_view"])
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
         self._bag_type = Type("bag", ["x", "y", "z"])
         self._platform_type = Type("platform", ["x", "y", "z"])
@@ -523,8 +524,8 @@ class SpotBikeEnv(SpotEnv):
         surface = Variable("?surface", self._surface_type)
         preconditions = {LiftedAtom(self._On, [tool, surface])}
         add_effs = {
-            LiftedAtom(self._ReachableTool, [spot, tool], self._InViewTool,
-                       [spot, tool])
+            LiftedAtom(self._ReachableTool, [spot, tool]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         ignore_effs = {
             self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
@@ -743,7 +744,8 @@ class SpotBikeEnv(SpotEnv):
             self._HoldingBag, self._HoldingPlatformLeash, self._ReachableTool,
             self._ReachableBag, self._ReachablePlatform,
             self._XYReachableSurface, self._SurfaceTooHigh,
-            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty
+            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty,
+            self._InViewTool
         }
 
     def _handempty_classifier(self, state: State,
@@ -831,7 +833,7 @@ class SpotBikeEnv(SpotEnv):
         return {
             self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On,
             self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._ReachableBag,
-            self._ReachablePlatform, self._ReachableTool
+            self._ReachablePlatform, self._ReachableTool, self._InViewTool
         }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:

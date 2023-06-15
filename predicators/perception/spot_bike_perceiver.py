@@ -111,7 +111,8 @@ class SpotBikePerceiver(BasePerceiver):
             if obj.type.name == "tool":
                 state_dict[obj] = {"x": x, "y": y, "z": z, "in_view": 0.0}
         for obj in self._known_objects_in_hand_view:
-            state_dict[obj]["in_view"] = 1.0
+            if obj.type.name == "tool":
+                state_dict[obj]["in_view"] = 1.0
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)
         logging.info("Percept state:")
