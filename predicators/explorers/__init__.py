@@ -1,6 +1,6 @@
 """Handle creation of explorers."""
 
-from typing import Callable, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set
 
 from gym.spaces import Box
 
@@ -10,7 +10,7 @@ from predicators.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.option_model import _OptionModelBase
 from predicators.structs import NSRT, GroundAtom, ParameterizedOption, \
-    Predicate, State, Task, Type
+    Predicate, State, Task, Type, _GroundSTRIPSOperator
 
 __all__ = ["BaseExplorer"]
 
@@ -30,6 +30,7 @@ def create_explorer(
     babble_predicates: Optional[Set[Predicate]] = None,
     atom_score_fn: Optional[Callable[[Set[GroundAtom]], float]] = None,
     state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
+    ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
     for cls in utils.get_all_subclasses(BaseExplorer):
@@ -64,6 +65,12 @@ def create_explorer(
                 assert nsrts is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks, nsrts)
+            # Active sampler explorer uses ground_op_hist and no option model.
+            elif name == "active_sampler":
+                assert ground_op_hist is not None
+                explorer = cls(initial_predicates, initial_options, types,
+                               action_space, train_tasks, nsrts,
+                               ground_op_hist)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks)

@@ -10,11 +10,25 @@ so we're punting for now.
 Example commands
 ----------------
 
+# Random NSRT explorer
 python predicators/main.py --approach active_sampler_learning \
     --env bumpy_cover --seed 0 \
     --strips_learner oracle --sampler_learner oracle \
     --bilevel_plan_without_sim True \
     --explorer random_nsrts \
+    --max_initial_demos 0 \
+    --num_train_tasks 1000 \
+    --num_test_tasks 100 \
+    --max_num_steps_interaction_request 15 \
+    --sampler_mlp_classifier_max_itr 1000000 \
+    --pytorch_train_print_every 10000
+
+# Active sampler explorer
+python predicators/main.py --approach active_sampler_learning \
+    --env bumpy_cover --seed 0 \
+    --strips_learner oracle --sampler_learner oracle \
+    --bilevel_plan_without_sim True \
+    --explorer active_sampler \
     --max_initial_demos 0 \
     --num_train_tasks 1000 \
     --num_test_tasks 100 \
@@ -40,7 +54,7 @@ from predicators.ml_models import MLPBinaryClassifier, MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
-    Task, Type, _GroundNSRT, _Option
+    Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 # Dataset for sampler learning: includes (s, option, s', label) per param opt.
 _OptionSamplerDataset = List[Tuple[State, _Option, State, Any]]
@@ -63,6 +77,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert CFG.sampler_learner == "oracle"
 
         self._sampler_data: _SamplerDataset = {}
+        # Maps used ground operators to all historical outcomes (whether they
+        # successfully reached their effects or not). Updated in-place by the
+        # explorer when CFG.explorer is active_sampler_explorer.
+        self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
         self._last_seen_segment_traj_idx = -1
 
     @classmethod
@@ -72,11 +90,15 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def _create_explorer(self) -> BaseExplorer:
         # TODO
         preds = self._get_current_predicates()
-        explorer = create_explorer(CFG.explorer, preds, self._initial_options,
+        explorer = create_explorer(CFG.explorer,
+                                   preds,
+                                   self._initial_options,
                                    self._types,
-                                   self._action_space, self._train_tasks,
+                                   self._action_space,
+                                   self._train_tasks,
                                    self._get_current_nsrts(),
-                                   self._option_model)
+                                   self._option_model,
+                                   ground_op_hist=self._ground_op_hist)
         return explorer
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
@@ -138,7 +160,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 self._sampler_data[o.parent].append((s, o, ns, label))
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
-        ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
+        ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
         return ground_nsrt.add_effects.issubset(
             segment.final_atoms) and not ground_nsrt.delete_effects.issubset(
                 segment.final_atoms)
@@ -196,7 +218,7 @@ class _WrappedSamplerLearner(abc.ABC):
         """Fit all of the samplers."""
         new_samplers: Dict[NSRT, NSRTSampler] = {}
         for param_opt, nsrt_data in data.items():
-            nsrt = _param_option_to_nsrt(param_opt, self._nsrts)
+            nsrt = utils.param_option_to_nsrt(param_opt, self._nsrts)
             logging.info(f"Fitting wrapped sampler for {nsrt.name}...")
             new_samplers[nsrt] = self._learn_nsrt_sampler(nsrt_data, nsrt)
         self._learned_samplers = new_samplers
@@ -320,7 +342,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         """Predict Q(s, a)."""
         if self._nsrt_score_fns is None:
             return 0.0  # initialize to 0.0
-        ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
+        ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
         # Special case: we haven't seen any data for the parent NSRT, so we
         # haven't learned a score function for it.
         if ground_nsrt.parent not in self._nsrt_score_fns:
@@ -386,21 +408,6 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
 
 
 # Helper functions.
-def _param_option_to_nsrt(param_option: ParameterizedOption,
-                          nsrts: Set[NSRT]) -> NSRT:
-    """Assumes 1:1 options and NSRTs, see note in file docstring."""
-    nsrt_matches = [n for n in nsrts if n.option == param_option]
-    assert len(nsrt_matches) == 1
-    nsrt = nsrt_matches[0]
-    return nsrt
-
-
-def _option_to_ground_nsrt(option: _Option, nsrts: Set[NSRT]) -> _GroundNSRT:
-    """Assumes 1:1 options and NSRTs, see note in file docstring."""
-    nsrt = _param_option_to_nsrt(option.parent, nsrts)
-    return nsrt.ground(option.objects)
-
-
 def _wrap_sampler(
     base_sampler: NSRTSampler,
     score_fn: _ScoreFn,

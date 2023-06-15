@@ -1475,6 +1475,21 @@ def create_new_variables(
     return new_vars
 
 
+def param_option_to_nsrt(param_option: ParameterizedOption,
+                         nsrts: Set[NSRT]) -> NSRT:
+    """If options and NSRTs are 1:1, then map an option to an NSRT."""
+    nsrt_matches = [n for n in nsrts if n.option == param_option]
+    assert len(nsrt_matches) == 1
+    nsrt = nsrt_matches[0]
+    return nsrt
+
+
+def option_to_ground_nsrt(option: _Option, nsrts: Set[NSRT]) -> _GroundNSRT:
+    """If options and NSRTs are 1:1, then map an option to an NSRT."""
+    nsrt = param_option_to_nsrt(option.parent, nsrts)
+    return nsrt.ground(option.objects)
+
+
 _S = TypeVar("_S", bound=Hashable)  # state in heuristic search
 _A = TypeVar("_A")  # action in heuristic search
 
