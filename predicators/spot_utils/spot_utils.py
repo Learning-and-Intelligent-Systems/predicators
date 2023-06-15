@@ -454,7 +454,7 @@ class _SpotInterface():
             waypoint_id = ""
 
         if len(objs) == 3 and objs[2].name == "floor":
-            self.navigate_to_obj(objs[1], params)
+            self.navigate_to_position(params)
         else:
             self.navigate_to(waypoint_id, params)
 
@@ -469,7 +469,7 @@ class _SpotInterface():
                                           np.sin(np.pi / 8), 0))
                 time.sleep(1.0)
                 return
-            elif "floor" in objs[2].name:
+            if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 6), 0,
@@ -1006,8 +1006,8 @@ class _SpotInterface():
             logging.info("Timed out waiting for movement to execute!")
         return False
 
-    def navigate_to_obj(self, obj: Object, params: Array) -> None:
-        """Use GraphNavInterface to localize robot and go to an object."""
+    def navigate_to_position(self, params: Array) -> None:
+        """Use GraphNavInterface to localize robot and go to a position."""
         # pylint: disable=broad-except
 
         # Stow arm first

@@ -8,8 +8,7 @@ from bosdyn.client import math_helpers
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.spot_utils.spot_utils import get_spot_interface, \
-    obj_name_to_apriltag_id
+from predicators.spot_utils.spot_utils import get_spot_interface
 from predicators.structs import NSRT, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Type
 from predicators.utils import null_sampler
@@ -53,7 +52,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                         gn_state.localization.seed_tform_body)
 
-                    # Apply transform to fiducial pose to get relative body location.
+                    # Transform fiducial pose for relative pose.
                     assert isinstance(obj, Object)
                     body_tform_fiducial = gn_origin_tform_body.inverse(
                     ).transform_point(state.get(obj, "x"), state.get(obj, "y"),
@@ -63,18 +62,21 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     ]
 
                     spot_xy = np.array([0.0, 0.0])
-                    obj = np.array([obj_x, obj_y])
-                    distance = np.linalg.norm(obj - spot_xy)
-                    unit_vector = (obj - spot_xy) / distance
+                    obj_xy = np.array([obj_x, obj_y])
+                    distance = np.linalg.norm(obj_xy - spot_xy)
+                    unit_vector = (obj_xy - spot_xy) / distance
 
                     move_distance = 1
                     new_xy = spot_xy + unit_vector * (distance - move_distance)
 
                     # Find the angle change needed to look at object
                     angle = np.arccos(
-                        np.clip(np.dot(np.array([1.0, 0.0]), obj), -1.0, 1.0))
-                    # TODO Check which direction with allclose
-                    if not np.allclose(obj, [np.cos(angle), np.sin(angle)], atol=0.1):
+                        np.clip(np.dot(np.array([1.0, 0.0]), obj_xy), -1.0,
+                                1.0))
+                    # Check which direction with allclose
+                    if not np.allclose(
+                            obj_xy,
+                        [np.cos(angle), np.sin(angle)], atol=0.1):
                         angle = -angle
                     return np.array([new_xy[0], new_xy[1], angle])
             return np.array([-0.25, 0.0, 0.0])
@@ -113,7 +115,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     [0.1, 0.0, -0.25])
             if "_table" in objs[2].name:
                 return offset_from_default_hand_pose + np.array(
-                    [0.2, 0.05, -0.2])
+                    [0.2, -0.05, -0.2])
             return offset_from_default_hand_pose + np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)
