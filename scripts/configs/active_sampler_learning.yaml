@@ -25,7 +25,7 @@ FLAGS:
   num_train_tasks: 1000
   num_test_tasks: 100
   max_num_steps_interaction_request: 50
-  sample_mlp_classifier_max_itr: 100000
+  sampler_mlp_classifier_max_itr: 100000
   pytorch_train_print_every: 10000
   active_sampler_learning_use_teacher: False # NOTE
   online_nsrt_learning_requests_per_cycle: 1
