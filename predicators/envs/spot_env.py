@@ -810,7 +810,6 @@ class SpotBikeEnv(SpotEnv):
     def _onfloor_classifier(self, state: State,
                             objects: Sequence[Object]) -> bool:
         obj_on, _ = objects
-        assert obj_name_to_apriltag_id.get(obj_on.name) is not None
         return state.get(obj_on, "z") < 0.0
 
     def _reachable_classifier(self, state: State,

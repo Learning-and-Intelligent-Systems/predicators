@@ -53,7 +53,6 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         gn_state.localization.seed_tform_body)
 
                     # Transform fiducial pose for relative pose.
-                    assert isinstance(obj, Object)
                     body_tform_fiducial = gn_origin_tform_body.inverse(
                     ).transform_point(state.get(obj, "x"), state.get(obj, "y"),
                                       state.get(obj, "z"))
@@ -102,7 +101,6 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
             obj = objs[2]
             # Apply transform to fiducial pose to get relative body location.
-            assert isinstance(obj, Object)
             body_tform_fiducial = gn_origin_tform_body.inverse(
             ).transform_point(state.get(obj, "x"), state.get(obj, "y"),
                               state.get(obj, "z"))
