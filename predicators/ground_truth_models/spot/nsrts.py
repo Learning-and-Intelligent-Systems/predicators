@@ -108,12 +108,13 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 body_tform_fiducial[0], body_tform_fiducial[1],
                 _spot_interface.hand_z
             ])
+            import ipdb; ipdb.set_trace()
             if objs[2].type.name == "bag":  # pragma: no cover
                 return offset_from_default_hand_pose + np.array(
                     [0.1, 0.0, -0.25])
             if "_table" in objs[2].name:
                 return offset_from_default_hand_pose + np.array(
-                    [0.1, 0.0, -0.2])
+                    [0.1, 0.0, -0.2]) - np.array([0.65, 0.0, 0.0])
             return offset_from_default_hand_pose + np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)
