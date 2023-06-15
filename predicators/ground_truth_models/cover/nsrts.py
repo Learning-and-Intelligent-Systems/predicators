@@ -348,6 +348,7 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Options
         PickFromSmooth = options["PickFromSmooth"]
         PickFromBumpy = options["PickFromBumpy"]
+        PickFromTarget = options["PickFromTarget"]
         PlaceOnTarget = options["PlaceOnTarget"]
         PlaceOnBumpy = options["PlaceOnBumpy"]
 
@@ -373,7 +374,7 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             del goal  # unused
-            b, = objs
+            b = objs[0]
             assert b.is_instance(block_type)
             lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
             lb = max(lb, 0.0)
@@ -407,6 +408,31 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                     preconditions, add_effects, delete_effects,
                                     set(), option, option_vars, pick_sampler)
         nsrts.add(pick_from_bumpy_nsrt)
+
+        # Pick from already covering target (in smooth region)
+        parameters = [block, target]
+        preconditions = {
+            LiftedAtom(Covers, [block, target]),
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(InSmoothRegion, [block])
+        }
+        add_effects = {
+            LiftedAtom(Holding, [block]),
+            LiftedAtom(Clear, [target])
+        }
+        delete_effects = {
+            LiftedAtom(Covers, [block, target]),
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(InSmoothRegion, [block])
+        }
+        option = PickFromTarget
+        option_vars = parameters
+
+        pick_from_target_nsrt = NSRT("PickFromTarget", parameters,
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, pick_sampler)
+        nsrts.add(pick_from_target_nsrt)
 
         # Place on target
         parameters = [block, target]
