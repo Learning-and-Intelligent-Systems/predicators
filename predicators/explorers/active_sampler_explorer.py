@@ -1,5 +1,6 @@
 """An explorer for active sampler learning."""
 
+import logging
 from typing import Callable, Dict, List, Optional, Set
 
 import numpy as np
@@ -9,9 +10,9 @@ from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import run_task_plan_once
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, DummyOption, \
-    ExplorationStrategy, GroundAtom, ParameterizedOption, Predicate, State, \
-    Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
+from predicators.structs import NSRT, ExplorationStrategy, GroundAtom, \
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 
 class ActiveSamplerExplorer(BaseExplorer):
@@ -62,7 +63,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_goal_reached and \
                 assigned_task.goal_holds(state):
-                print("REACHED ASSIGNED GOAL: ", assigned_task.goal)
+                logging.debug(
+                    f"[Explorer] Reached assigned goal: {assigned_task.goal}")
                 assigned_task_goal_reached = True
                 current_policy = None
 
@@ -86,15 +88,13 @@ class ActiveSamplerExplorer(BaseExplorer):
                     next_practice_nsrt = self._get_practice_ground_nsrt()
                     goal = next_practice_nsrt.preconditions
                 task = Task(state, goal)
-                print("replanning from ", atoms)
-                print("to goal ", task.goal)
+                logging.debug(f"[Explorer] Replanning to {task.goal}")
                 current_policy = self._get_option_policy_for_task(task)
 
             # Query the current policy.
             assert current_policy is not None
             try:
                 act = current_policy(state)
-                print("found action in ", atoms)
                 return act
             except utils.OptionExecutionFailure:
                 current_policy = None
@@ -112,10 +112,11 @@ class ActiveSamplerExplorer(BaseExplorer):
             if last_executed_nsrt is not None:
                 atoms = utils.abstract(state, self._predicates)
                 success = last_executed_nsrt.add_effects.issubset(atoms) and \
-                    not (last_executed_nsrt.delete_effects & atoms)
-                print("last_executed_nsrt:", last_executed_nsrt.name,
-                      last_executed_nsrt.objects)
-                print("outcome:", success)
+                    not last_executed_nsrt.delete_effects & atoms
+                logging.debug(
+                    "[Explorer] Last executed NSRT: "
+                    f"{last_executed_nsrt.name}{last_executed_nsrt.objects}")
+                logging.debug(f"[Explorer]   outcome: {success}")
                 last_executed_op = last_executed_nsrt.op
                 if last_executed_op not in self._ground_op_hist:
                     self._ground_op_hist[last_executed_op] = []
@@ -136,12 +137,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         return policy, termination_fn
 
     def _get_practice_ground_nsrt(self) -> _GroundNSRT:
-        best_ground_op = max(self._ground_op_hist, key=self._score_ground_op)
-        print(
-            f"Selected {best_ground_op.name} {best_ground_op.objects} for practice"
-        )
-        nsrt = [n for n in self._nsrts if n.op == best_ground_op.parent][0]
-        return nsrt.ground(best_ground_op.objects)
+        best_op = max(self._ground_op_hist, key=self._score_ground_op)
+        logging.debug(f"[Explorer] Practicing {best_op.name}{best_op.objects}")
+        nsrt = [n for n in self._nsrts if n.op == best_op.parent][0]
+        return nsrt.ground(best_op.objects)
 
     def _get_option_policy_for_task(self,
                                     task: Task) -> Callable[[State], _Option]:
@@ -166,12 +165,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         num_tries = len(history)
         success_rate = sum(history) / num_tries
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        print("ground_op success rate:", ground_op.name, ground_op.objects, success_rate)
+        logging.debug(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        logging.debug(f"[Explorer]   success rate: {success_rate}")
         # UCB-like bonus.
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
-        print("num tries:", num_tries)
+        logging.debug(f"[Explorer]   num attempts: {num_tries}")
         # Try less successful operators more often.
         score = (1.0 - success_rate) + bonus
-        print("score: ", score)
+        logging.debug(f"[Explorer]   total score: {score}")
         return score

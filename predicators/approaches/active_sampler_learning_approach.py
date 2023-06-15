@@ -88,7 +88,6 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         return "active_sampler_learning"
 
     def _create_explorer(self) -> BaseExplorer:
-        # TODO
         preds = self._get_current_predicates()
         explorer = create_explorer(CFG.explorer,
                                    preds,

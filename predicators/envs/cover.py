@@ -1105,13 +1105,21 @@ class BumpyCoverEnv(CoverEnvRegrasp):
 
 
 class RegionalBumpyCoverEnv(BumpyCoverEnv):
-    """Variation of bumpy cover where bumpy appear only in a region."""
+    """Variation of bumpy cover where bumpy appear only in a region.
+
+    Unlike the parent class, blocks can be placed anywhere once held.
+    The focus is completely on picking bumpy objects.
+    """
 
     _allow_free_space_placing: ClassVar[bool] = True
     _bumps_regional: ClassVar[bool] = True
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        assert not CFG.bumpy_cover_right_targets, \
+            ("Right targets are meaningless in the regional variation because "
+            "the agent can place anywhere. The only hard part is picking.")
 
         self._InBumpyRegion = Predicate("InBumpyRegion", [self._block_type],
                                         self._InBumpyRegion_holds)
