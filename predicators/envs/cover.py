@@ -75,8 +75,15 @@ class CoverEnv(BaseEnv):
             block_ub = state.get(block, "pose") + state.get(block, "width") / 2
             if state.get(block,
                          "grasp") == -1 and block_lb <= pose <= block_ub:
-                assert above_block is None
-                above_block = block
+                # Disgusting hack for RegionalBumpyCoverEnv.
+                if above_block is not None:
+                    assert self._disable_collisions
+                    assert action.has_option()
+                    option = action.get_option()
+                    assert "Pick" in option.parent.name
+                    above_block = option.objects[0]
+                else:
+                    above_block = block
         # If we're not holding anything and we're above a block, grasp it.
         # The grasped block's pose stays the same.
         if held_block is None and above_block is not None:
