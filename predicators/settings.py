@@ -63,6 +63,13 @@ class GlobalSettings:
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
+    # bumpy cover env parameters
+    bumpy_cover_num_bumps = 2
+    bumpy_cover_spaces_per_bump = 1
+    bumpy_cover_right_targets = False
+    bumpy_cover_bumpy_region_start = 0.8
+    bumpy_cover_init_bumpy_prob = 0.25
+
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
@@ -423,6 +430,8 @@ class GlobalSettings:
     offline_data_max_skeletons_optimized = -1
     # Number of replays used when offline_data_method is replay-based.
     offline_data_num_replays = 500
+    # Default to bilevel_plan_without_sim.
+    offline_data_bilevel_plan_without_sim = None
 
     # teacher dataset parameters
     # Number of positive examples and negative examples per predicate.
@@ -513,7 +522,15 @@ class GlobalSettings:
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
-    online_learning_lifelong = False
+
+    # active sampler learning parameters
+    active_sampler_learning_model = "myopic_classifier"
+    active_sampler_learning_use_teacher = True
+    active_sampler_learning_num_samples = 100
+    active_sampler_learning_score_gamma = 0.5
+    active_sampler_learning_n_iter_no_change = 5000
+    active_sampler_learning_fitted_q_iters = 5
+    active_sampler_learning_num_next_option_samples = 5
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator

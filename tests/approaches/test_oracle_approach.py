@@ -14,8 +14,9 @@ from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
 from predicators.envs.coffee import CoffeeEnv
-from predicators.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
-    CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
+from predicators.envs.cover import BumpyCoverEnv, CoverEnv, \
+    CoverEnvHierarchicalTypes, CoverEnvRegrasp, CoverEnvTypedOptions, \
+    CoverMultistepOptions, RegionalBumpyCoverEnv
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.envs.narrow_passage import NarrowPassageEnv
@@ -48,7 +49,9 @@ ENV_NAME_AND_CLS = [
     ("cover_typed_options", CoverEnvTypedOptions),
     ("cover_hierarchical_types", CoverEnvHierarchicalTypes),
     ("cover_regrasp", CoverEnvRegrasp),
+    ("bumpy_cover", BumpyCoverEnv),
     ("cover_multistep_options", CoverMultistepOptions),
+    ("regional_bumpy_cover", RegionalBumpyCoverEnv),
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv),
     ("blocks", BlocksEnv),
@@ -116,6 +119,25 @@ EXTRA_ARGS_ORACLE_APPROACH["cover_multistep_options"] = [
         "cover_multistep_bhr_percent": 0.99,
         "sesame_max_skeletons_optimized": 1,
         "sesame_max_samples_per_step": 1
+    },
+]
+EXTRA_ARGS_ORACLE_APPROACH["bumpy_cover"] = [
+    {
+        "bumpy_cover_right_targets": True,
+        "sesame_max_samples_per_step": 100,
+    },
+    {
+        "bumpy_cover_right_targets": False,
+    },
+]
+EXTRA_ARGS_ORACLE_APPROACH["regional_bumpy_cover"] = [
+    {
+        "bumpy_cover_init_bumpy_prob": 1.0,
+        "bumpy_cover_bumpy_region_start": 0.5
+    },
+    {
+        "bumpy_cover_right_targets": True,
+        "sesame_max_samples_per_step": 100,
     },
 ]
 EXTRA_ARGS_ORACLE_APPROACH["cluttered_table"] = [

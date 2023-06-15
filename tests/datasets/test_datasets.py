@@ -173,7 +173,23 @@ def test_demo_dataset():
     train_tasks = [t.task for t in env.get_train_tasks()]
     options = parse_config_included_options(env)
     dataset = create_dataset(env, train_tasks, options)
-    assert len(dataset.trajectories) > 0
+    assert 0 < len(dataset.trajectories) < 5
+    # Use bilevel planning to collect data, but don't use otherwise.
+    utils.reset_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "num_train_tasks": 5,
+        "option_learner": "arbitrary_dummy",
+        "bilevel_plan_without_sim": True,
+        "offline_data_bilevel_plan_without_sim": False,
+    })
+    env = CoverEnv()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    options = parse_config_included_options(env)
+    dataset = create_dataset(env, train_tasks, options)
+    assert len(dataset.trajectories) == 5
 
 
 @pytest.mark.parametrize(
