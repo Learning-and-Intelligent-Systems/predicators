@@ -450,6 +450,7 @@ class _SpotInterface():
         print("NavigateTo", objs)
         assert len(params) == 3
         assert len(objs) in [2, 3]
+        self.stow_arm()
 
         if graph_nav_loc_to_id.get(objs[1].name) is not None:
             waypoint_id = graph_nav_loc_to_id[objs[1].name]
@@ -522,8 +523,8 @@ class _SpotInterface():
         self.hand_movement(params,
                            keep_hand_pose=False,
                            relative_to_default_pose=False)
-        time.sleep(1.0)
-        self.stow_arm()
+        # time.sleep(1.0)
+        # self.stow_arm()
         # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
         time.sleep(1.0)
@@ -806,7 +807,7 @@ class _SpotInterface():
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            logging.info(f"""Current state:
+            logging.debug(f"""Current state:
                 {manipulation_api_pb2.ManipulationFeedbackState.Name(
                     response.current_state)}""")
 
@@ -939,6 +940,18 @@ class _SpotInterface():
         else:
             gripper_command = RobotCommandBuilder.\
                 claw_gripper_open_fraction_command(1.0)
+            
+            # Open Gripper First
+            # Combine the arm and gripper commands into one RobotCommand
+            command = RobotCommandBuilder.build_synchro_command(
+                gripper_command, arm_command)
+
+            # Send the request
+            cmd_id = self.robot_command_client.robot_command(command)
+            self.robot.logger.info('Moving arm to position.')
+
+            gripper_command = RobotCommandBuilder.\
+                claw_gripper_open_fraction_command(0.0)
 
         # Combine the arm and gripper commands into one RobotCommand
         command = RobotCommandBuilder.build_synchro_command(

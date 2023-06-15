@@ -63,19 +63,22 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     spot_xy = np.array([0.0, 0.0])
                     obj_xy = np.array([obj_x, obj_y])
                     distance = np.linalg.norm(obj_xy - spot_xy)
-                    unit_vector = (obj_xy - spot_xy) / distance
+                    obj_unit_vector = (obj_xy - spot_xy) / distance
 
                     distance_to_obj = 1.25
-                    new_xy = spot_xy + unit_vector * (distance -
+                    # try:
+                    #     assert distance > distance_to_obj
+                    # except AssertionError:
+                    #     import ipdb; ipdb.set_trace()
+                    new_xy = spot_xy + obj_unit_vector * (distance -
                                                       distance_to_obj)
-
                     # Find the angle change needed to look at object
                     angle = np.arccos(
-                        np.clip(np.dot(np.array([1.0, 0.0]), obj_xy), -1.0,
+                        np.clip(np.dot(np.array([1.0, 0.0]), obj_unit_vector), -1.0,
                                 1.0))
                     # Check which direction with allclose
                     if not np.allclose(
-                            obj_xy,
+                            obj_unit_vector,
                         [np.cos(angle), np.sin(angle)], atol=0.1):
                         angle = -angle
                     return np.array([new_xy[0], new_xy[1], angle])
