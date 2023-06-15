@@ -555,7 +555,7 @@ class GlobalSettings:
     greedy_lookahead_max_num_resamples = 10
 
     # active sampler explorer parameters
-    active_sampler_explore_bonus = 1e-2
+    active_sampler_explore_bonus = 1.0
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

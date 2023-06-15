@@ -170,6 +170,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # UCB-like bonus.
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
+        print("num tries:", num_tries)
         # Try less successful operators more often.
         score = (1.0 - success_rate) + bonus
         print("score: ", score)
