@@ -41,21 +41,25 @@ def test_spot_bike_env_load_task_from_json():
                 "x": 9.88252,
                 "y": -7.10786,
                 "z": 0.622855,
+                "in_view": 0.0
             },
             "brush": {
                 "x": 6.43948,
                 "y": -6.02389,
                 "z": 0.174947,
+                "in_view": 0.0
             },
             "hex_key": {
                 "x": 9.90738,
                 "y": -6.84972,
                 "z": 0.643172,
+                "in_view": 0.0
             },
             "hex_screwdriver": {
                 "x": 6.57559,
                 "y": -5.87017,
                 "z": 0.286362,
+                "in_view": 0.0
             },
             "low_wall_rack": {
                 "x": 10.0275,
@@ -105,10 +109,9 @@ def test_spot_bike_env_load_task_from_json():
     task = test_tasks[0]
 
     # pylint: disable=line-too-long
-    print(task.init_obs)
     assert str(
         task.init_obs
-    ) == "_SpotObservation(images={}, objects_in_view={brush:tool: (6.43948, -6.02389, 0.174947), hammer:tool: (9.88252, -7.10786, 0.622855), hex_key:tool: (9.90738, -6.84972, 0.643172), hex_screwdriver:tool: (6.57559, -5.87017, 0.286362), low_wall_rack:flat_surface: (10.0275, -6.96979, 0.275323), tool_room_table:flat_surface: (6.49849, -6.25279, -0.0138028), toolbag:bag: (6.85457, -8.19294, -0.189187)}, robot=spot:robot, gripper_open_percentage=0.42733, robot_pos=(8.46583, -6.94704, 0.131564), nonpercept_atoms=set(), nonpercept_predicates={InBag, ReachableSurface, PlatformNear, OnFloor, HoldingPlatformLeash, HoldingBag})"
+    ) == "_SpotObservation(images={}, objects_in_view={brush:tool: (6.43948, -6.02389, 0.174947), hammer:tool: (9.88252, -7.10786, 0.622855), hex_key:tool: (9.90738, -6.84972, 0.643172), hex_screwdriver:tool: (6.57559, -5.87017, 0.286362), low_wall_rack:flat_surface: (10.0275, -6.96979, 0.275323), tool_room_table:flat_surface: (6.49849, -6.25279, -0.0138028), toolbag:bag: (6.85457, -8.19294, -0.189187)}, objects_in_hand_view=[], robot=spot:robot, gripper_open_percentage=0.42733, robot_pos=(8.46583, -6.94704, 0.131564), nonpercept_atoms=set(), nonpercept_predicates={InBag, ReachableSurface, PlatformNear, OnFloor, HoldingPlatformLeash, HoldingBag})"
 
     assert str(
         sorted(task.goal)
