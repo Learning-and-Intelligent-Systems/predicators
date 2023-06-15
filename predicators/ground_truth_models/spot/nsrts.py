@@ -65,8 +65,9 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     distance = np.linalg.norm(obj_xy - spot_xy)
                     unit_vector = (obj_xy - spot_xy) / distance
 
-                    move_distance = 1
-                    new_xy = spot_xy + unit_vector * (distance - move_distance)
+                    distance_to_obj = 1.25
+                    new_xy = spot_xy + unit_vector * (distance -
+                                                      distance_to_obj)
 
                     # Find the angle change needed to look at object
                     angle = np.arccos(
