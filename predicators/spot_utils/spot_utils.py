@@ -72,19 +72,7 @@ obj_name_to_apriltag_id = {
     "low_wall_rack": 406,
     "front_tool_room": 407,
     "tool_room_table": 408,
-    "extra_room_table": 409
-}
-
-apriltag_id_to_obj_poses: Dict[int, Tuple[float, float, float]] = {
-    401: (9.894476696960474, -7.13110996085628, 0.6128697884183844),
-    402: (6.492544006833252, -5.949555197001736, 0.15848369079640096),
-    403: (9.865172551128433, -6.866927111707811, 0.6057541244901083),
-    404: (6.309634003009213, -5.927127765104969, 0.28815345669215225),
-    405: (7.012502003835815, -8.16002435840359, -0.19144977319953185),
-    406: (9.985505899791097, -6.981086719041378, 0.24004802462770083),
-    407: (6.974322333685671, -8.519032350022558, 0.19594502052006785),
-    408: (6.442939585696927, -6.266242910425788, 0.026100683357255378),
-    409: (8.20282, -6.09703, 0.0314739)
+    "extra_room_table": 409,
 }
 
 OBJECT_CROPS = {
@@ -186,6 +174,9 @@ class _SpotInterface():
         self._image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
+        self.hand_x_bounds = (0.3, 0.9)
+        self.hand_y_bounds = (-0.5, 0.5)
+        self.hand_z_bounds = (0.2, 0.7)
         self.localization_timeout = 10
 
         # Try to connect to the robot. If this fails, still maintain the
@@ -407,7 +398,7 @@ class _SpotInterface():
                 body_tform_fiducial[2])
 
             # This only works for small fiducials because of initial size.
-            if detection.tag_id in apriltag_id_to_obj_poses:
+            if detection.tag_id in obj_name_to_apriltag_id.values():
                 obj_poses[detection.tag_id] = fiducial_rt_gn_origin
 
         return obj_poses
@@ -467,11 +458,31 @@ class _SpotInterface():
         else:
             waypoint_id = ""
 
-        self.navigate_to(waypoint_id, params)
-        self.stow_arm()
-        # NOTE: time.sleep(2.0) required afer each option execution
+        if len(objs) == 3 and objs[2].name == "floor":
+            self.navigate_to_position(params)
+        else:
+            self.navigate_to(waypoint_id, params)
+
+        # Set arm view pose
+        # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
-        time.sleep(2.0)
+        if len(objs) == 3:
+            if "_table" in objs[2].name:
+                self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                                   keep_hand_pose=False,
+                                   angle=(np.cos(np.pi / 8), 0,
+                                          np.sin(np.pi / 8), 0))
+                time.sleep(1.0)
+                return
+            if "floor" in objs[2].name:
+                self.hand_movement(np.array([-0.2, 0.0, -0.25]),
+                                   keep_hand_pose=False,
+                                   angle=(np.cos(np.pi / 6), 0,
+                                          np.sin(np.pi / 6), 0))
+                time.sleep(1.0)
+                return
+        self.stow_arm()
+        time.sleep(1.0)
 
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
@@ -489,15 +500,13 @@ class _SpotInterface():
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
-        if "_table" in objs[2].name:
-            self.hand_movement(params[:3], keep_hand_pose=False, angle_45=True)
         self.arm_object_grasp(objs[1])
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
         self.stow_arm()
-        # NOTE: time.sleep(2.0) required afer each option execution
+        # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
-        time.sleep(2.0)
+        time.sleep(1.0)
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Array) -> None:
@@ -508,17 +517,14 @@ class _SpotInterface():
         """
         print("PlaceOntop", objs)
         assert len(params) == 3
-        if "_table" in objs[2].name:
-            self.relative_move(0.65, 0.0, 0.0)
         self.hand_movement(params,
-                           objs[2],
                            keep_hand_pose=False,
-                           use_object_location=True)
+                           relative_to_default_pose=False)
         time.sleep(1.0)
         self.stow_arm()
-        # NOTE: time.sleep(2.0) required afer each option execution
+        # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
-        time.sleep(2.0)
+        time.sleep(1.0)
 
     def _scan_for_objects(
         self, waypoints: Sequence[str], objects_to_find: Collection[str]
@@ -526,7 +532,9 @@ class _SpotInterface():
         """Walks around and spins around to find object poses by apriltag."""
         # Stow arm before
         self.stow_arm()
-        obj_poses: Dict[str, Tuple[float, float, float]] = {}
+        obj_poses: Dict[str, Tuple[float, float, float]] = {
+            "floor": (0.0, 0.0, -1.0)
+        }
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
@@ -829,13 +837,15 @@ class _SpotInterface():
         block_until_arm_arrives(self.robot_command_client,
                                 stow_and_close_command_id, 4.5)
 
-    def hand_movement(self,
-                      params: Array,
-                      obj: Optional[Object] = None,
-                      open_gripper: bool = True,
-                      keep_hand_pose: bool = True,
-                      use_object_location: bool = False,
-                      angle_45: bool = False) -> None:
+    def hand_movement(
+        self,
+        params: Array,
+        open_gripper: bool = True,
+        relative_to_default_pose: bool = True,
+        keep_hand_pose: bool = True,
+        angle: Tuple[float, float, float,
+                     float] = (np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0)
+    ) -> None:
         """Move arm to infront of robot an open gripper."""
         # Move the arm to a spot in front of the robot, and open the gripper.
         assert self.robot.is_powered_on(), "Robot power on failed."
@@ -849,47 +859,31 @@ class _SpotInterface():
                 BODY_FRAME_NAME, "hand")
             qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x,\
                 body_T_hand.rot.y, body_T_hand.rot.z
-        elif angle_45:
-            # Set downward place rotation as a quaternion.
-            qw = np.cos(np.pi / 8)
-            qx = 0
-            qy = np.sin(np.pi / 8)
-            qz = 0
         else:
             # Set downward place rotation as a quaternion.
-            qw = np.cos(np.pi / 4)
-            qx = 0
-            qy = np.sin(np.pi / 4)
-            qz = 0
+            qw, qx, qy, qz = angle
         flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
-        # Make the arm pose RobotCommand
-        if use_object_location:
-            # Get graph_nav to body frame.
-            state = self.get_localized_state()
-            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
-                state.localization.seed_tform_body)
-
-            # Apply transform to fiducial pose to get relative body location.
-            assert isinstance(obj, Object)
-            tag_id = obj_name_to_apriltag_id[obj.name]
-            body_tform_fiducial = gn_origin_tform_body.inverse(
-            ).transform_point(apriltag_id_to_obj_poses[tag_id][0],
-                              apriltag_id_to_obj_poses[tag_id][1],
-                              apriltag_id_to_obj_poses[tag_id][2])
-            hand_x, hand_y, hand_z = [
-                body_tform_fiducial[0], body_tform_fiducial[1], self.hand_z
-            ]
+        if not relative_to_default_pose:
+            x = params[0]  # dx hand
+            y = params[1]
+            z = params[2]
         else:
-            hand_x, hand_y, hand_z = [self.hand_x, self.hand_y, self.hand_z]
-        # Build a position to move the arm to (in meters, relative to and
-        # expressed in the gravity aligned body frame).
-        assert params[0] >= -0.5 and params[0] <= 0.5
-        assert params[1] >= -0.5 and params[1] <= 0.5
-        assert params[2] >= -0.25 and params[2] <= 0.25
-        x = hand_x + params[0]  # dx hand
-        y = hand_y + params[1]
-        z = hand_z + params[2]
+            x = self.hand_x + params[0]  # dx hand
+            y = self.hand_y + params[1]
+            z = self.hand_z + params[2]
+
+        # Here we are making sure the hand pose is within our range and
+        # if it is not we are clipping it to be, and then displacing the
+        # robot respectively.
+        x_clipped = np.clip(x, self.hand_x_bounds[0], self.hand_x_bounds[1])
+        y_clipped = np.clip(y, self.hand_y_bounds[0], self.hand_y_bounds[1])
+        z_clipped = np.clip(z, self.hand_z_bounds[0], self.hand_z_bounds[1])
+        self.relative_move((x - x_clipped), (y - y_clipped), 0.0)
+        x = x_clipped
+        y = y_clipped
+        z = z_clipped
+
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
         flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body,
@@ -926,7 +920,7 @@ class _SpotInterface():
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
 
-        time.sleep(2)
+        time.sleep(1.0)
 
         if not open_gripper:
             gripper_command = RobotCommandBuilder.\
@@ -945,7 +939,7 @@ class _SpotInterface():
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
-        time.sleep(2)
+        time.sleep(1.0)
 
     def navigate_to(self, waypoint_id: str, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
@@ -1019,6 +1013,27 @@ class _SpotInterface():
         if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
             logging.info("Timed out waiting for movement to execute!")
         return False
+
+    def navigate_to_position(self, params: Array) -> None:
+        """Use GraphNavInterface to localize robot and go to a position."""
+        # pylint: disable=broad-except
+
+        # Stow arm first
+        self.stow_arm()
+        try:
+            # (1) Initialize location
+            self.graph_nav_command_line.set_initial_localization_fiducial()
+            print("init by fid")
+
+            # (2) Get localization state
+            self.graph_nav_command_line.get_localization_state()
+            print("localized state")
+
+            # (3) Just move
+            self.relative_move(params[0], params[1], params[2])
+
+        except Exception as e:
+            logging.info(e)
 
 
 @functools.lru_cache(maxsize=None)
