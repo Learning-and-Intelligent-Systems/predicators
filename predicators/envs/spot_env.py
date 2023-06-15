@@ -427,7 +427,7 @@ class SpotBikeEnv(SpotEnv):
     robot to execute."""
 
     _ontop_threshold: ClassVar[float] = 0.55
-    _reachable_threshold: ClassVar[float] = 0.95  #1.83
+    _reachable_threshold: ClassVar[float] = 1.7
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
