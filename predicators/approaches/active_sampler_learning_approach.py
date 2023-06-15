@@ -117,7 +117,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._learn_wrapped_samplers(online_learning_cycle)
 
     def _update_sampler_data(self) -> None:
-        new_trajs = self._segmented_trajs[self._last_seen_segment_traj_idx:]
+        start_idx = self._last_seen_segment_traj_idx + 1
+        new_trajs = self._segmented_trajs[start_idx:]
         for segmented_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             just_made_incorrect_pick = False
