@@ -2,6 +2,7 @@
 
 from typing import Callable, Dict, List, Optional, Set
 
+import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
@@ -110,7 +111,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                 atoms = utils.abstract(state, self._predicates)
                 success = last_executed_nsrt.add_effects.issubset(atoms) and \
                     not (last_executed_nsrt.delete_effects & atoms)
-                print("last_executed_nsrt:", last_executed_nsrt.name, last_executed_nsrt.objects)
+                print("last_executed_nsrt:", last_executed_nsrt.name,
+                      last_executed_nsrt.objects)
                 print("outcome:", success)
                 last_executed_op = last_executed_nsrt.op
                 if last_executed_op not in self._ground_op_hist:
@@ -132,8 +134,12 @@ class ActiveSamplerExplorer(BaseExplorer):
         return policy, termination_fn
 
     def _get_practice_ground_nsrt(self) -> _GroundNSRT:
-        import ipdb
-        ipdb.set_trace()
+        best_ground_op = max(self._ground_op_hist, key=self._score_ground_op)
+        print(
+            f"Selected {best_ground_op.name} {best_ground_op.objects} for practice"
+        )
+        nsrt = [n for n in self._nsrts if n.op == best_ground_op.parent][0]
+        return nsrt.ground(best_ground_op.objects)
 
     def _get_option_policy_for_task(self,
                                     task: Task) -> Callable[[State], _Option]:
@@ -150,3 +156,16 @@ class ActiveSamplerExplorer(BaseExplorer):
             task_planning_heuristic=task_planning_heuristic)
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
+
+    def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
+        # Score NSRTs according to their success rate and a bonus for ones
+        # that haven't been tried very much.
+        history = self._ground_op_hist[ground_op]
+        num_tries = len(history)
+        success_rate = sum(history) / num_tries
+        total_trials = sum(len(h) for h in self._ground_op_hist.values())
+        # UCB-like bonus.
+        c = CFG.active_sampler_explore_bonus
+        bonus = c * np.sqrt(np.log(total_trials) / num_tries)
+        # Try less successful operators more often.
+        return (1.0 - success_rate) + bonus
