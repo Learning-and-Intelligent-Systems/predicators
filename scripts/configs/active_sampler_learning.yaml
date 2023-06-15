@@ -17,6 +17,8 @@ ENVS:
       bumpy_cover_num_bumps: 5
       bumpy_cover_spaces_per_bump: 5
       bumpy_cover_init_bumpy_prob: 0.5
+      cover_num_targets: 5
+      cover_target_widths: '[0.01,0.01,0.01,0.01,0.01]'
 ARGS: {}
 FLAGS:
   strips_learner: "oracle"

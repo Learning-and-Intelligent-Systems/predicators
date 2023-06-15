@@ -178,12 +178,12 @@ class CoverEnv(BaseEnv):
                     label="Hand")
         lw = 3
         height = 0.1
-        cs = ["blue", "purple", "green", "yellow"]
+        cs = ["blue", "purple", "green", "yellow", "orange", "brown"]
         block_alpha = 0.75
         targ_alpha = 0.25
         # Draw blocks
         for i, block in enumerate(state.get_objects(self._block_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             if state.get(block, "grasp") != -1:
                 lcolor = "red"
                 pose = state.get(self._robot, "hand") - state.get(
@@ -205,7 +205,7 @@ class CoverEnv(BaseEnv):
             ax.add_patch(rect)
         # Draw targets
         for i, targ in enumerate(state.get_objects(self._target_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             lcolor = "gray"
             rect = plt.Rectangle(
                 (state.get(targ, "pose") - state.get(targ, "width") / 2.,
@@ -767,7 +767,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
         # Draw blocks
         for i, block in enumerate(state.get_objects(self._block_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw = state.get(block, "width")
             bh = state.get(block, "height")
@@ -788,7 +788,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             ax.add_patch(rect)
         # Draw targets
         for i, targ in enumerate(state.get_objects(self._target_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             rect = plt.Rectangle(
                 (state.get(targ, "x") - state.get(targ, "width") / 2., 0.0),
                 state.get(targ, "width"),
