@@ -1062,23 +1062,25 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
         assert len(CFG.cover_block_widths) == len(blocks)
+        want_block_in_bumpy = rng.uniform() < FG.bumpy_cover_init_bumpy_prob
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):
-            while True:
-                bp = CFG.bumpy_cover_init_bumpy_prob
-                if self._bumps_regional and rng.uniform() < bp:
-                    lb = max(width / 2, CFG.bumpy_cover_bumpy_region_start)
-                else:
-                    lb = width / 2
-                ub = 1.0 - width / 2
-                pose = rng.uniform(lb, ub)
-                if not self._any_intersection(pose, width, data):
-                    break
-            # [is_block, is_target, width, pose, grasp, bumpy]
             if i % 2 == 0:
                 bumpy = 1.0
             else:
                 bumpy = 0.0
+            while True:
+                if self._bumps_regional and want_block_in_bumpy and bumpy:
+                    lb = max(width / 2, CFG.bumpy_cover_bumpy_region_start)
+                    ub = 1.0 - width / 2
+                    want_block_in_bumpy = False
+                else:
+                    lb = width / 2
+                    ub = CFG.bumpy_cover_bumpy_region_start - width / 2
+                pose = rng.uniform(lb, ub)
+                if not self._any_intersection(pose, width, data):
+                    break
+            # [is_block, is_target, width, pose, grasp, bumpy]
             data[block] = np.array([1.0, 0.0, width, pose, -1.0, bumpy])
         # [hand, pose_x, pose_z]
         data[self._robot] = np.array([0.5, self.workspace_x, self.workspace_z])
