@@ -10,39 +10,17 @@ so we're punting for now.
 Example commands
 ----------------
 
-Bumpy cover easy:
-    python predicators/main.py --approach active_sampler_learning \
-        --env bumpy_cover \
-        --seed 0 \
-        --strips_learner oracle \
-        --sampler_learner oracle \
-        --bilevel_plan_without_sim True \
-        --offline_data_bilevel_plan_without_sim False \
-        --explorer random_nsrts \
-        --max_initial_demos 0 \
-        --num_train_tasks 1000 \
-        --num_test_tasks 100 \
-        --max_num_steps_interaction_request 4 \
-        --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1
-
-
-Bumpy cover with shifted targets:
-    python predicators/main.py --approach active_sampler_learning \
-        --env bumpy_cover \
-        --seed 0 \
-        --strips_learner oracle \
-        --sampler_learner oracle \
-        --bilevel_plan_without_sim True \
-        --offline_data_bilevel_plan_without_sim False \
-        --explorer random_nsrts \
-        --max_initial_demos 0 \
-        --num_train_tasks 1000 \
-        --num_test_tasks 100 \
-        --max_num_steps_interaction_request 4 \
-        --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1 \
-        --bumpy_cover_right_targets True
+python predicators/main.py --approach active_sampler_learning \
+    --env bumpy_cover --seed 0 \
+    --strips_learner oracle --sampler_learner oracle \
+    --bilevel_plan_without_sim True \
+    --explorer random_nsrts \
+    --max_initial_demos 0 \
+    --num_train_tasks 1000 \
+    --num_test_tasks 100 \
+    --max_num_steps_interaction_request 15 \
+    --sampler_mlp_classifier_max_itr 1000000 \
+    --pytorch_train_print_every 10000
 """
 from __future__ import annotations
 
@@ -57,6 +35,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
+from predicators.explorers import BaseExplorer, create_explorer
 from predicators.ml_models import MLPBinaryClassifier, MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
@@ -89,6 +68,16 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler_learning"
+
+    def _create_explorer(self) -> BaseExplorer:
+        # TODO
+        preds = self._get_current_predicates()
+        explorer = create_explorer(CFG.explorer, preds, self._initial_options,
+                                   self._types,
+                                   self._action_space, self._train_tasks,
+                                   self._get_current_nsrts(),
+                                   self._option_model)
+        return explorer
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
