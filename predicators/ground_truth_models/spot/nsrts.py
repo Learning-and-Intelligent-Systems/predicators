@@ -111,11 +111,9 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 _spot_interface.hand_z
             ])
             if objs[2].type.name == "bag":  # pragma: no cover
-                return fiducial_pose + np.array(
-                    [0.1, 0.0, -0.25])
+                return fiducial_pose + np.array([0.1, 0.0, -0.25])
             if "_table" in objs[2].name:
-                return fiducial_pose + np.array(
-                    [0.2, -0.05, -0.2])
+                return fiducial_pose + np.array([0.2, -0.05, -0.2])
             return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)
