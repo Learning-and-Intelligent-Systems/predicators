@@ -948,7 +948,7 @@ class _GroundNSRT:
     @property
     def op(self) -> _GroundSTRIPSOperator:
         """The corresponding ground operator."""
-        return self.parent.op.ground(self.objects)
+        return self.parent.op.ground(tuple(self.objects))
 
     def __str__(self) -> str:
         return self._str

@@ -60,6 +60,7 @@ class ActiveSamplerExplorer(BaseExplorer):
 
             # Record if we've reached the assigned goal; can now practice.
             if assigned_task.goal_holds(state):
+                print("REACHED ASSIGNED GOAL: ", assigned_task.goal)
                 assigned_task_goal_reached = True
                 current_policy = None
 
@@ -83,12 +84,19 @@ class ActiveSamplerExplorer(BaseExplorer):
                     next_practice_nsrt = self._get_practice_ground_nsrt()
                     goal = next_practice_nsrt.preconditions
                 task = Task(state, goal)
+                print("replanning from ", atoms)
                 current_policy = self._get_option_policy_for_task(task)
 
-            # Query the current policy and record the executed operator.
-            # TODO handle execution failures
+            # Query the current policy.
             assert current_policy is not None
-            return current_policy(state)
+            try:
+                act = current_policy(state)
+                print("found action in ", atoms)
+                return act
+            except utils.OptionExecutionFailure:
+                current_policy = None
+            # Call recursively to trigger re-planning.
+            return _option_policy(state)
 
         # Wrap the option policy to keep track of the executed NSRTs and if
         # they succeeded, to update the ground_op_hist.
@@ -102,6 +110,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                 atoms = utils.abstract(state, self._predicates)
                 success = last_executed_nsrt.add_effects.issubset(atoms) and \
                     not (last_executed_nsrt.delete_effects & atoms)
+                print("last_executed_nsrt:", last_executed_nsrt.name, last_executed_nsrt.objects)
+                print("outcome:", success)
                 last_executed_op = last_executed_nsrt.op
                 if last_executed_op not in self._ground_op_hist:
                     self._ground_op_hist[last_executed_op] = []
