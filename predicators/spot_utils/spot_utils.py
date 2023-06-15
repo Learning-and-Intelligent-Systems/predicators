@@ -459,7 +459,7 @@ class _SpotInterface():
             self.navigate_to(waypoint_id, params)
 
         # Set arm view pose
-        # NOTE: time.sleep(2.0) required afer each option execution
+        # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
         if len(objs) == 3:
             if "_table" in objs[2].name:
@@ -467,17 +467,17 @@ class _SpotInterface():
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 8), 0,
                                           np.sin(np.pi / 8), 0))
-                time.sleep(2.0)
+                time.sleep(1.0)
                 return
             elif "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 6), 0,
                                           np.sin(np.pi / 6), 0))
-                time.sleep(2.0)
+                time.sleep(1.0)
                 return
         self.stow_arm()
-        time.sleep(2.0)
+        time.sleep(1.0)
 
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
@@ -499,9 +499,9 @@ class _SpotInterface():
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
         self.stow_arm()
-        # NOTE: time.sleep(2.0) required afer each option execution
+        # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
-        time.sleep(2.0)
+        time.sleep(1.0)
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Array) -> None:
@@ -512,16 +512,14 @@ class _SpotInterface():
         """
         print("PlaceOntop", objs)
         assert len(params) == 3
-        if "_table" in objs[2].name:
-            self.relative_move(0.65, 0.0, 0.0)
         self.hand_movement(params,
                            keep_hand_pose=False,
                            relative_to_default_pose=False)
         time.sleep(1.0)
         self.stow_arm()
-        # NOTE: time.sleep(2.0) required afer each option execution
+        # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
-        time.sleep(2.0)
+        time.sleep(1.0)
 
     def _scan_for_objects(
         self, waypoints: Sequence[str], objects_to_find: Collection[str]
@@ -865,17 +863,19 @@ class _SpotInterface():
             x = params[0]  # dx hand
             y = params[1]
             z = params[2]
-            import ipdb; ipdb.set_trace()
         else:
-            hand_x, hand_y, hand_z = [self.hand_x, self.hand_y, self.hand_z]
-            # Build a position to move the arm to (in meters, relative to and
-            # expressed in the gravity aligned body frame).
-            assert params[0] >= -0.5 and params[0] <= 0.5
-            assert params[1] >= -0.5 and params[1] <= 0.5
-            assert params[2] >= -0.25 and params[2] <= 0.25
-            x = hand_x + params[0]  # dx hand
-            y = hand_y + params[1]
-            z = hand_z + params[2]
+            x = self.hand_x + params[0]  # dx hand
+            y = self.hand_y + params[1]
+            z = self.hand_z + params[2]
+
+        x_cliped = np.clip(x, 0.3, 0.9)
+        y_cliped = np.clip(y, -0.5, 0.5)
+        z_cliped = np.clip(z, 0.2, 0.7)
+        self.relative_move((x - x_cliped), (y - y_cliped), 0.0)
+        x = x_cliped
+        y = y_cliped
+        z = z_cliped
+
         hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
 
         flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body,
@@ -912,7 +912,7 @@ class _SpotInterface():
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
 
-        time.sleep(2)
+        time.sleep(1.0)
 
         if not open_gripper:
             gripper_command = RobotCommandBuilder.\
@@ -931,7 +931,7 @@ class _SpotInterface():
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
-        time.sleep(2)
+        time.sleep(1.0)
 
     def navigate_to(self, waypoint_id: str, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
