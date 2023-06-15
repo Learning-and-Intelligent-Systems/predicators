@@ -60,7 +60,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             atoms = utils.abstract(state, self._predicates)
 
             # Record if we've reached the assigned goal; can now practice.
-            if assigned_task.goal_holds(state):
+            if not assigned_task_goal_reached and \
+                assigned_task.goal_holds(state):
                 print("REACHED ASSIGNED GOAL: ", assigned_task.goal)
                 assigned_task_goal_reached = True
                 current_policy = None
@@ -86,6 +87,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                     goal = next_practice_nsrt.preconditions
                 task = Task(state, goal)
                 print("replanning from ", atoms)
+                print("to goal ", task.goal)
                 current_policy = self._get_option_policy_for_task(task)
 
             # Query the current policy.
@@ -164,8 +166,11 @@ class ActiveSamplerExplorer(BaseExplorer):
         num_tries = len(history)
         success_rate = sum(history) / num_tries
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
+        print("ground_op success rate:", ground_op.name, ground_op.objects, success_rate)
         # UCB-like bonus.
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
         # Try less successful operators more often.
-        return (1.0 - success_rate) + bonus
+        score = (1.0 - success_rate) + bonus
+        print("score: ", score)
+        return score

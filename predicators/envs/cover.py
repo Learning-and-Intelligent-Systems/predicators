@@ -1127,6 +1127,13 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
     def predicates(self) -> Set[Predicate]:
         return super().predicates | {self._InBumpyRegion, self._InSmoothRegion}
 
+    def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
+        # If a block is held, allow placing anywhere in this environment.
+        if not self._HandEmpty_holds(state, []):
+            return [(0.0, 1.0)]
+        # Otherwise, choose hand regions carefully.
+        return super()._get_hand_regions(state)
+
     def render_state_plt(
             self,
             state: State,
