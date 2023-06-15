@@ -31,8 +31,11 @@ def create_explorer(
     atom_score_fn: Optional[Callable[[Set[GroundAtom]], float]] = None,
     state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
     ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
+    max_steps_before_termination: Optional[int] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
+    if max_steps_before_termination is None:
+        max_steps_before_termination = CFG.max_num_steps_interaction_request
     for cls in utils.get_all_subclasses(BaseExplorer):
         if not cls.__abstractmethods__ and cls.get_name() == name:
             # Special case GLIB because it uses babble predicates and an atom
@@ -64,12 +67,12 @@ def create_explorer(
             elif name == "random_nsrts":
                 assert nsrts is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, nsrts)
+                               action_space, train_tasks, max_steps_before_termination, nsrts)
             # Active sampler explorer uses ground_op_hist and no option model.
             elif name == "active_sampler":
                 assert ground_op_hist is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, nsrts,
+                               action_space, train_tasks, max_steps_before_termination, nsrts,
                                ground_op_hist)
             else:
                 explorer = cls(initial_predicates, initial_options, types,

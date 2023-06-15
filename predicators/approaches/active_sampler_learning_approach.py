@@ -88,6 +88,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         return "active_sampler_learning"
 
     def _create_explorer(self) -> BaseExplorer:
+        # Geometrically increase the length of exploration.
+        b = CFG.active_sampler_explore_length_base
+        max_steps = b**self._online_learning_cycle
         preds = self._get_current_predicates()
         explorer = create_explorer(CFG.explorer,
                                    preds,
@@ -97,7 +100,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                                    self._train_tasks,
                                    self._get_current_nsrts(),
                                    self._option_model,
-                                   ground_op_hist=self._ground_op_hist)
+                                   ground_op_hist=self._ground_op_hist,
+                                   max_steps_before_termination=max_steps)
         return explorer
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],

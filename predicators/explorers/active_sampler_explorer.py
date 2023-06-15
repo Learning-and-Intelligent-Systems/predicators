@@ -27,18 +27,18 @@ class ActiveSamplerExplorer(BaseExplorer):
     starts planning to practice.
     """
 
-    def __init__(
-            self, predicates: Set[Predicate],
-            options: Set[ParameterizedOption], types: Set[Type],
-            action_space: Box, train_tasks: List[Task], nsrts: Set[NSRT],
-            ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]]) -> None:
+    def __init__(self, predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task],
+                 max_steps_before_termination: int,  nsrts: Set[NSRT],
+                 ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]]) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"
         # The base sampler should also be unchanging and from the oracle.
         assert CFG.sampler_learner == "oracle"
 
-        super().__init__(predicates, options, types, action_space, train_tasks)
+        super().__init__(predicates, options, types, action_space, train_tasks, max_steps_before_termination)
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
 
@@ -46,7 +46,7 @@ class ActiveSamplerExplorer(BaseExplorer):
     def get_name(cls) -> str:
         return "active_sampler"
 
-    def get_exploration_strategy(self, train_task_idx: int,
+    def _get_exploration_strategy(self, train_task_idx: int,
                                  timeout: int) -> ExplorationStrategy:
 
         assigned_task = self._train_tasks[train_task_idx]
@@ -131,8 +131,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Finalize policy.
         policy = utils.option_policy_to_policy(_wrapped_option_policy)
 
-        # Never terminate (until the interaction budget is exceeded).
-        termination_fn = lambda _: False
+        # Never terminate.
+        termination_fn = lambda _ : False
 
         return policy, termination_fn
 

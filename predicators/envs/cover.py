@@ -77,7 +77,7 @@ class CoverEnv(BaseEnv):
                          "grasp") == -1 and block_lb <= pose <= block_ub:
                 # Disgusting hack for RegionalBumpyCoverEnv.
                 if above_block is not None:
-                    assert self._disable_collisions
+                    assert self._disable_collisions  # type: ignore
                     assert action.has_option()
                     option = action.get_option()
                     assert "Pick" in option.parent.name
