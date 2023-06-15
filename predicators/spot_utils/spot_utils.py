@@ -535,6 +535,8 @@ class _SpotInterface():
         obj_poses: Dict[str, Tuple[float, float, float]] = {
             "floor": (0.0, 0.0, -1.0)
         }
+        angles = [(np.cos((np.pi / 4) / 2), 0.0, np.sin((np.pi / 4) / 2), 0.0),
+                  (np.cos((np.pi / 4)), 0.0, np.sin((np.pi / 4)), 0.0)]  
         for waypoint in waypoints:
             waypoint_id = graph_nav_loc_to_id[waypoint]
             self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
@@ -542,6 +544,13 @@ class _SpotInterface():
                 logging.info("All objects located!")
                 break
             for _ in range(8):
+                for angle in angles:
+                    self.hand_movement(np.array([-0.2, 0.0, -0.25]),
+                                    keep_hand_pose=False,
+                                    angle=angle)
+                    objects_in_view = self.get_objects_in_view()
+                    obj_poses.update(objects_in_view)
+                    self.stow_arm()
                 objects_in_view = self.get_objects_in_view()
                 obj_poses.update(objects_in_view)
                 logging.info("Seen objects:")
