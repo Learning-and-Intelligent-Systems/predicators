@@ -50,6 +50,10 @@ class CogMan:
             self._exec_monitor.reset(task)
             self._exec_monitor.update_approach_info(
                 self._approach.get_execution_monitoring_info())
+            # print()
+            # for act in self._approach.get_last_nsrt_plan():
+            #     print(act)
+            # import ipdb; ipdb.set_trace()
             assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
         act = self._current_policy(state)

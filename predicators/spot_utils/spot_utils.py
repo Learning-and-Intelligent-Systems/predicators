@@ -469,6 +469,7 @@ class _SpotInterface():
         if len(objs) == 3:
             if "_table" in objs[2].name:
                 self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                                   open_gripper=False,
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 8), 0,
                                           np.sin(np.pi / 8), 0))
@@ -476,6 +477,7 @@ class _SpotInterface():
                 return
             if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
+                                   open_gripper=False,
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 6), 0,
                                           np.sin(np.pi / 6), 0))

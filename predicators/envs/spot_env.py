@@ -522,7 +522,7 @@ class SpotBikeEnv(SpotEnv):
             _create_dummy_predicate_classifier(self._temp_PlatformNear))
 
         # STRIPS Operators (needed for option creation)
-        # MoveToTool
+        # MoveToToolOnSurface
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         surface = Variable("?surface", self._surface_type)
@@ -535,7 +535,7 @@ class SpotBikeEnv(SpotEnv):
             self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
             self._ReachablePlatform
         }
-        self._MoveToToolOp = STRIPSOperator("MoveToTool",
+        self._MoveToToolOnSurfaceOp = STRIPSOperator("MoveToToolOnSurface",
                                             [spot, tool, surface],
                                             preconditions, add_effs, set(),
                                             ignore_effs)
@@ -544,7 +544,7 @@ class SpotBikeEnv(SpotEnv):
         tool = Variable("?tool", self._tool_type)
         floor = Variable("?floor", self._floor_type)
         preconditions = {LiftedAtom(self._OnFloor, [tool, floor])}
-        add_effs = {LiftedAtom(self._ReachableTool, [spot, tool])}
+        add_effs = {LiftedAtom(self._ReachableTool, [spot, tool]), LiftedAtom(self._InViewTool, [spot, tool])}
         ignore_effs = {
             self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
             self._ReachablePlatform
@@ -617,6 +617,7 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._OnFloor, [tool, floor]),
             LiftedAtom(self._ReachableTool, [spot, tool]),
             LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         add_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
@@ -626,6 +627,7 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._OnFloor, [tool, floor]),
             LiftedAtom(self._HandEmpty, [spot]),
             LiftedAtom(self._ReachableTool, [spot, tool]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         self._GraspToolFromFloorOp = STRIPSOperator("GraspToolFromFloor",
                                                     [spot, tool, floor],
@@ -757,7 +759,7 @@ class SpotBikeEnv(SpotEnv):
                                               add_effs, del_effs, set())
 
         self._strips_operators = {
-            self._MoveToToolOp,
+            self._MoveToToolOnSurfaceOp,
             self._MoveToSurfaceOp,
             self._MoveToPlatformOp,
             self._MoveToBagOp,
