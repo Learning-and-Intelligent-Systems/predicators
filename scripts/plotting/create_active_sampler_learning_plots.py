@@ -64,7 +64,7 @@ Y_KEY_AND_LABEL = [
 PLOT_GROUPS = {
     "Regional Bumpy Cover": [
         ("Active Explore", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "smart-explore" in v)),
+            lambda v: "main" in v)),
         ("Random Explore", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "random-explore" in v)),
     ],
