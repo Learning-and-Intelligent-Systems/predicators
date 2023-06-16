@@ -1,6 +1,6 @@
 """Handle creation of explorers."""
 
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, List, Optional, Set
 
 from gym.spaces import Box
 
@@ -9,8 +9,9 @@ from predicators.explorers.base_explorer import BaseExplorer
 from predicators.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.option_model import _OptionModelBase
+from predicators.settings import CFG
 from predicators.structs import NSRT, GroundAtom, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundSTRIPSOperator
+    Predicate, State, Task, Type
 
 __all__ = ["BaseExplorer"]
 
@@ -30,7 +31,6 @@ def create_explorer(
     babble_predicates: Optional[Set[Predicate]] = None,
     atom_score_fn: Optional[Callable[[Set[GroundAtom]], float]] = None,
     state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
-    ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
     max_steps_before_termination: Optional[int] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
@@ -46,8 +46,9 @@ def create_explorer(
                 assert babble_predicates is not None
                 assert atom_score_fn is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, nsrts, option_model,
-                               babble_predicates, atom_score_fn)
+                               action_space, train_tasks,
+                               max_steps_before_termination, nsrts,
+                               option_model, babble_predicates, atom_score_fn)
             # Special case greedy lookahead because it uses a state score
             # function.
             elif name == "greedy_lookahead":
@@ -55,28 +56,34 @@ def create_explorer(
                 assert option_model is not None
                 assert state_score_fn is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, nsrts, option_model,
-                               state_score_fn)
+                               action_space, train_tasks,
+                               max_steps_before_termination, nsrts,
+                               option_model, state_score_fn)
             # Bilevel planning approaches use NSRTs and an option model.
             elif issubclass(cls, BilevelPlanningExplorer):
                 assert nsrts is not None
                 assert option_model is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, nsrts, option_model)
+                               action_space, train_tasks,
+                               max_steps_before_termination, nsrts,
+                               option_model)
             # Random NSRTs explorer uses NSRTs, but not an option model
             elif name == "random_nsrts":
                 assert nsrts is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, max_steps_before_termination, nsrts)
+                               action_space, train_tasks,
+                               max_steps_before_termination, nsrts)
             # Active sampler explorer uses ground_op_hist and no option model.
             elif name == "active_sampler":
                 assert ground_op_hist is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, max_steps_before_termination, nsrts,
+                               action_space, train_tasks,
+                               max_steps_before_termination, nsrts,
                                ground_op_hist)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks)
+                               action_space, train_tasks,
+                               max_steps_before_termination)
             break
     else:
         raise NotImplementedError(f"Unrecognized explorer: {name}")
