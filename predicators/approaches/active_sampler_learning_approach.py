@@ -6,22 +6,7 @@ straightforward conceptually to remove this assumption, because the approach
 uses its own NSRTs to select options, but it is difficult implementation-wise,
 so we're punting for now.
 
-
-Example commands
-----------------
-
-# Random NSRT explorer
-python predicators/main.py --approach active_sampler_learning \
-    --env regional_bumpy_cover --seed 0 \
-    --strips_learner oracle --sampler_learner oracle \
-    --bilevel_plan_without_sim True \
-    --explorer random_nsrts \
-    --max_initial_demos 0 \
-    --num_train_tasks 1000 \
-    --num_test_tasks 100 \
-    --max_num_steps_interaction_request 15 \
-    --sampler_mlp_classifier_max_itr 1000000 \
-    --pytorch_train_print_every 10000
+See scripts/configs/active_sampler_learning.yaml for examples.
 """
 from __future__ import annotations
 
@@ -41,7 +26,7 @@ from predicators.ml_models import MLPBinaryClassifier, MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
-    Task, Type, _GroundNSRT, _Option
+    Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 # Dataset for sampler learning: includes (s, option, s', label) per param opt.
 _OptionSamplerDataset = List[Tuple[State, _Option, State, Any]]
@@ -64,6 +49,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         assert CFG.sampler_learner == "oracle"
 
         self._sampler_data: _SamplerDataset = {}
+        # Maps used ground operators to all historical outcomes (whether they
+        # successfully reached their effects or not). Updated in-place by the
+        # explorer when CFG.explorer is active_sampler_explorer.
+        self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
         self._last_seen_segment_traj_idx = -1
 
     @classmethod
@@ -83,6 +72,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                                    self._train_tasks,
                                    self._get_current_nsrts(),
                                    self._option_model,
+                                   ground_op_hist=self._ground_op_hist,
                                    max_steps_before_termination=max_steps)
         return explorer
 
