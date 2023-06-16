@@ -62,9 +62,11 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Bumpy Cover": [
-        ("Main", "blue", lambda df: df["APPROACH"].apply(
-            lambda v: "active_sampler_learning" in v)),
+    "Regional Bumpy Cover": [
+        ("Active Explore", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "main" in v)),
+        ("Random Explore", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "random-explore" in v)),
     ],
 }
 
