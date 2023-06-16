@@ -555,6 +555,9 @@ class GlobalSettings:
     greedy_lookahead_max_traj_length = 2
     greedy_lookahead_max_num_resamples = 10
 
+    # active sampler explorer parameters
+    active_sampler_explore_bonus = 1e-1
+
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
