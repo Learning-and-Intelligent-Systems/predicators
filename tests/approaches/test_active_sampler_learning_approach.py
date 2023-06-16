@@ -5,7 +5,7 @@ from predicators import utils
 from predicators.approaches.active_sampler_learning_approach import \
     ActiveSamplerLearningApproach
 from predicators.datasets import create_dataset
-from predicators.envs.cover import BumpyCoverEnv, RegionalBumpyCoverEnv
+from predicators.envs.cover import BumpyCoverEnv
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
 from predicators.settings import CFG

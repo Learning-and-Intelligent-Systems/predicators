@@ -720,8 +720,7 @@ def test_regional_bumpy_cover_env():
 
     # Now test making the blocks really big so that the sampler can't
     # find a good sample.
-    held_block = [b for b in state.get_objects(block_type)][0]
-    other_block = [b for b in state.get_objects(block_type)][1]
+    held_block, other_block = state.get_objects(block_type)
     held_state.set(other_block, "pose", 0.8)
     held_state.set(other_block, "width", 0.2)
     held_state.set(held_block, "pose", 0.8)
