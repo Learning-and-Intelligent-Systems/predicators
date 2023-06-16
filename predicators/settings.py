@@ -525,6 +525,7 @@ class GlobalSettings:
     active_sampler_learning_n_iter_no_change = 5000
     active_sampler_learning_fitted_q_iters = 5
     active_sampler_learning_num_next_option_samples = 5
+    active_sampler_learning_explore_length_base = 2
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
