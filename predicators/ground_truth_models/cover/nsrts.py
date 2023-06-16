@@ -496,6 +496,7 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             ]
             curr_pose_sample = rng.uniform(lb, ub, size=(1, ))
 
+            # import ipdb; ipdb.set_trace()
             # Rejection sample to avoid possible collisions between this block
             # and others that might exist already in the bumpy region.
             for num_samples in range(max_sampling_attempts):

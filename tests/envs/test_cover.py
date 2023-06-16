@@ -685,7 +685,7 @@ def test_regional_bumpy_cover_env():
     # Options should be {PickFromBumpy, PickFromSmooth, PlaceOnTarget,
     # PlaceOnBumpy}.
     options = get_gt_options(env.get_name())
-    assert len(options) == 4
+    assert len(options) == 5
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 1-dimensional.
@@ -712,6 +712,20 @@ def test_regional_bumpy_cover_env():
     assert not InBumpyRegion.holds(held_state, [block])
     # Test PlaceOnBumpy NSRT because it's never used in oracle planning.
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    PlaceOnBumpy = [n for n in nsrts if n.name == "PlaceOnBumpy"][0]
+    ground_nsrt = PlaceOnBumpy.ground([block])
+    rng = np.random.default_rng(123)
+    option = ground_nsrt.sample_option(held_state, set(), rng)
+    assert option.params[0] > 0.5
+
+    # Now test making the blocks really big so that the sampler can't
+    # find a good sample.
+    held_block = [b for b in state.get_objects(block_type)][0]
+    other_block = [b for b in state.get_objects(block_type)][1]
+    held_state.set(other_block, "pose", 0.8)
+    held_state.set(other_block, "width", 0.2)
+    held_state.set(held_block, "pose", 0.8)
+    held_state.set(held_block, "width", 0.2)
     PlaceOnBumpy = [n for n in nsrts if n.name == "PlaceOnBumpy"][0]
     ground_nsrt = PlaceOnBumpy.ground([block])
     rng = np.random.default_rng(123)
