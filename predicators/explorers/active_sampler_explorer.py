@@ -43,10 +43,26 @@ class ActiveSamplerExplorer(BaseExplorer):
                          max_steps_before_termination)
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
+        self._last_executed_nsrt: Optional[_GroundNSRT] = None
 
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler"
+
+    def get_exploration_strategy(self, train_task_idx: int,
+                                 timeout: int) -> ExplorationStrategy:
+        """Wrap the parent termination function so that we can log the final
+        outcome in ground_op_hist."""
+        policy, termination_fn = super().get_exploration_strategy(
+            train_task_idx, timeout)
+
+        def wrapped_termination_fn(state: State) -> bool:
+            terminate = termination_fn(state)
+            if terminate:
+                self._update_ground_op_hist(state)
+            return terminate
+
+        return policy, wrapped_termination_fn
 
     def _get_exploration_strategy(self, train_task_idx: int,
                                   timeout: int) -> ExplorationStrategy:
@@ -105,29 +121,15 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         # Wrap the option policy to keep track of the executed NSRTs and if
         # they succeeded, to update the ground_op_hist.
-        last_executed_nsrt: Optional[_GroundNSRT] = None
+        self._last_executed_nsrt = None
 
         def _wrapped_option_policy(state: State) -> _Option:
-            nonlocal last_executed_nsrt
-
             # Update ground_op_hist.
-            if last_executed_nsrt is not None:
-                atoms = utils.abstract(state, self._predicates)
-                success = last_executed_nsrt.add_effects.issubset(atoms) and \
-                    not last_executed_nsrt.delete_effects & atoms
-                logging.debug(
-                    "[Explorer] Last executed NSRT: "
-                    f"{last_executed_nsrt.name}{last_executed_nsrt.objects}")
-                logging.debug(f"[Explorer]   outcome: {success}")
-                last_executed_op = last_executed_nsrt.op
-                if last_executed_op not in self._ground_op_hist:
-                    self._ground_op_hist[last_executed_op] = []
-                self._ground_op_hist[last_executed_op].append(success)
-
+            self._update_ground_op_hist(state)
             # Record last executed NSRT.
             option = _option_policy(state)
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
-            last_executed_nsrt = ground_nsrt
+            self._last_executed_nsrt = ground_nsrt
             return option
 
         # Finalize policy.
@@ -137,6 +139,21 @@ class ActiveSamplerExplorer(BaseExplorer):
         termination_fn = lambda _: False
 
         return policy, termination_fn
+
+    def _update_ground_op_hist(self, state: State) -> None:
+        """Should be called when an NSRT has just terminated."""
+        nsrt = self._last_executed_nsrt
+        if nsrt is None:
+            return
+        atoms = utils.abstract(state, self._predicates)
+        success = nsrt.add_effects.issubset(atoms) and \
+            not nsrt.delete_effects & atoms
+        logging.debug(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
+        logging.debug(f"[Explorer]   outcome: {success}")
+        last_executed_op = nsrt.op
+        if last_executed_op not in self._ground_op_hist:
+            self._ground_op_hist[last_executed_op] = []
+        self._ground_op_hist[last_executed_op].append(success)
 
     def _get_practice_ground_nsrt(self) -> _GroundNSRT:
         best_op = max(self._ground_op_hist, key=self._score_ground_op)
