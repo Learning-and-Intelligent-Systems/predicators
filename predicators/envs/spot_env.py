@@ -23,7 +23,7 @@ from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import get_spot_interface, \
-    obj_name_to_apriltag_id
+    obj_name_to_apriltag_id, CAMERA_NAMES
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Image, LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
     Type, Variable
@@ -269,13 +269,18 @@ class SpotEnv(BaseEnv):
         images = self._spot_interface.get_camera_images()
 
         # Detect objects.
-        object_names_in_view = self._spot_interface.get_objects_in_view(
-            just_hand=False)
+        # Detect objects.
+        object_names_in_view_by_camera = \
+            self._spot_interface.get_objects_in_view()
+        object_names_in_view: Dict[str, Tuple[float, float, float]] = {}
+        for source_camera in CAMERA_NAMES:
+            object_names_in_view.update(
+                object_names_in_view_by_camera[source_camera])
 
         # Find the subset of those objects that are only in view of
         # the hand camera.
-        object_names_in_hand_view = self._spot_interface.get_objects_in_view(
-            just_hand=True)
+        object_names_in_hand_view = object_names_in_view_by_camera[
+            "hand_color_image"]
 
         # Filter out unknown objects.
         known_object_names = set(self._make_object_name_to_obj_dict())

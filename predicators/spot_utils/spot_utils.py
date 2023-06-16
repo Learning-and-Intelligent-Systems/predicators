@@ -275,23 +275,24 @@ class _SpotInterface():
         return (img, image_response)
 
     def get_objects_in_view(
-            self,
-            just_hand: bool = False) -> Dict[str, Tuple[float, float, float]]:
+            self) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get objects currently in view."""
-        tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
-        source_names = CAMERA_NAMES if not just_hand else ["hand_color_image"]
-        for source_name in source_names:
+        tag_to_pose: Dict[str, Dict[int, Tuple[float, float, float]]] = {}
+        for source_name in CAMERA_NAMES:
             viewable_obj_poses = self.get_apriltag_pose_from_camera(
                 source_name=source_name)
-            tag_to_pose.update(viewable_obj_poses)
+            tag_to_pose[source_name] = viewable_obj_poses
         apriltag_id_to_obj_name = {
             v: k
             for k, v in obj_name_to_apriltag_id.items()
         }
-        obj_name_to_pose = {
-            apriltag_id_to_obj_name[t]: p
-            for t, p in tag_to_pose.items()
-        }
+        obj_name_to_pose = {}
+
+        for source_name in CAMERA_NAMES:
+            obj_name_to_pose[source_name] = {
+                apriltag_id_to_obj_name[t]: p
+                for t, p in tag_to_pose[source_name].items()
+            }
         return obj_name_to_pose
 
     def get_robot_pose(self) -> Tuple[float, float, float]:
@@ -550,10 +551,18 @@ class _SpotInterface():
                     self.hand_movement(np.array([-0.2, 0.0, -0.25]),
                                        keep_hand_pose=False,
                                        angle=angle)
-                    objects_in_view = self.get_objects_in_view()
+                    objects_in_view_by_camera = self.get_objects_in_view()
+                    objects_in_view = {}
+                    for source_camera in CAMERA_NAMES:
+                        objects_in_view.update(
+                            objects_in_view_by_camera[source_camera])
                     obj_poses.update(objects_in_view)
                 self.stow_arm()
-                objects_in_view = self.get_objects_in_view()
+                objects_in_view_by_camera = self.get_objects_in_view()
+                objects_in_view = {}
+                for source_camera in CAMERA_NAMES:
+                    objects_in_view.update(
+                        objects_in_view_by_camera[source_camera])
                 obj_poses.update(objects_in_view)
                 logging.info("Seen objects:")
                 logging.info(set(obj_poses))
