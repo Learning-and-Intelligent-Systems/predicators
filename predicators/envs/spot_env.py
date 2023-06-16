@@ -536,15 +536,18 @@ class SpotBikeEnv(SpotEnv):
             self._ReachablePlatform
         }
         self._MoveToToolOnSurfaceOp = STRIPSOperator("MoveToToolOnSurface",
-                                            [spot, tool, surface],
-                                            preconditions, add_effs, set(),
-                                            ignore_effs)
+                                                     [spot, tool, surface],
+                                                     preconditions, add_effs,
+                                                     set(), ignore_effs)
         # MoveToToolOnFloor
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         floor = Variable("?floor", self._floor_type)
         preconditions = {LiftedAtom(self._OnFloor, [tool, floor])}
-        add_effs = {LiftedAtom(self._ReachableTool, [spot, tool]), LiftedAtom(self._InViewTool, [spot, tool])}
+        add_effs = {
+            LiftedAtom(self._ReachableTool, [spot, tool]),
+            LiftedAtom(self._InViewTool, [spot, tool])
+        }
         ignore_effs = {
             self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
             self._ReachablePlatform
@@ -796,7 +799,7 @@ class SpotBikeEnv(SpotEnv):
                               objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= 1.5
+        return gripper_open_percentage <= 2.5
 
     def _nothandempty_classifier(self, state: State,
                                  objects: Sequence[Object]) -> bool:
