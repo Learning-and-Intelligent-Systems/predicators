@@ -1,5 +1,6 @@
 """Ground-truth NSRTs for the cover environment."""
 
+import logging
 from typing import Dict, Sequence, Set
 
 import numpy as np
@@ -484,17 +485,32 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
             del goal  # unused
+            max_sampling_attempts = 10000
             b, = objs
             w = state.get(b, "width") / 2
             lb = CFG.bumpy_cover_bumpy_region_start + w
             ub = 1.0 - w
-            # TODO: rejection sample here, checking for possible collisions
-            # with other blocks that might be in the bumpy region. To avoid
-            # pathological cases, give up after some large number of tries,
-            # rather than using while True. Verify implementation by manually
-            # checking that the `_any_intersection` check in `CoverEnv.simulate`
-            # is never hit (except in pathological cases perhaps).
-            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+            other_blocks = [
+                block for block in list(state)
+                if block.type.name == 'block' and block != b
+            ]
+            curr_pose_sample = rng.uniform(lb, ub, size=(1, ))
+
+            # Rejection sample to avoid possible collisions between this block
+            # and others that might exist already in the bumpy region.
+            for num_samples in range(max_sampling_attempts):
+                for other_block in other_blocks:
+                    if (abs(state.get(other_block, "pose") - curr_pose_sample)
+                            <= (w + 0.5 * state.get(other_block, "width"))):
+                        break
+                else:
+                    break
+                curr_pose_sample = rng.uniform(lb, ub, size=(1, ))
+
+            if num_samples == max_sampling_attempts - 1:
+                logging.info(
+                    "Could not find a good sample to place block in bumpy")
+            return np.array(curr_pose_sample, dtype=np.float32)
 
         place_on_bumpy_nsrt = NSRT("PlaceOnBumpy", parameters,
                                    preconditions, add_effects, delete_effects,
