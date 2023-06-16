@@ -36,5 +36,6 @@ FLAGS:
   pytorch_train_print_every: 10000
   active_sampler_learning_use_teacher: False # NOTE
   online_nsrt_learning_requests_per_cycle: 1
+  num_online_learning_cycles: 20
 START_SEED: 123
 NUM_SEEDS: 10
