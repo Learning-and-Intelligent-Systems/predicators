@@ -447,7 +447,7 @@ class _SpotInterface():
 
         Params are [dx, dy, d-yaw (in radians)]
         """
-        logging.info("NavigateTo" + str(objs))
+        logging.info(f"NavigateTo{objs}")
         assert len(params) == 3
         assert len(objs) in [2, 3]
         self.stow_arm()
@@ -494,7 +494,7 @@ class _SpotInterface():
         side grasp (-1) or any (0), and dx, dy, dz of post grasp
         position.
         """
-        logging.info("Grasp" + str(objs))
+        logging.info(f"Grasp{objs}")
         assert len(params) == 4
         assert params[3] in [0, 1, -1]
         if params[3] == 1:
@@ -518,7 +518,7 @@ class _SpotInterface():
         Params is dx, dy, and dz corresponding to the location of the
         arm from the robot when placing.
         """
-        logging.info("PlaceOntop" + str(objs))
+        logging.info(f"PlaceOntop{objs}")
         assert len(params) == 3
         self.hand_movement(params,
                            open_gripper=True,
