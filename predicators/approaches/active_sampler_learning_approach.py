@@ -10,39 +10,18 @@ so we're punting for now.
 Example commands
 ----------------
 
-Bumpy cover easy:
-    python predicators/main.py --approach active_sampler_learning \
-        --env bumpy_cover \
-        --seed 0 \
-        --strips_learner oracle \
-        --sampler_learner oracle \
-        --bilevel_plan_without_sim True \
-        --offline_data_bilevel_plan_without_sim False \
-        --explorer random_nsrts \
-        --max_initial_demos 0 \
-        --num_train_tasks 1000 \
-        --num_test_tasks 100 \
-        --max_num_steps_interaction_request 4 \
-        --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1
-
-
-Bumpy cover with shifted targets:
-    python predicators/main.py --approach active_sampler_learning \
-        --env bumpy_cover \
-        --seed 0 \
-        --strips_learner oracle \
-        --sampler_learner oracle \
-        --bilevel_plan_without_sim True \
-        --offline_data_bilevel_plan_without_sim False \
-        --explorer random_nsrts \
-        --max_initial_demos 0 \
-        --num_train_tasks 1000 \
-        --num_test_tasks 100 \
-        --max_num_steps_interaction_request 4 \
-        --bumpy_cover_num_bumps 2 \
-        --bumpy_cover_spaces_per_bump 1 \
-        --bumpy_cover_right_targets True
+# Random NSRT explorer
+python predicators/main.py --approach active_sampler_learning \
+    --env regional_bumpy_cover --seed 0 \
+    --strips_learner oracle --sampler_learner oracle \
+    --bilevel_plan_without_sim True \
+    --explorer random_nsrts \
+    --max_initial_demos 0 \
+    --num_train_tasks 1000 \
+    --num_test_tasks 100 \
+    --max_num_steps_interaction_request 15 \
+    --sampler_mlp_classifier_max_itr 1000000 \
+    --pytorch_train_print_every 10000
 """
 from __future__ import annotations
 
@@ -57,6 +36,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
+from predicators.explorers import BaseExplorer, create_explorer
 from predicators.ml_models import MLPBinaryClassifier, MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
@@ -90,6 +70,22 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def get_name(cls) -> str:
         return "active_sampler_learning"
 
+    def _create_explorer(self) -> BaseExplorer:
+        # Geometrically increase the length of exploration.
+        b = CFG.active_sampler_learning_explore_length_base
+        max_steps = b**self._online_learning_cycle
+        preds = self._get_current_predicates()
+        explorer = create_explorer(CFG.explorer,
+                                   preds,
+                                   self._initial_options,
+                                   self._types,
+                                   self._action_space,
+                                   self._train_tasks,
+                                   self._get_current_nsrts(),
+                                   self._option_model,
+                                   max_steps_before_termination=max_steps)
+        return explorer
+
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
                      annotations: Optional[List[Any]]) -> None:
@@ -106,7 +102,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._learn_wrapped_samplers(online_learning_cycle)
 
     def _update_sampler_data(self) -> None:
-        new_trajs = self._segmented_trajs[self._last_seen_segment_traj_idx:]
+        start_idx = self._last_seen_segment_traj_idx + 1
+        new_trajs = self._segmented_trajs[start_idx:]
         for segmented_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             just_made_incorrect_pick = False
@@ -115,7 +112,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 o = segment.get_option()
                 ns = segment.states[-1]
                 success = self._check_option_success(o, segment)
-                assert CFG.env == "bumpy_cover"
+                assert CFG.env in ("bumpy_cover", "regional_bumpy_cover")
                 if CFG.active_sampler_learning_use_teacher:
                     if CFG.bumpy_cover_right_targets:
                         # In bumpy cover with the 'bumpy_cover_right_targets'
@@ -149,7 +146,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 self._sampler_data[o.parent].append((s, o, ns, label))
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
-        ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
+        ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
         return ground_nsrt.add_effects.issubset(
             segment.final_atoms) and not ground_nsrt.delete_effects.issubset(
                 segment.final_atoms)
@@ -207,7 +204,7 @@ class _WrappedSamplerLearner(abc.ABC):
         """Fit all of the samplers."""
         new_samplers: Dict[NSRT, NSRTSampler] = {}
         for param_opt, nsrt_data in data.items():
-            nsrt = _param_option_to_nsrt(param_opt, self._nsrts)
+            nsrt = utils.param_option_to_nsrt(param_opt, self._nsrts)
             logging.info(f"Fitting wrapped sampler for {nsrt.name}...")
             new_samplers[nsrt] = self._learn_nsrt_sampler(nsrt_data, nsrt)
         self._learned_samplers = new_samplers
@@ -331,7 +328,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         """Predict Q(s, a)."""
         if self._nsrt_score_fns is None:
             return 0.0  # initialize to 0.0
-        ground_nsrt = _option_to_ground_nsrt(option, self._nsrts)
+        ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
         # Special case: we haven't seen any data for the parent NSRT, so we
         # haven't learned a score function for it.
         if ground_nsrt.parent not in self._nsrt_score_fns:
@@ -397,21 +394,6 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
 
 
 # Helper functions.
-def _param_option_to_nsrt(param_option: ParameterizedOption,
-                          nsrts: Set[NSRT]) -> NSRT:
-    """Assumes 1:1 options and NSRTs, see note in file docstring."""
-    nsrt_matches = [n for n in nsrts if n.option == param_option]
-    assert len(nsrt_matches) == 1
-    nsrt = nsrt_matches[0]
-    return nsrt
-
-
-def _option_to_ground_nsrt(option: _Option, nsrts: Set[NSRT]) -> _GroundNSRT:
-    """Assumes 1:1 options and NSRTs, see note in file docstring."""
-    nsrt = _param_option_to_nsrt(option.parent, nsrts)
-    return nsrt.ground(option.objects)
-
-
 def _wrap_sampler(
     base_sampler: NSRTSampler,
     score_fn: _ScoreFn,
