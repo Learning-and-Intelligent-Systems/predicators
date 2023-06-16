@@ -488,6 +488,12 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             w = state.get(b, "width") / 2
             lb = CFG.bumpy_cover_bumpy_region_start + w
             ub = 1.0 - w
+            # TODO: rejection sample here, checking for possible collisions
+            # with other blocks that might be in the bumpy region. To avoid
+            # pathological cases, give up after some large number of tries,
+            # rather than using while True. Verify implementation by manually
+            # checking that the `_any_intersection` check in `CoverEnv.simulate`
+            # is never hit (except in pathological cases perhaps).
             return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
 
         place_on_bumpy_nsrt = NSRT("PlaceOnBumpy", parameters,
