@@ -34,7 +34,8 @@ python predicators/main.py --approach active_sampler_learning \
     --num_test_tasks 100 \
     --max_num_steps_interaction_request 15 \
     --sampler_mlp_classifier_max_itr 1000000 \
-    --pytorch_train_print_every 10000
+    --pytorch_train_print_every 10000 \
+    --debug
 """
 from __future__ import annotations
 
