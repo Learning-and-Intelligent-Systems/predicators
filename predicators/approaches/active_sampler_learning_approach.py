@@ -6,36 +6,7 @@ straightforward conceptually to remove this assumption, because the approach
 uses its own NSRTs to select options, but it is difficult implementation-wise,
 so we're punting for now.
 
-
-Example commands
-----------------
-
-# Random NSRT explorer
-python predicators/main.py --approach active_sampler_learning \
-    --env regional_bumpy_cover --seed 0 \
-    --strips_learner oracle --sampler_learner oracle \
-    --bilevel_plan_without_sim True \
-    --explorer random_nsrts \
-    --max_initial_demos 0 \
-    --num_train_tasks 1000 \
-    --num_test_tasks 100 \
-    --max_num_steps_interaction_request 15 \
-    --sampler_mlp_classifier_max_itr 1000000 \
-    --pytorch_train_print_every 10000
-
-# Active sampler explorer
-python predicators/main.py --approach active_sampler_learning \
-    --env regional_bumpy_cover --seed 0 \
-    --strips_learner oracle --sampler_learner oracle \
-    --bilevel_plan_without_sim True \
-    --explorer active_sampler \
-    --max_initial_demos 0 \
-    --num_train_tasks 1000 \
-    --num_test_tasks 100 \
-    --max_num_steps_interaction_request 15 \
-    --sampler_mlp_classifier_max_itr 1000000 \
-    --pytorch_train_print_every 10000 \
-    --debug
+See scripts/configs/active_sampler_learning.yaml for examples.
 """
 from __future__ import annotations
 
