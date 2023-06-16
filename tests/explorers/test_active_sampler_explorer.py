@@ -51,3 +51,43 @@ def test_active_sampler_explorer():
     # The ground_op_hist should be updated accordingly.
     assert len(ground_op_hist) == 2
     assert all(v == [True] for v in ground_op_hist.values())
+
+    # Test that the PickFromBumpy operator is tried more than the others when
+    # we set the parameters of the environment such that picking is hard.
+    utils.reset_config({
+        "explorer": "active_sampler",
+        "env": "regional_bumpy_cover",
+        "bumpy_cover_num_bumps": 3,
+        "bumpy_cover_spaces_per_bump": 3,
+        "bumpy_cover_init_bumpy_prob": 1.0,  # force pick from bumpy
+        "active_sampler_explore_bonus": 0.0,  # disable explore bonus
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+    })
+    env = RegionalBumpyCoverEnv()
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    option_model = _OracleOptionModel(env)
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    ground_op_hist = {}
+    explorer = create_explorer("active_sampler",
+                               env.predicates,
+                               get_gt_options(env.get_name()),
+                               env.types,
+                               env.action_space,
+                               train_tasks,
+                               nsrts,
+                               option_model,
+                               ground_op_hist=ground_op_hist)
+    task_idx = 0
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    task = train_tasks[0]
+    state = task.init.copy()
+    for _ in range(25):
+        assert not term_fn(state)
+        state = env.simulate(state, policy(state))
+    pick_op = [op for op in ground_op_hist if op.name == "PickFromBumpy"][0]
+    assert len(ground_op_hist[pick_op]) > 10
+    assert sum(ground_op_hist[pick_op]) < len(ground_op_hist[pick_op])
+    # Verify that we had to plan to practice.
+    assert len([op for op in ground_op_hist if op.name == "PlaceOnBumpy"]) > 0
