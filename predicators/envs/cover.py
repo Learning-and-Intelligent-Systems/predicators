@@ -223,7 +223,8 @@ class CoverEnv(BaseEnv):
         plt.xlim(-0.2, 1.2)
         plt.ylim(-0.25, 0.5)
         plt.yticks([])
-        plt.legend()
+        if len(state) < 6:  # disable legend if there are too many objects
+            plt.legend()
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
@@ -805,7 +806,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         plt.title(f"Grip: {grip:.3f}")
         plt.xlim(-0.2, 1.2)
         plt.ylim(-0.25, 1)
-        plt.legend()
+        if len(state) < 6:  # disable legend if there are too many objects
+            plt.legend()
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
@@ -1166,7 +1168,8 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
         fig = super().render_state_plt(state, task, action, caption)
         x = CFG.bumpy_cover_bumpy_region_start
         plt.plot([x, x], [-100, 100], color="gray", label="bump region lb")
-        plt.legend()
+        if len(state) < 6:  # disable legend if there are too many objects
+            plt.legend()
         return fig
 
     def _InBumpyRegion_holds(self, state: State,

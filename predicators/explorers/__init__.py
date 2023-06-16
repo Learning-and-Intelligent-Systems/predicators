@@ -67,12 +67,14 @@ def create_explorer(
             elif name == "random_nsrts":
                 assert nsrts is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, max_steps_before_termination, nsrts)
+                               action_space, train_tasks,
+                               max_steps_before_termination, nsrts)
             # Active sampler explorer uses ground_op_hist and no option model.
             elif name == "active_sampler":
                 assert ground_op_hist is not None
                 explorer = cls(initial_predicates, initial_options, types,
-                               action_space, train_tasks, max_steps_before_termination, nsrts,
+                               action_space, train_tasks,
+                               max_steps_before_termination, nsrts,
                                ground_op_hist)
             else:
                 explorer = cls(initial_predicates, initial_options, types,

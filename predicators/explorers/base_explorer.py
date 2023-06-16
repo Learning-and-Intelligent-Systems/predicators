@@ -8,7 +8,7 @@ from gym.spaces import Box
 
 from predicators.settings import CFG
 from predicators.structs import ExplorationStrategy, ParameterizedOption, \
-    Predicate, Task, Type, State
+    Predicate, State, Task, Type
 
 
 class BaseExplorer(abc.ABC):
@@ -43,7 +43,8 @@ class BaseExplorer(abc.ABC):
     ) -> ExplorationStrategy:
         """Wrap the base exploration strategy."""
 
-        policy, termination_fn = self._get_exploration_strategy(train_task_idx, timeout)
+        policy, termination_fn = self._get_exploration_strategy(
+            train_task_idx, timeout)
 
         # Terminate after the given number of steps.
         remaining_steps = self._max_steps_before_termination
