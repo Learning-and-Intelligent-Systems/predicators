@@ -444,7 +444,7 @@ class SpotBikeEnv(SpotEnv):
     robot to execute."""
 
     _ontop_threshold: ClassVar[float] = 0.55
-    _reachable_threshold: ClassVar[float] = 1.7
+    _reachable_threshold: ClassVar[float] = 1.85
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -596,7 +596,8 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._On, [tool, surface]),
             LiftedAtom(self._ReachableTool, [spot, tool]),
             LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._SurfaceNotTooHigh, [spot, surface])
+            LiftedAtom(self._SurfaceNotTooHigh, [spot, surface]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         add_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
@@ -684,7 +685,8 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._ReachableTool, [spot, tool]),
             LiftedAtom(self._HandEmpty, [spot]),
             LiftedAtom(self._SurfaceTooHigh, [spot, surface]),
-            LiftedAtom(self._PlatformNear, [platform, surface])
+            LiftedAtom(self._PlatformNear, [platform, surface]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         add_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),

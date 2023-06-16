@@ -552,7 +552,7 @@ class _SpotInterface():
                                        angle=angle)
                     objects_in_view = self.get_objects_in_view()
                     obj_poses.update(objects_in_view)
-                    self.stow_arm()
+                self.stow_arm()
                 objects_in_view = self.get_objects_in_view()
                 obj_poses.update(objects_in_view)
                 logging.info("Seen objects:")
