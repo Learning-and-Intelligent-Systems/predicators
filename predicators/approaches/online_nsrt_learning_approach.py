@@ -21,7 +21,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
-from predicators.explorers import create_explorer
+from predicators.explorers import BaseExplorer, create_explorer
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, InteractionRequest, \
     InteractionResult, LiftedAtom, LowLevelTrajectory, Object, \
@@ -50,19 +50,7 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
         # Explore in the train tasks. The number of train tasks that are
         # explored at each timestep is a hyperparameter. The train task
         # is randomly selected.
-
-        # Create the explorer. Note that greedy lookahead is not yet supported.
-        preds = self._get_current_predicates()
-        explorer = create_explorer(CFG.explorer,
-                                   preds,
-                                   self._initial_options,
-                                   self._types,
-                                   self._action_space,
-                                   self._train_tasks,
-                                   self._get_current_nsrts(),
-                                   self._option_model,
-                                   babble_predicates=preds,
-                                   atom_score_fn=self._score_atoms_novelty)
+        explorer = self._create_explorer()
 
         # Create the interaction requests.
         requests = []
@@ -120,6 +108,22 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
                     can_atom_set = self._get_canonical_lifted_atoms(atom_set)
                     self._novelty_counts[can_atom_set] += 1
         logging.debug(f"Novelty counts: {self._novelty_counts}")
+
+    def _create_explorer(self) -> BaseExplorer:
+        """Create a new explorer at the beginning of each interaction cycle."""
+        # Note that greedy lookahead is not yet supported.
+        preds = self._get_current_predicates()
+        explorer = create_explorer(CFG.explorer,
+                                   preds,
+                                   self._initial_options,
+                                   self._types,
+                                   self._action_space,
+                                   self._train_tasks,
+                                   self._get_current_nsrts(),
+                                   self._option_model,
+                                   babble_predicates=preds,
+                                   atom_score_fn=self._score_atoms_novelty)
+        return explorer
 
     def _score_atoms_novelty(self, atoms: Set[GroundAtom]) -> float:
         """Score the novelty of a ground atom set, with higher better.

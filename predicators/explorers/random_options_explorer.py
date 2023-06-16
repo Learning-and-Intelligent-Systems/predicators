@@ -12,8 +12,8 @@ class RandomOptionsExplorer(BaseExplorer):
     def get_name(cls) -> str:
         return "random_options"
 
-    def get_exploration_strategy(self, train_task_idx: int,
-                                 timeout: int) -> ExplorationStrategy:
+    def _get_exploration_strategy(self, train_task_idx: int,
+                                  timeout: int) -> ExplorationStrategy:
         # Take random options, and raise an exception if no applicable option
         # can be found.
 
