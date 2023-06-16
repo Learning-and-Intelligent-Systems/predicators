@@ -1,12 +1,10 @@
 """Test cases for the active_sampler explorer class."""
-import pytest
 
 from predicators import utils
 from predicators.envs.cover import RegionalBumpyCoverEnv
 from predicators.explorers import create_explorer
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
-from predicators.structs import NSRT
 
 
 def test_active_sampler_explorer():
