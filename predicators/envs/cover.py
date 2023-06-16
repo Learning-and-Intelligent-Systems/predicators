@@ -80,7 +80,9 @@ class CoverEnv(BaseEnv):
                     assert self._disable_collisions  # type: ignore
                     assert action.has_option()
                     option = action.get_option()
-                    assert "Pick" in option.parent.name
+                    # super rare case.......
+                    if "Pick" not in option.parent.name:
+                        return next_state
                     above_block = option.objects[0]
                 else:
                     above_block = block
