@@ -22,7 +22,7 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ml_models import MLPBinaryClassifier, MLPRegressor
+from predicators.ml_models import MLPBinaryClassifier, MLPRegressor, BinaryClassifierEnsemble
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
@@ -148,6 +148,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             learner: _WrappedSamplerLearner = _ClassifierWrappedSamplerLearner(
                 self._get_current_nsrts(), self._get_current_predicates(),
                 online_learning_cycle)
+        elif CFG.active_sampler_learning_model == "myopic_classifier_ensemble":
+            learner: _WrappedSamplerLearner = _ClassifierEnsembleWrappedSamplerLearner(
+                self._get_current_nsrts(), self._get_current_predicates(),
+                online_learning_cycle)
         else:
             assert CFG.active_sampler_learning_model == "fitted_q"
             learner = _FittedQWrappedSamplerLearner(
@@ -257,6 +261,60 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         # Easiest way to access the base sampler.
         base_sampler = nsrt._sampler  # pylint: disable=protected-access
         score_fn = _classifier_to_score_fn(classifier, nsrt)
+        wrapped_sampler = _wrap_sampler(base_sampler, score_fn)
+
+        return wrapped_sampler
+
+class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
+    """Using boolean class labels on transitions, learn an ensemble of
+    classifiers, and then use the entropy among the predictions, as
+    well as the probability of predicting True to select parameters."""
+
+    def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
+                            nsrt: NSRT) -> NSRTSampler:
+        X_classifier: List[List[Array]] = []
+        y_classifier: List[int] = []
+        for state, option, _, label in nsrt_data:
+            objects = option.objects
+            params = option.params
+            # input is state features and option parameters
+            X_classifier.append([np.array(1.0)])  # start with bias term
+            for obj in objects:
+                X_classifier[-1].extend(state[obj])
+            X_classifier[-1].extend(params)
+            assert not CFG.sampler_learning_use_goals
+            y_classifier.append(label)
+        X_arr_classifier = np.array(X_classifier)
+        # output is binary signal
+        y_arr_classifier = np.array(y_classifier)
+        classifier = BinaryClassifierEnsemble(
+            seed=CFG.seed,
+            ensemble_size=CFG.interactive_num_ensemble_members,
+            member_cls=MLPBinaryClassifier,
+            balance_data=CFG.mlp_classifier_balance_data,
+            max_train_iters=CFG.predicate_mlp_classifier_max_itr,
+            learning_rate=CFG.learning_rate,
+            n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+            hid_sizes=CFG.mlp_classifier_hid_sizes,
+            n_reinitialize_tries=CFG.
+            sampler_mlp_classifier_n_reinitialize_tries,
+            weight_init=CFG.predicate_mlp_classifier_init,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every)
+        classifier.fit(X_arr_classifier, y_arr_classifier)
+
+        # Save the sampler classifier for external analysis.
+        approach_save_path = utils.get_approach_save_path_str()
+        save_path = f"{approach_save_path}_{nsrt.name}_" + \
+            f"{self._online_learning_cycle}.sampler_classifier"
+        with open(save_path, "wb") as f:
+            pkl.dump(classifier, f)
+        logging.info(f"Saved sampler classifier to {save_path}.")
+
+        # Easiest way to access the base sampler.
+        base_sampler = nsrt._sampler  # pylint: disable=protected-access
+        score_fn = _classifier_ensemble_to_score_fn(classifier, nsrt)
         wrapped_sampler = _wrap_sampler(base_sampler, score_fn)
 
         return wrapped_sampler
@@ -427,6 +485,8 @@ def _classifier_to_score_fn(classifier: MLPBinaryClassifier,
                             nsrt: NSRT) -> _ScoreFn:
     return _vector_score_fn_to_score_fn(classifier.predict_proba, nsrt)
 
+def _classifier_ensemble_to_score_fn(classifier: BinaryClassifierEnsemble, nsrt: NSRT) -> _ScoreFn:
+    return _vector_score_fn_to_score_fn(lambda x: np.mean(classifier.predict_member_probas(x)), nsrt)
 
 def _regressor_to_score_fn(regressor: MLPRegressor, nsrt: NSRT) -> _ScoreFn:
     fn = lambda v: regressor.predict(v)[0]
