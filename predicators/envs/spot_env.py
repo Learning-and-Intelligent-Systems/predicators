@@ -357,7 +357,7 @@ class SpotEnv(BaseEnv):
         task = EnvironmentTask(obs, goal)
         # Save the task for future use.
         json_objects = {o.name: o.type.name for o in objects_in_view}
-        json_objects[robot.name] = robot.type
+        json_objects[robot.name] = robot.type.name
         init_json_dict = {
             o.name: {
                 "x": x,
