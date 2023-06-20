@@ -101,7 +101,10 @@ OBJECT_GRASP_OFFSET = {
 
 COMMAND_TIMEOUT = 20.0
 
-CAMERA_NAMES = ["hand_color_image", "left_fisheye_image", "back_fisheye_image"]
+CAMERA_NAMES = [
+    "hand_color_image", "left_fisheye_image", "right_fisheye_image",
+    "frontleft_fisheye_image", "frontright_fisheye_image", "back_fisheye_image"
+]
 
 
 def _find_object_center(img: Image,
@@ -355,9 +358,8 @@ class _SpotInterface():
         # Camera intrinsics for the given source camera.
         intrinsics = image_response[0].source.pinhole.intrinsics
 
-        # Rotate each image such that it is upright and make it gray.
-        image_grey = cv2.cvtColor(self.rotate_image(img, source_name),
-                                  cv2.COLOR_BGR2GRAY)
+        # Convert the image to grayscale.
+        image_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # Create apriltag detector and get all apriltag locations.
         options = apriltag.DetectorOptions(families="tag36h11")
@@ -399,17 +401,6 @@ class _SpotInterface():
                 obj_poses[detection.tag_id] = fiducial_rt_gn_origin
 
         return obj_poses
-
-    @staticmethod
-    def rotate_image(image: Image, source_name: str) -> Image:
-        """Rotate the image so that it is always displayed upright."""
-        if source_name == "frontleft_fisheye_image":
-            image = cv2.rotate(image, rotateCode=0)
-        elif source_name == "right_fisheye_image":
-            image = cv2.rotate(image, rotateCode=1)
-        elif source_name == "frontright_fisheye_image":
-            image = cv2.rotate(image, rotateCode=0)
-        return image
 
     def get_gripper_obs(self) -> float:
         """Grabs the current observation of relevant quantities from the
