@@ -58,10 +58,7 @@ def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
     if obj_name not in graph_nav_loc_to_id:
         return None
     waypoint_id = graph_nav_loc_to_id[obj_name]
-    if obj_name in offsets:
-        offset = offsets[obj_name]
-    else:
-        offset = np.zeros(3)
+    offset = offsets.get(obj_name, np.zeros(3, dtype=np.float32))
     return (waypoint_id, offset)
 
 
