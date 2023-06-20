@@ -123,7 +123,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                         if o.name == "Place" and just_made_incorrect_pick:
                             continue
 
-                if CFG.active_sampler_learning_model == "myopic_classifier":
+                if CFG.active_sampler_learning_model in ["myopic_classifier", "myopic_classifier_ensemble"]:
                     label: Any = success
                 else:
                     assert CFG.active_sampler_learning_model == "fitted_q"
@@ -289,7 +289,7 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
         y_arr_classifier = np.array(y_classifier)
         classifier = BinaryClassifierEnsemble(
             seed=CFG.seed,
-            ensemble_size=CFG.interactive_num_ensemble_members,
+            ensemble_size=CFG.active_sampler_learning_num_ensemble_members,
             member_cls=MLPBinaryClassifier,
             balance_data=CFG.mlp_classifier_balance_data,
             max_train_iters=CFG.predicate_mlp_classifier_max_itr,
