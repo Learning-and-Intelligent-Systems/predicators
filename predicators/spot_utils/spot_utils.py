@@ -104,6 +104,10 @@ COMMAND_TIMEOUT = 20.0
 CAMERA_NAMES = ["hand_color_image", "left_fisheye_image", "back_fisheye_image"]
 
 
+# TODO remove
+DEBUG_COUNT = 0
+
+
 def _find_object_center(img: Image,
                         obj_name: str) -> Optional[Tuple[int, int]]:
     # Copy to make sure we don't modify the image.
@@ -346,6 +350,11 @@ class _SpotInterface():
         position tuple in the map frame.
         """
         img, image_response = self.get_single_camera_image(source_name)
+
+        global DEBUG_COUNT
+        import imageio
+        imageio.imwrite(f"debug_images/{source_name}_{DEBUG_COUNT}.png", img)
+        DEBUG_COUNT += 1
 
         # Camera body transform.
         camera_tform_body = get_a_tform_b(
