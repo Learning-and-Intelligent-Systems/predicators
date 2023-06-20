@@ -9,9 +9,9 @@ Example usage with apriltag grasping:
 
 import abc
 import functools
-from dataclasses import dataclass
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
     Tuple
@@ -356,6 +356,8 @@ class SpotEnv(BaseEnv):
         goal = self._generate_task_goal()
         task = EnvironmentTask(obs, goal)
         # Save the task for future use.
+        json_objects = {o.name: o.type.name for o in objects_in_view}
+        json_objects[robot.name] = robot.type
         init_json_dict = {
             o.name: {
                 "x": x,
@@ -372,8 +374,7 @@ class SpotEnv(BaseEnv):
             "z": robot_pos[2]
         }
         json_dict = {
-            "objects": {o.name: o.type.name
-                        for o in objects_in_view},
+            "objects": json_objects,
             "init": init_json_dict,
             "goal": utils.create_json_dict_from_ground_atoms(goal),
         }

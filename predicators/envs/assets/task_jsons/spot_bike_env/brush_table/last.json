@@ -5,7 +5,8 @@
         "extra_room_table": "flat_surface",
         "tool_room_table": "flat_surface",
         "brush": "tool",
-        "toolbag": "bag"
+        "toolbag": "bag",
+        "spot": "robot"
     },
     "init": {
         "floor": {
