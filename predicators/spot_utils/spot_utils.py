@@ -38,30 +38,32 @@ from predicators.structs import Array, Image, Object
 g_image_click = None
 g_image_display = None
 
-graph_nav_loc_to_id = {
-    "start": "stone-prawn-2b0kiMuHQBhKfgwhNH3PLA==",
-    "6-12_front": "linked-puffin-JpuZjUsLbqMMA7Ym5IwyGQ==",
-    "6-12_table": "logy-impala-xc9w.jwUDuckZdITrner6g==",
-    "front_tool_room": "dented-marlin-HZHTzO56529oo0oGfAFHdg==",
-    "tool_room_table": "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw==",
-    "toolbag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
-    "tool_room_tool_stand": "roving-gibbon-3eduef4VV0itZzkpHZueNQ==",
-    "tool_room_platform": "comfy-auk-W0iygJ1WJyKR1eB3qe2mlg==",
-    "low_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
-    "high_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
-    "6-08_front": "curled-spawn-m19jn1Alc5XrrIcIoOSnaw==",
-    "6-08_table": "maiden-oryx-zLyJUTDIg0ZNB3T4J1A8IQ==",
-    "6-07_front": "moldy-cuckoo-RUdyBHBeLWD5pmNUEcW1Ng==",
-    "6-07_table": "combed-gaur-dGWSpydRmOFNEAlBaABI4g==",
-    "center": "unmown-botfly-8OaXOF1VG5LJWF47h.dRpQ==",
-    "6-09_front": "ninth-jackal-g6onxC+AUQyIDznGUH3Fkw==",
-    "6-09_bike": "sodden-hare-OxrK.cEZ1ZKHjb8jjwKrWA==",
-    "6-09_table": "ranked-oxen-G0kq38CpHN7H7R.0FCm7DA==",
-    "outside_table": "causal-fleece-fPaNlwN1dMO5vQ00ZjocmQ==",
-    "6-13_corner": "gooey-mamba-nbmRlRr8J0KPsCztt0Wkyw==",
-    "trash": "holy-aphid-SuqZLSjvRUjUxCDywLIFhw==",
-    "extra_room_table": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
-}
+
+def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
+    """Returns None if the location of the object is unknown.
+
+    Returns a waypoint ID (str) and a (x, y, yaw) offset otherwise.
+    """
+    graph_nav_loc_to_id = {
+        "front_tool_room": "dented-marlin-HZHTzO56529oo0oGfAFHdg==",
+        "tool_room_table": "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw==",
+        "toolbag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
+        "tool_room_tool_stand": "roving-gibbon-3eduef4VV0itZzkpHZueNQ==",
+        "tool_room_platform": "comfy-auk-W0iygJ1WJyKR1eB3qe2mlg==",
+        "low_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+        "high_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+        "extra_room_table": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
+    }
+    offsets = {"extra_room_table": np.array([-0.3, -0.3, np.pi / 2])}
+    if obj_name not in graph_nav_loc_to_id:
+        return None
+    waypoint_id = graph_nav_loc_to_id[obj_name]
+    if obj_name in offsets:
+        offset = offsets[obj_name]
+    else:
+        offset = np.zeros(3)
+    return (waypoint_id, offset)
+
 
 obj_name_to_apriltag_id = {
     "hammer": 401,
@@ -295,7 +297,7 @@ class _SpotInterface():
         return obj_name_to_pose
 
     def get_robot_pose(self) -> Tuple[float, float, float]:
-        """Get the x, y, z positoin of the robot body."""
+        """Get the x, y, z position of the robot body."""
         state = self.get_localized_state()
         gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
@@ -439,12 +441,15 @@ class _SpotInterface():
         assert len(params) == 3
         assert len(objs) in [2, 3]
 
-        if graph_nav_loc_to_id.get(objs[1].name) is not None:
-            waypoint_id = graph_nav_loc_to_id[objs[1].name]
-        elif graph_nav_loc_to_id.get(objs[2].name) is not None:
-            waypoint_id = graph_nav_loc_to_id[objs[2].name]
-        else:
-            waypoint_id = ""
+        waypoint = ("", np.zeros(3, dtype=np.float32))  # default
+        for obj in objs[1:]:
+            possible_waypoint = get_memorized_waypoint(obj.name)
+            if possible_waypoint is not None:
+                waypoint = possible_waypoint
+                break
+        waypoint_id, offset = waypoint
+
+        params = np.add(params, offset)
 
         if len(objs) == 3 and objs[2].name == "floor":
             self.navigate_to_position(params)
@@ -523,9 +528,11 @@ class _SpotInterface():
         obj_poses: Dict[str, Tuple[float, float, float]] = {
             "floor": (0.0, 0.0, -1.0)
         }
-        for waypoint in waypoints:
-            waypoint_id = graph_nav_loc_to_id[waypoint]
-            self.navigate_to(waypoint_id, np.array([0.0, 0.0, 0.0]))
+        for waypoint_name in waypoints:
+            waypoint = get_memorized_waypoint(waypoint_name)
+            assert waypoint is not None
+            waypoint_id, offset = waypoint
+            self.navigate_to(waypoint_id, offset)
             if set(objects_to_find).issubset(set(obj_poses)):
                 logging.info("All objects located!")
                 break
