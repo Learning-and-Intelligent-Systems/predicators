@@ -522,16 +522,14 @@ class _SpotInterface():
                 self.hand_movement(np.array([0.0, 0.0, 0.0]),
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 8), 0,
-                                          np.sin(np.pi / 8), 0),
-                                   open_gripper=False)
+                                          np.sin(np.pi / 8), 0))
                 time.sleep(1.0)
                 return
             if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 6), 0,
-                                          np.sin(np.pi / 6), 0),
-                                   open_gripper=False)
+                                          np.sin(np.pi / 6), 0))
                 time.sleep(1.0)
                 return
         self.stow_arm()
