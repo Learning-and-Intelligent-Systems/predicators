@@ -9,6 +9,8 @@ Example usage with apriltag grasping:
 
 import abc
 import functools
+import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
@@ -373,7 +375,36 @@ class SpotEnv(BaseEnv):
                                gripper_open_percentage, robot_pos,
                                nonpercept_atoms, nonpercept_preds)
         goal = self._generate_task_goal()
-        return [EnvironmentTask(obs, goal)]
+        task = EnvironmentTask(obs, goal)
+        # Save the task for future use.
+        json_objects = {o.name: o.type.name for o in objects_in_view}
+        json_objects[robot.name] = robot.type.name
+        init_json_dict = {
+            o.name: {
+                "x": x,
+                "y": y,
+                "z": z
+            }
+            for o, (x, y, z) in objects_in_view.items()
+        }
+        init_json_dict[robot.name] = {
+            "gripper_open_percentage": gripper_open_percentage,
+            "curr_held_item_id": 0,
+            "x": robot_pos[0],
+            "y": robot_pos[1],
+            "z": robot_pos[2]
+        }
+        json_dict = {
+            "objects": json_objects,
+            "init": init_json_dict,
+            "goal": utils.create_json_dict_from_ground_atoms(goal),
+        }
+        outfile = utils.get_env_asset_path(
+            "task_jsons/spot_bike_env/last.json", assert_exists=False)
+        with open(outfile, "w", encoding="utf-8") as f:
+            json.dump(json_dict, f, indent=4)
+        logging.info(f"Dumped task to {outfile}. Rename it to save it.")
+        return [task]
 
     @abc.abstractmethod
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
