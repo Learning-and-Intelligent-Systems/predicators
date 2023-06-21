@@ -271,7 +271,6 @@ class SpotEnv(BaseEnv):
         images = self._spot_interface.get_camera_images()
 
         # Detect objects.
-        # Detect objects.
         object_names_in_view_by_camera = \
             self._spot_interface.get_objects_in_view()
         object_names_in_view: Dict[str, Tuple[float, float, float]] = {}
