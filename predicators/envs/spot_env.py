@@ -478,7 +478,7 @@ class SpotBikeEnv(SpotEnv):
     robot to execute."""
 
     _ontop_threshold: ClassVar[float] = 0.55
-    _reachable_threshold: ClassVar[float] = 1.85
+    _reachable_threshold: ClassVar[float] = 1.7
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -835,7 +835,7 @@ class SpotBikeEnv(SpotEnv):
                               objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= 2.5
+        return gripper_open_percentage <= 1.5
 
     def _nothandempty_classifier(self, state: State,
                                  objects: Sequence[Object]) -> bool:
