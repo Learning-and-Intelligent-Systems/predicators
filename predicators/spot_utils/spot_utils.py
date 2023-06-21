@@ -454,7 +454,7 @@ class _SpotInterface():
             return
 
         # Move a little forward and look down.
-        elif self._find_controller_move_queue_idx == 2:
+        if self._find_controller_move_queue_idx == 2:
             self.relative_move(-0.25, -0.0, 0.0)
 
         # Move to the right.
