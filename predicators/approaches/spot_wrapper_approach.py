@@ -35,7 +35,8 @@ class SpotWrapperApproach(BaseApproachWrapper):
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
         # Maintain policy from the base approach.
-        base_approach_policy: Optional[Callable[[State], Action]] = None
+        base_approach_policy: Optional[Callable[[State], Action]] = \
+            self._base_approach.solve(task, timeout)
         need_stow = False
 
         def _policy(state: State) -> Action:
