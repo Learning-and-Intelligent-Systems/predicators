@@ -54,7 +54,7 @@ def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
         "high_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
         "extra_room_table": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
     }
-    offsets = {"extra_room_table": np.array([-0.3, -0.3, np.pi / 2])}
+    offsets = {"extra_room_table": np.array([-0.1, -0.3, np.pi / 2])}
     if obj_name not in graph_nav_loc_to_id:
         return None
     waypoint_id = graph_nav_loc_to_id[obj_name]
@@ -353,7 +353,7 @@ class _SpotInterface():
 
         if source_name == "hand_color_image":
             import imageio
-            imageio.imwrite("debug.png", img)
+            imageio.imwrite("debug.png", img[:, :, [2, 1, 0]])
 
         # Camera body transform.
         camera_tform_body = get_a_tform_b(
@@ -452,11 +452,15 @@ class _SpotInterface():
 
         # Move to the right.
         elif self._find_controller_move_queue_idx == 2:
-            self.relative_move(0.0, -0.2, 0.0)
+            self.relative_move(0.0, -0.25, 0.0)
 
         # Move to the left.
         elif self._find_controller_move_queue_idx == 3:
-            self.relative_move(0.0, 0.4, 0.0)
+            self.relative_move(0.0, 0.5, 0.0)
+
+        # Move back to center and back further.
+        elif self._find_controller_move_queue_idx == 4:
+            self.relative_move(-0.5, -0.25, 0.0)
         
         # TODO ask for help.
         else:
