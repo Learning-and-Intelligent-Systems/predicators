@@ -20,6 +20,7 @@ class SpotBikePerceiver(BasePerceiver):
     def __init__(self) -> None:
         super().__init__()
         self._known_object_poses: Dict[Object, Tuple[float, float, float]] = {}
+        self._known_objects_in_hand_view: Set[Object] = set()
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()
@@ -83,6 +84,7 @@ class SpotBikePerceiver(BasePerceiver):
         assert isinstance(observation, _SpotObservation)
         self._robot = observation.robot
         self._known_object_poses.update(observation.objects_in_view)
+        self._known_objects_in_hand_view = observation.objects_in_hand_view
         self._nonpercept_atoms = observation.nonpercept_atoms
         self._nonpercept_predicates = observation.nonpercept_predicates
         self._gripper_open_percentage = observation.gripper_open_percentage
@@ -95,7 +97,6 @@ class SpotBikePerceiver(BasePerceiver):
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
                 "curr_held_item_id": self._holding_item_id_feature,
-                # Coming soon
                 "x": self._robot_pos[0],
                 "y": self._robot_pos[1],
                 "z": self._robot_pos[2],
@@ -107,6 +108,11 @@ class SpotBikePerceiver(BasePerceiver):
                 "y": y,
                 "z": z,
             }
+            if obj.type.name == "tool":
+                state_dict[obj] = {"x": x, "y": y, "z": z, "in_view": 0.0}
+        for obj in self._known_objects_in_hand_view:
+            if obj.type.name == "tool":
+                state_dict[obj]["in_view"] = 1.0
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)
         logging.info("Percept state:")

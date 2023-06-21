@@ -276,22 +276,30 @@ class _SpotInterface():
 
         return (img, image_response)
 
-    def get_objects_in_view(self) -> Dict[str, Tuple[float, float, float]]:
+    def get_objects_in_view_by_camera(
+            self) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get objects currently in view."""
-        tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
+        tag_to_pose: Dict[str,
+                          Dict[int,
+                               Tuple[float, float,
+                                     float]]] = {k: {}
+                                                 for k in CAMERA_NAMES}
         for source_name in CAMERA_NAMES:
             viewable_obj_poses = self.get_apriltag_pose_from_camera(
                 source_name=source_name)
-            tag_to_pose.update(viewable_obj_poses)
+            tag_to_pose[source_name].update(viewable_obj_poses)
         apriltag_id_to_obj_name = {
             v: k
             for k, v in obj_name_to_apriltag_id.items()
         }
-        obj_name_to_pose = {
-            apriltag_id_to_obj_name[t]: p
-            for t, p in tag_to_pose.items()
-        }
-        return obj_name_to_pose
+        camera_to_obj_names_to_poses: Dict[str, Dict[str, Tuple[float, float,
+                                                                float]]] = {}
+        for source_name in tag_to_pose.keys():
+            camera_to_obj_names_to_poses[source_name] = {
+                apriltag_id_to_obj_name[t]: p
+                for t, p in tag_to_pose[source_name].items()
+            }
+        return camera_to_obj_names_to_poses
 
     def get_robot_pose(self) -> Tuple[float, float, float]:
         """Get the x, y, z position of the robot body."""
@@ -534,7 +542,11 @@ class _SpotInterface():
                 logging.info("All objects located!")
                 break
             for _ in range(8):
-                objects_in_view = self.get_objects_in_view()
+                objects_in_view: Dict[str, Tuple[float, float, float]] = {}
+                objects_in_view_by_camera = self.get_objects_in_view_by_camera(
+                )
+                for v in objects_in_view_by_camera.values():
+                    objects_in_view.update(v)
                 obj_poses.update(objects_in_view)
                 logging.info("Seen objects:")
                 logging.info(set(obj_poses))
