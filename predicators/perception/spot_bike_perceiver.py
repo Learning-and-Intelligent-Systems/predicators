@@ -20,6 +20,7 @@ class SpotBikePerceiver(BasePerceiver):
     def __init__(self) -> None:
         super().__init__()
         self._known_object_poses: Dict[Object, Tuple[float, float, float]] = {}
+        self._known_objects_in_hand_view: Set[Object] = set()
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()
@@ -97,6 +98,7 @@ class SpotBikePerceiver(BasePerceiver):
         assert isinstance(observation, _SpotObservation)
         self._robot = observation.robot
         self._known_object_poses.update(observation.objects_in_view)
+        self._known_objects_in_hand_view = observation.objects_in_hand_view
         self._nonpercept_atoms = observation.nonpercept_atoms
         self._nonpercept_predicates = observation.nonpercept_predicates
         self._gripper_open_percentage = observation.gripper_open_percentage
@@ -111,7 +113,6 @@ class SpotBikePerceiver(BasePerceiver):
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
                 "curr_held_item_id": self._holding_item_id_feature,
-                # Coming soon
                 "x": self._robot_pos[0],
                 "y": self._robot_pos[1],
                 "z": self._robot_pos[2],
@@ -123,8 +124,14 @@ class SpotBikePerceiver(BasePerceiver):
                 "y": y,
                 "z": z,
             }
-            # Detect if we have lost a tool.
             if obj.type.name == "tool":
+                # Detect if the object is in view currently.
+                if obj in self._known_objects_in_hand_view:
+                    in_view_val = 1.0
+                else:
+                    in_view_val = 0.0
+                state_dict[obj]["in_view"] = in_view_val
+                # Detect if we have lost the tool.
                 if obj in self._lost_objects:
                     lost_val = 1.0
                 else:

@@ -24,8 +24,8 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
-from predicators.spot_utils.spot_utils import get_spot_interface, \
-    obj_name_to_apriltag_id
+from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
+    get_spot_interface, obj_name_to_apriltag_id
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Image, LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
     Type, Variable
@@ -42,6 +42,8 @@ class _SpotObservation:
     images: Dict[str, Image]
     # Objects that are seen in the current image and their positions in world
     objects_in_view: Dict[Object, Tuple[float, float, float]]
+    # Objects seen only by the hand camera
+    objects_in_hand_view: Set[Object]
     # Expose the robot object.
     robot: Object
     # Status of the robot gripper.
@@ -291,7 +293,17 @@ class SpotEnv(BaseEnv):
         images = self._spot_interface.get_camera_images()
 
         # Detect objects.
-        object_names_in_view = self._spot_interface.get_objects_in_view()
+        object_names_in_view_by_camera = \
+            self._spot_interface.get_objects_in_view_by_camera()
+        object_names_in_view: Dict[str, Tuple[float, float, float]] = {}
+        for source_camera in CAMERA_NAMES:
+            object_names_in_view.update(
+                object_names_in_view_by_camera[source_camera])
+
+        # Find the subset of those objects that are only in view of
+        # the hand camera.
+        object_names_in_hand_view = object_names_in_view_by_camera[
+            "hand_color_image"]
 
         # Filter out unknown objects.
         known_object_names = set(self._make_object_name_to_obj_dict())
@@ -299,10 +311,17 @@ class SpotEnv(BaseEnv):
             n: p
             for n, p in object_names_in_view.items() if n in known_object_names
         }
+        object_names_in_hand_view = {
+            n: p
+            for n, p in object_names_in_hand_view.items()
+            if n in known_object_names
+        }
         objects_in_view = {
             self._obj_name_to_obj(n): v
             for n, v in object_names_in_view.items()
         }
+        objects_in_hand_view = set(
+            self._obj_name_to_obj(n) for n in object_names_in_hand_view.keys())
 
         # Get the robot status.
         robot = self._obj_name_to_obj("spot")
@@ -312,8 +331,8 @@ class SpotEnv(BaseEnv):
         # Prepare the non-percepts.
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in ground_atoms)
-        obs = _SpotObservation(images, objects_in_view, robot,
-                               gripper_open_percentage, robot_pos,
+        obs = _SpotObservation(images, objects_in_view, objects_in_hand_view,
+                               robot, gripper_open_percentage, robot_pos,
                                ground_atoms, nonpercept_preds)
 
         return obs
@@ -375,7 +394,7 @@ class SpotEnv(BaseEnv):
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
-        obs = _SpotObservation(images, objects_in_view, robot,
+        obs = _SpotObservation(images, objects_in_view, set(), robot,
                                gripper_open_percentage, robot_pos,
                                nonpercept_atoms, nonpercept_preds)
         goal = self._generate_task_goal()
@@ -394,6 +413,8 @@ class SpotEnv(BaseEnv):
         for obj in objects_in_view:
             if "lost" in obj.type.feature_names:
                 init_json_dict[obj.name]["lost"] = 0.0
+            if "in_view" in obj.type.feature_names:
+                init_json_dict[obj.name]["in_view"] = 1.0
         init_json_dict[robot.name] = {
             "gripper_open_percentage": gripper_open_percentage,
             "curr_held_item_id": 0,
@@ -465,6 +486,7 @@ class SpotEnv(BaseEnv):
         init_obs = _SpotObservation(
             images,
             objects_in_view,
+            set(),
             robot,
             gripper_open_percentage,
             robot_pos,
@@ -495,7 +517,7 @@ class SpotBikeEnv(SpotEnv):
         self._robot_type = Type(
             "robot",
             ["gripper_open_percentage", "curr_held_item_id", "x", "y", "z"])
-        self._tool_type = Type("tool", ["x", "y", "z", "lost"])
+        self._tool_type = Type("tool", ["x", "y", "z", "lost", "in_view"])
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
         self._bag_type = Type("bag", ["x", "y", "z"])
         self._platform_type = Type("platform", ["x", "y", "z"])
@@ -535,9 +557,9 @@ class SpotBikeEnv(SpotEnv):
             "HoldingPlatformLeash", [self._robot_type, self._platform_type],
             _create_dummy_predicate_classifier(
                 self._temp_HoldingPlatformLeash))
-        self._ReachableTool = Predicate("ReachableTool",
-                                        [self._robot_type, self._tool_type],
-                                        self._reachable_classifier)
+        self._InViewTool = Predicate("InViewTool",
+                                     [self._robot_type, self._tool_type],
+                                     self._tool_in_view_classifier)
         self._ReachableBag = Predicate("ReachableBag",
                                        [self._robot_type, self._bag_type],
                                        self._reachable_classifier)
@@ -561,29 +583,29 @@ class SpotBikeEnv(SpotEnv):
             _create_dummy_predicate_classifier(self._temp_PlatformNear))
 
         # STRIPS Operators (needed for option creation)
-        # MoveToTool
+        # MoveToToolOnSurface
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         surface = Variable("?surface", self._surface_type)
         preconditions = {LiftedAtom(self._On, [tool, surface])}
-        add_effs = {LiftedAtom(self._ReachableTool, [spot, tool])}
+        add_effs = {LiftedAtom(self._InViewTool, [spot, tool])}
         ignore_effs = {
-            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
-            self._ReachablePlatform
+            self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform, self._InViewTool
         }
-        self._MoveToToolOp = STRIPSOperator("MoveToTool",
-                                            [spot, tool, surface],
-                                            preconditions, add_effs, set(),
-                                            ignore_effs)
+        self._MoveToToolOnSurfaceOp = STRIPSOperator("MoveToToolOnSurface",
+                                                     [spot, tool, surface],
+                                                     preconditions, add_effs,
+                                                     set(), ignore_effs)
         # MoveToToolOnFloor
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         floor = Variable("?floor", self._floor_type)
         preconditions = {LiftedAtom(self._OnFloor, [tool, floor])}
-        add_effs = {LiftedAtom(self._ReachableTool, [spot, tool])}
+        add_effs = {LiftedAtom(self._InViewTool, [spot, tool])}
         ignore_effs = {
-            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
-            self._ReachablePlatform
+            self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform, self._InViewTool
         }
         self._MoveToToolOnFloorOp = STRIPSOperator("MoveToToolOnFloor",
                                                    [spot, tool, floor],
@@ -594,8 +616,8 @@ class SpotBikeEnv(SpotEnv):
         surface = Variable("?surface", self._surface_type)
         add_effs = {LiftedAtom(self._XYReachableSurface, [spot, surface])}
         ignore_effs = {
-            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
-            self._ReachablePlatform
+            self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform, self._InViewTool
         }
         self._MoveToSurfaceOp = STRIPSOperator("MoveToSurface",
                                                [spot, surface], set(),
@@ -605,8 +627,8 @@ class SpotBikeEnv(SpotEnv):
         platform = Variable("?platform", self._platform_type)
         add_effs = {LiftedAtom(self._ReachablePlatform, [spot, platform])}
         ignore_effs = {
-            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
-            self._ReachablePlatform
+            self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform, self._InViewTool
         }
         self._MoveToPlatformOp = STRIPSOperator("MoveToPlatform",
                                                 [spot, platform], set(),
@@ -616,8 +638,8 @@ class SpotBikeEnv(SpotEnv):
         bag = Variable("?platform", self._bag_type)
         add_effs = {LiftedAtom(self._ReachableBag, [spot, bag])}
         ignore_effs = {
-            self._ReachableTool, self._ReachableBag, self._XYReachableSurface,
-            self._ReachablePlatform
+            self._ReachableBag, self._XYReachableSurface,
+            self._ReachablePlatform, self._InViewTool
         }
         self._MoveToBagOp = STRIPSOperator("MoveToBag", [spot, bag], set(),
                                            add_effs, set(), ignore_effs)
@@ -627,9 +649,9 @@ class SpotBikeEnv(SpotEnv):
         surface = Variable("?surface", self._surface_type)
         preconds = {
             LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._ReachableTool, [spot, tool]),
             LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._SurfaceNotTooHigh, [spot, surface])
+            LiftedAtom(self._SurfaceNotTooHigh, [spot, surface]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         add_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
@@ -638,7 +660,7 @@ class SpotBikeEnv(SpotEnv):
         del_effs = {
             LiftedAtom(self._On, [tool, surface]),
             LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._ReachableTool, [spot, tool]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         self._GraspToolFromNotHighOp = STRIPSOperator("GraspToolFromNotHigh",
                                                       [spot, tool, surface],
@@ -650,8 +672,8 @@ class SpotBikeEnv(SpotEnv):
         floor = Variable("?floor", self._floor_type)
         preconds = {
             LiftedAtom(self._OnFloor, [tool, floor]),
-            LiftedAtom(self._ReachableTool, [spot, tool]),
             LiftedAtom(self._HandEmpty, [spot]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         add_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
@@ -660,7 +682,7 @@ class SpotBikeEnv(SpotEnv):
         del_effs = {
             LiftedAtom(self._OnFloor, [tool, floor]),
             LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._ReachableTool, [spot, tool]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         self._GraspToolFromFloorOp = STRIPSOperator("GraspToolFromFloor",
                                                     [spot, tool, floor],
@@ -711,10 +733,10 @@ class SpotBikeEnv(SpotEnv):
         surface = Variable("?surface", self._surface_type)
         preconds = {
             LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._ReachableTool, [spot, tool]),
             LiftedAtom(self._HandEmpty, [spot]),
             LiftedAtom(self._SurfaceTooHigh, [spot, surface]),
-            LiftedAtom(self._PlatformNear, [platform, surface])
+            LiftedAtom(self._PlatformNear, [platform, surface]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         add_effs = {
             LiftedAtom(self._HoldingTool, [spot, tool]),
@@ -723,7 +745,7 @@ class SpotBikeEnv(SpotEnv):
         del_effs = {
             LiftedAtom(self._On, [tool, surface]),
             LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._ReachableTool, [spot, tool]),
+            LiftedAtom(self._InViewTool, [spot, tool])
         }
         self._GraspToolFromHighOp = STRIPSOperator(
             "GraspToolFromHigh", [spot, tool, platform, surface], preconds,
@@ -791,7 +813,7 @@ class SpotBikeEnv(SpotEnv):
                                               add_effs, del_effs, set())
 
         self._strips_operators = {
-            self._MoveToToolOp,
+            self._MoveToToolOnSurfaceOp,
             self._MoveToSurfaceOp,
             self._MoveToPlatformOp,
             self._MoveToBagOp,
@@ -817,11 +839,10 @@ class SpotBikeEnv(SpotEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._On, self._InBag, self._HandEmpty, self._HoldingTool,
-            self._HoldingBag, self._HoldingPlatformLeash, self._ReachableTool,
-            self._ReachableBag, self._ReachablePlatform,
-            self._XYReachableSurface, self._SurfaceTooHigh,
-            self._SurfaceNotTooHigh, self._PlatformNear, self._notHandEmpty,
-            self._OnFloor
+            self._HoldingBag, self._HoldingPlatformLeash, self._ReachableBag,
+            self._ReachablePlatform, self._XYReachableSurface,
+            self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._PlatformNear,
+            self._notHandEmpty, self._InViewTool, self._OnFloor
         }
 
     def _handempty_classifier(self, state: State,
@@ -899,6 +920,11 @@ class SpotBikeEnv(SpotEnv):
                                          objects: Sequence[Object]) -> bool:
         return not self._surface_too_high_classifier(state, objects)
 
+    def _tool_in_view_classifier(self, state: State,
+                                 objects: Sequence[Object]) -> bool:
+        _, tool = objects
+        return state.get(tool, "in_view") > 0.5
+
     @classmethod
     def get_name(cls) -> str:
         return "spot_bike_env"
@@ -909,7 +935,7 @@ class SpotBikeEnv(SpotEnv):
         return {
             self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On,
             self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._ReachableBag,
-            self._ReachablePlatform, self._ReachableTool
+            self._ReachablePlatform, self._InViewTool
         }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:

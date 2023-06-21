@@ -8,6 +8,7 @@
 """Command line interface for graph nav with options to download/upload a map
 and to navigate a map."""
 
+import logging
 import time
 
 from bosdyn.api import robot_state_pb2
@@ -95,10 +96,11 @@ class GraphNavInterface():
     def get_localization_state(self) -> None:
         """Get the current localization and state of the robot."""
         state = self.graph_nav_client.get_localization_state()
-        print(f'Got localization: \n{str(state.localization)}')
+        logging.debug(f'Got localization: \n{str(state.localization)}')
         odom_tform_body = get_odom_tform_body(
             state.robot_kinematics.transforms_snapshot)
-        print(f'Got robot state in odometry frame: \n{str(odom_tform_body)}')
+        logging.debug(
+            f'Got robot state in odometry frame: \n{str(odom_tform_body)}')
 
     def set_initial_localization_fiducial(self) -> None:
         """Trigger localization when near a fiducial."""
