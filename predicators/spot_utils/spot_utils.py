@@ -276,25 +276,21 @@ class _SpotInterface():
 
         return (img, image_response)
 
-    def get_objects_in_view(
-            self) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
+    def get_objects_in_view(self) -> Dict[str, Tuple[float, float, float]]:
         """Get objects currently in view."""
-        tag_to_pose: Dict[str, Dict[int, Tuple[float, float, float]]] = {}
+        tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
         for source_name in CAMERA_NAMES:
             viewable_obj_poses = self.get_apriltag_pose_from_camera(
                 source_name=source_name)
-            tag_to_pose[source_name] = viewable_obj_poses
+            tag_to_pose.update(viewable_obj_poses)
         apriltag_id_to_obj_name = {
             v: k
             for k, v in obj_name_to_apriltag_id.items()
         }
-        obj_name_to_pose = {}
-
-        for source_name in CAMERA_NAMES:
-            obj_name_to_pose[source_name] = {
-                apriltag_id_to_obj_name[t]: p
-                for t, p in tag_to_pose[source_name].items()
-            }
+        obj_name_to_pose = {
+            apriltag_id_to_obj_name[t]: p
+            for t, p in tag_to_pose.items()
+        }
         return obj_name_to_pose
 
     def get_robot_pose(self) -> Tuple[float, float, float]:
@@ -438,10 +434,9 @@ class _SpotInterface():
 
         Params are [dx, dy, d-yaw (in radians)]
         """
-        logging.info(f"NavigateTo{objs}")
+        print("NavigateTo", objs)
         assert len(params) == 3
         assert len(objs) in [2, 3]
-        self.stow_arm()
 
         waypoint = ("", np.zeros(3, dtype=np.float32))  # default
         for obj in objs[1:]:
@@ -464,7 +459,6 @@ class _SpotInterface():
         if len(objs) == 3:
             if "_table" in objs[2].name:
                 self.hand_movement(np.array([0.0, 0.0, 0.0]),
-                                   open_gripper=False,
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 8), 0,
                                           np.sin(np.pi / 8), 0))
@@ -472,7 +466,6 @@ class _SpotInterface():
                 return
             if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
-                                   open_gripper=False,
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 6), 0,
                                           np.sin(np.pi / 6), 0))
@@ -488,7 +481,7 @@ class _SpotInterface():
         side grasp (-1) or any (0), and dx, dy, dz of post grasp
         position.
         """
-        logging.info(f"Grasp{objs}")
+        print("Grasp", objs)
         assert len(params) == 4
         assert params[3] in [0, 1, -1]
         if params[3] == 1:
@@ -512,12 +505,13 @@ class _SpotInterface():
         Params is dx, dy, and dz corresponding to the location of the
         arm from the robot when placing.
         """
-        logging.info(f"PlaceOntop{objs}")
+        print("PlaceOntop", objs)
         assert len(params) == 3
         self.hand_movement(params,
-                           open_gripper=True,
                            keep_hand_pose=False,
                            relative_to_default_pose=False)
+        time.sleep(1.0)
+        self.stow_arm()
         # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
         time.sleep(1.0)
@@ -540,22 +534,7 @@ class _SpotInterface():
                 logging.info("All objects located!")
                 break
             for _ in range(8):
-                for angle in angles:
-                    self.hand_movement(np.array([-0.2, 0.0, -0.25]),
-                                       keep_hand_pose=False,
-                                       angle=angle)
-                    objects_in_view_by_camera = self.get_objects_in_view()
-                    objects_in_view = {}
-                    for source_camera in CAMERA_NAMES:
-                        objects_in_view.update(
-                            objects_in_view_by_camera[source_camera])
-                    obj_poses.update(objects_in_view)
-                self.stow_arm()
-                objects_in_view_by_camera = self.get_objects_in_view()
-                objects_in_view = {}
-                for source_camera in CAMERA_NAMES:
-                    objects_in_view.update(
-                        objects_in_view_by_camera[source_camera])
+                objects_in_view = self.get_objects_in_view()
                 obj_poses.update(objects_in_view)
                 logging.info("Seen objects:")
                 logging.info(set(obj_poses))
@@ -590,6 +569,7 @@ class _SpotInterface():
             g_image_click = (x, y)
         else:
             # Draw some lines on the image.
+            #print('mouse', x, y)
             color = (30, 30, 30)
             thickness = 2
             image_title = 'Click to grasp'
@@ -706,9 +686,8 @@ class _SpotInterface():
             [self._image_source])
 
         if len(image_responses) != 1:
-            logging.info(
-                f'Got invalid number of images: {str(len(image_responses))}')
-            logging.info(image_responses)
+            print(f'Got invalid number of images: {str(len(image_responses))}')
+            print(image_responses)
             assert False
 
         image = image_responses[0]
@@ -757,7 +736,7 @@ class _SpotInterface():
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == ord('Q'):
                 # Quit
-                logging.info('"q" pressed, exiting.')
+                print('"q" pressed, exiting.')
                 sys.exit()
 
         # Uncomment to debug.
@@ -808,7 +787,7 @@ class _SpotInterface():
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            logging.debug(f"""Current state:
+            logging.info(f"""Current state:
                 {manipulation_api_pb2.ManipulationFeedbackState.Name(
                     response.current_state)}""")
 
@@ -836,7 +815,7 @@ class _SpotInterface():
             carry_state_override=grasp_carry_state_override)
         cmd_response = self.manipulation_api_client.\
             grasp_override_command(grasp_override_request)
-        self.robot.logger.debug(cmd_response)
+        self.robot.logger.info(cmd_response)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         gripper_close_command = RobotCommandBuilder.\
@@ -911,7 +890,7 @@ class _SpotInterface():
             flat_body_T_hand)
 
         # duration in seconds
-        seconds = 4
+        seconds = 2
 
         arm_command = RobotCommandBuilder.arm_pose_command(
             odom_T_hand.x, odom_T_hand.y, odom_T_hand.z, odom_T_hand.rot.w,
@@ -942,20 +921,6 @@ class _SpotInterface():
             gripper_command = RobotCommandBuilder.\
                 claw_gripper_open_fraction_command(1.0)
 
-            # Open Gripper First
-            # Combine the arm and gripper commands into one RobotCommand
-            command = RobotCommandBuilder.build_synchro_command(
-                gripper_command, arm_command)
-
-            # Send the request to open the gripper.
-            cmd_id = self.robot_command_client.robot_command(command)
-            self.robot.logger.info('Moving arm to position.')
-            time.sleep(1.0)
-            # Finally, create a new gripper command that closes
-            # the hand again.
-            gripper_command = RobotCommandBuilder.\
-                claw_gripper_open_fraction_command(0.0)
-
         # Combine the arm and gripper commands into one RobotCommand
         command = RobotCommandBuilder.build_synchro_command(
             gripper_command, arm_command)
@@ -966,7 +931,7 @@ class _SpotInterface():
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
-        time.sleep(2.0)
+        time.sleep(1.0)
 
     def navigate_to(self, waypoint_id: str, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
@@ -1050,11 +1015,11 @@ class _SpotInterface():
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            logging.info("init by fid")
+            print("init by fid")
 
             # (2) Get localization state
             self.graph_nav_command_line.get_localization_state()
-            logging.info("localized state")
+            print("localized state")
 
             # (3) Just move
             self.relative_move(params[0], params[1], params[2])

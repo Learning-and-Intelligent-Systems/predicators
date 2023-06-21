@@ -1,7 +1,7 @@
 """A perceiver specific to the spot bike env."""
 
 import logging
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Optional, Set, Tuple
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
@@ -20,7 +20,7 @@ class SpotBikePerceiver(BasePerceiver):
     def __init__(self) -> None:
         super().__init__()
         self._known_object_poses: Dict[Object, Tuple[float, float, float]] = {}
-        self._known_objects_in_hand_view: List[Object] = []
+        self._known_objects_in_hand_view: Set[Object] = set()
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()

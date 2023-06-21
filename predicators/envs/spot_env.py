@@ -43,7 +43,7 @@ class _SpotObservation:
     # Objects that are seen in the current image and their positions in world
     objects_in_view: Dict[Object, Tuple[float, float, float]]
     # Objects seen only by the hand camera
-    objects_in_hand_view: List[Object]
+    objects_in_hand_view: Set[Object]
     # Expose the robot object.
     robot: Object
     # Status of the robot gripper.
@@ -299,9 +299,8 @@ class SpotEnv(BaseEnv):
             self._obj_name_to_obj(n): v
             for n, v in object_names_in_view.items()
         }
-        objects_in_hand_view = [
-            self._obj_name_to_obj(n) for n in object_names_in_hand_view.keys()
-        ]
+        objects_in_hand_view = set(
+            self._obj_name_to_obj(n) for n in object_names_in_hand_view.keys())
 
         # Get the robot status.
         robot = self._obj_name_to_obj("spot")
