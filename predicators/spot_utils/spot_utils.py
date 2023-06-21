@@ -279,7 +279,11 @@ class _SpotInterface():
     def get_objects_in_view_by_camera(
             self) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get objects currently in view."""
-        tag_to_pose: Dict[str, Dict[int, Tuple[float, float, float]]] = {k: {} for k in CAMERA_NAMES}
+        tag_to_pose: Dict[str,
+                          Dict[int,
+                               Tuple[float, float,
+                                     float]]] = {k: {}
+                                                 for k in CAMERA_NAMES}
         for source_name in CAMERA_NAMES:
             viewable_obj_poses = self.get_apriltag_pose_from_camera(
                 source_name=source_name)
@@ -538,7 +542,7 @@ class _SpotInterface():
                 logging.info("All objects located!")
                 break
             for _ in range(8):
-                objects_in_view = dict(
+                objects_in_view: Dict[str, Tuple[float, float, float]] = dict(
                     **self.get_objects_in_view_by_camera().values())
                 obj_poses.update(objects_in_view)
                 logging.info("Seen objects:")
