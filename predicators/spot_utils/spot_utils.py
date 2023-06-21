@@ -442,19 +442,16 @@ class _SpotInterface():
         """Execute look around."""
         # INCREDIBLY hacky: assumes that we are facing one of the two tables
         # when the object is lost.
+
+        # Start by stowing.
+        self.stow_arm()
         
         # Move back from the table.
         if self._find_controller_move_queue_idx == 1:
             self.relative_move(-0.25, -0.0, 0.0)
 
-        # Put the hand facing toward the floor.
-        elif self._find_controller_move_queue_idx == 2:
-            self.hand_movement(np.array([0.0, 0.0, 0.0]),
-                                keep_hand_pose=False,
-                                angle=(np.cos(np.pi / 4), 0,
-                                        np.sin(np.pi /4), 0))
         # Move to the right.
-        elif self._find_controller_move_queue_idx == 3:
+        elif self._find_controller_move_queue_idx == 2:
             self.relative_move(0.0, -0.2, 0.0)
 
         # Move to the left.
@@ -464,6 +461,13 @@ class _SpotInterface():
         # TODO ask for help.
         else:
             raise RuntimeError("Could not find lost object.")
+
+        # Move the hand to get a view of the floor.
+        self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                            keep_hand_pose=False,
+                            angle=(np.cos(np.pi / 4), 0,
+                                    np.sin(np.pi /4), 0))
+
         # Sleep for longer to make sure that there is no shaking.
         time.sleep(2.0)
         return
