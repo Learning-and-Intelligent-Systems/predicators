@@ -426,7 +426,10 @@ class _SpotInterface():
         if name == "find":
             self._find_controller_move_queue_idx += 1
             return self.findController()
+        # Just finished finding.
         self._find_controller_move_queue_idx = 0
+        if name == "stow":
+            return self.stow_arm()
         if name == "navigate":
             return self.navigateToController(objects, params)
         if name == "grasp":
@@ -857,7 +860,7 @@ class _SpotInterface():
         grasp_override_request = manipulation_api_pb2.\
             ApiGraspOverrideRequest(
             carry_state_override=grasp_carry_state_override)
-        cmd_response = self.manipulation_api_client.\
+        self.manipulation_api_client.\
             grasp_override_command(grasp_override_request)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()

@@ -11,7 +11,7 @@ extracted from the environment.
 """
 
 import logging
-from functools import cached_property
+from functools import lru_cache
 from typing import Callable, Optional, Set
 
 from predicators.approaches import BaseApproachWrapper
@@ -36,9 +36,10 @@ class SpotWrapperApproach(BaseApproachWrapper):
 
         # Maintain policy from the base approach.
         base_approach_policy: Optional[Callable[[State], Action]] = None
+        need_stow = False
 
         def _policy(state: State) -> Action:
-            nonlocal base_approach_policy
+            nonlocal base_approach_policy, need_stow
             # If some objects are lost, find them.
             lost_objects: Set[Object] = set()
             for obj in state:
@@ -50,7 +51,12 @@ class SpotWrapperApproach(BaseApproachWrapper):
                 logging.info(f"Looking for lost objects: {lost_objects}")
                 # Reset the base approach policy.
                 base_approach_policy = None
-                return self._find_action
+                need_stow = True
+                return self._get_special_action("find")
+            # Found the objects. Stow the arm before replanning.
+            if need_stow:
+                need_stow = False
+                return self._get_special_action("stow")
             # Check if we need to re-solve.
             if base_approach_policy is None:
                 cur_task = Task(state, task.goal)
@@ -61,9 +67,9 @@ class SpotWrapperApproach(BaseApproachWrapper):
 
         return _policy
 
-    @cached_property
-    def _find_action(self) -> Action:
+    @lru_cache(maxsize=None)
+    def _get_special_action(self, action_name: str) -> Action:
         env = get_or_create_env(CFG.env)
         assert isinstance(env, SpotEnv)
         # In the future, may want to make this object-specific.
-        return env.get_find_action()
+        return env.get_special_action(action_name)

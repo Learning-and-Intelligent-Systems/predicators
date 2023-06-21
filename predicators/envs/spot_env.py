@@ -105,6 +105,14 @@ def _create_dummy_predicate_classifier(
     return _classifier
 
 
+# Special actions are ones that are not exposed to the planner. Used by the
+# approach wrappper for finding objects.
+_SPECIAL_ACTIONS = {
+    "find": 0,
+    "stow": 1,
+}
+
+
 class SpotEnv(BaseEnv):
     """An environment containing tasks for a real Spot robot to execute.
 
@@ -150,7 +158,7 @@ class SpotEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # The first entry is the controller identity.
-        lb = [-1.0]  # -1.0 reserved for "find" action, see below
+        lb = [-1.0]  # -1.0 reserved for special actions that have no operator
         ub = [self._num_operators - 1.0]
         # The next max_arity entries are the object identities.
         for _ in range(self._max_operator_arity):
@@ -164,20 +172,24 @@ class SpotEnv(BaseEnv):
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
-    def get_find_action(self) -> Action:
-        """Get a special action for locating recently lost objects."""
+    def get_special_action(self, action_name: str) -> Action:
+        """Get a special action that has no operator."""
         # In the future, may want to make this object-specific.
         arr = np.zeros(self.action_space.shape, dtype=np.float32)
         arr[0] = -1.0
+        arr[1] = _SPECIAL_ACTIONS[action_name]
         return Action(arr)
 
     def parse_action(self, action: Action) -> Tuple[str, List[Object], Array]:
         """(Only for this environment) A convenience method that converts low-
         level actions into more interpretable high-level actions by exploiting
         knowledge of how we encode actions."""
-        # Special case the find action.
-        if np.allclose(action.arr, self.get_find_action().arr):
-            return "find", [], np.zeros(0, dtype=np.float32)
+        # Special case actions with no operator.
+        if np.isclose(action.arr[0], -1.0):
+            action_idx = int(np.round(action.arr[1]))
+            idx_to_action = {v: k for k, v in _SPECIAL_ACTIONS.items()}
+            action_name = idx_to_action[action_idx]
+            return action_name, [], np.zeros(0, dtype=np.float32)
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
@@ -312,10 +324,8 @@ class SpotEnv(BaseEnv):
 
         This should be deprecated eventually.
         """
-        # Special case: if the last action was a "find" action, then there are
-        # no changes to the nonpercept atoms. This is a special case because
-        # the "find" action does not have an operator.
-        if np.allclose(action.arr, self.get_find_action().arr):
+        # Special case: the last action was special (has no operator).
+        if np.isclose(action.arr[0], -1.0):
             return set(obs.nonpercept_atoms)
         # Get the ground operator.
         all_objects = set(self._make_object_name_to_obj_dict().values())
