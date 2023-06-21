@@ -79,12 +79,13 @@ class SpotBikePerceiver(BasePerceiver):
                 # Check if the item we just placed is on the surface we meant
                 # to place it on. If not, the item is lost.
                 _, obj, surface = objects
-                state = self._create_state()
-                ontop_classifier = self._curr_env._ontop_classifier  # pylint: disable=protected-access
-                is_on = ontop_classifier(state, [obj, surface])
-                if not is_on:
-                    # We lost the object!
-                    self._lost_objects.add(obj)
+                if surface.type.name == "flat_surface":
+                    state = self._create_state()
+                    ontop_classifier = self._curr_env._ontop_classifier  # pylint: disable=protected-access
+                    is_on = ontop_classifier(state, [obj, surface])
+                    if not is_on:
+                        # We lost the object!
+                        self._lost_objects.add(obj)
             else:
                 # We ensure the holding item feature is set
                 # back to 0.0 if the hand is ever empty.
