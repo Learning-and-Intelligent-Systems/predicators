@@ -421,12 +421,18 @@ class _SpotInterface():
                 params: Array) -> None:
         """Run the controller based on the given name."""
         assert self._connected_to_spot
+        if name == "find":
+            return self.findController()
         if name == "navigate":
             return self.navigateToController(objects, params)
         if name == "grasp":
             return self.graspController(objects, params)
         assert name == "placeOnTop"
         return self.placeOntopController(objects, params)
+
+    def findController(self) -> None:
+        """Execute look around."""
+        import ipdb; ipdb.set_trace()
 
     def navigateToController(self, objs: Sequence[Object],
                              params: Array) -> None:

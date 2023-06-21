@@ -150,7 +150,7 @@ class SpotEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # The first entry is the controller identity.
-        lb = [0.0]
+        lb = [-1.0]  # -1.0 reserved for "find" action, see below
         ub = [self._num_operators - 1.0]
         # The next max_arity entries are the object identities.
         for _ in range(self._max_operator_arity):
@@ -164,10 +164,20 @@ class SpotEnv(BaseEnv):
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
+    def get_find_action(self) -> Action:
+        """Get a special action for locating recently lost objects."""
+        # In the future, may want to make this object-specific.
+        arr = np.zeros(self.action_space.shape, dtype=np.float32)
+        arr[0] = -1.0
+        return Action(arr)
+
     def parse_action(self, action: Action) -> Tuple[str, List[Object], Array]:
         """(Only for this environment) A convenience method that converts low-
         level actions into more interpretable high-level actions by exploiting
         knowledge of how we encode actions."""
+        # Special case the find action.
+        if np.allclose(action.arr, self.get_find_action().arr):
+            return "find", [], np.zeros(0, dtype=np.float32)
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
@@ -467,7 +477,7 @@ class SpotBikeEnv(SpotEnv):
         self._robot_type = Type(
             "robot",
             ["gripper_open_percentage", "curr_held_item_id", "x", "y", "z"])
-        self._tool_type = Type("tool", ["x", "y", "z"])
+        self._tool_type = Type("tool", ["x", "y", "z", "lost"])
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
         self._bag_type = Type("bag", ["x", "y", "z"])
         self._platform_type = Type("platform", ["x", "y", "z"])

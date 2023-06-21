@@ -27,6 +27,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
         self._robot_pos = (0.0, 0.0, 0.0)
+        self._lost_objects: Set[Object] = set()
         assert CFG.env == "spot_bike_env"
         self._curr_env: Optional[BaseEnv] = None
 
@@ -62,14 +63,17 @@ class SpotBikePerceiver(BasePerceiver):
                 assert self._holding_item_id_feature == 0.0
                 # We know that the object that we attempted to grasp was
                 # the second argument to the controller.
-                object_attempted_to_grasp = objects[1].name
+                object_attempted_to_grasp = objects[1]
                 grasp_obj_id = obj_name_to_apriltag_id[
-                    object_attempted_to_grasp]
+                    object_attempted_to_grasp.name]
                 # We only want to update the holding item id feature
                 # if we successfully picked something.
                 if self._gripper_open_percentage > 1.5:
                     self._holding_item_id_feature = grasp_obj_id
                     logging.info(f"Grabbed item id: {grasp_obj_id}")
+                else:
+                    # We lost the object!
+                    self._lost_objects.add(object_attempted_to_grasp)
             elif "place" in controller_name.lower():
                 self._holding_item_id_feature = 0.0
             else:
@@ -87,6 +91,8 @@ class SpotBikePerceiver(BasePerceiver):
         self._nonpercept_predicates = observation.nonpercept_predicates
         self._gripper_open_percentage = observation.gripper_open_percentage
         self._robot_pos = observation.robot_pos
+        for obj in observation.objects_in_view:
+            self._lost_objects.discard(obj)
 
     def _create_state(self) -> _PartialPerceptionState:
         # Build the continuous part of the state.
@@ -107,6 +113,13 @@ class SpotBikePerceiver(BasePerceiver):
                 "y": y,
                 "z": z,
             }
+            # Detect if we have lost a tool.
+            if obj.type.name == "tool":
+                if obj in self._lost_objects:
+                    lost_val = 0.0
+                else:
+                    lost_val = 1.0
+                state_dict[obj]["lost"] = lost_val
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)
         logging.info("Percept state:")
