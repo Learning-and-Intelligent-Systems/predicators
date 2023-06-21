@@ -10,8 +10,8 @@ For now, the "find" policy is represented with a single action that is
 extracted from the environment.
 """
 
-from functools import cached_property
 import logging
+from functools import cached_property
 from typing import Callable, Optional, Set
 
 import numpy as np
@@ -19,8 +19,8 @@ import numpy as np
 from predicators.approaches import BaseApproachWrapper
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
-from predicators.structs import Action, Object, State, Task
 from predicators.settings import CFG
+from predicators.structs import Action, Object, State, Task
 
 
 class SpotWrapperApproach(BaseApproachWrapper):

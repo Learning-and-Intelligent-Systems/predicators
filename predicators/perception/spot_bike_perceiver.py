@@ -116,9 +116,9 @@ class SpotBikePerceiver(BasePerceiver):
             # Detect if we have lost a tool.
             if obj.type.name == "tool":
                 if obj in self._lost_objects:
-                    lost_val = 0.0
-                else:
                     lost_val = 1.0
+                else:
+                    lost_val = 0.0
                 state_dict[obj]["lost"] = lost_val
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)

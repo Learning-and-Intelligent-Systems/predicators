@@ -432,7 +432,10 @@ class _SpotInterface():
 
     def findController(self) -> None:
         """Execute look around."""
-        import ipdb; ipdb.set_trace()
+        # TODO do something nontrivial here. This trivial implementation will
+        # only work if the robot can already see the lost objects. It's just
+        # re-planning effectively.
+        return
 
     def navigateToController(self, objs: Sequence[Object],
                              params: Array) -> None:

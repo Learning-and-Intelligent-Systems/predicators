@@ -312,6 +312,11 @@ class SpotEnv(BaseEnv):
 
         This should be deprecated eventually.
         """
+        # Special case: if the last action was a "find" action, then there are
+        # no changes to the nonpercept atoms. This is a special case because
+        # the "find" action does not have an operator.
+        if np.allclose(action.arr, self.get_find_action().arr):
+            return set(obs.nonpercept_atoms)
         # Get the ground operator.
         all_objects = set(self._make_object_name_to_obj_dict().values())
         ordered_objs = sorted(all_objects)
@@ -376,6 +381,9 @@ class SpotEnv(BaseEnv):
             }
             for o, (x, y, z) in objects_in_view.items()
         }
+        for obj in objects_in_view:
+            if "lost" in obj.type.feature_names:
+                init_json_dict[obj.name]["lost"] = 0.0
         init_json_dict[robot.name] = {
             "gripper_open_percentage": gripper_open_percentage,
             "curr_held_item_id": 0,
