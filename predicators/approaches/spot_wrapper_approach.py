@@ -14,8 +14,6 @@ import logging
 from functools import cached_property
 from typing import Callable, Optional, Set
 
-import numpy as np
-
 from predicators.approaches import BaseApproachWrapper
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv

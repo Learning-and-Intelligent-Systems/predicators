@@ -54,7 +54,7 @@ def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
         "high_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
         "extra_room_table": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
     }
-    offsets = {"extra_room_table": np.array([-0.1, -0.3, np.pi / 2])}
+    offsets = {"extra_room_table": np.array([0.0, -0.3, np.pi / 2])}
     if obj_name not in graph_nav_loc_to_id:
         return None
     waypoint_id = graph_nav_loc_to_id[obj_name]
@@ -471,7 +471,6 @@ class _SpotInterface():
 
         # Sleep for longer to make sure that there is no shaking.
         time.sleep(2.0)
-        return
 
     def navigateToController(self, objs: Sequence[Object],
                              params: Array) -> None:
