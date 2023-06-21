@@ -243,6 +243,19 @@ class SpotEnv(BaseEnv):
         goal = self._generate_task_goal()
         self._current_task = EnvironmentTask(init_obs, goal)
         self._current_observation = init_obs
+
+        # TODO remove
+        next_obs = self.step(self.get_find_action())
+        print("In view 1:", next_obs.objects_in_view)
+
+        next_obs = self.step(self.get_find_action())
+        print("In view 2:", next_obs.objects_in_view)
+
+        next_obs = self.step(self.get_find_action())
+        print("In view 3:", next_obs.objects_in_view)
+
+        import ipdb; ipdb.set_trace()
+
         return init_obs
 
     def step(self, action: Action) -> Observation:

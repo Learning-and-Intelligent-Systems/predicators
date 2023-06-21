@@ -181,6 +181,8 @@ class _SpotInterface():
         self.hand_z_bounds = (0.2, 0.7)
         self.localization_timeout = 10
 
+        self._find_controller_move_queue_idx = 0
+
         # Try to connect to the robot. If this fails, still maintain the
         # instance for testing, but assert that it succeeded within the
         # controller calls.
@@ -349,6 +351,10 @@ class _SpotInterface():
         """
         img, image_response = self.get_single_camera_image(source_name)
 
+        if source_name == "hand_color_image":
+            import imageio
+            imageio.imwrite("debug.png", img)
+
         # Camera body transform.
         camera_tform_body = get_a_tform_b(
             image_response[0].shot.transforms_snapshot,
@@ -422,7 +428,9 @@ class _SpotInterface():
         """Run the controller based on the given name."""
         assert self._connected_to_spot
         if name == "find":
+            self._find_controller_move_queue_idx += 1
             return self.findController()
+        self._find_controller_move_queue_idx = 0
         if name == "navigate":
             return self.navigateToController(objects, params)
         if name == "grasp":
@@ -432,9 +440,32 @@ class _SpotInterface():
 
     def findController(self) -> None:
         """Execute look around."""
-        # TODO do something nontrivial here. This trivial implementation will
-        # only work if the robot can already see the lost objects. It's just
-        # re-planning effectively.
+        # INCREDIBLY hacky: assumes that we are facing one of the two tables
+        # when the object is lost.
+        
+        # Move back from the table.
+        if self._find_controller_move_queue_idx == 1:
+            self.relative_move(-0.25, -0.0, 0.0)
+
+        # Put the hand facing toward the floor.
+        elif self._find_controller_move_queue_idx == 2:
+            self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                                keep_hand_pose=False,
+                                angle=(np.cos(np.pi / 4), 0,
+                                        np.sin(np.pi /4), 0))
+        # Move to the right.
+        elif self._find_controller_move_queue_idx == 3:
+            self.relative_move(0.0, -0.2, 0.0)
+
+        # Move to the left.
+        elif self._find_controller_move_queue_idx == 3:
+            self.relative_move(0.0, 0.4, 0.0)
+        
+        # TODO ask for help.
+        else:
+            raise RuntimeError("Could not find lost object.")
+        # Sleep for longer to make sure that there is no shaking.
+        time.sleep(2.0)
         return
 
     def navigateToController(self, objs: Sequence[Object],
