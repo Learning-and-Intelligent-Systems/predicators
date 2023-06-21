@@ -351,10 +351,6 @@ class _SpotInterface():
         """
         img, image_response = self.get_single_camera_image(source_name)
 
-        if source_name == "hand_color_image":
-            import imageio
-            imageio.imwrite("debug.png", img[:, :, [2, 1, 0]])
-
         # Camera body transform.
         camera_tform_body = get_a_tform_b(
             image_response[0].shot.transforms_snapshot,
@@ -440,12 +436,14 @@ class _SpotInterface():
 
     def findController(self) -> None:
         """Execute look around."""
-        # INCREDIBLY hacky: assumes that we are facing one of the two tables
-        # when the object is lost.
+        # Execute a hard-coded sequence of movements and hope that one of them
+        # puts the lost object in view. This is very specifically designed for
+        # the case where an object has fallen off the table and we are facing
+        # the table when this controller starts running.
 
         # Start by stowing.
         self.stow_arm()
-        
+
         # Move back from the table.
         if self._find_controller_move_queue_idx == 1:
             self.relative_move(-0.25, -0.0, 0.0)
@@ -461,16 +459,15 @@ class _SpotInterface():
         # Move back to center and back further.
         elif self._find_controller_move_queue_idx == 4:
             self.relative_move(-0.5, -0.25, 0.0)
-        
-        # TODO ask for help.
+
+        # Soon we should implement asking for help here instead of crashing.
         else:
             raise RuntimeError("Could not find lost object.")
 
         # Move the hand to get a view of the floor.
         self.hand_movement(np.array([0.0, 0.0, 0.0]),
-                            keep_hand_pose=False,
-                            angle=(np.cos(np.pi / 4), 0,
-                                    np.sin(np.pi /4), 0))
+                           keep_hand_pose=False,
+                           angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0))
 
         # Sleep for longer to make sure that there is no shaking.
         time.sleep(2.0)
