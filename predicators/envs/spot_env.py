@@ -24,8 +24,8 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
-from predicators.spot_utils.spot_utils import get_spot_interface, \
-    obj_name_to_apriltag_id, CAMERA_NAMES
+from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
+    get_spot_interface, obj_name_to_apriltag_id
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Image, LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
     Type, Variable
