@@ -543,7 +543,8 @@ class _SpotInterface():
                 break
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
-                objects_in_view_by_camera = self.get_objects_in_view_by_camera()
+                objects_in_view_by_camera = self.get_objects_in_view_by_camera(
+                )
                 for v in objects_in_view_by_camera.values():
                     objects_in_view.update(v)
                 obj_poses.update(objects_in_view)
