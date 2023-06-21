@@ -132,9 +132,7 @@ APPROACHES:
       active_sampler_learning_use_teacher: True
 ENVS:
   bumpy_cover:
-    NAME: "bumpy_cover"
-    FLAGS:
-      bumpy_cover_right_targets: True
+    NAME: "regional_bumpy_cover"
 ARGS:
   - "debug"
 FLAGS:
