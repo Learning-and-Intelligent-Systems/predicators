@@ -52,23 +52,27 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Bumpy Cover": [
-        ("Approach v0", "black", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "bumpy_cover-random-explore" in v)),
-    ],
+    # "Bumpy Cover": [
+    #     ("Approach v0", "black", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "bumpy_cover-random-explore" in v)),
+    # ],
+    # "Shifted Bumpy Cover": [
+    #     ("Myopic Classifier", "green", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "bumpy_cover-myopic_classifier" in v)),
+    #     ("Fitted Q", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "bumpy_cover-fitted_q" in v)),
+    #     ("Teacher Classifier", "brown", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "bumpy_cover-teacher_classifier" in v)),
+    # ],
+    # "Regional Bumpy Cover": [
+    #     ("Active Explore", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-main" in v)),
+    #     ("Random Explore", "red", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-random-explore" in v)),
+    # ],
     "Shifted Bumpy Cover": [
-        ("Myopic Classifier", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "bumpy_cover-myopic_classifier" in v)),
-        ("Fitted Q", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "bumpy_cover-fitted_q" in v)),
-        ("Teacher Classifier", "brown", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "bumpy_cover-teacher_classifier" in v)),
-    ],
-    "Regional Bumpy Cover": [
-        ("Active Explore", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-main" in v)),
-        ("Random Explore", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-random-explore" in v)),
+        ("Myopic Classifier Ensemble", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-teacher_with_ensemble" in v)),
     ],
 }
 
