@@ -409,7 +409,6 @@ class GlobalSettings:
     # observed states match (at the abstract level) the expected states, and
     # replan if not. But for now, we just execute each step without checking.
     bilevel_plan_without_sim = False
-    cogman_max_retries_per_step = 3
 
     # evaluation parameters
     log_dir = "logs"
