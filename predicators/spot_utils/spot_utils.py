@@ -528,8 +528,8 @@ class _SpotInterface():
             if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
                                    keep_hand_pose=False,
-                                   angle=(np.cos(np.pi / 6), 0,
-                                          np.sin(np.pi / 6), 0),
+                                   angle=(np.cos(np.pi / 7), 0,
+                                          np.sin(np.pi / 7), 0),
                                    open_gripper=False)
                 time.sleep(1.0)
                 return
@@ -1000,6 +1000,8 @@ class _SpotInterface():
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
+            self.graph_nav_command_line.graph_nav_client.get_localization_state(
+            )
 
             # (2) Navigate to
             self.graph_nav_command_line.navigate_to([waypoint_id])
@@ -1071,7 +1073,8 @@ class _SpotInterface():
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            print("init by fid")
+            self.graph_nav_command_line.graph_nav_client.get_localization_state(
+            )
 
             # (2) Just move
             self.relative_move(params[0], params[1], params[2])
