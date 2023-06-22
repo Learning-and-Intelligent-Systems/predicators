@@ -12,17 +12,28 @@ extracted from the environment.
 
 import logging
 from functools import lru_cache
-from typing import Callable, Optional, Set
+from typing import Any, Callable, List, Optional, Set
 
-from predicators.approaches import BaseApproachWrapper
+from gym.spaces import Box
+
+from predicators.approaches import BaseApproach, BaseApproachWrapper
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Object, State, Task
+from predicators.structs import Action, Object, ParameterizedOption, \
+    Predicate, State, Task, Type
 
 
 class SpotWrapperApproach(BaseApproachWrapper):
     """Always "find" if some object is lost."""
+
+    def __init__(self, base_approach: BaseApproach,
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task]) -> None:
+        super().__init__(base_approach, initial_predicates, initial_options,
+                         types, action_space, train_tasks)
+        self._base_approach_has_control = False  # for execution monitoring
 
     @classmethod
     def get_name(cls) -> str:
@@ -52,16 +63,20 @@ class SpotWrapperApproach(BaseApproachWrapper):
                 # Reset the base approach policy.
                 base_approach_policy = None
                 need_stow = True
+                self._base_approach_has_control = False
                 return self._get_special_action("find")
             # Found the objects. Stow the arm before replanning.
             if need_stow:
+                base_approach_policy = None
                 need_stow = False
+                self._base_approach_has_control = False
                 return self._get_special_action("stow")
             # Check if we need to re-solve.
             if base_approach_policy is None:
                 cur_task = Task(state, task.goal)
                 base_approach_policy = self._base_approach.solve(
                     cur_task, timeout)
+                self._base_approach_has_control = True
             # Use the base policy.
             return base_approach_policy(state)
 
@@ -73,3 +88,8 @@ class SpotWrapperApproach(BaseApproachWrapper):
         assert isinstance(env, SpotEnv)
         # In the future, may want to make this object-specific.
         return env.get_special_action(action_name)
+
+    def get_execution_monitoring_info(self) -> List[Any]:
+        if self._base_approach_has_control:
+            return self._base_approach.get_execution_monitoring_info()
+        return []

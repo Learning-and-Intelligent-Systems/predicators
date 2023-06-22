@@ -21,6 +21,9 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         # This monitor only makes sense to use with an oracle
         # bilevel planning approach.
         assert CFG.approach == "oracle"
+        # If the approach info is empty, don't replan.
+        if not self._approach_info:  # pragma: no cover
+            return False
         next_expected_atoms = self._approach_info[0]
         assert isinstance(next_expected_atoms, set)
         self._curr_plan_timestep += 1
