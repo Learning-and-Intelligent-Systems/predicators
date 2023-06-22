@@ -457,13 +457,13 @@ class _SpotInterface():
         # First move way back and don't move the hand. This is useful when the
         # object has not actually fallen, but wasn't grasped.
         if self._find_controller_move_queue_idx == 1:
-            self.relative_move(-0.5, -0.0, 0.0)
+            self.relative_move(-0.5, 0.0, 0.0)
             time.sleep(2.0)
             return
 
         # Move a little forward and look down.
         if self._find_controller_move_queue_idx == 2:
-            self.relative_move(-0.25, -0.0, 0.0)
+            self.relative_move(0.25, 0.0, 0.0)
 
         # Move to the right.
         elif self._find_controller_move_queue_idx == 3:
@@ -484,7 +484,7 @@ class _SpotInterface():
         # Move the hand to get a view of the floor.
         self.hand_movement(np.array([0.0, 0.0, 0.0]),
                            keep_hand_pose=False,
-                           angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0))
+                           angle=(np.cos(np.pi / 6), 0, np.sin(np.pi / 6), 0))
 
         # Sleep for longer to make sure that there is no shaking.
         time.sleep(2.0)
