@@ -58,9 +58,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
         # For certain methods, we may want the NSRTs used for exploration to
         # differ from those used for execution (they will differ precisely
-        # in their sampler). Thus, we will keep around a separate set of
-        # NSRTs that we will use only during exploration.
-        self._exploration_nsrts: List[NSRT] = []
+        # in their sampler). Thus, we will keep around a separate mapping from
+        # NSRTs to samplers to be used at exploration time.
+        self._nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -77,10 +77,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                                    self._types,
                                    self._action_space,
                                    self._train_tasks,
-                                   self._exploration_nsrts,
+                                   self._get_current_nsrts(),
                                    self._option_model,
                                    ground_op_hist=self._ground_op_hist,
-                                   max_steps_before_termination=max_steps)
+                                   max_steps_before_termination=max_steps,
+                                   nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler)
         return explorer
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
@@ -172,7 +173,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         wrapped_samplers = learner.get_samplers()
         # Update the NSRTs.
         new_test_nsrts: Set[NSRT] = set()
-        new_exploration_nsrts: Set[NSRT] = set()
+        self._nsrt_to_explorer_sampler.clear()
         for nsrt, samplers in wrapped_samplers.items():
             # Create new test NSRT.
             new_test_nsrt = NSRT(nsrt.name, nsrt.parameters,
@@ -180,13 +181,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                                  nsrt.delete_effects, nsrt.ignore_effects,
                                  nsrt.option, nsrt.option_vars, samplers[0])
             new_test_nsrts.add(new_test_nsrt)
-            # Create a new exploration NSRT.
-            new_exploration_nsrt = NSRT(nsrt.name, nsrt.parameters,
-                                        nsrt.preconditions, nsrt.add_effects,
-                                        nsrt.delete_effects,
-                                        nsrt.ignore_effects, nsrt.option,
-                                        nsrt.option_vars, samplers[1])
-            new_exploration_nsrts.add(new_exploration_nsrt)
+            # Update the dictionary mapping NSRTs to exploration samplers.
+            self._nsrt_to_explorer_sampler[nsrt] = samplers[1]
         # Special case, especially on the first iteration: if there was no
         # data for the sampler, then we didn't learn a wrapped sampler, so
         # we should just use the original NSRT.
@@ -194,17 +190,13 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         for old_nsrt in self._nsrts:
             if old_nsrt.option not in new_nsrt_options:
                 new_test_nsrts.add(old_nsrt)
-                new_exploration_nsrts.add(old_nsrt)
+                self._nsrt_to_explorer_sampler[old_nsrt] = old_nsrt._sampler
         self._nsrts = new_test_nsrts
-        self._exploration_nsrts = new_exploration_nsrts
         # Re-save the NSRTs now that we've updated them.
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}_test.NSRTs",
                   "wb") as f:
             pkl.dump(self._nsrts, f)
-        with open(f"{save_path}_{online_learning_cycle}_exploration.NSRTs",
-                  "wb") as f:
-            pkl.dump(self._exploration_nsrts, f)
 
 
 class _WrappedSamplerLearner(abc.ABC):
