@@ -10,13 +10,12 @@ and to navigate a map."""
 
 import time
 
-from bosdyn.api import robot_state_pb2
 from bosdyn.api.graph_nav import graph_nav_pb2, map_pb2, nav_pb2
 from bosdyn.client import ResponseError, RpcError
 from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.lease import Error as LeaseBaseError
-from bosdyn.client.power import PowerClient, power_on, safe_power_off
+from bosdyn.client.power import PowerClient
 from bosdyn.client.robot_command import RobotCommandClient
 from bosdyn.client.robot_state import RobotStateClient
 
