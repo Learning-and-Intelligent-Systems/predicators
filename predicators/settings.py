@@ -327,6 +327,9 @@ class GlobalSettings:
     # initialization and resetting. use Sokoban-small-v0 for tests
     sokoban_gym_name = "Sokoban-v0"
 
+    # kitchen mujoco env parameters
+    kitchen_action_low_level_steps = 4
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -602,6 +605,7 @@ class GlobalSettings:
             # The method used for perception: now only "trivial" or "sokoban".
             perceiver=defaultdict(lambda: "trivial", {
                 "sokoban": "sokoban",
+                "kitchen": "kitchen",
             })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
