@@ -454,35 +454,27 @@ class _SpotInterface():
         # Start by stowing.
         self.stow_arm()
 
-        # Most of the time we want the hand to look down at the end.
-        look_down_after_move = True
-
-        # Move forward and look down at the table, in case the object has
-        # fallen flat. This may become unnecessary later if we get rid of
-        # april tags.
-        if self._find_controller_move_queue_idx == 1:
-            self.relative_move(0.25, 0.0, 0.0)
-
-        # Move way back and don't move the hand. This is useful when the
+        # First move way back and don't move the hand. This is useful when the
         # object has not actually fallen, but wasn't grasped.
-        elif self._find_controller_move_queue_idx == 2:
-            self.relative_move(-0.75, 0.0, 0.0)
-            look_down_after_move = False
+        if self._find_controller_move_queue_idx == 1:
+            self.relative_move(-0.5, -0.0, 0.0)
+            time.sleep(2.0)
+            return
 
         # Move a little forward and look down.
-        if self._find_controller_move_queue_idx == 3:
-            self.relative_move(-0.25, 0.0, 0.0)
+        if self._find_controller_move_queue_idx == 2:
+            self.relative_move(-0.25, -0.0, 0.0)
 
         # Move to the right.
-        elif self._find_controller_move_queue_idx == 4:
+        elif self._find_controller_move_queue_idx == 3:
             self.relative_move(0.0, -0.25, 0.0)
 
         # Move to the left.
-        elif self._find_controller_move_queue_idx == 5:
+        elif self._find_controller_move_queue_idx == 4:
             self.relative_move(0.0, 0.5, 0.0)
 
         # Move back to center and back further.
-        elif self._find_controller_move_queue_idx == 6:
+        elif self._find_controller_move_queue_idx == 5:
             self.relative_move(-0.5, -0.25, 0.0)
 
         # Soon we should implement asking for help here instead of crashing.
@@ -490,11 +482,9 @@ class _SpotInterface():
             raise RuntimeError("Could not find lost object.")
 
         # Move the hand to get a view of the floor.
-        if look_down_after_move:
-            self.hand_movement(np.array([0.0, 0.0, 0.0]),
-                               keep_hand_pose=False,
-                               angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4),
-                                      0))
+        self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                           keep_hand_pose=False,
+                           angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0))
 
         # Sleep for longer to make sure that there is no shaking.
         time.sleep(2.0)
