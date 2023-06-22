@@ -8,17 +8,18 @@
 """Command line interface for graph nav with options to download/upload a map
 and to navigate a map."""
 
+import logging
 import time
 
 from bosdyn.api.graph_nav import graph_nav_pb2, map_pb2, nav_pb2
 from bosdyn.client import ResponseError, RpcError
+from bosdyn.client.exceptions import ResponseError
 from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.lease import Error as LeaseBaseError
 from bosdyn.client.power import PowerClient
 from bosdyn.client.robot_command import RobotCommandClient
 from bosdyn.client.robot_state import RobotStateClient
-from bosdyn.client.exceptions import ResponseError
 
 
 # pylint: disable=no-member
