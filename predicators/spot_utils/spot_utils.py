@@ -528,8 +528,8 @@ class _SpotInterface():
             if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
                                    keep_hand_pose=False,
-                                   angle=(np.cos(np.pi / 6), 0,
-                                          np.sin(np.pi / 6), 0),
+                                   angle=(np.cos(np.pi / 7), 0,
+                                          np.sin(np.pi / 7), 0),
                                    open_gripper=False)
                 time.sleep(1.0)
                 return
