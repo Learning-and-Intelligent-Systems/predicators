@@ -8,7 +8,6 @@
 """Command line interface for graph nav with options to download/upload a map
 and to navigate a map."""
 
-import logging
 import time
 
 from bosdyn.api import robot_state_pb2
@@ -17,12 +16,10 @@ from bosdyn.client import ResponseError, RpcError
 from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.lease import Error as LeaseBaseError
-from bosdyn.client.math_helpers import Quat, SE3Pose
 from bosdyn.client.power import PowerClient, power_on, safe_power_off
 from bosdyn.client.robot_command import RobotCommandClient
 from bosdyn.client.robot_state import RobotStateClient
 
-from predicators.spot_utils.helpers import graph_nav_util
 
 
 # pylint: disable=no-member
@@ -79,28 +76,12 @@ class GraphNavInterface():
         # Upload graph and snapshots on start.
         self._upload_graph_and_snapshots()
 
-        self._command_dictionary = {
-            '1': self.set_initial_localization_fiducial,
-            '2': self.get_localization_state,
-            '3': self.list_graph_waypoint_and_edge_ids,
-            '4': self.navigate_to
-        }
-
         # Stuff that is set in start()
         self._robot_id = None
 
     def start(self) -> None:
         """Begin communication with the robot."""
         self._robot_id = self._robot.get_id()
-
-    def get_localization_state(self) -> None:
-        """Get the current localization and state of the robot."""
-        state = self.graph_nav_client.get_localization_state()
-        logging.debug(f'Got localization: \n{str(state.localization)}')
-        odom_tform_body = get_odom_tform_body(
-            state.robot_kinematics.transforms_snapshot)
-        logging.debug(
-            f'Got robot state in odometry frame: \n{str(odom_tform_body)}')
 
     def set_initial_localization_fiducial(self) -> None:
         """Trigger localization when near a fiducial."""
@@ -113,25 +94,6 @@ class GraphNavInterface():
         self.graph_nav_client.set_localization(
             initial_guess_localization=localization,
             ko_tform_body=current_odom_tform_body)
-
-    def list_graph_waypoint_and_edge_ids(self, *args):
-        """List the waypoint ids and edge ids of the graph currently on the
-        robot."""
-        del args
-
-        # Download current graph
-        graph = self.graph_nav_client.download_graph()
-        if graph is None:
-            print("Empty graph.")
-            return
-        self._current_graph = graph
-
-        localization_id = self.graph_nav_client.get_localization_state(
-        ).localization.waypoint_id
-
-        # Update and print waypoints and edges
-        self._current_annotation_name_to_wp_id, self._current_edges = \
-            graph_nav_util.update_waypoints_and_edges(graph, localization_id)
 
     def _upload_graph_and_snapshots(self, *args):
         """Upload the graph and snapshots to the robot."""
@@ -192,63 +154,6 @@ class GraphNavInterface():
             print("Upload complete! The robot is currently not localized to", \
                 "the map; please localize the robot using command (1).")
 
-    def _navigate_to_anchor(self, *args):
-        """Navigate to a pose in seed frame, using anchors."""
-        # The following options are accepted for arguments:
-        # [x, y], [x, y, yaw], [x, y, z, yaw], [x, y, z, qw, qx, qy, qz].
-        # When a value for z is not specified, we use the current z height.
-        # When only yaw is specified, the quaternion is constructed from
-        # the yaw. When yaw is not specified, an identity quaternion is used.
-
-        if len(args) < 1 or len(args[0]) not in [2, 3, 4, 7]:
-            print("Invalid arguments supplied.")
-            return
-
-        seed_T_goal = SE3Pose(float(args[0][0]), float(args[0][1]), 0.0,
-                              Quat())
-
-        if len(args[0]) in [4, 7]:
-            seed_T_goal.z = float(args[0][2])
-        else:
-            localization_state = self.graph_nav_client.get_localization_state()
-            if not localization_state.localization.waypoint_id:
-                print("Robot not localized")
-                return
-            seed_T_goal.z = \
-                localization_state.localization.seed_tform_body.position.z
-
-        if len(args[0]) == 3:
-            seed_T_goal.rot = Quat.from_yaw(float(args[0][2]))
-        elif len(args[0]) == 4:
-            seed_T_goal.rot = Quat.from_yaw(float(args[0][3]))
-        elif len(args[0]) == 7:
-            seed_T_goal.rot = Quat(w=float(args[0][3]),
-                                   x=float(args[0][4]),
-                                   y=float(args[0][5]),
-                                   z=float(args[0][6]))
-
-        if not self.toggle_power(should_power_on=True):
-            print("Failed to power on, cannot complete navigation request.")
-            return
-
-        nav_to_cmd_id = None
-        # Navigate to the destination.
-        is_finished = False
-        while not is_finished:
-            # Issue the navigation command about twice a second such that it is
-            # easy to terminate the navigation command (with estop or killing
-            # the program).
-            try:
-                nav_to_cmd_id = self.graph_nav_client.navigate_to_anchor(
-                    seed_T_goal.to_proto(), 1.0, command_id=nav_to_cmd_id)
-            except ResponseError as e:
-                print(f"Error while navigating {e}")
-                break
-            time.sleep(
-                .5)  # Sleep for half a second to allow for command execution.
-            # Poll the robot for feedback to determine if the navigation
-            # command is complete.
-            is_finished = self._check_success(nav_to_cmd_id)
 
     def navigate_to(self, *args) -> None:
         """Navigate to a specific waypoint."""

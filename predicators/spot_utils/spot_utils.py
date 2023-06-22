@@ -1005,13 +1005,10 @@ class _SpotInterface():
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
 
-            # (2) Get localization state
-            self.graph_nav_command_line.get_localization_state()
-
-            # (4) Navigate to
+            # (2) Navigate to
             self.graph_nav_command_line.navigate_to([waypoint_id])
 
-            # (5) Offset by params
+            # (3) Offset by params
             if not np.allclose(params, [0.0, 0.0, 0.0]):
                 self.relative_move(params[0], params[1], params[2])
 
@@ -1080,11 +1077,7 @@ class _SpotInterface():
             self.graph_nav_command_line.set_initial_localization_fiducial()
             print("init by fid")
 
-            # (2) Get localization state
-            self.graph_nav_command_line.get_localization_state()
-            print("localized state")
-
-            # (3) Just move
+            # (2) Just move
             self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
