@@ -59,7 +59,7 @@ class SpotWrapperApproach(BaseApproachWrapper):
                     lost_objects.add(obj)
             # Need to find the objects.
             if lost_objects:
-                logging.info(f"Looking for lost objects: {lost_objects}")
+                logging.info(f"[Spot Wrapper] Lost objects: {lost_objects}")
                 # Reset the base approach policy.
                 base_approach_policy = None
                 need_stow = True
@@ -67,12 +67,14 @@ class SpotWrapperApproach(BaseApproachWrapper):
                 return self._get_special_action("find")
             # Found the objects. Stow the arm before replanning.
             if need_stow:
+                logging.info("[Spot Wrapper] Lost objects found, stowing.")
                 base_approach_policy = None
                 need_stow = False
                 self._base_approach_has_control = False
                 return self._get_special_action("stow")
             # Check if we need to re-solve.
             if base_approach_policy is None:
+                logging.info("[Spot Wrapper] Replanning with base approach.")
                 cur_task = Task(state, task.goal)
                 base_approach_policy = self._base_approach.solve(
                     cur_task, timeout)

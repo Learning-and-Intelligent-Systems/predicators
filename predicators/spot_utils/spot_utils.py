@@ -495,6 +495,9 @@ class _SpotInterface():
 
         Params are [dx, dy, d-yaw (in radians)]
         """
+        # Always start by stowing the arm.
+        self.stow_arm()
+
         print("NavigateTo", objs)
         assert len(params) == 3
         assert len(objs) in [2, 3]
@@ -1076,8 +1079,6 @@ class _SpotInterface():
         """Use GraphNavInterface to localize robot and go to a position."""
         # pylint: disable=broad-except
 
-        # Stow arm first
-        self.stow_arm()
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()

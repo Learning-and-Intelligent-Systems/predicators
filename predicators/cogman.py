@@ -41,8 +41,11 @@ class CogMan:
     def step(self, observation: Observation) -> Action:
         """Receive an observation and produce an action."""
         state = self._perceiver.step(observation)
-        # Check if we should replan.
-        if self._exec_monitor.step(state):
+        # Check if we should replan. Try up to max times.
+        replanning_tries = 0
+        max_tries = CFG.cogman_max_retries_per_step
+        while self._exec_monitor.step(state) and replanning_tries < max_tries:
+            replanning_tries += 1
             assert self._current_goal is not None
             task = Task(state, self._current_goal)
             new_policy = self._approach.solve(task, timeout=CFG.timeout)
@@ -50,7 +53,6 @@ class CogMan:
             self._exec_monitor.reset(task)
             self._exec_monitor.update_approach_info(
                 self._approach.get_execution_monitoring_info())
-            assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
         act = self._current_policy(state)
         self._perceiver.update_perceiver_with_action(act)
