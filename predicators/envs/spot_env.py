@@ -107,6 +107,14 @@ def _create_dummy_predicate_classifier(
     return _classifier
 
 
+# Special actions are ones that are not exposed to the planner. Used by the
+# approach wrappper for finding objects.
+_SPECIAL_ACTIONS = {
+    "find": 0,
+    "stow": 1,
+}
+
+
 class SpotEnv(BaseEnv):
     """An environment containing tasks for a real Spot robot to execute.
 
@@ -152,7 +160,7 @@ class SpotEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # The first entry is the controller identity.
-        lb = [0.0]
+        lb = [-1.0]  # -1.0 reserved for special actions that have no operator
         ub = [self._num_operators - 1.0]
         # The next max_arity entries are the object identities.
         for _ in range(self._max_operator_arity):
@@ -166,10 +174,24 @@ class SpotEnv(BaseEnv):
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
 
+    def get_special_action(self, action_name: str) -> Action:
+        """Get a special action that has no operator."""
+        # In the future, may want to make this object-specific.
+        arr = np.zeros(self.action_space.shape, dtype=np.float32)
+        arr[0] = -1.0
+        arr[1] = _SPECIAL_ACTIONS[action_name]
+        return Action(arr)
+
     def parse_action(self, action: Action) -> Tuple[str, List[Object], Array]:
         """(Only for this environment) A convenience method that converts low-
         level actions into more interpretable high-level actions by exploiting
         knowledge of how we encode actions."""
+        # Special case actions with no operator.
+        if np.isclose(action.arr[0], -1.0):
+            action_idx = int(np.round(action.arr[1]))
+            idx_to_action = {v: k for k, v in _SPECIAL_ACTIONS.items()}
+            action_name = idx_to_action[action_idx]
+            return action_name, [], np.zeros(0, dtype=np.float32)
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
@@ -321,6 +343,9 @@ class SpotEnv(BaseEnv):
 
         This should be deprecated eventually.
         """
+        # Special case: the last action was special (has no operator).
+        if np.isclose(action.arr[0], -1.0):
+            return set(obs.nonpercept_atoms)
         # Get the ground operator.
         all_objects = set(self._make_object_name_to_obj_dict().values())
         ordered_objs = sorted(all_objects)
@@ -385,6 +410,11 @@ class SpotEnv(BaseEnv):
             }
             for o, (x, y, z) in objects_in_view.items()
         }
+        for obj in objects_in_view:
+            if "lost" in obj.type.feature_names:
+                init_json_dict[obj.name]["lost"] = 0.0
+            if "in_view" in obj.type.feature_names:
+                init_json_dict[obj.name]["in_view"] = 1.0
         init_json_dict[robot.name] = {
             "gripper_open_percentage": gripper_open_percentage,
             "curr_held_item_id": 0,
@@ -487,7 +517,7 @@ class SpotBikeEnv(SpotEnv):
         self._robot_type = Type(
             "robot",
             ["gripper_open_percentage", "curr_held_item_id", "x", "y", "z"])
-        self._tool_type = Type("tool", ["x", "y", "z", "in_view"])
+        self._tool_type = Type("tool", ["x", "y", "z", "lost", "in_view"])
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
         self._bag_type = Type("bag", ["x", "y", "z"])
         self._platform_type = Type("platform", ["x", "y", "z"])
@@ -819,7 +849,7 @@ class SpotBikeEnv(SpotEnv):
                               objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= 1.5
+        return gripper_open_percentage <= 2.5
 
     def _nothandempty_classifier(self, state: State,
                                  objects: Sequence[Object]) -> bool:

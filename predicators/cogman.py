@@ -54,6 +54,8 @@ class CogMan:
         assert self._current_policy is not None
         act = self._current_policy(state)
         self._perceiver.update_perceiver_with_action(act)
+        self._exec_monitor.update_approach_info(
+            self._approach.get_execution_monitoring_info())
         return act
 
     # The methods below provide an interface to the approach. In the future,

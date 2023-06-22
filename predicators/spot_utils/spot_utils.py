@@ -54,7 +54,7 @@ def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
         "high_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
         "extra_room_table": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
     }
-    offsets = {"extra_room_table": np.array([-0.3, -0.3, np.pi / 2])}
+    offsets = {"extra_room_table": np.array([0.0, -0.3, np.pi / 2])}
     if obj_name not in graph_nav_loc_to_id:
         return None
     waypoint_id = graph_nav_loc_to_id[obj_name]
@@ -180,6 +180,8 @@ class _SpotInterface():
         self.hand_y_bounds = (-0.5, 0.5)
         self.hand_z_bounds = (0.2, 0.7)
         self.localization_timeout = 10
+
+        self._find_controller_move_queue_idx = 0
 
         # Try to connect to the robot. If this fails, still maintain the
         # instance for testing, but assert that it succeeded within the
@@ -429,6 +431,13 @@ class _SpotInterface():
                 params: Array) -> None:
         """Run the controller based on the given name."""
         assert self._connected_to_spot
+        if name == "find":
+            self._find_controller_move_queue_idx += 1
+            return self.findController()
+        # Just finished finding.
+        self._find_controller_move_queue_idx = 0
+        if name == "stow":
+            return self.stow_arm()
         if name == "navigate":
             return self.navigateToController(objects, params)
         if name == "grasp":
@@ -436,12 +445,55 @@ class _SpotInterface():
         assert name == "placeOnTop"
         return self.placeOntopController(objects, params)
 
+    def findController(self) -> None:
+        """Execute look around."""
+        # Execute a hard-coded sequence of movements and hope that one of them
+        # puts the lost object in view. This is very specifically designed for
+        # the case where an object has fallen in the immediate vicinity.
+
+        # Start by stowing.
+        self.stow_arm()
+
+        # First move way back and don't move the hand. This is useful when the
+        # object has not actually fallen, but wasn't grasped.
+        if self._find_controller_move_queue_idx == 1:
+            self.relative_move(-0.75, 0.0, 0.0)
+            time.sleep(2.0)
+            return
+
+        # Now just look down.
+        if self._find_controller_move_queue_idx == 2:
+            pass
+
+        # Move to the right.
+        elif self._find_controller_move_queue_idx == 3:
+            self.relative_move(0.0, 0.0, np.pi / 6)
+
+        # Move to the left.
+        elif self._find_controller_move_queue_idx == 4:
+            self.relative_move(0.0, 0.0, -np.pi / 6)
+
+        # Soon we should implement asking for help here instead of crashing.
+        else:
+            raise RuntimeError("Could not find lost object.")
+
+        # Move the hand to get a view of the floor.
+        self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                           keep_hand_pose=False,
+                           angle=(np.cos(np.pi / 6), 0, np.sin(np.pi / 6), 0))
+
+        # Sleep for longer to make sure that there is no shaking.
+        time.sleep(2.0)
+
     def navigateToController(self, objs: Sequence[Object],
                              params: Array) -> None:
         """Controller that navigates to specific pre-specified locations.
 
         Params are [dx, dy, d-yaw (in radians)]
         """
+        # Always start by stowing the arm.
+        self.stow_arm()
+
         print("NavigateTo", objs)
         assert len(params) == 3
         assert len(objs) in [2, 3]
@@ -469,14 +521,16 @@ class _SpotInterface():
                 self.hand_movement(np.array([0.0, 0.0, 0.0]),
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 8), 0,
-                                          np.sin(np.pi / 8), 0))
+                                          np.sin(np.pi / 8), 0),
+                                   open_gripper=False)
                 time.sleep(1.0)
                 return
             if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 6), 0,
-                                          np.sin(np.pi / 6), 0))
+                                          np.sin(np.pi / 6), 0),
+                                   open_gripper=False)
                 time.sleep(1.0)
                 return
         self.stow_arm()
@@ -825,9 +879,8 @@ class _SpotInterface():
         grasp_override_request = manipulation_api_pb2.\
             ApiGraspOverrideRequest(
             carry_state_override=grasp_carry_state_override)
-        cmd_response = self.manipulation_api_client.\
+        self.manipulation_api_client.\
             grasp_override_command(grasp_override_request)
-        self.robot.logger.info(cmd_response)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         gripper_close_command = RobotCommandBuilder.\
@@ -1022,8 +1075,6 @@ class _SpotInterface():
         """Use GraphNavInterface to localize robot and go to a position."""
         # pylint: disable=broad-except
 
-        # Stow arm first
-        self.stow_arm()
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
