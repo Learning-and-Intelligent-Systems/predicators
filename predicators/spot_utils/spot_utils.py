@@ -853,10 +853,6 @@ class _SpotInterface():
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            logging.info(f"""Current state:
-                {manipulation_api_pb2.ManipulationFeedbackState.Name(
-                    response.current_state)}""")
-
             if response.current_state in [manipulation_api_pb2.\
                 MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2.\
                 MANIP_STATE_GRASP_FAILED]:
