@@ -13,7 +13,7 @@ import time
 from bosdyn.api.graph_nav import graph_nav_pb2, map_pb2, nav_pb2
 from bosdyn.client import ResponseError, RpcError
 from bosdyn.client.frame_helpers import get_odom_tform_body
-from bosdyn.client.graph_nav import GraphNavClient
+from bosdyn.client.graph_nav import GraphNavClient, SetLocalizationResponse
 from bosdyn.client.lease import Error as LeaseBaseError
 from bosdyn.client.power import PowerClient
 from bosdyn.client.robot_command import RobotCommandClient
@@ -89,9 +89,12 @@ class GraphNavInterface():
         # Create an empty instance for initial localization since we are
         # asking it to localize based on the nearest fiducial.
         localization = nav_pb2.Localization()
-        self.graph_nav_client.set_localization(
-            initial_guess_localization=localization,
-            ko_tform_body=current_odom_tform_body)
+        try:
+            self.graph_nav_client.set_localization(
+                initial_guess_localization=localization,
+                ko_tform_body=current_odom_tform_body)
+        except SetLocalizationResponse as e:
+            logging.warning(f"Could not localize: {e}")
 
     def _upload_graph_and_snapshots(self, *args):
         """Upload the graph and snapshots to the robot."""
