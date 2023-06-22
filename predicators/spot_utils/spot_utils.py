@@ -457,25 +457,21 @@ class _SpotInterface():
         # First move way back and don't move the hand. This is useful when the
         # object has not actually fallen, but wasn't grasped.
         if self._find_controller_move_queue_idx == 1:
-            self.relative_move(-0.5, 0.0, 0.0)
+            self.relative_move(-0.75, 0.0, 0.0)
             time.sleep(2.0)
             return
 
-        # Move a little forward and look down.
+        # Now just look down.
         if self._find_controller_move_queue_idx == 2:
-            self.relative_move(0.25, 0.0, 0.0)
+            pass
 
         # Move to the right.
         elif self._find_controller_move_queue_idx == 3:
-            self.relative_move(0.0, -0.25, 0.0)
+            self.relative_move(0.0, 0.0, np.pi / 6)
 
         # Move to the left.
         elif self._find_controller_move_queue_idx == 4:
-            self.relative_move(0.0, 0.5, 0.0)
-
-        # Move back to center and back further.
-        elif self._find_controller_move_queue_idx == 5:
-            self.relative_move(-0.5, -0.25, 0.0)
+            self.relative_move(0.0, 0.0, -np.pi / 6)
 
         # Soon we should implement asking for help here instead of crashing.
         else:
