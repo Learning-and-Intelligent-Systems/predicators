@@ -1000,7 +1000,8 @@ class _SpotInterface():
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            self.graph_nav_command_line.graph_nav_client.get_localization_state()
+            self.graph_nav_command_line.graph_nav_client.get_localization_state(
+            )
 
             # (2) Navigate to
             self.graph_nav_command_line.navigate_to([waypoint_id])
@@ -1072,7 +1073,8 @@ class _SpotInterface():
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            self.graph_nav_command_line.graph_nav_client.get_localization_state()
+            self.graph_nav_command_line.graph_nav_client.get_localization_state(
+            )
 
             # (2) Just move
             self.relative_move(params[0], params[1], params[2])
