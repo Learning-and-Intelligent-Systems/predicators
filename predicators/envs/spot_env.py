@@ -849,7 +849,7 @@ class SpotBikeEnv(SpotEnv):
                               objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= 1.5
+        return gripper_open_percentage <= 2.5
 
     def _nothandempty_classifier(self, state: State,
                                  objects: Sequence[Object]) -> bool:

@@ -3,6 +3,8 @@
 import logging
 from typing import Dict, Optional, Set, Tuple
 
+import numpy as np
+
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import SpotBikeEnv, _PartialPerceptionState, \
@@ -90,8 +92,26 @@ class SpotBikePerceiver(BasePerceiver):
             else:
                 # We ensure the holding item feature is set
                 # back to 0.0 if the hand is ever empty.
+                prev_holding_item_id = self._holding_item_id_feature
                 if self._gripper_open_percentage <= 1.5:
                     self._holding_item_id_feature = 0.0
+                    # This can only happen if the item was dropped during
+                    # something other than a place.
+                    if prev_holding_item_id != 0.0:
+                        tag_id = int(np.round(prev_holding_item_id))
+                        # We lost the object that we were holding!
+                        apriltag_id_to_obj_name = {
+                            v: k
+                            for k, v in obj_name_to_apriltag_id.items()
+                        }
+                        obj_name = apriltag_id_to_obj_name[tag_id]
+                        obj = [
+                            o for o in self._known_object_poses
+                            if o.name == obj_name
+                        ][0]
+                        # We lost the object!
+                        self._lost_objects.add(obj)
+
         return self._create_state()
 
     def _update_state_from_observation(self, observation: Observation) -> None:
