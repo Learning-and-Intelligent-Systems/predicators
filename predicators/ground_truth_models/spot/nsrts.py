@@ -107,9 +107,15 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if objs[2].type.name == "bag":  # pragma: no cover
                 return fiducial_pose + np.array([0.1, 0.0, -0.25])
             if "_table" in objs[2].name:
-                dx = rng.uniform(0.05, 0.25)
-                dy = rng.uniform(0.0, 0.25)
-                dz = rng.uniform(-0.4, -0.3)
+                dx = rng.uniform(0.15, 0.25)
+                dy = rng.uniform(0.1, 0.2)
+                dz = rng.uniform(-0.7, -0.5)
+
+                # Oracle values for slanted table.
+                # dx = 0.2
+                # dy = 0.15
+                # dz = -0.6
+
                 return fiducial_pose + np.array([dx, dy, dz])
             return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
