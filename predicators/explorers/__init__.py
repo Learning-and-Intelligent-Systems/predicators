@@ -10,8 +10,8 @@ from predicators.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
-from predicators.structs import NSRT, GroundAtom, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundSTRIPSOperator, NSRTSampler
+from predicators.structs import NSRT, GroundAtom, NSRTSampler, \
+    ParameterizedOption, Predicate, State, Task, Type, _GroundSTRIPSOperator
 
 __all__ = ["BaseExplorer"]
 

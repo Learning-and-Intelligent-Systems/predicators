@@ -71,17 +71,18 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         b = CFG.active_sampler_learning_explore_length_base
         max_steps = b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
-        explorer = create_explorer(CFG.explorer,
-                                   preds,
-                                   self._initial_options,
-                                   self._types,
-                                   self._action_space,
-                                   self._train_tasks,
-                                   self._get_current_nsrts(),
-                                   self._option_model,
-                                   ground_op_hist=self._ground_op_hist,
-                                   max_steps_before_termination=max_steps,
-                                   nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler)
+        explorer = create_explorer(
+            CFG.explorer,
+            preds,
+            self._initial_options,
+            self._types,
+            self._action_space,
+            self._train_tasks,
+            self._get_current_nsrts(),
+            self._option_model,
+            ground_op_hist=self._ground_op_hist,
+            max_steps_before_termination=max_steps,
+            nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler)
         return explorer
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
