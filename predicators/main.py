@@ -65,6 +65,7 @@ assert os.environ.get("PYTHONHASHSEED") == "0", \
 
 logging.getLogger().setLevel(logging.INFO)
 
+
 def main() -> None:
     """Main entry point for running approaches in environments."""
     script_start = time.perf_counter()

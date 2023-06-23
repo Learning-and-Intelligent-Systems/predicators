@@ -327,9 +327,6 @@ class GlobalSettings:
     # initialization and resetting. use Sokoban-small-v0 for tests
     sokoban_gym_name = "Sokoban-v0"
 
-    # kitchen mujoco env parameters
-    kitchen_action_low_level_steps = 4
-
     # parameters for random options approach
     random_options_max_tries = 100
 

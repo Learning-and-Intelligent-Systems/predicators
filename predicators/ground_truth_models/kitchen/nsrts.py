@@ -1,14 +1,13 @@
 """Ground-truth NSRTs for the cover environment."""
 
-from typing import Dict, List, Set
+from typing import Dict, Set
+
+import numpy as np
 
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, LiftedAtom, ParameterizedOption, \
-    Predicate, Type, Variable, Sequence
-from predicators.utils import null_sampler
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, Type, Variable
-import numpy as np
+    ParameterizedOption, Predicate, Sequence, State, Type, Variable
+
 
 class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the Kitchen environment."""
@@ -34,35 +33,28 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Options
         MoveTo = options["Move_delta_ee_pose"]
-        
+
         nsrts = set()
 
         def moveto_sampler(state: State, goal: Set[GroundAtom],
-                            rng: np.random.Generator,
-                            objs: Sequence[Object]) -> Array:
+                           rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
             del rng, goal  # unused
-            gripper, target, = objs
-            assert gripper.is_instance(gripper_type)
+            _, target = objs
             assert target.is_instance(object_type)
-            rx = state.get(gripper, "x")
-            ry = state.get(gripper, "y")
-            rz = state.get(gripper, "z")
             tx = state.get(target, "x")
             ty = state.get(target, "y")
             tz = state.get(target, "z")
-            dx = tx - rx
-            dy = ty - ry
-            dz = tz - rz
-            return np.array([dx, dy, dz], dtype=np.float32)
+            return np.array([tx, ty, tz])
 
         # MoveTo
         # Player, from_loc, to_loc
         parameters = [gripper, obj]
-        preconditions = set()
+        preconditions: Set[LiftedAtom] = set()
         add_effects = {LiftedAtom(At, [gripper, obj])}
-        delete_effects = set()
+        delete_effects: Set[LiftedAtom] = set()
         option = MoveTo
-        option_vars: List[Variable] = []  # dummy - not used
+        option_vars = [gripper, obj]
         move_to_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
                             delete_effects, set(), option, option_vars,
                             moveto_sampler)
