@@ -1,0 +1,34 @@
+# Active sampler learning experiment on Spot.
+---
+APPROACHES:
+  main:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+ENVS:
+  spot_bike_env:
+    NAME: "spot_bike_env"
+    FLAGS:
+      spot_robot_ip: "10.17.30.30"
+      spot_grasp_use_apriltag: "True"
+      perceiver: "spot_bike_env"
+      execution_monitor: "expected_atoms"
+      spot_cube_only: "True"
+ARGS:
+  - "debug"
+FLAGS:
+  strips_learner: "oracle"
+  sampler_learner: "oracle"
+  bilevel_plan_without_sim: "True"
+  max_initial_demos: 0
+  num_train_tasks: 1000  # TODO figure out how to handle
+  num_test_tasks: 10  # TODO figure out how to handle
+  max_num_steps_interaction_request: 50
+  sampler_mlp_classifier_max_itr: 100000
+  mlp_classifier_balance_data: False
+  pytorch_train_print_every: 10000
+  active_sampler_learning_use_teacher: False
+  online_nsrt_learning_requests_per_cycle: 1
+  num_online_learning_cycles: 25
+START_SEED: 123
+NUM_SEEDS: 1
