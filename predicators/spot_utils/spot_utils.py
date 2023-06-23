@@ -475,7 +475,12 @@ class _SpotInterface():
 
         # Soon we should implement asking for help here instead of crashing.
         else:
-            raise RuntimeError("Could not find lost object.")
+            input("""Please take control of the robot and make the
+            object become in its view. Hit the 'Enter' key
+            when you're done!""")
+            self._find_controller_move_queue_idx = 0
+            self.lease_client.take()
+            return
 
         # Move the hand to get a view of the floor.
         self.hand_movement(np.array([0.0, 0.0, 0.0]),
