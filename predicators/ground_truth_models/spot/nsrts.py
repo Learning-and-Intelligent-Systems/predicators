@@ -31,10 +31,13 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def move_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            del goal, rng
+            del goal
             assert len(objs) in [2, 3]
             if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.5, 0.0, 0.0])
+            # Sample dyaw so that there is some hope of seeing objects from
+            # different angles.
+            dyaw = rng.uniform(-np.pi/6, np.pi/6)
             # For MoveToObjOnFloor
             if len(objs) == 3:
                 if objs[2].name == "floor":
@@ -70,8 +73,8 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         [np.cos(angle), np.sin(angle)],
                             atol=0.1):
                         angle = -angle
-                    return np.array([new_xy[0], new_xy[1], angle])
-            return np.array([-0.25, 0.0, 0.0])
+                    return np.array([new_xy[0], new_xy[1], angle + dyaw])
+            return np.array([-0.25, 0.0, dyaw])
 
         def grasp_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
