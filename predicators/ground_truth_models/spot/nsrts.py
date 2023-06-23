@@ -109,7 +109,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if "_table" in objs[2].name:
                 dx = rng.uniform(0.05, 0.25)
                 dy = rng.uniform(-0.1, 0.1)
-                dz = rng.uniform(-0.25, -0.15)
+                dz = rng.uniform(-0.3, -0.2)
                 return fiducial_pose + np.array([dx, dy, dz])
             return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
