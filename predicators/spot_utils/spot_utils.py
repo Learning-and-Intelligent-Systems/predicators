@@ -72,6 +72,7 @@ obj_name_to_apriltag_id = {
     "front_tool_room": 407,
     "tool_room_table": 408,
     "extra_room_table": 409,
+    "cube": 410,
 }
 
 OBJECT_CROPS = {

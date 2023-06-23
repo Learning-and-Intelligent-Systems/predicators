@@ -942,6 +942,10 @@ class SpotBikeEnv(SpotEnv):
         return set()
 
     def _generate_task_goal(self) -> Set[GroundAtom]:
+        if CFG.spot_cube_only:
+            cube = self._obj_name_to_obj("cube")
+            extra_table = self._obj_name_to_obj("extra_room_table")
+            return {GroundAtom(self._On, [cube, extra_table])}
         hammer = self._obj_name_to_obj("hammer")
         hex_key = self._obj_name_to_obj("hex_key")
         brush = self._obj_name_to_obj("brush")
@@ -956,20 +960,25 @@ class SpotBikeEnv(SpotEnv):
 
     @functools.lru_cache(maxsize=None)
     def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
+        objects: List[Object] = []
+        if CFG.spot_cube_only:
+            cube = Object("cube", self._tool_type)
+            objects.append(cube)
+        else:
+            hammer = Object("hammer", self._tool_type)
+            hex_key = Object("hex_key", self._tool_type)
+            hex_screwdriver = Object("hex_screwdriver", self._tool_type)
+            brush = Object("brush", self._tool_type)
+            objects.extend([hammer, hex_key, hex_screwdriver, brush])
         spot = Object("spot", self._robot_type)
-        hammer = Object("hammer", self._tool_type)
-        hex_key = Object("hex_key", self._tool_type)
-        hex_screwdriver = Object("hex_screwdriver", self._tool_type)
-        brush = Object("brush", self._tool_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
         extra_room_table = Object("extra_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
         bag = Object("toolbag", self._bag_type)
         floor = Object("floor", self._floor_type)
-        objects = [
-            spot, hammer, hex_key, hex_screwdriver, brush, tool_room_table,
-            low_wall_rack, bag, extra_room_table, floor
-        ]
+        objects.extend([
+            spot, tool_room_table, low_wall_rack, bag, extra_room_table, floor
+        ])
         return {o.name: o for o in objects}
 
     def _obj_name_to_obj(self, obj_name: str) -> Object:
