@@ -1,10 +1,12 @@
 """Test cases for the active_sampler explorer class."""
+from typing import Dict
 
 from predicators import utils
 from predicators.envs.cover import RegionalBumpyCoverEnv
 from predicators.explorers import create_explorer
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OracleOptionModel
+from predicators.structs import NSRT, NSRTSampler
 
 
 def test_active_sampler_explorer():
@@ -24,16 +26,21 @@ def test_active_sampler_explorer():
     option_model = _OracleOptionModel(env)
     train_tasks = [t.task for t in env.get_train_tasks()]
     ground_op_hist = {}
-    explorer = create_explorer("active_sampler",
-                               env.predicates,
-                               get_gt_options(env.get_name()),
-                               env.types,
-                               env.action_space,
-                               train_tasks,
-                               nsrts,
-                               option_model,
-                               ground_op_hist=ground_op_hist,
-                               max_steps_before_termination=2)
+    nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
+    for nsrt in nsrts:
+        nsrt_to_explorer_sampler[nsrt] = nsrt.sampler
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        max_steps_before_termination=2,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     task = train_tasks[0]
@@ -68,15 +75,20 @@ def test_active_sampler_explorer():
     option_model = _OracleOptionModel(env)
     train_tasks = [t.task for t in env.get_train_tasks()]
     ground_op_hist = {}
-    explorer = create_explorer("active_sampler",
-                               env.predicates,
-                               get_gt_options(env.get_name()),
-                               env.types,
-                               env.action_space,
-                               train_tasks,
-                               nsrts,
-                               option_model,
-                               ground_op_hist=ground_op_hist)
+    nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
+    for nsrt in nsrts:
+        nsrt_to_explorer_sampler[nsrt] = nsrt.sampler
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     task = train_tasks[0]

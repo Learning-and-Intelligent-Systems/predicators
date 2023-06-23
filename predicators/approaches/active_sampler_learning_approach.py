@@ -191,7 +191,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         for old_nsrt in self._nsrts:
             if old_nsrt.option not in new_nsrt_options:
                 new_test_nsrts.add(old_nsrt)
-                self._nsrt_to_explorer_sampler[old_nsrt] = old_nsrt._sampler
+                self._nsrt_to_explorer_sampler[old_nsrt] = old_nsrt._sampler  # pylint: disable=protected-access
         self._nsrts = new_test_nsrts
         # Re-save the NSRTs now that we've updated them.
         save_path = utils.get_approach_save_path_str()
