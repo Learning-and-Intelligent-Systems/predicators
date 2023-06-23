@@ -37,7 +37,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 return np.array([0.5, 0.0, 0.0])
             # Sample dyaw so that there is some hope of seeing objects from
             # different angles.
-            dyaw = rng.uniform(-np.pi / 6, np.pi / 6)
+            dyaw = rng.uniform(-np.pi / 8, np.pi / 8)
             # For MoveToObjOnFloor
             if len(objs) == 3:
                 if objs[2].name == "floor":
@@ -89,7 +89,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            del goal, rng
+            del goal
             # Get graph_nav to body frame.
             gn_state = _spot_interface.get_localized_state()
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
@@ -107,7 +107,9 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if objs[2].type.name == "bag":  # pragma: no cover
                 return fiducial_pose + np.array([0.1, 0.0, -0.25])
             if "_table" in objs[2].name:
-                return fiducial_pose + np.array([0.2, -0.05, -0.2])
+                dx = rng.uniform(0.05, 0.25)
+                dy = rng.uniform(-0.1, 0.1)
+                return fiducial_pose + np.array([dx, dy, -0.2])
             return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)
