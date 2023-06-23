@@ -22,10 +22,12 @@ class BilevelPlanningExplorer(BaseExplorer):
 
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task], nsrts: Set[NSRT],
+                 action_space: Box, train_tasks: List[Task],
+                 max_steps_before_termination: int, nsrts: Set[NSRT],
                  option_model: _OptionModelBase) -> None:
 
-        super().__init__(predicates, options, types, action_space, train_tasks)
+        super().__init__(predicates, options, types, action_space, train_tasks,
+                         max_steps_before_termination)
         self._nsrts = nsrts
         self._option_model = option_model
         self._num_calls = 0
