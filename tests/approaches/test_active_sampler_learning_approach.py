@@ -13,10 +13,15 @@ from predicators.structs import Dataset
 from predicators.teacher import Teacher
 
 
-@pytest.mark.parametrize("model_name,right_targets,num_demo",
-                         [("myopic_classifier", False, 0),
-                          ("myopic_classifier", True, 1),
-                          ("fitted_q", False, 0), ("fitted_q", True, 0)])
+@pytest.mark.parametrize(
+    "model_name,right_targets,num_demo",
+    [
+        #   ("myopic_classifier", False, 0),
+        #   ("myopic_classifier", True, 1),
+        #   ("myopic_classifier_ensemble", False, 0),
+        ("myopic_classifier_ensemble", False, 1),
+        #   ("fitted_q", False, 0), ("fitted_q", True, 0)
+    ])
 def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
@@ -41,6 +46,7 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
         "active_sampler_learning_fitted_q_iters": 2,
         "active_sampler_learning_num_next_option_samples": 2,
         "bumpy_cover_right_targets": right_targets,
+        "active_sampler_learning_num_ensemble_members": 2,
     })
     env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]

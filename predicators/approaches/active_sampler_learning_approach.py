@@ -160,7 +160,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 self._get_current_nsrts(), self._get_current_predicates(),
                 online_learning_cycle)
         elif CFG.active_sampler_learning_model == "myopic_classifier_ensemble":
-            learner: _WrappedSamplerLearner = \
+            learner = \
                 _ClassifierEnsembleWrappedSamplerLearner(
                 self._get_current_nsrts(), self._get_current_predicates(),
                 online_learning_cycle)
@@ -214,14 +214,14 @@ class _WrappedSamplerLearner(abc.ABC):
 
     def learn(self, data: _SamplerDataset) -> None:
         """Fit all of the samplers."""
-        new_samplers: Dict[NSRT, NSRTSampler] = {}
+        new_samplers: Dict[NSRT, Tuple[NSRTSampler, NSRTSampler]] = {}
         for param_opt, nsrt_data in data.items():
             nsrt = utils.param_option_to_nsrt(param_opt, self._nsrts)
             logging.info(f"Fitting wrapped sampler for {nsrt.name}...")
             new_samplers[nsrt] = self._learn_nsrt_sampler(nsrt_data, nsrt)
         self._learned_samplers = new_samplers
 
-    def get_samplers(self) -> Dict[NSRT, NSRTSampler]:
+    def get_samplers(self) -> Dict[NSRT, Tuple[NSRTSampler, NSRTSampler]]:
         """Expose the fitted samplers, organized by NSRTs."""
         assert self._learned_samplers is not None
         return self._learned_samplers
@@ -291,7 +291,7 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
     probability of predicting True to select parameters."""
 
     def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> NSRTSampler:
+                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
         X_classifier: List[List[Array]] = []
         y_classifier: List[int] = []
         for state, option, _, label in nsrt_data:
@@ -365,7 +365,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
             self._nsrt_score_fns = self._next_nsrt_score_fns
 
     def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> NSRTSampler:
+                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
         # Build targets.
         gamma = CFG.active_sampler_learning_score_gamma
         num_a_samp = CFG.active_sampler_learning_num_next_option_samples
@@ -516,7 +516,8 @@ def _classifier_ensemble_to_score_fn(classifier: BinaryClassifierEnsemble,
                                      nsrt: NSRT, test_time: bool) -> _ScoreFn:
     if test_time:
         return _vector_score_fn_to_score_fn(
-            lambda x: np.mean(classifier.predict_member_probas(x)), nsrt)
+            lambda x: np.mean(classifier.predict_member_probas(x), dtype=float
+                              ), nsrt)
     # If we want the exploration score function, then we need to compute the
     # entropy.
     return _vector_score_fn_to_score_fn(
