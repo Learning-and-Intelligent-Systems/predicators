@@ -574,10 +574,12 @@ class _SpotInterface():
         arm from the robot when placing.
         """
         print("PlaceOntop", objs)
+        angle = (np.cos(np.pi / 6), 0, np.sin(np.pi / 6), 0)
         assert len(params) == 3
         self.hand_movement(params,
                            keep_hand_pose=False,
-                           relative_to_default_pose=False)
+                           relative_to_default_pose=False,
+                           angle=angle)
         time.sleep(1.0)
         self.stow_arm()
         # NOTE: time.sleep(1.0) required afer each option execution
