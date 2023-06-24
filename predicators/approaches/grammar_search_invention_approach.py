@@ -950,49 +950,49 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for c in clusters.values():
                     next_clusters.append(c)
                 print(f"STEP 3, generated {len(clusters.values())} clusters for {j+1}th cluster from STEP 2.")
-            final_clusters = next_clusters
-            # all_clusters = next_clusters
+            # final_clusters = next_clusters
+            all_clusters = next_clusters
 
-            # # Step 4:
-            # final_clusters = []
-            # for j, cluster in enumerate(all_clusters):
-            #     example_segment = cluster[0]
-            #     option_name = example_segment.get_option().name
-            #     if len(example_segment.get_option().params) == 0:
-            #         final_clusters.append(cluster)
-            #         print(f"STEP 4, generated {0} clusters for {option_name}")
-            #     else:
-            #         # Do model selection between
-            #         # a uniform distribution and a gaussian mixture?
-            #         import numpy as np
-            #         from sklearn.mixture import GaussianMixture as GMM
-            #         data = np.array([seg.get_option().params for seg in cluster])
-            #         max_components = 10
-            #         n_components = np.arange(1, max_components)
-            #         if len(data) < max_components:
-            #             # This happens in cover.
-            #             # There are 7 segments in which the only predicates that
-            #             # go from false to true are those involving only the block type,
-            #             # and not the robot or target types.
-            #             n_components = np.arange(1, len(data))
-            #         models = [GMM(n, covariance_type="full", random_state=0).fit(data)
-            #             for n in n_components]
-            #         bic = [m.bic(data) for m in models]
-            #         # TODO: add some penalty based on how it gets less data in each cluster.
-            #
-            #         best = models[np.argmin(bic)]
-            #         assignments = best.predict(data)
-            #
-            #         sub_clusters = {}
-            #         for i, assignment in enumerate(assignments):
-            #             if assignment in sub_clusters:
-            #                 sub_clusters[assignment].append(cluster[i])
-            #             else:
-            #                 sub_clusters[assignment] = [cluster[i]]
-            #
-            #         print(f"STEP 4, generated {len(sub_clusters.values())} clusters for {option_name} out of the {j+1}th cluster from STEP 3.")
-            #         for c in sub_clusters.values():
-            #             final_clusters.append(c)
+            # Step 4:
+            final_clusters = []
+            for j, cluster in enumerate(all_clusters):
+                example_segment = cluster[0]
+                option_name = example_segment.get_option().name
+                if len(example_segment.get_option().params) == 0:
+                    final_clusters.append(cluster)
+                    print(f"STEP 4, generated {0} clusters for {option_name}")
+                else:
+                    # Do model selection between
+                    # a uniform distribution and a gaussian mixture?
+                    import numpy as np
+                    from sklearn.mixture import GaussianMixture as GMM
+                    data = np.array([seg.get_option().params for seg in cluster])
+                    max_components = 10
+                    n_components = np.arange(1, max_components)
+                    if len(data) < max_components:
+                        # This happens in cover.
+                        # There are 7 segments in which the only predicates that
+                        # go from false to true are those involving only the block type,
+                        # and not the robot or target types.
+                        n_components = np.arange(1, len(data))
+                    models = [GMM(n, covariance_type="full", random_state=0).fit(data)
+                        for n in n_components]
+                    bic = [m.bic(data) for m in models]
+                    # TODO: add some penalty based on how it gets less data in each cluster.
+
+                    best = models[np.argmin(bic)]
+                    assignments = best.predict(data)
+
+                    sub_clusters = {}
+                    for i, assignment in enumerate(assignments):
+                        if assignment in sub_clusters:
+                            sub_clusters[assignment].append(cluster[i])
+                        else:
+                            sub_clusters[assignment] = [cluster[i]]
+
+                    print(f"STEP 4, generated {len(sub_clusters.values())} clusters for {option_name} out of the {j+1}th cluster from STEP 3.")
+                    for c in sub_clusters.values():
+                        final_clusters.append(c)
 
             # import pdb; pdb.set_trace()
             print(f"Total {len(final_clusters)} clusters.")
@@ -1044,7 +1044,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 if keep_pred:
                     predicates_to_keep.add(pred)
 
-            predicates_to_keep = all_add_effects
+            # predicates_to_keep = all_add_effects
 
             # Remove all the initial predicates.
             predicates_to_keep -= initial_predicates
