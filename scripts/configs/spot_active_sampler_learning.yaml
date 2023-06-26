@@ -2,7 +2,7 @@
 ---
 APPROACHES:
   main:
-    NAME: "active_sampler_learning"
+    NAME: "spot_wrapper[active_sampler_learning]"
     FLAGS:
       explorer: "active_sampler"
 ENVS:

@@ -13,7 +13,7 @@ from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
 from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Observation, Predicate, State, Task
+    Observation, Predicate, State, Task, DefaultState
 
 
 class SpotBikePerceiver(BasePerceiver):
@@ -33,12 +33,14 @@ class SpotBikePerceiver(BasePerceiver):
         self._lost_objects: Set[Object] = set()
         assert CFG.env == "spot_bike_env"
         self._curr_env: Optional[BaseEnv] = None
+        self._waiting_for_observation = True
 
     @classmethod
     def get_name(cls) -> str:
         return "spot_bike_env"
 
     def reset(self, env_task: EnvironmentTask) -> Task:
+        self._waiting_for_observation = True
         self._update_state_from_observation(env_task.init_obs)
         self._curr_env = get_or_create_env("spot_bike_env")
         assert isinstance(self._curr_env, SpotBikeEnv)
@@ -116,6 +118,7 @@ class SpotBikePerceiver(BasePerceiver):
 
     def _update_state_from_observation(self, observation: Observation) -> None:
         assert isinstance(observation, _SpotObservation)
+        self._waiting_for_observation = False
         self._robot = observation.robot
         self._known_object_poses.update(observation.objects_in_view)
         self._known_objects_in_hand_view = observation.objects_in_hand_view
@@ -126,7 +129,9 @@ class SpotBikePerceiver(BasePerceiver):
         for obj in observation.objects_in_view:
             self._lost_objects.discard(obj)
 
-    def _create_state(self) -> _PartialPerceptionState:
+    def _create_state(self) -> State:
+        if self._waiting_for_observation:
+            return DefaultState
         # Build the continuous part of the state.
         assert self._robot is not None
         state_dict = {
