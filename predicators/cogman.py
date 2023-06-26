@@ -48,11 +48,6 @@ class CogMan:
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
         state = self._perceiver.step(observation)
-        # Replace the first step because the state was already added in reset().
-        if not self._episode_action_history:
-            self._episode_state_history[0] = state
-        else:
-            self._episode_state_history.append(state)
         if self._termination_fn is not None and self._termination_fn(state):
             return None
         # Check if we should replan.
@@ -69,6 +64,11 @@ class CogMan:
         self._perceiver.update_perceiver_with_action(act)
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
+        # Replace the first step because the state was already added in reset().
+        if not self._episode_action_history:
+            self._episode_state_history[0] = state
+        else:
+            self._episode_state_history.append(state)
         self._episode_action_history.append(act)
         return act
 
@@ -131,8 +131,11 @@ class CogMan:
 
     def get_current_history(self) -> LowLevelTrajectory:
         """Expose the most recent state, action history for learning."""
-        return LowLevelTrajectory(self._episode_state_history,
-                                  self._episode_action_history)
+        try:
+            return LowLevelTrajectory(self._episode_state_history,
+                                    self._episode_action_history)
+        except:
+            import ipdb; ipdb.set_trace()
 
     def _reset_policy(self, task: Task) -> None:
         """Call the approach or use the override policy."""

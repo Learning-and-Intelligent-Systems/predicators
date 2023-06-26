@@ -77,7 +77,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 next_practice_nsrt
 
             atoms = utils.abstract(state, self._predicates)
-
+            
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_goal_reached and \
                 assigned_task.goal_holds(state):
@@ -103,6 +103,10 @@ class ActiveSamplerExplorer(BaseExplorer):
                     goal = assigned_task.goal
                 # Otherwise, practice.
                 else:
+                    # If there are no ground NSRTs that we've tried so far,
+                    # just wait until we have tried to solve some task.
+                    if len(self._ground_op_hist) == 0:
+                        raise utils.OptionExecutionFailure("No ground operators to practice yet")
                     next_practice_nsrt = self._get_practice_ground_nsrt()
                     goal = next_practice_nsrt.preconditions
                 task = Task(state, goal)

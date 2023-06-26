@@ -253,6 +253,7 @@ class SpotEnv(BaseEnv):
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         # NOTE: task_idx and train_or_test currently ignored!
+        input(f"Set up task {train_or_test} {task_idx}, then press enter!")
         self._current_task = self._actively_construct_env_task()
         self._current_observation = self._current_task.init_obs
         return self._current_task.init_obs

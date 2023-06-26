@@ -171,7 +171,8 @@ def _run_pipeline(env: BaseEnv,
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=None)
-        teacher = Teacher(train_tasks)
+        # teacher = Teacher(train_tasks)
+        teacher = None
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:
@@ -221,7 +222,7 @@ def _run_pipeline(env: BaseEnv,
 def _generate_interaction_results(
         cogman: CogMan,
         env: BaseEnv,
-        teacher: Teacher,
+        teacher: Optional[Teacher],
         requests: Sequence[InteractionRequest],
         cycle_num: Optional[int] = None
 ) -> Tuple[List[InteractionResult], float]:
@@ -237,8 +238,11 @@ def _generate_interaction_results(
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
-        monitor = TeacherInteractionMonitorWithVideo(env.render, request,
-                                                     teacher)
+        if teacher is not None:
+            monitor = TeacherInteractionMonitorWithVideo(env.render, request,
+                                                        teacher)
+        else:
+            monitor = None
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
         env_task = env.get_train_tasks()[request.train_task_idx]
