@@ -46,12 +46,8 @@ class SpotWrapperApproach(BaseApproachWrapper):
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
         # Maintain policy from the base approach.
-        # TODO: FIGURE OUT HOW TO REFACTOR THIS SO THAT SOLVE DOESN'T NEED TO
-        # BE CALLED HERE...
-        import ipdb; ipdb.set_trace()
-        base_approach_policy: Optional[Callable[[State], Action]] = \
-            self._base_approach.solve(task, timeout)
-        self._base_approach_has_control = True
+        base_approach_policy: Optional[Callable[[State], Action]] = None
+        self._base_approach_has_control = False
         need_stow = False
 
         def _policy(state: State) -> Action:
