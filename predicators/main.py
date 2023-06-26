@@ -261,12 +261,12 @@ def _generate_interaction_results(
             monitor=monitor)
         cogman.unset_override_policy()
         cogman.unset_termination_function()
+        traj = cogman.get_current_history()
         if teacher is not None:
             request_responses = monitor.get_responses()
             query_cost += monitor.get_query_cost()
         else:
             request_responses = [None for _ in traj.states]
-        traj = cogman.get_current_history()
         assert len(traj.states) == len(observed_traj[0])
         assert len(traj.actions) == len(observed_traj[1])
         result = InteractionResult(traj.states, traj.actions,
@@ -481,7 +481,6 @@ def _run_episode(
                     monitor.observe(obs, act)
                     monitor_observed = True
                 if act is None:
-                    exception_raised_in_step = True
                     break
                 obs = env.step(act)
                 actions.append(act)
@@ -494,13 +493,12 @@ def _run_episode(
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(obs, None)
-                    cogman.finish_episode(obs)
                 raise e
             if env.goal_reached():
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(obs, None)
-        cogman.finish_episode(obs)
+    cogman.finish_episode(obs)
     traj = (observations, actions)
     solved = env.goal_reached()
     return traj, solved, metrics

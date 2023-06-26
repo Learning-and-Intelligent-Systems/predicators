@@ -74,8 +74,9 @@ class CogMan:
 
     def finish_episode(self, observation: Observation) -> None:
         """Called at the end of an episode."""
-        state = self._perceiver.step(observation)
-        self._episode_state_history.append(state)
+        if len(self._episode_state_history) == len(self._episode_action_history):
+            state = self._perceiver.step(observation)
+            self._episode_state_history.append(state)
 
     # The methods below provide an interface to the approach. In the future,
     # we may want to move some of these methods into cogman properly, e.g.,
