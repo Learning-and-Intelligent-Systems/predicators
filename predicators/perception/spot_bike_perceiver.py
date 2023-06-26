@@ -3,6 +3,8 @@
 import logging
 from typing import Dict, Optional, Set, Tuple
 
+import numpy as np
+
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import SpotBikeEnv, _PartialPerceptionState, \
@@ -20,6 +22,7 @@ class SpotBikePerceiver(BasePerceiver):
     def __init__(self) -> None:
         super().__init__()
         self._known_object_poses: Dict[Object, Tuple[float, float, float]] = {}
+        self._known_objects_in_hand_view: Set[Object] = set()
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()
@@ -27,6 +30,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
         self._robot_pos = (0.0, 0.0, 0.0)
+        self._lost_objects: Set[Object] = set()
         assert CFG.env == "spot_bike_env"
         self._curr_env: Optional[BaseEnv] = None
 
@@ -62,31 +66,65 @@ class SpotBikePerceiver(BasePerceiver):
                 assert self._holding_item_id_feature == 0.0
                 # We know that the object that we attempted to grasp was
                 # the second argument to the controller.
-                object_attempted_to_grasp = objects[1].name
+                object_attempted_to_grasp = objects[1]
                 grasp_obj_id = obj_name_to_apriltag_id[
-                    object_attempted_to_grasp]
+                    object_attempted_to_grasp.name]
                 # We only want to update the holding item id feature
                 # if we successfully picked something.
                 if self._gripper_open_percentage > 1.5:
                     self._holding_item_id_feature = grasp_obj_id
                     logging.info(f"Grabbed item id: {grasp_obj_id}")
+                else:
+                    # We lost the object!
+                    self._lost_objects.add(object_attempted_to_grasp)
             elif "place" in controller_name.lower():
                 self._holding_item_id_feature = 0.0
+                # Check if the item we just placed is on the surface we meant
+                # to place it on. If not, the item is lost.
+                _, obj, surface = objects
+                if surface.type.name == "flat_surface":
+                    state = self._create_state()
+                    ontop_classifier = self._curr_env._ontop_classifier  # pylint: disable=protected-access
+                    is_on = ontop_classifier(state, [obj, surface])
+                    if not is_on:
+                        # We lost the object!
+                        self._lost_objects.add(obj)
             else:
                 # We ensure the holding item feature is set
                 # back to 0.0 if the hand is ever empty.
+                prev_holding_item_id = self._holding_item_id_feature
                 if self._gripper_open_percentage <= 1.5:
                     self._holding_item_id_feature = 0.0
+                    # This can only happen if the item was dropped during
+                    # something other than a place.
+                    if prev_holding_item_id != 0.0:
+                        tag_id = int(np.round(prev_holding_item_id))
+                        # We lost the object that we were holding!
+                        apriltag_id_to_obj_name = {
+                            v: k
+                            for k, v in obj_name_to_apriltag_id.items()
+                        }
+                        obj_name = apriltag_id_to_obj_name[tag_id]
+                        obj = [
+                            o for o in self._known_object_poses
+                            if o.name == obj_name
+                        ][0]
+                        # We lost the object!
+                        self._lost_objects.add(obj)
+
         return self._create_state()
 
     def _update_state_from_observation(self, observation: Observation) -> None:
         assert isinstance(observation, _SpotObservation)
         self._robot = observation.robot
         self._known_object_poses.update(observation.objects_in_view)
+        self._known_objects_in_hand_view = observation.objects_in_hand_view
         self._nonpercept_atoms = observation.nonpercept_atoms
         self._nonpercept_predicates = observation.nonpercept_predicates
         self._gripper_open_percentage = observation.gripper_open_percentage
         self._robot_pos = observation.robot_pos
+        for obj in observation.objects_in_view:
+            self._lost_objects.discard(obj)
 
     def _create_state(self) -> _PartialPerceptionState:
         # Build the continuous part of the state.
@@ -95,7 +133,6 @@ class SpotBikePerceiver(BasePerceiver):
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
                 "curr_held_item_id": self._holding_item_id_feature,
-                # Coming soon
                 "x": self._robot_pos[0],
                 "y": self._robot_pos[1],
                 "z": self._robot_pos[2],
@@ -107,6 +144,19 @@ class SpotBikePerceiver(BasePerceiver):
                 "y": y,
                 "z": z,
             }
+            if obj.type.name == "tool":
+                # Detect if the object is in view currently.
+                if obj in self._known_objects_in_hand_view:
+                    in_view_val = 1.0
+                else:
+                    in_view_val = 0.0
+                state_dict[obj]["in_view"] = in_view_val
+                # Detect if we have lost the tool.
+                if obj in self._lost_objects:
+                    lost_val = 1.0
+                else:
+                    lost_val = 0.0
+                state_dict[obj]["lost"] = lost_val
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)
         logging.info("Percept state:")

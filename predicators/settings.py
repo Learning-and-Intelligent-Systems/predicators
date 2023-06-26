@@ -174,6 +174,7 @@ class GlobalSettings:
     spot_robot_ip = "invalid-IP-address"
     spot_grasp_use_apriltag = False
     spot_grasp_use_cv2 = False
+    spot_cube_only = False
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
@@ -531,6 +532,7 @@ class GlobalSettings:
     active_sampler_learning_n_iter_no_change = 5000
     active_sampler_learning_fitted_q_iters = 5
     active_sampler_learning_num_next_option_samples = 5
+    active_sampler_learning_explore_length_base = 2
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -559,6 +561,9 @@ class GlobalSettings:
     greedy_lookahead_max_num_trajectories = 100
     greedy_lookahead_max_traj_length = 2
     greedy_lookahead_max_num_resamples = 10
+
+    # active sampler explorer parameters
+    active_sampler_explore_bonus = 1e-1
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

@@ -54,7 +54,7 @@ def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
         "high_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
         "extra_room_table": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
     }
-    offsets = {"extra_room_table": np.array([-0.3, -0.3, np.pi / 2])}
+    offsets = {"extra_room_table": np.array([0.0, -0.3, np.pi / 2])}
     if obj_name not in graph_nav_loc_to_id:
         return None
     waypoint_id = graph_nav_loc_to_id[obj_name]
@@ -72,6 +72,7 @@ obj_name_to_apriltag_id = {
     "front_tool_room": 407,
     "tool_room_table": 408,
     "extra_room_table": 409,
+    "cube": 410,
 }
 
 OBJECT_CROPS = {
@@ -181,6 +182,8 @@ class _SpotInterface():
         self.hand_z_bounds = (0.2, 0.7)
         self.localization_timeout = 10
 
+        self._find_controller_move_queue_idx = 0
+
         # Try to connect to the robot. If this fails, still maintain the
         # instance for testing, but assert that it succeeded within the
         # controller calls.
@@ -276,22 +279,30 @@ class _SpotInterface():
 
         return (img, image_response)
 
-    def get_objects_in_view(self) -> Dict[str, Tuple[float, float, float]]:
+    def get_objects_in_view_by_camera(
+            self) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get objects currently in view."""
-        tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
+        tag_to_pose: Dict[str,
+                          Dict[int,
+                               Tuple[float, float,
+                                     float]]] = {k: {}
+                                                 for k in CAMERA_NAMES}
         for source_name in CAMERA_NAMES:
             viewable_obj_poses = self.get_apriltag_pose_from_camera(
                 source_name=source_name)
-            tag_to_pose.update(viewable_obj_poses)
+            tag_to_pose[source_name].update(viewable_obj_poses)
         apriltag_id_to_obj_name = {
             v: k
             for k, v in obj_name_to_apriltag_id.items()
         }
-        obj_name_to_pose = {
-            apriltag_id_to_obj_name[t]: p
-            for t, p in tag_to_pose.items()
-        }
-        return obj_name_to_pose
+        camera_to_obj_names_to_poses: Dict[str, Dict[str, Tuple[float, float,
+                                                                float]]] = {}
+        for source_name in tag_to_pose.keys():
+            camera_to_obj_names_to_poses[source_name] = {
+                apriltag_id_to_obj_name[t]: p
+                for t, p in tag_to_pose[source_name].items()
+            }
+        return camera_to_obj_names_to_poses
 
     def get_robot_pose(self) -> Tuple[float, float, float]:
         """Get the x, y, z position of the robot body."""
@@ -421,6 +432,13 @@ class _SpotInterface():
                 params: Array) -> None:
         """Run the controller based on the given name."""
         assert self._connected_to_spot
+        if name == "find":
+            self._find_controller_move_queue_idx += 1
+            return self.findController()
+        # Just finished finding.
+        self._find_controller_move_queue_idx = 0
+        if name == "stow":
+            return self.stow_arm()
         if name == "navigate":
             return self.navigateToController(objects, params)
         if name == "grasp":
@@ -428,12 +446,60 @@ class _SpotInterface():
         assert name == "placeOnTop"
         return self.placeOntopController(objects, params)
 
+    def findController(self) -> None:
+        """Execute look around."""
+        # Execute a hard-coded sequence of movements and hope that one of them
+        # puts the lost object in view. This is very specifically designed for
+        # the case where an object has fallen in the immediate vicinity.
+
+        # Start by stowing.
+        self.stow_arm()
+
+        # First move way back and don't move the hand. This is useful when the
+        # object has not actually fallen, but wasn't grasped.
+        if self._find_controller_move_queue_idx == 1:
+            self.relative_move(-0.75, 0.0, 0.0)
+            time.sleep(2.0)
+            return
+
+        # Now just look down.
+        if self._find_controller_move_queue_idx == 2:
+            pass
+
+        # Move to the right.
+        elif self._find_controller_move_queue_idx == 3:
+            self.relative_move(0.0, 0.0, np.pi / 6)
+
+        # Move to the left.
+        elif self._find_controller_move_queue_idx == 4:
+            self.relative_move(0.0, 0.0, -np.pi / 6)
+
+        # Soon we should implement asking for help here instead of crashing.
+        else:
+            input("""Please take control of the robot and make the
+            object become in its view. Hit the 'Enter' key
+            when you're done!""")
+            self._find_controller_move_queue_idx = 0
+            self.lease_client.take()
+            return
+
+        # Move the hand to get a view of the floor.
+        self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                           keep_hand_pose=False,
+                           angle=(np.cos(np.pi / 6), 0, np.sin(np.pi / 6), 0))
+
+        # Sleep for longer to make sure that there is no shaking.
+        time.sleep(2.0)
+
     def navigateToController(self, objs: Sequence[Object],
                              params: Array) -> None:
         """Controller that navigates to specific pre-specified locations.
 
         Params are [dx, dy, d-yaw (in radians)]
         """
+        # Always start by stowing the arm.
+        self.stow_arm()
+
         print("NavigateTo", objs)
         assert len(params) == 3
         assert len(objs) in [2, 3]
@@ -461,14 +527,16 @@ class _SpotInterface():
                 self.hand_movement(np.array([0.0, 0.0, 0.0]),
                                    keep_hand_pose=False,
                                    angle=(np.cos(np.pi / 8), 0,
-                                          np.sin(np.pi / 8), 0))
+                                          np.sin(np.pi / 8), 0),
+                                   open_gripper=False)
                 time.sleep(1.0)
                 return
             if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
                                    keep_hand_pose=False,
-                                   angle=(np.cos(np.pi / 6), 0,
-                                          np.sin(np.pi / 6), 0))
+                                   angle=(np.cos(np.pi / 7), 0,
+                                          np.sin(np.pi / 7), 0),
+                                   open_gripper=False)
                 time.sleep(1.0)
                 return
         self.stow_arm()
@@ -506,10 +574,12 @@ class _SpotInterface():
         arm from the robot when placing.
         """
         print("PlaceOntop", objs)
+        angle = (np.cos(np.pi / 6), 0, np.sin(np.pi / 6), 0)
         assert len(params) == 3
         self.hand_movement(params,
                            keep_hand_pose=False,
-                           relative_to_default_pose=False)
+                           relative_to_default_pose=False,
+                           angle=angle)
         time.sleep(1.0)
         self.stow_arm()
         # NOTE: time.sleep(1.0) required afer each option execution
@@ -534,7 +604,11 @@ class _SpotInterface():
                 logging.info("All objects located!")
                 break
             for _ in range(8):
-                objects_in_view = self.get_objects_in_view()
+                objects_in_view: Dict[str, Tuple[float, float, float]] = {}
+                objects_in_view_by_camera = self.get_objects_in_view_by_camera(
+                )
+                for v in objects_in_view_by_camera.values():
+                    objects_in_view.update(v)
                 obj_poses.update(objects_in_view)
                 logging.info("Seen objects:")
                 logging.info(set(obj_poses))
@@ -787,10 +861,6 @@ class _SpotInterface():
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
-            logging.info(f"""Current state:
-                {manipulation_api_pb2.ManipulationFeedbackState.Name(
-                    response.current_state)}""")
-
             if response.current_state in [manipulation_api_pb2.\
                 MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2.\
                 MANIP_STATE_GRASP_FAILED]:
@@ -813,9 +883,8 @@ class _SpotInterface():
         grasp_override_request = manipulation_api_pb2.\
             ApiGraspOverrideRequest(
             carry_state_override=grasp_carry_state_override)
-        cmd_response = self.manipulation_api_client.\
+        self.manipulation_api_client.\
             grasp_override_command(grasp_override_request)
-        self.robot.logger.info(cmd_response)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()
         gripper_close_command = RobotCommandBuilder.\
@@ -939,14 +1008,13 @@ class _SpotInterface():
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
+            self.graph_nav_command_line.graph_nav_client.get_localization_state(
+            )
 
-            # (2) Get localization state
-            self.graph_nav_command_line.get_localization_state()
-
-            # (4) Navigate to
+            # (2) Navigate to
             self.graph_nav_command_line.navigate_to([waypoint_id])
 
-            # (5) Offset by params
+            # (3) Offset by params
             if not np.allclose(params, [0.0, 0.0, 0.0]):
                 self.relative_move(params[0], params[1], params[2])
 
@@ -1010,18 +1078,13 @@ class _SpotInterface():
         """Use GraphNavInterface to localize robot and go to a position."""
         # pylint: disable=broad-except
 
-        # Stow arm first
-        self.stow_arm()
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            print("init by fid")
+            self.graph_nav_command_line.graph_nav_client.get_localization_state(
+            )
 
-            # (2) Get localization state
-            self.graph_nav_command_line.get_localization_state()
-            print("localized state")
-
-            # (3) Just move
+            # (2) Just move
             self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:

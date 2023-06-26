@@ -26,24 +26,26 @@ class GLIBExplorer(BilevelPlanningExplorer):
 
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task], nsrts: Set[NSRT],
+                 action_space: Box, train_tasks: List[Task],
+                 max_steps_before_termination: int, nsrts: Set[NSRT],
                  option_model: _OptionModelBase,
                  babble_predicates: Set[Predicate],
                  atom_score_fn: Callable[[Set[GroundAtom]], float]) -> None:
         super().__init__(predicates, options, types, action_space, train_tasks,
-                         nsrts, option_model)
+                         max_steps_before_termination, nsrts, option_model)
         self._babble_predicates = babble_predicates
         self._atom_score_fn = atom_score_fn  # higher is better
         # GLIB falls back to random options.
         self._fallback_explorer = RandomOptionsExplorer(
-            predicates, options, types, action_space, train_tasks)
+            predicates, options, types, action_space, train_tasks,
+            max_steps_before_termination)
 
     @classmethod
     def get_name(cls) -> str:
         return "glib"
 
-    def get_exploration_strategy(self, train_task_idx: int,
-                                 timeout: int) -> ExplorationStrategy:
+    def _get_exploration_strategy(self, train_task_idx: int,
+                                  timeout: int) -> ExplorationStrategy:
         # The goal of the task is ignored.
         task = self._train_tasks[train_task_idx]
         init = task.init

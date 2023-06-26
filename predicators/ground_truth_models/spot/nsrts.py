@@ -31,10 +31,13 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def move_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            del goal, rng
+            del goal
             assert len(objs) in [2, 3]
             if objs[1].type.name == "bag":  # pragma: no cover
                 return np.array([0.5, 0.0, 0.0])
+            # Sample dyaw so that there is some hope of seeing objects from
+            # different angles.
+            dyaw = rng.uniform(-np.pi / 8, np.pi / 8)
             # For MoveToObjOnFloor
             if len(objs) == 3:
                 if objs[2].name == "floor":
@@ -55,23 +58,23 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     spot_xy = np.array([0.0, 0.0])
                     obj_xy = np.array([obj_x, obj_y])
                     distance = np.linalg.norm(obj_xy - spot_xy)
-                    unit_vector = (obj_xy - spot_xy) / distance
+                    obj_unit_vector = (obj_xy - spot_xy) / distance
 
                     distance_to_obj = 1.25
-                    new_xy = spot_xy + unit_vector * (distance -
-                                                      distance_to_obj)
-
+                    new_xy = spot_xy + obj_unit_vector * (distance -
+                                                          distance_to_obj)
                     # Find the angle change needed to look at object
                     angle = np.arccos(
-                        np.clip(np.dot(np.array([1.0, 0.0]), obj_xy), -1.0,
-                                1.0))
+                        np.clip(np.dot(np.array([1.0, 0.0]), obj_unit_vector),
+                                -1.0, 1.0))
                     # Check which direction with allclose
                     if not np.allclose(
-                            obj_xy,
-                        [np.cos(angle), np.sin(angle)], atol=0.1):
+                            obj_unit_vector,
+                        [np.cos(angle), np.sin(angle)],
+                            atol=0.1):
                         angle = -angle
-                    return np.array([new_xy[0], new_xy[1], angle])
-            return np.array([-0.25, 0.0, 0.0])
+                    return np.array([new_xy[0], new_xy[1], angle + dyaw])
+            return np.array([-0.25, 0.0, dyaw])
 
         def grasp_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
@@ -86,7 +89,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            del goal, rng
+            del goal
             # Get graph_nav to body frame.
             gn_state = _spot_interface.get_localized_state()
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
@@ -104,7 +107,16 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if objs[2].type.name == "bag":  # pragma: no cover
                 return fiducial_pose + np.array([0.1, 0.0, -0.25])
             if "_table" in objs[2].name:
-                return fiducial_pose + np.array([0.2, -0.05, -0.2])
+                dx = rng.uniform(0.19, 0.21)
+                dy = rng.uniform(0.08, 0.22)
+                dz = rng.uniform(-0.61, -0.59)
+
+                # Oracle values for slanted table.
+                # dx = 0.2
+                # dy = 0.15
+                # dz = -0.6
+
+                return fiducial_pose + np.array([dx, dy, dz])
             return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
         env = get_or_create_env(env_name)

@@ -3,6 +3,7 @@ omit =
     predicators/third_party/**
     predicators/spot_utils/**
     predicators/perception/spot_bike_perceiver.py
+    predicators/approaches/spot_wrapper_approach.py
     predicators/ground_truth_models/spot/**
     predicators/envs/spot_env.py
     predicators/envs/kitchen.py

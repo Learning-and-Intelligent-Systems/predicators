@@ -29,17 +29,10 @@ COLUMN_NAMES_AND_KEYS = [
     ("PERC_SOLVED", "perc_solved"),
     ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
     ("NUM_ONLINE_TRANSITIONS", "num_online_transitions"),
-    ("QUERY_COST", "query_cost"),
-    ("PERC_EXEC_FAIL", "perc_exec_fail"),
-    ("PERC_PLAN_FAIL", "perc_plan_fail"),
 ]
 
 DERIVED_KEYS = [
     ("perc_solved", lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
-    ("perc_exec_fail",
-     lambda r: 100 * r["num_execution_failures"] / r["num_test_tasks"]),
-    ("perc_plan_fail",
-     lambda r: 100 * r["num_solve_failures"] / r["num_test_tasks"]),
 ]
 
 # The first element is the name of the metric that will be plotted on the
@@ -52,9 +45,6 @@ X_KEY_AND_LABEL = [
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
-    ("QUERY_COST", "Cumulative Query Cost"),
-    ("PERC_EXEC_FAIL", "% Execution Failures"),
-    ("PERC_PLAN_FAIL", "% Planning Failures"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
@@ -63,8 +53,22 @@ Y_KEY_AND_LABEL = [
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
     "Bumpy Cover": [
-        ("Main", "blue", lambda df: df["APPROACH"].apply(
-            lambda v: "active_sampler_learning" in v)),
+        ("Approach v0", "black", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-random-explore" in v)),
+    ],
+    "Shifted Bumpy Cover": [
+        ("Myopic Classifier", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-myopic_classifier" in v)),
+        ("Fitted Q", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-fitted_q" in v)),
+        ("Teacher Classifier", "brown", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-teacher_classifier" in v)),
+    ],
+    "Regional Bumpy Cover": [
+        ("Active Explore", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-main" in v)),
+        ("Random Explore", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-random-explore" in v)),
     ],
 }
 
@@ -134,9 +138,10 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
             f = interpolate.interp1d(xs, ys)
             interp_ys = f(new_xs)
             all_interp_ys.append(interp_ys)
-        # Get means and stds.
+        # Get means and standard errors.
         mean_ys = np.mean(all_interp_ys, axis=0)
-        std_ys = np.std(all_interp_ys, axis=0)
+        n = np.size(all_interp_ys, axis=0)
+        std_ys = np.std(all_interp_ys, ddof=1, axis=0) / np.sqrt(n)
         assert len(mean_ys) == len(std_ys) == len(new_xs)
         ax.plot(new_xs, mean_ys, label=label, color=color)
         ax.fill_between(new_xs,
@@ -168,6 +173,7 @@ def _main() -> None:
                 ax.set_ylabel(y_label)
                 if y_key.startswith("PERC"):
                     ax.set_ylim((-5, 105))
+                plt.title(plot_title)
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
