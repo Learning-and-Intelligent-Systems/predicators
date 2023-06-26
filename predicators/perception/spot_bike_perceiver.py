@@ -41,7 +41,6 @@ class SpotBikePerceiver(BasePerceiver):
 
     def reset(self, env_task: EnvironmentTask) -> Task:
         self._waiting_for_observation = True
-        self._update_state_from_observation(env_task.init_obs)
         self._curr_env = get_or_create_env("spot_bike_env")
         assert isinstance(self._curr_env, SpotBikeEnv)
         init_state = self._create_state()
