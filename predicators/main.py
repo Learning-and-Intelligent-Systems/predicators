@@ -482,11 +482,13 @@ def _run_episode(
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(obs, None)
+                    cogman.finish_episode(obs)
                 raise e
             if env.goal_reached():
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(obs, None)
+        cogman.finish_episode(obs)
     traj = (observations, actions)
     solved = env.goal_reached()
     return traj, solved, metrics

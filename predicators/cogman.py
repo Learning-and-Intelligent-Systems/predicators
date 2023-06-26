@@ -40,13 +40,17 @@ class CogMan:
         self._current_goal = task.goal
         self._reset_policy(task)
         self._exec_monitor.reset(task)
-        self._episode_state_history = []
+        self._episode_state_history = [task.init]
         self._episode_action_history = []
 
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
         state = self._perceiver.step(observation)
-        self._episode_state_history.append(state)
+        # Skip the first step because the state was already added in reset().
+        if not self._episode_action_history:
+            assert state.allclose(self._episode_state_history[0])
+        else:
+            self._episode_state_history.append(state)
         if self._termination_fn is not None and self._termination_fn(state):
             return None
         # Check if we should replan.
@@ -59,6 +63,11 @@ class CogMan:
         act = self._current_policy(state)
         self._episode_action_history.append(act)
         return act
+
+    def finish_episode(self, observation: Observation) -> None:
+        """Called at the end of an episode."""
+        state = self._perceiver.step(observation)
+        self._episode_state_history.append(state)
 
     # The methods below provide an interface to the approach. In the future,
     # we may want to move some of these methods into cogman properly, e.g.,
