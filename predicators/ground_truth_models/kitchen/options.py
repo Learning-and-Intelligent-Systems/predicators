@@ -4,9 +4,13 @@ from typing import Dict, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
-from mujoco_kitchen.utils import primitive_and_params_to_primitive_action, \
-    primitive_idx_to_name, primitive_name_to_action_idx
 
+try:
+    from mujoco_kitchen.utils import \
+        primitive_and_params_to_primitive_action, primitive_idx_to_name, \
+        primitive_name_to_action_idx
+except ImportError:
+    pass
 from predicators import utils
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
