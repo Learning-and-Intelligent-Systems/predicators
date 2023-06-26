@@ -175,15 +175,15 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Update the NSRTs.
         new_test_nsrts: Set[NSRT] = set()
         self._nsrt_to_explorer_sampler.clear()
-        for nsrt, samplers in wrapped_samplers.items():
+        for nsrt, (test_sampler, explore_sampler) in wrapped_samplers.items():
             # Create new test NSRT.
             new_test_nsrt = NSRT(nsrt.name, nsrt.parameters,
                                  nsrt.preconditions, nsrt.add_effects,
                                  nsrt.delete_effects, nsrt.ignore_effects,
-                                 nsrt.option, nsrt.option_vars, samplers[0])
+                                 nsrt.option, nsrt.option_vars, test_sampler)
             new_test_nsrts.add(new_test_nsrt)
             # Update the dictionary mapping NSRTs to exploration samplers.
-            self._nsrt_to_explorer_sampler[nsrt] = samplers[1]
+            self._nsrt_to_explorer_sampler[nsrt] = explore_sampler
         # Special case, especially on the first iteration: if there was no
         # data for the sampler, then we didn't learn a wrapped sampler, so
         # we should just use the original NSRT.
@@ -208,6 +208,8 @@ class _WrappedSamplerLearner(abc.ABC):
         self._predicates = predicates
         self._online_learning_cycle = online_learning_cycle
         self._rng = np.random.default_rng(CFG.seed)
+        # We keep track of two samplers per NSRT: one to use at test time
+        # and another to use during exploration/play time.
         self._learned_samplers: Optional[Dict[NSRT, Tuple[NSRTSampler,
                                                           NSRTSampler]]] = None
 
