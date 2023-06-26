@@ -195,8 +195,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._nsrts = new_test_nsrts
         # Re-save the NSRTs now that we've updated them.
         save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_{online_learning_cycle}_test.NSRTs",
-                  "wb") as f:
+        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
 
 
