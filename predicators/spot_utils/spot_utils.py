@@ -317,7 +317,7 @@ class _SpotInterface():
             object_names: Set[str]) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
         object_views: Dict[str, Tuple[float, float, float]] = {}
-        if CFG.spot_env_initialize_surfaces_to_default:
+        if CFG.spot_initialize_surfaces_to_default:
             object_views = {
                 "tool_room_table":
                 (6.939992779470081, -6.21562847222872, 0.030711182602548265),
@@ -329,7 +329,7 @@ class _SpotInterface():
                 (7.043112552148553, -8.198686802340527, -0.18750694527153725)
             }
         waypoints = ["tool_room_table", "low_wall_rack"]
-        if CFG.spot_env_initialize_surfaces_to_default:
+        if CFG.spot_initialize_surfaces_to_default:
             objects_to_find = object_names - set(object_views.keys())
         obj_name_to_loc = self._scan_for_objects(waypoints, objects_to_find)
         for obj_name in object_names:
