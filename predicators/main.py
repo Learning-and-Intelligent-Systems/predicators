@@ -40,7 +40,7 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import dill as pkl
