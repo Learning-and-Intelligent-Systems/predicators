@@ -252,12 +252,10 @@ class SpotEnv(BaseEnv):
         return Action(action_arr)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
-        init_atoms = self._get_initial_nonpercept_atoms()
-        init_obs = self._build_observation(init_atoms)
-        goal = self._generate_task_goal()
-        self._current_task = EnvironmentTask(init_obs, goal)
-        self._current_observation = init_obs
-        return init_obs
+        # NOTE: task_idx and train_or_test currently ignored!
+        self._current_task = self._actively_construct_env_task()
+        self._current_observation = self._current_task.init_obs
+        return self._current_task.init_obs
 
     def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
@@ -379,62 +377,61 @@ class SpotEnv(BaseEnv):
         goal = self._generate_task_goal()  # TODO update
         return [EnvironmentTask(None, goal) for _ in range(CFG.num_test_tasks)]
 
-    # def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
-    #     assert num_tasks == 1
-    #     # Have the spot walk around the environment once to construct
-    #     # an initial observation.
-    #     object_names_in_view = self._actively_construct_initial_object_views()
-    #     objects_in_view = {
-    #         self._obj_name_to_obj(n): v
-    #         for n, v in object_names_in_view.items()
-    #     }
-    #     robot_type = next(t for t in self.types if t.name == "robot")
-    #     robot = Object("spot", robot_type)
-    #     images = self._spot_interface.get_camera_images()
-    #     gripper_open_percentage = self._spot_interface.get_gripper_obs()
-    #     robot_pos = self._spot_interface.get_robot_pose()
-    #     nonpercept_atoms = self._get_initial_nonpercept_atoms()
-    #     nonpercept_preds = self.predicates - self.percept_predicates
-    #     assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
-    #     obs = _SpotObservation(images, objects_in_view, set(), robot,
-    #                            gripper_open_percentage, robot_pos,
-    #                            nonpercept_atoms, nonpercept_preds)
-    #     goal = self._generate_task_goal()
-    #     task = EnvironmentTask(obs, goal)
-    #     # Save the task for future use.
-    #     json_objects = {o.name: o.type.name for o in objects_in_view}
-    #     json_objects[robot.name] = robot.type.name
-    #     init_json_dict = {
-    #         o.name: {
-    #             "x": x,
-    #             "y": y,
-    #             "z": z
-    #         }
-    #         for o, (x, y, z) in objects_in_view.items()
-    #     }
-    #     for obj in objects_in_view:
-    #         if "lost" in obj.type.feature_names:
-    #             init_json_dict[obj.name]["lost"] = 0.0
-    #         if "in_view" in obj.type.feature_names:
-    #             init_json_dict[obj.name]["in_view"] = 1.0
-    #     init_json_dict[robot.name] = {
-    #         "gripper_open_percentage": gripper_open_percentage,
-    #         "curr_held_item_id": 0,
-    #         "x": robot_pos[0],
-    #         "y": robot_pos[1],
-    #         "z": robot_pos[2]
-    #     }
-    #     json_dict = {
-    #         "objects": json_objects,
-    #         "init": init_json_dict,
-    #         "goal": utils.create_json_dict_from_ground_atoms(goal),
-    #     }
-    #     outfile = utils.get_env_asset_path(
-    #         "task_jsons/spot_bike_env/last.json", assert_exists=False)
-    #     with open(outfile, "w", encoding="utf-8") as f:
-    #         json.dump(json_dict, f, indent=4)
-    #     logging.info(f"Dumped task to {outfile}. Rename it to save it.")
-    #     return [task]
+    def _actively_construct_env_task(self) -> EnvironmentTask:
+        # Have the spot walk around the environment once to construct
+        # an initial observation.
+        object_names_in_view = self._actively_construct_initial_object_views()
+        objects_in_view = {
+            self._obj_name_to_obj(n): v
+            for n, v in object_names_in_view.items()
+        }
+        robot_type = next(t for t in self.types if t.name == "robot")
+        robot = Object("spot", robot_type)
+        images = self._spot_interface.get_camera_images()
+        gripper_open_percentage = self._spot_interface.get_gripper_obs()
+        robot_pos = self._spot_interface.get_robot_pose()
+        nonpercept_atoms = self._get_initial_nonpercept_atoms()
+        nonpercept_preds = self.predicates - self.percept_predicates
+        assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
+        obs = _SpotObservation(images, objects_in_view, set(), robot,
+                               gripper_open_percentage, robot_pos,
+                               nonpercept_atoms, nonpercept_preds)
+        goal = self._generate_task_goal()
+        task = EnvironmentTask(obs, goal)
+        # Save the task for future use.
+        json_objects = {o.name: o.type.name for o in objects_in_view}
+        json_objects[robot.name] = robot.type.name
+        init_json_dict = {
+            o.name: {
+                "x": x,
+                "y": y,
+                "z": z
+            }
+            for o, (x, y, z) in objects_in_view.items()
+        }
+        for obj in objects_in_view:
+            if "lost" in obj.type.feature_names:
+                init_json_dict[obj.name]["lost"] = 0.0
+            if "in_view" in obj.type.feature_names:
+                init_json_dict[obj.name]["in_view"] = 1.0
+        init_json_dict[robot.name] = {
+            "gripper_open_percentage": gripper_open_percentage,
+            "curr_held_item_id": 0,
+            "x": robot_pos[0],
+            "y": robot_pos[1],
+            "z": robot_pos[2]
+        }
+        json_dict = {
+            "objects": json_objects,
+            "init": init_json_dict,
+            "goal": utils.create_json_dict_from_ground_atoms(goal),
+        }
+        outfile = utils.get_env_asset_path(
+            "task_jsons/spot_bike_env/last.json", assert_exists=False)
+        with open(outfile, "w", encoding="utf-8") as f:
+            json.dump(json_dict, f, indent=4)
+        logging.info(f"Dumped task to {outfile}. Rename it to save it.")
+        return [task]
 
     @abc.abstractmethod
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:

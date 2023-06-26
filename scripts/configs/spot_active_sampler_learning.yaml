@@ -21,8 +21,8 @@ FLAGS:
   sampler_learner: "oracle"
   bilevel_plan_without_sim: "True"
   max_initial_demos: 0
-  num_train_tasks: 1000  # TODO figure out how to handle
-  num_test_tasks: 10  # TODO figure out how to handle
+  num_train_tasks: 1000  # doesn't really matter
+  num_test_tasks: 10
   max_num_steps_interaction_request: 50
   sampler_mlp_classifier_max_itr: 100000
   mlp_classifier_balance_data: False

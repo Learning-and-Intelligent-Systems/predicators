@@ -48,9 +48,9 @@ class CogMan:
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
         state = self._perceiver.step(observation)
-        # Skip the first step because the state was already added in reset().
+        # Replace the first step because the state was already added in reset().
         if not self._episode_action_history:
-            assert state.allclose(self._episode_state_history[0])
+            self._episode_state_history[0] = state
         else:
             self._episode_state_history.append(state)
         if self._termination_fn is not None and self._termination_fn(state):
