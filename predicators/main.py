@@ -261,8 +261,11 @@ def _generate_interaction_results(
             monitor=monitor)
         cogman.unset_override_policy()
         cogman.unset_termination_function()
-        request_responses = monitor.get_responses()
-        query_cost += monitor.get_query_cost()
+        if teacher is not None:
+            request_responses = monitor.get_responses()
+            query_cost += monitor.get_query_cost()
+        else:
+            request_responses = [None for _ in traj.states]
         traj = cogman.get_current_history()
         assert len(traj.states) == len(observed_traj[0])
         assert len(traj.actions) == len(observed_traj[1])
@@ -270,6 +273,7 @@ def _generate_interaction_results(
                                    request_responses)
         results.append(result)
         if CFG.make_interaction_videos:
+            assert teacher is not None
             video.extend(monitor.get_video())
     if CFG.make_interaction_videos:
         save_prefix = utils.get_config_path_str()
