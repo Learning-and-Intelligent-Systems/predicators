@@ -40,7 +40,7 @@ import sys
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Sequence, Set, Tuple
+from typing import Callable, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import dill as pkl
@@ -188,7 +188,7 @@ def _run_pipeline(env: BaseEnv,
                              "terminating")
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
-                env, teacher, interaction_requests, i)
+                cogman, env, teacher, interaction_requests, i)
             num_online_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
@@ -219,6 +219,7 @@ def _run_pipeline(env: BaseEnv,
 
 
 def _generate_interaction_results(
+        cogman: CogMan,
         env: BaseEnv,
         teacher: Teacher,
         requests: Sequence[InteractionRequest],
@@ -238,20 +239,29 @@ def _generate_interaction_results(
                                "if allow_interaction_in_demo_tasks is False.")
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
-        traj, _ = utils.run_policy(
-            request.act_policy,
+        cogman.set_override_policy(request.act_policy)
+        cogman.set_termination_function(request.termination_function)
+        env_task = env.get_train_tasks()[request.train_task_idx]
+        cogman.reset(env_task)
+        observed_traj, _, _ = _run_episode(
+            cogman,
             env,
             "train",
             request.train_task_idx,
-            request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
             exceptions_to_break_on={
-                utils.EnvironmentFailure, utils.OptionExecutionFailure,
-                utils.RequestActPolicyFailure
+                utils.EnvironmentFailure,
+                utils.OptionExecutionFailure,
+                utils.RequestActPolicyFailure,
             },
             monitor=monitor)
+        cogman.unset_override_policy()
+        cogman.unset_termination_function()
         request_responses = monitor.get_responses()
         query_cost += monitor.get_query_cost()
+        traj = cogman.get_current_history()
+        assert len(traj.states) == len(observed_traj[0])
+        assert len(traj.actions) == len(observed_traj[1])
         result = InteractionResult(traj.states, traj.actions,
                                    request_responses)
         results.append(result)
@@ -421,7 +431,7 @@ def _run_episode(
     Note that the environment and cogman internal states are updated.
 
     Terminates when any of these conditions hold:
-    (1) the termination_function returns True
+    (1) cogman.step returns None, indicating termination
     (2) max_num_steps is reached
     (3) cogman or env raise an exception of type in exceptions_to_break_on
 
@@ -450,6 +460,8 @@ def _run_episode(
                 start_time = time.perf_counter()
                 act = cogman.step(obs)
                 metrics["policy_call_time"] += time.perf_counter() - start_time
+                if act is None:
+                    break
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env
