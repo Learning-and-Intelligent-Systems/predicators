@@ -317,21 +317,21 @@ class _SpotInterface():
             object_names: Set[str]) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
         object_views: Dict[str, Tuple[float, float, float]] = {}
-        if CFG.spot_initialize_surfaces_to_default:
-            object_views = {
-                "tool_room_table":
-                (6.939992779470081, -6.21562847222872, 0.030711182602548265),
-                "extra_room_table":
-                (8.175572738390251, -6.083883265675128, 0.036055057764837),
-                "low_wall_rack":
-                (10.049931203338616, -6.9443170697742, 0.27881268568327966),
-                "toolbag":
-                (7.043112552148553, -8.198686802340527, -0.18750694527153725)
-            }
+        # if CFG.spot_initialize_surfaces_to_default:
+        #     object_views = {
+        #         "tool_room_table":
+        #         (6.939992779470081, -6.21562847222872, 0.030711182602548265),
+        #         "extra_room_table":
+        #         (8.175572738390251, -6.083883265675128, 0.036055057764837),
+        #         "low_wall_rack":
+        #         (10.049931203338616, -6.9443170697742, 0.27881268568327966),
+        #         "toolbag":
+        #         (7.043112552148553, -8.198686802340527, -0.18750694527153725)
+        #     }
         waypoints = ["tool_room_table", "low_wall_rack"]
-        if CFG.spot_initialize_surfaces_to_default:
-            objects_to_find = object_names - set(object_views.keys())
-        obj_name_to_loc = self._scan_for_objects(waypoints, objects_to_find)
+        # if CFG.spot_initialize_surfaces_to_default:
+        #     objects_to_find = object_names - set(object_views.keys())
+        obj_name_to_loc = self._scan_for_objects(waypoints, object_names)
         for obj_name in object_names:
             assert obj_name in obj_name_to_loc, \
                 f"Did not locate object {obj_name}!"
