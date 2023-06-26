@@ -6,9 +6,11 @@ from typing import Any, Dict, List, Optional, Sequence, Set
 import matplotlib
 import numpy as np
 from gym.spaces import Box
-from mujoco_kitchen.kitchen_envs import OBS_ELEMENT_INDICES
-from mujoco_kitchen.utils import make_env
-
+try:
+    from mujoco_kitchen.kitchen_envs import OBS_ELEMENT_INDICES
+    from mujoco_kitchen.utils import make_env
+except ImportError:
+    pass
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
