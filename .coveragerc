@@ -5,7 +5,7 @@ omit =
     predicators/perception/spot_bike_perceiver.py
     predicators/ground_truth_models/spot/**
     predicators/envs/spot_env.py
-    predicators/envs/kitchen_env.py
+    predicators/envs/kitchen.py
     predicators/perception/kitchen_perceiver.py
     predicators/ground_truth_models/kitchen/**
 
