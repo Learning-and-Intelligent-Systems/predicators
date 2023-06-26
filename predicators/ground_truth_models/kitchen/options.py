@@ -31,16 +31,21 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options: Set[ParameterizedOption] = set()
         for val in primitive_idx_to_name.values():
-            if isinstance(primitive_name_to_action_idx[val], int):
-                param_space = Box(-np.ones(1) * 5, np.ones(1) * 5)
+            if _format_name(val) == "Move_delta_ee_pose":
+                params_space = Box(0, 1, (0, ))
+                obj_types = list(types.values())
+            elif isinstance(primitive_name_to_action_idx[val], int):
+                params_space = Box(-np.ones(1) * 5, np.ones(1) * 5)
+                obj_types = []
             else:
                 n = len(primitive_name_to_action_idx[val])
-                param_space = Box(-np.ones(n) * 5, np.ones(n) * 5)
+                params_space = Box(-np.ones(n) * 5, np.ones(n) * 5)
+                obj_types = []
             options.add(
                 utils.ParameterizedOption(
                     name=_format_name(val),
-                    types=list(types.values()),
-                    params_space=param_space,
+                    types=obj_types,
+                    params_space=params_space,
                     policy=cls._create_policy(name=val),
                     initiable=lambda _1, _2, _3, _4: True,
                     terminal=cls._create_terminal(name=val)))
@@ -54,13 +59,14 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                    params: Array) -> Action:
             del memory  # unused.
             if name.lower() == "move_delta_ee_pose":
-                gripper, _ = objects
+                assert len(params) == 0
+                gripper, obj = objects
                 gx = state.get(gripper, "x")
                 gy = state.get(gripper, "y")
                 gz = state.get(gripper, "z")
-                dx = params[0] - gx
-                dy = params[1] - gy
-                dz = params[2] - gz
+                dx = state.get(obj, "x") - gx
+                dy = state.get(obj, "y") - gy
+                dz = state.get(obj, "z") - gz
                 primitive_params = np.array([dx, dy, dz],
                                             dtype=np.float32).clip(-1.0, 1.0)
             else:

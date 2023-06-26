@@ -2,11 +2,10 @@
 
 from typing import Dict, Set
 
-import numpy as np
-
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, Sequence, State, Type, Variable
+from predicators.structs import NSRT, LiftedAtom, ParameterizedOption, \
+    Predicate, Type, Variable
+from predicators.utils import null_sampler
 
 
 class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
@@ -36,17 +35,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         nsrts = set()
 
-        def moveto_sampler(state: State, goal: Set[GroundAtom],
-                           rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
-            del rng, goal  # unused
-            _, target = objs
-            assert target.is_instance(object_type)
-            tx = state.get(target, "x")
-            ty = state.get(target, "y")
-            tz = state.get(target, "z")
-            return np.array([tx, ty, tz])
-
         # MoveTo
         # Player, from_loc, to_loc
         parameters = [gripper, obj]
@@ -57,7 +45,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = [gripper, obj]
         move_to_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
                             delete_effects, set(), option, option_vars,
-                            moveto_sampler)
+                            null_sampler)
         nsrts.add(move_to_nsrt)
 
         return nsrts
