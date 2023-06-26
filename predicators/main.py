@@ -239,8 +239,8 @@ def _generate_interaction_results(
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
         if teacher is not None:
-            monitor = TeacherInteractionMonitorWithVideo(env.render, request,
-                                                        teacher)
+            monitor = TeacherInteractionMonitorWithVideo(
+                env.render, request, teacher)
         else:
             monitor = None
         cogman.set_override_policy(request.act_policy)

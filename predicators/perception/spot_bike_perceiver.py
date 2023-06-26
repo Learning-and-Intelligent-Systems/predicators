@@ -12,8 +12,8 @@ from predicators.envs.spot_env import SpotBikeEnv, _PartialPerceptionState, \
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Observation, Predicate, State, Task, DefaultState
+from predicators.structs import Action, DefaultState, EnvironmentTask, \
+    GroundAtom, Object, Observation, Predicate, State, Task
 
 
 class SpotBikePerceiver(BasePerceiver):
@@ -43,6 +43,16 @@ class SpotBikePerceiver(BasePerceiver):
         self._waiting_for_observation = True
         self._curr_env = get_or_create_env("spot_bike_env")
         assert isinstance(self._curr_env, SpotBikeEnv)
+        self._known_object_poses: Dict[Object, Tuple[float, float, float]] = {}
+        self._known_objects_in_hand_view: Set[Object] = set()
+        self._robot: Optional[Object] = None
+        self._nonpercept_atoms: Set[GroundAtom] = set()
+        self._nonpercept_predicates: Set[Predicate] = set()
+        self._prev_action: Optional[Action] = None
+        self._holding_item_id_feature = 0.0
+        self._gripper_open_percentage = 0.0
+        self._robot_pos = (0.0, 0.0, 0.0)
+        self._lost_objects: Set[Object] = set()
         init_state = self._create_state()
         return Task(init_state, env_task.goal)
 

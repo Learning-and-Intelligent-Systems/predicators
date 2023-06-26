@@ -766,7 +766,7 @@ class _SpotInterface():
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
 
         # Take a picture with a camera
-        self.robot.logger.info(f'Getting an image from: {self._image_source}')
+        self.robot.logger.debug(f'Getting an image from: {self._image_source}')
         time.sleep(1)
         image_responses = self.image_client.get_image_from_sources(
             [self._image_source])
@@ -883,7 +883,7 @@ class _SpotInterface():
         time.sleep(1.0)
         g_image_click = None
         g_image_display = None
-        self.robot.logger.info('Finished grasp.')
+        self.robot.logger.debug('Finished grasp.')
 
     def stow_arm(self) -> None:
         """A simple example of using the Boston Dynamics API to stow Spot's
@@ -906,7 +906,7 @@ class _SpotInterface():
             gripper_close_command, stow_cmd)
         stow_and_close_command_id = self.robot_command_client.robot_command(
             stow_and_close_command)
-        self.robot.logger.info("Stow command issued.")
+        self.robot.logger.debug("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client,
                                 stow_and_close_command_id, 4.5)
 
@@ -988,7 +988,7 @@ class _SpotInterface():
 
         # Send the request
         cmd_id: int = self.robot_command_client.robot_command(command)
-        self.robot.logger.info('Moving arm to position.')
+        self.robot.logger.debug('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
@@ -1008,7 +1008,7 @@ class _SpotInterface():
 
         # Send the request
         cmd_id = self.robot_command_client.robot_command(command)
-        self.robot.logger.info('Moving arm to position.')
+        self.robot.logger.debug('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)

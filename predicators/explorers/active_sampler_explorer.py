@@ -77,11 +77,11 @@ class ActiveSamplerExplorer(BaseExplorer):
                 next_practice_nsrt
 
             atoms = utils.abstract(state, self._predicates)
-            
+
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_goal_reached and \
                 assigned_task.goal_holds(state):
-                logging.debug(
+                logging.info(
                     f"[Explorer] Reached assigned goal: {assigned_task.goal}")
                 assigned_task_goal_reached = True
                 current_policy = None
@@ -106,11 +106,12 @@ class ActiveSamplerExplorer(BaseExplorer):
                     # If there are no ground NSRTs that we've tried so far,
                     # just wait until we have tried to solve some task.
                     if len(self._ground_op_hist) == 0:
-                        raise utils.OptionExecutionFailure("No ground operators to practice yet")
+                        raise utils.OptionExecutionFailure(
+                            "No ground operators to practice yet")
                     next_practice_nsrt = self._get_practice_ground_nsrt()
                     goal = next_practice_nsrt.preconditions
                 task = Task(state, goal)
-                logging.debug(f"[Explorer] Replanning to {task.goal}")
+                logging.info(f"[Explorer] Replanning to {task.goal}")
                 current_policy = self._get_option_policy_for_task(task)
 
             # Query the current policy.

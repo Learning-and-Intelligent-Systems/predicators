@@ -254,6 +254,7 @@ class SpotEnv(BaseEnv):
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         # NOTE: task_idx and train_or_test currently ignored!
         input(f"Set up task {train_or_test} {task_idx}, then press enter!")
+        self._spot_interface.lease_client.take()
         self._current_task = self._actively_construct_env_task()
         self._current_observation = self._current_task.init_obs
         return self._current_task.init_obs
@@ -371,7 +372,9 @@ class SpotEnv(BaseEnv):
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         # assert CFG.num_train_tasks == 0, "Use JSON loading instead"
         goal = self._generate_task_goal()  # TODO update
-        return [EnvironmentTask(None, goal) for _ in range(CFG.num_train_tasks)]
+        return [
+            EnvironmentTask(None, goal) for _ in range(CFG.num_train_tasks)
+        ]
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         # assert CFG.num_test_tasks == 1, "Use JSON loading instead"

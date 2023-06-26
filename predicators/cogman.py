@@ -74,12 +74,14 @@ class CogMan:
 
     def finish_episode(self, observation: Observation) -> None:
         """Called at the end of an episode."""
-        if len(self._episode_state_history) == len(self._episode_action_history):
+        if len(self._episode_state_history) == len(
+                self._episode_action_history):
             try:
                 state = self._perceiver.step(observation)
                 self._episode_state_history.append(state)
             except:
-                import ipdb; ipdb.set_trace()
+                import ipdb
+                ipdb.set_trace()
 
     # The methods below provide an interface to the approach. In the future,
     # we may want to move some of these methods into cogman properly, e.g.,
@@ -137,9 +139,10 @@ class CogMan:
         """Expose the most recent state, action history for learning."""
         try:
             return LowLevelTrajectory(self._episode_state_history,
-                                    self._episode_action_history)
+                                      self._episode_action_history)
         except:
-            import ipdb; ipdb.set_trace()
+            import ipdb
+            ipdb.set_trace()
 
     def _reset_policy(self, task: Task) -> None:
         """Call the approach or use the override policy."""

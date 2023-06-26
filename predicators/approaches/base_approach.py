@@ -156,8 +156,6 @@ class BaseApproachWrapper(BaseApproach):
             self, results: Sequence[InteractionResult]) -> None:
         return self._base_approach.learn_from_interaction_results(results)
 
-    
-
 
 class ApproachTimeout(ExceptionWithInfo):
     """Exception raised when approach.solve() times out."""
