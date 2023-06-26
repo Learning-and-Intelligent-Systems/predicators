@@ -96,8 +96,9 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 for ground_atom_set in gt_traj[1]:
                     trajectory.append(ground_atom_set)
                 ground_atom_dataset_to_pkl.append(trajectory)
-            with open(dataset_fname, "wb") as f:
-                pkl.dump(ground_atom_dataset_to_pkl, f)
+            # TODO fix this!
+            # with open(dataset_fname, "wb") as f:
+            #     pkl.dump(ground_atom_dataset_to_pkl, f)
 
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,
@@ -108,9 +109,10 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   ground_atom_dataset,
                                   sampler_learner=CFG.sampler_learner,
                                   annotations=annotations)
-        save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            pkl.dump(self._nsrts, f)
+        # TODO fix this!!!
+        # save_path = utils.get_approach_save_path_str()
+        # with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
+        #     pkl.dump(self._nsrts, f)
         if CFG.compute_sidelining_objective_value:
             self._compute_sidelining_objective_value(trajectories)
 
