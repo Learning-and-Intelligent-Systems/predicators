@@ -460,8 +460,6 @@ def _run_episode(
                 start_time = time.perf_counter()
                 act = cogman.step(obs)
                 metrics["policy_call_time"] += time.perf_counter() - start_time
-                if act is None:
-                    break
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env
@@ -471,6 +469,9 @@ def _run_episode(
                 if monitor is not None:
                     monitor.observe(obs, act)
                     monitor_observed = True
+                if act is None:
+                    exception_raised_in_step = True
+                    break
                 obs = env.step(act)
                 actions.append(act)
                 observations.append(obs)
