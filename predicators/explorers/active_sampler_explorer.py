@@ -11,8 +11,8 @@ from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import run_task_plan_once
 from predicators.settings import CFG
 from predicators.structs import NSRT, ExplorationStrategy, GroundAtom, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option
+    NSRTSampler, ParameterizedOption, Predicate, State, Task, Type, \
+    _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 class ActiveSamplerExplorer(BaseExplorer):
@@ -27,12 +27,12 @@ class ActiveSamplerExplorer(BaseExplorer):
     starts planning to practice.
     """
 
-    def __init__(
-            self, predicates: Set[Predicate],
-            options: Set[ParameterizedOption], types: Set[Type],
-            action_space: Box, train_tasks: List[Task],
-            max_steps_before_termination: int, nsrts: Set[NSRT],
-            ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]]) -> None:
+    def __init__(self, predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task],
+                 max_steps_before_termination: int, nsrts: Set[NSRT],
+                 ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
+                 nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler]) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"
@@ -44,6 +44,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
+        self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
 
     @classmethod
     def get_name(cls) -> str:
@@ -91,7 +92,14 @@ class ActiveSamplerExplorer(BaseExplorer):
             if next_practice_nsrt is not None and \
                 next_practice_nsrt.preconditions.issubset(atoms):
                 g: Set[GroundAtom] = set()  # goal assumed unused
-                option = next_practice_nsrt.sample_option(state, g, self._rng)
+                logging.debug(
+                    f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
+                exploration_sampler = self._nsrt_to_explorer_sampler[
+                    next_practice_nsrt.parent]
+                practice_nsrt_for_exploration = next_practice_nsrt.copy_with(
+                    _sampler=exploration_sampler)
+                option = practice_nsrt_for_exploration.sample_option(
+                    state, g, self._rng)
                 next_practice_nsrt = None
                 current_policy = None
                 return option
