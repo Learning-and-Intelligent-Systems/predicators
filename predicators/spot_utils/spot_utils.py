@@ -331,7 +331,7 @@ class _SpotInterface():
         waypoints = ["tool_room_table", "low_wall_rack"]
         objects_to_find = object_names - set(object_views.keys())
         obj_name_to_loc = self._scan_for_objects(waypoints, objects_to_find)
-        for obj_name in object_names:
+        for obj_name in objects_to_find:
             assert obj_name in obj_name_to_loc, \
                 f"Did not locate object {obj_name}!"
             object_views[obj_name] = obj_name_to_loc[obj_name]
