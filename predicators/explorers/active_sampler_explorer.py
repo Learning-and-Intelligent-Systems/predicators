@@ -81,7 +81,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_goal_reached and \
                 assigned_task.goal_holds(state):
-                logging.debug(
+                logging.info(
                     f"[Explorer] Reached assigned goal: {assigned_task.goal}")
                 assigned_task_goal_reached = True
                 current_policy = None
@@ -111,7 +111,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                     next_practice_nsrt = self._get_practice_ground_nsrt()
                     goal = next_practice_nsrt.preconditions
                 task = Task(state, goal)
-                logging.debug(f"[Explorer] Replanning to {task.goal}")
+                logging.info(f"[Explorer] Replanning to {task.goal}")
                 current_policy = self._get_option_policy_for_task(task)
 
             # Query the current policy.
@@ -153,8 +153,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         atoms = utils.abstract(state, self._predicates)
         success = nsrt.add_effects.issubset(atoms) and \
             not nsrt.delete_effects & atoms
-        logging.debug(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
-        logging.debug(f"[Explorer]   outcome: {success}")
+        logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
+        logging.info(f"[Explorer]   outcome: {success}")
+        if not success:
+            if nsrt.add_effects - atoms:
+                logging.info(f"[Explorer]   missing: {nsrt.add_effects - atoms}")
+            if nsrt.delete_effects & atoms:
+                logging.info(f"[Explorer]   extra: {nsrt.delete_effects & atoms}")
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
@@ -162,7 +167,7 @@ class ActiveSamplerExplorer(BaseExplorer):
 
     def _get_practice_ground_nsrt(self) -> _GroundNSRT:
         best_op = max(self._ground_op_hist, key=self._score_ground_op)
-        logging.debug(f"[Explorer] Practicing {best_op.name}{best_op.objects}")
+        logging.info(f"[Explorer] Practicing {best_op.name}{best_op.objects}")
         nsrt = [n for n in self._nsrts if n.op == best_op.parent][0]
         return nsrt.ground(best_op.objects)
 
@@ -189,13 +194,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         num_tries = len(history)
         success_rate = sum(history) / num_tries
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        logging.debug(f"[Explorer] {ground_op.name}{ground_op.objects} has")
-        logging.debug(f"[Explorer]   success rate: {success_rate}")
+        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        logging.info(f"[Explorer]   success rate: {success_rate}")
         # UCB-like bonus.
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
-        logging.debug(f"[Explorer]   num attempts: {num_tries}")
+        logging.info(f"[Explorer]   num attempts: {num_tries}")
         # Try less successful operators more often.
         score = (1.0 - success_rate) + bonus
-        logging.debug(f"[Explorer]   total score: {score}")
+        logging.info(f"[Explorer]   total score: {score}")
         return score
