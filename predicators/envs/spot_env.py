@@ -431,7 +431,7 @@ class SpotEnv(BaseEnv):
         with open(outfile, "w", encoding="utf-8") as f:
             json.dump(json_dict, f, indent=4)
         logging.info(f"Dumped task to {outfile}. Rename it to save it.")
-        return [task]
+        return task
 
     @abc.abstractmethod
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
