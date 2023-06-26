@@ -16,8 +16,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Collection, Dict, FrozenSet, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
+    Optional, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -1079,6 +1079,74 @@ def _sesame_plan_with_fast_downward(
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
             raise e
+
+
+def run_task_plan_once(
+        task: Task,
+        nsrts: Set[NSRT],
+        preds: Set[Predicate],
+        types: Set[Type],
+        timeout: float,
+        seed: int,
+        task_planning_heuristic: Optional[str] = None,
+        **kwargs: Any
+) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
+    """Get a single abstract plan for a task."""
+
+    init_atoms = utils.abstract(task.init, preds)
+    goal = task.goal
+    objects = set(task.init)
+
+    start_time = time.perf_counter()
+
+    if CFG.sesame_task_planner == "astar":
+        ground_nsrts, reachable_atoms = task_plan_grounding(
+            init_atoms, objects, nsrts)
+        assert task_planning_heuristic is not None
+        heuristic = utils.create_task_planning_heuristic(
+            task_planning_heuristic, init_atoms, goal, ground_nsrts, preds,
+            objects)
+        duration = time.perf_counter() - start_time
+        timeout -= duration
+        plan, atoms_seq, metrics = next(
+            task_plan(init_atoms,
+                      goal,
+                      ground_nsrts,
+                      reachable_atoms,
+                      heuristic,
+                      seed,
+                      timeout,
+                      max_skeletons_optimized=1,
+                      use_visited_state_set=True,
+                      **kwargs))
+    elif "fd" in CFG.sesame_task_planner:  # pragma: no cover
+        fd_exec_path = os.environ["FD_EXEC_PATH"]
+        exec_str = os.path.join(fd_exec_path, "fast-downward.py")
+        timeout_cmd = "gtimeout" if sys.platform == "darwin" \
+            else "timeout"
+        # Run Fast Downward followed by cleanup. Capture the output.
+        assert "FD_EXEC_PATH" in os.environ, \
+            "Please follow instructions in the docstring of the" +\
+            "_sesame_plan_with_fast_downward method in planning.py"
+        if CFG.sesame_task_planner == "fdopt":
+            alias_flag = "--alias seq-opt-lmcut"
+        elif CFG.sesame_task_planner == "fdsat":
+            alias_flag = "--alias lama-first"
+        else:
+            raise ValueError("Unrecognized sesame_task_planner: "
+                             f"{CFG.sesame_task_planner}")
+
+        sas_file = generate_sas_file_for_fd(task, nsrts, preds, types, timeout,
+                                            timeout_cmd, alias_flag, exec_str,
+                                            list(objects), init_atoms)
+        plan, atoms_seq, metrics = fd_plan_from_sas_file(
+            sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
+            list(objects), init_atoms, nsrts, CFG.horizon)
+    else:
+        raise ValueError("Unrecognized sesame_task_planner: "
+                         f"{CFG.sesame_task_planner}")
+
+    return plan, atoms_seq, metrics
 
 
 class PlanningFailure(utils.ExceptionWithInfo):

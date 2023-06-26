@@ -211,7 +211,8 @@ class CoverEnv(BaseEnv):
         plt.xlim(-0.2, 1.2)
         plt.ylim(-0.25, 0.5)
         plt.yticks([])
-        plt.legend()
+        if len(list(state)) < 8:  # disable legend if there are many objects
+            plt.legend()
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
@@ -757,7 +758,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
         # Draw blocks
         for i, block in enumerate(state.get_objects(self._block_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw = state.get(block, "width")
             bh = state.get(block, "height")
@@ -778,7 +779,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             ax.add_patch(rect)
         # Draw targets
         for i, targ in enumerate(state.get_objects(self._target_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             rect = plt.Rectangle(
                 (state.get(targ, "x") - state.get(targ, "width") / 2., 0.0),
                 state.get(targ, "width"),
@@ -1052,23 +1053,25 @@ class BumpyCoverEnv(CoverEnvRegrasp):
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
         assert len(CFG.cover_block_widths) == len(blocks)
+        want_block_in_bumpy = rng.uniform() < CFG.bumpy_cover_init_bumpy_prob
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):
-            while True:
-                bp = CFG.bumpy_cover_init_bumpy_prob
-                if self._bumps_regional and rng.uniform() < bp:
-                    lb = max(width / 2, CFG.bumpy_cover_bumpy_region_start)
-                else:
-                    lb = width / 2
-                ub = 1.0 - width / 2
-                pose = rng.uniform(lb, ub)
-                if not self._any_intersection(pose, width, data):
-                    break
-            # [is_block, is_target, width, pose, grasp, bumpy]
             if i % 2 == 0:
                 bumpy = 1.0
             else:
                 bumpy = 0.0
+            while True:
+                if self._bumps_regional and want_block_in_bumpy and bumpy:
+                    lb = max(width / 2, CFG.bumpy_cover_bumpy_region_start)
+                    ub = 1.0 - width / 2
+                    want_block_in_bumpy = False
+                else:
+                    lb = width / 2
+                    ub = CFG.bumpy_cover_bumpy_region_start - width / 2
+                pose = rng.uniform(lb, ub)
+                if not self._any_intersection(pose, width, data):
+                    break
+            # [is_block, is_target, width, pose, grasp, bumpy]
             data[block] = np.array([1.0, 0.0, width, pose, -1.0, bumpy])
         # [hand, pose_x, pose_z]
         data[self._robot] = np.array([0.5, self.workspace_x, self.workspace_z])
@@ -1105,13 +1108,21 @@ class BumpyCoverEnv(CoverEnvRegrasp):
 
 
 class RegionalBumpyCoverEnv(BumpyCoverEnv):
-    """Variation of bumpy cover where bumpy appear only in a region."""
+    """Variation of bumpy cover where bumpy appear only in a region.
+
+    Unlike the parent class, blocks can be placed anywhere once held.
+    The focus is completely on picking bumpy objects.
+    """
 
     _allow_free_space_placing: ClassVar[bool] = True
     _bumps_regional: ClassVar[bool] = True
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        assert not CFG.bumpy_cover_right_targets, \
+            ("Right targets are meaningless in the regional variation because "
+            "the agent can place anywhere. The only hard part is picking.")
 
         self._InBumpyRegion = Predicate("InBumpyRegion", [self._block_type],
                                         self._InBumpyRegion_holds)
@@ -1127,6 +1138,13 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
     def predicates(self) -> Set[Predicate]:
         return super().predicates | {self._InBumpyRegion, self._InSmoothRegion}
 
+    def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
+        # If a block is held, allow placing anywhere in this environment.
+        if not self._HandEmpty_holds(state, []):
+            return [(0.0, 1.0)]
+        # Otherwise, choose hand regions carefully.
+        return super()._get_hand_regions(state)
+
     def render_state_plt(
             self,
             state: State,
@@ -1136,7 +1154,8 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
         fig = super().render_state_plt(state, task, action, caption)
         x = CFG.bumpy_cover_bumpy_region_start
         plt.plot([x, x], [-100, 100], color="gray", label="bump region lb")
-        plt.legend()
+        if len(list(state)) < 8:  # disable legend if there are many objects
+            plt.legend()
         return fig
 
     def _InBumpyRegion_holds(self, state: State,
