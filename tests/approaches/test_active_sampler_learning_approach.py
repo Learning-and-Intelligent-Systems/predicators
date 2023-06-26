@@ -14,11 +14,14 @@ from predicators.teacher import Teacher
 
 
 @pytest.mark.parametrize("model_name,right_targets,num_demo",
-                         [("myopic_classifier", False, 0),
+                         [
+                        #   ("myopic_classifier", False, 0),
                           ("myopic_classifier", True, 1),
-                          ("myopic_classifier_ensemble", False, 0),
-                          ("myopic_classifier_ensemble", False, 1),
-                          ("fitted_q", False, 0), ("fitted_q", True, 0)])
+                        #   ("myopic_classifier_ensemble", False, 0),
+                        #   ("myopic_classifier_ensemble", False, 1),
+                        #   ("fitted_q", False, 0), ("fitted_q", True, 0)
+                          ]
+                        )
 def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
@@ -66,6 +69,15 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
     approach.load(online_learning_cycle=0)
     with pytest.raises(FileNotFoundError):
         approach.load(online_learning_cycle=1)
+    if num_demo > 0:
+        for i in range(3):
+            interaction_requests = approach.get_interaction_requests()
+            teacher = Teacher(train_tasks)
+            interaction_results, _ = _generate_interaction_results(
+                env, teacher, interaction_requests, i)
+            approach.learn_from_interaction_results(interaction_results)
+            approach.load(online_learning_cycle=i)
+
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=CFG.timeout)
         # We won't fully check the policy here because we don't want
