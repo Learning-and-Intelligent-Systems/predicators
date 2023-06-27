@@ -873,6 +873,10 @@ class SpotBikeEnv(SpotEnv):
         assert obj_name_to_apriltag_id.get(obj_on.name) is not None
         assert obj_name_to_apriltag_id.get(obj_surface.name) is not None
 
+        spot, = state.get_objects(self._robot_type)
+        if self._holding_tool_classifier(state, [spot, obj_on]):
+            return False
+
         obj_on_pose = [
             state.get(obj_on, "x"),
             state.get(obj_on, "y"),
