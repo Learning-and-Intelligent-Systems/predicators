@@ -22,6 +22,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         return _segment_with_contact_changes(trajectory)
     if CFG.segmenter == "every_step":
         return _segment_with_switch_function(trajectory, lambda _: True)
+    if CFG.segmenter == "spot":
+        return _segment_with_spot_changes(trajectory)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
 
@@ -94,6 +96,25 @@ def _segment_with_option_changes(
     def _switch_fn(t: int) -> bool:
         # Segment by checking whether the option changes on the next step.
         option_t = traj.actions[t].get_option()
+        # As a special case, if this is the last timestep, then use the
+        # option's terminal function to check if it completed.
+        if t == len(traj.actions) - 1:
+            return option_t.terminal(traj.states[t + 1])
+        return option_t is not traj.actions[t + 1].get_option()
+
+    return _segment_with_switch_function(trajectory, _switch_fn)
+
+
+def _segment_with_spot_changes(trajectory: GroundAtomTrajectory) -> List[Segment]:
+
+    traj, _ = trajectory
+
+    def _switch_fn(t: int) -> bool:
+        # TODO explain
+        act = traj.actions[t]
+        if not act.has_option():
+            return False
+        option_t = act.get_option()
         # As a special case, if this is the last timestep, then use the
         # option's terminal function to check if it completed.
         if t == len(traj.actions) - 1:

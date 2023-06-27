@@ -19,6 +19,7 @@ ARGS:
 FLAGS:
   strips_learner: "oracle"
   sampler_learner: "oracle"
+  segmenter: "spot"
   bilevel_plan_without_sim: "True"
   max_initial_demos: 0
   num_train_tasks: 1000  # doesn't really matter
