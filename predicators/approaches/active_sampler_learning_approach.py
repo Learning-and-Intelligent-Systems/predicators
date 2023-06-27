@@ -252,6 +252,11 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         with open(save_path, "wb") as f:
             pkl.dump(classifier, f)
         logging.info(f"Saved sampler classifier to {save_path}.")
+        save_path = f"{approach_save_path}_{nsrt.name}_" + \
+            f"{self._online_learning_cycle}.sampler_classifier_data"
+        with open(save_path, "wb") as f:
+            pkl.dump((X_arr_classifier, y_arr_classifier), f)
+        logging.info(f"Saved sampler classifier data to {save_path}.")
 
         # Easiest way to access the base sampler.
         base_sampler = nsrt._sampler  # pylint: disable=protected-access
