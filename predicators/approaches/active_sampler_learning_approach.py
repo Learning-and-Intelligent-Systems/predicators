@@ -137,9 +137,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
-        return ground_nsrt.add_effects.issubset(
-            segment.final_atoms) and not ground_nsrt.delete_effects.issubset(
-                segment.final_atoms)
+        return ground_nsrt.add_effects.issubset(segment.final_atoms)
 
     def _learn_wrapped_samplers(self,
                                 online_learning_cycle: Optional[int]) -> None:
