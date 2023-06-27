@@ -198,15 +198,12 @@ class ActiveSamplerExplorer(BaseExplorer):
         if nsrt is None:
             return
         atoms = utils.abstract(state, self._predicates)
-        success = nsrt.add_effects.issubset(atoms) and \
-            not nsrt.delete_effects & atoms
+        success = nsrt.add_effects.issubset(atoms)
         logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
         logging.info(f"[Explorer]   outcome: {success}")
         if not success:
             if nsrt.add_effects - atoms:
                 logging.info(f"[Explorer]   missing: {nsrt.add_effects - atoms}")
-            if nsrt.delete_effects & atoms:
-                logging.info(f"[Explorer]   extra: {nsrt.delete_effects & atoms}")
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
