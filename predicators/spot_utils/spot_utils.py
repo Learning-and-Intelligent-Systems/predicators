@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, Sequence, Tuple
+from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -313,13 +313,25 @@ class _SpotInterface():
         return robot_pos
 
     def actively_construct_initial_object_views(
-        self, object_names: Collection[str]
-    ) -> Dict[str, Tuple[float, float, float]]:
+            self,
+            object_names: Set[str]) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
-        waypoints = ["tool_room_table", "low_wall_rack"]
-        obj_name_to_loc = self._scan_for_objects(waypoints, object_names)
         object_views: Dict[str, Tuple[float, float, float]] = {}
-        for obj_name in object_names:
+        if CFG.spot_initialize_surfaces_to_default:
+            object_views = {
+                "tool_room_table":
+                (6.939992779470081, -6.21562847222872, 0.030711182602548265),
+                "extra_room_table":
+                (8.175572738390251, -6.083883265675128, 0.036055057764837),
+                "low_wall_rack":
+                (10.049931203338616, -6.9443170697742, 0.27881268568327966),
+                "toolbag":
+                (7.043112552148553, -8.198686802340527, -0.18750694527153725)
+            }
+        waypoints = ["tool_room_table", "low_wall_rack"]
+        objects_to_find = object_names - set(object_views.keys())
+        obj_name_to_loc = self._scan_for_objects(waypoints, objects_to_find)
+        for obj_name in objects_to_find:
             assert obj_name in obj_name_to_loc, \
                 f"Did not locate object {obj_name}!"
             object_views[obj_name] = obj_name_to_loc[obj_name]

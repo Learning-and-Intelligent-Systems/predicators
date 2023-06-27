@@ -175,6 +175,7 @@ class GlobalSettings:
     spot_grasp_use_apriltag = False
     spot_grasp_use_cv2 = False
     spot_cube_only = False
+    spot_initialize_surfaces_to_default = True
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
