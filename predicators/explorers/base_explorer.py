@@ -58,7 +58,7 @@ class BaseExplorer(abc.ABC):
             if remaining_steps <= 0:
                 logging.info("[Base Explorer] terminating due to max steps")
                 return True
-            logging.info("[Base Explorer] not yet terminating")
+            logging.info(f"[Base Explorer] not yet terminating (remaining steps: {remaining_steps})")
             remaining_steps -= 1
             return False
 

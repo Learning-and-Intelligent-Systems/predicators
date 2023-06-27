@@ -103,7 +103,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             if next_practice_nsrt is not None and \
                 next_practice_nsrt.preconditions.issubset(atoms):
                 logging.info(
-                    f"[Explorer] Reached NSRT to practice: {next_practice_nsrt}")
+                    f"[Explorer] Reached NSRT to practice: {next_practice_nsrt.name}{next_practice_nsrt.objects}")
                 g: Set[GroundAtom] = set()  # goal assumed unused
                 option = next_practice_nsrt.sample_option(state, g, self._rng)
                 next_practice_nsrt = None
@@ -125,7 +125,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                             "No ground operators to practice yet")
                     next_practice_nsrt = self._get_practice_ground_nsrt()
                     goal = next_practice_nsrt.preconditions
-                    logging.info(f"[Explorer] Pursuing NRST preconditions {next_practice_nsrt}")
+                    logging.info(f"[Explorer] Pursuing NRST preconditions {next_practice_nsrt.name}{next_practice_nsrt.objects}")
                 task = Task(state, goal)
                 logging.info(f"[Explorer] Replanning to {task.goal}")
                 current_policy = self._get_option_policy_for_task(task)
