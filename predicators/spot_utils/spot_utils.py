@@ -608,13 +608,13 @@ class _SpotInterface():
             "floor": (0.0, 0.0, -1.0)
         }
         for waypoint_name in waypoints:
+            if set(objects_to_find).issubset(set(obj_poses)):
+                logging.info("All objects located!")
+                break
             waypoint = get_memorized_waypoint(waypoint_name)
             assert waypoint is not None
             waypoint_id, offset = waypoint
             self.navigate_to(waypoint_id, offset)
-            if set(objects_to_find).issubset(set(obj_poses)):
-                logging.info("All objects located!")
-                break
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
                 objects_in_view_by_camera = self.get_objects_in_view_by_camera(
