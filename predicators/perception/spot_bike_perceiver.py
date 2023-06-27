@@ -43,16 +43,16 @@ class SpotBikePerceiver(BasePerceiver):
         self._waiting_for_observation = True
         self._curr_env = get_or_create_env("spot_bike_env")
         assert isinstance(self._curr_env, SpotBikeEnv)
-        self._known_object_poses: Dict[Object, Tuple[float, float, float]] = {}
-        self._known_objects_in_hand_view: Set[Object] = set()
-        self._robot: Optional[Object] = None
-        self._nonpercept_atoms: Set[GroundAtom] = set()
-        self._nonpercept_predicates: Set[Predicate] = set()
-        self._prev_action: Optional[Action] = None
+        self._known_object_poses = {}
+        self._known_objects_in_hand_view = set()
+        self._robot = None
+        self._nonpercept_atoms = set()
+        self._nonpercept_predicates = set()
+        self._prev_action = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
         self._robot_pos = (0.0, 0.0, 0.0)
-        self._lost_objects: Set[Object] = set()
+        self._lost_objects = set()
         init_state = self._create_state()
         return Task(init_state, env_task.goal)
 
@@ -71,6 +71,7 @@ class SpotBikePerceiver(BasePerceiver):
         if self._prev_action is not None:
             controller_name, objects, _ = self._curr_env.parse_action(
                 self._prev_action)
+            logging.info(f"[Perceiver] Previous action was {controller_name}.")
             # The robot is always the 0th argument of an
             # operator!
             if "grasp" in controller_name.lower():
@@ -84,9 +85,9 @@ class SpotBikePerceiver(BasePerceiver):
                 # if we successfully picked something.
                 if self._gripper_open_percentage > 1.5:
                     self._holding_item_id_feature = grasp_obj_id
-                    logging.info(f"Grabbed item id: {grasp_obj_id}")
                 else:
                     # We lost the object!
+                    logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(object_attempted_to_grasp)
             elif "place" in controller_name.lower():
                 self._holding_item_id_feature = 0.0
@@ -99,6 +100,7 @@ class SpotBikePerceiver(BasePerceiver):
                     is_on = ontop_classifier(state, [obj, surface])
                     if not is_on:
                         # We lost the object!
+                        logging.info("[Perceiver] Object was lost!")
                         self._lost_objects.add(obj)
             else:
                 # We ensure the holding item feature is set
@@ -121,6 +123,7 @@ class SpotBikePerceiver(BasePerceiver):
                             if o.name == obj_name
                         ][0]
                         # We lost the object!
+                        logging.info("[Perceiver] Object was lost!")
                         self._lost_objects.add(obj)
 
         return self._create_state()

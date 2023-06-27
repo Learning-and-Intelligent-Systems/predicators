@@ -8,6 +8,7 @@ whether to re-query the approach at each time step based on the states.
 
 The name "CogMan" is due to Leslie Kaelbling.
 """
+import logging
 from typing import Callable, List, Optional, Sequence, Set
 
 from predicators.approaches import BaseApproach
@@ -36,6 +37,7 @@ class CogMan:
 
     def reset(self, env_task: EnvironmentTask) -> None:
         """Start a new episode of environment interaction."""
+        logging.info("[CogMan] Reset called.")
         task = self._perceiver.reset(env_task)
         self._current_goal = task.goal
         self._reset_policy(task)
@@ -47,6 +49,7 @@ class CogMan:
 
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
+        logging.info("[CogMan] Step called.")
         state = self._perceiver.step(observation)
         # Replace the first step because the state was already added in reset().
         if not self._episode_action_history:
@@ -54,9 +57,11 @@ class CogMan:
         else:
             self._episode_state_history.append(state)
         if self._termination_fn is not None and self._termination_fn(state):
+            logging.info("[CogMan] Termination triggered.")
             return None
         # Check if we should replan.
         if self._exec_monitor.step(state):
+            logging.info("[CogMan] Replanning triggered.")
             assert self._current_goal is not None
             task = Task(state, self._current_goal)
             self._reset_policy(task)
@@ -70,10 +75,12 @@ class CogMan:
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
         self._episode_action_history.append(act)
+        logging.info("[CogMan] Returning action.")
         return act
 
     def finish_episode(self, observation: Observation) -> None:
         """Called at the end of an episode."""
+        logging.info("[CogMan] Finishing episode.")
         if len(self._episode_state_history) == len(
                 self._episode_action_history):
             try:
