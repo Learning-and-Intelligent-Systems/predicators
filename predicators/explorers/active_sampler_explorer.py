@@ -73,6 +73,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         next_practice_nsrt: Optional[_GroundNSRT] = None
 
         def _option_policy(state: State) -> _Option:
+            logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task_goal_reached, current_policy, \
                 next_practice_nsrt
 
@@ -90,6 +91,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             # then immediately execute it.
             if next_practice_nsrt is not None and \
                 next_practice_nsrt.preconditions.issubset(atoms):
+                logging.info(
+                    f"[Explorer] Reached NSRT to practice: {next_practice_nsrt}")
                 g: Set[GroundAtom] = set()  # goal assumed unused
                 option = next_practice_nsrt.sample_option(state, g, self._rng)
                 next_practice_nsrt = None
@@ -101,6 +104,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 # If the assigned goal hasn't yet been reached, try for it.
                 if not assigned_task_goal_reached:
                     goal = assigned_task.goal
+                    logging.info(f"[Explorer] Pursuing assigned task goal: {goal}")
                 # Otherwise, practice.
                 else:
                     # If there are no ground NSRTs that we've tried so far,
@@ -110,6 +114,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                             "No ground operators to practice yet")
                     next_practice_nsrt = self._get_practice_ground_nsrt()
                     goal = next_practice_nsrt.preconditions
+                    logging.info(f"[Explorer] Pursuing NRST preconditions {next_practice_nsrt}")
                 task = Task(state, goal)
                 logging.info(f"[Explorer] Replanning to {task.goal}")
                 current_policy = self._get_option_policy_for_task(task)
@@ -120,6 +125,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 act = current_policy(state)
                 return act
             except utils.OptionExecutionFailure:
+                logging.info(f"[Explorer] Option execution failure!")
                 current_policy = None
             # Call recursively to trigger re-planning.
             return _option_policy(state)
