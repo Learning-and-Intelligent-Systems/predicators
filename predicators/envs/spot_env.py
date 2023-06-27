@@ -989,10 +989,8 @@ class SpotBikeEnv(SpotEnv):
     def _generate_task_goal(self) -> Set[GroundAtom]:
         if CFG.spot_cube_only:
             cube = self._obj_name_to_obj("cube")
-            # extra_table = self._obj_name_to_obj("extra_room_table")
-            # return {GroundAtom(self._On, [cube, extra_table])}
-            floor = self._obj_name_to_obj("floor")
-            return {GroundAtom(self._OnFloor, [cube, floor])}
+            extra_table = self._obj_name_to_obj("extra_room_table")
+            return {GroundAtom(self._On, [cube, extra_table])}
         hammer = self._obj_name_to_obj("hammer")
         hex_key = self._obj_name_to_obj("hex_key")
         brush = self._obj_name_to_obj("brush")
