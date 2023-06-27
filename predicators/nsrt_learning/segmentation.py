@@ -109,30 +109,18 @@ def _segment_with_spot_changes(trajectory: GroundAtomTrajectory) -> List[Segment
 
     traj, _ = trajectory
 
-    last_option = None
-
     def _switch_fn(t: int) -> bool:
-        nonlocal last_option
         # TODO explain
         act = traj.actions[t]
-        action_had_option = act.has_option()
-        if not action_had_option:
-            assert last_option is not None
+        if not act.has_option():
+            assert t > 0
+            last_act = traj.actions[t-1]
+            last_option = last_act.get_option()
             act.set_option(last_option)
-        # As a special case, if this is the last timestep, then use the
-        # option's terminal function to check if it completed.
         if t == len(traj.actions) - 1:
-            if last_option is None:
-                return False
-            return last_option.terminal(traj.states[t + 1])
-        if not action_had_option:
-            return False
-        option_t = act.get_option()
-        last_option = option_t
-        next_act = traj.actions[t + 1]
-        if not next_act.has_option():
-            return False
-        return option_t is not next_act.get_option()
+            return True
+        next_action_has_option = traj.actions[t + 1].has_option()
+        return next_action_has_option
 
     return _segment_with_switch_function(trajectory, _switch_fn)
 
