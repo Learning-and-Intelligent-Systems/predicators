@@ -35,6 +35,8 @@ class CogMan:
         self._current_goal = task.goal
         self._current_policy = self._approach.solve(task, timeout=CFG.timeout)
         self._exec_monitor.reset(task)
+        self._exec_monitor.update_approach_info(
+            self._approach.get_execution_monitoring_info())
 
     def step(self, observation: Observation) -> Action:
         """Receive an observation and produce an action."""
@@ -46,8 +48,12 @@ class CogMan:
             new_policy = self._approach.solve(task, timeout=CFG.timeout)
             self._current_policy = new_policy
             self._exec_monitor.reset(task)
+            self._exec_monitor.update_approach_info(
+                self._approach.get_execution_monitoring_info())
         assert self._current_policy is not None
         act = self._current_policy(state)
+        self._exec_monitor.update_approach_info(
+            self._approach.get_execution_monitoring_info())
         return act
 
     # The methods below provide an interface to the approach. In the future,
