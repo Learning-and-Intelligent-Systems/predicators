@@ -133,7 +133,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 act = current_policy(state)
                 return act
             except utils.OptionExecutionFailure:
-                logging.info(f"[Explorer] Option execution failure!")
+                logging.info("[Explorer] Option execution failure!")
                 current_policy = None
             # Call recursively to trigger re-planning.
             return _option_policy(state)
