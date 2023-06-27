@@ -809,6 +809,27 @@ class SpotBikeEnv(SpotEnv):
                                                   [spot, tool, surface],
                                                   preconds, add_effs, del_effs,
                                                   set())
+        # PlaceToolOnFloor
+        spot = Variable("?robot", self._robot_type)
+        tool = Variable("?tool", self._tool_type)
+        floor = Variable("?floor", self._floor_type)
+        preconds = {
+            LiftedAtom(self._HoldingTool, [spot, tool]),
+            LiftedAtom(self._notHandEmpty, [spot]),
+        }
+        add_effs = {
+            LiftedAtom(self._OnFloor, [tool, floor]),
+        }
+        del_effs = {
+            LiftedAtom(self._HoldingTool, [spot, tool]),
+            LiftedAtom(self._notHandEmpty, [spot]),
+        }
+        self._PlaceToolOnFloorOp = STRIPSOperator("PlaceToolOnFloor",
+                                                  [spot, tool, floor],
+                                                  preconds, add_effs, del_effs,
+                                                  set())
+            
+    
         # PlaceIntoBag
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -842,6 +863,7 @@ class SpotBikeEnv(SpotEnv):
             self._GraspToolFromHighOp,
             self._GraspBagOp,
             self._PlaceToolNotHighOp,
+            self._PlaceToolOnFloorOp,
             self._PlaceIntoBagOp,
             self._MoveToToolOnFloorOp,
             self._GraspToolFromFloorOp,
@@ -967,8 +989,10 @@ class SpotBikeEnv(SpotEnv):
     def _generate_task_goal(self) -> Set[GroundAtom]:
         if CFG.spot_cube_only:
             cube = self._obj_name_to_obj("cube")
-            extra_table = self._obj_name_to_obj("extra_room_table")
-            return {GroundAtom(self._On, [cube, extra_table])}
+            # extra_table = self._obj_name_to_obj("extra_room_table")
+            # return {GroundAtom(self._On, [cube, extra_table])}
+            floor = self._obj_name_to_obj("floor")
+            return {GroundAtom(self._OnFloor, [cube, floor])}
         hammer = self._obj_name_to_obj("hammer")
         hex_key = self._obj_name_to_obj("hex_key")
         brush = self._obj_name_to_obj("brush")

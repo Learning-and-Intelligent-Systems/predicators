@@ -90,12 +90,17 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del goal
+
+            obj = objs[2]
+            if obj.name == "floor":
+                # Drop right in front of spot
+                return np.array([0.5, 0.0, 0.0])
+
             # Get graph_nav to body frame.
             gn_state = _spot_interface.get_localized_state()
             gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
                 gn_state.localization.seed_tform_body)
 
-            obj = objs[2]
             # Apply transform to fiducial pose to get relative body location.
             body_tform_fiducial = gn_origin_tform_body.inverse(
             ).transform_point(state.get(obj, "x"), state.get(obj, "y"),
