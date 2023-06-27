@@ -124,7 +124,10 @@ def _segment_with_spot_changes(trajectory: GroundAtomTrajectory) -> List[Segment
         # option's terminal function to check if it completed.
         if t == len(traj.actions) - 1:
             return option_t.terminal(traj.states[t + 1])
-        return option_t is not traj.actions[t + 1].get_option()
+        next_act = traj.actions[t + 1]
+        if not next_act.has_option():
+            return False
+        return option_t is not next_act.get_option()
 
     return _segment_with_switch_function(trajectory, _switch_fn)
 
