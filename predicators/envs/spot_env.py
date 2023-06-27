@@ -112,6 +112,7 @@ def _create_dummy_predicate_classifier(
 _SPECIAL_ACTIONS = {
     "find": 0,
     "stow": 1,
+    "done": 2,
 }
 
 
@@ -129,6 +130,7 @@ class SpotEnv(BaseEnv):
         # class because they're used to update the symbolic
         # parts of the state during execution.
         self._strips_operators: Set[STRIPSOperator] = set()
+        self._current_task_goal_reached = False
 
     @property
     def _ordered_strips_operators(self) -> List[STRIPSOperator]:
@@ -257,10 +259,26 @@ class SpotEnv(BaseEnv):
         self._spot_interface.lease_client.take()
         self._current_task = self._actively_construct_env_task()
         self._current_observation = self._current_task.init_obs
+        self._current_task_goal_reached = False
         return self._current_task.init_obs
 
     def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
+        # Check if the action is the special "done" action. If so, ask the
+        # human if the task was actually accomplished.
+        if np.allclose(action.arr, self.get_special_action("done").arr):
+            while True:
+                logging.info(f"The goal is: {self._current_task.goal}")
+                response = input("Is this goal accomplished? [y/n]: ").strip()
+                if response == "y":
+                    self._current_task_goal_reached = True
+                    break
+                if response == "n":
+                    self._current_task_goal_reached = False
+                    break
+                logging.info("Invalid input, must be either 'y' or 'n'")
+            return self._current_observation
+
         obs = self._current_observation
         assert isinstance(obs, _SpotObservation)
         assert self.action_space.contains(action.arr)
@@ -278,9 +296,7 @@ class SpotEnv(BaseEnv):
         return self._current_observation
 
     def goal_reached(self) -> bool:
-        # We need to implement this! But we're just watching it work for now.
-        # We might want to implement this by literally asking for human input.
-        return False
+        return self._current_task_goal_reached
 
     def _build_observation(self,
                            ground_atoms: Set[GroundAtom]) -> _SpotObservation:

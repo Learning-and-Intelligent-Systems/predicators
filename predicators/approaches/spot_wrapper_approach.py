@@ -52,6 +52,9 @@ class SpotWrapperApproach(BaseApproachWrapper):
 
         def _policy(state: State) -> Action:
             nonlocal base_approach_policy, need_stow
+            # If we think that we're done, return the done action.
+            if task.goal_holds(state):
+                return self._get_special_action("done")
             # If some objects are lost, find them.
             lost_objects: Set[Object] = set()
             for obj in state:
