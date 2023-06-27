@@ -8,6 +8,7 @@ whether to re-query the approach at each time step based on the states.
 
 The name "CogMan" is due to Leslie Kaelbling.
 """
+import logging
 from typing import Callable, List, Optional, Sequence, Set
 
 from predicators.approaches import BaseApproach
@@ -36,38 +37,54 @@ class CogMan:
 
     def reset(self, env_task: EnvironmentTask) -> None:
         """Start a new episode of environment interaction."""
+        logging.info("[CogMan] Reset called.")
         task = self._perceiver.reset(env_task)
         self._current_goal = task.goal
         self._reset_policy(task)
         self._exec_monitor.reset(task)
+        self._exec_monitor.update_approach_info(
+            self._approach.get_execution_monitoring_info())
         self._episode_state_history = [task.init]
         self._episode_action_history = []
 
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
+        logging.info("[CogMan] Step called.")
         state = self._perceiver.step(observation)
-        # Skip the first step because the state was already added in reset().
+        # Replace the first step because the state was already added in reset().
         if not self._episode_action_history:
-            assert state.allclose(self._episode_state_history[0])
+            self._episode_state_history[0] = state
         else:
             self._episode_state_history.append(state)
         if self._termination_fn is not None and self._termination_fn(state):
+            logging.info("[CogMan] Termination triggered.")
             return None
         # Check if we should replan.
         if self._exec_monitor.step(state):
+            logging.info("[CogMan] Replanning triggered.")
             assert self._current_goal is not None
             task = Task(state, self._current_goal)
             self._reset_policy(task)
             self._exec_monitor.reset(task)
+            self._exec_monitor.update_approach_info(
+                self._approach.get_execution_monitoring_info())
+            assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
         act = self._current_policy(state)
+        self._perceiver.update_perceiver_with_action(act)
+        self._exec_monitor.update_approach_info(
+            self._approach.get_execution_monitoring_info())
         self._episode_action_history.append(act)
+        logging.info("[CogMan] Returning action.")
         return act
 
     def finish_episode(self, observation: Observation) -> None:
         """Called at the end of an episode."""
-        state = self._perceiver.step(observation)
-        self._episode_state_history.append(state)
+        logging.info("[CogMan] Finishing episode.")
+        if len(self._episode_state_history) == len(
+                self._episode_action_history):
+            state = self._perceiver.step(observation)
+            self._episode_state_history.append(state)
 
     # The methods below provide an interface to the approach. In the future,
     # we may want to move some of these methods into cogman properly, e.g.,

@@ -55,7 +55,7 @@ from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
 from predicators.perception import create_perceiver
-from predicators.settings import CFG
+from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
     InteractionResult, Metrics, Observation, Task
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
@@ -171,7 +171,11 @@ def _run_pipeline(env: BaseEnv,
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=None)
-        teacher = Teacher(train_tasks)
+        # Only create a teacher if there are possibly queries coming.
+        if get_allowed_query_type_names():
+            teacher = Teacher(train_tasks)
+        else:
+            teacher = None
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:
@@ -221,7 +225,7 @@ def _run_pipeline(env: BaseEnv,
 def _generate_interaction_results(
         cogman: CogMan,
         env: BaseEnv,
-        teacher: Teacher,
+        teacher: Optional[Teacher],
         requests: Sequence[InteractionRequest],
         cycle_num: Optional[int] = None
 ) -> Tuple[List[InteractionResult], float]:
@@ -237,8 +241,11 @@ def _generate_interaction_results(
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
-        monitor = TeacherInteractionMonitorWithVideo(env.render, request,
-                                                     teacher)
+        if teacher is not None:
+            monitor = TeacherInteractionMonitorWithVideo(
+                env.render, request, teacher)
+        else:
+            monitor = None
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
         env_task = env.get_train_tasks()[request.train_task_idx]
@@ -257,15 +264,19 @@ def _generate_interaction_results(
             monitor=monitor)
         cogman.unset_override_policy()
         cogman.unset_termination_function()
-        request_responses = monitor.get_responses()
-        query_cost += monitor.get_query_cost()
         traj = cogman.get_current_history()
+        if teacher is not None:
+            request_responses = monitor.get_responses()
+            query_cost += monitor.get_query_cost()
+        else:
+            request_responses = [None for _ in traj.states]
         assert len(traj.states) == len(observed_traj[0])
         assert len(traj.actions) == len(observed_traj[1])
         result = InteractionResult(traj.states, traj.actions,
                                    request_responses)
         results.append(result)
         if CFG.make_interaction_videos:
+            assert teacher is not None
             video.extend(monitor.get_video())
     if CFG.make_interaction_videos:
         save_prefix = utils.get_config_path_str()
@@ -470,7 +481,6 @@ def _run_episode(
                     monitor.observe(obs, act)
                     monitor_observed = True
                 if act is None:
-                    exception_raised_in_step = True
                     break
                 obs = env.step(act)
                 actions.append(act)
@@ -483,13 +493,12 @@ def _run_episode(
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(obs, None)
-                    cogman.finish_episode(obs)
                 raise e
             if env.goal_reached():
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(obs, None)
-        cogman.finish_episode(obs)
+    cogman.finish_episode(obs)
     traj = (observations, actions)
     solved = env.goal_reached()
     return traj, solved, metrics
