@@ -78,7 +78,17 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
             self, results: Sequence[InteractionResult]) -> None:
         # Add the new data to the cumulative dataset.
         for result in results:
-            traj = LowLevelTrajectory(result.states, result.actions)
+            # TODO unhack
+            kept_states, kept_actions = [result.states[0]], []
+            for t in range(len(result.actions)):
+                act = result.actions[t]
+                state = result.states[t+1]
+                # Exclude 'special' actions.
+                if "spot" in CFG.env and not act.has_option():
+                    continue
+                kept_states.append(state)
+                kept_actions.append(act)
+            traj = LowLevelTrajectory(kept_states, kept_actions)
             self._update_dataset(traj)
         # Re-learn the NSRTs.
         annotations = None
