@@ -309,7 +309,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         self._x_dims = tuple(X.shape[1:])
         assert y.shape == (num_data, )
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
-                     "datapoints")
+                     f"datapoints ({sum(y)} positive)")
         # If there is only one class in the data, then there's no point in
         # learning, since any predictions other than that one class could
         # only be generalization issues.

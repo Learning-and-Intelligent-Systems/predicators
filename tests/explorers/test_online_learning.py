@@ -117,7 +117,7 @@ def test_interaction():
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     _run_pipeline(env, cogman, train_tasks, dataset)
     utils.update_config({
-        "approach": "nsrt_learning",
+        "approach": "bridge_policy",
         "load_data": True,
         "make_interaction_videos": False,
     })

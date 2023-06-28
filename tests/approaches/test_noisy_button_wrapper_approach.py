@@ -41,3 +41,8 @@ def test_noisy_button_wrapper_approach(base_name, check_solved):
     task = train_tasks[0]
     env.render_state_plt(task.init, task, caption="caption")
     env.render_state_plt(task.init, task, action=Action([0.5, 0.0]))
+    # Cover the inherited methods.
+    approach.learn_from_offline_dataset([])
+    approach.load(None)
+    approach.get_interaction_requests()
+    approach.learn_from_interaction_results([])

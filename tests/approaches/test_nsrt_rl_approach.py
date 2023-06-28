@@ -5,9 +5,12 @@ import pytest
 from predicators import utils
 from predicators.approaches.nsrt_rl_approach import \
     NSRTReinforcementLearningApproach
+from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverMultistepOptions
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.main import _generate_interaction_results
+from predicators.perception import create_perceiver
 from predicators.structs import InteractionResult, Task
 from predicators.teacher import Teacher
 
@@ -57,12 +60,15 @@ def test_nsrt_reinforcement_learning_approach(nsrt_rl_reward_epsilon):
                                                       env.action_space,
                                                       train_tasks)
     teacher = Teacher(train_tasks)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
     dataset = create_dataset(env, train_tasks, {})
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     interaction_requests = approach.get_interaction_requests()
     interaction_results, _ = _generate_interaction_results(
-        env, teacher, interaction_requests)
+        cogman, env, teacher, interaction_requests)
     # Hack the last interaction result to be non-trivial. Note that this
     # requires hacking approach._requests_info as well, since that is used
     # in learn_from_interaction_results().

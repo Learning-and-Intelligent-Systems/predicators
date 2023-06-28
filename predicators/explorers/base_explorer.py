@@ -1,6 +1,7 @@
 """Base class for an explorer."""
 
 import abc
+import logging
 from typing import List, Set
 
 import numpy as np
@@ -52,9 +53,18 @@ class BaseExplorer(abc.ABC):
         def wrapped_termination_fn(state: State) -> bool:
             nonlocal remaining_steps
             if termination_fn(state):
+                logging.info("[Base Explorer] terminating due to term fn")
                 return True
             if remaining_steps <= 0:
+                logging.info("[Base Explorer] terminating due to max steps")
                 return True
+            steps_taken = self._max_steps_before_termination - remaining_steps
+            actual_remaining_steps = min(
+                remaining_steps,
+                CFG.max_num_steps_interaction_request - steps_taken)
+            logging.info(
+                "[Base Explorer] not yet terminating (remaining steps: "
+                f"{actual_remaining_steps})")
             remaining_steps -= 1
             return False
 

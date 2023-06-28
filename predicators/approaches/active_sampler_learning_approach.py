@@ -22,7 +22,8 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ml_models import MLPBinaryClassifier, MLPRegressor
+from predicators.ml_models import BinaryClassifierEnsemble, \
+    MLPBinaryClassifier, MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
@@ -55,6 +56,12 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
         self._last_seen_segment_traj_idx = -1
 
+        # For certain methods, we may want the NSRTs used for exploration to
+        # differ from those used for execution (they will differ precisely
+        # in their sampler). Thus, we will keep around a separate mapping from
+        # NSRTs to samplers to be used at exploration time.
+        self._nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
+
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler_learning"
@@ -64,16 +71,18 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         b = CFG.active_sampler_learning_explore_length_base
         max_steps = b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
-        explorer = create_explorer(CFG.explorer,
-                                   preds,
-                                   self._initial_options,
-                                   self._types,
-                                   self._action_space,
-                                   self._train_tasks,
-                                   self._get_current_nsrts(),
-                                   self._option_model,
-                                   ground_op_hist=self._ground_op_hist,
-                                   max_steps_before_termination=max_steps)
+        explorer = create_explorer(
+            CFG.explorer,
+            preds,
+            self._initial_options,
+            self._types,
+            self._action_space,
+            self._train_tasks,
+            self._get_current_nsrts(),
+            self._option_model,
+            ground_op_hist=self._ground_op_hist,
+            max_steps_before_termination=max_steps,
+            nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler)
         return explorer
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
@@ -102,8 +111,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 o = segment.get_option()
                 ns = segment.states[-1]
                 success = self._check_option_success(o, segment)
-                assert CFG.env in ("bumpy_cover", "regional_bumpy_cover")
                 if CFG.active_sampler_learning_use_teacher:
+                    assert CFG.env in ("bumpy_cover", "regional_bumpy_cover")
                     if CFG.bumpy_cover_right_targets:
                         # In bumpy cover with the 'bumpy_cover_right_targets'
                         # flag set, picking from the left is bad and can
@@ -123,7 +132,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                         if o.name == "Place" and just_made_incorrect_pick:
                             continue
 
-                if CFG.active_sampler_learning_model == "myopic_classifier":
+                if CFG.active_sampler_learning_model in [
+                        "myopic_classifier", "myopic_classifier_ensemble"
+                ]:
                     label: Any = success
                 else:
                     assert CFG.active_sampler_learning_model == "fitted_q"
@@ -137,15 +148,24 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
-        return ground_nsrt.add_effects.issubset(
-            segment.final_atoms) and not ground_nsrt.delete_effects.issubset(
-                segment.final_atoms)
+        # Only the add effects are checked to determine option success. This
+        # is fine for our cover environments, but will probably break in
+        # other environments (for instance, if we accidentally delete
+        # atoms that are actually necessary for a future operator in the
+        # plan). The right thing to do here is check the necessary atoms,
+        # which we will do in a forthcoming PR.
+        return ground_nsrt.add_effects.issubset(segment.final_atoms)
 
     def _learn_wrapped_samplers(self,
                                 online_learning_cycle: Optional[int]) -> None:
         """Update the NSRTs in place."""
         if CFG.active_sampler_learning_model == "myopic_classifier":
             learner: _WrappedSamplerLearner = _ClassifierWrappedSamplerLearner(
+                self._get_current_nsrts(), self._get_current_predicates(),
+                online_learning_cycle)
+        elif CFG.active_sampler_learning_model == "myopic_classifier_ensemble":
+            learner = \
+                _ClassifierEnsembleWrappedSamplerLearner(
                 self._get_current_nsrts(), self._get_current_predicates(),
                 online_learning_cycle)
         else:
@@ -157,22 +177,26 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         learner.learn(self._sampler_data)
         wrapped_samplers = learner.get_samplers()
         # Update the NSRTs.
-        new_nsrts = set()
-        for nsrt, sampler in wrapped_samplers.items():
-            # Create new NSRT.
-            new_nsrt = NSRT(nsrt.name, nsrt.parameters, nsrt.preconditions,
-                            nsrt.add_effects, nsrt.delete_effects,
-                            nsrt.ignore_effects, nsrt.option, nsrt.option_vars,
-                            sampler)
-            new_nsrts.add(new_nsrt)
+        new_test_nsrts: Set[NSRT] = set()
+        self._nsrt_to_explorer_sampler.clear()
+        for nsrt, (test_sampler, explore_sampler) in wrapped_samplers.items():
+            # Create new test NSRT.
+            new_test_nsrt = NSRT(nsrt.name, nsrt.parameters,
+                                 nsrt.preconditions, nsrt.add_effects,
+                                 nsrt.delete_effects, nsrt.ignore_effects,
+                                 nsrt.option, nsrt.option_vars, test_sampler)
+            new_test_nsrts.add(new_test_nsrt)
+            # Update the dictionary mapping NSRTs to exploration samplers.
+            self._nsrt_to_explorer_sampler[nsrt] = explore_sampler
         # Special case, especially on the first iteration: if there was no
         # data for the sampler, then we didn't learn a wrapped sampler, so
         # we should just use the original NSRT.
-        new_nsrt_options = {n.option for n in new_nsrts}
+        new_nsrt_options = {n.option for n in new_test_nsrts}
         for old_nsrt in self._nsrts:
             if old_nsrt.option not in new_nsrt_options:
-                new_nsrts.add(old_nsrt)
-        self._nsrts = new_nsrts
+                new_test_nsrts.add(old_nsrt)
+                self._nsrt_to_explorer_sampler[old_nsrt] = old_nsrt._sampler  # pylint: disable=protected-access
+        self._nsrts = new_test_nsrts
         # Re-save the NSRTs now that we've updated them.
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
@@ -188,26 +212,30 @@ class _WrappedSamplerLearner(abc.ABC):
         self._predicates = predicates
         self._online_learning_cycle = online_learning_cycle
         self._rng = np.random.default_rng(CFG.seed)
-        self._learned_samplers: Optional[Dict[NSRT, NSRTSampler]] = None
+        # We keep track of two samplers per NSRT: one to use at test time
+        # and another to use during exploration/play time.
+        self._learned_samplers: Optional[Dict[NSRT, Tuple[NSRTSampler,
+                                                          NSRTSampler]]] = None
 
     def learn(self, data: _SamplerDataset) -> None:
         """Fit all of the samplers."""
-        new_samplers: Dict[NSRT, NSRTSampler] = {}
+        new_samplers: Dict[NSRT, Tuple[NSRTSampler, NSRTSampler]] = {}
         for param_opt, nsrt_data in data.items():
             nsrt = utils.param_option_to_nsrt(param_opt, self._nsrts)
             logging.info(f"Fitting wrapped sampler for {nsrt.name}...")
             new_samplers[nsrt] = self._learn_nsrt_sampler(nsrt_data, nsrt)
         self._learned_samplers = new_samplers
 
-    def get_samplers(self) -> Dict[NSRT, NSRTSampler]:
+    def get_samplers(self) -> Dict[NSRT, Tuple[NSRTSampler, NSRTSampler]]:
         """Expose the fitted samplers, organized by NSRTs."""
         assert self._learned_samplers is not None
         return self._learned_samplers
 
     @abc.abstractmethod
     def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> NSRTSampler:
-        """Learn the sampler for a single NSRT and return it."""
+                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
+        """Learn the new test-time and exploration samplers for a single NSRT
+        and return them."""
 
 
 class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
@@ -215,7 +243,7 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
     use the probability of predicting True to select parameters."""
 
     def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> NSRTSampler:
+                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
         X_classifier: List[List[Array]] = []
         y_classifier: List[int] = []
         for state, option, _, label in nsrt_data:
@@ -259,7 +287,68 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         score_fn = _classifier_to_score_fn(classifier, nsrt)
         wrapped_sampler = _wrap_sampler(base_sampler, score_fn)
 
-        return wrapped_sampler
+        return (wrapped_sampler, wrapped_sampler)
+
+
+class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
+    """Using boolean class labels on transitions, learn an ensemble of
+    classifiers, and then use the entropy among the predictions, as well as the
+    probability of predicting True to select parameters."""
+
+    def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
+                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
+        X_classifier: List[List[Array]] = []
+        y_classifier: List[int] = []
+        for state, option, _, label in nsrt_data:
+            objects = option.objects
+            params = option.params
+            # input is state features and option parameters
+            X_classifier.append([np.array(1.0)])  # start with bias term
+            for obj in objects:
+                X_classifier[-1].extend(state[obj])
+            X_classifier[-1].extend(params)
+            assert not CFG.sampler_learning_use_goals
+            y_classifier.append(label)
+        X_arr_classifier = np.array(X_classifier)
+        # output is binary signal
+        y_arr_classifier = np.array(y_classifier)
+        classifier = BinaryClassifierEnsemble(
+            seed=CFG.seed,
+            ensemble_size=CFG.active_sampler_learning_num_ensemble_members,
+            member_cls=MLPBinaryClassifier,
+            balance_data=CFG.mlp_classifier_balance_data,
+            max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+            learning_rate=CFG.learning_rate,
+            n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+            hid_sizes=CFG.mlp_classifier_hid_sizes,
+            n_reinitialize_tries=CFG.
+            sampler_mlp_classifier_n_reinitialize_tries,
+            weight_init=CFG.predicate_mlp_classifier_init,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every)
+        classifier.fit(X_arr_classifier, y_arr_classifier)
+
+        # Save the sampler classifier for external analysis.
+        approach_save_path = utils.get_approach_save_path_str()
+        save_path = f"{approach_save_path}_{nsrt.name}_" + \
+            f"{self._online_learning_cycle}.sampler_classifier"
+        with open(save_path, "wb") as f:
+            pkl.dump(classifier, f)
+        logging.info(f"Saved sampler classifier to {save_path}.")
+
+        # Easiest way to access the base sampler.
+        base_sampler = nsrt._sampler  # pylint: disable=protected-access
+        test_score_fn = _classifier_ensemble_to_score_fn(classifier,
+                                                         nsrt,
+                                                         test_time=True)
+        test_wrapped_sampler = _wrap_sampler(base_sampler, test_score_fn)
+        explore_score_fn = _classifier_ensemble_to_score_fn(classifier,
+                                                            nsrt,
+                                                            test_time=False)
+        explore_wrapped_sampler = _wrap_sampler(base_sampler, explore_score_fn)
+
+        return (test_wrapped_sampler, explore_wrapped_sampler)
 
 
 class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
@@ -281,7 +370,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
             self._nsrt_score_fns = self._next_nsrt_score_fns
 
     def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> NSRTSampler:
+                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
         # Build targets.
         gamma = CFG.active_sampler_learning_score_gamma
         num_a_samp = CFG.active_sampler_learning_num_next_option_samples
@@ -312,7 +401,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         # Save the score function for use in later target computation.
         self._next_nsrt_score_fns[nsrt] = score_fn
         wrapped_sampler = _wrap_sampler(base_sampler, score_fn)
-        return wrapped_sampler
+        return (wrapped_sampler, wrapped_sampler)
 
     def _predict(self, state: State, option: _Option) -> float:
         """Predict Q(s, a)."""
@@ -426,6 +515,19 @@ def _vector_score_fn_to_score_fn(vector_fn: Callable[[Array], float],
 def _classifier_to_score_fn(classifier: MLPBinaryClassifier,
                             nsrt: NSRT) -> _ScoreFn:
     return _vector_score_fn_to_score_fn(classifier.predict_proba, nsrt)
+
+
+def _classifier_ensemble_to_score_fn(classifier: BinaryClassifierEnsemble,
+                                     nsrt: NSRT, test_time: bool) -> _ScoreFn:
+    if test_time:
+        return _vector_score_fn_to_score_fn(
+            lambda x: np.mean(classifier.predict_member_probas(x), dtype=float
+                              ), nsrt)
+    # If we want the exploration score function, then we need to compute the
+    # entropy.
+    return _vector_score_fn_to_score_fn(
+        lambda x: utils.entropy(
+            float(np.mean(classifier.predict_member_probas(x)))), nsrt)
 
 
 def _regressor_to_score_fn(regressor: MLPRegressor, nsrt: NSRT) -> _ScoreFn:
