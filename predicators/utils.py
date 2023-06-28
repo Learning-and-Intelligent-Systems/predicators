@@ -11,11 +11,13 @@ import importlib
 import io
 import itertools
 import logging
-import pyttsx3
+from playsound import playsound
+from gtts import gTTS
 import os
 import pkgutil
 import re
 import subprocess
+import tempfile
 import sys
 import time
 from argparse import ArgumentParser
@@ -258,11 +260,9 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
 
 def prompt_user(prompt: str) -> str:
     """Ask the user for input with voice and text."""
-    engine = pyttsx3.init()
-    engine.setProperty("rate", 125)
-    engine.say(prompt)
-    engine.runAndWait()
-    engine.stop()
+    with tempfile.NamedTemporaryFile() as voice:
+        gTTS(text=prompt, lang="en").write_to_fp(voice)
+        playsound(voice.name)
     return input(prompt)
 
 

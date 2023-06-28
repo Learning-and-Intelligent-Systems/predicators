@@ -37,7 +37,10 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 return np.array([0.5, 0.0, 0.0])
             # Sample dyaw so that there is some hope of seeing objects from
             # different angles.
-            dyaw = rng.uniform(-np.pi / 8, np.pi / 8)
+            if any("table" in o.name for o in objs):
+                dyaw = rng.uniform(-np.pi / 32, np.pi / 32)
+            else:
+                dyaw = rng.uniform(-np.pi / 8, np.pi / 8)
             # For MoveToObjOnFloor
             if len(objs) == 3:
                 if objs[2].name == "floor":
