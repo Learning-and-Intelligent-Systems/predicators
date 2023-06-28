@@ -893,6 +893,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         """Cluster segments from the atom_dataset into clusters corresponding
         to operators and use this to select predicates."""
 
+        # given_clear = None
+        # learned_clear = None
+        # for p in initial_predicates:
+        #     if p.name == "Clear":
+        #         given_clear = p
+        # for p in candidates.keys():
+        #     if p.name == "Forall[0:block].[NOT-On(0,1)]":
+        #         learned_clear = p
+        # import pdb; pdb.set_trace()
+
         if CFG.grammar_search_pred_clusterer == "option-types-sample":
             # Algorithm:
             # Step 1: cluster by option
@@ -918,13 +928,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for option, segments in option_to_segments.items():
                 clusters = {}
                 for seg in segments:
-                    # temp = list(seg.add_effects)
-                    # unique_objects_involved = set()
-                    # for add_effect in temp:
-                    #     for o in add_effect.objects:
-                    #         unique_objects_involved.add(o)
-                    # import pdb; pdb.set_trace()
-                    types = tuple(sorted(list(set.union(*[set(a.predicate.types) for a in seg.add_effects]))))
+                    all_types = [set(a.predicate.types) for a in seg.add_effects]
+                    if len(all_types) == 0 or len(set.union(*all_types)) == 0:
+                        # Either there are no add effects, or the add effects
+                        # are just empty sets (which would happen if the add
+                        # effects only involved Forall predicates with no
+                        # object arguments). The former happens in
+                        # repeated_nextto.
+                        continue
+                    types = tuple(sorted(list(set.union(*all_types))))
                     if types in clusters:
                         clusters[types].append(seg)
                     else:
@@ -933,6 +945,25 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # for t in clusters.keys():
                     # print("type: ", t)
                 for c in clusters.values():
+
+                    # debug_pred = "Forall[0:block].[NOT-On(0,1)]"
+                    # debug_pred = "Clear"
+                    # if c[0].get_option().name in ["Stack", "PutOnTable"]:
+                    #     print("TESTING IF PRED FOUND IN", c[0].get_option().name)
+                    #     # see if the clear predicate is in any segment's add effects
+                    #     exists = False
+                    #     import pdb; pdb.set_trace()
+                    #     for s in c:
+                    #         objs_start = list(s.states[0].data.keys())
+                    #         objs_end = list(s.states[-1].data.keys())
+                    #         debug_set2 = list(a.predicate for a in s.add_effects)
+                    #         debug_set = set(a.predicate.name for a in s.add_effects)
+                    #         if debug_pred in debug_set:
+                    #             print("DEBUG PRED FOUND")
+                    #     print("DEBUG PRED NOT FOUND in ", c[0].get_option().name)
+                    #     import pdb; pdb.set_trace()
+
+
                     all_clusters.append(c)
                     # print("len of this cluster: ", len(c))
                     # !c[0].get_option()
@@ -1004,6 +1035,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for add_effects in add_effects_per_segment:
                     ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
                 add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+
+                # debug_pred = "Forall[0:block].[NOT-On(0,1)]"
+                # if c[0].get_option().name in ["Stack", "PutOnTable"]:
+                #     print("TESTING IF PRED FOUND IN", c[0].get_option().name)
+                #     # see if the clear predicate is in any segment's add effects
+                #     exists = False
+                #     for s in c:
+                #         debug_set = set(a.predicate.name for a in s.add_effects)
+                #         if debug_pred in debug_set:
+                #             print("DEBUG PRED FOUND")
+                #     print("DEBUG PRED NOT FOUND")
+
                 all_add_effects |= add_effects
 
             # logging.info(
@@ -1138,15 +1181,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # import pdb; pdb.set_trace()
 
             # predicates to try removing
-            remove = [
-                "NOT-OnTable",
-                "NOT-On",
-                "Forall[1:block].[NOT-On(0,1)]",
-                "NOT-Forall[0:block].[NOT-On(0,1)]",
-                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
-            ]
-            predicates_to_keep = set([pred for pred in predicates_to_keep if pred.name not in remove])
+            # remove = [
+            #     "NOT-OnTable",
+            #     "NOT-On",
+            #     "Forall[1:block].[NOT-On(0,1)]",
+            #     "NOT-Forall[0:block].[NOT-On(0,1)]",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
+            # ]
+            # predicates_to_keep = set([pred for pred in predicates_to_keep if pred.name not in remove])
             # import pdb; pdb.set_trace()
 
             return predicates_to_keep
