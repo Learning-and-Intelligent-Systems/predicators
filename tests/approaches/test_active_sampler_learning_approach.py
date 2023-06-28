@@ -4,13 +4,13 @@ import pytest
 from predicators import utils
 from predicators.approaches.active_sampler_learning_approach import \
     ActiveSamplerLearningApproach
-from predicators.datasets import create_dataset
 from predicators.cogman import CogMan
-from predicators.execution_monitoring import create_execution_monitor
-from predicators.perception import create_perceiver
+from predicators.datasets import create_dataset
 from predicators.envs.cover import BumpyCoverEnv
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
+from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Dataset
 from predicators.teacher import Teacher
@@ -66,8 +66,8 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
     perceiver = create_perceiver("trivial")
     exec_monitor = create_execution_monitor("trivial")
     cogman = CogMan(approach, perceiver, exec_monitor)
-    interaction_results, _ = _generate_interaction_results(cogman,
-        env, teacher, interaction_requests)
+    interaction_results, _ = _generate_interaction_results(
+        cogman, env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=0)
     with pytest.raises(FileNotFoundError):

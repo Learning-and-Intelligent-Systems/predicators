@@ -9,15 +9,15 @@ import predicators.approaches.bridge_policy_approach
 import predicators.bridge_policies.oracle_bridge_policy
 import predicators.teacher
 from predicators import utils
-from predicators.cogman import CogMan
-from predicators.execution_monitoring import create_execution_monitor
-from predicators.perception import create_perceiver
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.bridge_policy_approach import BridgePolicyApproach
 from predicators.bridge_policies import BridgePolicyDone
+from predicators.cogman import CogMan
 from predicators.envs import get_or_create_env
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
+from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Action, DemonstrationResponse, DummyOption, \
     InteractionResult, LowLevelTrajectory, STRIPSOperator
