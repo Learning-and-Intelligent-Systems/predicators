@@ -28,11 +28,11 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
-try:
+try:  # pragma: no cover
     from gtts import gTTS
     from playsound import playsound
     _TTS_AVAILABLE = True
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # pragma: no cover
     _TTS_AVAILABLE = False
 
 import imageio
@@ -263,9 +263,9 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
     return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
 
 
-def prompt_user(prompt: str) -> str:
+def prompt_user(prompt: str) -> str:  # pragma: no cover
     """Ask the user for input with voice and text."""
-    if _TTS_AVAILABLE:  # pragma: no cover
+    if _TTS_AVAILABLE:
         with tempfile.NamedTemporaryFile() as voice:
             gTTS(text=prompt, lang="en").write_to_fp(voice)
             playsound(voice.name)

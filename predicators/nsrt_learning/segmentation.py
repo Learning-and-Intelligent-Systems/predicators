@@ -22,7 +22,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         return _segment_with_contact_changes(trajectory)
     if CFG.segmenter == "every_step":
         return _segment_with_switch_function(trajectory, lambda _: True)
-    if CFG.segmenter == "spot":
+    if CFG.segmenter == "spot":  # pragma: no cover
         return _segment_with_spot_changes(trajectory)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
@@ -106,7 +106,7 @@ def _segment_with_option_changes(
 
 
 def _segment_with_spot_changes(
-        trajectory: GroundAtomTrajectory) -> List[Segment]:
+        trajectory: GroundAtomTrajectory) -> List[Segment]:  # pragma: no cover
 
     traj, _ = trajectory
 

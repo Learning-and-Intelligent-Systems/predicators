@@ -55,7 +55,7 @@ class BaseExplorer(abc.ABC):
         # easy, so I'm punting it for now.
         need_stow = False
 
-        def wrapped_policy(state: State) -> Action:
+        def wrapped_policy(state: State) -> Action:  # pragma: no cover
             nonlocal need_stow
 
             if "spot" not in CFG.env:
