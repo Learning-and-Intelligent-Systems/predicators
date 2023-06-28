@@ -73,14 +73,22 @@ START_SEED: 123
 NUM_SEEDS: 10
 
 # Experiment comparing random_nsrts exploration to active_sampler exploration
-# in the regional bumpy cover environment. Use fewer online learning requests
-# per cycle because we're only learning the pick bumpy classifier.
+# both with and without an ensemble in the regional bumpy cover environment.
+# Use fewer online learning requests per cycle because we're only learning
+the pick bumpy classifier.
 ---
 APPROACHES:
+  # No ensemble approach
   main:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
+  # Approach with ensemble
+  ensemble:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_learning_model: "myopic_classifier_ensemble"
   # Random explore baseline
   random-explore:
     NAME: "active_sampler_learning"

@@ -1,6 +1,7 @@
 """Base class for an explorer."""
 
 import abc
+import logging
 from typing import List, Set
 import logging
 
@@ -59,8 +60,12 @@ class BaseExplorer(abc.ABC):
                 logging.info("[Base Explorer] terminating due to max steps")
                 return True
             steps_taken = self._max_steps_before_termination - remaining_steps
-            actual_remaining_steps = min(remaining_steps, CFG.max_num_steps_interaction_request - steps_taken)
-            logging.info(f"[Base Explorer] not yet terminating (remaining steps: {actual_remaining_steps})")
+            actual_remaining_steps = min(
+                remaining_steps,
+                CFG.max_num_steps_interaction_request - steps_taken)
+            logging.info(
+                "[Base Explorer] not yet terminating (remaining steps: "
+                f"{actual_remaining_steps})")
             remaining_steps -= 1
             return False
 

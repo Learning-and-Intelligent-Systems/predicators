@@ -38,12 +38,12 @@ class ActiveSamplerExplorer(BaseExplorer):
     starts planning to practice.
     """
 
-    def __init__(
-            self, predicates: Set[Predicate],
-            options: Set[ParameterizedOption], types: Set[Type],
-            action_space: Box, train_tasks: List[Task],
-            max_steps_before_termination: int, nsrts: Set[NSRT],
-            ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]]) -> None:
+    def __init__(self, predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task],
+                 max_steps_before_termination: int, nsrts: Set[NSRT],
+                 ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
+                 nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler]) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"
@@ -55,6 +55,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
+        self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
 
     @classmethod
     def get_name(cls) -> str:
@@ -102,10 +103,15 @@ class ActiveSamplerExplorer(BaseExplorer):
             # then immediately execute it.
             if next_practice_nsrt is not None and \
                 next_practice_nsrt.preconditions.issubset(atoms):
-                logging.info(
-                    f"[Explorer] Reached NSRT to practice: {next_practice_nsrt.name}{next_practice_nsrt.objects}")
                 g: Set[GroundAtom] = set()  # goal assumed unused
-                option = next_practice_nsrt.sample_option(state, g, self._rng)
+                logging.info(
+                    f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
+                exploration_sampler = self._nsrt_to_explorer_sampler[
+                    next_practice_nsrt.parent]
+                practice_nsrt_for_exploration = next_practice_nsrt.copy_with(
+                    _sampler=exploration_sampler)
+                option = practice_nsrt_for_exploration.sample_option(
+                    state, g, self._rng)
                 next_practice_nsrt = None
                 current_policy = None
                 return option
@@ -115,7 +121,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                 # If the assigned goal hasn't yet been reached, try for it.
                 if not assigned_task_goal_reached:
                     goal = assigned_task.goal
-                    logging.info(f"[Explorer] Pursuing assigned task goal: {goal}")
+                    logging.info(
+                        f"[Explorer] Pursuing assigned task goal: {goal}")
                 # Otherwise, practice.
                 else:
                     # If there are no ground NSRTs that we've tried so far,
@@ -124,8 +131,10 @@ class ActiveSamplerExplorer(BaseExplorer):
                         raise utils.OptionExecutionFailure(
                             "No ground operators to practice yet")
                     next_practice_nsrt = self._get_practice_ground_nsrt()
+                    logging.info("[Explorer] Pursuing NRST preconditions "
+                                 f"{next_practice_nsrt.name}"
+                                 f"{next_practice_nsrt.objects}")
                     goal = next_practice_nsrt.preconditions
-                    logging.info(f"[Explorer] Pursuing NRST preconditions {next_practice_nsrt.name}{next_practice_nsrt.objects}")
                 task = Task(state, goal)
                 logging.info(f"[Explorer] Replanning to {task.goal}")
                 current_policy = self._get_option_policy_for_task(task)
@@ -136,7 +145,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 act = current_policy(state)
                 return act
             except utils.OptionExecutionFailure:
-                logging.info(f"[Explorer] Option execution failure!")
+                logging.info("[Explorer] Option execution failure!")
                 current_policy = None
             # Call recursively to trigger re-planning.
             return _option_policy(state)
@@ -198,12 +207,15 @@ class ActiveSamplerExplorer(BaseExplorer):
         if nsrt is None:
             return
         atoms = utils.abstract(state, self._predicates)
+        # NOTE: checking just the add effects doesn't work in general, but
+        # is probably fine for now. The right thing to do here is check
+        # the necessary atoms, which we will compute with a utility function
+        # and then use in a forthcoming PR.
         success = nsrt.add_effects.issubset(atoms)
         logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
         logging.info(f"[Explorer]   outcome: {success}")
         if not success:
-            if nsrt.add_effects - atoms:
-                logging.info(f"[Explorer]   missing: {nsrt.add_effects - atoms}")
+            logging.info(f"[Explorer]   missing: {nsrt.add_effects - atoms}")
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []

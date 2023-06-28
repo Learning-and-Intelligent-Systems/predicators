@@ -176,6 +176,7 @@ class GlobalSettings:
     spot_grasp_use_cv2 = False
     spot_cube_only = False
     spot_initialize_surfaces_to_default = True
+    spot_fiducial_size = 44.45
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
@@ -534,6 +535,7 @@ class GlobalSettings:
     active_sampler_learning_fitted_q_iters = 5
     active_sampler_learning_num_next_option_samples = 5
     active_sampler_learning_explore_length_base = 2
+    active_sampler_learning_num_ensemble_members = 10
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator

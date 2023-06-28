@@ -358,9 +358,9 @@ class _SpotInterface():
         return state
 
     def get_apriltag_pose_from_camera(
-            self,
-            source_name: str = "hand_color_image",
-            fiducial_size: float = 44.45
+        self,
+        source_name: str = "hand_color_image",
+        fiducial_size: float = CFG.spot_fiducial_size,
     ) -> Dict[int, Tuple[float, float, float]]:
         """Get the poses of all fiducials in camera view.
 

@@ -65,8 +65,10 @@ PLOT_GROUPS = {
             lambda v: "bumpy_cover-teacher_classifier" in v)),
     ],
     "Regional Bumpy Cover": [
-        ("Active Explore", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-main" in v)),
+        ("Active Explore No Ensemble", "blue", lambda df: df["EXPERIMENT_ID"].
+         apply(lambda v: "regional_bumpy_cover-main" in v)),
+        ("Active Explore Ensemble", "green", lambda df: df["EXPERIMENT_ID"].
+         apply(lambda v: "regional_bumpy_cover-ensemble" in v)),
         ("Random Explore", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random-explore" in v)),
     ],

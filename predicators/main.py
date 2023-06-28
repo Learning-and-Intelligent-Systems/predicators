@@ -55,9 +55,9 @@ from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
 from predicators.perception import create_perceiver
-from predicators.settings import CFG
+from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Observation, Task
+    InteractionResult, Metrics, Observation, Response, Task, Video
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -171,8 +171,11 @@ def _run_pipeline(env: BaseEnv,
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=None)
-        # teacher = Teacher(train_tasks)
-        teacher = None
+        # Only create a teacher if there are possibly queries coming.
+        if get_allowed_query_type_names():
+            teacher = Teacher(train_tasks)
+        else:
+            teacher = None
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:
@@ -232,17 +235,16 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     if CFG.make_interaction_videos:
-        video = []
+        video: Video = []
     for request in requests:
         if request.train_task_idx < CFG.max_initial_demos and \
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
+        monitor: Optional[TeacherInteractionMonitorWithVideo] = None
         if teacher is not None:
             monitor = TeacherInteractionMonitorWithVideo(
                 env.render, request, teacher)
-        else:
-            monitor = None
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
         env_task = env.get_train_tasks()[request.train_task_idx]
@@ -262,18 +264,19 @@ def _generate_interaction_results(
         cogman.unset_override_policy()
         cogman.unset_termination_function()
         traj = cogman.get_current_history()
-        if teacher is not None:
+        request_responses: List[Optional[Response]] = [
+            None for _ in traj.states
+        ]
+        if monitor is not None:
             request_responses = monitor.get_responses()
             query_cost += monitor.get_query_cost()
-        else:
-            request_responses = [None for _ in traj.states]
         assert len(traj.states) == len(observed_traj[0])
         assert len(traj.actions) == len(observed_traj[1])
         result = InteractionResult(traj.states, traj.actions,
                                    request_responses)
         results.append(result)
         if CFG.make_interaction_videos:
-            assert teacher is not None
+            assert monitor is not None
             video.extend(monitor.get_video())
     if CFG.make_interaction_videos:
         save_prefix = utils.get_config_path_str()
@@ -359,11 +362,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 "trajectory": traj,
                 "pybullet_robot": CFG.pybullet_robot
             }
-            # Our spot controllers are not pickleable for annoying reasons,
-            # so don't try to pickle any of these environments.
-            if CFG.env not in ["spot_bike_env", "spot_grocery_env"]:
-                with open(traj_file_path, "wb") as f:
-                    pkl.dump(traj_data, f)
+            with open(traj_file_path, "wb") as f:
+                pkl.dump(traj_data, f)
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
@@ -471,6 +471,8 @@ def _run_episode(
                 start_time = time.perf_counter()
                 act = cogman.step(obs)
                 metrics["policy_call_time"] += time.perf_counter() - start_time
+                if act is None:
+                    break
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env

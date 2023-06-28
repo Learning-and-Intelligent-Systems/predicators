@@ -4,10 +4,13 @@ import pytest
 from predicators import utils
 from predicators.approaches.active_sampler_learning_approach import \
     ActiveSamplerLearningApproach
+from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs.cover import BumpyCoverEnv
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
+from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Dataset
 from predicators.teacher import Teacher
@@ -16,6 +19,8 @@ from predicators.teacher import Teacher
 @pytest.mark.parametrize("model_name,right_targets,num_demo",
                          [("myopic_classifier", False, 0),
                           ("myopic_classifier", True, 1),
+                          ("myopic_classifier_ensemble", False, 0),
+                          ("myopic_classifier_ensemble", False, 1),
                           ("fitted_q", False, 0), ("fitted_q", True, 0)])
 def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
@@ -41,6 +46,7 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
         "active_sampler_learning_fitted_q_iters": 2,
         "active_sampler_learning_num_next_option_samples": 2,
         "bumpy_cover_right_targets": right_targets,
+        "active_sampler_learning_num_ensemble_members": 2,
     })
     env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
@@ -57,8 +63,11 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
     teacher = Teacher(train_tasks)
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
     interaction_results, _ = _generate_interaction_results(
-        env, teacher, interaction_requests)
+        cogman, env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=0)
     with pytest.raises(FileNotFoundError):
