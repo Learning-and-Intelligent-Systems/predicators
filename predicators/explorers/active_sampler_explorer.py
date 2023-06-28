@@ -8,22 +8,12 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.envs import get_or_create_env
-from predicators.envs.spot_env import SpotEnv
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import run_task_plan_once
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, ExplorationStrategy, \
-    GroundAtom, NSRTSampler, Object, ParameterizedOption, Predicate, State, \
-    Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
-
-
-@lru_cache(maxsize=None)
-def _get_special_action(action_name: str) -> Action:
-    env = get_or_create_env(CFG.env)
-    assert isinstance(env, SpotEnv)
-    # In the future, may want to make this object-specific.
-    return env.get_special_action(action_name)
+from predicators.structs import NSRT, ExplorationStrategy, GroundAtom, \
+    NSRTSampler, ParameterizedOption, Predicate, State, Task, Type, \
+    _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 class ActiveSamplerExplorer(BaseExplorer):
@@ -166,44 +156,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Finalize policy.
         policy = utils.option_policy_to_policy(_wrapped_option_policy)
 
-        # Spot wrapper. TODO refactor.
-        if "spot" in CFG.env:
-            need_stow = False
-
-            def final_policy(state: State) -> Action:
-                nonlocal need_stow
-                # If some objects are lost, find them.
-                lost_objects: Set[Object] = set()
-                for obj in state:
-                    if "lost" in obj.type.feature_names and \
-                        state.get(obj, "lost") > 0.5:
-                        lost_objects.add(obj)
-                # Need to find the objects.
-                if lost_objects:
-                    logging.info(
-                        f"[Explorer Spot Wrapper] Lost objects: {lost_objects}"
-                    )
-                    # Reset the base approach policy.
-                    need_stow = True
-                    return _get_special_action("find")
-                # Found the objects. Stow the arm before replanning.
-                if need_stow:
-                    logging.info(
-                        "[Explorer Spot Wrapper] Lost objects found, stowing.")
-                    need_stow = False
-                    return _get_special_action("stow")
-                # Give control back to base policy.
-                logging.info(
-                    "[Explorer Spot Wrapper] Giving control to base policy.")
-                return policy(state)
-
-        else:
-            final_policy = policy
-
         # Never terminate.
         termination_fn = lambda _: False
 
-        return final_policy, termination_fn
+        return policy, termination_fn
 
     def _update_ground_op_hist(self, state: State) -> None:
         """Should be called when an NSRT has just terminated."""
