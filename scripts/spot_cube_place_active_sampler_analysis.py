@@ -74,9 +74,6 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
 
     fig, ax = plt.subplots(1, 1)
 
-    # arbitrarily select first row
-    x_no_param = X[0][:-3]
-
     x_min = 0
     x_max = 4
     y_min = -2
@@ -86,7 +83,14 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
 
     candidates = [(x, y) for x in np.linspace(x_min, x_max, density) for y in np.linspace(y_min, y_max, density)]
     for candidate in candidates:
-        score = classifier.predict_proba(np.r_[x_no_param, candidate])
+        # Average scores over other possible values...?
+        scores = []
+        for standard_x in X:
+            cand_x = standard_x.copy()
+            cand_x[-3:-1] = candidate
+            score = classifier.predict_proba(cand_x)
+            scores.append(score)
+        score = np.mean(scores)
         color = cmap(norm(score))
         circle = plt.Circle(candidate,
                             radius,
