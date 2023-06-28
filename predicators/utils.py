@@ -28,15 +28,20 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
+try:
+    from gtts import gTTS
+    from playsound import playsound
+    _TTS_AVAILABLE = True
+except ModuleNotFoundError:
+    _TTS_AVAILABLE = False
+
 import imageio
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
-from gtts import gTTS
 from gym.spaces import Box
 from matplotlib import patches
-from playsound import playsound
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
@@ -260,9 +265,10 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
 
 def prompt_user(prompt: str) -> str:
     """Ask the user for input with voice and text."""
-    with tempfile.NamedTemporaryFile() as voice:
-        gTTS(text=prompt, lang="en").write_to_fp(voice)
-        playsound(voice.name)
+    if _TTS_AVAILABLE:  # pragma: no cover
+        with tempfile.NamedTemporaryFile() as voice:
+            gTTS(text=prompt, lang="en").write_to_fp(voice)
+            playsound(voice.name)
     return input(prompt)
 
 
