@@ -30,6 +30,7 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
@@ -488,9 +489,10 @@ class _SpotInterface():
 
         # Soon we should implement asking for help here instead of crashing.
         else:
-            input("""Please take control of the robot and make the
+            prompt = """Please take control of the robot and make the
             object become in its view. Hit the 'Enter' key
-            when you're done!""")
+            when you're done!"""
+            utils.prompt_user(prompt)
             self._find_controller_move_queue_idx = 0
             self.lease_client.take()
             return

@@ -11,6 +11,7 @@ import importlib
 import io
 import itertools
 import logging
+import pyttsx3
 import os
 import pkgutil
 import re
@@ -253,6 +254,16 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
     }
     goal_dict = create_json_dict_from_ground_atoms(task.goal)
     return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
+
+
+def prompt_user(prompt: str) -> str:
+    """Ask the user for input with voice and text."""
+    engine = pyttsx3.init()
+    engine.setProperty("rate", 125)
+    engine.say(prompt)
+    engine.runAndWait()
+    engine.stop()
+    return input(prompt)
 
 
 class _Geom2D(abc.ABC):

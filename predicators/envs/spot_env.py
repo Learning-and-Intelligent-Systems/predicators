@@ -255,7 +255,8 @@ class SpotEnv(BaseEnv):
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         # NOTE: task_idx and train_or_test currently ignored!
-        input(f"Set up task {train_or_test} {task_idx}, then press enter!")
+        prompt = f"Set up task {train_or_test} {task_idx}, then press enter!"
+        utils.prompt_user(prompt)
         self._spot_interface.lease_client.take()
         self._current_task = self._actively_construct_env_task()
         self._current_observation = self._current_task.init_obs
@@ -269,7 +270,8 @@ class SpotEnv(BaseEnv):
         if np.allclose(action.arr, self.get_special_action("done").arr):
             while True:
                 logging.info(f"The goal is: {self._current_task.goal}")
-                response = input("Is this goal accomplished? [y/n]: ").strip()
+                prompt = "Is the goal accomplished? Answer y or n. "
+                response = utils.prompt_user(prompt).strip()
                 if response == "y":
                     self._current_task_goal_reached = True
                     break
