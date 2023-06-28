@@ -148,9 +148,12 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
-        # Only the add effects are checked to determine option success. The
-        # philosophy is the same as pre-image backchaining (with positive
-        # preconditions).
+        # Only the add effects are checked to determine option success. This
+        # is fine for our cover environments, but will probably break in
+        # other environments (for instance, if we accidentally delete
+        # atoms that are actually necessary for a future operator in the
+        # plan). The right thing to do here is check the necessary atoms,
+        # which we will do in a forthcoming PR.
         return ground_nsrt.add_effects.issubset(segment.final_atoms)
 
     def _learn_wrapped_samplers(self,

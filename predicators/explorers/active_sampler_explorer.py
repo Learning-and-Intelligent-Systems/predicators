@@ -165,6 +165,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         if nsrt is None:
             return
         atoms = utils.abstract(state, self._predicates)
+        # NOTE: checking just the add effects doesn't work in general, but
+        # is probably fine for now. The right thing to do here is check
+        # the necessary atoms, which we will compute with a utility function
+        # and then use in a forthcoming PR.
         success = nsrt.add_effects.issubset(atoms)
         logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
         logging.info(f"[Explorer]   outcome: {success}")
