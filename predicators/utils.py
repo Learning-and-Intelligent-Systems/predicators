@@ -32,7 +32,7 @@ try:
     from gtts import gTTS
     from playsound import playsound
     _TTS_AVAILABLE = True
-except (ModuleNotFoundError, OSError):
+except ModuleNotFoundError:
     _TTS_AVAILABLE = False
 
 import imageio
