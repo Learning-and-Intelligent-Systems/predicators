@@ -317,7 +317,7 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
             ensemble_size=CFG.active_sampler_learning_num_ensemble_members,
             member_cls=MLPBinaryClassifier,
             balance_data=CFG.mlp_classifier_balance_data,
-            max_train_iters=CFG.predicate_mlp_classifier_max_itr,
+            max_train_iters=CFG.sampler_mlp_classifier_max_itr,
             learning_rate=CFG.learning_rate,
             n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
             hid_sizes=CFG.mlp_classifier_hid_sizes,
