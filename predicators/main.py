@@ -57,7 +57,7 @@ from predicators.ground_truth_models import get_gt_options, \
 from predicators.perception import create_perceiver
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Observation, Task, Video
+    InteractionResult, Metrics, Observation, Response, Task, Video
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -241,11 +241,10 @@ def _generate_interaction_results(
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
+        monitor: Optional[TeacherInteractionMonitorWithVideo] = None
         if teacher is not None:
             monitor = TeacherInteractionMonitorWithVideo(
                 env.render, request, teacher)
-        else:
-            monitor = None
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
         env_task = env.get_train_tasks()[request.train_task_idx]
@@ -265,11 +264,12 @@ def _generate_interaction_results(
         cogman.unset_override_policy()
         cogman.unset_termination_function()
         traj = cogman.get_current_history()
+        request_responses: List[Optional[Response]] = [
+            None for _ in traj.states
+        ]
         if monitor is not None:
             request_responses = monitor.get_responses()
             query_cost += monitor.get_query_cost()
-        else:
-            request_responses = [None for _ in traj.states]
         assert len(traj.states) == len(observed_traj[0])
         assert len(traj.actions) == len(observed_traj[1])
         result = InteractionResult(traj.states, traj.actions,
