@@ -57,7 +57,7 @@ from predicators.ground_truth_models import get_gt_options, \
 from predicators.perception import create_perceiver
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Observation, Task
+    InteractionResult, Metrics, Observation, Task, Video
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -235,7 +235,7 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     if CFG.make_interaction_videos:
-        video = []
+        video: Video = []
     for request in requests:
         if request.train_task_idx < CFG.max_initial_demos and \
             not CFG.allow_interaction_in_demo_tasks:
@@ -265,7 +265,7 @@ def _generate_interaction_results(
         cogman.unset_override_policy()
         cogman.unset_termination_function()
         traj = cogman.get_current_history()
-        if teacher is not None:
+        if monitor is not None:
             request_responses = monitor.get_responses()
             query_cost += monitor.get_query_cost()
         else:
@@ -276,7 +276,7 @@ def _generate_interaction_results(
                                    request_responses)
         results.append(result)
         if CFG.make_interaction_videos:
-            assert teacher is not None
+            assert monitor is not None
             video.extend(monitor.get_video())
     if CFG.make_interaction_videos:
         save_prefix = utils.get_config_path_str()

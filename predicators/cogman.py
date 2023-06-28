@@ -71,7 +71,6 @@ class CogMan:
             assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
         act = self._current_policy(state)
-        self._perceiver.update_perceiver_with_action(act)
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
         self._episode_action_history.append(act)
