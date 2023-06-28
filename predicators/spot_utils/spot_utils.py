@@ -353,7 +353,8 @@ class _SpotInterface():
             if str(state.localization.seed_tform_body) != '':
                 break
             time.sleep(1)
-        assert str(state.localization.seed_tform_body) != ''
+        if str(state.localization.seed_tform_body) == '':
+            logging.warning("WARNING: Localization timed out!")
         return state
 
     def get_apriltag_pose_from_camera(
