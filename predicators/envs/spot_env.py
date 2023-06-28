@@ -388,15 +388,13 @@ class SpotEnv(BaseEnv):
         raise NotImplementedError("Simulate not implemented for SpotEnv.")
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        # assert CFG.num_train_tasks == 0, "Use JSON loading instead"
-        goal = self._generate_task_goal()  # TODO update
+        goal = self._generate_task_goal()  # currently just one goal
         return [
             EnvironmentTask(None, goal) for _ in range(CFG.num_train_tasks)
         ]
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        # assert CFG.num_test_tasks == 1, "Use JSON loading instead"
-        goal = self._generate_task_goal()  # TODO update
+        goal = self._generate_task_goal()  # currently just one goal
         return [EnvironmentTask(None, goal) for _ in range(CFG.num_test_tasks)]
 
     def _actively_construct_env_task(self) -> EnvironmentTask:

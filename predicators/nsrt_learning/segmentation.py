@@ -110,7 +110,11 @@ def _segment_with_spot_changes(trajectory: GroundAtomTrajectory) -> List[Segment
     traj, _ = trajectory
 
     def _switch_fn(t: int) -> bool:
-        # TODO explain
+        # Actions without options are "special". We include them in the options
+        # that came before them. For example, if an object gets lost during
+        # placing, the special "find" action is included in the segment for
+        # placing. Note that the current implementation assumes that the
+        # regular options are singleton options (terminate immediately).
         act = traj.actions[t]
         if not act.has_option():
             assert t > 0
