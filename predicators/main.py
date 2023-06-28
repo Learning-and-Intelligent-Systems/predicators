@@ -482,8 +482,6 @@ def _run_episode(
                 if monitor is not None:
                     monitor.observe(obs, act)
                     monitor_observed = True
-                if act is None:
-                    break
                 obs = env.step(act)
                 actions.append(act)
                 observations.append(obs)

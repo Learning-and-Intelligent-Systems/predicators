@@ -3,7 +3,6 @@
 import abc
 import logging
 from typing import List, Set
-import logging
 
 import numpy as np
 from gym.spaces import Box
