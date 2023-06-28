@@ -258,7 +258,7 @@ class SpotEnv(BaseEnv):
         if CFG.test_task_json_dir is not None and train_or_test == "test":
             self._current_task = self._test_tasks[task_idx]
         else:
-            prompt = f"Please set up task {train_or_test} {task_idx}!"
+            prompt = f"Please set up {train_or_test} task {task_idx}!"
             utils.prompt_user(prompt)
             self._spot_interface.lease_client.take()
             self._current_task = self._actively_construct_env_task()
