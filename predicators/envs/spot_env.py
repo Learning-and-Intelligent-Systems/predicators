@@ -845,26 +845,28 @@ class SpotBikeEnv(SpotEnv):
             self._notHandEmpty, self._InViewTool, self._OnFloor
         }
 
-    def _handempty_classifier(self, state: State,
-                              objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _handempty_classifier(state: State, objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
         return gripper_open_percentage <= 2.5
 
-    def _nothandempty_classifier(self, state: State,
+    @classmethod
+    def _nothandempty_classifier(cls, state: State,
                                  objects: Sequence[Object]) -> bool:
-        return not self._handempty_classifier(state, objects)
+        return not cls._handempty_classifier(state, objects)
 
-    def _holding_tool_classifier(self, state: State,
+    @classmethod
+    def _holding_tool_classifier(cls, state: State,
                                  objects: Sequence[Object]) -> bool:
         spot, obj_to_grasp = objects
         assert obj_name_to_apriltag_id.get(obj_to_grasp.name) is not None
         spot_holding_obj_id = state.get(spot, "curr_held_item_id")
         return int(spot_holding_obj_id) == obj_name_to_apriltag_id[
-            obj_to_grasp.name] and self._nothandempty_classifier(
-                state, [spot])
+            obj_to_grasp.name] and cls._nothandempty_classifier(state, [spot])
 
-    def _ontop_classifier(self, state: State,
+    @classmethod
+    def _ontop_classifier(cls, state: State,
                           objects: Sequence[Object]) -> bool:
         obj_on, obj_surface = objects
         assert obj_name_to_apriltag_id.get(obj_on.name) is not None
@@ -881,18 +883,19 @@ class SpotBikeEnv(SpotEnv):
             state.get(obj_surface, "z")
         ]
         is_x_same = np.sqrt(
-            (obj_on_pose[0] - obj_surface_pose[0])**2) <= self._ontop_threshold
+            (obj_on_pose[0] - obj_surface_pose[0])**2) <= cls._ontop_threshold
         is_y_same = np.sqrt(
-            (obj_on_pose[1] - obj_surface_pose[1])**2) <= self._ontop_threshold
+            (obj_on_pose[1] - obj_surface_pose[1])**2) <= cls._ontop_threshold
         is_above_z = (obj_on_pose[2] - obj_surface_pose[2]) > 0.0
         return is_x_same and is_y_same and is_above_z
 
-    def _onfloor_classifier(self, state: State,
-                            objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _onfloor_classifier(state: State, objects: Sequence[Object]) -> bool:
         obj_on, _ = objects
         return state.get(obj_on, "z") < 0.0
 
-    def _reachable_classifier(self, state: State,
+    @classmethod
+    def _reachable_classifier(cls, state: State,
                               objects: Sequence[Object]) -> bool:
         spot, obj = objects
         spot_pose = [
@@ -907,20 +910,23 @@ class SpotBikeEnv(SpotEnv):
         ]
         is_xy_near = np.sqrt(
             (spot_pose[0] - obj_pose[0])**2 +
-            (spot_pose[1] - obj_pose[1])**2) <= self._reachable_threshold
+            (spot_pose[1] - obj_pose[1])**2) <= cls._reachable_threshold
         is_z_near = np.sqrt((spot_pose[2] - obj_pose[2])**2) <= 0.85
         return is_xy_near and is_z_near
 
-    def _surface_too_high_classifier(self, state: State,
+    @staticmethod
+    def _surface_too_high_classifier(state: State,
                                      objects: Sequence[Object]) -> bool:
         _, surface = objects
         return state.get(surface, "z") > 1.0
 
-    def _surface_not_too_high_classifier(self, state: State,
+    @classmethod
+    def _surface_not_too_high_classifier(cls, state: State,
                                          objects: Sequence[Object]) -> bool:
-        return not self._surface_too_high_classifier(state, objects)
+        return not cls._surface_too_high_classifier(state, objects)
 
-    def _tool_in_view_classifier(self, state: State,
+    @staticmethod
+    def _tool_in_view_classifier(state: State,
                                  objects: Sequence[Object]) -> bool:
         _, tool = objects
         return state.get(tool, "in_view") > 0.5
