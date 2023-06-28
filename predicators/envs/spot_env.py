@@ -254,11 +254,14 @@ class SpotEnv(BaseEnv):
         return Action(action_arr)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
-        # NOTE: task_idx and train_or_test currently ignored!
-        prompt = f"Set up task {train_or_test} {task_idx}, then press enter!"
-        utils.prompt_user(prompt)
-        self._spot_interface.lease_client.take()
-        self._current_task = self._actively_construct_env_task()
+        # NOTE: task_idx and train_or_test ignored unless loading from JSON!
+        if CFG.test_task_json_dir is not None and train_or_test == "test":
+            self._current_task = self._test_tasks[task_idx]
+        else:
+            prompt = f"Please set up task {train_or_test} {task_idx}!"
+            utils.prompt_user(prompt)
+            self._spot_interface.lease_client.take()
+            self._current_task = self._actively_construct_env_task()
         self._current_observation = self._current_task.init_obs
         self._current_task_goal_reached = False
         return self._current_task.init_obs
