@@ -9,6 +9,9 @@ import predicators.approaches.bridge_policy_approach
 import predicators.bridge_policies.oracle_bridge_policy
 import predicators.teacher
 from predicators import utils
+from predicators.cogman import CogMan
+from predicators.execution_monitoring import create_execution_monitor
+from predicators.perception import create_perceiver
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.bridge_policy_approach import BridgePolicyApproach
 from predicators.bridge_policies import BridgePolicyDone
@@ -192,8 +195,11 @@ def test_bridge_policy_approach():
         m.side_effect = _mock_human_demonstratory_policy
         interaction_requests = approach.get_interaction_requests()
         teacher = Teacher(train_tasks)
+        perceiver = create_perceiver("trivial")
+        exec_monitor = create_execution_monitor("trivial")
+        cogman = CogMan(approach, perceiver, exec_monitor)
         interaction_results, _ = _generate_interaction_results(
-            env, teacher, interaction_requests)
+            cogman, env, teacher, interaction_requests)
     real_result = interaction_results[0]
     # Add additional interaction result with no queries.
     interaction_results.append(
