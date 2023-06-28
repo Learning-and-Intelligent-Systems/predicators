@@ -105,7 +105,8 @@ def _segment_with_option_changes(
     return _segment_with_switch_function(trajectory, _switch_fn)
 
 
-def _segment_with_spot_changes(trajectory: GroundAtomTrajectory) -> List[Segment]:
+def _segment_with_spot_changes(
+        trajectory: GroundAtomTrajectory) -> List[Segment]:
 
     traj, _ = trajectory
 
@@ -118,7 +119,7 @@ def _segment_with_spot_changes(trajectory: GroundAtomTrajectory) -> List[Segment
         act = traj.actions[t]
         if not act.has_option():
             assert t > 0
-            last_act = traj.actions[t-1]
+            last_act = traj.actions[t - 1]
             last_option = last_act.get_option()
             act.set_option(last_option)
         if t == len(traj.actions) - 1:

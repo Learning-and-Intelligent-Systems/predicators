@@ -11,14 +11,12 @@ import importlib
 import io
 import itertools
 import logging
-from playsound import playsound
-from gtts import gTTS
 import os
 import pkgutil
 import re
 import subprocess
-import tempfile
 import sys
+import tempfile
 import time
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -35,8 +33,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
+from gtts import gTTS
 from gym.spaces import Box
 from matplotlib import patches
+from playsound import playsound
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS

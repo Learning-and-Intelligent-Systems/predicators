@@ -1,7 +1,7 @@
 """An explorer for active sampler learning."""
 
-from functools import lru_cache
 import logging
+from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Set
 
 import numpy as np
@@ -13,9 +13,9 @@ from predicators.envs.spot_env import SpotEnv
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import run_task_plan_once
 from predicators.settings import CFG
-from predicators.structs import NSRT, ExplorationStrategy, GroundAtom, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option, Action, Object
+from predicators.structs import NSRT, Action, ExplorationStrategy, \
+    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
+    _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 @lru_cache(maxsize=None)
@@ -180,19 +180,23 @@ class ActiveSamplerExplorer(BaseExplorer):
                         lost_objects.add(obj)
                 # Need to find the objects.
                 if lost_objects:
-                    logging.info(f"[Explorer Spot Wrapper] Lost objects: {lost_objects}")
+                    logging.info(
+                        f"[Explorer Spot Wrapper] Lost objects: {lost_objects}"
+                    )
                     # Reset the base approach policy.
                     need_stow = True
                     return _get_special_action("find")
                 # Found the objects. Stow the arm before replanning.
                 if need_stow:
-                    logging.info("[Explorer Spot Wrapper] Lost objects found, stowing.")
+                    logging.info(
+                        "[Explorer Spot Wrapper] Lost objects found, stowing.")
                     need_stow = False
                     return _get_special_action("stow")
                 # Give control back to base policy.
-                logging.info("[Explorer Spot Wrapper] Giving control to base policy.")
+                logging.info(
+                    "[Explorer Spot Wrapper] Giving control to base policy.")
                 return policy(state)
-            
+
         else:
             final_policy = policy
 

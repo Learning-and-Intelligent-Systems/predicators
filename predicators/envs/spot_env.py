@@ -828,8 +828,7 @@ class SpotBikeEnv(SpotEnv):
                                                   [spot, tool, floor],
                                                   preconds, add_effs, del_effs,
                                                   set())
-            
-    
+
         # PlaceIntoBag
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)

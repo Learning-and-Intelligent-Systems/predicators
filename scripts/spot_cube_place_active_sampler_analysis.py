@@ -1,6 +1,5 @@
 """Analysis for spot cube placing with active sampler learning."""
 
-
 import os
 from typing import Any, List, Optional, Tuple
 
@@ -15,7 +14,7 @@ from predicators import utils
 from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import BumpyCoverEnv
 from predicators.settings import CFG
-from predicators.structs import EnvironmentTask, Object, State, Video, Image
+from predicators.structs import EnvironmentTask, Image, Object, State, Video
 
 
 def _main() -> None:
@@ -81,7 +80,8 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
     density = 25
     radius = 0.05
 
-    candidates = [(x, y) for x in np.linspace(x_min, x_max, density) for y in np.linspace(y_min, y_max, density)]
+    candidates = [(x, y) for x in np.linspace(x_min, x_max, density)
+                  for y in np.linspace(y_min, y_max, density)]
     for candidate in candidates:
         # Average scores over other possible values...?
         scores = []
@@ -92,22 +92,16 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
             scores.append(score)
         score = np.mean(scores)
         color = cmap(norm(score))
-        circle = plt.Circle(candidate,
-                            radius,
-                            color=color,
-                            alpha=0.1)
+        circle = plt.Circle(candidate, radius, color=color, alpha=0.1)
         ax.add_patch(circle)
 
     # plot real data
     for x, label in zip(X, y):
         x_param, y_param = x[-3:-1]
         color = cmap(norm(label))
-        circle = plt.Circle((x_param, y_param),
-                            radius,
-                            color=color,
-                            alpha=0.8)
+        circle = plt.Circle((x_param, y_param), radius, color=color, alpha=0.8)
         ax.add_patch(circle)
-    
+
     plt.xlabel("x parameter")
     plt.ylabel("y parameter")
     plt.xlim((x_min - 3 * radius, x_max + 3 * radius))
