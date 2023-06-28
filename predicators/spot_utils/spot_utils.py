@@ -180,7 +180,7 @@ class _SpotInterface():
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
         self.hand_x_bounds = (0.3, 0.9)
         self.hand_y_bounds = (-0.5, 0.5)
-        self.hand_z_bounds = (0.2, 0.7)
+        self.hand_z_bounds = (0.09, 0.7)
         self.localization_timeout = 10
 
         self._find_controller_move_queue_idx = 0
