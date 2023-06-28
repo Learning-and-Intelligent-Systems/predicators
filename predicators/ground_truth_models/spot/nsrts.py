@@ -134,6 +134,9 @@ class _SpotInterfaceSampler:
     def __getnewargs__(self) -> Tuple:
         return (self._name, )
 
+    def __getstate__(self) -> Dict:
+        return {"name": self._name}
+
 
 class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the Spot Env."""
