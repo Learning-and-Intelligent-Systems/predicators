@@ -125,6 +125,8 @@ class SpotEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+        assert "spot_wrapper" in CFG.approach, \
+            "Must use spot wrapper in spot envs!"
         self._spot_interface = get_spot_interface()
         # Note that we need to include the operators in this
         # class because they're used to update the symbolic
