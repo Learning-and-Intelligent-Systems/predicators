@@ -7,7 +7,8 @@ from typing import List, Set
 import numpy as np
 from gym.spaces import Box
 
-from predicators.envs.spot_env import get_special_spot_action
+from predicators.approaches.spot_wrapper_approach import \
+    get_special_spot_action
 from predicators.settings import CFG
 from predicators.structs import Action, ExplorationStrategy, Object, \
     ParameterizedOption, Predicate, State, Task, Type

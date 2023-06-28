@@ -1,7 +1,7 @@
 """Analysis for spot cube placing with active sampler learning."""
 
 import os
-from typing import Any, List, Optional, Tuple
+from typing import Optional
 
 import dill as pkl
 import imageio
@@ -11,10 +11,7 @@ from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
 from predicators import utils
-from predicators.envs import BaseEnv, create_new_env
-from predicators.envs.cover import BumpyCoverEnv
-from predicators.settings import CFG
-from predicators.structs import EnvironmentTask, Image, Object, State, Video
+from predicators.structs import Image
 
 
 def _main() -> None:
@@ -34,7 +31,7 @@ def _main() -> None:
             break
         online_learning_cycle += 1
     # Save the video.
-    video_outfile = f"spot_cube_active_sampler_learning.mp4"
+    video_outfile = "spot_cube_active_sampler_learning.mp4"
     utils.save_video(video_outfile, video_frames)
     # Save the frames individually too.
     for t, img in enumerate(video_frames):

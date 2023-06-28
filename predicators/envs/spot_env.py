@@ -21,7 +21,7 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.envs import BaseEnv, get_or_create_env
+from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
@@ -114,15 +114,6 @@ _SPECIAL_ACTIONS = {
     "stow": 1,
     "done": 2,
 }
-
-
-@functools.lru_cache(maxsize=None)
-def get_special_spot_action(action_name: str) -> Action:
-    """Expose special actions for approaches and explorers."""
-    env = get_or_create_env(CFG.env)
-    assert isinstance(env, SpotEnv)
-    # In the future, may want to make this object-specific.
-    return env.get_special_action(action_name)
 
 
 class SpotEnv(BaseEnv):

@@ -17,10 +17,20 @@ from typing import Any, Callable, List, Optional, Set
 from gym.spaces import Box
 
 from predicators.approaches import BaseApproach, BaseApproachWrapper
-from predicators.envs.spot_env import get_special_spot_action
+from predicators.envs import get_or_create_env
+from predicators.envs.spot_env import SpotEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Object, ParameterizedOption, \
     Predicate, State, Task, Type
+
+
+@lru_cache(maxsize=None)
+def get_special_spot_action(action_name: str) -> Action:
+    """Expose special actions for approaches and explorers."""
+    env = get_or_create_env(CFG.env)
+    assert isinstance(env, SpotEnv)
+    # In the future, may want to make this object-specific.
+    return env.get_special_action(action_name)
 
 
 class SpotWrapperApproach(BaseApproachWrapper):

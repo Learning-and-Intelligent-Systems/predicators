@@ -1,7 +1,6 @@
 """An explorer for active sampler learning."""
 
 import logging
-from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Set
 
 import numpy as np
