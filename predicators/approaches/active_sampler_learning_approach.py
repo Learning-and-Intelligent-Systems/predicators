@@ -111,8 +111,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 o = segment.get_option()
                 ns = segment.states[-1]
                 success = self._check_option_success(o, segment)
-                assert CFG.env in ("bumpy_cover", "regional_bumpy_cover")
                 if CFG.active_sampler_learning_use_teacher:
+                    assert CFG.env in ("bumpy_cover", "regional_bumpy_cover")
                     if CFG.bumpy_cover_right_targets:
                         # In bumpy cover with the 'bumpy_cover_right_targets'
                         # flag set, picking from the left is bad and can
@@ -148,9 +148,13 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
-        return ground_nsrt.add_effects.issubset(
-            segment.final_atoms) and not ground_nsrt.delete_effects.issubset(
-                segment.final_atoms)
+        # Only the add effects are checked to determine option success. This
+        # is fine for our cover environments, but will probably break in
+        # other environments (for instance, if we accidentally delete
+        # atoms that are actually necessary for a future operator in the
+        # plan). The right thing to do here is check the necessary atoms,
+        # which we will do in a forthcoming PR.
+        return ground_nsrt.add_effects.issubset(segment.final_atoms)
 
     def _learn_wrapped_samplers(self,
                                 online_learning_cycle: Optional[int]) -> None:
