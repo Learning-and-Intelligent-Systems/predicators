@@ -4,7 +4,7 @@ import shutil
 import sys
 import tempfile
 import time
-from typing import Callable
+from typing import Any, Callable, List
 
 import numpy as np
 import pytest
@@ -306,6 +306,10 @@ def test_run_episode():
             """Just use the given policy."""
             del task, timeout  # unused
             return self._policy
+
+        def get_execution_monitoring_info(self) -> List[Any]:
+            """Just return empty list."""
+            return []
 
     class _CountingMonitor(utils.LoggingMonitor):
 
