@@ -14,8 +14,8 @@ from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import run_task_plan_once
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, ExplorationStrategy, \
-    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option
+    GroundAtom, NSRTSampler, Object, ParameterizedOption, Predicate, State, \
+    Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 @lru_cache(maxsize=None)
