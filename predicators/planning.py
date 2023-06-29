@@ -1145,7 +1145,6 @@ def run_task_plan_once(
     else:
         raise ValueError("Unrecognized sesame_task_planner: "
                          f"{CFG.sesame_task_planner}")
-
     return plan, atoms_seq, metrics
 
 

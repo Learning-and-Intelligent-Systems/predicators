@@ -23,13 +23,13 @@ class KitchenEnv(BaseEnv):
     """Kitchen environment wrapping dm_control Kitchen."""
 
     gripper_type = Type("gripper", ["x", "y", "z"])
-    object_type = Type("obj", ["x", "y", "z"])
+    object_type = Type("obj", ["x", "y", "z", "angle"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Predicates
-        self._At = self.get_goal_at_predicate()
+        self._At, self._OnTop, self._On = self.get_goal_at_predicates()
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
@@ -69,6 +69,15 @@ class KitchenEnv(BaseEnv):
         for site in important_sites:
             state_info[site] = self._gym_env.get_site_xpos(site)
             # Potentially can get this ^ from state
+        # Add oven burner plate locations
+        burner_poses = {
+            "burner1_site": [-0.3, 0.3, 0.629],
+            "burner2_site": [-0.3, 0.8, 0.629],
+            "burner3_site": [0.204, 0.8, 0.629],
+            "burner4_site": [0.206, 0.3, 0.629]
+        }
+        for name, pose in burner_poses.items():
+            state_info[name] = pose
         return state_info
 
     def render_state_plt(
@@ -96,11 +105,11 @@ class KitchenEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._At}
+        return {self._At, self._On, self._OnTop}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._At}
+        return {self._At, self._On, self._OnTop}
 
     @property
     def types(self) -> Set[Type]:
@@ -148,19 +157,39 @@ class KitchenEnv(BaseEnv):
             if "_site" in key:
                 obj_name = key.replace("_site", "")
                 obj = Object(obj_name, self.object_type)
-                state_dict[obj] = {"x": val[0], "y": val[1], "z": val[2]}
+                state_dict[obj] = {
+                    "x": val[0],
+                    "y": val[1],
+                    "z": val[2],
+                    "angle": 0
+                }
             elif key == "end_effector":
                 obj = Object("gripper", self.gripper_type)
-                state_dict[obj] = {"x": val[0], "y": val[1], "z": val[2]}
+                state_dict[obj] = {
+                    "x": val[0],
+                    "y": val[1],
+                    "z": val[2],
+                    "angle": 0
+                }
+        for key, val in state_info.items():
+            if key == "bottom left burner":
+                obj = Object("knob2", self.object_type)
+                state_dict[obj]["angle"] = val[0]
+            elif key == "top left burner":
+                obj = Object("knob3", self.object_type)
+                state_dict[obj]["angle"] = val[0]
         state = utils.create_state_from_dict(state_dict)
         return state
 
     def goal_reached(self) -> bool:
         state = self.state_info_to_state(
             self._current_observation["state_info"])
-        gripper = Object("gripper", self.gripper_type)
-        obj = Object("knob1", self.object_type)
-        return self._At_holds(state=state, objects=[gripper, obj])
+        kettle = Object("kettle", self.object_type)
+        burner = Object("burner2", self.object_type)
+        knob = Object("knob3", self.object_type)
+        return self._OnTop_holds(state=state, objects=[
+            kettle, burner
+        ]) and self._On_holds(state=state, objects=[knob])
 
     def _get_tasks(self, num: int,
                    train_or_test: str) -> List[EnvironmentTask]:
@@ -168,7 +197,7 @@ class KitchenEnv(BaseEnv):
         for task_idx in range(num):
             seed = self._get_task_seed(train_or_test, task_idx)
             init_obs = self._reset_initial_state_from_seed(seed)
-            goal_description = "Move Gripper to Knob1"
+            goal_description = "Move Kettle to Back Burner and Turn On"
             task = EnvironmentTask(init_obs, goal_description)
             tasks.append(task)
         return tasks
@@ -194,13 +223,38 @@ class KitchenEnv(BaseEnv):
         ]
         return np.allclose(obj_xyz, gripper_xyz, atol=0.09)
 
+    @classmethod
+    def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        obj1_xy = [state.get(obj1, "x"), state.get(obj1, "y")]
+        obj2_xy = [
+            state.get(obj2, "x"),
+            state.get(obj2, "y"),
+        ]
+        return np.allclose(
+            obj1_xy, obj2_xy,
+            atol=0.1) and state.get(obj1, "z") > state.get(obj2, "z")
+
+    @classmethod
+    def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        obj = objects[0]
+        if obj.name in ["knob3", "knob2"]:
+            return state.get(obj, "angle") > 0.03 or state.get(obj,
+                                                               "angle") < -0.8
+        return False
+
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
 
-    def get_goal_at_predicate(self: Any) -> Predicate:
+    def get_goal_at_predicates(self: Any) -> Sequence[Predicate]:
         """Defined public so that the perceiver can use it."""
-        return Predicate("At", [self.gripper_type, self.object_type],
-                         self._At_holds)
+        return [
+            Predicate("At", [self.gripper_type, self.object_type],
+                      self._At_holds),
+            Predicate("OnTop", [self.object_type, self.object_type],
+                      self._OnTop_holds),
+            Predicate("On", [self.object_type], self._On_holds)
+        ]
 
     @staticmethod
     def _get_task_seed(train_or_test: str, task_idx: int) -> int:
