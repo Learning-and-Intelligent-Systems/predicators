@@ -252,8 +252,8 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         for state, option, _, label in nsrt_data:
             objects = option.objects
             params = option.params
-            x_arr = _construct_sampler_input(state, objects, params,
-                                             option.parent)
+            x_arr = utils.construct_active_sampler_input(
+                state, objects, params, option.parent)
             X_classifier.append(x_arr)
             y_classifier.append(label)
         X_arr_classifier = np.array(X_classifier)
@@ -288,6 +288,11 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         with open(save_path, "wb") as f:
             pkl.dump(classifier, f)
         logging.info(f"Saved sampler classifier to {save_path}.")
+        save_path = f"{approach_save_path}_{nsrt.name}_" + \
+            f"{self._online_learning_cycle}.sampler_classifier_data"
+        with open(save_path, "wb") as f:
+            pkl.dump((X_arr_classifier, y_arr_classifier), f)
+        logging.info(f"Saved sampler classifier data to {save_path}.")
 
         # Easiest way to access the base sampler.
         base_sampler = nsrt._sampler  # pylint: disable=protected-access
@@ -309,8 +314,8 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
         for state, option, _, label in nsrt_data:
             objects = option.objects
             params = option.params
-            x_arr = _construct_sampler_input(state, objects, params,
-                                             option.parent)
+            x_arr = utils.construct_active_sampler_input(
+                state, objects, params, option.parent)
             X_classifier.append(x_arr)
             y_classifier.append(label)
         X_arr_classifier = np.array(X_classifier)
@@ -452,8 +457,8 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         for state, option, _, target in nsrt_data:
             objects = option.objects
             params = option.params
-            x_arr = _construct_sampler_input(state, objects, params,
-                                             option.parent)
+            x_arr = utils.construct_active_sampler_input(
+                state, objects, params, option.parent)
             X_regressor.append(x_arr)
             y_regressor.append(np.array([target]))
         X_arr_regressor = np.array(X_regressor)
@@ -474,44 +479,6 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
 
 
 # Helper functions.
-def _construct_sampler_input(state: State, objects: Sequence[Object],
-                             params: Array,
-                             param_option: ParameterizedOption) -> Array:
-
-    assert not CFG.sampler_learning_use_goals
-    sampler_input_lst = [1.0]  # start with bias term
-    if CFG.active_sampler_learning_feature_selection == "all":
-        for obj in objects:
-            sampler_input_lst.extend(state[obj])
-        sampler_input_lst.extend(params)
-
-    else:
-        assert CFG.active_sampler_learning_feature_selection == "oracle"
-        assert CFG.env == "bumpy_cover"
-        if param_option.name == "Pick":
-            # In this case, the x-data should be
-            # [block_bumpy, relative_pick_loc]
-            assert len(objects) == 1
-            block = objects[0]
-            block_pos = state[block][3]
-            block_bumpy = state[block][5]
-            sampler_input_lst.append(block_bumpy)
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - block_pos)
-        else:
-            assert param_option.name == "Place"
-            assert len(objects) == 2
-            block, target = objects
-            target_pos = state[target][3]
-            grasp = state[block][4]
-            target_width = state[target][2]
-            sampler_input_lst.extend([grasp, target_width])
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - target_pos)
-
-    return np.array(sampler_input_lst)
-
-
 def _wrap_sampler(
     base_sampler: NSRTSampler,
     score_fn: _ScoreFn,
@@ -540,7 +507,8 @@ def _vector_score_fn_to_score_fn(vector_fn: Callable[[Array], float],
     def _score_fn(state: State, objects: Sequence[Object],
                   param_lst: List[Array]) -> List[float]:
         xs = [
-            _construct_sampler_input(state, objects, p, nsrt.option)
+            utils.construct_active_sampler_input(state, objects, p,
+                                                 nsrt.option)
             for p in param_lst
         ]
         scores = [vector_fn(x) for x in xs]
