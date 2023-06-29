@@ -1024,6 +1024,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 add_effects = set.intersection(*ungrounded_add_effects_per_segment)
                 all_add_effects |= add_effects
 
+            predicates_to_keep = all_add_effects
+
             # Remove inconsistent predicates.
             predicates_to_keep: Set[Predicate] = set()
             for pred in all_add_effects:

@@ -17,6 +17,7 @@ class TrialAndErrorLearner(PNADSearchSTRIPSLearner, ClusterAndIntersectSTRIPSLea
     def _learn(self) -> List[PNAD]:
         pool = ProcessPool(1)
         result = pool.apipe(PNADSearchSTRIPSLearner._learn, self)
+        
         try:
             result = result.get(timeout=CFG.trial_and_error_timeout)
             print("pnad_search successful.")

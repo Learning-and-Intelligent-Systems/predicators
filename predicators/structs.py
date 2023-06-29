@@ -212,6 +212,9 @@ class Predicate:
     _classifier: Callable[[State, Sequence[Object]],
                           bool] = field(compare=False)
 
+    def __getnewargs__(self) -> Tuple:
+        return (self.name, self.types, self._classifier)
+
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms."""
         if self.arity == 0:
@@ -354,6 +357,9 @@ class _Atom:
     def __lt__(self, other: object) -> bool:
         assert isinstance(other, _Atom)
         return str(self) < str(other)
+
+    def __getnewargs__(self) -> Tuple:
+        return (self.predicate, self.entities)
 
     def __getstate__(self):
         attributes = self.__dict__.copy()
