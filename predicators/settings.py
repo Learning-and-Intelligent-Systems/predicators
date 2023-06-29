@@ -520,6 +520,7 @@ class GlobalSettings:
     # active sampler learning parameters
     active_sampler_learning_model = "myopic_classifier_mlp"
     active_sampler_learning_feature_selection = "all"
+    active_sampler_learning_knn_neighbors = 3
     active_sampler_learning_use_teacher = True
     active_sampler_learning_num_samples = 100
     active_sampler_learning_score_gamma = 0.5

@@ -275,7 +275,10 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
                 weight_init="default")
         else:
             assert CFG.active_sampler_learning_model.endswith("knn")
-            classifier = KNeighborsClassifier(seed=CFG.seed)
+            n_neighbors = min(len(X_arr_classifier),
+                              CFG.active_sampler_learning_knn_neighbors)
+            classifier = KNeighborsClassifier(seed=CFG.seed,
+                                              n_neighbors=n_neighbors)
         classifier.fit(X_arr_classifier, y_arr_classifier)
 
         # Save the sampler classifier for external analysis.
