@@ -504,7 +504,7 @@ def _construct_sampler_input(state: State, objects: Sequence[Object],
             target_width = state[target][2]
             sampler_input_lst.extend([grasp, target_width])
             assert len(params) == 1
-            sampler_input_lst.append(params[0] - target_pos[0])
+            sampler_input_lst.append(params[0] - target_pos)
 
     return np.array(sampler_input_lst)
 
