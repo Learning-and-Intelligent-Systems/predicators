@@ -164,7 +164,7 @@ FLAGS:
   sampler_mlp_classifier_max_itr: 100000
   mlp_classifier_balance_data: False
   pytorch_train_print_every: 10000
-  explorer: "active_sampler"
+  explorer: "random_nsrts"  # NOTE
   online_nsrt_learning_requests_per_cycle: 10
   num_online_learning_cycles: 25
 START_SEED: 123
