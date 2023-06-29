@@ -536,11 +536,11 @@ def _vector_score_fn_to_score_fn(vector_fn: Callable[[Array], float],
 
     def _score_fn(state: State, objects: Sequence[Object],
                   param_lst: List[Array]) -> List[float]:
-        X = np.array([
+        xs = [
             _construct_sampler_input(state, objects, p, nsrt.option)
             for p in param_lst
-        ])
-        scores = [vector_fn(X) for p in param_lst]
+        ]
+        scores = [vector_fn(x) for x in xs]
         return scores
 
     return _score_fn
