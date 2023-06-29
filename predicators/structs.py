@@ -200,8 +200,8 @@ class State:
 
 DefaultState = State({})
 
-
-@dataclass(frozen=True, order=True, repr=False)
+# @dataclass(frozen=True, order=True, repr=False)
+@dataclass(frozen=False, order=True, repr=False)
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states)."""
     name: str
@@ -293,8 +293,18 @@ class Predicate:
         # Separate this into a named function for pickling reasons.
         return not self._classifier(state, objects)
 
+    def __getstate__(self):
+        attributes = self.__dict__.copy()
+        del attributes['_hash']
+        return attributes
 
-@dataclass(frozen=True, repr=False, eq=False)
+    def __setstate__(self, state):
+        self.__dict__ = state
+        self._hash = hash(str(self))
+
+
+# @dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=False, repr=False, eq=False)
 class _Atom:
     """Struct defining an atom (a predicate applied to either variables or
     objects).
@@ -345,8 +355,15 @@ class _Atom:
         assert isinstance(other, _Atom)
         return str(self) < str(other)
 
+    def __getstate__(self):
+        attributes = self.__dict__.copy()
+        del attributes['_str']
+        del attributes['_hash']
+        return attributes
 
-@dataclass(frozen=True, repr=False, eq=False)
+
+# @dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=False, repr=False, eq=False)
 class LiftedAtom(_Atom):
     """Struct defining a lifted atom (a predicate applied to variables)."""
 
@@ -373,8 +390,14 @@ class LiftedAtom(_Atom):
         assert set(self.variables).issubset(set(sub.keys()))
         return LiftedAtom(self.predicate, [sub[v] for v in self.variables])
 
+    def __setstate__(self, state):
+        self.__dict__ = state
+        self._str = (self.predicate.name + "(" + ", ".join(map(str, self.variables)) + ")")
+        self._hash = hash(str(self))
 
-@dataclass(frozen=True, repr=False, eq=False)
+
+# @dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=False, repr=False, eq=False)
 class GroundAtom(_Atom):
     """Struct defining a ground atom (a predicate applied to objects)."""
 
@@ -400,6 +423,10 @@ class GroundAtom(_Atom):
         """Check whether this ground atom holds in the given state."""
         return self.predicate.holds(state, self.objects)
 
+    def __setstate__(self, state):
+        self.__dict__ = state
+        self._str = (self.predicate.name + "(" + ", ".join(map(str, self.objects)) + ")")
+        self._hash = hash(str(self))
 
 @dataclass(frozen=True, eq=False)
 class Task:
@@ -503,6 +530,24 @@ class ParameterizedOption:
     def __hash__(self) -> int:
         return self._hash
 
+    # @staticmethod
+    # def make_initiable(self, memory, objects, params):
+    #     def initiable(s):
+    #         return self.initiable(s, memory, objects, params)
+    #     return initiable
+    #
+    # @staticmethod
+    # def make_terminal(self, memory, objects, params):
+    #     def terminal(s):
+    #         return self.terminal(s, memory, objects, params)
+    #     return terminal
+    #
+    # @staticmethod
+    # def make_policy(self, memory, objects, params):
+    #     def policy(s):
+    #         return self.policy(s, memory, objects, params)
+    #     return policy
+
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values."""
         assert len(objects) == len(self.types)
@@ -513,6 +558,9 @@ class ParameterizedOption:
         memory: Dict = {}  # each option has its own memory dict
         return _Option(
             self.name,
+            # self.make_policy(self, memory, objects, params),
+            # self.make_initiable(self, memory, objects, params),
+            # self.make_terminal(self, memory, objects, params),
             lambda s: self.policy(s, memory, objects, params),
             initiable=lambda s: self.initiable(s, memory, objects, params),
             terminal=lambda s: self.terminal(s, memory, objects, params),

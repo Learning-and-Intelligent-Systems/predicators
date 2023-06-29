@@ -443,7 +443,7 @@ class GlobalSettings:
     cluster_and_search_score_func_max_groundings = 10000
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
-    trial_and_error_timeout = 60.0
+    trial_and_error_timeout = 20.0
 
     # torch GPU usage setting
     use_torch_gpu = False
