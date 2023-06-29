@@ -165,7 +165,7 @@ FLAGS:
   mlp_classifier_balance_data: False
   pytorch_train_print_every: 10000
   explorer: "random_nsrts"  # NOTE
-  online_nsrt_learning_requests_per_cycle: 10
-  num_online_learning_cycles: 25
+  online_nsrt_learning_requests_per_cycle: 1
+  num_online_learning_cycles: 50
 START_SEED: 123
 NUM_SEEDS: 10
