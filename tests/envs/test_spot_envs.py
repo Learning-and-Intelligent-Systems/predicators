@@ -12,6 +12,7 @@ def test_spot_bike_env():
     """Tests for SpotBikeEnv class."""
     utils.reset_config({
         "env": "spot_bike_env",
+        "approach": "spot_wrapper[oracle]",
         "num_train_tasks": 0,
         "num_test_tasks": 1
     })
@@ -101,6 +102,7 @@ def test_spot_bike_env_load_task_from_json():
 
         utils.reset_config({
             "env": "spot_bike_env",
+            "approach": "spot_wrapper[oracle]",
             "num_train_tasks": 0,
             "num_test_tasks": 1,
             "test_task_json_dir": json_dir
