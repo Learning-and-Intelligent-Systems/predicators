@@ -95,7 +95,8 @@ def test_kitchen():
             ox = state.get(obj, "x")
             oy = state.get(obj, "y")
             oz = state.get(obj, "z")
-            option = param_option.ground([gripper, obj], np.array([ox, oy, oz, 0.0]))
+            option = param_option.ground([gripper, obj],
+                                         np.array([ox, oy, oz, 0.0]))
         elif name == "Open_gripper":
             option = param_option.ground([],
                                          np.array([0.5]).astype(np.float32))
