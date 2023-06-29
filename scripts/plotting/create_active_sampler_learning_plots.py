@@ -72,6 +72,16 @@ PLOT_GROUPS = {
         ("Random Explore", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random-explore" in v)),
     ],
+    "Bumpy Cover Feature Design": [
+        ("All Feats (MLP)", "black", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-mlp_all_features" in v)),
+        ("Oracle Feats (MLP)", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-mlp_manual_features" in v)),
+        ("All Feats (KNN)", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-knn_all_features" in v)),
+        ("Oracle Feats (KNN)", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-knn_manual_features" in v)),
+    ],
 }
 
 # If True, add (0, 0) to every plot.
