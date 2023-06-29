@@ -274,7 +274,7 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
                 sampler_mlp_classifier_n_reinitialize_tries,
                 weight_init="default")
         else:
-            assert CFG.active_samplre_learning_model.endswith("knn")
+            assert CFG.active_sampler_learning_model.endswith("knn")
             classifier = KNeighborsClassifier(seed=CFG.seed)
         classifier.fit(X_arr_classifier, y_arr_classifier)
 
