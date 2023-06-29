@@ -37,8 +37,8 @@ def _analyze_saved_data() -> None:
     for filepath in all_saved_files:
         with open(filepath, "rb") as f:
             X_i, y_i = pkl.load(f)
-        X.extend(X_i)
-        y.extend(y_i)
+        X.append(X_i)
+        y.append(y_i)
     img = _create_image(X, y)
     img_outfile = "videos/spot_cube_active_sampler_learning_saved_data.png"
     imageio.imsave(img_outfile, img)

@@ -11,6 +11,8 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.approaches.active_sampler_learning_approach import \
+    _construct_sampler_input
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import run_task_plan_once
 from predicators.settings import CFG
@@ -186,21 +188,14 @@ class ActiveSamplerExplorer(BaseExplorer):
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
         self._ground_op_hist[last_executed_op].append(success)
-        # Aggressively save data after every single option execution!
-        # Build up the x-data (i.e, input to the classifier).
-        # TODO: refactor to use _construct() from forthcoming PR.
-        # TODO: change to saving one data point, not list of one data point.
-        # need to also change the loading script.
+        # Aggressively save data after every single option execution.
         option = self._last_executed_option
         assert option is not None
         objects = option.objects
         params = option.params
-        X_classifier = []
-        X_classifier.append([np.array(1.0)])  # start with bias term
-        for obj in objects:
-            X_classifier[-1].extend(state[obj])
-        X_classifier[-1].extend(params)
-        y_classifier = [int(success)]
+        sampler_input = _construct_sampler_input(state, objects, params,
+                                                 option.parent)
+        sampler_output = int(success)
         # Now, we need to get the file location and the max
         # datapoint id saved at this location.
         os.makedirs(CFG.data_dir, exist_ok=True)
@@ -219,7 +214,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 d_id = int(regex_match.groups()[0])
                 datapoint_id = max(datapoint_id, d_id + 1)
         with open(f"{prefix}{datapoint_id}.data", "wb") as f:
-            pkl.dump((X_classifier, y_classifier), f)
+            pkl.dump((sampler_input, sampler_output), f)
 
     def _get_practice_ground_nsrt(self) -> _GroundNSRT:
         best_op = max(self._ground_op_hist, key=self._score_ground_op)
