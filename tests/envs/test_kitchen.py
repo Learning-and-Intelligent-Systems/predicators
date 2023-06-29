@@ -36,10 +36,12 @@ def test_kitchen():
         task = perceiver.reset(env_task)
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 1
-    At, = sorted(env.predicates)
+    assert len(env.predicates) == 3
+    At, On, OnTop = sorted(env.predicates)
     assert At.name == "At"
-    assert env.goal_predicates == {At}
+    assert On.name == "On"
+    assert OnTop.name == "OnTop"
+    assert env.goal_predicates == {At, On, OnTop}
     options = get_gt_options(env.get_name())
     assert len(options) == 12
     Angled_x_y_grasp, Close_gripper, Drop, Lift, Move_backward, \
@@ -89,7 +91,11 @@ def test_kitchen():
         gripper = Object("gripper", gripper_type)
         obj = Object("knob1", object_type)
         if name == "Move_delta_ee_pose":
-            option = param_option.ground([gripper, obj], np.array([]))
+            state = env.state_info_to_state(recovered_obs["state_info"])
+            ox = state.get(obj, "x")
+            oy = state.get(obj, "y")
+            oz = state.get(obj, "z")
+            option = param_option.ground([gripper, obj], np.array([ox, oy, oz, 0.0]))
         elif name == "Open_gripper":
             option = param_option.ground([],
                                          np.array([0.5]).astype(np.float32))
