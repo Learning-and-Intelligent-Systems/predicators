@@ -211,7 +211,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         datapoint_id = 0
         all_saved_files = glob.glob(filepath_template)
         if all_saved_files:
-            regex_prefix = prefix.replace("(", "\(").replace(")", "\)")
+            regex_prefix = re.escape(prefix)
             regex = f"{regex_prefix}(\\d+).data"
             for filename in all_saved_files:
                 regex_match = re.match(regex, filename)

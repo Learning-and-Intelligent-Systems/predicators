@@ -2,7 +2,6 @@
 
 import glob
 import os
-import re
 from typing import List, Optional, Tuple
 
 import dill as pkl
@@ -31,7 +30,7 @@ def _analyze_saved_data() -> None:
     nsrt_name = "PlaceToolNotHigh"
     objects_tuple_str = "spot:robot, cube:tool, extra_room_table:flat_surface"
     prefix = f"{CFG.data_dir}/{CFG.env}_{nsrt_name}({objects_tuple_str})_"
-    filepath_template = "f{prefix}*.data"
+    filepath_template = f"{prefix}*.data"
     all_saved_files = glob.glob(filepath_template)
     X: List[Array] = []
     y: List[Array] = []
@@ -41,7 +40,7 @@ def _analyze_saved_data() -> None:
         X.extend(X_i)
         y.extend(y_i)
     img = _create_image(X, y)
-    img_outfile = f"videos/spot_cube_active_sampler_learning_saved_data.png"
+    img_outfile = "videos/spot_cube_active_sampler_learning_saved_data.png"
     imageio.imsave(img_outfile, img)
     print(f"Wrote out to {img_outfile}")
 
