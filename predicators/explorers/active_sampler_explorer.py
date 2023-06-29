@@ -11,8 +11,6 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.approaches.active_sampler_learning_approach import \
-    _construct_sampler_input
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import run_task_plan_once
 from predicators.settings import CFG
@@ -193,8 +191,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         assert option is not None
         objects = option.objects
         params = option.params
-        sampler_input = _construct_sampler_input(state, objects, params,
-                                                 option.parent)
+        sampler_input = utils.construct_active_sampler_input(
+            state, objects, params, option.parent)
         sampler_output = int(success)
         # Now, we need to get the file location and the max
         # datapoint id saved at this location.
