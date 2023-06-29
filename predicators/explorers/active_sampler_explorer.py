@@ -1,8 +1,12 @@
 """An explorer for active sampler learning."""
 
+import glob
 import logging
+import os
+import re
 from typing import Callable, Dict, List, Optional, Set
 
+import dill as pkl
 import numpy as np
 from gym.spaces import Box
 
@@ -44,6 +48,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
+        self._last_executed_option: Optional[_Option] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
 
     @classmethod
@@ -142,6 +147,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Wrap the option policy to keep track of the executed NSRTs and if
         # they succeeded, to update the ground_op_hist.
         self._last_executed_nsrt = None
+        self._last_executed_option = None
 
         def _wrapped_option_policy(state: State) -> _Option:
             # Update ground_op_hist.
@@ -150,6 +156,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             option = _option_policy(state)
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
             self._last_executed_nsrt = ground_nsrt
+            self._last_executed_option = option
             return option
 
         # Finalize policy.
@@ -179,6 +186,39 @@ class ActiveSamplerExplorer(BaseExplorer):
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
         self._ground_op_hist[last_executed_op].append(success)
+        # Aggressively save data after every single option execution!
+        # Build up the x-data (i.e, input to the classifier).
+        # TODO: refactor to use _construct() from forthcoming PR.
+        # TODO: change to saving one data point, not list of one data point.
+        # need to also change the loading script.
+        option = self._last_executed_option
+        assert option is not None
+        objects = option.objects
+        params = option.params
+        X_classifier = []
+        X_classifier.append([np.array(1.0)])  # start with bias term
+        for obj in objects:
+            X_classifier[-1].extend(state[obj])
+        X_classifier[-1].extend(params)
+        y_classifier = [int(success)]
+        # Now, we need to get the file location and the max
+        # datapoint id saved at this location.
+        os.makedirs(CFG.data_dir, exist_ok=True)
+        objects_tuple_str = str(tuple(nsrt.objects))
+        objects_tuple_str = objects_tuple_str.strip('()')
+        prefix = f"{CFG.data_dir}/{CFG.env}_{nsrt.name}({objects_tuple_str})_"
+        filepath_template = f"{prefix}*.data"
+        datapoint_id = 0
+        all_saved_files = glob.glob(filepath_template)
+        if all_saved_files:
+            regex = f"{prefix}(\\d+).data"
+            for filename in all_saved_files:
+                regex_match = re.match(regex, filename)
+                assert regex_match is not None
+                d_id = int(regex_match.groups()[0])
+                datapoint_id = max(datapoint_id, d_id + 1)
+        with open(f"{prefix}{datapoint_id}.data", "wb") as f:
+            pkl.dump((X_classifier, y_classifier), f)
 
     def _get_practice_ground_nsrt(self) -> _GroundNSRT:
         best_op = max(self._ground_op_hist, key=self._score_ground_op)
