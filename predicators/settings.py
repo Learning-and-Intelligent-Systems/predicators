@@ -443,6 +443,7 @@ class GlobalSettings:
     cluster_and_search_score_func_max_groundings = 10000
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
+    trial_and_error_timeout = 60.0
 
     # torch GPU usage setting
     use_torch_gpu = False
@@ -569,6 +570,9 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
+
+    # clustering algorithm for grammar search invention parameters
+    grammar_search_clustering_gmm_num_components = 10
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

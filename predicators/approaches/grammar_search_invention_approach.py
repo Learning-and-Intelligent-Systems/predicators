@@ -903,11 +903,22 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #         learned_clear = p
         # import pdb; pdb.set_trace()
 
-        if CFG.grammar_search_pred_clusterer == "option-types-sample":
+        if CFG.grammar_search_pred_clusterer == "option-type-number-sample":
             # Algorithm:
-            # Step 1: cluster by option
-            # Step 2: cluster by types of objects involved in add effects
-            # Step 3: cluster by sample (k-means on sample) if sample exists
+            # Step 1: cluster segments according to which option was executed
+            # Step 2: in each of clusters from the previous step, further cluster
+            # segments according to the unique set of object types involved in
+            # the segment's add effects
+            # Step 3: in each of the clusters from the previous step, further
+            # cluster segments according to the (maximum) number of unique objects
+            # involved in the segment's add effects
+            # Step 4: in each of the clusters from the previous step, further
+            # cluster segments by assignment from a gaussian mixture model fit
+            # to samples associated with the options of all the segments in the
+            # cluster, but only if a sample exists
+            # Step 5: remove predicates that are not consistent
+            # Step 6: get the final set of predicates via a pure intersection of
+            # add effect predicates across segments in each cluster
 
             assert CFG.segmenter == "option_changes"
             segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
@@ -922,57 +933,40 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     option_to_segments[n].append(s)
                 else:
                     option_to_segments[n] = [s]
+            logging.info(f"STEP 1: generated {len(option_to_segments.values())} option-based clusters.")
 
             # Step 2:
             all_clusters = []
-            for option, segments in option_to_segments.items():
+            for j, pair in enumerate(option_to_segments.items()):
+                option, segments = pair
                 clusters = {}
                 for seg in segments:
                     all_types = [set(a.predicate.types) for a in seg.add_effects]
                     if len(all_types) == 0 or len(set.union(*all_types)) == 0:
-                        # Either there are no add effects, or the add effects
-                        # are just empty sets (which would happen if the add
-                        # effects only involved Forall predicates with no
-                        # object arguments). The former happens in
-                        # repeated_nextto.
+                        # Either there are no add effects, or the object
+                        # arguments for all add effects are empty (which would
+                        # happen e.g. if the add effects only involved Forall
+                        # predicates with no object arguments). The former
+                        # happens in repeated_nextto.
                         continue
                     types = tuple(sorted(list(set.union(*all_types))))
                     if types in clusters:
                         clusters[types].append(seg)
                     else:
                         clusters[types] = [seg]
-                print(f"STEP 2, generated {len(clusters.values())} clusters for {option}.")
-                # for t in clusters.keys():
-                    # print("type: ", t)
+                logging.info(f"STEP 2: generated {len(clusters.values())} type-based clusters for for {j+1}th cluster from STEP 1 involving option {option}.")
                 for c in clusters.values():
-
-                    # debug_pred = "Forall[0:block].[NOT-On(0,1)]"
-                    # debug_pred = "Clear"
-                    # if c[0].get_option().name in ["Stack", "PutOnTable"]:
-                    #     print("TESTING IF PRED FOUND IN", c[0].get_option().name)
-                    #     # see if the clear predicate is in any segment's add effects
-                    #     exists = False
-                    #     import pdb; pdb.set_trace()
-                    #     for s in c:
-                    #         objs_start = list(s.states[0].data.keys())
-                    #         objs_end = list(s.states[-1].data.keys())
-                    #         debug_set2 = list(a.predicate for a in s.add_effects)
-                    #         debug_set = set(a.predicate.name for a in s.add_effects)
-                    #         if debug_pred in debug_set:
-                    #             print("DEBUG PRED FOUND")
-                    #     print("DEBUG PRED NOT FOUND in ", c[0].get_option().name)
-                    #     import pdb; pdb.set_trace()
-
-
                     all_clusters.append(c)
-                    # print("len of this cluster: ", len(c))
-                    # !c[0].get_option()
 
             # Step 3:
             next_clusters = []
             for j, cluster in enumerate(all_clusters):
                 clusters = {}
                 for seg in cluster:
+
+                    # debugs = list(seg.add_effects)
+                    # import pdb; pdb.set_trace()
+
                     max_num_unique_objs = max(len(eff.objects) for eff in seg.add_effects)
                     if max_num_unique_objs in clusters:
                         clusters[max_num_unique_objs].append(seg)
@@ -980,7 +974,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         clusters[max_num_unique_objs] = [seg]
                 for c in clusters.values():
                     next_clusters.append(c)
-                print(f"STEP 3, generated {len(clusters.values())} clusters for {j+1}th cluster from STEP 2.")
+                logging.info(f"STEP 3: generated {len(clusters.values())} num-object-based clusters for the {j+1}th cluster from STEP 2 involving option {seg.get_option().name}.")
             # final_clusters = next_clusters
             all_clusters = next_clusters
 
@@ -991,21 +985,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 option_name = example_segment.get_option().name
                 if len(example_segment.get_option().params) == 0:
                     final_clusters.append(cluster)
-                    print(f"STEP 4, generated {0} clusters for {option_name}")
+                    logging.info(f"STEP 4: generated no further sample-based clusters for the {j+1}th cluster from STEP 3 involving option {option_name}.")
                 else:
                     # Do model selection between
                     # a uniform distribution and a gaussian mixture?
                     import numpy as np
                     from sklearn.mixture import GaussianMixture as GMM
                     data = np.array([seg.get_option().params for seg in cluster])
-                    max_components = 10
+                    max_components = min(len(data), len(np.unique(data)), CFG.grammar_search_clustering_gmm_num_components)
                     n_components = np.arange(1, max_components)
-                    if len(data) < max_components:
-                        # This happens in cover.
-                        # There are 7 segments in which the only predicates that
-                        # go from false to true are those involving only the block type,
-                        # and not the robot or target types.
-                        n_components = np.arange(1, len(data))
                     models = [GMM(n, covariance_type="full", random_state=0).fit(data)
                         for n in n_components]
                     bic = [m.bic(data) for m in models]
@@ -1021,12 +1009,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         else:
                             sub_clusters[assignment] = [cluster[i]]
 
-                    print(f"STEP 4, generated {len(sub_clusters.values())} clusters for {option_name} out of the {j+1}th cluster from STEP 3.")
+                    logging.info(f"STEP 4: generated {len(sub_clusters.values())} sample-based clusters for the {j+1}th cluster from STEP 3 involving option {option_name}.")
                     for c in sub_clusters.values():
                         final_clusters.append(c)
 
-            # import pdb; pdb.set_trace()
-            print(f"Total {len(final_clusters)} clusters.")
+            logging.info(f"Total {len(final_clusters)} final clusters.")
 
             all_add_effects = set()
             for c in final_clusters:
@@ -1035,30 +1022,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for add_effects in add_effects_per_segment:
                     ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
                 add_effects = set.intersection(*ungrounded_add_effects_per_segment)
-
-                # debug_pred = "Forall[0:block].[NOT-On(0,1)]"
-                # if c[0].get_option().name in ["Stack", "PutOnTable"]:
-                #     print("TESTING IF PRED FOUND IN", c[0].get_option().name)
-                #     # see if the clear predicate is in any segment's add effects
-                #     exists = False
-                #     for s in c:
-                #         debug_set = set(a.predicate.name for a in s.add_effects)
-                #         if debug_pred in debug_set:
-                #             print("DEBUG PRED FOUND")
-                #     print("DEBUG PRED NOT FOUND")
-
                 all_add_effects |= add_effects
 
-            # logging.info(
-            #     f"\nSelected {len(all_add_effects)} predicates out of "
-            #     f"{len(candidates)} candidates:")
-            # for pred in all_add_effects:
-            #     logging.info(f"\t{pred}")
-            # print("Final # of predicates: ", len(all_add_effects))
-            # import pdb; pdb.set_trace()
-            # return all_add_effects
-
-            # Consistency check
+            # Remove inconsistent predicates.
             predicates_to_keep: Set[Predicate] = set()
             for pred in all_add_effects:
                 keep_pred = True
@@ -1087,17 +1053,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 if keep_pred:
                     predicates_to_keep.add(pred)
 
-            # predicates_to_keep = all_add_effects
-
-            # Remove all the initial predicates.
+            # Remove the initial predicates.
             predicates_to_keep -= initial_predicates
+
             logging.info(
                 f"\nSelected {len(predicates_to_keep)} predicates out of "
                 f"{len(candidates)} candidates:")
             for pred in predicates_to_keep:
                 logging.info(f"\t{pred}")
-            print("Final # of predicates: ", len(predicates_to_keep))
-            # import pdb; pdb.set_trace()
             return predicates_to_keep
 
         if CFG.grammar_search_pred_clusterer == "oracle":
