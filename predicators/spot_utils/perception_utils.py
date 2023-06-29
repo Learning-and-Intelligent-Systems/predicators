@@ -306,6 +306,8 @@ def get_object_locations_with_sam(
 
     obj_num = len(res_segment['masks'])
 
+    res_locations = []
+
     # Detect multiple objects with their masks
     for i in range(obj_num):
         # Compute median value of depth
@@ -332,6 +334,8 @@ def get_object_locations_with_sam(
             point_y=y_c
         )
 
+        res_locations.append([x0, y0, z0])
+
         x, valid_inds = depth_image_to_pointcloud_custom(
             res_image_responses[1],
             masks=res_segment['masks'][i][0],
@@ -345,6 +349,7 @@ def get_object_locations_with_sam(
             ax.scatter(xs=x0, ys=y0, zs=z0, c='red', marker='*')
             plt.show()
 
+    return res_locations
 
 @dataclass
 class TempArgs:
