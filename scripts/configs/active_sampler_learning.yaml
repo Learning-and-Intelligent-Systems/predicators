@@ -33,15 +33,15 @@ NUM_SEEDS: 10
 # with teacher.
 ---
 APPROACHES:
-  myopic_classifier:
+  myopic_classifier_mlp:
     NAME: "active_sampler_learning"
     FLAGS:
-      active_sampler_learning_model: "myopic_classifier"
+      active_sampler_learning_model: "myopic_classifier_mlp"
       active_sampler_learning_use_teacher: False
   teacher_classifier:
     NAME: "active_sampler_learning"
     FLAGS:
-      active_sampler_learning_model: "myopic_classifier"
+      active_sampler_learning_model: "myopic_classifier_mlp"
       active_sampler_learning_use_teacher: True
   fitted_q:
     NAME: "active_sampler_learning"

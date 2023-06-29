@@ -133,7 +133,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             continue
 
                 if CFG.active_sampler_learning_model in [
-                        "myopic_classifier", "myopic_classifier_ensemble"
+                        "myopic_classifier_mlp", "myopic_classifier_ensemble",
+                        "myopic_classifier_knn"
                 ]:
                     label: Any = success
                 else:
@@ -159,7 +160,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def _learn_wrapped_samplers(self,
                                 online_learning_cycle: Optional[int]) -> None:
         """Update the NSRTs in place."""
-        if CFG.active_sampler_learning_model == "myopic_classifier":
+        if CFG.active_sampler_learning_model in [
+                "myopic_classifier_mlp", "myopic_classifier_knn"
+        ]:
             learner: _WrappedSamplerLearner = _ClassifierWrappedSamplerLearner(
                 self._get_current_nsrts(), self._get_current_predicates(),
                 online_learning_cycle)

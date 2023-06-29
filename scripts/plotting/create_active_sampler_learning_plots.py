@@ -58,7 +58,7 @@ PLOT_GROUPS = {
     ],
     "Shifted Bumpy Cover": [
         ("Myopic Classifier", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "bumpy_cover-myopic_classifier" in v)),
+            lambda v: "bumpy_cover-myopic_classifier_mlp" in v)),
         ("Fitted Q", "purple", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "bumpy_cover-fitted_q" in v)),
         ("Teacher Classifier", "brown", lambda df: df["EXPERIMENT_ID"].apply(
