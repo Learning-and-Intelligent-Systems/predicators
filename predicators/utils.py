@@ -16,6 +16,7 @@ import pkgutil
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -26,6 +27,13 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
     Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
+
+try:  # pragma: no cover
+    from gtts import gTTS
+    from playsound import playsound
+    _TTS_AVAILABLE = True
+except ModuleNotFoundError:  # pragma: no cover
+    _TTS_AVAILABLE = False
 
 import imageio
 import matplotlib
@@ -253,6 +261,15 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
     }
     goal_dict = create_json_dict_from_ground_atoms(task.goal)
     return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
+
+
+def prompt_user(prompt: str) -> str:  # pragma: no cover
+    """Ask the user for input with voice and text."""
+    if _TTS_AVAILABLE:
+        with tempfile.NamedTemporaryFile() as voice:
+            gTTS(text=prompt, lang="en").write_to_fp(voice)
+            playsound(voice.name)
+    return input(prompt)
 
 
 class _Geom2D(abc.ABC):

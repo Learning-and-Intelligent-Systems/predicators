@@ -112,6 +112,7 @@ def _create_dummy_predicate_classifier(
 _SPECIAL_ACTIONS = {
     "find": 0,
     "stow": 1,
+    "done": 2,
 }
 
 
@@ -124,11 +125,14 @@ class SpotEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+        assert "spot_wrapper" in CFG.approach, \
+            "Must use spot wrapper in spot envs!"
         self._spot_interface = get_spot_interface()
         # Note that we need to include the operators in this
         # class because they're used to update the symbolic
         # parts of the state during execution.
         self._strips_operators: Set[STRIPSOperator] = set()
+        self._current_task_goal_reached = False
 
     @property
     def _ordered_strips_operators(self) -> List[STRIPSOperator]:
@@ -252,15 +256,36 @@ class SpotEnv(BaseEnv):
         return Action(action_arr)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
-        init_atoms = self._get_initial_nonpercept_atoms()
-        init_obs = self._build_observation(init_atoms)
-        goal = self._generate_task_goal()
-        self._current_task = EnvironmentTask(init_obs, goal)
-        self._current_observation = init_obs
-        return init_obs
+        # NOTE: task_idx and train_or_test ignored unless loading from JSON!
+        if CFG.test_task_json_dir is not None and train_or_test == "test":
+            self._current_task = self._test_tasks[task_idx]
+        else:
+            prompt = f"Please set up {train_or_test} task {task_idx}!"
+            utils.prompt_user(prompt)
+            self._spot_interface.lease_client.take()
+            self._current_task = self._actively_construct_env_task()
+        self._current_observation = self._current_task.init_obs
+        self._current_task_goal_reached = False
+        return self._current_task.init_obs
 
     def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
+        # Check if the action is the special "done" action. If so, ask the
+        # human if the task was actually accomplished.
+        if np.allclose(action.arr, self.get_special_action("done").arr):
+            while True:
+                logging.info(f"The goal is: {self._current_task.goal}")
+                prompt = "Is the goal accomplished? Answer y or n. "
+                response = utils.prompt_user(prompt).strip()
+                if response == "y":
+                    self._current_task_goal_reached = True
+                    break
+                if response == "n":
+                    self._current_task_goal_reached = False
+                    break
+                logging.info("Invalid input, must be either 'y' or 'n'")
+            return self._current_observation
+
         obs = self._current_observation
         assert isinstance(obs, _SpotObservation)
         assert self.action_space.contains(action.arr)
@@ -278,9 +303,7 @@ class SpotEnv(BaseEnv):
         return self._current_observation
 
     def goal_reached(self) -> bool:
-        # We need to implement this! But we're just watching it work for now.
-        # We might want to implement this by literally asking for human input.
-        return False
+        return self._current_task_goal_reached
 
     def _build_observation(self,
                            ground_atoms: Set[GroundAtom]) -> _SpotObservation:
@@ -370,15 +393,16 @@ class SpotEnv(BaseEnv):
         raise NotImplementedError("Simulate not implemented for SpotEnv.")
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        assert CFG.num_train_tasks == 0, "Use JSON loading instead"
-        return []
+        goal = self._generate_task_goal()  # currently just one goal
+        return [
+            EnvironmentTask(None, goal) for _ in range(CFG.num_train_tasks)
+        ]
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        assert CFG.num_test_tasks == 1, "Use JSON loading instead"
-        return self._generate_tasks(CFG.num_test_tasks)
+        goal = self._generate_task_goal()  # currently just one goal
+        return [EnvironmentTask(None, goal) for _ in range(CFG.num_test_tasks)]
 
-    def _generate_tasks(self, num_tasks: int) -> List[EnvironmentTask]:
-        assert num_tasks == 1
+    def _actively_construct_env_task(self) -> EnvironmentTask:
         # Have the spot walk around the environment once to construct
         # an initial observation.
         object_names_in_view = self._actively_construct_initial_object_views()
@@ -432,7 +456,7 @@ class SpotEnv(BaseEnv):
         with open(outfile, "w", encoding="utf-8") as f:
             json.dump(json_dict, f, indent=4)
         logging.info(f"Dumped task to {outfile}. Rename it to save it.")
-        return [task]
+        return task
 
     @abc.abstractmethod
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
@@ -790,6 +814,26 @@ class SpotBikeEnv(SpotEnv):
                                                   [spot, tool, surface],
                                                   preconds, add_effs, del_effs,
                                                   set())
+        # PlaceToolOnFloor
+        spot = Variable("?robot", self._robot_type)
+        tool = Variable("?tool", self._tool_type)
+        floor = Variable("?floor", self._floor_type)
+        preconds = {
+            LiftedAtom(self._HoldingTool, [spot, tool]),
+            LiftedAtom(self._notHandEmpty, [spot]),
+        }
+        add_effs = {
+            LiftedAtom(self._OnFloor, [tool, floor]),
+        }
+        del_effs = {
+            LiftedAtom(self._HoldingTool, [spot, tool]),
+            LiftedAtom(self._notHandEmpty, [spot]),
+        }
+        self._PlaceToolOnFloorOp = STRIPSOperator("PlaceToolOnFloor",
+                                                  [spot, tool, floor],
+                                                  preconds, add_effs, del_effs,
+                                                  set())
+
         # PlaceIntoBag
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -823,6 +867,7 @@ class SpotBikeEnv(SpotEnv):
             self._GraspToolFromHighOp,
             self._GraspBagOp,
             self._PlaceToolNotHighOp,
+            self._PlaceToolOnFloorOp,
             self._PlaceIntoBagOp,
             self._MoveToToolOnFloorOp,
             self._GraspToolFromFloorOp,
@@ -871,6 +916,10 @@ class SpotBikeEnv(SpotEnv):
         obj_on, obj_surface = objects
         assert obj_name_to_apriltag_id.get(obj_on.name) is not None
         assert obj_name_to_apriltag_id.get(obj_surface.name) is not None
+
+        spot = [o for o in state if o.type.name == "robot"][0]
+        if cls._holding_tool_classifier(state, [spot, obj_on]):
+            return False
 
         obj_on_pose = [
             state.get(obj_on, "x"),

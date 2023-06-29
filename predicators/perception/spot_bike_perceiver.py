@@ -12,8 +12,8 @@ from predicators.envs.spot_env import SpotBikeEnv, _PartialPerceptionState, \
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
-from predicators.structs import Action, EnvironmentTask, GroundAtom, Object, \
-    Observation, Predicate, State, Task
+from predicators.structs import Action, DefaultState, EnvironmentTask, \
+    GroundAtom, Object, Observation, Predicate, State, Task
 
 
 class SpotBikePerceiver(BasePerceiver):
@@ -33,15 +33,26 @@ class SpotBikePerceiver(BasePerceiver):
         self._lost_objects: Set[Object] = set()
         assert CFG.env == "spot_bike_env"
         self._curr_env: Optional[BaseEnv] = None
+        self._waiting_for_observation = True
 
     @classmethod
     def get_name(cls) -> str:
         return "spot_bike_env"
 
     def reset(self, env_task: EnvironmentTask) -> Task:
-        self._update_state_from_observation(env_task.init_obs)
+        self._waiting_for_observation = True
         self._curr_env = get_or_create_env("spot_bike_env")
         assert isinstance(self._curr_env, SpotBikeEnv)
+        self._known_object_poses = {}
+        self._known_objects_in_hand_view = set()
+        self._robot = None
+        self._nonpercept_atoms = set()
+        self._nonpercept_predicates = set()
+        self._prev_action = None
+        self._holding_item_id_feature = 0.0
+        self._gripper_open_percentage = 0.0
+        self._robot_pos = (0.0, 0.0, 0.0)
+        self._lost_objects = set()
         init_state = self._create_state()
         return Task(init_state, env_task.goal)
 
@@ -60,6 +71,7 @@ class SpotBikePerceiver(BasePerceiver):
         if self._prev_action is not None:
             controller_name, objects, _ = self._curr_env.parse_action(
                 self._prev_action)
+            logging.info(f"[Perceiver] Previous action was {controller_name}.")
             # The robot is always the 0th argument of an
             # operator!
             if "grasp" in controller_name.lower():
@@ -73,9 +85,9 @@ class SpotBikePerceiver(BasePerceiver):
                 # if we successfully picked something.
                 if self._gripper_open_percentage > 1.5:
                     self._holding_item_id_feature = grasp_obj_id
-                    logging.info(f"Grabbed item id: {grasp_obj_id}")
                 else:
                     # We lost the object!
+                    logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(object_attempted_to_grasp)
             elif "place" in controller_name.lower():
                 self._holding_item_id_feature = 0.0
@@ -88,6 +100,7 @@ class SpotBikePerceiver(BasePerceiver):
                     is_on = ontop_classifier(state, [obj, surface])
                     if not is_on:
                         # We lost the object!
+                        logging.info("[Perceiver] Object was lost!")
                         self._lost_objects.add(obj)
             else:
                 # We ensure the holding item feature is set
@@ -110,12 +123,14 @@ class SpotBikePerceiver(BasePerceiver):
                             if o.name == obj_name
                         ][0]
                         # We lost the object!
+                        logging.info("[Perceiver] Object was lost!")
                         self._lost_objects.add(obj)
 
         return self._create_state()
 
     def _update_state_from_observation(self, observation: Observation) -> None:
         assert isinstance(observation, _SpotObservation)
+        self._waiting_for_observation = False
         self._robot = observation.robot
         self._known_object_poses.update(observation.objects_in_view)
         self._known_objects_in_hand_view = observation.objects_in_hand_view
@@ -126,7 +141,9 @@ class SpotBikePerceiver(BasePerceiver):
         for obj in observation.objects_in_view:
             self._lost_objects.discard(obj)
 
-    def _create_state(self) -> _PartialPerceptionState:
+    def _create_state(self) -> State:
+        if self._waiting_for_observation:
+            return DefaultState
         # Build the continuous part of the state.
         assert self._robot is not None
         state_dict = {

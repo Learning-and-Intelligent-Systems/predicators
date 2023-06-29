@@ -74,6 +74,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         next_practice_nsrt: Optional[_GroundNSRT] = None
 
         def _option_policy(state: State) -> _Option:
+            logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task_goal_reached, current_policy, \
                 next_practice_nsrt
 
