@@ -16,18 +16,22 @@ from predicators.structs import Dataset
 from predicators.teacher import Teacher
 
 
-@pytest.mark.parametrize("model_name,right_targets,num_demo",
-                         [("myopic_classifier", False, 0),
-                          ("myopic_classifier", True, 1),
-                          ("myopic_classifier_ensemble", False, 0),
-                          ("myopic_classifier_ensemble", False, 1),
-                          ("fitted_q", False, 0), ("fitted_q", True, 0)])
-def test_active_sampler_learning_approach(model_name, right_targets, num_demo):
+@pytest.mark.parametrize("model_name,right_targets,num_demo,feat_type",
+                         [("myopic_classifier_mlp", False, 0, "all"),
+                          ("myopic_classifier_mlp", True, 1, "all"),
+                          ("myopic_classifier_ensemble", False, 0, "all"),
+                          ("myopic_classifier_ensemble", False, 1, "all"),
+                          ("fitted_q", False, 0, "all"),
+                          ("fitted_q", True, 0, "all"),
+                          ("myopic_classifier_knn", False, 0, "oracle")])
+def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
+                                          feat_type):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
         "env": "bumpy_cover",
         "approach": "active_sampler_learning",
         "active_sampler_learning_model": model_name,
+        "active_sampler_learning_feature_selection": feat_type,
         "timeout": 10,
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
