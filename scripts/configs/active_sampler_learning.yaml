@@ -127,21 +127,21 @@
 # Compare manual feature design to default feature design, with MLP vs KNN.
 ---
 APPROACHES:
-  # mlp_manual_features:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     active_sampler_learning_model: "myopic_classifier_mlp"
-  #     active_sampler_learning_feature_selection: "oracle"
-  # mlp_all_features:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     active_sampler_learning_model: "myopic_classifier_mlp"
-  #     active_sampler_learning_feature_selection: "all"
-  # knn_manual_features:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     active_sampler_learning_model: "myopic_classifier_knn"
-  #     active_sampler_learning_feature_selection: "oracle"
+  mlp_manual_features:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      active_sampler_learning_model: "myopic_classifier_mlp"
+      active_sampler_learning_feature_selection: "oracle"
+  mlp_all_features:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      active_sampler_learning_model: "myopic_classifier_mlp"
+      active_sampler_learning_feature_selection: "all"
+  knn_manual_features:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      active_sampler_learning_model: "myopic_classifier_knn"
+      active_sampler_learning_feature_selection: "oracle"
   knn_all_features:
     NAME: "active_sampler_learning"
     FLAGS:
