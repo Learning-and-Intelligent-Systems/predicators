@@ -4,12 +4,11 @@ import glob
 import os
 from typing import List, Optional
 
-from bosdyn.client import math_helpers
-
 import dill as pkl
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
+from bosdyn.client import math_helpers
 from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
