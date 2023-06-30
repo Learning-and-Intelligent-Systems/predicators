@@ -191,12 +191,14 @@ class ActiveSamplerExplorer(BaseExplorer):
             self._ground_op_hist[last_executed_op] = []
         self._ground_op_hist[last_executed_op].append(success)
         # Aggressively save data after every single option execution.
+        init_state = self._last_init_option_state
+        assert init_state is not None
         option = self._last_executed_option
         assert option is not None
         objects = option.objects
         params = option.params
         sampler_input = utils.construct_active_sampler_input(
-            self._last_init_option_state, objects, params, option.parent)
+            init_state, objects, params, option.parent)
         sampler_output = int(success)
         # Now, we need to get the file location and the max
         # datapoint id saved at this location.
