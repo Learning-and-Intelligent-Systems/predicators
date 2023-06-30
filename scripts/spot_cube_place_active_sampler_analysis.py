@@ -104,10 +104,10 @@ def _create_image(X: List[Array],
 
     fig, ax = plt.subplots(1, 1)
 
-    x_min = 0
-    x_max = 2
-    y_min = -1
-    y_max = 1
+    x_min = 0.5
+    x_max = 1.5
+    y_min = -2.0
+    y_max = -0.5
     density = 25
     radius = 0.025
 
@@ -128,14 +128,16 @@ def _create_image(X: List[Array],
             ax.add_patch(circle)
 
     # plot real data
-    for x, label in zip(X, y):
-        x_param, y_param = x[-3:-1]
+    for datum, label in zip(X, y):
+        x_param, y_param = datum[-3:-1]
+        x_pt = (x_param + datum[3] - datum[12])
+        y_pt = (y_param + datum[4] - datum[13])
         color = cmap(norm(label))
-        circle = plt.Circle((x_param, y_param), radius, color=color, alpha=0.5)
+        circle = plt.Circle((x_pt, y_pt), radius, color=color, alpha=0.5)
         ax.add_patch(circle)
 
-    plt.xlabel("x parameter")
-    plt.ylabel("y parameter")
+    plt.xlabel("relative x parameter")
+    plt.ylabel("relative y parameter")
     plt.xlim((x_min - 3 * radius, x_max + 3 * radius))
     plt.ylim((y_min - 3 * radius, y_max + 3 * radius))
 
