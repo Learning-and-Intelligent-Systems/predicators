@@ -36,7 +36,7 @@ def _analyze_saved_data() -> None:
     y: List[Array] = []
     for filepath in all_saved_files:
         with open(filepath, "rb") as f:
-            X_i, y_i = pkl.load(f)
+            X_i, y_i = pkl.load(f)["datapoint"]
         X.append(X_i)
         y.append(y_i)
     img = _create_image(X, y)
