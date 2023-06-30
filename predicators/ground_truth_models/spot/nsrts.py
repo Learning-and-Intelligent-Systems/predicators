@@ -25,12 +25,13 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
     assert len(objs) in [2, 3]
     if objs[1].type.name == "bag":  # pragma: no cover
         return np.array([0.5, 0.0, 0.0])
-    # Sample dyaw so that there is some hope of seeing objects from
-    # different angles.
-    dyaw = rng.uniform(-np.pi / 8, np.pi / 8)
+    dyaw = 0.0
     # For MoveToObjOnFloor
     if len(objs) == 3:
         if objs[2].name == "floor":
+            # Sample dyaw so that there is some hope of seeing objects from
+            # different angles.
+            dyaw = rng.uniform(-np.pi / 8, np.pi / 8)
             obj = objs[1]
             # Get graph_nav to body frame.
             gn_state = spot_interface.get_localized_state()

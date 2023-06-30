@@ -29,7 +29,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._prev_action: Optional[Action] = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
-        self._robot_pos = (0.0, 0.0, 0.0)
+        self._robot_pos = (0.0, 0.0, 0.0, 0.0)
         self._lost_objects: Set[Object] = set()
         assert CFG.env == "spot_bike_env"
         self._curr_env: Optional[BaseEnv] = None
@@ -51,7 +51,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._prev_action = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
-        self._robot_pos = (0.0, 0.0, 0.0)
+        self._robot_pos = (0.0, 0.0, 0.0, 0.0)
         self._lost_objects = set()
         init_state = self._create_state()
         return Task(init_state, env_task.goal)
@@ -153,6 +153,7 @@ class SpotBikePerceiver(BasePerceiver):
                 "x": self._robot_pos[0],
                 "y": self._robot_pos[1],
                 "z": self._robot_pos[2],
+                "yaw": self._robot_pos[3],
             },
         }
         for obj, (x, y, z) in self._known_object_poses.items():

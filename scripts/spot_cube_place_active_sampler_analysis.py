@@ -2,7 +2,7 @@
 
 import glob
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import dill as pkl
 import imageio
@@ -36,7 +36,7 @@ def _analyze_saved_data() -> None:
     y: List[Array] = []
     for filepath in all_saved_files:
         with open(filepath, "rb") as f:
-            X_i, y_i = pkl.load(f)
+            X_i, y_i = pkl.load(f)["datapoint"]
         X.append(X_i)
         y.append(y_i)
     img = _create_image(X, y)
@@ -82,9 +82,10 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
     if not os.path.exists(save_path):
         raise FileNotFoundError(f"File does not exist: {save_path}")
     with open(save_path, "rb") as f:
-        training_data: Tuple[List[Array], List[Array]] = pkl.load(f)
+        data = pkl.load(f)
     print(f"Loaded sampler classifier training data from {save_path}.")
-    X, y = training_data
+    X: List[Array] = data["datapoint"][0]
+    y: List[Array] = data["datapoint"][1]
     return _create_image(X, y, classifier=classifier)
 
 
@@ -95,18 +96,18 @@ def _create_image(X: List[Array],
     norm = Normalize(vmin=0.0, vmax=1.0)
 
     # x is [1.0, spot, tool, surface, params]
-    # spot: "gripper_open_percentage", "curr_held_item_id", "x", "y", "z"
-    # tool: "x", "y", "z", "lost", "in_view"
-    # surface: "x", "y", "z"
-    # params: "dx", "dy", "dz"
-    assert np.array(X).shape[1] == 1 + 5 + 5 + 3 + 3
+    # spot: gripper_open_percentage, curr_held_item_id, x, y, z, yaw
+    # tool: x, y, z, lost, in_view
+    # surface: x, y, z
+    # params: dx, dy, dz
+    assert np.array(X).shape[1] == 1 + 6 + 5 + 3 + 3
 
     fig, ax = plt.subplots(1, 1)
 
-    x_min = 0
-    x_max = 2
-    y_min = -1
-    y_max = 1
+    x_min = 0.5
+    x_max = 1.5
+    y_min = -2.0
+    y_max = -0.5
     density = 25
     radius = 0.025
 
@@ -127,14 +128,16 @@ def _create_image(X: List[Array],
             ax.add_patch(circle)
 
     # plot real data
-    for x, label in zip(X, y):
-        x_param, y_param = x[-3:-1]
+    for datum, label in zip(X, y):
+        x_param, y_param = datum[-3:-1]
+        x_pt = (x_param + datum[3] - datum[12])
+        y_pt = (y_param + datum[4] - datum[13])
         color = cmap(norm(label))
-        circle = plt.Circle((x_param, y_param), radius, color=color, alpha=0.5)
+        circle = plt.Circle((x_pt, y_pt), radius, color=color, alpha=0.5)
         ax.add_patch(circle)
 
-    plt.xlabel("x parameter")
-    plt.ylabel("y parameter")
+    plt.xlabel("relative x parameter")
+    plt.ylabel("relative y parameter")
     plt.xlim((x_min - 3 * radius, x_max + 3 * radius))
     plt.ylim((y_min - 3 * radius, y_max + 3 * radius))
 

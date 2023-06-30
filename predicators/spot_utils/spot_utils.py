@@ -305,13 +305,14 @@ class _SpotInterface():
             }
         return camera_to_obj_names_to_poses
 
-    def get_robot_pose(self) -> Tuple[float, float, float]:
+    def get_robot_pose(self) -> Tuple[float, float, float, float]:
         """Get the x, y, z position of the robot body."""
         state = self.get_localized_state()
         gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
-        robot_pos = gn_origin_tform_body.transform_point(0.0, 0.0, 0.0)
-        return robot_pos
+        x, y, z = gn_origin_tform_body.transform_point(0.0, 0.0, 0.0)
+        yaw = gn_origin_tform_body.rotation.to_yaw()
+        return (x, y, z, yaw)
 
     def actively_construct_initial_object_views(
             self,
