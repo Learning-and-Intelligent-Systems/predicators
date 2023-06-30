@@ -103,6 +103,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def _update_sampler_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
+        import ipdb; ipdb.set_trace()
         for segmented_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             just_made_incorrect_pick = False
