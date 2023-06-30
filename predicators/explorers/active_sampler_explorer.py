@@ -4,6 +4,7 @@ import glob
 import logging
 import os
 import re
+import time
 from typing import Callable, Dict, List, Optional, Set
 
 import dill as pkl
@@ -211,8 +212,12 @@ class ActiveSamplerExplorer(BaseExplorer):
                 assert regex_match is not None
                 d_id = int(regex_match.groups()[0])
                 datapoint_id = max(datapoint_id, d_id + 1)
+        data = {
+            "datapoint": (sampler_input, sampler_output),
+            "time": time.time()
+        }
         with open(f"{prefix}{datapoint_id}.data", "wb") as f:
-            pkl.dump((sampler_input, sampler_output), f)
+            pkl.dump(data, f)
 
     def _get_practice_ground_nsrt(self) -> _GroundNSRT:
         best_op = max(self._ground_op_hist, key=self._score_ground_op)
