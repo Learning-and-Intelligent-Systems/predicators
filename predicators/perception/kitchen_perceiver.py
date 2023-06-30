@@ -18,11 +18,14 @@ class KitchenPerceiver(BasePerceiver):
         assert env_task.goal_description == \
             "Move Kettle to Back Burner and Turn On"
         OnTop = KitchenEnv.get_goal_at_predicates(KitchenEnv)[1]
-        On = KitchenEnv.get_goal_at_predicates(KitchenEnv)[2]
+        TurnedOn = KitchenEnv.get_goal_at_predicates(KitchenEnv)[2]
         kettle = Object("kettle", KitchenEnv.object_type)
         knob = Object("knob3", KitchenEnv.object_type)
         burner = Object("burner2", KitchenEnv.object_type)
-        goal = {GroundAtom(On, [knob]), GroundAtom(OnTop, [kettle, burner])}
+        goal = {
+            GroundAtom(TurnedOn, [knob]),
+            GroundAtom(OnTop, [kettle, burner])
+        }
         return Task(state, goal)
 
     def step(self, observation: Observation) -> State:

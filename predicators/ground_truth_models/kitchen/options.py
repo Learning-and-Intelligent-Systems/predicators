@@ -9,12 +9,16 @@ try:
     from mujoco_kitchen.utils import \
         primitive_and_params_to_primitive_action, primitive_idx_to_name, \
         primitive_name_to_action_idx
+    _MJKITCHEN_IMPORTED = True
 except ImportError:
-    pass
+    _MJKITCHEN_IMPORTED = False
 from predicators import utils
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.ground_truth_models.kitchen.operators import \
+    KitchenGroundTruthOperatorFactory
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    ParameterizedPolicy, ParameterizedTerminal, Predicate, State, Type
+    ParameterizedPolicy, ParameterizedTerminal, Predicate, State, \
+    STRIPSOperator, Type
 
 
 class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
@@ -28,33 +32,33 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
+        assert _MJKITCHEN_IMPORTED
+        # Operators
+        operators = KitchenGroundTruthOperatorFactory.get_operators(
+            env_name, types, predicates)
 
         # Reformat names for consistency with other option naming.
         def _format_name(name: str) -> str:
             return "".join([n.capitalize() for n in name.split(" ")])
 
         options: Set[ParameterizedOption] = set()
-        for val in primitive_idx_to_name.values():
-            if _format_name(val) == "Move_delta_ee_pose":
-                params_space = Box(np.array([-5.0, -5.0, -5.0, -100.0]),
-                                   np.array([5.0, 5.0, 5.0, 100.0]))
-                obj_types = list(types.values())
-            elif isinstance(primitive_name_to_action_idx[val], int):
+        for op in operators:
+            if "MoveTo" in op.name or "Push" in op.name:
+                val = "move_delta_ee_pose"
+            if isinstance(primitive_name_to_action_idx[val], int):
                 params_space = Box(-np.ones(1) * 5, np.ones(1) * 5)
-                obj_types = []
             else:
                 n = len(primitive_name_to_action_idx[val])
                 params_space = Box(-np.ones(n) * 5, np.ones(n) * 5)
-                obj_types = []
+            obj_types = [param.type for param in op.parameters]
             options.add(
                 utils.ParameterizedOption(
-                    name=_format_name(val),
+                    name=op.name.lower() + "_option",
                     types=obj_types,
                     params_space=params_space,
                     policy=cls._create_policy(name=val),
                     initiable=lambda _1, _2, _3, _4: True,
-                    terminal=cls._create_terminal(name=val)))
-
+                    terminal=cls._create_terminal(name=val, operator=op)))
         return options
 
     @classmethod
@@ -64,22 +68,21 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                    params: Array) -> Action:
             del memory  # unused.
             if name.lower() == "move_delta_ee_pose":
-                assert len(params) == 4
-                if params[3] == 0.0:
+                assert len(params) == 3
+                if len(objects) == 2:
                     gripper, _ = objects
-                    gx = state.get(gripper, "x")
-                    gy = state.get(gripper, "y")
-                    gz = state.get(gripper, "z")
-                    dx = params[0] - gx
-                    dy = params[1] - gy
-                    dz = params[2] - gz
-                    primitive_params = np.array([dx, dy, dz],
-                                                dtype=np.float32).clip(
-                                                    -1.0, 1.0)
                 else:
-                    primitive_params = np.array(
-                        [params[0], params[1], params[2]],
-                        dtype=np.float32).clip(-1.0, 1.0)
+                    assert len(objects) == 3
+                    gripper, _, _ = objects
+                assert gripper.name == "gripper"
+                gx = state.get(gripper, "x")
+                gy = state.get(gripper, "y")
+                gz = state.get(gripper, "z")
+                dx = params[0] - gx
+                dy = params[1] - gy
+                dz = params[2] - gz
+                primitive_params = np.array([dx, dy, dz],
+                                            dtype=np.float32).clip(-0.1, 0.1)
             else:
                 primitive_params = params
             arr = primitive_and_params_to_primitive_action(
@@ -89,30 +92,16 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         return policy
 
     @classmethod
-    def _create_terminal(cls, name: str) -> ParameterizedTerminal:
+    def _create_terminal(cls, name: str,
+                         operator: STRIPSOperator) -> ParameterizedTerminal:
 
         def terminal(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
-            if name.lower() == "move_delta_ee_pose":
-                gripper, _ = objects
-                if params[3] == 0.0:
-                    gx = state.get(gripper, "x")
-                    gy = state.get(gripper, "y")
-                    gz = state.get(gripper, "z")
-                    tx = params[0]
-                    ty = params[1]
-                    tz = params[2]
-                    return np.allclose([gx, gy, gz], [tx, ty, tz], atol=0.09)
-                if "steps" in memory:
-                    if memory["steps"] == -1:
-                        memory["steps"] = int(params[3])
-                    elif memory["steps"] == 0:
-                        memory["steps"] = -1
-                        return True
-                else:
-                    memory["steps"] = int(params[3])
-                memory["steps"] -= 1
-                return False
-            return True
+            """Terminate when the option's corresponding operator's effects
+            have been reached."""
+            grounded_op = operator.ground(tuple(objects))
+            if all(e.holds(state) for e in grounded_op.add_effects):
+                return True
+            return False
 
         return terminal

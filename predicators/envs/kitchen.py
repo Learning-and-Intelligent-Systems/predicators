@@ -10,8 +10,9 @@ from gym.spaces import Box
 try:
     from mujoco_kitchen.kitchen_envs import OBS_ELEMENT_INDICES
     from mujoco_kitchen.utils import make_env
+    _MJKITCHEN_IMPORTED = True
 except ImportError:
-    pass
+    _MJKITCHEN_IMPORTED = False
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
@@ -27,9 +28,10 @@ class KitchenEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+        assert _MJKITCHEN_IMPORTED
 
         # Predicates
-        self._At, self._OnTop, self._On = self.get_goal_at_predicates()
+        self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
@@ -105,11 +107,11 @@ class KitchenEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._At, self._On, self._OnTop}
+        return {self._At, self._TurnedOn, self._OnTop}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._At, self._On, self._OnTop}
+        return {self._At, self._TurnedOn, self._OnTop}
 
     @property
     def types(self) -> Set[Type]:
@@ -132,7 +134,7 @@ class KitchenEnv(BaseEnv):
         }
         # We now need to reset the underlying gym environment to the correct
         # state.
-        seed = self._get_task_seed(train_or_test, task_idx)
+        seed = utils.get_task_seed(train_or_test, task_idx)
         self._reset_initial_state_from_seed(seed)
         return self._copy_observation(self._current_observation)
 
@@ -163,6 +165,8 @@ class KitchenEnv(BaseEnv):
                     "z": val[2],
                     "angle": 0
                 }
+                if obj_name == "kettle":
+                    state_dict[obj]["z"] -= 0.1
             elif key == "end_effector":
                 obj = Object("gripper", self.gripper_type)
                 state_dict[obj] = {
@@ -195,7 +199,7 @@ class KitchenEnv(BaseEnv):
                    train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
         for task_idx in range(num):
-            seed = self._get_task_seed(train_or_test, task_idx)
+            seed = utils.get_task_seed(train_or_test, task_idx)
             init_obs = self._reset_initial_state_from_seed(seed)
             goal_description = "Move Kettle to Back Burner and Turn On"
             task = EnvironmentTask(init_obs, goal_description)
@@ -221,7 +225,7 @@ class KitchenEnv(BaseEnv):
             state.get(gripper, "y"),
             state.get(gripper, "z")
         ]
-        return np.allclose(obj_xyz, gripper_xyz, atol=0.09)
+        return np.allclose(obj_xyz, gripper_xyz, atol=0.2)
 
     @classmethod
     def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -233,7 +237,7 @@ class KitchenEnv(BaseEnv):
         ]
         return np.allclose(
             obj1_xy, obj2_xy,
-            atol=0.1) and state.get(obj1, "z") > state.get(obj2, "z")
+            atol=0.15) and state.get(obj1, "z") > state.get(obj2, "z")
 
     @classmethod
     def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -253,23 +257,5 @@ class KitchenEnv(BaseEnv):
                       self._At_holds),
             Predicate("OnTop", [self.object_type, self.object_type],
                       self._OnTop_holds),
-            Predicate("On", [self.object_type], self._On_holds)
+            Predicate("TurnedOn", [self.object_type], self._On_holds)
         ]
-
-    @staticmethod
-    def _get_task_seed(train_or_test: str, task_idx: int) -> int:
-        assert task_idx < CFG.test_env_seed_offset
-        # SeedSequence generates a sequence of random values given an integer
-        # "entropy". We use CFG.seed to define the "entropy" and then get the
-        # n^th generated random value and use that to seed the gym environment.
-        # This is all to avoid unintentional dependence between experiments
-        # that are conducted with consecutive random seeds. For example, if
-        # we used CFG.seed + task_idx to seed the gym environment, there would
-        # be overlap between experiments when CFG.seed = 1, CFG.seed = 2, etc.
-        entropy = CFG.seed
-        if train_or_test == "test":
-            entropy += CFG.test_env_seed_offset
-        seed_sequence = np.random.SeedSequence(entropy)
-        # Need to cast to int because generate_state() returns a numpy int.
-        task_seed = int(seed_sequence.generate_state(task_idx + 1)[-1])
-        return task_seed
