@@ -91,12 +91,12 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
     fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
     fiducial_pose = list(fiducial_in_robot_frame) + [spot_interface.hand_z]
 
-    if objs[2].type.name == "bag":  # pragma: no cover
+    if surface.type.name == "bag":  # pragma: no cover
         return fiducial_pose + np.array([0.1, 0.0, -0.25])
-    if "_table" in objs[2].name:
+    if "_table" in surface.name:
 
         dx = rng.uniform(0.19, 0.21)
-        dy = rng.uniform(-0.1, 0.05)  # positive is left
+        dy = rng.uniform(-0.2, 0.2)  # positive is left
         dz = rng.uniform(-0.61, -0.59)
 
         # Oracle values for slanted table.
