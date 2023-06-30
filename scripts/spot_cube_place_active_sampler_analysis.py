@@ -113,9 +113,9 @@ def _create_image(X: List[Array],
 
     fig, ax = plt.subplots(1, 1)
 
-    x_min = 0.0
-    x_max = 0.5
-    y_min = -0.5
+    x_min = -0.25
+    x_max = 0.25
+    y_min = -0.25
     y_max = 0.25
     density = 25
     radius = 0.025
@@ -139,12 +139,17 @@ def _create_image(X: List[Array],
     # plot real data
     for datum, label in zip(X, y):
         place_robot_xy = math_helpers.Vec2(*datum[-3:-1])
-        world_to_robot = math_helpers.SE2Pose(datum[3], datum[4], datum[5])
+        print("place_robot_xy:", place_robot_xy)
+        world_to_robot = math_helpers.SE2Pose(datum[3], datum[4], datum[6])
+        print("world_to_robot:", world_to_robot)
         world_surface_xy = math_helpers.Vec2(datum[12], datum[13])
+        print("world_surface_xy:", world_surface_xy)
         place_world_xy = world_to_robot * place_robot_xy
+        print("place_world_xy:", place_world_xy)
         place_surface_xy = place_world_xy - world_surface_xy
+        print("place_surface_xy:", place_surface_xy)
         x_pt, y_pt = place_surface_xy
-        print(label, x_pt, y_pt)
+        print("label:", label)
         color = cmap(norm(label))
         circle = plt.Circle((x_pt, y_pt), radius, color=color, alpha=0.5)
         ax.add_patch(circle)
