@@ -111,10 +111,10 @@ def _create_image(X: List[Array],
 
     fig, ax = plt.subplots(1, 1)
 
-    x_min = 0.5
-    x_max = 1.5
+    x_min = 0.0
+    x_max = 0.5
     y_min = -0.5
-    y_max = 0.5
+    y_max = 0.25
     density = 25
     radius = 0.025
 
@@ -139,6 +139,7 @@ def _create_image(X: List[Array],
         x_param, y_param = datum[-3:-1]
         x_pt = (x_param + datum[4] - datum[13])
         y_pt = (y_param + datum[3] - datum[12])
+        print(label, x_pt, y_pt)
         color = cmap(norm(label))
         circle = plt.Circle((x_pt, y_pt), radius, color=color, alpha=0.5)
         ax.add_patch(circle)
