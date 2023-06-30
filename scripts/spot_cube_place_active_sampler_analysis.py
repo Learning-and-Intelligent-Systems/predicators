@@ -82,9 +82,10 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
     if not os.path.exists(save_path):
         raise FileNotFoundError(f"File does not exist: {save_path}")
     with open(save_path, "rb") as f:
-        training_data: Tuple[List[Array], List[Array]] = pkl.load(f)
+        data = pkl.load(f)
     print(f"Loaded sampler classifier training data from {save_path}.")
-    X, y = training_data
+    X: List[Array] = data["datapoint"][0]
+    y: List[Array] = data["datapoint"][1]
     return _create_image(X, y, classifier=classifier)
 
 
