@@ -34,11 +34,18 @@ def _analyze_saved_data() -> None:
     all_saved_files = glob.glob(filepath_template)
     X: List[Array] = []
     y: List[Array] = []
+    times: List[int] = []
     for filepath in all_saved_files:
         with open(filepath, "rb") as f:
-            X_i, y_i = pkl.load(f)["datapoint"]
+            datum = pkl.load(f)
+        X_i, y_i = datum["datapoint"]
+        time_i = datum["time"]
         X.append(X_i)
         y.append(y_i)
+        times.append(time_i)
+    idxs = [i for (i, _) in sorted(enumerate(times), key=lambda i: i[1])]
+    X = [X[i] for i in idxs]
+    y = [y[i] for i in idxs]
     img = _create_image(X, y)
     img_outfile = "videos/spot_cube_active_sampler_learning_saved_data.png"
     imageio.imsave(img_outfile, img)
@@ -106,8 +113,8 @@ def _create_image(X: List[Array],
 
     x_min = 0.5
     x_max = 1.5
-    y_min = -2.0
-    y_max = -0.5
+    y_min = -0.5
+    y_max = 0.5
     density = 25
     radius = 0.025
 
@@ -130,8 +137,8 @@ def _create_image(X: List[Array],
     # plot real data
     for datum, label in zip(X, y):
         x_param, y_param = datum[-3:-1]
-        x_pt = (x_param + datum[3] - datum[12])
-        y_pt = (y_param + datum[4] - datum[13])
+        x_pt = (x_param + datum[4] - datum[13])
+        y_pt = (y_param + datum[3] - datum[12])
         color = cmap(norm(label))
         circle = plt.Circle((x_pt, y_pt), radius, color=color, alpha=0.5)
         ax.add_patch(circle)
