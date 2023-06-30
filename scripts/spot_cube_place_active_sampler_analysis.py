@@ -2,7 +2,7 @@
 
 import glob
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import dill as pkl
 import imageio
