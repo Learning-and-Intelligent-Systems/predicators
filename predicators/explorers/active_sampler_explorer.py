@@ -50,6 +50,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._ground_op_hist = ground_op_hist
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._last_executed_option: Optional[_Option] = None
+        self._last_init_option_state: Optional[State] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
 
     @classmethod
@@ -149,6 +150,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # they succeeded, to update the ground_op_hist.
         self._last_executed_nsrt = None
         self._last_executed_option = None
+        self._last_init_option_state = None
 
         def _wrapped_option_policy(state: State) -> _Option:
             # Update ground_op_hist.
@@ -158,6 +160,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
             self._last_executed_nsrt = ground_nsrt
             self._last_executed_option = option
+            self._last_init_option_state = state
             return option
 
         # Finalize policy.
@@ -188,12 +191,14 @@ class ActiveSamplerExplorer(BaseExplorer):
             self._ground_op_hist[last_executed_op] = []
         self._ground_op_hist[last_executed_op].append(success)
         # Aggressively save data after every single option execution.
+        init_state = self._last_init_option_state
+        assert init_state is not None
         option = self._last_executed_option
         assert option is not None
         objects = option.objects
         params = option.params
         sampler_input = utils.construct_active_sampler_input(
-            state, objects, params, option.parent)
+            init_state, objects, params, option.parent)
         sampler_output = int(success)
         # Now, we need to get the file location and the max
         # datapoint id saved at this location.

@@ -79,23 +79,24 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
                    goal: Set[GroundAtom], rng: np.random.Generator,
                    objs: Sequence[Object]) -> Array:
     del goal
-    # Get graph_nav to body frame.
-    gn_state = spot_interface.get_localized_state()
-    gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
-        gn_state.localization.seed_tform_body)
+    robot, _, surface = objs
 
-    obj = objs[2]
-    # Apply transform to fiducial pose to get relative body location.
-    body_tform_fiducial = gn_origin_tform_body.inverse().transform_point(
-        state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z"))
-    fiducial_pose = np.array([
-        body_tform_fiducial[0], body_tform_fiducial[1], spot_interface.hand_z
-    ])
-    if objs[2].type.name == "bag":  # pragma: no cover
+    world_fiducial = math_helpers.Vec2(
+        state.get(surface, "x"),
+        state.get(surface, "y"),
+    )
+    world_to_robot = math_helpers.SE2Pose(state.get(robot, "x"),
+                                          state.get(robot, "y"),
+                                          state.get(robot, "yaw"))
+    fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
+    fiducial_pose = list(fiducial_in_robot_frame) + [spot_interface.hand_z]
+
+    if surface.type.name == "bag":  # pragma: no cover
         return fiducial_pose + np.array([0.1, 0.0, -0.25])
-    if "_table" in objs[2].name:
+    if "_table" in surface.name:
+
         dx = rng.uniform(0.19, 0.21)
-        dy = rng.uniform(-0.1, 0.05)  # positive is left
+        dy = rng.uniform(-0.2, 0.2)  # positive is left
         dz = rng.uniform(-0.61, -0.59)
 
         # Oracle values for slanted table.
