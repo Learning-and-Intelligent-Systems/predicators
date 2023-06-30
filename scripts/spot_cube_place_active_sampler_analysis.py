@@ -1,7 +1,8 @@
 """Analysis for spot cube placing with active sampler learning."""
 
+import glob
 import os
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import dill as pkl
 import imageio
@@ -11,14 +12,41 @@ from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
 from predicators import utils
-from predicators.structs import Image
+from predicators.ml_models import BinaryClassifier
+from predicators.settings import CFG
+from predicators.structs import Array, Image
 
 
 def _main() -> None:
-    """Loads the saved samplers."""
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
+    _analyze_saved_data()
+    # _analyze_online_learning_cycles()
+
+
+def _analyze_saved_data() -> None:
+    """Use this to analyze the data saved in saved_datasets/."""
+    nsrt_name = "PlaceToolNotHigh"
+    objects_tuple_str = "spot:robot, cube:tool, extra_room_table:flat_surface"
+    prefix = f"{CFG.data_dir}/{CFG.env}_{nsrt_name}({objects_tuple_str})_"
+    filepath_template = f"{prefix}*.data"
+    all_saved_files = glob.glob(filepath_template)
+    X: List[Array] = []
+    y: List[Array] = []
+    for filepath in all_saved_files:
+        with open(filepath, "rb") as f:
+            X_i, y_i = pkl.load(f)
+        X.append(X_i)
+        y.append(y_i)
+    img = _create_image(X, y)
+    img_outfile = "videos/spot_cube_active_sampler_learning_saved_data.png"
+    imageio.imsave(img_outfile, img)
+    print(f"Wrote out to {img_outfile}")
+
+
+def _analyze_online_learning_cycles() -> None:
+    """Use this to analyze the datasets saved after each cycle."""
     # Set up videos.
     video_frames = []
     # Evaluate samplers for each learning cycle.
@@ -54,49 +82,55 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
     if not os.path.exists(save_path):
         raise FileNotFoundError(f"File does not exist: {save_path}")
     with open(save_path, "rb") as f:
-        training_data = pkl.load(f)
+        training_data: Tuple[List[Array], List[Array]] = pkl.load(f)
     print(f"Loaded sampler classifier training data from {save_path}.")
+    X, y = training_data
+    return _create_image(X, y, classifier=classifier)
 
+
+def _create_image(X: List[Array],
+                  y: List[Array],
+                  classifier: Optional[BinaryClassifier] = None) -> Image:
     cmap = colormaps.get_cmap('RdYlGn')
     norm = Normalize(vmin=0.0, vmax=1.0)
 
-    X, y = training_data
     # x is [1.0, spot, tool, surface, params]
     # spot: "gripper_open_percentage", "curr_held_item_id", "x", "y", "z"
     # tool: "x", "y", "z", "lost", "in_view"
     # surface: "x", "y", "z"
     # params: "dx", "dy", "dz"
-    assert X.shape[1] == 1 + 5 + 5 + 3 + 3
+    assert np.array(X).shape[1] == 1 + 5 + 5 + 3 + 3
 
     fig, ax = plt.subplots(1, 1)
 
     x_min = 0
-    x_max = 4
-    y_min = -2
-    y_max = 2
+    x_max = 2
+    y_min = -1
+    y_max = 1
     density = 25
-    radius = 0.05
+    radius = 0.025
 
-    candidates = [(x, y) for x in np.linspace(x_min, x_max, density)
-                  for y in np.linspace(y_min, y_max, density)]
-    for candidate in candidates:
-        # Average scores over other possible values...?
-        scores = []
-        for standard_x in X:
-            cand_x = standard_x.copy()
-            cand_x[-3:-1] = candidate
-            score = classifier.predict_proba(cand_x)
-            scores.append(score)
-        score = np.mean(scores)
-        color = cmap(norm(score))
-        circle = plt.Circle(candidate, radius, color=color, alpha=0.1)
-        ax.add_patch(circle)
+    if classifier is not None:
+        candidates = [(x, y) for x in np.linspace(x_min, x_max, density)
+                      for y in np.linspace(y_min, y_max, density)]
+        for candidate in candidates:
+            # Average scores over other possible values...?
+            scores = []
+            for standard_x in X:
+                cand_x = standard_x.copy()
+                cand_x[-3:-1] = candidate
+                score = classifier.predict_proba(cand_x)
+                scores.append(score)
+            mean_score = np.mean(scores)
+            color = cmap(norm(mean_score))
+            circle = plt.Circle(candidate, radius, color=color, alpha=0.1)
+            ax.add_patch(circle)
 
     # plot real data
     for x, label in zip(X, y):
         x_param, y_param = x[-3:-1]
         color = cmap(norm(label))
-        circle = plt.Circle((x_param, y_param), radius, color=color, alpha=0.8)
+        circle = plt.Circle((x_param, y_param), radius, color=color, alpha=0.5)
         ax.add_patch(circle)
 
     plt.xlabel("x parameter")

@@ -278,6 +278,9 @@ class _ScikitLearnBinaryClassifier(BinaryClassifier):
 
     def predict_proba(self, x: Array) -> float:
         probs = self._model.predict_proba([x])[0]
+        # Special case: only one class.
+        if probs.shape == (1, ):
+            return float(self.classify(x))
         assert probs.shape == (2, )  # [P(x is class 0), P(x is class 1)]
         return probs[1]  # return the second element of probs
 
