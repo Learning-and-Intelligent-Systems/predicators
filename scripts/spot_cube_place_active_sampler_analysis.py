@@ -95,11 +95,11 @@ def _create_image(X: List[Array],
     norm = Normalize(vmin=0.0, vmax=1.0)
 
     # x is [1.0, spot, tool, surface, params]
-    # spot: "gripper_open_percentage", "curr_held_item_id", "x", "y", "z"
-    # tool: "x", "y", "z", "lost", "in_view"
-    # surface: "x", "y", "z"
-    # params: "dx", "dy", "dz"
-    assert np.array(X).shape[1] == 1 + 5 + 5 + 3 + 3
+    # spot: gripper_open_percentage, curr_held_item_id, x, y, z, yaw
+    # tool: x, y, z, lost, in_view
+    # surface: x, y, z
+    # params: dx, dy, dz
+    assert np.array(X).shape[1] == 1 + 6 + 5 + 3 + 3
 
     fig, ax = plt.subplots(1, 1)
 
