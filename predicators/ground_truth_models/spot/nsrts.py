@@ -94,12 +94,12 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
         return fiducial_pose + np.array([0.1, 0.0, -0.25])
     if "_table" in objs[2].name:
         dx = rng.uniform(0.19, 0.21)
-        dy = rng.uniform(0.08, 0.22)
+        dy = rng.uniform(-0.1, 0.05)  # positive is left
         dz = rng.uniform(-0.61, -0.59)
 
         # Oracle values for slanted table.
         # dx = 0.2
-        # dy = 0.15
+        # dy = 0.05
         # dz = -0.6
 
         return fiducial_pose + np.array([dx, dy, dz])

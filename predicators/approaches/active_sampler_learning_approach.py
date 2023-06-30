@@ -22,8 +22,8 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ml_models import BinaryClassifierEnsemble, \
-    MLPBinaryClassifier, MLPRegressor
+from predicators.ml_models import BinaryClassifier, BinaryClassifierEnsemble, \
+    KNeighborsClassifier, MLPBinaryClassifier, MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
@@ -133,7 +133,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             continue
 
                 if CFG.active_sampler_learning_model in [
-                        "myopic_classifier", "myopic_classifier_ensemble"
+                        "myopic_classifier_mlp", "myopic_classifier_ensemble",
+                        "myopic_classifier_knn"
                 ]:
                     label: Any = success
                 else:
@@ -159,7 +160,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def _learn_wrapped_samplers(self,
                                 online_learning_cycle: Optional[int]) -> None:
         """Update the NSRTs in place."""
-        if CFG.active_sampler_learning_model == "myopic_classifier":
+        if CFG.active_sampler_learning_model in [
+                "myopic_classifier_mlp", "myopic_classifier_knn"
+        ]:
             learner: _WrappedSamplerLearner = _ClassifierWrappedSamplerLearner(
                 self._get_current_nsrts(), self._get_current_predicates(),
                 online_learning_cycle)
@@ -244,34 +247,38 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
 
     def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
                             nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
-        X_classifier: List[List[Array]] = []
+        X_classifier: List[Array] = []
         y_classifier: List[int] = []
         for state, option, _, label in nsrt_data:
             objects = option.objects
             params = option.params
-            # input is state features and option parameters
-            X_classifier.append([np.array(1.0)])  # start with bias term
-            for obj in objects:
-                X_classifier[-1].extend(state[obj])
-            X_classifier[-1].extend(params)
-            assert not CFG.sampler_learning_use_goals
+            x_arr = utils.construct_active_sampler_input(
+                state, objects, params, option.parent)
+            X_classifier.append(x_arr)
             y_classifier.append(label)
         X_arr_classifier = np.array(X_classifier)
         # output is binary signal
         y_arr_classifier = np.array(y_classifier)
-        classifier = MLPBinaryClassifier(
-            seed=CFG.seed,
-            balance_data=CFG.mlp_classifier_balance_data,
-            max_train_iters=CFG.sampler_mlp_classifier_max_itr,
-            learning_rate=CFG.learning_rate,
-            weight_decay=CFG.weight_decay,
-            use_torch_gpu=CFG.use_torch_gpu,
-            train_print_every=CFG.pytorch_train_print_every,
-            n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-            hid_sizes=CFG.mlp_classifier_hid_sizes,
-            n_reinitialize_tries=CFG.
-            sampler_mlp_classifier_n_reinitialize_tries,
-            weight_init="default")
+        if CFG.active_sampler_learning_model.endswith("mlp"):
+            classifier: BinaryClassifier = MLPBinaryClassifier(
+                seed=CFG.seed,
+                balance_data=CFG.mlp_classifier_balance_data,
+                max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+                learning_rate=CFG.learning_rate,
+                weight_decay=CFG.weight_decay,
+                use_torch_gpu=CFG.use_torch_gpu,
+                train_print_every=CFG.pytorch_train_print_every,
+                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+                hid_sizes=CFG.mlp_classifier_hid_sizes,
+                n_reinitialize_tries=CFG.
+                sampler_mlp_classifier_n_reinitialize_tries,
+                weight_init="default")
+        else:
+            assert CFG.active_sampler_learning_model.endswith("knn")
+            n_neighbors = min(len(X_arr_classifier),
+                              CFG.active_sampler_learning_knn_neighbors)
+            classifier = KNeighborsClassifier(seed=CFG.seed,
+                                              n_neighbors=n_neighbors)
         classifier.fit(X_arr_classifier, y_arr_classifier)
 
         # Save the sampler classifier for external analysis.
@@ -302,17 +309,14 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
 
     def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
                             nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
-        X_classifier: List[List[Array]] = []
+        X_classifier: List[Array] = []
         y_classifier: List[int] = []
         for state, option, _, label in nsrt_data:
             objects = option.objects
             params = option.params
-            # input is state features and option parameters
-            X_classifier.append([np.array(1.0)])  # start with bias term
-            for obj in objects:
-                X_classifier[-1].extend(state[obj])
-            X_classifier[-1].extend(params)
-            assert not CFG.sampler_learning_use_goals
+            x_arr = utils.construct_active_sampler_input(
+                state, objects, params, option.parent)
+            X_classifier.append(x_arr)
             y_classifier.append(label)
         X_arr_classifier = np.array(X_classifier)
         # output is binary signal
@@ -448,17 +452,14 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         return sampled_options
 
     def _fit_regressor(self, nsrt_data: _OptionSamplerDataset) -> MLPRegressor:
-        X_regressor: List[List[Array]] = []
+        X_regressor: List[Array] = []
         y_regressor: List[Array] = []
         for state, option, _, target in nsrt_data:
             objects = option.objects
             params = option.params
-            # input is state features and option parameters
-            X_regressor.append([np.array(1.0)])  # start with bias term
-            for obj in objects:
-                X_regressor[-1].extend(state[obj])
-            X_regressor[-1].extend(params)
-            assert not CFG.sampler_learning_use_goals
+            x_arr = utils.construct_active_sampler_input(
+                state, objects, params, option.parent)
+            X_regressor.append(x_arr)
             y_regressor.append(np.array([target]))
         X_arr_regressor = np.array(X_regressor)
         y_arr_regressor = np.array(y_regressor)
@@ -505,19 +506,18 @@ def _vector_score_fn_to_score_fn(vector_fn: Callable[[Array], float],
 
     def _score_fn(state: State, objects: Sequence[Object],
                   param_lst: List[Array]) -> List[float]:
-        x_lst: List[Any] = [1.0]  # start with bias term
-        sub = dict(zip(nsrt.parameters, objects))
-        for var in nsrt.parameters:
-            x_lst.extend(state[sub[var]])
-        assert not CFG.sampler_learning_use_goals
-        x = np.array(x_lst)
-        scores = [vector_fn(np.r_[x, p]) for p in param_lst]
+        xs = [
+            utils.construct_active_sampler_input(state, objects, p,
+                                                 nsrt.option)
+            for p in param_lst
+        ]
+        scores = [vector_fn(x) for x in xs]
         return scores
 
     return _score_fn
 
 
-def _classifier_to_score_fn(classifier: MLPBinaryClassifier,
+def _classifier_to_score_fn(classifier: BinaryClassifier,
                             nsrt: NSRT) -> _ScoreFn:
     return _vector_score_fn_to_score_fn(classifier.predict_proba, nsrt)
 
