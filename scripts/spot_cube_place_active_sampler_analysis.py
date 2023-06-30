@@ -4,6 +4,8 @@ import glob
 import os
 from typing import List, Optional
 
+from bosdyn.client import math_helpers
+
 import dill as pkl
 import imageio
 import matplotlib.pyplot as plt
@@ -136,16 +138,19 @@ def _create_image(X: List[Array],
 
     # plot real data
     for datum, label in zip(X, y):
-        x_param, y_param = datum[-3:-1]
-        x_pt = (x_param + datum[4] - datum[13])
-        y_pt = (y_param + datum[3] - datum[12])
+        place_robot_xy = math_helpers.Vec2(*datum[-3:-1])
+        world_to_robot = math_helpers.SE2Pose(datum[3], datum[4], datum[5])
+        world_surface_xy = math_helpers.Vec2(datum[12], datum[13])
+        place_world_xy = world_to_robot * place_robot_xy
+        place_surface_xy = place_world_xy - world_surface_xy
+        x_pt, y_pt = place_surface_xy
         print(label, x_pt, y_pt)
         color = cmap(norm(label))
         circle = plt.Circle((x_pt, y_pt), radius, color=color, alpha=0.5)
         ax.add_patch(circle)
 
-    plt.xlabel("relative x parameter")
-    plt.ylabel("relative y parameter")
+    plt.xlabel("x (surface frame)")
+    plt.ylabel("y (surface frame)")
     plt.xlim((x_min - 3 * radius, x_max + 3 * radius))
     plt.ylim((y_min - 3 * radius, y_max + 3 * radius))
 
