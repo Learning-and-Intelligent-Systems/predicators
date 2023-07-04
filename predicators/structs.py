@@ -945,6 +945,11 @@ class _GroundNSRT:
         """Ignore effects from the parent."""
         return self.parent.ignore_effects
 
+    @property
+    def op(self) -> _GroundSTRIPSOperator:
+        """The corresponding ground operator."""
+        return self.parent.op.ground(tuple(self.objects))
+
     def __str__(self) -> str:
         return self._str
 
@@ -1813,3 +1818,4 @@ AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
                           Optional[_GroundNSRT]]
 RGBA = Tuple[float, float, float, float]
 BridgePolicy = Callable[[State, Set[GroundAtom], List[_Option]], _Option]
+BridgeDataset = List[Tuple[Set[_Option], _GroundNSRT, Set[GroundAtom], State]]

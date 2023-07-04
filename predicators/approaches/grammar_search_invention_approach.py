@@ -22,7 +22,7 @@ from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
-    Object, ParameterizedOption, Predicate, State, Task, Type
+    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -767,24 +767,35 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             dataset.trajectories,
             set(candidates) | self._initial_predicates)
         logging.info("Done.")
-        # Create the score function that will be used to guide search.
-        score_function = create_score_function(
-            CFG.grammar_search_score_function, self._initial_predicates,
-            atom_dataset, candidates, self._train_tasks)
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
-        self._learned_predicates = self._select_predicates_to_keep(
-            candidates, score_function, self._initial_predicates, atom_dataset,
-            self._train_tasks)
+        if CFG.grammar_search_pred_selection_approach == "score_optimization":
+            # Create the score function that will be used to guide search.
+            score_function = create_score_function(
+                CFG.grammar_search_score_function, self._initial_predicates,
+                atom_dataset, candidates, self._train_tasks)
+            self._learned_predicates = \
+                self._select_predicates_by_score_hillclimbing(
+                candidates, score_function, self._initial_predicates,
+                atom_dataset, self._train_tasks)
+        elif CFG.grammar_search_pred_selection_approach == "clustering":
+            self._learned_predicates = self._select_predicates_by_clustering(
+                candidates, self._initial_predicates, dataset, atom_dataset)
         logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
+        annotations = None
+        if dataset.has_annotations:
+            annotations = dataset.annotations
+        self._learn_nsrts(dataset.trajectories,
+                          online_learning_cycle=None,
+                          annotations=annotations)
 
-    def _select_predicates_to_keep(self, candidates: Dict[
-        Predicate, float], score_function: _PredicateSearchScoreFunction,
-                                   initial_predicates: Set[Predicate],
-                                   atom_dataset: List[GroundAtomTrajectory],
-                                   train_tasks: List[Task]) -> Set[Predicate]:
+    def _select_predicates_by_score_hillclimbing(
+            self, candidates: Dict[Predicate, float],
+            score_function: _PredicateSearchScoreFunction,
+            initial_predicates: Set[Predicate],
+            atom_dataset: List[GroundAtomTrajectory],
+            train_tasks: List[Task]) -> Set[Predicate]:
         """Perform a greedy search over predicate sets."""
 
         # There are no goal states for this search; run until exhausted.
@@ -863,6 +874,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                                | initial_predicates),
                                            segmented_trajs,
                                            verify_harmlessness=False,
+                                           annotations=None,
                                            verbose=False):
             for atom in pnad.op.preconditions:
                 preds_in_preconds.add(atom.predicate)
@@ -875,3 +887,89 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         score_function.evaluate(kept_predicates)  # log useful numbers
 
         return set(kept_predicates)
+
+    def _select_predicates_by_clustering(
+            self, candidates: Dict[Predicate, float],
+            initial_predicates: Set[Predicate], dataset: Dataset,
+            atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
+        """Cluster segments from the atom_dataset into clusters corresponding
+        to operators and use this to select predicates."""
+
+        if CFG.grammar_search_pred_clusterer == "oracle":
+            assert CFG.offline_data_method == "demo+gt_operators"
+            assert dataset.annotations is not None and len(
+                dataset.annotations) == len(dataset.trajectories)
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in atom_dataset
+            ]
+            assert len(segmented_trajs) == len(dataset.annotations)
+            # First, get the set of all ground truth operator names.
+            all_gt_ops = set(ground_nsrt.parent
+                             for anno_list in dataset.annotations
+                             for ground_nsrt in anno_list)
+            # Next, make a dictionary mapping operator name to segments
+            # where that operator was used.
+            gt_op_to_segments: Dict[str, List[Segment]] = {
+                op_name: []
+                for op_name in all_gt_ops
+            }
+            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+                assert len(seg_list) == len(op_list)
+                for ground_nsrt, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[ground_nsrt.parent].append(segment)
+
+            # Before selecting some subset of predicates to keep, we first
+            # get the set of all predicates that ever change.
+            non_static_predicates: Set[Predicate] = set()
+            for segment in {x for v in gt_op_to_segments.values() for x in v}:
+                for add_eff in segment.add_effects:
+                    non_static_predicates.add(add_eff.predicate)
+                for del_eff in segment.delete_effects:
+                    non_static_predicates.add(del_eff.predicate)
+
+            # Finally, select predicates that are consistent (either, it is
+            # an add effect, or a delete effect, or doesn't change)
+            # within all demos.
+            predicates_to_keep: Set[Predicate] = set()
+            # for pred in consistent_add_effs_preds:
+            for pred in non_static_predicates:
+                keep_pred = True
+                for seg_list in gt_op_to_segments.values():
+                    segment_0 = seg_list[0]
+                    pred_in_add_effs_0 = pred in [
+                        atom.predicate for atom in segment_0.add_effects
+                    ]
+                    pred_in_del_effs_0 = pred in [
+                        atom.predicate for atom in segment_0.delete_effects
+                    ]
+                    for seg in seg_list[1:]:
+                        pred_in_curr_add_effs = pred in [
+                            atom.predicate for atom in seg.add_effects
+                        ]
+                        pred_in_curr_del_effs = pred in [
+                            atom.predicate for atom in seg.delete_effects
+                        ]
+                        if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
+                                and
+                                (pred_in_del_effs_0 == pred_in_curr_del_effs)):
+                            keep_pred = False
+                            break
+                    if not keep_pred:
+                        break
+
+                else:
+                    predicates_to_keep.add(pred)
+
+            # Before returning, remove all the initial predicates.
+            predicates_to_keep -= initial_predicates
+            logging.info(
+                f"\nSelected {len(predicates_to_keep)} predicates out of "
+                f"{len(candidates)} candidates:")
+            for pred in predicates_to_keep:
+                logging.info(f"\t{pred}")
+            return predicates_to_keep
+
+        raise NotImplementedError(
+            "Unrecognized clusterer for predicate " +
+            f"invention {CFG.grammar_search_pred_clusterer}.")

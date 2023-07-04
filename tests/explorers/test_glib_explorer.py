@@ -98,12 +98,12 @@ def test_glib_explorer_failure_cases():
         def get_name(cls):
             return "dummy"
 
-        def get_exploration_strategy(self, train_task_idx, timeout):
+        def _get_exploration_strategy(self, train_task_idx, timeout):
             raise NotImplementedError("Dummy explorer called")
 
     dummy_explorer = _DummyExplorer(env.predicates,
                                     get_gt_options(env.get_name()), env.types,
-                                    env.action_space, train_tasks)
+                                    env.action_space, train_tasks, 1000)
     assert dummy_explorer.get_name() == "dummy"
 
     # Test case where there are no possible goals.

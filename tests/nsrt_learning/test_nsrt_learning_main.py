@@ -46,7 +46,8 @@ def test_nsrt_learning_specific_nsrts():
                                         options,
                                         action_space,
                                         ground_atom_dataset,
-                                        sampler_learner="neural")
+                                        sampler_learner="neural",
+                                        annotations=None)
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -90,7 +91,8 @@ def test_nsrt_learning_specific_nsrts():
                                         options,
                                         action_space,
                                         ground_atom_dataset,
-                                        sampler_learner="random")
+                                        sampler_learner="random",
+                                        annotations=None)
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -139,7 +141,8 @@ def test_nsrt_learning_specific_nsrts():
                                         options,
                                         action_space,
                                         ground_atom_dataset,
-                                        sampler_learner="random")
+                                        sampler_learner="random",
+                                        annotations=None)
     assert len(nsrts) == 2
     expected = {
         "Op0":
@@ -187,7 +190,8 @@ def test_nsrt_learning_specific_nsrts():
                                         options,
                                         action_space,
                                         ground_atom_dataset,
-                                        sampler_learner="random")
+                                        sampler_learner="random",
+                                        annotations=None)
     assert len(nsrts) == 2
     expected = {
         "Op0":
@@ -220,7 +224,8 @@ def test_nsrt_learning_specific_nsrts():
                                         options,
                                         action_space,
                                         ground_atom_dataset,
-                                        sampler_learner="random")
+                                        sampler_learner="random",
+                                        annotations=None)
     assert len(nsrts) == 0
     # Test minimum percent of examples parameter
     utils.update_config({
@@ -233,7 +238,8 @@ def test_nsrt_learning_specific_nsrts():
                                         options,
                                         action_space,
                                         ground_atom_dataset,
-                                        sampler_learner="random")
+                                        sampler_learner="random",
+                                        annotations=None)
     assert len(nsrts) == 0
     # Test max_rejection_sampling_tries = 0
     utils.update_config({
@@ -249,7 +255,8 @@ def test_nsrt_learning_specific_nsrts():
                                         options,
                                         action_space,
                                         ground_atom_dataset,
-                                        sampler_learner="neural")
+                                        sampler_learner="neural",
+                                        annotations=None)
     assert len(nsrts) == 2
     for nsrt in nsrts:
         for _ in range(10):

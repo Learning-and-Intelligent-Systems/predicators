@@ -1,6 +1,7 @@
 """Base class for an explorer."""
 
 import abc
+import logging
 from typing import List, Set
 
 import numpy as np
@@ -8,7 +9,7 @@ from gym.spaces import Box
 
 from predicators.settings import CFG
 from predicators.structs import ExplorationStrategy, ParameterizedOption, \
-    Predicate, Task, Type
+    Predicate, State, Task, Type
 
 
 class BaseExplorer(abc.ABC):
@@ -20,12 +21,14 @@ class BaseExplorer(abc.ABC):
 
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task]) -> None:
+                 action_space: Box, train_tasks: List[Task],
+                 max_steps_before_termination: int) -> None:
         self._predicates = predicates
         self._options = options
         self._types = types
         self._action_space = action_space
         self._train_tasks = train_tasks
+        self._max_steps_before_termination = max_steps_before_termination
         self._set_seed(CFG.seed)
 
     @classmethod
@@ -34,8 +37,41 @@ class BaseExplorer(abc.ABC):
         """Get the unique name of this explorer."""
         raise NotImplementedError("Override me!")
 
-    @abc.abstractmethod
     def get_exploration_strategy(
+        self,
+        train_task_idx: int,
+        timeout: int,
+    ) -> ExplorationStrategy:
+        """Wrap the base exploration strategy."""
+
+        policy, termination_fn = self._get_exploration_strategy(
+            train_task_idx, timeout)
+
+        # Terminate after the given number of steps.
+        remaining_steps = self._max_steps_before_termination
+
+        def wrapped_termination_fn(state: State) -> bool:
+            nonlocal remaining_steps
+            if termination_fn(state):
+                logging.info("[Base Explorer] terminating due to term fn")
+                return True
+            if remaining_steps <= 0:
+                logging.info("[Base Explorer] terminating due to max steps")
+                return True
+            steps_taken = self._max_steps_before_termination - remaining_steps
+            actual_remaining_steps = min(
+                remaining_steps,
+                CFG.max_num_steps_interaction_request - steps_taken)
+            logging.info(
+                "[Base Explorer] not yet terminating (remaining steps: "
+                f"{actual_remaining_steps})")
+            remaining_steps -= 1
+            return False
+
+        return policy, wrapped_termination_fn
+
+    @abc.abstractmethod
+    def _get_exploration_strategy(
         self,
         train_task_idx: int,
         timeout: int,

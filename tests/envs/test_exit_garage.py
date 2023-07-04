@@ -1,6 +1,9 @@
 """Test cases for the exit_garage environment."""
 
+import matplotlib
 import numpy as np
+import pytest
+from matplotlib import pyplot as plt
 
 from predicators import utils
 from predicators.envs.exit_garage import ExitGarageEnv
@@ -173,17 +176,56 @@ def test_exit_garage_actions():
     env.render_state(traj.states[10], task)  # after store
     env.render_state(traj.states[-1], task)  # state at end
 
+    # Test interface for collecting human demonstrations.
+    state = env.reset("test", 0)
+    event_to_action = env.get_event_to_action_fn()
+    fig = plt.figure()
+    for key in ["up", "down", "left", "right", "g"]:
+        event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, key)
+        assert isinstance(event_to_action(state, event), Action)
 
-def test_exit_garage_collisions():
+    # Test moving robot.
+    plt_x = 0
+    plt_y = 0
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=plt_x,
+                                                y=plt_y)
+    event.xdata = plt_x
+    event.ydata = plt_y
+    robot_move_action = event_to_action(state, event)
+    assert robot_move_action.arr[2] != 0.0
+    assert robot_move_action.arr[3] != 0.0
+    # Test quitting.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "q")
+    with pytest.raises(utils.HumanDemonstrationFailure) as e:
+        event_to_action(state, event)
+    assert "Human quit" in str(e)
+    # Test invalid action with no click.
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "i")
+    with pytest.raises(NotImplementedError) as e:
+        event_to_action(state, event)
+    assert "No valid action found" in str(e)
+    plt.close()
+
+
+@pytest.mark.parametrize("raise_env_failure", (True, False))
+def test_exit_garage_collisions(raise_env_failure):
     """Test that the car can't go through obstacles or storage area."""
     utils.reset_config({
-        "env": "exit_garage",
-        "exit_garage_min_num_obstacles": 1,
-        "exit_garage_max_num_obstacles": 1,
-        "num_train_tasks": 1,
+        "env":
+        "exit_garage",
+        "exit_garage_min_num_obstacles":
+        1,
+        "exit_garage_max_num_obstacles":
+        1,
+        "num_train_tasks":
+        1,
+        "exit_garage_raise_environment_failure":
+        raise_env_failure,
     })
     env = ExitGarageEnv()
-    car_type, obstacle_type, robot_type, _ = sorted(env.types)
+    car_type, obstacle_type, robot_type, storage_type = sorted(env.types)
 
     # Create sample state
     sample_task = env.get_train_tasks()[0].task
@@ -214,10 +256,17 @@ def test_exit_garage_collisions():
     state.set(obstacle, "x", 0.5)
     state.set(obstacle, "y", 0.32)
     drive_car_action = Action(np.array([0.099, 0, 0, 0, 0]).astype(np.float32))
-    for _ in range(50):
-        state = env.simulate(state, drive_car_action)
-    # Make sure car didn't go past obstacle
-    assert state.get(car, "x") < 0.5
+    if raise_env_failure:
+        with pytest.raises(utils.EnvironmentFailure) as e:
+            for _ in range(50):
+                state = env.simulate(state, drive_car_action)
+        assert "Collision" in str(e)
+        assert e.value.info["offending_objects"] == {obstacle}
+    else:
+        for _ in range(50):
+            state = env.simulate(state, drive_car_action)
+        # Make sure car didn't go past obstacle
+        assert state.get(car, "x") < 0.5
 
     # Test car can go past if obstacle is picked up
     state.set(obstacle, "carried", 1)
@@ -229,10 +278,18 @@ def test_exit_garage_collisions():
     state.set(car, "x", 0.15)
     state.set(car, "y", 0.3)
     state.set(car, "theta", np.pi / 2.0)  # pointed up
-    for _ in range(50):
-        state = env.simulate(state, drive_car_action)
-    # Make sure car stopped before storage area
-    assert 0.5 <= state.get(car, "y") <= 0.8
+    storage, = state.get_objects(storage_type)
+    if raise_env_failure:
+        with pytest.raises(utils.EnvironmentFailure) as e:
+            for _ in range(50):
+                state = env.simulate(state, drive_car_action)
+        assert "Collision" in str(e)
+        assert e.value.info["offending_objects"] == {storage}
+    else:
+        for _ in range(50):
+            state = env.simulate(state, drive_car_action)
+        # Make sure car stopped before storage area
+        assert 0.5 <= state.get(car, "y") <= 0.8
 
 
 def test_exit_garage_options():

@@ -68,6 +68,10 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             target_x = 0.95
             target_y = 0.4 - ExitGarageEnv.exit_width / 2
             target_theta = 0
+            if CFG.exit_garage_motion_planning_ignore_obstacles:
+                cls._plan_direct(state, memory, params, car,
+                                 np.array([target_x, target_y]), 0, 1)
+                return True
             success = cls._run_rrt(state,
                                    memory,
                                    params,
@@ -113,7 +117,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             pickup_target_x = state.get(obstacle, "x")
             pickup_target_y = state.get(obstacle, "y")
             pickup_position = np.array([pickup_target_x, pickup_target_y])
-            cls._plan_direct(memory, params, start_position, pickup_position)
+            cls._plan_direct(memory, params, start_position,
+                             pickup_position, 2, 3)
             # Append pickup action to memory plans
             memory["action_plan"].append(
                 Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))
@@ -127,7 +132,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             target_y = (ExitGarageEnv.y_ub -
                         ExitGarageEnv.storage_area_height / 2)
             cls._plan_direct(memory, params, pickup_position,
-                             np.array([target_x, target_y]))
+                             np.array([target_x, target_y]), 2, 3)
             # Append place action to memory action plan
             memory["action_plan"].append(
                 Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))
@@ -213,8 +218,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             s.set(move_obj, "x", x)
             s.set(move_obj, "y", y)
             s.set(move_obj, "theta", theta)
-            return ExitGarageEnv.car_has_collision(
-                s) or ExitGarageEnv.coords_out_of_bounds(x, y)
+            collision = ExitGarageEnv.get_car_collision_object(s) is not None
+            return collision or ExitGarageEnv.coords_out_of_bounds(x, y)
 
         rrt = utils.RRT(
             _sample_fn,
@@ -263,7 +268,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def _plan_direct(cls, memory: Dict, params: Array, start_position: Array,
-                     target_position: Array) -> None:
+                     target_position: Array, x_action_idx: int,
+                     y_action_idx: int) -> None:
         """Set position and action plans for a straight line from the starting
         position to the target position.
 
@@ -286,8 +292,12 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
         memory["position_plan"].extend(position_plan)
         # Convert the plan from position space to action space.
         deltas = np.subtract(position_plan[1:], position_plan[:-1])
-        action_plan = [
-            Action(np.array([0.0, 0.0, dx, dy, 0.0], dtype=np.float32))
-            for (dx, dy) in deltas
-        ]
-        memory["action_plan"].extend(action_plan)
+
+        def _create_action(dx: float, dy: float) -> Action:
+            arr = np.zeros(5, dtype=np.float32)
+            arr[x_action_idx] = dx
+            arr[y_action_idx] = dy
+            return Action(arr)
+
+        action_plan = [_create_action(dx, dy) for (dx, dy) in deltas]
+        memory["action_plan"] = action_plan

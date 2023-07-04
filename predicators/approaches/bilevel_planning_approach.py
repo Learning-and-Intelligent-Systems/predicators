@@ -3,12 +3,9 @@
 Uses the SeSamE bilevel planning strategy: SEarch-and-SAMple planning,
 then Execution.
 """
-
 import abc
-import os
-import sys
-import time
-from typing import Any, Callable, List, Set, Tuple
+import logging
+from typing import Any, Callable, List, Optional, Set, Tuple
 
 from gym.spaces import Box
 
@@ -17,8 +14,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach
 from predicators.option_model import _OptionModelBase, create_option_model
 from predicators.planning import PlanningFailure, PlanningTimeout, \
-    fd_plan_from_sas_file, generate_sas_file_for_fd, sesame_plan, task_plan, \
-    task_plan_grounding
+    run_task_plan_once, sesame_plan
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, GroundAtom, Metrics, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
@@ -34,20 +30,24 @@ class BilevelPlanningApproach(BaseApproach):
                  action_space: Box,
                  train_tasks: List[Task],
                  task_planning_heuristic: str = "default",
-                 max_skeletons_optimized: int = -1) -> None:
+                 max_skeletons_optimized: int = -1,
+                 bilevel_plan_without_sim: Optional[bool] = None) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         if task_planning_heuristic == "default":
             task_planning_heuristic = CFG.sesame_task_planning_heuristic
         if max_skeletons_optimized == -1:
             max_skeletons_optimized = CFG.sesame_max_skeletons_optimized
+        if bilevel_plan_without_sim is None:
+            bilevel_plan_without_sim = CFG.bilevel_plan_without_sim
         self._task_planning_heuristic = task_planning_heuristic
         self._max_skeletons_optimized = max_skeletons_optimized
-        self._plan_without_sim = CFG.bilevel_plan_without_sim
+        self._plan_without_sim = bilevel_plan_without_sim
         self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
         self._last_plan: List[_Option] = []  # used if plan WITH sim
         self._last_nsrt_plan: List[_GroundNSRT] = []  # plan WITHOUT sim
+        self._last_atoms_seq: List[Set[GroundAtom]] = []  # plan WITHOUT sim
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
@@ -59,18 +59,23 @@ class BilevelPlanningApproach(BaseApproach):
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:
-            nsrt_plan, _, metrics = self._run_task_plan(
+            nsrt_plan, atoms_seq, metrics = self._run_task_plan(
                 task, nsrts, preds, timeout, seed)
             self._last_nsrt_plan = nsrt_plan
+            self._last_atoms_seq = atoms_seq
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
                                                       self._rng)
+            logging.debug("Current Task Plan:")
+            for act in nsrt_plan:
+                logging.debug(act)
 
         # Run full bilevel planning.
         else:
-            plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
-                                                  seed)
-            self._last_plan = plan
-            policy = utils.option_plan_to_policy(plan)
+            option_plan, nsrt_plan, metrics = self._run_sesame_plan(
+                task, nsrts, preds, timeout, seed)
+            self._last_plan = option_plan
+            self._last_nsrt_plan = nsrt_plan
+            policy = utils.option_plan_to_policy(option_plan)
 
         self._save_metrics(metrics, nsrts, preds)
 
@@ -82,15 +87,16 @@ class BilevelPlanningApproach(BaseApproach):
 
         return _policy
 
-    def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
-                         preds: Set[Predicate], timeout: float, seed: int,
-                         **kwargs: Any) -> Tuple[List[_Option], Metrics]:
+    def _run_sesame_plan(
+            self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+            timeout: float, seed: int,
+            **kwargs: Any) -> Tuple[List[_Option], List[_GroundNSRT], Metrics]:
         """Subclasses may override.
 
         For example, PG4 inserts an abstract policy into kwargs.
         """
         try:
-            plan, metrics = sesame_plan(
+            option_plan, nsrt_plan, metrics = sesame_plan(
                 task,
                 self._option_model,
                 nsrts,
@@ -109,68 +115,23 @@ class BilevelPlanningApproach(BaseApproach):
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
 
-        return plan, metrics
+        return option_plan, nsrt_plan, metrics
 
     def _run_task_plan(
         self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
         timeout: float, seed: int, **kwargs: Any
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
 
-        init_atoms = utils.abstract(task.init, preds)
-        goal = task.goal
-        objects = set(task.init)
-
         try:
-            start_time = time.perf_counter()
-
-            if CFG.sesame_task_planner == "astar":
-                ground_nsrts, reachable_atoms = task_plan_grounding(
-                    init_atoms, objects, nsrts)
-                heuristic = utils.create_task_planning_heuristic(
-                    self._task_planning_heuristic, init_atoms, goal,
-                    ground_nsrts, preds, objects)
-                duration = time.perf_counter() - start_time
-                timeout -= duration
-                plan, atoms_seq, metrics = next(
-                    task_plan(init_atoms,
-                              goal,
-                              ground_nsrts,
-                              reachable_atoms,
-                              heuristic,
-                              seed,
-                              timeout,
-                              max_skeletons_optimized=1,
-                              use_visited_state_set=True,
-                              **kwargs))
-            elif "fd" in CFG.sesame_task_planner:  # pragma: no cover
-                fd_exec_path = os.environ["FD_EXEC_PATH"]
-                exec_str = os.path.join(fd_exec_path, "fast-downward.py")
-                timeout_cmd = "gtimeout" if sys.platform == "darwin" \
-                    else "timeout"
-                # Run Fast Downward followed by cleanup. Capture the output.
-                assert "FD_EXEC_PATH" in os.environ, \
-                    "Please follow instructions in the docstring of the" +\
-                    "_sesame_plan_with_fast_downward method in planning.py"
-                if CFG.sesame_task_planner == "fdopt":
-                    alias_flag = "--alias seq-opt-lmcut"
-                elif CFG.sesame_task_planner == "fdsat":
-                    alias_flag = "--alias lama-first"
-                else:
-                    raise ValueError("Unrecognized sesame_task_planner: "
-                                     f"{CFG.sesame_task_planner}")
-
-                sas_file = generate_sas_file_for_fd(task, nsrts, preds,
-                                                    self._types, timeout,
-                                                    timeout_cmd,
-                                                    alias_flag, exec_str,
-                                                    list(objects), init_atoms)
-                plan, atoms_seq, metrics = fd_plan_from_sas_file(
-                    sas_file, timeout_cmd, timeout, exec_str, alias_flag,
-                    start_time, list(objects), init_atoms, nsrts, CFG.horizon)
-            else:
-                raise ValueError("Unrecognized sesame_task_planner: "
-                                 f"{CFG.sesame_task_planner}")
-
+            plan, atoms_seq, metrics = run_task_plan_once(
+                task,
+                nsrts,
+                preds,
+                self._types,
+                timeout,
+                seed,
+                task_planning_heuristic=self._task_planning_heuristic,
+                **kwargs)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
@@ -236,5 +197,12 @@ class BilevelPlanningApproach(BaseApproach):
         True.
         """
         assert self.get_name() == "oracle"
-        assert self._plan_without_sim
         return self._last_nsrt_plan
+
+    def get_execution_monitoring_info(self) -> List[Set[GroundAtom]]:
+        if self._plan_without_sim:
+            remaining_atoms_seq = list(self._last_atoms_seq)
+            if remaining_atoms_seq:
+                self._last_atoms_seq.pop(0)
+            return remaining_atoms_seq
+        return []

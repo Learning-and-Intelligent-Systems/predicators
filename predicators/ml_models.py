@@ -132,6 +132,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                  clip_value: float,
                  learning_rate: float,
                  weight_decay: float = 0,
+                 n_iter_no_change: int = 10000000,
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000) -> None:
         torch.manual_seed(seed)
@@ -142,6 +143,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         self._clip_value = clip_value
         self._learning_rate = learning_rate
         self._weight_decay = weight_decay
+        self._n_iter_no_change = n_iter_no_change
         self._device = _get_torch_device(use_torch_gpu)
         self._train_print_every = train_print_every
 
@@ -190,7 +192,8 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              max_train_iters=self._max_train_iters,
                              dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
-                             clip_value=self._clip_value)
+                             clip_value=self._clip_value,
+                             n_iter_no_change=self._n_iter_no_change)
 
     def _predict(self, x: Array) -> Array:
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(
@@ -275,6 +278,9 @@ class _ScikitLearnBinaryClassifier(BinaryClassifier):
 
     def predict_proba(self, x: Array) -> float:
         probs = self._model.predict_proba([x])[0]
+        # Special case: only one class.
+        if probs.shape == (1, ):
+            return float(self.classify(x))
         assert probs.shape == (2, )  # [P(x is class 0), P(x is class 1)]
         return probs[1]  # return the second element of probs
 
@@ -306,7 +312,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         self._x_dims = tuple(X.shape[1:])
         assert y.shape == (num_data, )
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
-                     "datapoints")
+                     f"datapoints ({sum(y)} positive)")
         # If there is only one class in the data, then there's no point in
         # learning, since any predictions other than that one class could
         # only be generalization issues.
@@ -387,6 +393,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
         The input is NOT normalized.
         """
+        if self._do_single_class_prediction:
+            return float(self._predicted_single_class)
         norm_x = (x - self._input_shift) / self._input_scale
         return self._forward_single_input_np(norm_x)
 
@@ -491,13 +499,15 @@ class MLPRegressor(PyTorchRegressor):
                  learning_rate: float,
                  weight_decay: float = 0,
                  use_torch_gpu: bool = False,
-                 train_print_every: int = 1000) -> None:
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000) -> None:
         super().__init__(seed,
                          max_train_iters,
                          clip_gradients,
                          clip_value,
                          learning_rate,
                          weight_decay=weight_decay,
+                         n_iter_no_change=n_iter_no_change,
                          use_torch_gpu=use_torch_gpu,
                          train_print_every=train_print_every)
         self._hid_sizes = hid_sizes

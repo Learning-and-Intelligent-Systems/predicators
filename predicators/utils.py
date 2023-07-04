@@ -263,6 +263,45 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
     return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
 
 
+def construct_active_sampler_input(state: State, objects: Sequence[Object],
+                                   params: Array,
+                                   param_option: ParameterizedOption) -> Array:
+    """Helper function for active sampler learning and explorer."""
+
+    assert not CFG.sampler_learning_use_goals
+    sampler_input_lst = [1.0]  # start with bias term
+    if CFG.active_sampler_learning_feature_selection == "all":
+        for obj in objects:
+            sampler_input_lst.extend(state[obj])
+        sampler_input_lst.extend(params)
+
+    else:
+        assert CFG.active_sampler_learning_feature_selection == "oracle"
+        assert CFG.env == "bumpy_cover"
+        if param_option.name == "Pick":
+            # In this case, the x-data should be
+            # [block_bumpy, relative_pick_loc]
+            assert len(objects) == 1
+            block = objects[0]
+            block_pos = state[block][3]
+            block_bumpy = state[block][5]
+            sampler_input_lst.append(block_bumpy)
+            assert len(params) == 1
+            sampler_input_lst.append(params[0] - block_pos)
+        else:
+            assert param_option.name == "Place"
+            assert len(objects) == 2
+            block, target = objects
+            target_pos = state[target][3]
+            grasp = state[block][4]
+            target_width = state[target][2]
+            sampler_input_lst.extend([grasp, target_width])
+            assert len(params) == 1
+            sampler_input_lst.append(params[0] - target_pos)
+
+    return np.array(sampler_input_lst)
+
+
 class _Geom2D(abc.ABC):
     """A 2D shape that contains some points."""
 
@@ -1481,6 +1520,21 @@ def create_new_variables(
         new_var = Variable(new_var_name, t)
         new_vars.append(new_var)
     return new_vars
+
+
+def param_option_to_nsrt(param_option: ParameterizedOption,
+                         nsrts: Set[NSRT]) -> NSRT:
+    """If options and NSRTs are 1:1, then map an option to an NSRT."""
+    nsrt_matches = [n for n in nsrts if n.option == param_option]
+    assert len(nsrt_matches) == 1
+    nsrt = nsrt_matches[0]
+    return nsrt
+
+
+def option_to_ground_nsrt(option: _Option, nsrts: Set[NSRT]) -> _GroundNSRT:
+    """If options and NSRTs are 1:1, then map an option to an NSRT."""
+    nsrt = param_option_to_nsrt(option.parent, nsrts)
+    return nsrt.ground(option.objects)
 
 
 _S = TypeVar("_S", bound=Hashable)  # state in heuristic search

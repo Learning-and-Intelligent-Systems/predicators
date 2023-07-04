@@ -155,7 +155,8 @@ def _skeleton_based_score_function(
                                    current_predicate_set,
                                    segmented_trajs,
                                    verify_harmlessness=False,
-                                   verbose=False)
+                                   verbose=False,
+                                   annotations=dataset.annotations)
     strips_ops = [pnad.op for pnad in pnads]
     option_specs = [pnad.option_spec for pnad in pnads]
     per_skeleton_results = []  # shape (num tasks, max skeletons)

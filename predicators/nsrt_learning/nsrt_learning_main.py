@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -22,7 +22,7 @@ def learn_nsrts_from_data(
     trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
     action_space: Box, ground_atom_dataset: List[GroundAtomTrajectory],
-    sampler_learner: str
+    sampler_learner: str, annotations: Optional[List[Any]]
 ) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates.
@@ -83,7 +83,8 @@ def learn_nsrts_from_data(
             predicates,
             segmented_trajs,
             verify_harmlessness=True,
-            verbose=(CFG.option_learner != "no_learning"))
+            verbose=(CFG.option_learner != "no_learning"),
+            annotations=annotations)
 
         # Save least complex learned PNAD set across data orderings.
         pnads_complexity = sum(pnad.op.get_complexity() for pnad in pnads)
@@ -104,7 +105,13 @@ def learn_nsrts_from_data(
     del ground_atom_dataset
 
     # STEP 3: Learn options (option_learning.py) and update PNADs.
-    _learn_pnad_options(pnads, known_options, action_space)  # in-place update
+    # In the special case where all NSRT learning components are oracle, skip
+    # this step, because there may be empty PNADs, and option learning assumes
+    # in several places that the PNADs are not empty.
+    if CFG.strips_learner != "oracle" or CFG.sampler_learner != "oracle" or \
+       CFG.option_learner != "no_learning":
+        # Updates the PNADs in-place.
+        _learn_pnad_options(pnads, known_options, action_space)
 
     # STEP 4: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update

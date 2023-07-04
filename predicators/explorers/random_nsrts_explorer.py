@@ -43,17 +43,18 @@ class RandomNSRTsExplorer(BaseExplorer):
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task],
-                 nsrts: Set[NSRT]) -> None:
+                 max_steps_before_termination: int, nsrts: Set[NSRT]) -> None:
 
-        super().__init__(predicates, options, types, action_space, train_tasks)
+        super().__init__(predicates, options, types, action_space, train_tasks,
+                         max_steps_before_termination)
         self._nsrts = nsrts
 
     @classmethod
     def get_name(cls) -> str:
         return "random_nsrts"
 
-    def get_exploration_strategy(self, train_task_idx: int,
-                                 timeout: int) -> ExplorationStrategy:
+    def _get_exploration_strategy(self, train_task_idx: int,
+                                  timeout: int) -> ExplorationStrategy:
         cur_option = DummyOption
         task = self._train_tasks[train_task_idx]
 
@@ -84,6 +85,7 @@ class RandomNSRTsExplorer(BaseExplorer):
                                                    goal=task.goal,
                                                    rng=self._rng)
                 cur_option = option
+                assert cur_option.initiable(state)
 
             act = cur_option.policy(state)
             return act

@@ -63,6 +63,13 @@ class GlobalSettings:
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
+    # bumpy cover env parameters
+    bumpy_cover_num_bumps = 2
+    bumpy_cover_spaces_per_bump = 1
+    bumpy_cover_right_targets = False
+    bumpy_cover_bumpy_region_start = 0.8
+    bumpy_cover_init_bumpy_prob = 0.25
+
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
@@ -296,6 +303,8 @@ class GlobalSettings:
     exit_garage_rrt_num_attempts = 3
     exit_garage_rrt_num_iters = 100
     exit_garage_rrt_sample_goal_eps = 0.1
+    exit_garage_motion_planning_ignore_obstacles = False
+    exit_garage_raise_environment_failure = False
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
@@ -416,6 +425,8 @@ class GlobalSettings:
     offline_data_max_skeletons_optimized = -1
     # Number of replays used when offline_data_method is replay-based.
     offline_data_num_replays = 500
+    # Default to bilevel_plan_without_sim.
+    offline_data_bilevel_plan_without_sim = None
 
     # teacher dataset parameters
     # Number of positive examples and negative examples per predicate.
@@ -506,7 +517,19 @@ class GlobalSettings:
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
-    online_learning_lifelong = False
+
+    # active sampler learning parameters
+    active_sampler_learning_model = "myopic_classifier_mlp"
+    active_sampler_learning_feature_selection = "all"
+    active_sampler_learning_knn_neighbors = 3
+    active_sampler_learning_use_teacher = True
+    active_sampler_learning_num_samples = 100
+    active_sampler_learning_score_gamma = 0.5
+    active_sampler_learning_n_iter_no_change = 5000
+    active_sampler_learning_fitted_q_iters = 5
+    active_sampler_learning_num_next_option_samples = 5
+    active_sampler_learning_explore_length_base = 2
+    active_sampler_learning_num_ensemble_members = 10
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -526,7 +549,7 @@ class GlobalSettings:
     cnn_refinement_estimator_downsample = 2
 
     # bridge policy parameters
-    bridge_policy = "oracle"  # default bridge policy
+    bridge_policy = "learned_ldl"  # default bridge policy
 
     # glib explorer parameters
     glib_min_goal_size = 1
@@ -538,11 +561,16 @@ class GlobalSettings:
     greedy_lookahead_max_traj_length = 2
     greedy_lookahead_max_num_resamples = 10
 
+    # active sampler explorer parameters
+    active_sampler_explore_bonus = 1e-1
+
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
     grammar_search_grammar_use_diff_features = False
     grammar_search_use_handcoded_debug_grammar = False
+    grammar_search_pred_selection_approach = "score_optimization"
+    grammar_search_pred_clusterer = "oracle"
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
@@ -575,6 +603,10 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
+            # The method used for perception: now only "trivial" or "sokoban".
+            perceiver=defaultdict(lambda: "trivial", {
+                "sokoban": "sokoban",
+            })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
             horizon=defaultdict(
@@ -671,6 +703,8 @@ def get_allowed_query_type_names() -> Set[str]:
         return {"PathToStateQuery"}
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
+    if CFG.approach == "bridge_policy":
+        return {"DemonstrationQuery"}
     if CFG.approach == "unittest":
         return {
             "GroundAtomsHoldQuery",

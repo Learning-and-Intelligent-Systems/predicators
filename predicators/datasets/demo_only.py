@@ -22,7 +22,8 @@ from predicators.structs import Action, Dataset, LowLevelTrajectory, \
 
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task],
-                     known_options: Set[ParameterizedOption]) -> Dataset:
+                     known_options: Set[ParameterizedOption],
+                     annotate_with_gt_ops: bool) -> Dataset:
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
     dataset_fname, dataset_fname_template = utils.create_dataset_filename_str(
@@ -34,12 +35,13 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                                                  dataset_fname_template,
                                                  dataset_fname)
     else:
-        trajectories = _generate_demonstrations(env,
-                                                train_tasks,
-                                                known_options,
-                                                train_tasks_start_idx=0)
-        logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
-        dataset = Dataset(trajectories)
+        dataset = _generate_demonstrations(
+            env,
+            train_tasks,
+            known_options,
+            train_tasks_start_idx=0,
+            annotate_with_gt_ops=annotate_with_gt_ops)
+        logging.info(f"\n\nCREATED {len(dataset.trajectories)} DEMONSTRATIONS")
 
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
@@ -53,7 +55,10 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
     """Create demonstration data while handling loading from disk.
 
     This method takes care of three cases: the demonstrations on disk
-    are exactly the desired number, too many, or too few.
+    are exactly the desired number, too many, or too few. Note that we
+    can only load datasets with annotations of exactly the right size;
+    attempting to load annotations for smaller or bigger datasets will
+    fail.
     """
     if os.path.exists(dataset_fname):
         # Case 1: we already have a file with the exact name that we need
@@ -103,24 +108,27 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
     with open(os.path.join(CFG.data_dir, fname), "rb") as f:
         dataset = pkl.load(f)
     loaded_trajectories = dataset.trajectories
-    generated_trajectories = _generate_demonstrations(
+    generated_dataset = _generate_demonstrations(
         env,
         train_tasks,
         known_options,
-        train_tasks_start_idx=train_tasks_start_idx)
+        train_tasks_start_idx=train_tasks_start_idx,
+        annotate_with_gt_ops=False)
+    generated_trajectories = generated_dataset.trajectories
     logging.info(f"\n\nLOADED DATASET OF {len(loaded_trajectories)} "
                  "DEMONSTRATIONS")
-    logging.info(f"CREATED {len(generated_trajectories)} DEMONSTRATIONS")
+    logging.info(
+        f"CREATED {len(generated_dataset.trajectories)} DEMONSTRATIONS")
     dataset = Dataset(loaded_trajectories + generated_trajectories)
     with open(dataset_fname, "wb") as f:
         pkl.dump(dataset, f)
     return dataset
 
 
-def _generate_demonstrations(
-        env: BaseEnv, train_tasks: List[Task],
-        known_options: Set[ParameterizedOption],
-        train_tasks_start_idx: int) -> List[LowLevelTrajectory]:
+def _generate_demonstrations(env: BaseEnv, train_tasks: List[Task],
+                             known_options: Set[ParameterizedOption],
+                             train_tasks_start_idx: int,
+                             annotate_with_gt_ops: bool) -> Dataset:
     """Use the demonstrator to generate demonstrations, one per training task
     starting from train_tasks_start_idx."""
     if CFG.demonstrator == "oracle":
@@ -132,7 +140,8 @@ def _generate_demonstrations(
             env.action_space,
             train_tasks,
             task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
-            max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
+            max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized,
+            bilevel_plan_without_sim=CFG.offline_data_bilevel_plan_without_sim)
     else:  # pragma: no cover
         # Disable all built-in keyboard shortcuts.
         keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
@@ -142,8 +151,14 @@ def _generate_demonstrations(
         # actions. This should also log instructions.
         event_to_action = env.get_event_to_action_fn()
     trajectories = []
+    if annotate_with_gt_ops:
+        annotations = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
     rng = np.random.default_rng(CFG.seed)
+    if CFG.offline_data_bilevel_plan_without_sim is None:
+        bilevel_plan_without_sim = CFG.bilevel_plan_without_sim
+    else:
+        bilevel_plan_without_sim = CFG.offline_data_bilevel_plan_without_sim
     for idx, task in enumerate(train_tasks):
         if idx < train_tasks_start_idx:  # ignore demos before this index
             continue
@@ -162,7 +177,7 @@ def _generate_demonstrations(
                 # the policy is actually a plan under the hood, and we
                 # can retrieve it with get_last_plan(). We do this
                 # because we want to run the full plan.
-                if CFG.bilevel_plan_without_sim:
+                if bilevel_plan_without_sim:
                     last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
                     policy = utils.nsrt_plan_to_greedy_policy(
                         last_nsrt_plan, task.goal, rng)
@@ -223,12 +238,22 @@ def _generate_demonstrations(
                     assert CFG.option_learner != "no_learning"
                     act.unset_option()
         trajectories.append(traj)
+        # If we're also annotating with ground truth operators,
+        # then get the last nsrt_plan and add the name of the
+        # nsrt used to the list of annotations.
+        if annotate_with_gt_ops:
+            last_nsrt_plan = oracle_approach.get_last_nsrt_plan()
+            annotations.append(list(last_nsrt_plan))
         if CFG.make_demo_videos:
             assert monitor is not None
             video = monitor.get_video()
             outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
             utils.save_video(outfile, video)
-    return trajectories
+    if annotate_with_gt_ops:
+        dataset = Dataset(trajectories, annotations)
+    else:
+        dataset = Dataset(trajectories)
+    return dataset
 
 
 def human_demonstrator_policy(env: BaseEnv, caption: str,
