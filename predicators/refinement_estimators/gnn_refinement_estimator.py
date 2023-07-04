@@ -361,3 +361,5 @@ class GNNRefinementEstimator(BaseRefinementEstimator):
             self._gnn.load_state_dict(info["state_dict"])
         self._input_normalizers = info["input_normalizers"]
         self._target_normalizers = info["target_normalizers"]
+        # Run GNN once to avoid the weird delay issue
+        get_single_model_prediction(self._gnn, ex_input, device=self._device)
