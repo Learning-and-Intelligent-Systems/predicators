@@ -69,7 +69,12 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             target_y = 0.4 - ExitGarageEnv.exit_width / 2
             target_theta = 0
             if CFG.exit_garage_motion_planning_ignore_obstacles:
-                cls._plan_direct(state, memory, params, car,
+                start_pos_list = [
+                    state.get(car, "x"),
+                    state.get(car, "y"),
+                ]
+                start_position = np.array(start_pos_list)
+                cls._plan_direct(memory, params, start_position,
                                  np.array([target_x, target_y]), 0, 1)
                 return True
             success = cls._run_rrt(state,
@@ -117,8 +122,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             pickup_target_x = state.get(obstacle, "x")
             pickup_target_y = state.get(obstacle, "y")
             pickup_position = np.array([pickup_target_x, pickup_target_y])
-            cls._plan_direct(memory, params, start_position,
-                             pickup_position, 2, 3)
+            cls._plan_direct(memory, params, start_position, pickup_position,
+                             2, 3)
             # Append pickup action to memory plans
             memory["action_plan"].append(
                 Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))

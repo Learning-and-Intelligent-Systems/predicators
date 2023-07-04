@@ -318,7 +318,7 @@ def test_exit_garage_options():
     state.set(obstacle1, "x", 0.5)
     state.set(obstacle1, "y", 0.3)
     state.set(obstacle2, "x", 0.8)
-    state.set(obstacle2, "y", 0.1)
+    state.set(obstacle2, "y", 0.05)
     task = EnvironmentTask(state, goal)
 
     # Test ClearObstacle, then DriveCarToExit

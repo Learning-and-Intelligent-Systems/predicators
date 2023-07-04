@@ -12,8 +12,8 @@ from predicators.settings import CFG
 from predicators.structs import RefinementDatapoint, Task
 
 
-class TabularRefinementEstimator(
-        PerSkeletonRefinementEstimator[Tuple[float, float]]):
+class TabularRefinementEstimator(PerSkeletonRefinementEstimator[Tuple[float,
+                                                                      float]]):
     """A refinement cost estimator that memorizes refinement data using a
     tabular method."""
 

@@ -357,8 +357,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
             if CFG.refinement_data_include_execution_cost:
                 total_low_level_action_cost += (
-                    len(traj[1]) * CFG.refinement_data_low_level_execution_cost
-                )
+                    len(traj[1]) *
+                    CFG.refinement_data_low_level_execution_cost)
             # Save the successful trajectory, e.g., for playback on a robot.
             traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
             traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
