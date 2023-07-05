@@ -74,6 +74,8 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
                     state.get(car, "y"),
                 ]
                 start_position = np.array(start_pos_list)
+                memory["action_plan"] = []
+                memory["position_plan"] = []
                 cls._plan_direct(memory, params, start_position,
                                  np.array([target_x, target_y]), 0, 1)
                 return True

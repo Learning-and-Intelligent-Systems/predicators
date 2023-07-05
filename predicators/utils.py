@@ -1914,8 +1914,6 @@ class RRT(Generic[_RRTState]):
 
         If none is found, returns None.
         """
-        if self._collision_fn(start):
-            return None
         direct_path = self._try_direct_path(start, goal_sampler())
         if direct_path is not None:
             return direct_path
