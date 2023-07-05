@@ -11,7 +11,6 @@ extracted from the environment.
 """
 
 import logging
-from functools import lru_cache
 from typing import Any, Callable, List, Optional, Set
 
 from gym.spaces import Box
@@ -24,7 +23,6 @@ from predicators.structs import Action, Object, ParameterizedOption, \
     Predicate, State, Task, Type
 
 
-@lru_cache(maxsize=None)
 def get_special_spot_action(action_name: str) -> Action:
     """Expose special actions for approaches and explorers."""
     env = get_or_create_env(CFG.env)
