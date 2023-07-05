@@ -138,23 +138,26 @@ def _create_image(X: List[Array],
     # plot real data
     for datum, label in zip(X, y):
         place_robot_xy = math_helpers.Vec2(*datum[-3:-1])
-        print("place_robot_xy:", place_robot_xy)
-        world_to_robot = math_helpers.SE2Pose(datum[3], datum[4], datum[6])
-        print("world_to_robot:", world_to_robot)
-        world_surface_xy = math_helpers.Vec2(datum[12], datum[13])
-        print("world_surface_xy:", world_surface_xy)
-        place_world_xy = world_to_robot * place_robot_xy
-        print("place_world_xy:", place_world_xy)
-        place_surface_xy = place_world_xy - world_surface_xy
-        print("place_surface_xy:", place_surface_xy)
-        x_pt, y_pt = place_surface_xy
+
+        world_fiducial = math_helpers.Vec2(
+            datum[12],  # state.get(surface, "x"),
+            datum[13],  # state.get(surface, "y"),
+        )
+        world_to_robot = math_helpers.SE2Pose(
+            datum[3],  # state.get(robot, "x"),
+            datum[4],  # state.get(robot, "y"),
+            datum[6],  # state.get(robot, "yaw"))
+        )
+        fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
+        x_pt, y_pt = place_robot_xy - fiducial_in_robot_frame
+        print("x_pt, y_pt:", x_pt, y_pt)
         print("label:", label)
         color = cmap(norm(label))
         circle = plt.Circle((x_pt, y_pt), radius, color=color, alpha=0.5)
         ax.add_patch(circle)
 
-    plt.xlabel("x (surface frame)")
-    plt.ylabel("y (surface frame)")
+    plt.xlabel("x")
+    plt.ylabel("y")
     plt.xlim((x_min - 3 * radius, x_max + 3 * radius))
     plt.ylim((y_min - 3 * radius, y_max + 3 * radius))
 
