@@ -292,8 +292,10 @@ class _SpotInterface():
         """Get objects currently in view."""
         tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
         for source_name in CAMERA_NAMES:
-            viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                source_name=source_name)
+            # viewable_obj_poses = self.get_apriltag_pose_from_camera(
+            #     source_name=source_name)
+            viewable_obj_poses = self.get_sam_object_loc_from_camera(
+                source_rgb=source_name)
             tag_to_pose.update(viewable_obj_poses)
         apriltag_id_to_obj_name = {
             v: k
@@ -418,8 +420,8 @@ class _SpotInterface():
     def get_sam_object_loc_from_camera(
             self,
             class_name: str or List[str],
-            camera_rgb: str = "hand_color_image",
-            camera_depth: str = "hand_depth_in_hand_color_frame",
+            source_rgb: str = "hand_color_image",
+            source_depth: str = "hand_depth_in_hand_color_frame",
     ) -> Dict[int, Tuple[float, float, float]]:
         """Get object location in 3D (no orientation) estimated using pretrained SAM model
 
@@ -432,8 +434,8 @@ class _SpotInterface():
         # Only support using depth image to obatin location
         # TODO check if they correspond to the same source?
         # TODO check converting to RGB format correctly - SAM needs RGB
-        img_rgb, image_response_rgb = self.get_single_camera_image(camera_rgb, to_rgb=True)
-        img_depth, image_response_depth = self.get_single_camera_image(camera_depth)
+        img_rgb, image_response_rgb = self.get_single_camera_image(source_rgb, to_rgb=True)
+        img_depth, image_response_depth = self.get_single_camera_image(source_depth)
 
         res_img = {'rgb': img_rgb, 'depth': img_depth}
         res_response = [image_response_rgb, image_response_depth]
