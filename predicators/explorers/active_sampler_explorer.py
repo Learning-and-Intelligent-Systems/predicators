@@ -260,9 +260,6 @@ class ActiveSamplerExplorer(BaseExplorer):
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
         logging.info(f"[Explorer]   num attempts: {num_tries}")
         # Try less successful operators more often.
-        if "Place" in ground_op.name and "extra" in str(ground_op.objects):
-            score = float("inf")
-        else:
-            score = (1.0 - success_rate) + bonus
+        score = (1.0 - success_rate) + bonus
         logging.info(f"[Explorer]   total score: {score}")
         return score
