@@ -95,9 +95,9 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
         return fiducial_pose + np.array([0.1, 0.0, -0.25])
     if "_table" in surface.name:
 
-        dx = rng.uniform(0.19, 0.21)
+        dx = 0.2
         dy = rng.uniform(-0.2, 0.2)  # positive is left
-        dz = rng.uniform(-0.61, -0.59)
+        dz = -0.6
 
         # Oracle values for slanted table.
         # dx = 0.2
