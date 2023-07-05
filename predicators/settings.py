@@ -285,7 +285,7 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
-    narrow_passage_open_door_refine_penalty = 0.2
+    narrow_passage_open_door_refine_penalty = 0
     narrow_passage_door_width_padding_lb = 1e-4
     narrow_passage_door_width_padding_ub = 0.015
     narrow_passage_passage_width_padding_lb = 5e-4
@@ -295,12 +295,12 @@ class GlobalSettings:
     narrow_passage_birrt_smooth_amt = 50
 
     # exit_garage env parameters
-    exit_garage_pick_place_refine_penalty = 0.2
+    exit_garage_clear_refine_penalty = 0
     exit_garage_min_num_obstacles = 2
-    exit_garage_max_num_obstacles = 4  # inclusive
-    exit_garage_rrt_extend_fn_threshold = 1e-4
+    exit_garage_max_num_obstacles = 3  # inclusive
+    exit_garage_rrt_extend_fn_threshold = 1e-3
     exit_garage_rrt_num_control_samples = 100
-    exit_garage_rrt_num_attempts = 10
+    exit_garage_rrt_num_attempts = 3
     exit_garage_rrt_num_iters = 100
     exit_garage_rrt_sample_goal_eps = 0.1
     exit_garage_motion_planning_ignore_obstacles = False
@@ -333,6 +333,7 @@ class GlobalSettings:
     gnn_num_message_passing = 3
     gnn_layer_size = 16
     gnn_learning_rate = 1e-3
+    gnn_weight_decay = 0
     gnn_num_epochs = 25000
     gnn_batch_size = 128
     gnn_do_normalization = False  # performs worse in Cover when True
@@ -539,6 +540,8 @@ class GlobalSettings:
     refinement_data_skeleton_generator_timeout = 20
     refinement_data_low_level_search_timeout = 5  # timeout for refinement try
     refinement_data_failed_refinement_penalty = 5  # added time on failure
+    refinement_data_include_execution_cost = True
+    refinement_data_low_level_execution_cost = 0.05  # per action cost to add
 
     # CNN refinement cost estimator image pre-processing parameters
     cnn_refinement_estimator_crop = False  # True

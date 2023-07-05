@@ -45,7 +45,7 @@ def _aggregation_func(graph: Dict) -> Tuple[torch.Tensor, Array]:
 
 def _prepare_receiver_matrix(graph: Dict) -> torch.Tensor:
     num_nodes = graph['nodes'].size()[0]
-    columns = torch.arange(0, num_nodes).long()
+    columns = torch.arange(0, num_nodes).long().to(graph['nodes'].device)
     rec_m = graph['receivers'].view(-1)[:, None] == columns
     return rec_m.float()
 
@@ -53,10 +53,11 @@ def _prepare_receiver_matrix(graph: Dict) -> torch.Tensor:
 def _aggregate_globals(graph: Dict, global_node_idxs: Array,
                        global_edge_idxs: Array) -> torch.Tensor:
     num_graphs = graph['globals'].size()[0]
-    columns = torch.arange(0, num_graphs).long()
+    device = graph['globals'].device
+    columns = torch.arange(0, num_graphs).long().to(device)
 
-    node_idxs = torch.LongTensor(global_node_idxs)[:, None]
-    edge_idxs = torch.LongTensor(global_edge_idxs)[:, None]
+    node_idxs = torch.LongTensor(global_node_idxs)[:, None].to(device)
+    edge_idxs = torch.LongTensor(global_edge_idxs)[:, None].to(device)
 
     nodes_agg = torch.mm(graph['nodes'].t(),
                          (node_idxs == columns).float()).t()

@@ -32,6 +32,7 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_TEST_TIME", "avg_suc_time"),
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
+    ("AVG_REF_COST", "avg_ref_cost"),
     # ("AVG_SAMPLES_PER_PLAN", "avg_num_samples"),
     # ("MIN_SAMPLES_PER_PLAN", "min_num_samples"),
     # ("MAX_SAMPLES_PER_PLAN", "max_num_samples"),
