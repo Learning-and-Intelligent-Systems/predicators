@@ -92,8 +92,8 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
     with open(save_path, "rb") as f:
         data = pkl.load(f)
     print(f"Loaded sampler classifier training data from {save_path}.")
-    X: List[Array] = data["datapoint"][0]
-    y: List[Array] = data["datapoint"][1]
+    X: List[Array] = data[0]
+    y: List[Array] = data[1]
     return _create_image(X, y, classifier=classifier)
 
 
