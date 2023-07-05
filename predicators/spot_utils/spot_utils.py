@@ -235,7 +235,7 @@ class _SpotInterface():
 
         # Create Graph Nav Command Line
         self.upload_filepath = "predicators/spot_utils/bike_env/" + \
-            "downloaded_graph/"
+                               "downloaded_graph/"
         self.graph_nav_command_line = GraphNavInterface(
             self.robot, self.upload_filepath, self.lease_client,
             self.lease_keepalive)
@@ -268,8 +268,8 @@ class _SpotInterface():
         image_response = self.image_client.get_image([img_req])
 
         # Format image before detecting apriltags.
-        if image_response[0].shot.image.pixel_format == image_pb2.Image.\
-            PIXEL_FORMAT_DEPTH_U16:
+        if image_response[0].shot.image.pixel_format == image_pb2.Image. \
+                PIXEL_FORMAT_DEPTH_U16:
             dtype = np.uint16  # type: ignore
         else:
             dtype = np.uint8  # type: ignore
@@ -283,14 +283,21 @@ class _SpotInterface():
 
         return (img, image_response)
 
-    def get_objects_in_view(self) -> Dict[str, Tuple[float, float, float]]:
+    def get_objects_in_view(
+            self, from_apriltag: bool = True
+    ) -> Dict[str, Tuple[float, float, float]]:
         """Get objects currently in view."""
         tag_to_pose: Dict[int, Tuple[float, float, float]] = {}
         for source_name in CAMERA_NAMES:
-            # viewable_obj_poses = self.get_apriltag_pose_from_camera(
-            #     source_name=source_name)
-            viewable_obj_poses = self.get_sam_object_loc_from_camera(
-                source_rgb=source_name)
+            # FIXME hardcode for camera names
+            if from_apriltag:
+                viewable_obj_poses = self.get_apriltag_pose_from_camera(
+                    source_name=source_name)
+            else:
+                viewable_obj_poses = self.get_sam_object_loc_from_camera(
+                    source_rgb=source_name,
+                    # TODO add depth camera name
+                )
             tag_to_pose.update(viewable_obj_poses)
         apriltag_id_to_obj_name = {
             v: k
@@ -311,7 +318,7 @@ class _SpotInterface():
         return robot_pos
 
     def actively_construct_initial_object_views(
-        self, object_names: Collection[str]
+            self, object_names: Collection[str]
     ) -> Dict[str, Tuple[float, float, float]]:
         """Walk around and build object views."""
         waypoints = ["tool_room_table", "low_wall_rack"]
@@ -332,7 +339,7 @@ class _SpotInterface():
         while exec_sec < self.localization_timeout:
             # Localizes robot from larger graph fiducials.
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            state = self.graph_nav_command_line.graph_nav_client.\
+            state = self.graph_nav_command_line.graph_nav_client. \
                 get_localization_state()
             exec_sec = time.perf_counter() - exec_start
             if str(state.localization.seed_tform_body) != '':
@@ -392,8 +399,8 @@ class _SpotInterface():
 
             body_tform_fiducial = (
                 camera_tform_body.inverse()).transform_point(
-                    fiducial_rt_camera_frame[0], fiducial_rt_camera_frame[1],
-                    fiducial_rt_camera_frame[2])
+                fiducial_rt_camera_frame[0], fiducial_rt_camera_frame[1],
+                fiducial_rt_camera_frame[2])
 
             # Get graph_nav to body frame.
             state = self.get_localized_state()
@@ -476,7 +483,6 @@ class _SpotInterface():
 
         return object_rt_gn_origin
 
-
     @staticmethod
     def rotate_image(image: Image, source_name: str) -> Image:
         """Rotate the image so that it is always displayed upright."""
@@ -498,10 +504,10 @@ class _SpotInterface():
     def params_spaces(self) -> Dict[str, Box]:
         """The parameter spaces for each of the controllers."""
         return {
-            "navigate": Box(-5.0, 5.0, (3, )),
-            "grasp": Box(-1.0, 1.0, (4, )),
-            "placeOnTop": Box(-5.0, 5.0, (3, )),
-            "noop": Box(0, 1, (0, ))
+            "navigate": Box(-5.0, 5.0, (3,)),
+            "grasp": Box(-1.0, 1.0, (4,)),
+            "placeOnTop": Box(-5.0, 5.0, (3,)),
+            "noop": Box(0, 1, (0,))
         }
 
     def execute(self, name: str, objects: Sequence[Object],
@@ -586,7 +592,7 @@ class _SpotInterface():
         time.sleep(2.0)
 
     def _scan_for_objects(
-        self, waypoints: Sequence[str], objects_to_find: Collection[str]
+            self, waypoints: Sequence[str], objects_to_find: Collection[str]
     ) -> Dict[str, Tuple[float, float, float]]:
         """Walks around and spins around to find object poses by apriltag."""
         # Stow arm before
@@ -617,8 +623,8 @@ class _SpotInterface():
         client = robot.ensure_client(EstopClient.default_service_name)
         if client.get_status().stop_level != estop_pb2.ESTOP_LEVEL_NONE:
             error_message = "Robot is estopped. Please use an external" + \
-                " E-Stop client, such as the estop SDK example, to" + \
-                " configure E-Stop."
+                            " E-Stop client, such as the estop SDK example, to" + \
+                            " configure E-Stop."
             robot.logger.error(error_message)
             raise Exception(error_message)
 
@@ -634,7 +640,7 @@ class _SpotInterface():
             g_image_click = (x, y)
         else:
             # Draw some lines on the image.
-            #print('mouse', x, y)
+            # print('mouse', x, y)
             color = (30, 30, 30)
             thickness = 2
             image_title = 'Click to grasp'
@@ -645,8 +651,8 @@ class _SpotInterface():
             cv2.imshow(image_title, clone)
 
     def add_grasp_constraint(
-        self, grasp: manipulation_api_pb2.PickObjectInImage,
-        robot_state_client: RobotStateClient
+            self, grasp: manipulation_api_pb2.PickObjectInImage,
+            robot_state_client: RobotStateClient
     ) -> manipulation_api_pb2.PickObjectInImage:
         """Method to constrain desirable grasps."""
         # There are 3 types of constraints:
@@ -659,7 +665,7 @@ class _SpotInterface():
 
         # For these options, we'll use a vector alignment constraint.
         use_vector_constraint = self._force_top_down_grasp or \
-            self._force_horizontal_grasp
+                                self._force_horizontal_grasp
 
         # Specify the frame we're using.
         grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME
@@ -691,16 +697,16 @@ class _SpotInterface():
 
             # Add the vector constraint to our proto.
             constraint = grasp.grasp_params.allowable_orientation.add()
-            constraint.vector_alignment_with_tolerance.\
-                axis_on_gripper_ewrt_gripper.\
-                    CopyFrom(axis_on_gripper_ewrt_gripper)
-            constraint.vector_alignment_with_tolerance.\
-                axis_to_align_with_ewrt_frame.\
-                    CopyFrom(axis_to_align_with_ewrt_vo)
+            constraint.vector_alignment_with_tolerance. \
+                axis_on_gripper_ewrt_gripper. \
+                CopyFrom(axis_on_gripper_ewrt_gripper)
+            constraint.vector_alignment_with_tolerance. \
+                axis_to_align_with_ewrt_frame. \
+                CopyFrom(axis_to_align_with_ewrt_vo)
 
             # We'll take anything within about 10 degrees for top-down or
             # horizontal grasps.
-            constraint.vector_alignment_with_tolerance.\
+            constraint.vector_alignment_with_tolerance. \
                 threshold_radians = 0.17
 
         elif self._force_45_angle_grasp:
@@ -756,8 +762,8 @@ class _SpotInterface():
             assert False
 
         image = image_responses[0]
-        if image.shot.image.pixel_format == image_pb2.Image.\
-            PIXEL_FORMAT_DEPTH_U16:
+        if image.shot.image.pixel_format == image_pb2.Image. \
+                PIXEL_FORMAT_DEPTH_U16:
             dtype = np.uint16  # type: ignore
         else:
             dtype = np.uint8  # type: ignore
@@ -813,7 +819,7 @@ class _SpotInterface():
         # cv2.waitKey(0)
 
         # pylint: disable=unsubscriptable-object
-        self.robot.\
+        self.robot. \
             logger.info(f"Object at ({g_image_click[0]}, {g_image_click[1]})")
         # pylint: disable=unsubscriptable-object
         pick_vec = geometry_pb2.Vec2(x=g_image_click[0], y=g_image_click[1])
@@ -843,22 +849,22 @@ class _SpotInterface():
         # Get feedback from the robot and execute grasping.
         start_time = time.perf_counter()
         while (time.perf_counter() - start_time) <= COMMAND_TIMEOUT:
-            feedback_request = manipulation_api_pb2.\
-                ManipulationApiFeedbackRequest(manipulation_cmd_id=\
-                    cmd_response.manipulation_cmd_id)
+            feedback_request = manipulation_api_pb2. \
+                ManipulationApiFeedbackRequest(manipulation_cmd_id= \
+                                                   cmd_response.manipulation_cmd_id)
 
             # Send the request
-            response = self.manipulation_api_client.\
+            response = self.manipulation_api_client. \
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
 
             logging.info(f"""Current state:
                 {manipulation_api_pb2.ManipulationFeedbackState.Name(
-                    response.current_state)}""")
+                response.current_state)}""")
 
-            if response.current_state in [manipulation_api_pb2.\
-                MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2.\
-                MANIP_STATE_GRASP_FAILED]:
+            if response.current_state in [manipulation_api_pb2. \
+                                                  MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2. \
+                                                  MANIP_STATE_GRASP_FAILED]:
                 break
         if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
             logging.info("Timed out waiting for grasp to execute!")
@@ -873,17 +879,17 @@ class _SpotInterface():
         arm."""
 
         # Allow Stowing and Stow Arm
-        grasp_carry_state_override = manipulation_api_pb2.\
+        grasp_carry_state_override = manipulation_api_pb2. \
             ApiGraspedCarryStateOverride(override_request=3)
-        grasp_override_request = manipulation_api_pb2.\
+        grasp_override_request = manipulation_api_pb2. \
             ApiGraspOverrideRequest(
             carry_state_override=grasp_carry_state_override)
-        cmd_response = self.manipulation_api_client.\
+        cmd_response = self.manipulation_api_client. \
             grasp_override_command(grasp_override_request)
         self.robot.logger.info(cmd_response)
 
         stow_cmd = RobotCommandBuilder.arm_stow_command()
-        gripper_close_command = RobotCommandBuilder.\
+        gripper_close_command = RobotCommandBuilder. \
             claw_gripper_open_fraction_command(0.0)
         # Combine the arm and gripper commands into one RobotCommand
         stow_and_close_command = RobotCommandBuilder.build_synchro_command(
@@ -912,7 +918,7 @@ class _SpotInterface():
             body_T_hand = get_a_tform_b(
                 robot_state.kinematic_state.transforms_snapshot,
                 BODY_FRAME_NAME, "hand")
-            qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x,\
+            qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x, \
                 body_T_hand.rot.y, body_T_hand.rot.z
         elif angle_45:
             # Set downward place rotation as a quaternion.
@@ -977,7 +983,7 @@ class _SpotInterface():
             ODOM_FRAME_NAME, seconds)
 
         # Make the close gripper RobotCommand
-        gripper_command = RobotCommandBuilder.\
+        gripper_command = RobotCommandBuilder. \
             claw_gripper_open_fraction_command(0.0)
 
         # Combine the arm and gripper commands into one RobotCommand
@@ -994,10 +1000,10 @@ class _SpotInterface():
         time.sleep(2)
 
         if not open_gripper:
-            gripper_command = RobotCommandBuilder.\
+            gripper_command = RobotCommandBuilder. \
                 claw_gripper_open_fraction_command(0.0)
         else:
-            gripper_command = RobotCommandBuilder.\
+            gripper_command = RobotCommandBuilder. \
                 claw_gripper_open_fraction_command(1.0)
 
         # Combine the arm and gripper commands into one RobotCommand
@@ -1066,12 +1072,12 @@ class _SpotInterface():
             end_time_secs=time.time() + COMMAND_TIMEOUT)
         start_time = time.perf_counter()
         while (time.perf_counter() - start_time) <= COMMAND_TIMEOUT:
-            feedback = self.robot_command_client.\
+            feedback = self.robot_command_client. \
                 robot_command_feedback(cmd_id)
-            mobility_feedback = feedback.feedback.\
+            mobility_feedback = feedback.feedback. \
                 synchronized_feedback.mobility_command_feedback
             if mobility_feedback.status != \
-                RobotCommandFeedbackStatus.STATUS_PROCESSING:
+                    RobotCommandFeedbackStatus.STATUS_PROCESSING:
                 logging.info("Failed to reach the goal")
                 return False
             traj_feedback = mobility_feedback.se2_trajectory_feedback
