@@ -998,10 +998,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
 class CoverEnvPlaceHard(CoverEnv):
     """A cover environment where the only thing that's hard is placing.
-    Specifically, there is only one block and one target, and the default
-    grasp sampler always picks up the block directly in the middle. The
-    allowed hand region for the placement location is very specifically
-    hard-coded and this is the only thing that needs to be learned.
+    Specifically, there is only one block and one target, and the default grasp
+    sampler always picks up the block directly in the middle. The allowed hand
+    region for the placement location is very specifically hard-coded and this
+    is the only thing that needs to be learned.
 
     This environment is specifically useful for testing various aspects
     of different sampler learning approaches.
