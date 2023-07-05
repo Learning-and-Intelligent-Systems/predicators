@@ -273,7 +273,11 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
     if CFG.active_sampler_learning_feature_selection == "all":
         for obj in objects:
             sampler_input_lst.extend(state[obj])
-        sampler_input_lst.extend(params)
+        try:
+            sampler_input_lst.extend(params)
+        except TypeError:
+            import ipdb
+            ipdb.set_trace()
 
     else:
         assert CFG.active_sampler_learning_feature_selection == "oracle"

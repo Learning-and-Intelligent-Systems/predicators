@@ -94,7 +94,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # This is just an implementation convenience.
         assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
         for nsrt in self._nsrts:
-            assert nsrt.option_vars == nsrt.parameters
+            try:
+                assert nsrt.option_vars == nsrt.parameters
+            except AssertionError:
+                import ipdb
+                ipdb.set_trace()
         # Update the sampler data using the updated self._segmented_trajs.
         self._update_sampler_data()
         # Re-learn samplers. Updates the NSRTs.
