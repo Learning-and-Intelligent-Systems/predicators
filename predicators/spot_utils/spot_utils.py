@@ -258,7 +258,7 @@ class _SpotInterface():
             camera_images[source_name] = img
         return camera_images
 
-    def get_single_camera_image(self, source_name: str) -> Tuple[Image, Any]:
+    def get_single_camera_image(self, source_name: str, to_rgb: bool = False) -> Tuple[Image, Any]:
         """Get a single source camera image and image response."""
         # Get image and camera transform from source_name.
         img_req = build_image_request(
@@ -280,6 +280,11 @@ class _SpotInterface():
                               image_response[0].shot.image.cols)
         else:
             img = cv2.imdecode(img, -1)
+
+        # Convert to RGB color, as some perception models assume RGB format
+        # By default, still use BGR to keep backward compability
+        if to_rgb:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         return (img, image_response)
 
@@ -388,6 +393,7 @@ class _SpotInterface():
                  float(ty) / 1000.0,
                  float(tz) / 1000.0])
 
+            # Convert the detected fiducual into correct reference frame
             body_tform_fiducial = (
                 camera_tform_body.inverse()).transform_point(
                     fiducial_rt_camera_frame[0], fiducial_rt_camera_frame[1],
@@ -408,6 +414,72 @@ class _SpotInterface():
                 obj_poses[detection.tag_id] = fiducial_rt_gn_origin
 
         return obj_poses
+
+    def get_sam_object_loc_from_camera(
+            self,
+            class_name: str or List[str],
+            camera_rgb: str = "hand_color_image",
+            camera_depth: str = "hand_depth_in_hand_color_frame",
+    ) -> Dict[int, Tuple[float, float, float]]:
+        """Get object location in 3D (no orientation) estimated using pretrained SAM model
+
+        Args:
+            class_name: name of object class
+        """
+
+        assert isinstance(class_name, str) or isinstance(class_name, list)
+
+        # Only support using depth image to obatin location
+        # TODO check if they correspond to the same source?
+        # TODO check converting to RGB format correctly - SAM needs RGB
+        img_rgb, image_response_rgb = self.get_single_camera_image(camera_rgb, to_rgb=True)
+        img_depth, image_response_depth = self.get_single_camera_image(camera_depth)
+
+        res_img = {'rgb': img_rgb, 'depth': img_depth}
+        res_response = [image_response_rgb, image_response_depth]
+
+        from perception_utils import get_object_locations_with_sam
+
+        res_locations = get_object_locations_with_sam(
+            None,
+            classes=[class_name] if isinstance(class_name, str) else class_name,
+            in_res_image=res_img,
+            in_res_image_responses=res_response
+        )
+
+        # TODO transform into the correct reference frame - need to double check
+        # Camera body transform.
+        camera_tform_body = get_a_tform_b(
+            res_response[0].shot.transforms_snapshot,
+            res_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+
+        res_locations_rt_gn_origin = []
+        for obj_loc in res_locations:
+            object_rt_gn_origin = self.convert_obj_location(camera_tform_body, *obj_loc)
+            res_locations_rt_gn_origin.append(object_rt_gn_origin)
+
+        # Use the input class name as the identifier for object(s) and their positions
+        return {class_name: res_locations_rt_gn_origin}
+
+    @staticmethod
+    def convert_obj_location(self, camera_tform_body, x, y, z):
+        body_tform_object = (
+            camera_tform_body.inverse()).transform_point(x, y, z)
+
+        # Get graph_nav to body frame.
+        state = self.get_localized_state()
+        gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+            state.localization.seed_tform_body)
+
+        # Apply transform to object to body location
+        object_rt_gn_origin = gn_origin_tform_body.transform_point(
+            body_tform_object[0],
+            body_tform_object[1],
+            body_tform_object[2]
+        )
+
+        return object_rt_gn_origin
+
 
     @staticmethod
     def rotate_image(image: Image, source_name: str) -> Image:
