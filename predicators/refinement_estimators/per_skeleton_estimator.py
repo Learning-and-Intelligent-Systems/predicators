@@ -64,3 +64,7 @@ class PerSkeletonRefinementEstimator(BaseRefinementEstimator, Generic[Model]):
     def load_model(self, filepath: Path) -> None:
         with open(filepath, "rb") as f:
             self._model_dict = pkl.load(f)
+        # Run every model once to avoid weird delay issue
+        if self._model_dict is not None:
+            for v in self._model_dict.values():
+                self._model_predict(v, self._env.get_train_tasks()[0].task)

@@ -30,7 +30,11 @@ def _main() -> None:
         cmd_flags = config_to_cmd_flags(cfg)
         logfile = os.path.join("logs", config_to_logfile(cfg))
         cmd_flags = config_to_cmd_flags(cfg)
-        cmd = f"python predicators/main.py {cmd_flags} > {logfile}"
+        if cfg.train_refinement_estimator:
+            entry_point = "train_refinement_estimator.py"
+        else:
+            entry_point = "main.py"
+        cmd = f"python predicators/{entry_point} {cmd_flags} > {logfile}"
         cmds.append(cmd)
     # Run the commands in order.
     num_cmds = len(cmds)
