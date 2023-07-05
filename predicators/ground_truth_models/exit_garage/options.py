@@ -307,4 +307,4 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(arr)
 
         action_plan = [_create_action(dx, dy) for (dx, dy) in deltas]
-        memory["action_plan"] = action_plan
+        memory["action_plan"].extend(action_plan)
