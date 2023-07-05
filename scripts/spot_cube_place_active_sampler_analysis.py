@@ -3,7 +3,7 @@
 import glob
 import logging
 import os
-from typing import List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import dill as pkl
 import imageio
@@ -105,6 +105,23 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int]) -> Image:
     return _create_image(X, y, classifier=classifier)
 
 
+def _vec_to_xy(vec: Array) -> Tuple[float, float]:
+    place_robot_xy = math_helpers.Vec2(*vec[-3:-1])
+
+    world_fiducial = math_helpers.Vec2(
+        vec[12],  # state.get(surface, "x"),
+        vec[13],  # state.get(surface, "y"),
+    )
+    world_to_robot = math_helpers.SE2Pose(
+        vec[3],  # state.get(robot, "x"),
+        vec[4],  # state.get(robot, "y"),
+        vec[6],  # state.get(robot, "yaw"))
+    )
+    fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
+    x, y = place_robot_xy - fiducial_in_robot_frame
+    return (x, y)
+
+
 def _create_image(X: List[Array],
                   y: List[Array],
                   classifier: Optional[BinaryClassifier] = None) -> Image:
@@ -145,19 +162,7 @@ def _create_image(X: List[Array],
 
     # plot real data
     for datum, label in zip(X, y):
-        place_robot_xy = math_helpers.Vec2(*datum[-3:-1])
-
-        world_fiducial = math_helpers.Vec2(
-            datum[12],  # state.get(surface, "x"),
-            datum[13],  # state.get(surface, "y"),
-        )
-        world_to_robot = math_helpers.SE2Pose(
-            datum[3],  # state.get(robot, "x"),
-            datum[4],  # state.get(robot, "y"),
-            datum[6],  # state.get(robot, "yaw"))
-        )
-        fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
-        x_pt, y_pt = place_robot_xy - fiducial_in_robot_frame
+        x_pt, y_pt = _vec_to_xy(datum)
         print("x_pt, y_pt:", x_pt, y_pt)
         print("label:", label)
         color = cmap(norm(label))
@@ -175,26 +180,12 @@ def _create_image(X: List[Array],
 class _OracleModel(BinaryClassifier):
     """Oracle hand-written model."""
 
-    def fit(self, X: List[Array], y: List[Array]) -> None:
+    def fit(self, X: Array, y: Array) -> None:
         pass
 
     def classify(self, x: Array) -> bool:
-        # TODO factor out.
-        place_robot_xy = math_helpers.Vec2(*x[-3:-1])
-
-        world_fiducial = math_helpers.Vec2(
-            x[12],  # state.get(surface, "x"),
-            x[13],  # state.get(surface, "y"),
-        )
-        world_to_robot = math_helpers.SE2Pose(
-            x[3],  # state.get(robot, "x"),
-            x[4],  # state.get(robot, "y"),
-            x[6],  # state.get(robot, "yaw"))
-        )
-        fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
-        _, y_pt = place_robot_xy - fiducial_in_robot_frame
-
         # Approximate.
+        _, y_pt = _vec_to_xy(x)
         return y_pt > 0
 
     def predict_proba(self, x: Array) -> float:
@@ -208,7 +199,7 @@ class _ConstantModel(BinaryClassifier):
         super().__init__(seed)
         self._constant = constant
 
-    def fit(self, X: List[Array], y: List[Array]) -> None:
+    def fit(self, X: Array, y: Array) -> None:
         pass
 
     def classify(self, x: Array) -> bool:
@@ -226,7 +217,7 @@ def _run_sample_efficiency_analysis(X: List[Array], y: List[Array]) -> None:
     num_valid = int(num_data * validation_frac)
     num_trials = 10
 
-    models = {
+    models: Dict[str, Callable[[], BinaryClassifier]] = {
         "oracle":
         lambda: _OracleModel(seed=CFG.seed),
         # "always-true": lambda: _ConstantModel(CFG.seed, True),
