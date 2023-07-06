@@ -95,7 +95,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     def _create_terminal(cls, name: str,
                          operator: STRIPSOperator) -> ParameterizedTerminal:
         del name
-        step_count = 0
         max_step_count = 10
 
         def terminal(state: State, memory: Dict, objects: Sequence[Object],
@@ -103,6 +102,10 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             """Terminate when the option's corresponding operator's effects
             have been reached."""
             del params
+            if "step_count" in memory:
+                step_count = memory["step_count"]
+            else:
+                step_count = 0
             grounded_op = operator.ground(tuple(objects))
             if all(e.holds(state) for e in grounded_op.add_effects):
                 step_count = 0
