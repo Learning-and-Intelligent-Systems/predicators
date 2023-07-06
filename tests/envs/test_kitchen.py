@@ -7,7 +7,6 @@ from predicators import utils
 from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.kitchen_perceiver import KitchenPerceiver
-from predicators.structs import Object
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
@@ -69,7 +68,6 @@ def test_kitchen():
     imgs = env.render()
     assert len(imgs) == 1
     task = perceiver.reset(env_task)
-    state = task.init
 
     # Cover not implemented methods.
     with pytest.raises(NotImplementedError) as e:
