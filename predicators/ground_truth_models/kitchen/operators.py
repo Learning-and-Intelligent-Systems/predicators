@@ -35,32 +35,28 @@ class KitchenGroundTruthOperatorFactory():
         preconditions: Set[LiftedAtom] = set()
         add_effects = {LiftedAtom(At, [gripper, obj])}
         delete_effects: Set[LiftedAtom] = set()
-        move_to_nsrt = STRIPSOperator("MoveTo", parameters, preconditions,
-                                      add_effects, delete_effects, {At})
-        operators.add(move_to_nsrt)
+        move_to_operator = STRIPSOperator("MoveTo", parameters, preconditions,
+                                          add_effects, delete_effects, {At})
+        operators.add(move_to_operator)
 
         # PushObjOnObjForward
         parameters = [gripper, obj, obj2]
         preconditions = {LiftedAtom(At, [gripper, obj])}
         add_effects = {LiftedAtom(OnTop, [obj, obj2])}
         delete_effects = set()
-        push_obj_on_obj_forward_nsrt = STRIPSOperator("PushObjOnObjForward",
-                                                      parameters,
-                                                      preconditions,
-                                                      add_effects,
-                                                      delete_effects, {OnTop})
-        operators.add(push_obj_on_obj_forward_nsrt)
+        push_obj_on_obj_forward_operator = STRIPSOperator(
+            "PushObjOnObjForward", parameters, preconditions, add_effects,
+            delete_effects, {OnTop})
+        operators.add(push_obj_on_obj_forward_operator)
 
         # PushObjTurnOnRight
         parameters = [gripper, obj]
         preconditions = {LiftedAtom(At, [gripper, obj])}
         add_effects = {LiftedAtom(TurnedOn, [obj])}
         delete_effects = set()
-        push_obj_turn_on_right_nsrt = STRIPSOperator("PushObjTurnOnRight",
-                                                     parameters, preconditions,
-                                                     add_effects,
-                                                     delete_effects,
-                                                     {TurnedOn})
-        operators.add(push_obj_turn_on_right_nsrt)
+        push_obj_turn_on_right_operator = STRIPSOperator(
+            "PushObjTurnOnRight", parameters, preconditions, add_effects,
+            delete_effects, {TurnedOn})
+        operators.add(push_obj_turn_on_right_operator)
 
         return operators
