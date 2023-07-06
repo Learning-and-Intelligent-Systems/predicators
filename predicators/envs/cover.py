@@ -1013,14 +1013,8 @@ class CoverEnvPlaceHard(CoverEnv):
         return "cover_place_hard"
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
-        # targets = state.get_objects(self._target_type)
-        # assert len(targets) == 1
-        # targ = targets[0]
         # Allow placing anywhere!
         return [(0.0, 1.0)]
-        # return [
-        #         (state.get(targ, "pose") - state.get(targ, "width") / 2,
-        #          state.get(targ, "pose") + state.get(targ, "width") / 2)]
 
 
 class BumpyCoverEnv(CoverEnvRegrasp):
