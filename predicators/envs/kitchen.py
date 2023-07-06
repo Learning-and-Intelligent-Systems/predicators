@@ -28,7 +28,9 @@ class KitchenEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        assert _MJKITCHEN_IMPORTED
+        assert _MJKITCHEN_IMPORTED, "Failed to import mujoco_kitchen. \
+For more information on installation see \
+https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
         # Predicates
         self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
