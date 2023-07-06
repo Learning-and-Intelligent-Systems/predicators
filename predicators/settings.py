@@ -46,13 +46,6 @@ class GlobalSettings:
     # your call to utils.reset_config().
     render_state_dpi = 150
 
-    # cover env parameters
-    cover_num_blocks = 2
-    cover_num_targets = 2
-    cover_block_widths = [0.1, 0.07]
-    cover_target_widths = [0.05, 0.03]
-    cover_initial_holding_prob = 0.75
-
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_degenerate_oracle_samplers = False
@@ -693,6 +686,24 @@ class GlobalSettings:
                     # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
+
+            # Parameters specific to the cover environment.
+            # cover env parameters
+            cover_num_blocks=defaultdict(lambda: 2, {
+                "cover_place_hard": 1,
+            })[args.get("env", "")],
+            cover_num_targets=defaultdict(lambda: 2, {
+                "cover_place_hard": 1,
+            })[args.get("env", "")],
+            cover_block_widths=defaultdict(lambda: [0.1, 0.07], {
+                "cover_place_hard": [0.1],
+            })[args.get("env", "")],
+            cover_target_widths=defaultdict(lambda: [0.05, 0.03], {
+                "cover_place_hard": [0.05],
+            })[args.get("env", "")],
+            cover_initial_holding_prob=defaultdict(lambda: 0.75, {
+                "cover_place_hard": 0.0,
+            })[args.get("env", "")],
         )
 
 

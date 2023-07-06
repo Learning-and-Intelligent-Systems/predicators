@@ -19,7 +19,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return {
             "cover", "cover_hierarchical_types", "cover_typed_options",
             "cover_regrasp", "cover_multistep_options", "pybullet_cover",
-            "cover_handempty", "bumpy_cover"
+            "cover_handempty", "bumpy_cover", "cover_place_hard"
         }
 
     @staticmethod
@@ -48,7 +48,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         "cover_regrasp", "cover_handempty"):
             PickPlace = options["PickPlace"]
         elif env_name in ("cover_typed_options", "cover_multistep_options",
-                          "bumpy_cover"):
+                          "bumpy_cover", "cover_place_hard"):
             Pick, Place = options["Pick"], options["Place"]
 
         nsrts = set()
@@ -77,7 +77,7 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         elif env_name == "bumpy_cover":
             option = Pick
             option_vars = [block]
-        elif env_name == "cover_typed_options":
+        elif env_name in ("cover_typed_options", "cover_place_hard"):
             option = Pick
             option_vars = [block]
         elif env_name == "cover_multistep_options":
@@ -158,6 +158,8 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     ub = float(
                         state.get(b, "pose") + state.get(b, "width") / 2)
                     ub = min(ub, 1.0)
+                elif env_name == ("cover_place_hard"):
+                    return np.array([state.get(b, "pose")], dtype=np.float32)
                 return np.array(rng.uniform(lb, ub, size=(1, )),
                                 dtype=np.float32)
 
@@ -196,9 +198,12 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         elif env_name == "bumpy_cover":
             option = Place
             option_vars = [block, target]
-        elif env_name == "cover_typed_options":
+        elif env_name in "cover_typed_options":
             option = Place
             option_vars = [target]
+        elif env_name == "cover_place_hard":
+            option = Place
+            option_vars = [block, target]
         elif env_name == "cover_multistep_options":
             option = Place
             option_vars = [block, robot, target]
@@ -271,6 +276,9 @@ class CoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                         center += 3 * state.get(t, "width") / 4
                     lb = center - state.get(t, "width") / 2
                     ub = center + state.get(t, "width") / 2
+                elif env_name == "cover_place_hard":
+                    lb = float(state.get(t, "pose") - state.get(t, "width"))
+                    ub = float(state.get(t, "pose") + state.get(t, "width"))
                 else:
                     lb = float(
                         state.get(t, "pose") - state.get(t, "width") / 10)
