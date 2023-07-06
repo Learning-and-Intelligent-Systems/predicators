@@ -22,6 +22,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         return _segment_with_contact_changes(trajectory)
     if CFG.segmenter == "every_step":
         return _segment_with_switch_function(trajectory, lambda _: True)
+    if CFG.segmenter == "spot":  # pragma: no cover
+        return _segment_with_spot_changes(trajectory)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
 
@@ -99,6 +101,31 @@ def _segment_with_option_changes(
         if t == len(traj.actions) - 1:
             return option_t.terminal(traj.states[t + 1])
         return option_t is not traj.actions[t + 1].get_option()
+
+    return _segment_with_switch_function(trajectory, _switch_fn)
+
+
+def _segment_with_spot_changes(
+        trajectory: GroundAtomTrajectory) -> List[Segment]:  # pragma: no cover
+
+    traj, _ = trajectory
+
+    def _switch_fn(t: int) -> bool:
+        # Actions without options are "special". We include them in the options
+        # that came before them. For example, if an object gets lost during
+        # placing, the special "find" action is included in the segment for
+        # placing. Note that the current implementation assumes that the
+        # regular options are singleton options (terminate immediately).
+        act = traj.actions[t]
+        if not act.has_option():
+            assert t > 0
+            last_act = traj.actions[t - 1]
+            last_option = last_act.get_option()
+            act.set_option(last_option)
+        if t == len(traj.actions) - 1:
+            return True
+        next_action_has_option = traj.actions[t + 1].has_option()
+        return next_action_has_option
 
     return _segment_with_switch_function(trajectory, _switch_fn)
 

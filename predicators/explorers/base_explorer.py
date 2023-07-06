@@ -1,14 +1,17 @@
 """Base class for an explorer."""
 
 import abc
+import logging
 from typing import List, Set
 
 import numpy as np
 from gym.spaces import Box
 
+from predicators.approaches.spot_wrapper_approach import \
+    get_special_spot_action
 from predicators.settings import CFG
-from predicators.structs import ExplorationStrategy, ParameterizedOption, \
-    Predicate, State, Task, Type
+from predicators.structs import Action, ExplorationStrategy, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class BaseExplorer(abc.ABC):
@@ -46,19 +49,64 @@ class BaseExplorer(abc.ABC):
         policy, termination_fn = self._get_exploration_strategy(
             train_task_idx, timeout)
 
+        # Add wrapper for spot environments. Note that there is unfortunately
+        # a lot of shared code between this and the spot wrapper approach,
+        # but there are a few detailed differences that make refactoring not
+        # easy, so I'm punting it for now.
+        need_stow = False
+
+        def wrapped_policy(state: State) -> Action:  # pragma: no cover
+            nonlocal need_stow
+
+            if "spot" not in CFG.env:
+                return policy(state)
+
+            # If some objects are lost, find them.
+            lost_objects: Set[Object] = set()
+            for obj in state:
+                if "lost" in obj.type.feature_names and \
+                    state.get(obj, "lost") > 0.5:
+                    lost_objects.add(obj)
+            # Need to find the objects.
+            if lost_objects:
+                logging.info(
+                    f"[Explorer Spot Wrapper] Lost objects: {lost_objects}")
+                # Reset the base approach policy.
+                need_stow = True
+                return get_special_spot_action("find")
+            # Found the objects. Stow the arm before replanning.
+            if need_stow:
+                logging.info(
+                    "[Explorer Spot Wrapper] Lost objects found, stowing.")
+                need_stow = False
+                return get_special_spot_action("stow")
+            # Give control back to base policy.
+            logging.info(
+                "[Explorer Spot Wrapper] Giving control to base policy.")
+            return policy(state)
+
         # Terminate after the given number of steps.
         remaining_steps = self._max_steps_before_termination
 
         def wrapped_termination_fn(state: State) -> bool:
             nonlocal remaining_steps
             if termination_fn(state):
+                logging.info("[Base Explorer] terminating due to term fn")
                 return True
             if remaining_steps <= 0:
+                logging.info("[Base Explorer] terminating due to max steps")
                 return True
+            steps_taken = self._max_steps_before_termination - remaining_steps
+            actual_remaining_steps = min(
+                remaining_steps,
+                CFG.max_num_steps_interaction_request - steps_taken)
+            logging.info(
+                "[Base Explorer] not yet terminating (remaining steps: "
+                f"{actual_remaining_steps})")
             remaining_steps -= 1
             return False
 
-        return policy, wrapped_termination_fn
+        return wrapped_policy, wrapped_termination_fn
 
     @abc.abstractmethod
     def _get_exploration_strategy(

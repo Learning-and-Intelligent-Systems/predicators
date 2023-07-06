@@ -58,17 +58,29 @@ PLOT_GROUPS = {
     ],
     "Shifted Bumpy Cover": [
         ("Myopic Classifier", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "bumpy_cover-myopic_classifier" in v)),
+            lambda v: "bumpy_cover-myopic_classifier_mlp" in v)),
         ("Fitted Q", "purple", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "bumpy_cover-fitted_q" in v)),
         ("Teacher Classifier", "brown", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "bumpy_cover-teacher_classifier" in v)),
     ],
     "Regional Bumpy Cover": [
-        ("Active Explore", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-main" in v)),
+        ("Active Explore No Ensemble", "blue", lambda df: df["EXPERIMENT_ID"].
+         apply(lambda v: "regional_bumpy_cover-main" in v)),
+        ("Active Explore Ensemble", "green", lambda df: df["EXPERIMENT_ID"].
+         apply(lambda v: "regional_bumpy_cover-ensemble" in v)),
         ("Random Explore", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random-explore" in v)),
+    ],
+    "Bumpy Cover Feature Design": [
+        ("All Feats (MLP)", "black", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-mlp_all_features" in v)),
+        ("Oracle Feats (MLP)", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-mlp_manual_features" in v)),
+        ("All Feats (KNN)", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-knn_all_features" in v)),
+        ("Oracle Feats (KNN)", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "bumpy_cover-knn_manual_features" in v)),
     ],
 }
 

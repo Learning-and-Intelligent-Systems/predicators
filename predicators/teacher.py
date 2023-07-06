@@ -259,7 +259,8 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
     """
 
     def observe(self, obs: Observation, action: Optional[Action]) -> None:
-        assert obs.allclose(self._teacher_env.get_observation())
+        if isinstance(obs, State):
+            assert obs.allclose(self._teacher_env.get_observation())
         if action is not None:
             self._teacher_env.step(action)
         state = obs

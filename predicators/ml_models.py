@@ -278,6 +278,9 @@ class _ScikitLearnBinaryClassifier(BinaryClassifier):
 
     def predict_proba(self, x: Array) -> float:
         probs = self._model.predict_proba([x])[0]
+        # Special case: only one class.
+        if probs.shape == (1, ):
+            return float(self.classify(x))
         assert probs.shape == (2, )  # [P(x is class 0), P(x is class 1)]
         return probs[1]  # return the second element of probs
 
@@ -309,7 +312,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         self._x_dims = tuple(X.shape[1:])
         assert y.shape == (num_data, )
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
-                     "datapoints")
+                     f"datapoints ({sum(y)} positive)")
         # If there is only one class in the data, then there's no point in
         # learning, since any predictions other than that one class could
         # only be generalization issues.
