@@ -2,8 +2,8 @@
 
 from typing import Dict, Set
 
-from predicators.structs import LiftedAtom, ParameterizedOption, Predicate, \
-    STRIPSOperator, Type, Variable
+from predicators.structs import LiftedAtom, Predicate, STRIPSOperator, Type, \
+    Variable
 
 
 class KitchenGroundTruthOperatorFactory():
@@ -12,6 +12,7 @@ class KitchenGroundTruthOperatorFactory():
     @staticmethod
     def get_operators(env_name: str, types: Dict[str, Type],
                       predicates: Dict[str, Predicate]) -> Set[STRIPSOperator]:
+        """Creates Operators for Mujoco Kitchen Env."""
         assert env_name == "kitchen"
         # Types
         gripper_type = types["gripper"]

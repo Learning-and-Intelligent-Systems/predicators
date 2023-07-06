@@ -7,7 +7,7 @@ from gym.spaces import Box
 
 try:
     from mujoco_kitchen.utils import \
-        primitive_and_params_to_primitive_action, primitive_idx_to_name, \
+        primitive_and_params_to_primitive_action, \
         primitive_name_to_action_idx
     _MJKITCHEN_IMPORTED = True
 except ImportError:
@@ -94,11 +94,13 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def _create_terminal(cls, name: str,
                          operator: STRIPSOperator) -> ParameterizedTerminal:
+        del name
 
         def terminal(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
             """Terminate when the option's corresponding operator's effects
             have been reached."""
+            del memory, params
             grounded_op = operator.ground(tuple(objects))
             if all(e.holds(state) for e in grounded_op.add_effects):
                 return True

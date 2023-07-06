@@ -3317,6 +3317,7 @@ def roundrobin(iterables: Sequence[Iterator]) -> Iterator:
 
 
 def get_task_seed(train_or_test: str, task_idx: int) -> int:
+    """Parses task seed from CFG.test_env_seed_offset."""
     assert task_idx < CFG.test_env_seed_offset
     # SeedSequence generates a sequence of random values given an integer
     # "entropy". We use CFG.seed to define the "entropy" and then get the
@@ -3325,10 +3326,10 @@ def get_task_seed(train_or_test: str, task_idx: int) -> int:
     # that are conducted with consecutive random seeds. For example, if
     # we used CFG.seed + task_idx to seed the gym environment, there would
     # be overlap between experiments when CFG.seed = 1, CFG.seed = 2, etc.
-    entropy = CFG.seed
+    seed_entropy = CFG.seed
     if train_or_test == "test":
-        entropy += CFG.test_env_seed_offset
-    seed_sequence = np.random.SeedSequence(entropy)
+        seed_entropy += CFG.test_env_seed_offset
+    seed_sequence = np.random.SeedSequence(seed_entropy)
     # Need to cast to int because generate_state() returns a numpy int.
     task_seed = int(seed_sequence.generate_state(task_idx + 1)[-1])
     return task_seed

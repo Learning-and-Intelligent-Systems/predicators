@@ -7,7 +7,7 @@ import numpy as np
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.ground_truth_models.kitchen.operators import \
     KitchenGroundTruthOperatorFactory
-from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
+from predicators.structs import NSRT, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 
 
