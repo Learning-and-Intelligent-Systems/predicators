@@ -35,7 +35,7 @@ setup(
         "apriltag",
         "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
         "bosdyn-client >= 3.1",
-        "opencv-python >= 3.4.2.17",
+        "opencv-python == 4.7.0.72",
         "pg3@git+https://github.com/tomsilver/pg3.git",
         "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git"  # pylint: disable=line-too-long
     ],

@@ -30,6 +30,7 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
@@ -179,7 +180,7 @@ class _SpotInterface():
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
         self.hand_x_bounds = (0.3, 0.9)
         self.hand_y_bounds = (-0.5, 0.5)
-        self.hand_z_bounds = (0.2, 0.7)
+        self.hand_z_bounds = (0.09, 0.7)
         self.localization_timeout = 10
 
         self._find_controller_move_queue_idx = 0
@@ -304,13 +305,14 @@ class _SpotInterface():
             }
         return camera_to_obj_names_to_poses
 
-    def get_robot_pose(self) -> Tuple[float, float, float]:
+    def get_robot_pose(self) -> Tuple[float, float, float, float]:
         """Get the x, y, z position of the robot body."""
         state = self.get_localized_state()
         gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
-        robot_pos = gn_origin_tform_body.transform_point(0.0, 0.0, 0.0)
-        return robot_pos
+        x, y, z = gn_origin_tform_body.transform_point(0.0, 0.0, 0.0)
+        yaw = gn_origin_tform_body.rotation.to_yaw()
+        return (x, y, z, yaw)
 
     def actively_construct_initial_object_views(
             self,
@@ -321,8 +323,7 @@ class _SpotInterface():
             object_views = {
                 "tool_room_table":
                 (6.939992779470081, -6.21562847222872, 0.030711182602548265),
-                "extra_room_table":
-                (8.175572738390251, -6.083883265675128, 0.036055057764837),
+                "extra_room_table": (8.24384, -6.27615, -0.0035917),
                 "low_wall_rack":
                 (10.049931203338616, -6.9443170697742, 0.27881268568327966),
                 "toolbag":
@@ -352,7 +353,8 @@ class _SpotInterface():
             if str(state.localization.seed_tform_body) != '':
                 break
             time.sleep(1)
-        assert str(state.localization.seed_tform_body) != ''
+        if str(state.localization.seed_tform_body) == '':
+            logging.warning("WARNING: Localization timed out!")
         return state
 
     def get_apriltag_pose_from_camera(
@@ -488,9 +490,10 @@ class _SpotInterface():
 
         # Soon we should implement asking for help here instead of crashing.
         else:
-            input("""Please take control of the robot and make the
+            prompt = """Please take control of the robot and make the
             object become in its view. Hit the 'Enter' key
-            when you're done!""")
+            when you're done!"""
+            utils.prompt_user(prompt)
             self._find_controller_move_queue_idx = 0
             self.lease_client.take()
             return
@@ -608,13 +611,13 @@ class _SpotInterface():
             "floor": (0.0, 0.0, -1.0)
         }
         for waypoint_name in waypoints:
+            if set(objects_to_find).issubset(set(obj_poses)):
+                logging.info("All objects located!")
+                break
             waypoint = get_memorized_waypoint(waypoint_name)
             assert waypoint is not None
             waypoint_id, offset = waypoint
             self.navigate_to(waypoint_id, offset)
-            if set(objects_to_find).issubset(set(obj_poses)):
-                logging.info("All objects located!")
-                break
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
                 objects_in_view_by_camera = self.get_objects_in_view_by_camera(
@@ -766,7 +769,7 @@ class _SpotInterface():
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
 
         # Take a picture with a camera
-        self.robot.logger.info(f'Getting an image from: {self._image_source}')
+        self.robot.logger.debug(f'Getting an image from: {self._image_source}')
         time.sleep(1)
         image_responses = self.image_client.get_image_from_sources(
             [self._image_source])
@@ -883,7 +886,7 @@ class _SpotInterface():
         time.sleep(1.0)
         g_image_click = None
         g_image_display = None
-        self.robot.logger.info('Finished grasp.')
+        self.robot.logger.debug('Finished grasp.')
 
     def stow_arm(self) -> None:
         """A simple example of using the Boston Dynamics API to stow Spot's
@@ -906,7 +909,7 @@ class _SpotInterface():
             gripper_close_command, stow_cmd)
         stow_and_close_command_id = self.robot_command_client.robot_command(
             stow_and_close_command)
-        self.robot.logger.info("Stow command issued.")
+        self.robot.logger.debug("Stow command issued.")
         block_until_arm_arrives(self.robot_command_client,
                                 stow_and_close_command_id, 4.5)
 
@@ -988,7 +991,7 @@ class _SpotInterface():
 
         # Send the request
         cmd_id: int = self.robot_command_client.robot_command(command)
-        self.robot.logger.info('Moving arm to position.')
+        self.robot.logger.debug('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
@@ -1008,7 +1011,7 @@ class _SpotInterface():
 
         # Send the request
         cmd_id = self.robot_command_client.robot_command(command)
-        self.robot.logger.info('Moving arm to position.')
+        self.robot.logger.debug('Moving arm to position.')
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)

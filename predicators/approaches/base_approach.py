@@ -143,6 +143,19 @@ class BaseApproachWrapper(BaseApproach):
                          action_space, train_tasks)
         self._base_approach = base_approach
 
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        return self._base_approach.learn_from_offline_dataset(dataset)
+
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        return self._base_approach.load(online_learning_cycle)
+
+    def get_interaction_requests(self) -> List[InteractionRequest]:
+        return self._base_approach.get_interaction_requests()
+
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
+        return self._base_approach.learn_from_interaction_results(results)
+
 
 class ApproachTimeout(ExceptionWithInfo):
     """Exception raised when approach.solve() times out."""

@@ -16,6 +16,7 @@ import pkgutil
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -26,6 +27,13 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
     Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
+
+try:  # pragma: no cover
+    from gtts import gTTS
+    from playsound import playsound
+    _TTS_AVAILABLE = True
+except ModuleNotFoundError:  # pragma: no cover
+    _TTS_AVAILABLE = False
 
 import imageio
 import matplotlib
@@ -253,6 +261,54 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
     }
     goal_dict = create_json_dict_from_ground_atoms(task.goal)
     return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
+
+
+def prompt_user(prompt: str) -> str:  # pragma: no cover
+    """Ask the user for input with voice and text."""
+    if _TTS_AVAILABLE:
+        with tempfile.NamedTemporaryFile() as voice:
+            gTTS(text=prompt, lang="en").write_to_fp(voice)
+            playsound(voice.name)
+    return input(prompt)
+
+
+def construct_active_sampler_input(state: State, objects: Sequence[Object],
+                                   params: Array,
+                                   param_option: ParameterizedOption) -> Array:
+    """Helper function for active sampler learning and explorer."""
+
+    assert not CFG.sampler_learning_use_goals
+    sampler_input_lst = [1.0]  # start with bias term
+    if CFG.active_sampler_learning_feature_selection == "all":
+        for obj in objects:
+            sampler_input_lst.extend(state[obj])
+        sampler_input_lst.extend(params)
+
+    else:
+        assert CFG.active_sampler_learning_feature_selection == "oracle"
+        assert CFG.env == "bumpy_cover"
+        if param_option.name == "Pick":
+            # In this case, the x-data should be
+            # [block_bumpy, relative_pick_loc]
+            assert len(objects) == 1
+            block = objects[0]
+            block_pos = state[block][3]
+            block_bumpy = state[block][5]
+            sampler_input_lst.append(block_bumpy)
+            assert len(params) == 1
+            sampler_input_lst.append(params[0] - block_pos)
+        else:
+            assert param_option.name == "Place"
+            assert len(objects) == 2
+            block, target = objects
+            target_pos = state[target][3]
+            grasp = state[block][4]
+            target_width = state[target][2]
+            sampler_input_lst.extend([grasp, target_width])
+            assert len(params) == 1
+            sampler_input_lst.append(params[0] - target_pos)
+
+    return np.array(sampler_input_lst)
 
 
 class _Geom2D(abc.ABC):

@@ -1,8 +1,13 @@
 """An explorer for active sampler learning."""
 
+import glob
 import logging
+import os
+import re
+import time
 from typing import Callable, Dict, List, Optional, Set
 
+import dill as pkl
 import numpy as np
 from gym.spaces import Box
 
@@ -11,8 +16,8 @@ from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import run_task_plan_once
 from predicators.settings import CFG
 from predicators.structs import NSRT, ExplorationStrategy, GroundAtom, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option
+    NSRTSampler, ParameterizedOption, Predicate, State, Task, Type, \
+    _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 class ActiveSamplerExplorer(BaseExplorer):
@@ -27,12 +32,12 @@ class ActiveSamplerExplorer(BaseExplorer):
     starts planning to practice.
     """
 
-    def __init__(
-            self, predicates: Set[Predicate],
-            options: Set[ParameterizedOption], types: Set[Type],
-            action_space: Box, train_tasks: List[Task],
-            max_steps_before_termination: int, nsrts: Set[NSRT],
-            ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]]) -> None:
+    def __init__(self, predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task],
+                 max_steps_before_termination: int, nsrts: Set[NSRT],
+                 ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
+                 nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler]) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"
@@ -44,6 +49,9 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
+        self._last_executed_option: Optional[_Option] = None
+        self._last_init_option_state: Optional[State] = None
+        self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
 
     @classmethod
     def get_name(cls) -> str:
@@ -73,6 +81,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         next_practice_nsrt: Optional[_GroundNSRT] = None
 
         def _option_policy(state: State) -> _Option:
+            logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task_goal_reached, current_policy, \
                 next_practice_nsrt
 
@@ -81,7 +90,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_goal_reached and \
                 assigned_task.goal_holds(state):
-                logging.debug(
+                logging.info(
                     f"[Explorer] Reached assigned goal: {assigned_task.goal}")
                 assigned_task_goal_reached = True
                 current_policy = None
@@ -91,7 +100,14 @@ class ActiveSamplerExplorer(BaseExplorer):
             if next_practice_nsrt is not None and \
                 next_practice_nsrt.preconditions.issubset(atoms):
                 g: Set[GroundAtom] = set()  # goal assumed unused
-                option = next_practice_nsrt.sample_option(state, g, self._rng)
+                logging.info(
+                    f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
+                exploration_sampler = self._nsrt_to_explorer_sampler[
+                    next_practice_nsrt.parent]
+                practice_nsrt_for_exploration = next_practice_nsrt.copy_with(
+                    _sampler=exploration_sampler)
+                option = practice_nsrt_for_exploration.sample_option(
+                    state, g, self._rng)
                 next_practice_nsrt = None
                 current_policy = None
                 return option
@@ -101,12 +117,22 @@ class ActiveSamplerExplorer(BaseExplorer):
                 # If the assigned goal hasn't yet been reached, try for it.
                 if not assigned_task_goal_reached:
                     goal = assigned_task.goal
+                    logging.info(
+                        f"[Explorer] Pursuing assigned task goal: {goal}")
                 # Otherwise, practice.
                 else:
+                    # If there are no ground NSRTs that we've tried so far,
+                    # just wait until we have tried to solve some task.
+                    if len(self._ground_op_hist) == 0:
+                        raise utils.OptionExecutionFailure(
+                            "No ground operators to practice yet")
                     next_practice_nsrt = self._get_practice_ground_nsrt()
+                    logging.info("[Explorer] Pursuing NRST preconditions "
+                                 f"{next_practice_nsrt.name}"
+                                 f"{next_practice_nsrt.objects}")
                     goal = next_practice_nsrt.preconditions
                 task = Task(state, goal)
-                logging.debug(f"[Explorer] Replanning to {task.goal}")
+                logging.info(f"[Explorer] Replanning to {task.goal}")
                 current_policy = self._get_option_policy_for_task(task)
 
             # Query the current policy.
@@ -115,6 +141,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 act = current_policy(state)
                 return act
             except utils.OptionExecutionFailure:
+                logging.info("[Explorer] Option execution failure!")
                 current_policy = None
             # Call recursively to trigger re-planning.
             return _option_policy(state)
@@ -122,6 +149,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Wrap the option policy to keep track of the executed NSRTs and if
         # they succeeded, to update the ground_op_hist.
         self._last_executed_nsrt = None
+        self._last_executed_option = None
+        self._last_init_option_state = None
 
         def _wrapped_option_policy(state: State) -> _Option:
             # Update ground_op_hist.
@@ -130,6 +159,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             option = _option_policy(state)
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
             self._last_executed_nsrt = ground_nsrt
+            self._last_executed_option = option
+            self._last_init_option_state = state
             return option
 
         # Finalize policy.
@@ -146,18 +177,56 @@ class ActiveSamplerExplorer(BaseExplorer):
         if nsrt is None:
             return
         atoms = utils.abstract(state, self._predicates)
-        success = nsrt.add_effects.issubset(atoms) and \
-            not nsrt.delete_effects & atoms
-        logging.debug(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
-        logging.debug(f"[Explorer]   outcome: {success}")
+        # NOTE: checking just the add effects doesn't work in general, but
+        # is probably fine for now. The right thing to do here is check
+        # the necessary atoms, which we will compute with a utility function
+        # and then use in a forthcoming PR.
+        success = nsrt.add_effects.issubset(atoms)
+        logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
+        logging.info(f"[Explorer]   outcome: {success}")
+        if not success:
+            logging.info(f"[Explorer]   missing: {nsrt.add_effects - atoms}")
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
         self._ground_op_hist[last_executed_op].append(success)
+        # Aggressively save data after every single option execution.
+        init_state = self._last_init_option_state
+        assert init_state is not None
+        option = self._last_executed_option
+        assert option is not None
+        objects = option.objects
+        params = option.params
+        sampler_input = utils.construct_active_sampler_input(
+            init_state, objects, params, option.parent)
+        sampler_output = int(success)
+        # Now, we need to get the file location and the max
+        # datapoint id saved at this location.
+        os.makedirs(CFG.data_dir, exist_ok=True)
+        objects_tuple_str = str(tuple(nsrt.objects))
+        objects_tuple_str = objects_tuple_str.strip('()')
+        prefix = f"{CFG.data_dir}/{CFG.env}_{nsrt.name}({objects_tuple_str})_"
+        filepath_template = f"{prefix}*.data"
+        datapoint_id = 0
+        all_saved_files = glob.glob(filepath_template)
+        if all_saved_files:
+            regex_prefix = re.escape(prefix)
+            regex = f"{regex_prefix}(\\d+).data"
+            for filename in all_saved_files:
+                regex_match = re.match(regex, filename)
+                assert regex_match is not None
+                d_id = int(regex_match.groups()[0])
+                datapoint_id = max(datapoint_id, d_id + 1)
+        data = {
+            "datapoint": (sampler_input, sampler_output),
+            "time": time.time()
+        }
+        with open(f"{prefix}{datapoint_id}.data", "wb") as f:
+            pkl.dump(data, f)
 
     def _get_practice_ground_nsrt(self) -> _GroundNSRT:
         best_op = max(self._ground_op_hist, key=self._score_ground_op)
-        logging.debug(f"[Explorer] Practicing {best_op.name}{best_op.objects}")
+        logging.info(f"[Explorer] Practicing {best_op.name}{best_op.objects}")
         nsrt = [n for n in self._nsrts if n.op == best_op.parent][0]
         return nsrt.ground(best_op.objects)
 
@@ -184,13 +253,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         num_tries = len(history)
         success_rate = sum(history) / num_tries
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        logging.debug(f"[Explorer] {ground_op.name}{ground_op.objects} has")
-        logging.debug(f"[Explorer]   success rate: {success_rate}")
+        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        logging.info(f"[Explorer]   success rate: {success_rate}")
         # UCB-like bonus.
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
-        logging.debug(f"[Explorer]   num attempts: {num_tries}")
+        logging.info(f"[Explorer]   num attempts: {num_tries}")
         # Try less successful operators more often.
         score = (1.0 - success_rate) + bonus
-        logging.debug(f"[Explorer]   total score: {score}")
+        logging.info(f"[Explorer]   total score: {score}")
         return score
