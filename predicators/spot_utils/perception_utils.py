@@ -287,7 +287,7 @@ def get_object_locations_with_sam(
         args,
         classes: list,
         in_res_image=None, in_res_image_responses=None,
-        plot: bool = True
+        plot: bool = True  # TODO for now
 ):
     if in_res_image is None or in_res_image_responses is None:
         res_image, res_image_responses = get_hand_img(options=args)
@@ -313,6 +313,7 @@ def get_object_locations_with_sam(
         # Compute median value of depth
         depth_median = np.median(
             res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)[:, :, 0]]
+            # res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)]  # FIXME not sure why
         )
 
         # Compute geometric center of object bounding box
@@ -323,12 +324,12 @@ def get_object_locations_with_sam(
         # Plot center and segmentation mask
         if plot:
             plt.imshow(res_segment['masks'][i][0])
-            plt.scatter(x_c, y_c, marker='*', color='red', zorder=3)
+            # plt.scatter(x=x_c, y=y_c, marker='*', color='red', zorder=3)
             plt.show()
 
         # Get XYZ of the point at center of bounding box and median depth value
         x0, y0, z0 = get_xyz_from_depth(
-            res_image_responses[1],
+            res_image_responses['depth'],
             depth_value=depth_median,
             point_x=x_c,
             point_y=y_c
@@ -337,7 +338,7 @@ def get_object_locations_with_sam(
         res_locations.append([x0, y0, z0])
 
         x, valid_inds = depth_image_to_pointcloud_custom(
-            res_image_responses[1],
+            res_image_responses['depth'],
             masks=res_segment['masks'][i][0],
         )
 
