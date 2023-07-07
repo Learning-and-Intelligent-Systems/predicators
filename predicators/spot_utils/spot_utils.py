@@ -255,28 +255,75 @@ class _SpotInterface():
             camera_images[source_name] = img
         return camera_images
 
+    def process_image_response(self, image, auto_rotate: bool = False):
+        num_bytes = 1  # Assume a default of 1 byte encodings.
+        if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+            dtype = np.uint16
+            extension = ".png"
+        else:
+            if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGB_U8:
+                num_bytes = 3
+            elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGBA_U8:
+                num_bytes = 4
+            elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U8:
+                num_bytes = 1
+            elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
+                num_bytes = 2
+            dtype = np.uint8
+            extension = ".jpg"
+
+        img = np.frombuffer(image.shot.image.data, dtype=dtype)
+        if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
+            try:
+                # Attempt to reshape array into a RGB rows X cols shape.
+                img = img.reshape((image.shot.image.rows, image.shot.image.cols, num_bytes))
+            except ValueError:
+                # Unable to reshape the image data, trying a regular decode.
+                img = cv2.imdecode(img, -1)
+        else:
+            img = cv2.imdecode(img, -1)
+
+        # if auto_rotate:
+        #     img = ndimage.rotate(img, ROTATION_ANGLE[image.source.name])
+
+        return img, extension
+
     def get_single_camera_image(self, source_name: str, to_rgb: bool = False) -> Tuple[Image, Any]:
         """Get a single source camera image and image response."""
         # Get image and camera transform from source_name.
+        # TODO fixing
+        def pixel_format_type_strings():
+            names = image_pb2.Image.PixelFormat.keys()
+            return names[1:]
+
+        def pixel_format_string_to_enum(enum_string):
+            return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
+
+        pixel_format = tuple(pixel_format_type_strings())
+        pixel_format = pixel_format_string_to_enum(pixel_format)
+
         img_req = build_image_request(
             source_name,
             quality_percent=100,
-            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+            # pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+            pixel_format=pixel_format)
         image_response = self.image_client.get_image([img_req])
 
         # Format image before detecting apriltags.
-        if image_response[0].shot.image.pixel_format == image_pb2.Image. \
-                PIXEL_FORMAT_DEPTH_U16:
-            dtype = np.uint16  # type: ignore
-        else:
-            dtype = np.uint8  # type: ignore
-        img = np.fromstring(image_response[0].shot.image.data,
-                            dtype=dtype)  # type: ignore
-        if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
-            img = img.reshape(image_response[0].shot.image.rows,
-                              image_response[0].shot.image.cols)
-        else:
-            img = cv2.imdecode(img, -1)
+        # if image_response[0].shot.image.pixel_format == image_pb2.Image. \
+        #         PIXEL_FORMAT_DEPTH_U16:
+        #     dtype = np.uint16  # type: ignore
+        # else:
+        #     dtype = np.uint8  # type: ignore
+        # img = np.fromstring(image_response[0].shot.image.data,
+        #                     dtype=dtype)  # type: ignore
+        # if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
+        #     img = img.reshape(image_response[0].shot.image.rows,
+        #                       image_response[0].shot.image.cols)
+        # else:
+        #     img = cv2.imdecode(img, -1)
+
+        img, extension = self.process_image_response(image_response[0], False)
 
         # Convert to RGB color, as some perception models assume RGB format
         # By default, still use BGR to keep backward compability
@@ -285,8 +332,8 @@ class _SpotInterface():
 
         return (img, image_response)
 
-    def get_objects_in_view(
-            self, from_apriltag: bool = True
+    def get_objects_in_view_by_camera(
+            self, from_apriltag: bool = False  # TODO hardcode
     ) -> Dict[str, Tuple[float, float, float]]:
         """Get objects currently in view."""
         tag_to_pose: Dict[str,
@@ -302,6 +349,9 @@ class _SpotInterface():
             else:
                 viewable_obj_poses = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
+                    source_depth='hand_depth_in_hand_color_frame',
+                    # class_name='red hammer',
+                    class_name='yellow-black brush',
                     # TODO add depth camera name
                 )
             tag_to_pose[source_name].update(viewable_obj_poses)
@@ -453,39 +503,82 @@ class _SpotInterface():
 
         assert isinstance(class_name, str) or isinstance(class_name, list)
 
-        # Only support using depth image to obatin location
-        # TODO check if they correspond to the same source?
-        # TODO check converting to RGB format correctly - SAM needs RGB
-        img_rgb, image_response_rgb = self.get_single_camera_image(source_rgb, to_rgb=True)
-        img_depth, image_response_depth = self.get_single_camera_image(source_depth)
+        from predicators.spot_utils.perception_utils import get_object_locations_with_sam
 
-        res_img = {'rgb': img_rgb, 'depth': img_depth}
-        res_response = [image_response_rgb, image_response_depth]
+        while True:
 
-        from perception_utils import get_object_locations_with_sam
+            # Only support using depth image to obatin location
+            # TODO check if they correspond to the same source?
+            # TODO check converting to RGB format correctly - SAM needs RGB
+            # img_rgb, image_response_rgb = self.get_single_camera_image(source_rgb, to_rgb=True)
+            # img_depth, image_response_depth = self.get_single_camera_image(source_depth)
+            #
+            # res_img = {'rgb': img_rgb, 'depth': img_depth}
+            # # res_response = [image_response_rgb, image_response_depth]
+            # res_response = {'rgb': image_response_rgb, 'depth': image_response_depth}
 
-        res_locations = get_object_locations_with_sam(
-            None,
-            classes=[class_name] if isinstance(class_name, str) else class_name,
-            in_res_image=res_img,
-            in_res_image_responses=res_response
-        )
+            # TODO hack get image
+            image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
 
-        # TODO transform into the correct reference frame - need to double check
-        # Camera body transform.
-        camera_tform_body = get_a_tform_b(
-            res_response[0].shot.transforms_snapshot,
-            res_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+            # TODO fixing
+            def pixel_format_type_strings():
+                names = image_pb2.Image.PixelFormat.keys()
+                return names[1:]
 
-        res_locations_rt_gn_origin = []
-        for obj_loc in res_locations:
-            object_rt_gn_origin = self.convert_obj_location(camera_tform_body, *obj_loc)
-            res_locations_rt_gn_origin.append(object_rt_gn_origin)
+            def pixel_format_string_to_enum(enum_string):
+                return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
+
+            pixel_format = tuple(pixel_format_type_strings())
+            pixel_format = pixel_format_string_to_enum(pixel_format)
+
+            image_request = [
+                build_image_request(source, pixel_format=pixel_format)
+                for source in image_sources
+            ]
+            image_responses = self.image_client.get_image(image_request)
+
+
+            image = {
+                'rgb': self.process_image_response(image_responses[0], False)[0],
+                'depth': self.process_image_response(image_responses[1], False)[0],
+            }
+            image_responses = {
+                'rgb': image_responses[0],
+                'depth': image_responses[1],
+            }
+
+            res_locations = get_object_locations_with_sam(
+                None,
+                classes=[class_name] if isinstance(class_name, str) else class_name,
+                # TODO use my get image utils
+                # in_res_image=res_img,
+                # in_res_image_responses=res_response
+                in_res_image=image,
+                in_res_image_responses=image_responses
+            )
+
+            # TODO transform into the correct reference frame - need to double check
+            # Camera body transform.
+            # camera_tform_body = get_a_tform_b(
+            #     res_response[0].shot.transforms_snapshot,
+            #     res_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+
+            # TODO hack
+            camera_tform_body = get_a_tform_b(
+                image_responses['depth'].shot.transforms_snapshot,
+                image_responses['depth'].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+
+            res_locations_rt_gn_origin = []
+            for obj_loc in res_locations:
+                object_rt_gn_origin = self.convert_obj_location(camera_tform_body, *obj_loc)
+                res_locations_rt_gn_origin.append(object_rt_gn_origin)
+            print({class_name: res_locations_rt_gn_origin})
+            input('Move wherever you want!')
 
         # Use the input class name as the identifier for object(s) and their positions
         return {class_name: res_locations_rt_gn_origin}
 
-    @staticmethod
+    # @staticmethod
     def convert_obj_location(self, camera_tform_body, x, y, z):
         body_tform_object = (
             camera_tform_body.inverse()).transform_point(x, y, z)
@@ -706,7 +799,7 @@ class _SpotInterface():
             waypoint = get_memorized_waypoint(waypoint_name)
             assert waypoint is not None
             waypoint_id, offset = waypoint
-            self.navigate_to(waypoint_id, offset)
+            # self.navigate_to(waypoint_id, offset)
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
                 objects_in_view_by_camera = self.get_objects_in_view_by_camera(
@@ -721,7 +814,7 @@ class _SpotInterface():
                     break
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
-                self.relative_move(0.0, 0.0, np.pi / 4)
+                # self.relative_move(0.0, 0.0, np.pi / 4)
         return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
@@ -980,27 +1073,28 @@ class _SpotInterface():
     def stow_arm(self) -> None:
         """A simple example of using the Boston Dynamics API to stow Spot's
         arm."""
+        pass
 
-        # Allow Stowing and Stow Arm
-        grasp_carry_state_override = manipulation_api_pb2.\
-            ApiGraspedCarryStateOverride(override_request=3)
-        grasp_override_request = manipulation_api_pb2.\
-            ApiGraspOverrideRequest(
-            carry_state_override=grasp_carry_state_override)
-        self.manipulation_api_client.\
-            grasp_override_command(grasp_override_request)
-
-        stow_cmd = RobotCommandBuilder.arm_stow_command()
-        gripper_close_command = RobotCommandBuilder.\
-            claw_gripper_open_fraction_command(0.0)
-        # Combine the arm and gripper commands into one RobotCommand
-        stow_and_close_command = RobotCommandBuilder.build_synchro_command(
-            gripper_close_command, stow_cmd)
-        stow_and_close_command_id = self.robot_command_client.robot_command(
-            stow_and_close_command)
-        self.robot.logger.debug("Stow command issued.")
-        block_until_arm_arrives(self.robot_command_client,
-                                stow_and_close_command_id, 4.5)
+        # # Allow Stowing and Stow Arm
+        # grasp_carry_state_override = manipulation_api_pb2.\
+        #     ApiGraspedCarryStateOverride(override_request=3)
+        # grasp_override_request = manipulation_api_pb2.\
+        #     ApiGraspOverrideRequest(
+        #     carry_state_override=grasp_carry_state_override)
+        # self.manipulation_api_client.\
+        #     grasp_override_command(grasp_override_request)
+        #
+        # stow_cmd = RobotCommandBuilder.arm_stow_command()
+        # gripper_close_command = RobotCommandBuilder.\
+        #     claw_gripper_open_fraction_command(0.0)
+        # # Combine the arm and gripper commands into one RobotCommand
+        # stow_and_close_command = RobotCommandBuilder.build_synchro_command(
+        #     gripper_close_command, stow_cmd)
+        # stow_and_close_command_id = self.robot_command_client.robot_command(
+        #     stow_and_close_command)
+        # self.robot.logger.debug("Stow command issued.")
+        # block_until_arm_arrives(self.robot_command_client,
+        #                         stow_and_close_command_id, 4.5)
 
     def hand_movement(
         self,
