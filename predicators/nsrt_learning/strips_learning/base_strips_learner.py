@@ -170,6 +170,11 @@ class BaseSTRIPSLearner(abc.ABC):
         ties arbitrarily). At the end of this procedure, each segment is
         guaranteed to be in at most one PNAD's datastore.
         """
+
+        # print("At beginning of _recompute_datastores_from_segments... len pnad datastores: ")
+        # for i, p in enumerate(pnads):
+        #     print(f"length of datastore in pnad {i}: {len(p.datastore)}")
+
         for pnad in pnads:
             pnad.datastore = []  # reset all PNAD datastores
         # Note: we want to loop over all segments, NOT just the ones
@@ -183,6 +188,10 @@ class BaseSTRIPSLearner(abc.ABC):
                     assert best_sub is not None
                     best_pnad.add_to_datastore((segment, best_sub),
                                                check_effect_equality=False)
+
+        # print("At end of _recompute_datastores_from_segments... len pnad datastores: ")
+        # for i, p in enumerate(pnads):
+        #     print(f"length of datastore in pnad {i}: {len(p.datastore)}")
 
     def _find_best_matching_pnad_and_sub(
         self,

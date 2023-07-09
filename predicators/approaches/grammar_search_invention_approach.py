@@ -63,6 +63,7 @@ def _create_grammar(dataset: Dataset,
     # DebugGrammar, because we don't want to prune things that are in there.
     if not CFG.grammar_search_use_handcoded_debug_grammar:
         grammar = _PrunedGrammar(dataset, grammar)
+        # pass
     # We don't actually need to enumerate the given predicates
     # because we already have them in the initial predicate set,
     # so we just filter them out from actually being enumerated.
@@ -634,6 +635,8 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             if pred_id in seen:
                 logging.debug(f"Pruning {predicate} b/c equal to "
                               f"{seen[pred_id]}")
+                logging.info(f"Pruning {predicate} b/c equal to "
+                              f"{seen[pred_id]}")
                 continue
             # Found a new predicate.
             seen[pred_id] = predicate
@@ -993,7 +996,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     from sklearn.mixture import GaussianMixture as GMM
                     data = np.array([seg.get_option().params for seg in cluster])
                     max_components = min(len(data), len(np.unique(data)), CFG.grammar_search_clustering_gmm_num_components)
-                    n_components = np.arange(1, max_components)
+                    n_components = np.arange(1, max_components+1)
                     models = [GMM(n, covariance_type="full", random_state=0).fit(data)
                         for n in n_components]
                     bic = [m.bic(data) for m in models]
@@ -1026,34 +1029,93 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             predicates_to_keep = all_add_effects
 
-            # Remove inconsistent predicates.
-            predicates_to_keep: Set[Predicate] = set()
-            for pred in all_add_effects:
-                keep_pred = True
-                for seg_list in final_clusters:
-                    seg_0 = seg_list[0]
-                    pred_in_add_effs_0 = pred in [
-                        atom.predicate for atom in seg_0.add_effects
-                    ]
-                    pred_in_del_effs_0 = pred in [
-                        atom.predicate for atom in seg_0.delete_effects
-                    ]
-                    for seg in seg_list[1:]:
-                        pred_in_curr_add_effs = pred in [
-                            atom.predicate for atom in seg.add_effects
-                        ]
-                        pred_in_curr_del_effs = pred in [
-                            atom.predicate for atom in seg.delete_effects
-                        ]
-                        if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
-                                and
-                                (pred_in_del_effs_0 == pred_in_curr_del_effs)):
-                            keep_pred = False
-                            break
-                    if not keep_pred:
-                        break
-                if keep_pred:
-                    predicates_to_keep.add(pred)
+            # # Remove inconsistent predicates.
+            # inconsistent_preds = set()
+            #
+            # # Old way to remove inconsistent predicates
+            # predicates_to_keep: Set[Predicate] = set()
+            # for pred in all_add_effects:
+            #     keep_pred = True
+            #     for seg_list in final_clusters:
+            #         seg_0 = seg_list[0]
+            #         pred_in_add_effs_0 = pred in [
+            #             atom.predicate for atom in seg_0.add_effects
+            #         ]
+            #         pred_in_del_effs_0 = pred in [
+            #             atom.predicate for atom in seg_0.delete_effects
+            #         ]
+            #         for seg in seg_list[1:]:
+            #             pred_in_curr_add_effs = pred in [
+            #                 atom.predicate for atom in seg.add_effects
+            #             ]
+            #             pred_in_curr_del_effs = pred in [
+            #                 atom.predicate for atom in seg.delete_effects
+            #             ]
+            #             A = pred_in_add_effs_0 != pred_in_curr_add_effs
+            #             B = pred_in_del_effs_0 != pred_in_curr_del_effs
+            #             if A or B:
+            #             # if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
+            #             #         and
+            #             #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
+            #                 keep_pred = False
+            #                 print("INCONSISTENT: ", pred.name)
+            #                 # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
+            #                 #     import pdb; pdb.set_trace()
+            #                 break
+            #         if not keep_pred:
+            #             break
+            #     if keep_pred:
+            #         predicates_to_keep.add(pred)
+            #     else:
+            #         inconsistent_preds.add(pred)
+            #
+            # import pdb; pdb.set_trace()
+            # print("inconsistent preds: ", inconsistent_preds)
+
+            # # add back in to debug
+            # add_back = [
+            #     # "NOT-((0:obj).grasp<=[idx 1]0.25)",
+            #     # "Forall[0:obj].[NOT-((0:obj).grasp<=[idx 1]0.25)(0)]",
+            #     # "((0:obj).grasp<=[idx 0]0.5)",
+            #     # "Forall[0:obj].[((0:obj).grasp<=[idx 0]0.5)(0)]"
+            # ]
+            # for c in candidates.keys():
+            #     if c.name in add_back:
+            #         predicates_to_keep.add(c)
+            #         logging.info("Adding in to debug: ", c.name)
+
+            # remove = [
+            #     "NOT-((0:block).pose_z<=[idx 3]0.282)",
+            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]",
+            #     "NOT-((0:block).pose_z<=[idx 1]0.342)",
+            #     "((0:block).pose_z<=[idx 1]0.342)",
+            #     "((0:block).pose_z<=[idx 3]0.282)",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]"
+            # ]
+            #
+            # for c in candidates.keys():
+            #     if c.name in remove:
+            #         predicates_to_keep.remove(c)
+            #         print("Removing: ", c)
+
+            #
+            new_candidates = {}
+            for c in candidates.keys():
+                if c in predicates_to_keep:
+                    new_candidates[c] = candidates[c]
+            score_function = create_score_function(
+                CFG.grammar_search_score_function, self._initial_predicates,
+                atom_dataset, new_candidates, self._train_tasks)
+
+            logging.info(f"Sending {len(new_candidates)} predicates to hill climbing approach.")
+            return self._select_predicates_by_score_hillclimbing(
+                new_candidates,
+                score_function,
+                initial_predicates,
+                atom_dataset,
+                self._train_tasks
+            )
+            #
 
             # Remove the initial predicates.
             predicates_to_keep -= initial_predicates
@@ -1100,6 +1162,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     else:
                         unique_add_effect_preds &= set(
                             atom.predicate for atom in seg.add_effects)
+                print("predicates from this cluster: ")
+                for p in unique_add_effect_preds:
+                    print(p)
                 consistent_add_effs_preds |= unique_add_effect_preds
 
             # Next, select predicates that are consistent (either, it is
@@ -1127,6 +1192,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                 and
                                 (pred_in_del_effs_0 == pred_in_curr_del_effs)):
                             keep_pred = False
+                            print("INCONSISTENT: ", pred.name, "option: ", seg.get_option())
+                            # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
+                            #     import pdb; pdb.set_trace()
                             break
                     if not keep_pred:
                         break

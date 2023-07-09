@@ -45,6 +45,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         new_heuristic_val = float('inf')
         ret_pnads_list = sorted(pnads)
         uncovered_segment = self._get_first_uncovered_segment(ret_pnads_list)
+        temp = []
         if uncovered_segment is not None:
             while uncovered_segment is not None and \
                 new_heuristic_val >= init_heuristic_val:
@@ -57,6 +58,29 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                 new_heuristic_val = self._associated_heuristic(ret_pnads)
                 uncovered_segment = self._get_first_uncovered_segment(
                     ret_pnads_list)
+
+                # Can the uncovered segment be found in a datastore of another pnad?
+                # temp2 = False
+                # for p in ret_pnads_list:
+                #     for d in p.datastore:
+                #         if uncovered_segment in d:
+                #             print("Uncovered segment found in a datastore!")
+                #             temp2 = True
+                # if not temp2:
+                #     print("Uncovered segment NOT found in a datastore.")
+
+                # temp.append(uncovered_segment)
+                # if uncovered_segment is not None:
+                #     print(f"BackChainingPNADSearchOperator found another uncovered segment that involves option {uncovered_segment.get_option().name}")
+                #     print(f"The new pnad has datastore of length: ", len(new_pnad.datastore))
+                #     # print("the operator generated to cover this uncovered segment is:")
+                #     # print(new_pnad.op)
+                #     print("Checking if uncovered segments found so far are equivalent.")
+                #     print("Length of ret_pnads_list: ", len(ret_pnads_list))
+                #     if len(temp) > 1:
+                #         for i in range(1, len(temp)):
+                #             if temp[0] == temp[i]:
+                #                 print(f"segments at {0} and {i} are the same.")
 
             yield ret_pnads
 
@@ -71,9 +95,12 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         """
         start_time = time.perf_counter()
         new_pnads = current_pnads + [new_pnad]
+
+        # print("length of new_pnads before call: ", len(new_pnads), "new pnad has datastore length: ", len(new_pnad.datastore))
         # We first repartition data and ensure delete and ignore
         # effects for the newly-created PNAD are correct.
         new_pnads = self._learner.recompute_pnads_from_effects(new_pnads)
+        # print("length of new_pnads after call: ", len(new_pnads))
         # For certain predicates, the above call can eat up significant
         # time and memory. Thus, we check here if we exceed the preset
         # timeout.
@@ -228,6 +255,12 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         """Given some input PNADs, strips away everything except the add and
         keep effects, then re-partitions data amongst these and uses this to
         recompute these components."""
+
+        # print("In recompute_pnads_from_effects...")
+        # print("In recompute_pnads_from_effects... len datastores in pnads:")
+        # for i, p in enumerate(pnads):
+        #     print(f"length of datastore in pnad {i}: {len(p.datastore)}")
+
         # IMPORTANT: We need to make copies of the PNAD objects to avoid
         # modifying the existing PNAD objects.
         new_pnads = []
@@ -242,14 +275,29 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 delete_effects=set(),
                 ignore_effects=self._predicates.copy())
             new_pnad = PNAD(new_pnad_op, [], pnad.option_spec)
+
+            ####
+            new_pnad.datastore = pnad.datastore
+            ####
+
             new_pnad.poss_keep_effects = pnad.poss_keep_effects
             new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
             new_pnads.append(new_pnad)
 
+        # print("In recompute_pnads_from_effects... len datastores in new_pnads:")
+        # for i, p in enumerate(new_pnads):
+        #     print(f"length of datastore in new_pnad {i}: {len(p.datastore)}")
+        #
+        # print("In recompute_pnads_from_effects... len(new_pnads): ", len(new_pnads))
+        # if len(pnads) > 0:
+        #     print("Length of datastore of last pnad: ", len(pnads[-1].datastore))
+
         # Repartition all data amongst these new PNADs.
         self._recompute_datastores_from_segments(new_pnads)
         # Prune any PNADs with empty datastores.
+        # print("Length of new_pnads before empty datastore check: ", len(new_pnads))
         new_pnads = [p for p in new_pnads if p.datastore]
+        # print("Length of new_pnads after empty datastore check: ", len(new_pnads))
         # Add new preconditions.
         for pnad in new_pnads:
             preconditions = self._induce_preconditions_via_intersection(pnad)
@@ -291,6 +339,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                              get_successors=get_successors,
                                              heuristic=heuristic,
                                              verbose=self._verbose,
+                                             # verbose=True,
                                              timeout=CFG.pnad_search_timeout)
 
         # Extract the best PNADs set.

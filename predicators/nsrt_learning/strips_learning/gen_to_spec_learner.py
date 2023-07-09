@@ -49,6 +49,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
         # Create a general PNAD for the segment's option.
         pnad = self._create_general_pnad_for_option(
             segment.get_option().parent)
+        # print("At the beginning of spawn_new_pnad, length of pnad datastore: ", len(pnad.datastore))
         # Assert that this really is a general PNAD.
         assert len(pnad.op.add_effects) == 0, \
             "Can't spawn from non-general PNAD"
@@ -89,9 +90,16 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
         new_pnad = PNAD(new_pnad_op, [], pnad.option_spec)
+        
+        ####
+        new_pnad.datastore = pnad.datastore
+        ####
+
         # Note: we don't need to copy anything related to keep effects into
         # new_pnad here, because we only care about keep effects on the final
         # iteration of backchaining, where this function is never called.
+
+        # print("At the end of spawn_new_pnad, length of pnad datastore: ", len(new_pnad.datastore))
 
         return new_pnad
 

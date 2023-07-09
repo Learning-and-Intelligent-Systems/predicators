@@ -8,6 +8,8 @@ from typing import List
 from predicators.structs import PNAD
 from predicators.settings import CFG
 
+import logging
+
 from predicators.nsrt_learning.strips_learning.clustering_learner import ClusterAndIntersectSTRIPSLearner
 from predicators.nsrt_learning.strips_learning.pnad_search_learner import PNADSearchSTRIPSLearner
 
@@ -15,16 +17,17 @@ class TrialAndErrorLearner(PNADSearchSTRIPSLearner, ClusterAndIntersectSTRIPSLea
     """Tries pnad_search, and if it times out, runs cluster_and_intersect."""
 
     def _learn(self) -> List[PNAD]:
+        logging.info("Trying pnad_search.")
         pool = ProcessPool(1)
         result = pool.apipe(PNADSearchSTRIPSLearner._learn, self)
-        
+
         try:
             result = result.get(timeout=CFG.trial_and_error_timeout)
-            print("pnad_search successful.")
+            logging.info("pnad_search successful.")
             return result
 
         except TimeoutError:
-            print("pnad_search timed out. Running cluster_and_intersect.")
+            logging.info("pnad_search timed out. Running cluster_and_intersect.")
             pool.terminate()
             pool.restart()
 
