@@ -538,6 +538,7 @@ class GlobalSettings:
     active_sampler_learning_num_next_option_samples = 5
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
+    active_sampler_learning_explore_growth = "exponential"
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator

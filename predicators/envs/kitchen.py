@@ -40,7 +40,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         self._gym_env = make_env(
             "kitchen", "microwave", {
                 "usage_kwargs": {
-                    "max_path_length": 50,
+                    "max_path_length": 5000,
                     "use_raw_action_wrappers": False,
                     "unflatten_images": False
                 }

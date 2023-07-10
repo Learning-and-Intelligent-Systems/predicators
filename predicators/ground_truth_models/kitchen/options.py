@@ -95,7 +95,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     def _create_terminal(cls, name: str,
                          operator: STRIPSOperator) -> ParameterizedTerminal:
         del name
-        max_step_count = 10
+        max_step_count = 25
 
         def terminal(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
@@ -114,6 +114,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 step_count = 0
                 return True
             step_count += 1
+            memory["step_count"] = step_count
             return False
 
         return terminal
