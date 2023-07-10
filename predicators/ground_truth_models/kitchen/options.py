@@ -43,8 +43,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options: Set[ParameterizedOption] = set()
         for op in operators:
-            if "MoveTo" in op.name or "Push" in op.name:
-                val = "move_delta_ee_pose"
+            assert "MoveTo" in op.name or "Push" in op.name
+            val = "move_delta_ee_pose"
             if isinstance(primitive_name_to_action_idx[val], int):
                 params_space = Box(-np.ones(1) * 5, np.ones(1) * 5)
             else:

@@ -81,6 +81,10 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
     del goal
     robot, _, surface = objs
 
+    if surface.name == "floor":
+        # Drop right in front of spot
+        return np.array([0.5, 0.0, 0.0])
+
     world_fiducial = math_helpers.Vec2(
         state.get(surface, "x"),
         state.get(surface, "y"),
