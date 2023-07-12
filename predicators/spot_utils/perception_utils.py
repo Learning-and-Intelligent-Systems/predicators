@@ -28,47 +28,42 @@ ROTATION_ANGLE = {
 
 
 def ask_sam(image, classes):
-    """
-    Note: you would need to SSH port forward 5550 to your local computer!
-    """
     buf = image_to_bytes(image)
-    r = requests.post(
-        "http://localhost:5550/predict",
-        files={"file": buf},
-        data={"classes": ",".join(classes)}
-    )
+    r = requests.post("http://localhost:5550/predict",
+                      files={"file": buf},
+                      data={"classes": ",".join(classes)}
+                     )
 
     if r.status_code != 200:
-        # assert False, r.content
-        print('Note:', r.content)
-        return None
+        assert False, r.content
 
     with io.BytesIO(r.content) as f:
         arr = np.load(f, allow_pickle=True)
         boxes = arr['boxes']
         classes = arr['classes']
         masks = arr['masks']
+        scores = arr['scores']
 
-    return dict(boxes=boxes, classes=classes, masks=masks)
+    return dict(boxes=boxes, classes=classes, masks=masks, scores=scores)
 
 
 def image_to_bytes(img):
+
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
     return buf
 
 
-def visualize_output(im, masks, input_boxes, classes):
+def visualize_output(im, masks, input_boxes, classes, scores):
     plt.figure(figsize=(10, 10))
     plt.imshow(im)
     for mask in masks:
         show_mask(mask, plt.gca(), random_color=True)
-    for box, class_name in zip(input_boxes, classes):
+    for box, class_name, score in zip(input_boxes, classes, scores):
         show_box(box, plt.gca())
         x, y = box[:2]
-        plt.gca().text(x, y - 5, class_name, color='white', fontsize=12, fontweight='bold',
-                       bbox=dict(facecolor='green', edgecolor='green', alpha=0.5))
+        plt.gca().text(x, y - 5, class_name + f': {score:.2f}', color='white', fontsize=12, fontweight='bold', bbox=dict(facecolor='green', edgecolor='green', alpha=0.5))
     plt.axis('off')
     plt.show()
 
@@ -100,7 +95,7 @@ def get_mask(image_in, classes):
     d = ask_sam(image, classes)
 
     if d is not None:
-        visualize_output(image, d["masks"], d["boxes"], d["classes"])
+        visualize_output(image, d["masks"], d["boxes"], d["classes"], d["scores"])
 
     return d
 
@@ -315,10 +310,19 @@ def get_object_locations_with_sam(
 
     obj_num = len(res_segment['masks'])
 
+    # TODO filter mask IDs by confidence scores
+    k = 1
+    topk_idx = np.argpartition(res_segment['scores'], -k)[-k:]
+    threshold_idx = res_segment['scores'] > 0.5
+    selected_idx = np.intersect1d(topk_idx, threshold_idx)
+
+    print(f'Hardcode: select top-{k} from {obj_num} detected objects')
+
     res_locations = []
 
     # Detect multiple objects with their masks
-    for i in range(obj_num):
+    # for i in range(obj_num):
+    for i in selected_idx:
         # Compute median value of depth
         depth_median = np.median(
             res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)[:, :, 0]]
