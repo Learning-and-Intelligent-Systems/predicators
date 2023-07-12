@@ -305,25 +305,26 @@ class _SpotInterface():
         img_req = build_image_request(
             source_name,
             quality_percent=100,
-            # pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
-            pixel_format=pixel_format)
+            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)  # FIXME only RGB format
+            # pixel_format=pixel_format)
         image_response = self.image_client.get_image([img_req])
 
         # Format image before detecting apriltags.
-        # if image_response[0].shot.image.pixel_format == image_pb2.Image. \
-        #         PIXEL_FORMAT_DEPTH_U16:
-        #     dtype = np.uint16  # type: ignore
-        # else:
-        #     dtype = np.uint8  # type: ignore
-        # img = np.fromstring(image_response[0].shot.image.data,
-        #                     dtype=dtype)  # type: ignore
-        # if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
-        #     img = img.reshape(image_response[0].shot.image.rows,
-        #                       image_response[0].shot.image.cols)
-        # else:
-        #     img = cv2.imdecode(img, -1)
+        if image_response[0].shot.image.pixel_format == image_pb2.Image. \
+                PIXEL_FORMAT_DEPTH_U16:
+            dtype = np.uint16  # type: ignore
+        else:
+            dtype = np.uint8  # type: ignore
+        img = np.fromstring(image_response[0].shot.image.data,
+                            dtype=dtype)  # type: ignore
+        if image_response[0].shot.image.format == image_pb2.Image.FORMAT_RAW:
+            img = img.reshape(image_response[0].shot.image.rows,
+                              image_response[0].shot.image.cols)
+        else:
+            img = cv2.imdecode(img, -1)
 
-        img, extension = self.process_image_response(image_response[0], False)
+        # FIXME my processing func - remove hacking for now
+        # img, extension = self.process_image_response(image_response[0], False)
 
         # Convert to RGB color, as some perception models assume RGB format
         # By default, still use BGR to keep backward compability
@@ -343,35 +344,42 @@ class _SpotInterface():
                                                  for k in CAMERA_NAMES}
         for source_name in CAMERA_NAMES:
             # FIXME hardcode for camera names
-            # if from_apriltag:
-            #     viewable_obj_poses = self.get_apriltag_pose_from_camera(
-            #         source_name=source_name)
-            # else:
-            #     viewable_obj_poses = self.get_sam_object_loc_from_camera(
-            #         source_rgb=source_name,
-            #         source_depth='hand_depth_in_hand_color_frame',
-            #         # class_name='red hammer',
-            #         class_name='yellow-black brush',
-            #         # TODO add depth camera name
-            #     )
-            # if from_apriltag:
-            # TODO
-            # viewable_obj_poses = self.get_apriltag_pose_from_camera(
-            #     source_name=source_name)
-            # print('positions from april tags: ', viewable_obj_poses)
-            # else:
-            viewable_obj_poses = self.get_sam_object_loc_from_camera(
-                source_rgb=source_name,
-                source_depth='hand_depth_in_hand_color_frame',
-                # class_name='red hammer',
-                # class_name='yellow-black brush',
-                # class_name='qr code cube',
-                class_name='tissue box',
-                # TODO add depth camera name
-            )
-            # TODO add try catch for no objects
-            # TODO add confidence level
-            print('positions from SAM model: ', viewable_obj_poses)
+            if from_apriltag:
+                viewable_obj_poses = self.get_apriltag_pose_from_camera(
+                    source_name=source_name)
+            else:
+                viewable_obj_poses = self.get_sam_object_loc_from_camera(
+                    source_rgb=source_name,
+                    source_depth='hand_depth_in_hand_color_frame',
+                    # class_name='red hammer',
+                    # class_name='yellow-black brush',
+                    class_name='tissue box',
+                    # TODO add depth camera name
+                )
+
+                # FIXME hack
+                if len(viewable_obj_poses) > 0:
+                    print(viewable_obj_poses)
+                    viewable_obj_poses = {410: viewable_obj_poses['tissue box']}
+
+            # # if from_apriltag:
+            # # TODO
+            # # viewable_obj_poses = self.get_apriltag_pose_from_camera(
+            # #     source_name=source_name)
+            # # print('positions from april tags: ', viewable_obj_poses)
+            # # else:
+            # viewable_obj_poses = self.get_sam_object_loc_from_camera(
+            #     source_rgb=source_name,
+            #     source_depth='hand_depth_in_hand_color_frame',
+            #     # class_name='red hammer',
+            #     # class_name='yellow-black brush',
+            #     # class_name='qr code cube',
+            #     class_name='tissue box',
+            #     # TODO add depth camera name
+            # )
+            # # TODO add try catch for no objects
+            # # TODO add confidence level
+            # print('positions from SAM model: ', viewable_obj_poses)
 
             tag_to_pose[source_name].update(viewable_obj_poses)
         apriltag_id_to_obj_name = {
@@ -524,76 +532,79 @@ class _SpotInterface():
 
         from predicators.spot_utils.perception_utils import get_object_locations_with_sam
 
-        while True:
+        # FIXME hardcode while loop for test
+        # while True:
 
-            # Only support using depth image to obatin location
-            # TODO check if they correspond to the same source?
-            # TODO check converting to RGB format correctly - SAM needs RGB
-            # img_rgb, image_response_rgb = self.get_single_camera_image(source_rgb, to_rgb=True)
-            # img_depth, image_response_depth = self.get_single_camera_image(source_depth)
-            #
-            # res_img = {'rgb': img_rgb, 'depth': img_depth}
-            # # res_response = [image_response_rgb, image_response_depth]
-            # res_response = {'rgb': image_response_rgb, 'depth': image_response_depth}
+        # Only support using depth image to obatin location
+        # TODO check if they correspond to the same source?
+        # TODO check converting to RGB format correctly - SAM needs RGB
+        # img_rgb, image_response_rgb = self.get_single_camera_image(source_rgb, to_rgb=True)
+        # img_depth, image_response_depth = self.get_single_camera_image(source_depth)
+        #
+        # res_img = {'rgb': img_rgb, 'depth': img_depth}
+        # # res_response = [image_response_rgb, image_response_depth]
+        # res_response = {'rgb': image_response_rgb, 'depth': image_response_depth}
 
-            # TODO hack get image
-            image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
+        # TODO hack get image
+        # image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
+        # FIXME change image resources
+        image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
 
-            # TODO fixing
-            def pixel_format_type_strings():
-                names = image_pb2.Image.PixelFormat.keys()
-                return names[1:]
+        # TODO fixing
+        def pixel_format_type_strings():
+            names = image_pb2.Image.PixelFormat.keys()
+            return names[1:]
 
-            def pixel_format_string_to_enum(enum_string):
-                return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
+        def pixel_format_string_to_enum(enum_string):
+            return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
 
-            pixel_format = tuple(pixel_format_type_strings())
-            pixel_format = pixel_format_string_to_enum(pixel_format)
+        pixel_format = tuple(pixel_format_type_strings())
+        pixel_format = pixel_format_string_to_enum(pixel_format)
 
-            image_request = [
-                build_image_request(source, pixel_format=pixel_format)
-                for source in image_sources
-            ]
-            image_responses = self.image_client.get_image(image_request)
+        image_request = [
+            build_image_request(source, pixel_format=pixel_format)
+            for source in image_sources
+        ]
+        image_responses = self.image_client.get_image(image_request)
 
 
-            image = {
-                'rgb': self.process_image_response(image_responses[0], False)[0],
-                'depth': self.process_image_response(image_responses[1], False)[0],
-            }
-            image_responses = {
-                'rgb': image_responses[0],
-                'depth': image_responses[1],
-            }
+        image = {
+            'rgb': self.process_image_response(image_responses[0], False)[0],
+            'depth': self.process_image_response(image_responses[1], False)[0],
+        }
+        image_responses = {
+            'rgb': image_responses[0],
+            'depth': image_responses[1],
+        }
 
-            res_locations = get_object_locations_with_sam(
-                None,
-                classes=[class_name] if isinstance(class_name, str) else class_name,
-                # TODO use my get image utils
-                # in_res_image=res_img,
-                # in_res_image_responses=res_response
-                in_res_image=image,
-                in_res_image_responses=image_responses,
-                plot=True
-            )
+        res_locations = get_object_locations_with_sam(
+            None,
+            classes=[class_name] if isinstance(class_name, str) else class_name,
+            # TODO use my get image utils
+            # in_res_image=res_img,
+            # in_res_image_responses=res_response
+            in_res_image=image,
+            in_res_image_responses=image_responses,
+            plot=False
+        )
 
-            # TODO transform into the correct reference frame - need to double check
-            # Camera body transform.
-            # camera_tform_body = get_a_tform_b(
-            #     res_response[0].shot.transforms_snapshot,
-            #     res_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+        # TODO transform into the correct reference frame - need to double check
+        # Camera body transform.
+        # camera_tform_body = get_a_tform_b(
+        #     res_response[0].shot.transforms_snapshot,
+        #     res_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
 
-            # TODO hack
-            camera_tform_body = get_a_tform_b(
-                image_responses['depth'].shot.transforms_snapshot,
-                image_responses['depth'].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+        # TODO hack
+        camera_tform_body = get_a_tform_b(
+            image_responses['depth'].shot.transforms_snapshot,
+            image_responses['depth'].shot.frame_name_image_sensor, BODY_FRAME_NAME)
 
-            res_locations_rt_gn_origin = []
-            for obj_loc in res_locations:
-                object_rt_gn_origin = self.convert_obj_location(camera_tform_body, *obj_loc)
-                res_locations_rt_gn_origin.append(object_rt_gn_origin)
-            print({class_name: res_locations_rt_gn_origin})
-            input('Move wherever you want!')
+        res_locations_rt_gn_origin = []
+        for obj_loc in res_locations:
+            object_rt_gn_origin = self.convert_obj_location(camera_tform_body, *obj_loc)
+            res_locations_rt_gn_origin.append(object_rt_gn_origin)
+        print({class_name: res_locations_rt_gn_origin})
+        # input('Move wherever you want!')
 
         # Use the input class name as the identifier for object(s) and their positions
         return {class_name: res_locations_rt_gn_origin}
@@ -822,11 +833,27 @@ class _SpotInterface():
             waypoint = get_memorized_waypoint(waypoint_name)
             assert waypoint is not None
             waypoint_id, offset = waypoint
-            # self.navigate_to(waypoint_id, offset)
+            # FIXME comment out for testing
+            self.navigate_to(waypoint_id, offset)
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
-                objects_in_view_by_camera = self.get_objects_in_view_by_camera(
-                )
+
+                # TODO hack on this: test with and without april tag, then
+                # objects_in_view_by_camera = self.get_objects_in_view_by_camera()
+                objects_in_view_by_camera_apriltag = self.get_objects_in_view_by_camera(from_apriltag=True)
+                objects_in_view_by_camera_sam = self.get_objects_in_view_by_camera(from_apriltag=False)
+                print('objects_in_view_by_camera_sam: ', objects_in_view_by_camera_sam)
+
+                objects_in_view_by_camera = {}
+                # TODO merge
+                objects_in_view_by_camera.update(objects_in_view_by_camera_sam)
+                objects_in_view_by_camera.update(objects_in_view_by_camera_apriltag)
+
+                # if len(objects_in_view_by_camera_sam) > 0:
+                #     objects_in_view_by_camera = objects_in_view_by_camera_sam
+                # else:
+                #     objects_in_view_by_camera = objects_in_view_by_camera_apriltag
+
                 for v in objects_in_view_by_camera.values():
                     objects_in_view.update(v)
                 obj_poses.update(objects_in_view)
@@ -837,7 +864,8 @@ class _SpotInterface():
                     break
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
-                # self.relative_move(0.0, 0.0, np.pi / 4)
+                # FIXME comment out for testing
+                self.relative_move(0.0, 0.0, np.pi / 4)
         return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
@@ -1096,28 +1124,26 @@ class _SpotInterface():
     def stow_arm(self) -> None:
         """A simple example of using the Boston Dynamics API to stow Spot's
         arm."""
-        pass
+        # Allow Stowing and Stow Arm
+        grasp_carry_state_override = manipulation_api_pb2.\
+            ApiGraspedCarryStateOverride(override_request=3)
+        grasp_override_request = manipulation_api_pb2.\
+            ApiGraspOverrideRequest(
+            carry_state_override=grasp_carry_state_override)
+        self.manipulation_api_client.\
+            grasp_override_command(grasp_override_request)
 
-        # # Allow Stowing and Stow Arm
-        # grasp_carry_state_override = manipulation_api_pb2.\
-        #     ApiGraspedCarryStateOverride(override_request=3)
-        # grasp_override_request = manipulation_api_pb2.\
-        #     ApiGraspOverrideRequest(
-        #     carry_state_override=grasp_carry_state_override)
-        # self.manipulation_api_client.\
-        #     grasp_override_command(grasp_override_request)
-        #
-        # stow_cmd = RobotCommandBuilder.arm_stow_command()
-        # gripper_close_command = RobotCommandBuilder.\
-        #     claw_gripper_open_fraction_command(0.0)
-        # # Combine the arm and gripper commands into one RobotCommand
-        # stow_and_close_command = RobotCommandBuilder.build_synchro_command(
-        #     gripper_close_command, stow_cmd)
-        # stow_and_close_command_id = self.robot_command_client.robot_command(
-        #     stow_and_close_command)
-        # self.robot.logger.debug("Stow command issued.")
-        # block_until_arm_arrives(self.robot_command_client,
-        #                         stow_and_close_command_id, 4.5)
+        stow_cmd = RobotCommandBuilder.arm_stow_command()
+        gripper_close_command = RobotCommandBuilder.\
+            claw_gripper_open_fraction_command(0.0)
+        # Combine the arm and gripper commands into one RobotCommand
+        stow_and_close_command = RobotCommandBuilder.build_synchro_command(
+            gripper_close_command, stow_cmd)
+        stow_and_close_command_id = self.robot_command_client.robot_command(
+            stow_and_close_command)
+        self.robot.logger.debug("Stow command issued.")
+        block_until_arm_arrives(self.robot_command_client,
+                                stow_and_close_command_id, 4.5)
 
     def hand_movement(
         self,

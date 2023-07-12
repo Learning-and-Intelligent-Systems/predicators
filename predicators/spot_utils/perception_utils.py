@@ -39,7 +39,9 @@ def ask_sam(image, classes):
     )
 
     if r.status_code != 200:
-        assert False, r.content
+        # assert False, r.content
+        print('Note:', r.content)
+        return None
 
     with io.BytesIO(r.content) as f:
         arr = np.load(f, allow_pickle=True)
@@ -96,7 +98,9 @@ def get_mask(image_in, classes):
         raise NotImplementedError
 
     d = ask_sam(image, classes)
-    visualize_output(image, d["masks"], d["boxes"], d["classes"])
+
+    if d is not None:
+        visualize_output(image, d["masks"], d["boxes"], d["classes"])
 
     return d
 
@@ -290,7 +294,7 @@ def get_object_locations_with_sam(
         args,
         classes: list,
         in_res_image=None, in_res_image_responses=None,
-        plot: bool = True  # TODO for now
+        plot: bool = False  # TODO for now
 ):
     if in_res_image is None or in_res_image_responses is None:
         res_image, res_image_responses = get_hand_img(options=args)
@@ -306,6 +310,8 @@ def get_object_locations_with_sam(
 
     res_segment = get_mask(image_in=res_image['rgb'], classes=classes)
     # return: 'masks', 'boxes', 'classes'
+    if res_segment is None:
+        return []
 
     obj_num = len(res_segment['masks'])
 
