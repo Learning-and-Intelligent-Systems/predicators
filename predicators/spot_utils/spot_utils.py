@@ -20,7 +20,7 @@ from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
-    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, \
+    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, GROUND_PLANE_FRAME_NAME, \
     get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
@@ -343,17 +343,36 @@ class _SpotInterface():
                                                  for k in CAMERA_NAMES}
         for source_name in CAMERA_NAMES:
             # FIXME hardcode for camera names
-            if from_apriltag:
-                viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                    source_name=source_name)
-            else:
-                viewable_obj_poses = self.get_sam_object_loc_from_camera(
-                    source_rgb=source_name,
-                    source_depth='hand_depth_in_hand_color_frame',
-                    # class_name='red hammer',
-                    class_name='yellow-black brush',
-                    # TODO add depth camera name
-                )
+            # if from_apriltag:
+            #     viewable_obj_poses = self.get_apriltag_pose_from_camera(
+            #         source_name=source_name)
+            # else:
+            #     viewable_obj_poses = self.get_sam_object_loc_from_camera(
+            #         source_rgb=source_name,
+            #         source_depth='hand_depth_in_hand_color_frame',
+            #         # class_name='red hammer',
+            #         class_name='yellow-black brush',
+            #         # TODO add depth camera name
+            #     )
+            # if from_apriltag:
+            # TODO
+            # viewable_obj_poses = self.get_apriltag_pose_from_camera(
+            #     source_name=source_name)
+            # print('positions from april tags: ', viewable_obj_poses)
+            # else:
+            viewable_obj_poses = self.get_sam_object_loc_from_camera(
+                source_rgb=source_name,
+                source_depth='hand_depth_in_hand_color_frame',
+                # class_name='red hammer',
+                # class_name='yellow-black brush',
+                # class_name='qr code cube',
+                class_name='tissue box',
+                # TODO add depth camera name
+            )
+            # TODO add try catch for no objects
+            # TODO add confidence level
+            print('positions from SAM model: ', viewable_obj_poses)
+
             tag_to_pose[source_name].update(viewable_obj_poses)
         apriltag_id_to_obj_name = {
             v: k
@@ -554,7 +573,8 @@ class _SpotInterface():
                 # in_res_image=res_img,
                 # in_res_image_responses=res_response
                 in_res_image=image,
-                in_res_image_responses=image_responses
+                in_res_image_responses=image_responses,
+                plot=True
             )
 
             # TODO transform into the correct reference frame - need to double check
@@ -585,8 +605,11 @@ class _SpotInterface():
 
         # Get graph_nav to body frame.
         state = self.get_localized_state()
+        # TODO check reference frame here
         gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
+
+        # TODO transform from graph nav frame to ground frame
 
         # Apply transform to object to body location
         object_rt_gn_origin = gn_origin_tform_body.transform_point(

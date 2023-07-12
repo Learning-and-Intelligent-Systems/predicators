@@ -15,6 +15,9 @@ from bosdyn.client.image import ImageClient, build_image_request, _depth_image_d
     _depth_image_get_valid_indices
 from scipy import ndimage
 
+import matplotlib
+matplotlib.use('TkAgg')
+
 ROTATION_ANGLE = {
     'back_fisheye_image': 0,
     'frontleft_fisheye_image': -78,
@@ -347,7 +350,7 @@ def get_object_locations_with_sam(
             ax = fig.add_subplot(111, projection='3d')
             ax.scatter(x[:, 0], x[:, 1], x[:, 2], c='blue', marker='.')
 
-            ax.scatter(xs=x0, ys=y0, zs=z0, c='red', marker='*')
+            ax.scatter(xs=x0, ys=y0, zs=z0, c='red', marker='*', s=100)
             plt.show()
 
     return res_locations
