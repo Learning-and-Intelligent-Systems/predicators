@@ -5,7 +5,8 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Collection, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import apriltag
 import bosdyn.client
@@ -556,13 +557,14 @@ class _SpotInterface():
             object_rt_gn_origin = self.convert_obj_location(
                 camera_tform_body, *res_locations[0])
 
-            # Use the input class name as the identifier for object(s) and 
+            # Use the input class name as the identifier for object(s) and
             # their positions
             return {class_name: object_rt_gn_origin}
-        
+
         return {}
 
-    def convert_obj_location(self, camera_tform_body, x, y, z) -> Tuple[float, float, float]:
+    def convert_obj_location(self, camera_tform_body, x, y,
+                             z) -> Tuple[float, float, float]:
         body_tform_object = (camera_tform_body.inverse()).transform_point(
             x, y, z)
 
@@ -1005,17 +1007,15 @@ class _SpotInterface():
             image_responses = self.image_client.get_image(image_request)
 
             image_for_sam = {
-                'rgb': process_image_response(image_responses[0],
-                                                   False)[0],
-                'depth': process_image_response(image_responses[1],
-                                                     False)[0],
+                'rgb': process_image_response(image_responses[0], False)[0],
+                'depth': process_image_response(image_responses[1], False)[0],
             }
             results = get_pixel_locations_with_sam(
                 # TODO: use the object name
                 classes=["tissue box"],
                 in_res_image=image_for_sam,
                 plot=False)
-            
+
             if len(results) > 0:
                 # We only want the most likely sample (for now).
                 # NOTE: we make the hard assumption here that

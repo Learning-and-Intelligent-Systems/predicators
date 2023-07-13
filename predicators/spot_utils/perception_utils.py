@@ -53,6 +53,7 @@ def visualize_output(im, masks, input_boxes, classes, scores) -> None:
     plt.axis('off')
     plt.show()
 
+
 def show_mask(mask, ax, random_color: bool = False) -> None:
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
@@ -61,6 +62,7 @@ def show_mask(mask, ax, random_color: bool = False) -> None:
     h, w = mask.shape[-2:]
     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
     ax.imshow(mask_image)
+
 
 def show_box(box, ax) -> None:
     x0, y0 = box[0], box[1]
@@ -106,8 +108,7 @@ def query_sam(image_in: np.ndarray,
     }
 
     # Optional visualization useful for debugging.
-    visualize_output(image, d["masks"], d["boxes"], d["classes"],
-                         d["scores"])
+    visualize_output(image, d["masks"], d["boxes"], d["classes"], d["scores"])
 
     # Filter out detections by confidence. We threshold detections
     # at a 40% confidence level minimum, and if there are multiple
@@ -132,10 +133,11 @@ def query_sam(image_in: np.ndarray,
 
 
 def pixel_format_type_strings() -> List[str]:
-    """Simple helper to get the names of all
-    the different pixel formats available."""
+    """Simple helper to get the names of all the different pixel formats
+    available."""
     names = image_pb2.Image.PixelFormat.keys()
     return names[1:]
+
 
 def depth_image_to_pointcloud_custom(
         image_response: bosdyn.api.image_pb2.ImageResponse,
