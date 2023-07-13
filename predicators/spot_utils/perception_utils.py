@@ -257,9 +257,8 @@ def get_hand_img(options):
     # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
     image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
 
-    pixel_format = pixel_format_string_to_enum(options.pixel_format)
     image_request = [
-        build_image_request(source, pixel_format=pixel_format)
+        build_image_request(source, pixel_format=None)
         for source in image_sources
     ]
     image_responses = image_client.get_image(image_request)

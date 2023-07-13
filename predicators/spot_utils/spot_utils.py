@@ -5,8 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, List, Optional, Sequence, Set, \
-    Tuple
+from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -111,6 +110,14 @@ CAMERA_NAMES = [
     "hand_color_image", "left_fisheye_image", "right_fisheye_image",
     "frontleft_fisheye_image", "frontright_fisheye_image", "back_fisheye_image"
 ]
+RGB_TO_DEPTH_CAMERAS = {
+    "hand_color_image": "hand_depth_in_hand_color_frame",
+    "left_fisheye_image": "left_depth_in_visual_frame",
+    "right_fisheye_image": "right_depth_in_visual_frame",
+    "frontleft_fisheye_image": "frontleft_depth_in_visual_frame",
+    "frontright_fisheye_image": "frontright_depth_in_visual_frame",
+    "back_fisheye_image": "back_depth_in_visual_frame"
+}
 
 
 def _find_object_center(img: Image,
@@ -307,14 +314,13 @@ class _SpotInterface():
                                      float]]] = {k: {}
                                                  for k in CAMERA_NAMES}
         for source_name in CAMERA_NAMES:
-            # FIXME hardcode for camera names
             if from_apriltag:
                 viewable_obj_poses = self.get_apriltag_pose_from_camera(
                     source_name=source_name)
             else:
                 sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
-                    source_depth='hand_depth_in_hand_color_frame',
+                    source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
                     # class_name='red hammer',
                     # class_name='yellow-black brush',
                     class_name='tissue box',
@@ -341,12 +347,8 @@ class _SpotInterface():
             #     class_name='tissue box',
             #     # TODO add depth camera name
             # )
-            # # TODO add try catch for no objects
-            # # TODO add confidence level
-            # print('positions from SAM model: ', viewable_obj_poses)
+
             tag_to_pose[source_name].update(viewable_obj_poses)
-            if not from_apriltag:
-                break
 
         apriltag_id_to_obj_name = {
             v: k
@@ -485,8 +487,8 @@ class _SpotInterface():
     def get_sam_object_loc_from_camera(
         self,
         class_name: str,
-        source_rgb: str = "hand_color_image",
-        source_depth: str = "hand_depth_in_hand_color_frame",
+        source_rgb: str,
+        source_depth: str,
     ) -> Dict[str, Tuple[float, float, float]]:
         """Get object location in 3D (no orientation) estimated using
         pretrained SAM model.
@@ -494,9 +496,6 @@ class _SpotInterface():
         Args:
             class_name: name of object class
         """
-        # FIXME hardcode while loop for test
-        # while True:
-
         # Only support using depth image to obatin location
         # TODO check if they correspond to the same source?
         # TODO check converting to RGB format correctly - SAM needs RGB
@@ -507,14 +506,17 @@ class _SpotInterface():
         # # res_response = [image_response_rgb, image_response_depth]
         # res_response = {'rgb': image_response_rgb, 'depth': image_response_depth}
 
-        # TODO hack get image
-        image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
-
         # FIXME change image resources
         # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
+        # pixel_format = None if ('hand' in source or 'depth' in source) else image_pb2.Image.PIXEL_FORMAT_RGB_U8
         image_request = [
-            build_image_request(source, pixel_format=None)
-            for source in image_sources
+            build_image_request(source,
+                                pixel_format=None if
+                                ('hand' in source or 'depth' in source) else
+                                image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+            # build_image_request(source, pixel_format=None)
+            # build_image_request(source, pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+            for source in [source_rgb, source_depth]
         ]
         image_responses = self.image_client.get_image(image_request)
 
@@ -529,12 +531,9 @@ class _SpotInterface():
 
         res_locations = get_object_locations_with_sam(
             classes=[class_name],
-            # TODO use my get image utils
-            # in_res_image=res_img,
-            # in_res_image_responses=res_response
             res_image=image,
             res_image_responses=image_responses,
-            plot=True)
+            plot=False)
 
         # We only want the most likely sample (for now).
         # NOTE: we make the hard assumption here that
