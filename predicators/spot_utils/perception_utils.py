@@ -131,15 +131,11 @@ def query_sam(image_in: np.ndarray,
     return d_filtered
 
 
-# TODO for getting hand image
-def pixel_format_type_strings():
+def pixel_format_type_strings() -> List[str]:
+    """Simple helper to get the names of all
+    the different pixel formats available."""
     names = image_pb2.Image.PixelFormat.keys()
     return names[1:]
-
-
-def pixel_format_string_to_enum(enum_string):
-    return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
-
 
 def depth_image_to_pointcloud_custom(
         image_response: bosdyn.api.image_pb2.ImageResponse,

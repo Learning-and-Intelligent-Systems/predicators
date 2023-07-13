@@ -36,7 +36,8 @@ from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
 from predicators.spot_utils.perception_utils import \
-    get_object_locations_with_sam, get_pixel_locations_with_sam
+    get_object_locations_with_sam, get_pixel_locations_with_sam, \
+    process_image_response
 from predicators.structs import Array, Image, Object
 
 g_image_click = None
@@ -258,57 +259,10 @@ class _SpotInterface():
             camera_images[source_name] = img
         return camera_images
 
-    def process_image_response(self, image, auto_rotate: bool = False):
-        num_bytes = 1  # Assume a default of 1 byte encodings.
-        if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
-            dtype = np.uint16
-            extension = ".png"
-        else:
-            if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGB_U8:
-                num_bytes = 3
-            elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGBA_U8:
-                num_bytes = 4
-            elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U8:
-                num_bytes = 1
-            elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
-                num_bytes = 2
-            dtype = np.uint8  # type: ignore
-            extension = ".jpg"
-
-        img = np.frombuffer(image.shot.image.data, dtype=dtype)
-        if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
-            try:
-                # Attempt to reshape array into a RGB rows X cols shape.
-                img = img.reshape(
-                    (image.shot.image.rows, image.shot.image.cols, num_bytes))
-            except ValueError:
-                # Unable to reshape the image data, trying a regular decode.
-                img = cv2.imdecode(img, -1)
-        else:
-            img = cv2.imdecode(img, -1)
-
-        # if auto_rotate:
-        #     img = ndimage.rotate(img, ROTATION_ANGLE[image.source.name])
-
-        return img, extension
-
     def get_single_camera_image(self,
                                 source_name: str,
                                 to_rgb: bool = False) -> Tuple[Image, Any]:
         """Get a single source camera image and image response."""
-
-        # Get image and camera transform from source_name.
-        # TODO fixing
-        def pixel_format_type_strings():
-            names = image_pb2.Image.PixelFormat.keys()
-            return names[1:]
-
-        def pixel_format_string_to_enum(enum_string):
-            return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
-
-        pixel_format = tuple(pixel_format_type_strings())
-        pixel_format = pixel_format_string_to_enum(pixel_format)
-
         img_req = build_image_request(
             source_name,
             quality_percent=100,
@@ -557,27 +511,15 @@ class _SpotInterface():
 
         # FIXME change image resources
         # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
-
-        # TODO fixing
-        def pixel_format_type_strings():
-            names = image_pb2.Image.PixelFormat.keys()
-            return names[1:]
-
-        def pixel_format_string_to_enum(enum_string):
-            return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
-
-        pixel_format = tuple(pixel_format_type_strings())
-        pixel_format = pixel_format_string_to_enum(pixel_format)
-
         image_request = [
-            build_image_request(source, pixel_format=pixel_format)
+            build_image_request(source, pixel_format=None)
             for source in image_sources
         ]
         image_responses = self.image_client.get_image(image_request)
 
         image = {
-            'rgb': self.process_image_response(image_responses[0], False)[0],
-            'depth': self.process_image_response(image_responses[1], False)[0],
+            'rgb': process_image_response(image_responses[0], False)[0],
+            'depth': process_image_response(image_responses[1], False)[0],
         }
         image_responses = {
             'rgb': image_responses[0],
@@ -616,7 +558,6 @@ class _SpotInterface():
         # Use the input class name as the identifier for object(s) and their positions
         return {class_name: res_locations_rt_gn_origin}
 
-    # @staticmethod
     def convert_obj_location(self, camera_tform_body, x, y, z) -> Tuple[float, float, float]:
         body_tform_object = (camera_tform_body.inverse()).transform_point(
             x, y, z)
@@ -1053,29 +994,16 @@ class _SpotInterface():
 
             # FIXME change image resources
             # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
-
-            # TODO fixing
-            def pixel_format_type_strings():
-                names = image_pb2.Image.PixelFormat.keys()
-                return names[1:]
-
-            def pixel_format_string_to_enum(enum_string):
-                return dict(
-                    image_pb2.Image.PixelFormat.items()).get(enum_string)
-
-            pixel_format = tuple(pixel_format_type_strings())
-            pixel_format = pixel_format_string_to_enum(pixel_format)
-
             image_request = [
-                build_image_request(source, pixel_format=pixel_format)
+                build_image_request(source, pixel_format=None)
                 for source in image_sources
             ]
             image_responses = self.image_client.get_image(image_request)
 
             image = {
-                'rgb': self.process_image_response(image_responses[0],
+                'rgb': process_image_response(image_responses[0],
                                                    False)[0],
-                'depth': self.process_image_response(image_responses[1],
+                'depth': process_image_response(image_responses[1],
                                                      False)[0],
             }
             image_responses = {
