@@ -33,45 +33,45 @@ def image_to_bytes(img: Image.Image) -> io.BytesIO:
     return buf
 
 
-# def visualize_output(im, masks, input_boxes, classes, scores) -> None:
-#     plt.figure(figsize=(10, 10))
-#     plt.imshow(im)
-#     for mask in masks:
-#         show_mask(mask, plt.gca(), random_color=True)
-#     for box, class_name, score in zip(input_boxes, classes, scores):
-#         show_box(box, plt.gca())
-#         x, y = box[:2]
-#         plt.gca().text(x,
-#                        y - 5,
-#                        class_name + f': {score:.2f}',
-#                        color='white',
-#                        fontsize=12,
-#                        fontweight='bold',
-#                        bbox=dict(facecolor='green',
-#                                  edgecolor='green',
-#                                  alpha=0.5))
-#     plt.axis('off')
-#     plt.show()
+def visualize_output(im, masks, input_boxes, classes, scores) -> None:
+    plt.figure(figsize=(10, 10))
+    plt.imshow(im)
+    for mask in masks:
+        show_mask(mask, plt.gca(), random_color=True)
+    for box, class_name, score in zip(input_boxes, classes, scores):
+        show_box(box, plt.gca())
+        x, y = box[:2]
+        plt.gca().text(x,
+                       y - 5,
+                       class_name + f': {score:.2f}',
+                       color='white',
+                       fontsize=12,
+                       fontweight='bold',
+                       bbox=dict(facecolor='green',
+                                 edgecolor='green',
+                                 alpha=0.5))
+    plt.axis('off')
+    plt.show()
 
-# def show_mask(mask, ax, random_color: bool = False) -> None:
-#     if random_color:
-#         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
-#     else:
-#         color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
-#     h, w = mask.shape[-2:]
-#     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-#     ax.imshow(mask_image)
+def show_mask(mask, ax, random_color: bool = False) -> None:
+    if random_color:
+        color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
+    else:
+        color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
+    h, w = mask.shape[-2:]
+    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+    ax.imshow(mask_image)
 
-# def show_box(box, ax) -> None:
-#     x0, y0 = box[0], box[1]
-#     w, h = box[2] - box[0], box[3] - box[1]
-#     ax.add_patch(
-#         plt.Rectangle((x0, y0),
-#                       w,
-#                       h,
-#                       edgecolor='green',
-#                       facecolor=(0, 0, 0, 0),
-#                       lw=2))
+def show_box(box, ax) -> None:
+    x0, y0 = box[0], box[1]
+    w, h = box[2] - box[0], box[3] - box[1]
+    ax.add_patch(
+        plt.Rectangle((x0, y0),
+                      w,
+                      h,
+                      edgecolor='green',
+                      facecolor=(0, 0, 0, 0),
+                      lw=2))
 
 
 def query_sam(image_in: np.ndarray,
@@ -106,16 +106,16 @@ def query_sam(image_in: np.ndarray,
     }
 
     # Optional visualization useful for debugging.
-    # visualize_output(image, d["masks"], d["boxes"], d["classes"],
-    #                      d["scores"])
+    visualize_output(image, d["masks"], d["boxes"], d["classes"],
+                         d["scores"])
 
     # Filter out detections by confidence. We threshold detections
-    # at a 50% confidence level minimum, and if there are multiple
+    # at a 40% confidence level minimum, and if there are multiple
     #, we only select the most confident one.
     k = 1
     topk_idx = np.argpartition(d['scores'], -k)[-k:]
-    threshold_idx = d['scores'] > 0.5
-    selected_idxs = np.intersect1d(topk_idx, threshold_idx)
+    threshold_idx = np.where(d['scores'] > 0.40)[0]
+    selected_idxs = np.intersect1d(topk_idx, threshold_idx).tolist()
     if len(selected_idxs) == 0:
         return None
     d_filtered: Dict[str, List[np.ndarray]] = {
@@ -207,7 +207,7 @@ def depth_image_to_pointcloud_custom(
     return np.vstack((x, y, z)).T, valid_inds
 
 
-def process_image_response(image, options):
+def process_image_response(image, auto_rotate):
     num_bytes = 1  # Assume a default of 1 byte encodings.
     if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         dtype = np.uint16
@@ -236,7 +236,7 @@ def process_image_response(image, options):
     else:
         img = cv2.imdecode(img, -1)
 
-    if options.auto_rotate:
+    if auto_rotate:
         img = ndimage.rotate(img, ROTATION_ANGLE[image.source.name])
 
     return img, extension
@@ -337,6 +337,8 @@ def get_pixel_locations_with_sam(
         return []
 
     obj_num = len(res_segment['masks'])
+    assert obj_num == 1
+
     pixel_locations = []
 
     # Detect multiple objects with their masks

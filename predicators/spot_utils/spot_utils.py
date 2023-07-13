@@ -320,7 +320,7 @@ class _SpotInterface():
                     # TODO add depth camera name
                 )
 
-                if len(sam_pose_results['tissue box']) > 0:
+                if 'tissue box' in sam_pose_results.keys():
                     viewable_obj_poses = {410: sam_pose_results['tissue box']}
                 else:
                     viewable_obj_poses = {}
@@ -533,30 +533,34 @@ class _SpotInterface():
             # in_res_image_responses=res_response
             res_image=image,
             res_image_responses=image_responses,
-            plot=False)
+            plot=True)
 
-        # TODO transform into the correct reference frame - need to double check
-        # Camera body transform.
-        # camera_tform_body = get_a_tform_b(
-        #     res_response[0].shot.transforms_snapshot,
-        #     res_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+        # We only want the most likely sample (for now).
+        # NOTE: we make the hard assumption here that
+        # we will only see one instance of a particular object
+        # type. We can relax this later.
+        if len(res_locations) > 0:
+            assert len(res_locations) == 1
 
-        # TODO hack
-        camera_tform_body = get_a_tform_b(
-            image_responses['depth'].shot.transforms_snapshot,
-            image_responses['depth'].shot.frame_name_image_sensor,
-            BODY_FRAME_NAME)
+            # TODO transform into the correct reference frame - need to double check
+            # Camera body transform.
+            # camera_tform_body = get_a_tform_b(
+            #     res_response[0].shot.transforms_snapshot,
+            #     res_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
 
-        res_locations_rt_gn_origin = []
-        for obj_loc in res_locations:
+            # TODO hack
+            camera_tform_body = get_a_tform_b(
+                image_responses['depth'].shot.transforms_snapshot,
+                image_responses['depth'].shot.frame_name_image_sensor,
+                BODY_FRAME_NAME)
             object_rt_gn_origin = self.convert_obj_location(
-                camera_tform_body, *obj_loc)
-            res_locations_rt_gn_origin.append(object_rt_gn_origin)
-        print({class_name: res_locations_rt_gn_origin})
-        # input('Move wherever you want!')
+                camera_tform_body, *res_locations[0])
 
-        # Use the input class name as the identifier for object(s) and their positions
-        return {class_name: res_locations_rt_gn_origin}
+            # Use the input class name as the identifier for object(s) and 
+            # their positions
+            return {class_name: object_rt_gn_origin}
+        
+        return {}
 
     def convert_obj_location(self, camera_tform_body, x, y, z) -> Tuple[float, float, float]:
         body_tform_object = (camera_tform_body.inverse()).transform_point(
@@ -1000,24 +1004,25 @@ class _SpotInterface():
             ]
             image_responses = self.image_client.get_image(image_request)
 
-            image = {
+            image_for_sam = {
                 'rgb': process_image_response(image_responses[0],
                                                    False)[0],
                 'depth': process_image_response(image_responses[1],
                                                      False)[0],
             }
-            image_responses = {
-                'rgb': image_responses[0],
-                'depth': image_responses[1],
-            }
-
             results = get_pixel_locations_with_sam(
                 # TODO: use the object name
                 classes=["tissue box"],
-                in_res_image=image,
-                plot=True)
+                in_res_image=image_for_sam,
+                plot=False)
+            
             if len(results) > 0:
-                g_image_click = tuple(int(results[0][0]), int(results[0][1]))
+                # We only want the most likely sample (for now).
+                # NOTE: we make the hard assumption here that
+                # we will only see one instance of a particular object
+                # type. We can relax this later.
+                assert len(results) == 1
+                g_image_click = (int(results[0][0]), int(results[0][1]))
 
         if g_image_click is None:
             # Show the image to the user and wait for them to click on a pixel
