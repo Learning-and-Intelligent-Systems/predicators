@@ -533,6 +533,7 @@ class _SpotInterface():
             classes=[class_name],
             res_image=image,
             res_image_responses=image_responses,
+            source_name=source_rgb,
             plot=False)
 
         # We only want the most likely sample (for now).

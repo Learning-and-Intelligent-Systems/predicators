@@ -17,6 +17,7 @@ from scipy import ndimage
 matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
+    'hand_color_image': 0,
     'back_fisheye_image': 0,
     'frontleft_fisheye_image': -78,
     'frontright_fisheye_image': -102,
@@ -361,16 +362,17 @@ def get_object_locations_with_sam(
         classes: List[str],
         res_image: Dict[str, np.ndarray],
         res_image_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse],
+        source_name: str,
         plot: bool = False  # TODO for now
 ) -> List[Tuple[float, float, float]]:
     """TODO: Docstring"""
+    rotated_rgb = ndimage.rotate(res_image['rgb'], ROTATION_ANGLE[source_name])
     # Plot the image as a debugging tool.
     if plot:
-        plt.imshow(res_image['rgb'])
+        plt.imshow(rotated_rgb)
         plt.show()
-
     # Start by querying SAM
-    res_segment = query_sam(image_in=res_image['rgb'], classes=classes)
+    res_segment = query_sam(image_in=rotated_rgb, classes=classes)
     # return: 'masks', 'boxes', 'classes'
     if res_segment is None:
         return []
@@ -379,9 +381,10 @@ def get_object_locations_with_sam(
     res_locations = []
     # Detect multiple objects with their masks
     for i in range(obj_num):
+        rotated_mask = ndimage.rotate(res_segment['masks'][i][0], -ROTATION_ANGLE[source_name])
         # Compute median value of depth
         depth_median = np.median(
-            res_image['depth'][res_segment['masks'][i][0]
+            res_image['depth'][rotated_mask
                                & (res_image['depth'] > 2)[:, :, 0]]
             # res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)]  # FIXME not sure why
         )
@@ -390,6 +393,22 @@ def get_object_locations_with_sam(
         x1, y1, x2, y2 = res_segment['boxes'][i]
         x_c = (x1 + x2) / 2
         y_c = (y1 + y2) / 2
+
+        # TODO: Actually rotate this coordinate back correctly using the code
+        # snippet below!
+        # Get the inverse rotation angle
+        inverse_rotation_angle = -ROTATION_ANGLE[source_name]
+        # Create a transformation matrix for the inverse rotation
+        transform_matrix = np.array([[np.cos(inverse_rotation_angle), -np.sin(inverse_rotation_angle)],
+                                    [np.sin(inverse_rotation_angle),  np.cos(inverse_rotation_angle)]])
+        # Subtract the center of the image from the pixel location to translate the rotation to the origin
+        pixel_centered = pixel - np.array([img.shape[1] / 2., img.shape[0] / 2.])
+        # Apply the rotation
+        rotated_pixel_centered = np.dot(transform_matrix, pixel_centered)
+        # Add the center of the image back to the pixel location to translate the rotation back from the origin
+        rotated_pixel = rotated_pixel_centered + np.array([img.shape[1] / 2., img.shape[0] / 2.])
+
+        # Now rotated_pixel is the location of the pixel after the inverse rotation
 
         # Plot center and segmentation mask
         if plot:
