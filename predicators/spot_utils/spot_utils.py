@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple, List
+from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import apriltag
 import bosdyn.client
@@ -20,8 +20,9 @@ from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
-    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, GROUND_PLANE_FRAME_NAME, \
-    get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
+    GRAV_ALIGNED_BODY_FRAME_NAME, GROUND_PLANE_FRAME_NAME, ODOM_FRAME_NAME, \
+    VISION_FRAME_NAME, get_a_tform_b, get_se2_a_tform_b, \
+    get_vision_tform_body
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
@@ -34,7 +35,8 @@ from predicators import utils
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.spot_utils.perception_utils import get_object_locations_with_sam, get_pixel_locations_with_sam
+from predicators.spot_utils.perception_utils import \
+    get_object_locations_with_sam, get_pixel_locations_with_sam
 from predicators.structs import Array, Image, Object
 
 g_image_click = None
@@ -270,14 +272,15 @@ class _SpotInterface():
                 num_bytes = 1
             elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
                 num_bytes = 2
-            dtype = np.uint8
+            dtype = np.uint8  # type: ignore
             extension = ".jpg"
 
         img = np.frombuffer(image.shot.image.data, dtype=dtype)
         if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
             try:
                 # Attempt to reshape array into a RGB rows X cols shape.
-                img = img.reshape((image.shot.image.rows, image.shot.image.cols, num_bytes))
+                img = img.reshape(
+                    (image.shot.image.rows, image.shot.image.cols, num_bytes))
             except ValueError:
                 # Unable to reshape the image data, trying a regular decode.
                 img = cv2.imdecode(img, -1)
@@ -289,8 +292,11 @@ class _SpotInterface():
 
         return img, extension
 
-    def get_single_camera_image(self, source_name: str, to_rgb: bool = False) -> Tuple[Image, Any]:
+    def get_single_camera_image(self,
+                                source_name: str,
+                                to_rgb: bool = False) -> Tuple[Image, Any]:
         """Get a single source camera image and image response."""
+
         # Get image and camera transform from source_name.
         # TODO fixing
         def pixel_format_type_strings():
@@ -306,8 +312,9 @@ class _SpotInterface():
         img_req = build_image_request(
             source_name,
             quality_percent=100,
-            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)  # FIXME only RGB format
-            # pixel_format=pixel_format)
+            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8
+        )  # FIXME only RGB format
+        # pixel_format=pixel_format)
         image_response = self.image_client.get_image([img_req])
 
         # Format image before detecting apriltags.
@@ -335,9 +342,10 @@ class _SpotInterface():
         return (img, image_response)
 
     def get_objects_in_view_by_camera(
-            self, from_apriltag: bool = False  # TODO hardcode
-    ) -> Dict[str, Tuple[float, float, float]]:
-        """Get objects currently in view."""
+        self,
+        from_apriltag: bool = False  # TODO hardcode
+    ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
+        """Get objects currently in view for each camera."""
         tag_to_pose: Dict[str,
                           Dict[int,
                                Tuple[float, float,
@@ -349,7 +357,7 @@ class _SpotInterface():
                 viewable_obj_poses = self.get_apriltag_pose_from_camera(
                     source_name=source_name)
             else:
-                viewable_obj_poses = self.get_sam_object_loc_from_camera(
+                sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
                     source_depth='hand_depth_in_hand_color_frame',
                     # class_name='red hammer',
@@ -358,8 +366,8 @@ class _SpotInterface():
                     # TODO add depth camera name
                 )
 
-                if len(viewable_obj_poses['tissue box']) > 0:                   
-                    viewable_obj_poses = {410: viewable_obj_poses['tissue box'][0]}
+                if len(sam_pose_results['tissue box']) > 0:
+                    viewable_obj_poses = {410: sam_pose_results['tissue box']}
                 else:
                     viewable_obj_poses = {}
 
@@ -520,19 +528,17 @@ class _SpotInterface():
         return obj_poses
 
     def get_sam_object_loc_from_camera(
-            self,
-            class_name: str or List[str],
-            source_rgb: str = "hand_color_image",
-            source_depth: str = "hand_depth_in_hand_color_frame",
-    ) -> Dict[int, Tuple[float, float, float]]:
-        """Get object location in 3D (no orientation) estimated using pretrained SAM model
+        self,
+        class_name: str,
+        source_rgb: str = "hand_color_image",
+        source_depth: str = "hand_depth_in_hand_color_frame",
+    ) -> Dict[str, Tuple[float, float, float]]:
+        """Get object location in 3D (no orientation) estimated using
+        pretrained SAM model.
 
         Args:
             class_name: name of object class
         """
-
-        assert isinstance(class_name, str) or isinstance(class_name, list)
-
         # FIXME hardcode while loop for test
         # while True:
 
@@ -548,6 +554,7 @@ class _SpotInterface():
 
         # TODO hack get image
         image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
+
         # FIXME change image resources
         # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
 
@@ -568,7 +575,6 @@ class _SpotInterface():
         ]
         image_responses = self.image_client.get_image(image_request)
 
-
         image = {
             'rgb': self.process_image_response(image_responses[0], False)[0],
             'depth': self.process_image_response(image_responses[1], False)[0],
@@ -579,15 +585,13 @@ class _SpotInterface():
         }
 
         res_locations = get_object_locations_with_sam(
-            None,
-            classes=[class_name] if isinstance(class_name, str) else class_name,
+            classes=[class_name],
             # TODO use my get image utils
             # in_res_image=res_img,
             # in_res_image_responses=res_response
-            in_res_image=image,
-            in_res_image_responses=image_responses,
-            plot=False
-        )
+            res_image=image,
+            res_image_responses=image_responses,
+            plot=False)
 
         # TODO transform into the correct reference frame - need to double check
         # Camera body transform.
@@ -598,11 +602,13 @@ class _SpotInterface():
         # TODO hack
         camera_tform_body = get_a_tform_b(
             image_responses['depth'].shot.transforms_snapshot,
-            image_responses['depth'].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+            image_responses['depth'].shot.frame_name_image_sensor,
+            BODY_FRAME_NAME)
 
         res_locations_rt_gn_origin = []
         for obj_loc in res_locations:
-            object_rt_gn_origin = self.convert_obj_location(camera_tform_body, *obj_loc)
+            object_rt_gn_origin = self.convert_obj_location(
+                camera_tform_body, *obj_loc)
             res_locations_rt_gn_origin.append(object_rt_gn_origin)
         print({class_name: res_locations_rt_gn_origin})
         # input('Move wherever you want!')
@@ -611,9 +617,9 @@ class _SpotInterface():
         return {class_name: res_locations_rt_gn_origin}
 
     # @staticmethod
-    def convert_obj_location(self, camera_tform_body, x, y, z):
-        body_tform_object = (
-            camera_tform_body.inverse()).transform_point(x, y, z)
+    def convert_obj_location(self, camera_tform_body, x, y, z) -> Tuple[float, float, float]:
+        body_tform_object = (camera_tform_body.inverse()).transform_point(
+            x, y, z)
 
         # Get graph_nav to body frame.
         state = self.get_localized_state()
@@ -625,10 +631,7 @@ class _SpotInterface():
 
         # Apply transform to object to body location
         object_rt_gn_origin = gn_origin_tform_body.transform_point(
-            body_tform_object[0],
-            body_tform_object[1],
-            body_tform_object[2]
-        )
+            body_tform_object[0], body_tform_object[1], body_tform_object[2])
 
         return object_rt_gn_origin
 
@@ -841,13 +844,16 @@ class _SpotInterface():
 
                 # TODO hack on this: test with and without april tag, then
                 # objects_in_view_by_camera = self.get_objects_in_view_by_camera()
-                objects_in_view_by_camera_apriltag = self.get_objects_in_view_by_camera(from_apriltag=True)
-                objects_in_view_by_camera_sam = self.get_objects_in_view_by_camera(from_apriltag=False)
+                objects_in_view_by_camera_apriltag = self.get_objects_in_view_by_camera(
+                    from_apriltag=True)
+                objects_in_view_by_camera_sam = self.get_objects_in_view_by_camera(
+                    from_apriltag=False)
 
                 objects_in_view_by_camera = {}
                 objects_in_view_by_camera.update(objects_in_view_by_camera_sam)
                 for k in objects_in_view_by_camera.keys():
-                    objects_in_view_by_camera[k].update(objects_in_view_by_camera_apriltag[k])
+                    objects_in_view_by_camera[k].update(
+                        objects_in_view_by_camera_apriltag[k])
 
                 for v in objects_in_view_by_camera.values():
                     objects_in_view.update(v)
@@ -1041,7 +1047,10 @@ class _SpotInterface():
 
         elif CFG.spot_grasp_use_sam:
             # TODO hack get image
-            image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
+            image_sources = [
+                "hand_color_image", "hand_depth_in_hand_color_frame"
+            ]
+
             # FIXME change image resources
             # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
 
@@ -1051,7 +1060,8 @@ class _SpotInterface():
                 return names[1:]
 
             def pixel_format_string_to_enum(enum_string):
-                return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
+                return dict(
+                    image_pb2.Image.PixelFormat.items()).get(enum_string)
 
             pixel_format = tuple(pixel_format_type_strings())
             pixel_format = pixel_format_string_to_enum(pixel_format)
@@ -1062,10 +1072,11 @@ class _SpotInterface():
             ]
             image_responses = self.image_client.get_image(image_request)
 
-
             image = {
-                'rgb': self.process_image_response(image_responses[0], False)[0],
-                'depth': self.process_image_response(image_responses[1], False)[0],
+                'rgb': self.process_image_response(image_responses[0],
+                                                   False)[0],
+                'depth': self.process_image_response(image_responses[1],
+                                                     False)[0],
             }
             image_responses = {
                 'rgb': image_responses[0],
@@ -1073,19 +1084,12 @@ class _SpotInterface():
             }
 
             results = get_pixel_locations_with_sam(
-                None,
                 # TODO: use the object name
-                classes="tissue box",
-                # TODO use my get image utils
-                # in_res_image=res_img,
-                # in_res_image_responses=res_response
+                classes=["tissue box"],
                 in_res_image=image,
-                in_res_image_responses=image_responses,
-                plot=True
-            )
+                plot=True)
             if len(results) > 0:
                 g_image_click = tuple(int(results[0][0]), int(results[0][1]))
-            import ipdb; ipdb.set_trace()
 
         if g_image_click is None:
             # Show the image to the user and wait for them to click on a pixel

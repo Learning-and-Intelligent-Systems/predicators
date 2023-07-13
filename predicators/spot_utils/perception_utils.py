@@ -1,22 +1,19 @@
 import io
-from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import bosdyn.client
-import bosdyn.client
-import bosdyn.client.util
 import bosdyn.client.util
 import cv2
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
-from PIL import Image
 from bosdyn.api import image_pb2
-from bosdyn.client.image import ImageClient, build_image_request, _depth_image_data_to_numpy, \
-    _depth_image_get_valid_indices
+from bosdyn.client.image import _depth_image_data_to_numpy, \
+    _depth_image_get_valid_indices, build_image_request
+from PIL import Image
 from scipy import ndimage
 
-import matplotlib
 matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
@@ -28,77 +25,110 @@ ROTATION_ANGLE = {
 }
 
 
-def ask_sam(image, classes):
-    buf = image_to_bytes(image)
-    r = requests.post("http://localhost:5550/predict",
-                      files={"file": buf},
-                      data={"classes": ",".join(classes)}
-                     )
-
-    if r.status_code != 200:
-        assert False, r.content
-
-    with io.BytesIO(r.content) as f:
-        arr = np.load(f, allow_pickle=True)
-        boxes = arr['boxes']
-        classes = arr['classes']
-        masks = arr['masks']
-        scores = arr['scores']
-
-    return dict(boxes=boxes, classes=classes, masks=masks, scores=scores)
-
-
-def image_to_bytes(img):
-
+def image_to_bytes(img: Image.Image) -> io.BytesIO:
+    """Helper function to convert from a PIL image into a bytes object."""
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
     return buf
 
 
-def visualize_output(im, masks, input_boxes, classes, scores):
-    plt.figure(figsize=(10, 10))
-    plt.imshow(im)
-    for mask in masks:
-        show_mask(mask, plt.gca(), random_color=True)
-    for box, class_name, score in zip(input_boxes, classes, scores):
-        show_box(box, plt.gca())
-        x, y = box[:2]
-        plt.gca().text(x, y - 5, class_name + f': {score:.2f}', color='white', fontsize=12, fontweight='bold', bbox=dict(facecolor='green', edgecolor='green', alpha=0.5))
-    plt.axis('off')
-    plt.show()
+# def visualize_output(im, masks, input_boxes, classes, scores) -> None:
+#     plt.figure(figsize=(10, 10))
+#     plt.imshow(im)
+#     for mask in masks:
+#         show_mask(mask, plt.gca(), random_color=True)
+#     for box, class_name, score in zip(input_boxes, classes, scores):
+#         show_box(box, plt.gca())
+#         x, y = box[:2]
+#         plt.gca().text(x,
+#                        y - 5,
+#                        class_name + f': {score:.2f}',
+#                        color='white',
+#                        fontsize=12,
+#                        fontweight='bold',
+#                        bbox=dict(facecolor='green',
+#                                  edgecolor='green',
+#                                  alpha=0.5))
+#     plt.axis('off')
+#     plt.show()
+
+# def show_mask(mask, ax, random_color: bool = False) -> None:
+#     if random_color:
+#         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
+#     else:
+#         color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
+#     h, w = mask.shape[-2:]
+#     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+#     ax.imshow(mask_image)
+
+# def show_box(box, ax) -> None:
+#     x0, y0 = box[0], box[1]
+#     w, h = box[2] - box[0], box[3] - box[1]
+#     ax.add_patch(
+#         plt.Rectangle((x0, y0),
+#                       w,
+#                       h,
+#                       edgecolor='green',
+#                       facecolor=(0, 0, 0, 0),
+#                       lw=2))
 
 
-def show_mask(mask, ax, random_color=False):
-    if random_color:
-        color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
-    else:
-        color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
-    h, w = mask.shape[-2:]
-    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-    ax.imshow(mask_image)
+def query_sam(image_in: np.ndarray,
+              classes: List[str]) -> Optional[Dict[str, List[np.ndarray]]]:
+    """Send a query to SAM and return the response.
 
+    The response is a dictionary that contains 4 keys: 'boxes',
+    'classes', 'masks' and 'scores'.
+    """
+    image = Image.fromarray(image_in)
+    buf = image_to_bytes(image)
+    r = requests.post("http://localhost:5550/predict",
+                      files={"file": buf},
+                      data={"classes": ",".join(classes)})
 
-def show_box(box, ax):
-    x0, y0 = box[0], box[1]
-    w, h = box[2] - box[0], box[3] - box[1]
-    ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))
+    # If the status code is not 200, then fail.
+    if r.status_code != 200:
+        return None
 
+    with io.BytesIO(r.content) as f:
+        arr = np.load(f, allow_pickle=True)
+        boxes = arr['boxes']
+        ret_classes = arr['classes']
+        masks = arr['masks']
+        scores = arr['scores']
 
-def get_mask(image_in, classes):
-    if isinstance(image_in, str):
-        image = Image.open(image_in)
-    elif isinstance(image_in, np.ndarray):
-        image = Image.fromarray(image_in)
-    else:
-        raise NotImplementedError
+    d = {
+        "boxes": boxes,
+        "classes": ret_classes,
+        "masks": masks,
+        "scores": scores
+    }
 
-    d = ask_sam(image, classes)
+    # Optional visualization useful for debugging.
+    # visualize_output(image, d["masks"], d["boxes"], d["classes"],
+    #                      d["scores"])
 
-    if d is not None:
-        visualize_output(image, d["masks"], d["boxes"], d["classes"], d["scores"])
+    # Filter out detections by confidence. We threshold detections
+    # at a 50% confidence level minimum, and if there are multiple
+    #, we only select the most confident one.
+    k = 1
+    topk_idx = np.argpartition(d['scores'], -k)[-k:]
+    threshold_idx = d['scores'] > 0.5
+    selected_idxs = np.intersect1d(topk_idx, threshold_idx)
+    if len(selected_idxs) == 0:
+        return None
+    d_filtered: Dict[str, List[np.ndarray]] = {
+        "boxes": [],
+        "classes": [],
+        "masks": [],
+        "scores": []
+    }
+    for i in selected_idxs:
+        for key in d.keys():
+            d_filtered[key].append(d[key][i])
 
-    return d
+    return d_filtered
 
 
 # TODO for getting hand image
@@ -111,12 +141,18 @@ def pixel_format_string_to_enum(enum_string):
     return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
 
 
-def depth_image_to_pointcloud_custom(image_response, masks=None, min_dist=0, max_dist=1000):
-    """Converts a depth image into a point cloud using the camera intrinsics. The point
-    cloud is represented as a numpy array of (x,y,z) values.  Requests can optionally filter
-    the results based on the points distance to the image plane. A depth image is represented
-    with an unsigned 16 bit integer and a scale factor to convert that distance to meters. In
-    addition, values of zero and 2^16 (uint 16 maximum) are used to represent invalid indices.
+def depth_image_to_pointcloud_custom(
+        image_response: bosdyn.api.image_pb2.ImageResponse,
+        masks: np.ndarray = None,
+        min_dist: float = 0.0,
+        max_dist: float = 1000.0) -> Tuple[np.ndarray, np.ndarray]:
+    """Converts a depth image into a point cloud using the camera intrinsics.
+    The point cloud is represented as a numpy array of (x,y,z) values. Requests
+    can optionally filter the results based on the points distance to the image
+    plane. A depth image is represented with an unsigned 16 bit integer and a
+    scale factor to convert that distance to meters. In addition, values of
+    zero and 2^16 (uint 16 maximum) are used to represent invalid indices.
+
     A (min_dist * depth_scale) value that casts to an integer value <=0 will be assigned a
     value of 1 (the minimum representational distance). Similarly, a (max_dist * depth_scale)
     value that casts to >= 2^16 will be assigned a value of 2^16 - 1 (the maximum
@@ -124,8 +160,8 @@ def depth_image_to_pointcloud_custom(image_response, masks=None, min_dist=0, max
 
     Args:
         image_response (image_pb2.ImageResponse): An ImageResponse containing a depth image.
-        min_dist (double): All points in the returned point cloud will be greater than min_dist from the image plane [meters].
-        max_dist (double): All points in the returned point cloud will be less than max_dist from the image plane [meters].
+        min_dist (float): All points in the returned point cloud will be greater than min_dist from the image plane [meters].
+        max_dist (float): All points in the returned point cloud will be less than max_dist from the image plane [meters].
 
     Returns:
         A numpy stack of (x,y,z) values representing depth image as a point cloud expressed in the sensor frame.
@@ -136,7 +172,8 @@ def depth_image_to_pointcloud_custom(image_response, masks=None, min_dist=0, max
 
     if image_response.shot.image.pixel_format != image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         raise ValueError(
-            'IMAGE_TYPE_DEPTH with an unsupported format, requires PIXEL_FORMAT_DEPTH_U16.')
+            'IMAGE_TYPE_DEPTH with an unsupported format, requires PIXEL_FORMAT_DEPTH_U16.'
+        )
 
     if not image_response.source.HasField('pinhole'):
         raise ValueError('Requires a pinhole camera_model.')
@@ -154,8 +191,9 @@ def depth_image_to_pointcloud_custom(image_response, masks=None, min_dist=0, max
     # print(depth_array.shape)
 
     # Determine which indices have valid data in the user requested range.
-    valid_inds = _depth_image_get_valid_indices(depth_array, np.rint(min_dist * depth_scale),
-                                                np.rint(max_dist * depth_scale))
+    valid_inds = _depth_image_get_valid_indices(
+        depth_array, np.rint(min_dist * depth_scale),
+        np.rint(max_dist * depth_scale))
 
     if masks is not None:
         valid_inds = valid_inds & masks
@@ -194,7 +232,8 @@ def process_image_response(image, options):
     if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
         try:
             # Attempt to reshape array into a RGB rows X cols shape.
-            img = img.reshape((image.shot.image.rows, image.shot.image.cols, num_bytes))
+            img = img.reshape(
+                (image.shot.image.rows, image.shot.image.cols, num_bytes))
         except ValueError:
             # Unable to reshape the image data, trying a regular decode.
             img = cv2.imdecode(img, -1)
@@ -258,16 +297,20 @@ def get_hand_img(options):
     return res, image_responses
 
 
-def get_xyz_from_depth(image_response, depth_value, point_x, point_y, min_dist=0, max_dist=1000):
-    """
-    This is a function based on `depth_image_to_pointcloud`
-    """
+def get_xyz_from_depth(image_response,
+                       depth_value,
+                       point_x,
+                       point_y,
+                       min_dist=0,
+                       max_dist=1000) -> Tuple[float, float, float]:
+    """This is a function based on `depth_image_to_pointcloud`"""
     if image_response.source.image_type != image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
         raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
 
     if image_response.shot.image.pixel_format != image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         raise ValueError(
-            'IMAGE_TYPE_DEPTH with an unsupported format, requires PIXEL_FORMAT_DEPTH_U16.')
+            'IMAGE_TYPE_DEPTH with an unsupported format, requires PIXEL_FORMAT_DEPTH_U16.'
+        )
 
     if not image_response.source.HasField('pinhole'):
         raise ValueError('Requires a pinhole camera_model.')
@@ -282,101 +325,65 @@ def get_xyz_from_depth(image_response, depth_value, point_x, point_y, min_dist=0
     z = depth_value / depth_scale
     x = np.multiply(z, (point_x - cx)) / fx
     y = np.multiply(z, (point_y - cy)) / fy
-    # return np.vstack((x, y, z)).T, valid_inds
     return x, y, z
 
 
 def get_pixel_locations_with_sam(
-        args,
-        classes: List,
-        in_res_image=None, in_res_image_responses=None,
+        classes: List[str],
+        in_res_image: Dict[str, np.ndarray],
         plot: bool = False  # TODO for now
 ) -> List[Tuple[float, float]]:
-    if in_res_image is None or in_res_image_responses is None:
-        res_image, res_image_responses = get_hand_img(options=args)
-        # return of res_image: 'rgb', 'depth'
-        # return of res_image_responses: RGB and depth image responses with camera info
-    else:
-        res_image = in_res_image
-        res_image_responses = in_res_image_responses
-
-    if plot:
-        plt.imshow(res_image['rgb'])
-        plt.show()
-
-    res_segment = get_mask(image_in=res_image['rgb'], classes=classes)
+    """Method to get the pixel locations of specific objects with class names
+    listed in 'classes' within an input image."""
+    res_segment = query_sam(image_in=in_res_image['rgb'], classes=classes)
     # return: 'masks', 'boxes', 'classes'
     if res_segment is None:
         return []
 
     obj_num = len(res_segment['masks'])
-
     pixel_locations = []
 
     # Detect multiple objects with their masks
     for i in range(obj_num):
-        # Compute median value of depth
-        depth_median = np.median(
-            res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)[:, :, 0]]
-            # res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)]  # FIXME not sure why
-        )
-
         # Compute geometric center of object bounding box
         x1, y1, x2, y2 = res_segment['boxes'][i]
         x_c = (x1 + x2) / 2
         y_c = (y1 + y2) / 2
-
         # Plot center and segmentation mask
         if plot:
             plt.imshow(res_segment['masks'][i][0])
-            # plt.scatter(x=x_c, y=y_c, marker='*', color='red', zorder=3)
             plt.show()
         pixel_locations.append((x_c, y_c))
-    return pixel_locations    
+
+    return pixel_locations
 
 
 def get_object_locations_with_sam(
-        args,
-        classes: list,
-        in_res_image=None, in_res_image_responses=None,
+        classes: List[str],
+        res_image: Dict[str, np.ndarray],
+        res_image_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse],
         plot: bool = False  # TODO for now
-):
-    
-    if in_res_image is None or in_res_image_responses is None:
-        res_image, res_image_responses = get_hand_img(options=args)
-        # return of res_image: 'rgb', 'depth'
-        # return of res_image_responses: RGB and depth image responses with camera info
-    else:
-        res_image = in_res_image
-        res_image_responses = in_res_image_responses
-
+) -> List[Tuple[float, float, float]]:
+    """TODO: Docstring"""
+    # Plot the image as a debugging tool.
     if plot:
         plt.imshow(res_image['rgb'])
         plt.show()
 
-    res_segment = get_mask(image_in=res_image['rgb'], classes=classes)
+    # Start by querying SAM
+    res_segment = query_sam(image_in=res_image['rgb'], classes=classes)
     # return: 'masks', 'boxes', 'classes'
     if res_segment is None:
         return []
 
     obj_num = len(res_segment['masks'])
-
-    # TODO filter mask IDs by confidence scores
-    k = 1
-    topk_idx = np.argpartition(res_segment['scores'], -k)[-k:]
-    threshold_idx = res_segment['scores'] > 0.5
-    selected_idx = np.intersect1d(topk_idx, threshold_idx)
-
-    print(f'Hardcode: select top-{k} from {obj_num} detected objects')
-
     res_locations = []
-
     # Detect multiple objects with their masks
-    # for i in range(obj_num):
-    for i in selected_idx:
+    for i in range(obj_num):
         # Compute median value of depth
         depth_median = np.median(
-            res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)[:, :, 0]]
+            res_image['depth'][res_segment['masks'][i][0]
+                               & (res_image['depth'] > 2)[:, :, 0]]
             # res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)]  # FIXME not sure why
         )
 
@@ -392,14 +399,12 @@ def get_object_locations_with_sam(
             plt.show()
 
         # Get XYZ of the point at center of bounding box and median depth value
-        x0, y0, z0 = get_xyz_from_depth(
-            res_image_responses['depth'],
-            depth_value=depth_median,
-            point_x=x_c,
-            point_y=y_c
-        )
+        x0, y0, z0 = get_xyz_from_depth(res_image_responses['depth'],
+                                        depth_value=depth_median,
+                                        point_x=x_c,
+                                        point_y=y_c)
 
-        res_locations.append([x0, y0, z0])
+        res_locations.append((x0, y0, z0))
 
         x, valid_inds = depth_image_to_pointcloud_custom(
             res_image_responses['depth'],
@@ -415,23 +420,3 @@ def get_object_locations_with_sam(
             plt.show()
 
     return res_locations
-
-@dataclass
-class TempArgs:
-    # hostname: str = '10.17.30.30'  # 6th floor
-    # hostname: str = '10.17.30.21'  #
-    hostname: str = '10.17.30.29'  #
-    list: bool = True
-    auto_rotate: bool = False  # unnecessary for hand
-    image_service: str = ImageClient.default_service_name
-    pixel_format: list = tuple(pixel_format_type_strings())
-
-
-if __name__ == '__main__':
-    args = TempArgs()
-
-    get_object_locations_with_sam(
-        args,
-        classes=['desk'],
-        # in_res_image=res1, in_res_image_responses=image_responses1
-    )
