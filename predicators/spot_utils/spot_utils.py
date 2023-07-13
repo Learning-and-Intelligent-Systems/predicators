@@ -34,6 +34,7 @@ from predicators import utils
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
+from predicators.spot_utils.perception_utils import get_object_locations_with_sam, get_pixel_locations_with_sam
 from predicators.structs import Array, Image, Object
 
 g_image_click = None
@@ -357,10 +358,10 @@ class _SpotInterface():
                     # TODO add depth camera name
                 )
 
-                # FIXME hack
-                if len(viewable_obj_poses) > 0:
-                    print(viewable_obj_poses)
-                    viewable_obj_poses = {410: viewable_obj_poses['tissue box']}
+                if len(viewable_obj_poses['tissue box']) > 0:                   
+                    viewable_obj_poses = {410: viewable_obj_poses['tissue box'][0]}
+                else:
+                    viewable_obj_poses = {}
 
             # # if from_apriltag:
             # # TODO
@@ -380,8 +381,10 @@ class _SpotInterface():
             # # TODO add try catch for no objects
             # # TODO add confidence level
             # print('positions from SAM model: ', viewable_obj_poses)
-
             tag_to_pose[source_name].update(viewable_obj_poses)
+            if not from_apriltag:
+                break
+
         apriltag_id_to_obj_name = {
             v: k
             for k, v in obj_name_to_apriltag_id.items()
@@ -530,8 +533,6 @@ class _SpotInterface():
 
         assert isinstance(class_name, str) or isinstance(class_name, list)
 
-        from predicators.spot_utils.perception_utils import get_object_locations_with_sam
-
         # FIXME hardcode while loop for test
         # while True:
 
@@ -546,9 +547,9 @@ class _SpotInterface():
         # res_response = {'rgb': image_response_rgb, 'depth': image_response_depth}
 
         # TODO hack get image
-        # image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
+        image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
         # FIXME change image resources
-        image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
+        # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
 
         # TODO fixing
         def pixel_format_type_strings():
@@ -842,17 +843,11 @@ class _SpotInterface():
                 # objects_in_view_by_camera = self.get_objects_in_view_by_camera()
                 objects_in_view_by_camera_apriltag = self.get_objects_in_view_by_camera(from_apriltag=True)
                 objects_in_view_by_camera_sam = self.get_objects_in_view_by_camera(from_apriltag=False)
-                print('objects_in_view_by_camera_sam: ', objects_in_view_by_camera_sam)
 
                 objects_in_view_by_camera = {}
-                # TODO merge
                 objects_in_view_by_camera.update(objects_in_view_by_camera_sam)
-                objects_in_view_by_camera.update(objects_in_view_by_camera_apriltag)
-
-                # if len(objects_in_view_by_camera_sam) > 0:
-                #     objects_in_view_by_camera = objects_in_view_by_camera_sam
-                # else:
-                #     objects_in_view_by_camera = objects_in_view_by_camera_apriltag
+                for k in objects_in_view_by_camera.keys():
+                    objects_in_view_by_camera[k].update(objects_in_view_by_camera_apriltag[k])
 
                 for v in objects_in_view_by_camera.values():
                     objects_in_view.update(v)
@@ -864,7 +859,6 @@ class _SpotInterface():
                     break
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
-                # FIXME comment out for testing
                 self.relative_move(0.0, 0.0, np.pi / 4)
         return obj_poses
 
@@ -1044,6 +1038,54 @@ class _SpotInterface():
         elif CFG.spot_grasp_use_cv2:
             if obj.name in ["hammer", "hex_key", "brush", "hex_screwdriver"]:
                 g_image_click = _find_object_center(img, obj.name)
+
+        elif CFG.spot_grasp_use_sam:
+            # TODO hack get image
+            image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
+            # FIXME change image resources
+            # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
+
+            # TODO fixing
+            def pixel_format_type_strings():
+                names = image_pb2.Image.PixelFormat.keys()
+                return names[1:]
+
+            def pixel_format_string_to_enum(enum_string):
+                return dict(image_pb2.Image.PixelFormat.items()).get(enum_string)
+
+            pixel_format = tuple(pixel_format_type_strings())
+            pixel_format = pixel_format_string_to_enum(pixel_format)
+
+            image_request = [
+                build_image_request(source, pixel_format=pixel_format)
+                for source in image_sources
+            ]
+            image_responses = self.image_client.get_image(image_request)
+
+
+            image = {
+                'rgb': self.process_image_response(image_responses[0], False)[0],
+                'depth': self.process_image_response(image_responses[1], False)[0],
+            }
+            image_responses = {
+                'rgb': image_responses[0],
+                'depth': image_responses[1],
+            }
+
+            results = get_pixel_locations_with_sam(
+                None,
+                # TODO: use the object name
+                classes="tissue box",
+                # TODO use my get image utils
+                # in_res_image=res_img,
+                # in_res_image_responses=res_response
+                in_res_image=image,
+                in_res_image_responses=image_responses,
+                plot=True
+            )
+            if len(results) > 0:
+                g_image_click = tuple(int(results[0][0]), int(results[0][1]))
+            import ipdb; ipdb.set_trace()
 
         if g_image_click is None:
             # Show the image to the user and wait for them to click on a pixel

@@ -1,5 +1,6 @@
 import io
 from dataclasses import dataclass
+from typing import List, Tuple
 
 import bosdyn.client
 import bosdyn.client
@@ -290,12 +291,62 @@ def get_xyz_from_depth(image_response, depth_value, point_x, point_y, min_dist=0
     return x, y, z
 
 
+def get_pixel_locations_with_sam(
+        args,
+        classes: List,
+        in_res_image=None, in_res_image_responses=None,
+        plot: bool = False  # TODO for now
+) -> List[Tuple[float, float]]:
+    if in_res_image is None or in_res_image_responses is None:
+        res_image, res_image_responses = get_hand_img(options=args)
+        # return of res_image: 'rgb', 'depth'
+        # return of res_image_responses: RGB and depth image responses with camera info
+    else:
+        res_image = in_res_image
+        res_image_responses = in_res_image_responses
+
+    if plot:
+        plt.imshow(res_image['rgb'])
+        plt.show()
+
+    res_segment = get_mask(image_in=res_image['rgb'], classes=classes)
+    # return: 'masks', 'boxes', 'classes'
+    if res_segment is None:
+        return []
+
+    obj_num = len(res_segment['masks'])
+
+    pixel_locations = []
+
+    # Detect multiple objects with their masks
+    for i in range(obj_num):
+        # Compute median value of depth
+        depth_median = np.median(
+            res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)[:, :, 0]]
+            # res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)]  # FIXME not sure why
+        )
+
+        # Compute geometric center of object bounding box
+        x1, y1, x2, y2 = res_segment['boxes'][i]
+        x_c = (x1 + x2) / 2
+        y_c = (y1 + y2) / 2
+
+        # Plot center and segmentation mask
+        if plot:
+            plt.imshow(res_segment['masks'][i][0])
+            # plt.scatter(x=x_c, y=y_c, marker='*', color='red', zorder=3)
+            plt.show()
+        pixel_locations.append((x_c, y_c))
+    return pixel_locations    
+
+
 def get_object_locations_with_sam(
         args,
         classes: list,
         in_res_image=None, in_res_image_responses=None,
         plot: bool = False  # TODO for now
 ):
+    
     if in_res_image is None or in_res_image_responses is None:
         res_image, res_image_responses = get_hand_img(options=args)
         # return of res_image: 'rgb', 'depth'

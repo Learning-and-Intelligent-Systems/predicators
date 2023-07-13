@@ -174,6 +174,7 @@ class GlobalSettings:
     spot_robot_ip = "invalid-IP-address"
     spot_grasp_use_apriltag = False
     spot_grasp_use_cv2 = False
+    spot_grasp_use_sam = False
     spot_cube_only = False
     spot_initialize_surfaces_to_default = True
     spot_fiducial_size = 44.45
