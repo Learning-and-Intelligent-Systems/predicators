@@ -2,6 +2,7 @@
 
 import functools
 import logging
+import math
 import os
 import sys
 import time
@@ -15,19 +16,21 @@ import bosdyn.client.util
 import cv2
 import numpy as np
 from bosdyn.api import basic_command_pb2, estop_pb2, geometry_pb2, image_pb2, \
-    manipulation_api_pb2
+    manipulation_api_pb2, robot_command_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
-    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, \
-    get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
+    GRAV_ALIGNED_BODY_FRAME_NAME, GROUND_PLANE_FRAME_NAME, ODOM_FRAME_NAME, \
+    VISION_FRAME_NAME, get_a_tform_b, get_se2_a_tform_b, \
+    get_vision_tform_body
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
+from bosdyn.util import seconds_to_duration
 from gym.spaces import Box
 
 from predicators import utils
@@ -439,6 +442,7 @@ class _SpotInterface():
             "navigate": Box(-5.0, 5.0, (3, )),
             "grasp": Box(-1.0, 1.0, (4, )),
             "placeOnTop": Box(-5.0, 5.0, (3, )),
+            "drag": Box(-5.0, 5.0, (3, )),
             "noop": Box(0, 1, (0, ))
         }
 
@@ -457,8 +461,10 @@ class _SpotInterface():
             return self.navigateToController(objects, params)
         if name == "grasp":
             return self.graspController(objects, params)
-        assert name == "placeOnTop"
-        return self.placeOntopController(objects, params)
+        if name == "placeOnTop":
+            return self.placeOntopController(objects, params)
+        assert name == "drag"
+        return self.dragController(objects, params)
 
     def findController(self) -> None:
         """Execute look around."""
@@ -595,6 +601,17 @@ class _SpotInterface():
                            keep_hand_pose=False,
                            relative_to_default_pose=False,
                            angle=angle)
+        time.sleep(1.0)
+        self.stow_arm()
+        # NOTE: time.sleep(1.0) required afer each option execution
+        # to allow time for sensor readings to settle.
+        time.sleep(1.0)
+
+    def dragController(self, objs: Sequence[Object], params: Array) -> None:
+        """Drag Controller."""
+        print("Drag", objs)
+        assert len(params) == 4  # [x, y, z] vector for direction and [f] force
+        self.drag_impedence_control(params)
         time.sleep(1.0)
         self.stow_arm()
         # NOTE: time.sleep(1.0) required afer each option execution
@@ -1096,14 +1113,160 @@ class _SpotInterface():
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            self.graph_nav_command_line.graph_nav_client.get_localization_state(
-            )
+            self.graph_nav_command_line.graph_nav_client.\
+                get_localization_state()
 
             # (2) Just move
             self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
             logging.info(e)
+
+    def drag_impedence_control(self, params: Array) -> None:
+        """Simple drag impedence controller."""
+        assert len(params) == 3
+
+        # Move to relative robot position in body frame.
+        transforms = self.robot_state_client.get_robot_state(
+        ).kinematic_state.transforms_snapshot
+
+        # Build the transform for where we want the robot to be
+        # relative to where the body currently is.
+        body_tform_goal = math_helpers.SE2Pose(x=params[0],
+                                               y=params[1],
+                                               angle=0.0)
+        # We do not want to command this goal in body frame because
+        # the body will move, thus shifting our goal. Instead, we
+        # transform this offset to get the goal position in the output
+        # frame (which will be either odom or vision).
+        out_tform_body = get_se2_a_tform_b(transforms, ODOM_FRAME_NAME,
+                                           BODY_FRAME_NAME)
+        out_tform_goal = out_tform_body * body_tform_goal
+
+        # Command the robot to go to the goal point in the specified
+        # frame. The command will stop at the new position.
+        move_command = RobotCommandBuilder.\
+            synchro_se2_trajectory_point_command(
+                goal_x=out_tform_goal.x,
+                goal_y=out_tform_goal.y,
+                goal_heading=out_tform_goal.angle,
+                frame_name=ODOM_FRAME_NAME,
+                params=RobotCommandBuilder.mobility_params(stair_hint=False))
+
+        # First, let's pick a task frame that is in front of the robot.
+        robot_state = self.robot_state_client.get_robot_state()
+        odom_T_grav_body = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
+            GRAV_ALIGNED_BODY_FRAME_NAME)
+
+        odom_T_gpe = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
+            GROUND_PLANE_FRAME_NAME)
+
+        # Get the frame on the ground right underneath the center of the body.
+        odom_T_ground_body = odom_T_grav_body
+        odom_T_ground_body.z = odom_T_gpe.z
+
+        # Now, get the frame that is 60cm in front of this frame.
+        odom_T_task = odom_T_ground_body * math_helpers.SE3Pose(
+            x=0.6, y=0, z=0, rot=math_helpers.Quat(w=1, x=0, y=0, z=0))
+
+        # Now, let's set our tool frame to be the tip of the robot's
+        # bottom jaw. Flip the orientation so that when the hand is
+        # pointed downwards, the tool's z-axis is pointed upward.
+        wr1_T_tool = math_helpers.SE3Pose(
+            0.23589, 0, -0.03943, math_helpers.Quat.from_pitch(-math.pi / 2))
+
+        # Now, let's move along the surface of the ground, exerting a downward
+        # force while dragging the arm sideways.
+        robot_cmd = robot_command_pb2.RobotCommand()
+        impedance_cmd = robot_cmd.synchronized_command.\
+            arm_command.arm_impedance_command
+
+        # Set up our root frame, task frame, and tool frame.
+        impedance_cmd.root_frame_name = ODOM_FRAME_NAME
+        impedance_cmd.root_tform_task.CopyFrom(odom_T_task.to_proto())
+        impedance_cmd.wrist_tform_tool.CopyFrom(wr1_T_tool.to_proto())
+
+        # Compute unit vector
+        x = params[0]
+        y = params[1]
+        force = params[2]
+        unit_vec = np.array([x, y]) / np.linalg.norm(np.array([x, y]))
+
+        # Set up downward force.
+        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
+            force.x = unit_vec[0] * force
+        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
+            force.y = unit_vec[0] * force  # Newtons
+        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
+            force.z = 0
+        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
+            torque.x = 0
+        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
+            torque.y = 0
+        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
+            torque.z = 0
+
+        # Set up stiffness and damping matrices. Note that we've set the
+        # stiffness in the z-axis to 0 since we're commanding a constant
+        # downward force, regardless of where the tool is in z relative to
+        # our `desired_tool` frame.
+        impedance_cmd.diagonal_stiffness_matrix.CopyFrom(
+            geometry_pb2.Vector(values=[500, 500, 0, 60, 60, 60]))
+        impedance_cmd.diagonal_damping_matrix.CopyFrom(
+            geometry_pb2.Vector(values=[2.5, 2.5, 2.5, 1.0, 1.0, 1.0]))
+
+        # Set up our `desired_tool` trajectory. This is where we want the
+        # tool to be with respect to the task frame. The stiffness we set will
+        # drag the tool towards `desired_tool`.
+        traj = impedance_cmd.task_tform_desired_tool
+        pt1 = traj.points.add()
+        pt1.time_since_reference.CopyFrom(seconds_to_duration(2.0))
+        pt1.pose.CopyFrom(
+            math_helpers.SE3Pose(0, 0, 0, math_helpers.Quat(1, 0, 0,
+                                                            0)).to_proto())
+        pt2 = traj.points.add()
+        pt2.time_since_reference.CopyFrom(seconds_to_duration(4.0))
+        pt2.pose.CopyFrom(
+            math_helpers.SE3Pose(params[0], params[1], 0,
+                                 math_helpers.Quat(1, 0, 0, 0)).to_proto())
+
+        # Execute the impedance command
+        self.robot_command_client.robot_command(robot_cmd)
+        time.sleep(5.0)
+
+        # Move body
+        cmd_id = self.robot_command_client.robot_command(
+            lease=None,
+            command=move_command,
+            end_time_secs=time.time() + COMMAND_TIMEOUT)
+        start_time = time.perf_counter()
+        while (time.perf_counter() - start_time) <= COMMAND_TIMEOUT:
+            feedback = self.robot_command_client.\
+                robot_command_feedback(cmd_id)
+            mobility_feedback = feedback.feedback.\
+                synchronized_feedback.mobility_command_feedback
+            if mobility_feedback.status != \
+                RobotCommandFeedbackStatus.STATUS_PROCESSING:
+                logging.info("Failed to reach the goal")
+                break
+            traj_feedback = mobility_feedback.se2_trajectory_feedback
+            if (traj_feedback.status == traj_feedback.STATUS_AT_GOAL
+                    and traj_feedback.body_movement_status
+                    == traj_feedback.BODY_STATUS_SETTLED):
+                logging.info("Arrived at the goal.")
+                break
+            time.sleep(1)
+        if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
+            logging.info("Timed out waiting for movement to execute!")
+
+        # Stow the arm
+        stow_cmd = RobotCommandBuilder.arm_stow_command()
+        stow_command_id = self.robot_command_client.robot_command(stow_cmd)
+        self.robot.logger.info("Stow command issued.")
+        block_until_arm_arrives(self.robot_command_client, stow_command_id,
+                                3.0)
 
 
 @functools.lru_cache(maxsize=None)
