@@ -94,22 +94,39 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def _create_terminal(cls, name: str,
                          operator: STRIPSOperator) -> ParameterizedTerminal:
-        del name
         max_step_count = 25
 
         def terminal(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
             """Terminate when the option's corresponding operator's effects
             have been reached."""
-            del params
             if "step_count" in memory:
                 step_count = memory["step_count"]
             else:
                 step_count = 0
-            grounded_op = operator.ground(tuple(objects))
-            if all(e.holds(state) for e in grounded_op.add_effects):
-                step_count = 0
-                return True
+
+            if "MoveTo" in operator.name:
+                if len(objects) == 2:
+                    gripper, _ = objects
+                else:
+                    assert len(objects) == 3
+                    gripper, _, _ = objects
+
+                gx = state.get(gripper, "x")
+                gy = state.get(gripper, "y")
+                gz = state.get(gripper, "z")
+
+                assert name.lower() == "move_delta_ee_pose"
+                if "target_pose" not in memory:
+                    memory["target_pose"] = np.array([params[0], params[1], params[2]])
+
+                if np.allclose(np.array([gx, gy, gz]), memory["target_pose"], atol=0.2):
+                    return True
+            else:
+                grounded_op = operator.ground(tuple(objects))
+                if all(e.holds(state) for e in grounded_op.add_effects):
+                    step_count = 0
+                    return True
             if step_count > max_step_count:
                 step_count = 0
                 return True

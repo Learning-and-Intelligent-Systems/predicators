@@ -33,7 +33,7 @@ For more information on installation see \
 https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
         # Predicates
-        self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
+        self._At, self._OnTop, self._TurnedOn, self._CanTurnDial = self.get_goal_at_predicates()
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
@@ -71,7 +71,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
             "light_site", "slide_site", "end_effector"
         ]
         for site in important_sites:
-            state_info[site] = self._gym_env.get_site_xpos(site)
+            state_info[site] = copy.deepcopy(self._gym_env.get_site_xpos(site))
             # Potentially can get this ^ from state
         # Add oven burner plate locations
         burner_poses = {
@@ -109,11 +109,11 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._At, self._TurnedOn, self._OnTop}
+        return {self._At, self._TurnedOn, self._OnTop, self._CanTurnDial}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._At, self._TurnedOn, self._OnTop}
+        return {self._At, self._TurnedOn, self._OnTop, self._CanTurnDial}
 
     @property
     def types(self) -> Set[Type]:
@@ -130,14 +130,10 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""
         self._current_task = self.get_task(train_or_test, task_idx)
-        self._current_observation = {
-            "obs": self._current_task.init_obs,
-            "state_info": self.get_object_centric_state_info()
-        }
         # We now need to reset the underlying gym environment to the correct
         # state.
         seed = utils.get_task_seed(train_or_test, task_idx)
-        self._reset_initial_state_from_seed(seed)
+        self._current_observation = self._reset_initial_state_from_seed(seed)
         return self._copy_observation(self._current_observation)
 
     def simulate(self, state: State, action: Action) -> State:
@@ -146,7 +142,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
     def step(self, action: Action) -> Observation:
         self._gym_env.step(action.arr)
-        self._gym_env.render()
+        #self._gym_env.render()
         obs = self._gym_env.render(mode='rgb_array')  # type: ignore
         self._current_observation = {
             "obs": obs,
@@ -245,9 +241,14 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
     def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         obj = objects[0]
         if obj.name in ["knob3", "knob2"]:
-            return state.get(obj, "angle") > 0.03 or state.get(obj,
-                                                               "angle") < -0.8
+            return state.get(obj, "angle") < -0.8
         return False
+    
+    @classmethod
+    def _CanTurnDial_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        gripper = objects[0]
+        return state.get(gripper, "y") < 0.2 and state.get(gripper, "z") < 2.2
+
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
@@ -259,5 +260,6 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                       self._At_holds),
             Predicate("OnTop", [self.object_type, self.object_type],
                       self._OnTop_holds),
-            Predicate("TurnedOn", [self.object_type], self._On_holds)
+            Predicate("TurnedOn", [self.object_type], self._On_holds),
+            Predicate("CanTurnDial", [self.gripper_type], self._CanTurnDial_holds)
         ]
