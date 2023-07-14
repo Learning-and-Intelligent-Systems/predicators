@@ -217,7 +217,6 @@ def process_image_response(
     num_bytes = 1  # Assume a default of 1 byte encodings.
     if image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         dtype = np.uint16
-        extension = ".png"
     else:
         if image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGB_U8:
             num_bytes = 3
@@ -228,7 +227,6 @@ def process_image_response(
         elif image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
             num_bytes = 2
         dtype = np.uint8  # type: ignore
-        extension = ".jpg"
 
     img = np.frombuffer(image_response.shot.image.data, dtype=dtype)
     if image_response.shot.image.format == image_pb2.Image.FORMAT_RAW:
@@ -393,26 +391,31 @@ def get_object_locations_with_sam(
         x_c = (x1 + x2) / 2
         y_c = (y1 + y2) / 2
 
-        # # TODO: Actually rotate this coordinate back correctly using the code
-        # # snippet below!
-        # # Get the inverse rotation angle
-        # inverse_rotation_angle = -ROTATION_ANGLE[source_name]
-        # # Create a transformation matrix for the inverse rotation
-        # transform_matrix = np.array([[np.cos(inverse_rotation_angle), -np.sin(inverse_rotation_angle)],
-        #                             [np.sin(inverse_rotation_angle),  np.cos(inverse_rotation_angle)]])
-        # # Subtract the center of the image from the pixel location to translate the rotation to the origin
-        # pixel_centered = pixel - np.array([img.shape[1] / 2., img.shape[0] / 2.])
-        # # Apply the rotation
-        # rotated_pixel_centered = np.dot(transform_matrix, pixel_centered)
-        # # Add the center of the image back to the pixel location to translate the rotation back from the origin
-        # rotated_pixel = rotated_pixel_centered + np.array([img.shape[1] / 2., img.shape[0] / 2.])
-
-        # # Now rotated_pixel is the location of the pixel after the inverse rotation
+        # TODO: Actually rotate this coordinate back correctly using the code
+        # snippet below!
+        # Get the inverse rotation angle
+        inverse_rotation_angle = -ROTATION_ANGLE[source_name]
+        # Create a transformation matrix for the inverse rotation
+        transform_matrix = np.array(
+            [[np.cos(inverse_rotation_angle), -np.sin(inverse_rotation_angle)],
+             [np.sin(inverse_rotation_angle),
+              np.cos(inverse_rotation_angle)]])
+        # Subtract the center of the image from the pixel location to translate the rotation to the origin
+        pixel_centered = np.array([x_c, y_c]) - np.array(
+            [rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
+        # Apply the rotation
+        rotated_pixel_centered = np.dot(transform_matrix, pixel_centered)
+        # Add the center of the image back to the pixel location to translate the rotation back from the origin
+        rotated_pixel = rotated_pixel_centered + np.array(
+            [rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
+        # Now rotated_pixel is the location of the pixel after the inverse rotation
+        x_c = rotated_pixel[0]
+        y_c = rotated_pixel[1]
 
         # Plot center and segmentation mask
         if plot:
             plt.imshow(res_segment['masks'][i][0])
-            # plt.scatter(x=x_c, y=y_c, marker='*', color='red', zorder=3)
+            plt.scatter(x=x_c, y=y_c, marker='*', color='red', zorder=3)
             plt.show()
 
         # Get XYZ of the point at center of bounding box and median depth value

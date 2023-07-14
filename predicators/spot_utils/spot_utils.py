@@ -320,12 +320,14 @@ class _SpotInterface():
                     source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
                     # class_name='red hammer',
                     # class_name='yellow-black brush',
-                    class_name='tissue box',
+                    class_name='yellow brush',
                     # TODO add depth camera name
                 )
 
-                if 'tissue box' in sam_pose_results.keys():
-                    viewable_obj_poses = {410: sam_pose_results['tissue box']}
+                if 'yellow brush' in sam_pose_results.keys():
+                    viewable_obj_poses = {
+                        410: sam_pose_results['yellow brush']
+                    }
                 else:
                     viewable_obj_poses = {}
 
@@ -341,7 +343,7 @@ class _SpotInterface():
             #     # class_name='red hammer',
             #     # class_name='yellow-black brush',
             #     # class_name='qr code cube',
-            #     class_name='tissue box',
+            #     class_name='yellow brush',
             #     # TODO add depth camera name
             # )
 
@@ -494,25 +496,11 @@ class _SpotInterface():
             class_name: name of object class
         """
         # Only support using depth image to obatin location
-        # TODO check if they correspond to the same source?
-        # TODO check converting to RGB format correctly - SAM needs RGB
-        # img_rgb, image_response_rgb = self.get_single_camera_image(source_rgb, to_rgb=True)
-        # img_depth, image_response_depth = self.get_single_camera_image(source_depth)
-        #
-        # res_img = {'rgb': img_rgb, 'depth': img_depth}
-        # # res_response = [image_response_rgb, image_response_depth]
-        # res_response = {'rgb': image_response_rgb, 'depth': image_response_depth}
-
-        # FIXME change image resources
-        # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
-        # pixel_format = None if ('hand' in source or 'depth' in source) else image_pb2.Image.PIXEL_FORMAT_RGB_U8
         image_request = [
             build_image_request(source,
                                 pixel_format=None if
                                 ('hand' in source or 'depth' in source) else
                                 image_pb2.Image.PIXEL_FORMAT_RGB_U8)
-            # build_image_request(source, pixel_format=None)
-            # build_image_request(source, pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
             for source in [source_rgb, source_depth]
         ]
         image_responses = self.image_client.get_image(image_request)
@@ -531,7 +519,7 @@ class _SpotInterface():
             res_image=image,
             res_image_responses=image_responses,
             source_name=source_rgb,
-            plot=False)
+            plot=True)
 
         # We only want the most likely sample (for now).
         # NOTE: we make the hard assumption here that
@@ -1006,7 +994,7 @@ class _SpotInterface():
             }
             results = get_pixel_locations_with_sam(
                 # TODO: use the object name
-                classes=["tissue box"],
+                classes=["yellow brush"],
                 in_res_image=image_for_sam,
                 plot=False)
 
