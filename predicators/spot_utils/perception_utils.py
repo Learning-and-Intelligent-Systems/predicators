@@ -210,97 +210,94 @@ def depth_image_to_pointcloud_custom(
     return np.vstack((x, y, z)).T, valid_inds
 
 
-def process_image_response(image, auto_rotate):
+def process_image_response(
+        image_response: bosdyn.api.image_pb2.ImageResponse) -> np.ndarray:
+    """Given a Boston Dynamics SDK image response, extract the correct np array
+    corresponding to the image."""
     num_bytes = 1  # Assume a default of 1 byte encodings.
-    if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+    if image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         dtype = np.uint16
         extension = ".png"
     else:
-        if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGB_U8:
+        if image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGB_U8:
             num_bytes = 3
-        elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGBA_U8:
+        elif image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGBA_U8:
             num_bytes = 4
-        elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U8:
+        elif image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U8:
             num_bytes = 1
-        elif image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
+        elif image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
             num_bytes = 2
-        dtype = np.uint8
+        dtype = np.uint8  # type: ignore
         extension = ".jpg"
 
-    img = np.frombuffer(image.shot.image.data, dtype=dtype)
-    if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
+    img = np.frombuffer(image_response.shot.image.data, dtype=dtype)
+    if image_response.shot.image.format == image_pb2.Image.FORMAT_RAW:
         try:
             # Attempt to reshape array into a RGB rows X cols shape.
-            img = img.reshape(
-                (image.shot.image.rows, image.shot.image.cols, num_bytes))
+            img = img.reshape((image_response.shot.image.rows,
+                               image_response.shot.image.cols, num_bytes))
         except ValueError:
             # Unable to reshape the image data, trying a regular decode.
             img = cv2.imdecode(img, -1)
     else:
         img = cv2.imdecode(img, -1)
 
-    if auto_rotate:
-        img = ndimage.rotate(img, ROTATION_ANGLE[image.source.name])
-
-    return img, extension
+    return img
 
 
-def get_hand_img(options):
-    # Create robot object with an image client.
-    sdk = bosdyn.client.create_standard_sdk('image_capture')
-    robot = sdk.create_robot(options.hostname)
-    bosdyn.client.util.authenticate(robot)
-    robot.sync_with_directory()
-    robot.time_sync.wait_for_sync()
+# def get_hand_img(options):
+#     # Create robot object with an image client.
+#     sdk = bosdyn.client.create_standard_sdk('image_capture')
+#     robot = sdk.create_robot(options.hostname)
+#     bosdyn.client.util.authenticate(robot)
+#     robot.sync_with_directory()
+#     robot.time_sync.wait_for_sync()
 
-    image_client = robot.ensure_client(options.image_service)
+#     image_client = robot.ensure_client(options.image_service)
 
-    # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
-    image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
+#     # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
+#     image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
 
-    image_request = [
-        build_image_request(source, pixel_format=None)
-        for source in image_sources
-    ]
-    image_responses = image_client.get_image(image_request)
+#     image_request = [
+#         build_image_request(source, pixel_format=None)
+#         for source in image_sources
+#     ]
+#     image_responses = image_client.get_image(image_request)
 
-    color_img, _ = process_image_response(image_responses[0], options)
-    print(color_img.shape)
-    # plt.imshow(color_img)
-    # plt.show()
+#     color_img, _ = process_image_response(image_responses[0], options)
+#     print(color_img.shape)
+#     # plt.imshow(color_img)
+#     # plt.show()
 
-    x, valid_inds = depth_image_to_pointcloud_custom(image_responses[1])
+#     x, valid_inds = depth_image_to_pointcloud_custom(image_responses[1])
 
-    d = np.sqrt(np.sum(np.square(x), axis=1))
-    c = (color_img[:, :, ::-1][valid_inds] / 255.).astype(np.float32)
-    # c = np.tile((color_img[valid_inds] / 255.).astype(np.float32)[:, None], (1, 3))
+#     d = np.sqrt(np.sum(np.square(x), axis=1))
+#     c = (color_img[:, :, ::-1][valid_inds] / 255.).astype(np.float32)
+#     # c = np.tile((color_img[valid_inds] / 255.).astype(np.float32)[:, None], (1, 3))
 
-    x = x[d < 2.]
-    c = c[d < 2.]
+#     x = x[d < 2.]
+#     c = c[d < 2.]
 
-    # print(x.shape, c.shape)
+#     # print(x.shape, c.shape)
 
-    # import open3d as o3d
-    # pcd = o3d.geometry.PointCloud()
-    # pcd.points = o3d.utility.Vector3dVector(x)
-    # pcd.colors = o3d.utility.Vector3dVector(c)
-    # o3d.visualization.draw_geometries([pcd])
-    # FIXME error: [Open3D WARNING] [DrawGeometries] Failed creating OpenGL window.
+#     # import open3d as o3d
+#     # pcd = o3d.geometry.PointCloud()
+#     # pcd.points = o3d.utility.Vector3dVector(x)
+#     # pcd.colors = o3d.utility.Vector3dVector(c)
+#     # o3d.visualization.draw_geometries([pcd])
+#     # FIXME error: [Open3D WARNING] [DrawGeometries] Failed creating OpenGL window.
 
-    res = {
-        'rgb': process_image_response(image_responses[0], options)[0],
-        'depth': process_image_response(image_responses[1], options)[0],
-    }
+#     res = {
+#         'rgb': process_image_response(image_responses[0], options)[0],
+#         'depth': process_image_response(image_responses[1], options)[0],
+#     }
 
-    return res, image_responses
+#     return res, image_responses
 
 
-def get_xyz_from_depth(image_response,
-                       depth_value,
-                       point_x,
-                       point_y,
-                       min_dist=0,
-                       max_dist=1000) -> Tuple[float, float, float]:
+def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
+                       depth_value: float, point_x: float,
+                       point_y: float) -> Tuple[float, float, float]:
     """This is a function based on `depth_image_to_pointcloud`"""
     if image_response.source.image_type != image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
         raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
@@ -323,6 +320,7 @@ def get_xyz_from_depth(image_response,
     z = depth_value / depth_scale
     x = np.multiply(z, (point_x - cx)) / fx
     y = np.multiply(z, (point_y - cy)) / fy
+
     return x, y, z
 
 
@@ -381,7 +379,8 @@ def get_object_locations_with_sam(
     res_locations = []
     # Detect multiple objects with their masks
     for i in range(obj_num):
-        rotated_mask = ndimage.rotate(res_segment['masks'][i][0], -ROTATION_ANGLE[source_name])
+        rotated_mask = ndimage.rotate(res_segment['masks'][i][0],
+                                      -ROTATION_ANGLE[source_name])
         # Compute median value of depth
         depth_median = np.median(
             res_image['depth'][rotated_mask
@@ -394,21 +393,21 @@ def get_object_locations_with_sam(
         x_c = (x1 + x2) / 2
         y_c = (y1 + y2) / 2
 
-        # TODO: Actually rotate this coordinate back correctly using the code
-        # snippet below!
-        # Get the inverse rotation angle
-        inverse_rotation_angle = -ROTATION_ANGLE[source_name]
-        # Create a transformation matrix for the inverse rotation
-        transform_matrix = np.array([[np.cos(inverse_rotation_angle), -np.sin(inverse_rotation_angle)],
-                                    [np.sin(inverse_rotation_angle),  np.cos(inverse_rotation_angle)]])
-        # Subtract the center of the image from the pixel location to translate the rotation to the origin
-        pixel_centered = pixel - np.array([img.shape[1] / 2., img.shape[0] / 2.])
-        # Apply the rotation
-        rotated_pixel_centered = np.dot(transform_matrix, pixel_centered)
-        # Add the center of the image back to the pixel location to translate the rotation back from the origin
-        rotated_pixel = rotated_pixel_centered + np.array([img.shape[1] / 2., img.shape[0] / 2.])
+        # # TODO: Actually rotate this coordinate back correctly using the code
+        # # snippet below!
+        # # Get the inverse rotation angle
+        # inverse_rotation_angle = -ROTATION_ANGLE[source_name]
+        # # Create a transformation matrix for the inverse rotation
+        # transform_matrix = np.array([[np.cos(inverse_rotation_angle), -np.sin(inverse_rotation_angle)],
+        #                             [np.sin(inverse_rotation_angle),  np.cos(inverse_rotation_angle)]])
+        # # Subtract the center of the image from the pixel location to translate the rotation to the origin
+        # pixel_centered = pixel - np.array([img.shape[1] / 2., img.shape[0] / 2.])
+        # # Apply the rotation
+        # rotated_pixel_centered = np.dot(transform_matrix, pixel_centered)
+        # # Add the center of the image back to the pixel location to translate the rotation back from the origin
+        # rotated_pixel = rotated_pixel_centered + np.array([img.shape[1] / 2., img.shape[0] / 2.])
 
-        # Now rotated_pixel is the location of the pixel after the inverse rotation
+        # # Now rotated_pixel is the location of the pixel after the inverse rotation
 
         # Plot center and segmentation mask
         if plot:

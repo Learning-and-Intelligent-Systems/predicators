@@ -293,9 +293,6 @@ class _SpotInterface():
         else:
             img = cv2.imdecode(img, -1)
 
-        # FIXME my processing func - remove hacking for now
-        # img, extension = self.process_image_response(image_response[0], False)
-
         # Convert to RGB color, as some perception models assume RGB format
         # By default, still use BGR to keep backward compability
         if to_rgb:
@@ -521,8 +518,8 @@ class _SpotInterface():
         image_responses = self.image_client.get_image(image_request)
 
         image = {
-            'rgb': process_image_response(image_responses[0], False)[0],
-            'depth': process_image_response(image_responses[1], False)[0],
+            'rgb': process_image_response(image_responses[0]),
+            'depth': process_image_response(image_responses[1]),
         }
         image_responses = {
             'rgb': image_responses[0],
@@ -563,23 +560,20 @@ class _SpotInterface():
 
         return {}
 
-    def convert_obj_location(self, camera_tform_body, x, y,
-                             z) -> Tuple[float, float, float]:
+    def convert_obj_location(
+            self, camera_tform_body: bosdyn.client.math_helpers.SE3Pose,
+            x: float, y: float, z: float) -> Tuple[float, float, float]:
+        """Given an x, y, z position in the camera frame, transform it into the
+        map frame."""
         body_tform_object = (camera_tform_body.inverse()).transform_point(
             x, y, z)
-
         # Get graph_nav to body frame.
         state = self.get_localized_state()
-        # TODO check reference frame here
         gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
-
-        # TODO transform from graph nav frame to ground frame
-
         # Apply transform to object to body location
         object_rt_gn_origin = gn_origin_tform_body.transform_point(
             body_tform_object[0], body_tform_object[1], body_tform_object[2])
-
         return object_rt_gn_origin
 
     @staticmethod
@@ -1007,8 +1001,8 @@ class _SpotInterface():
             image_responses = self.image_client.get_image(image_request)
 
             image_for_sam = {
-                'rgb': process_image_response(image_responses[0], False)[0],
-                'depth': process_image_response(image_responses[1], False)[0],
+                'rgb': process_image_response(image_responses[0]),
+                'depth': process_image_response(image_responses[1]),
             }
             results = get_pixel_locations_with_sam(
                 # TODO: use the object name
