@@ -363,6 +363,8 @@ def get_object_locations_with_sam(
 ) -> List[Tuple[float, float, float]]:
     """TODO: Docstring"""
     rotated_rgb = ndimage.rotate(res_image['rgb'], ROTATION_ANGLE[source_name])
+    rotated_depth = ndimage.rotate(res_image['depth'], ROTATION_ANGLE[source_name])
+
     # Plot the image as a debugging tool.
     if plot:
         plt.imshow(rotated_rgb)
@@ -377,12 +379,14 @@ def get_object_locations_with_sam(
     res_locations = []
     # Detect multiple objects with their masks
     for i in range(obj_num):
-        rotated_mask = ndimage.rotate(res_segment['masks'][i][0],
-                                      -ROTATION_ANGLE[source_name])
+        # TODO Rotate both RGB and depth images,
+        #  (Don't rotate mask back as rotation needs padding and is not reversible)
+        # rotated_mask = ndimage.rotate(res_segment['masks'][i][0],
+                                      # -ROTATION_ANGLE[source_name])
         # Compute median value of depth
         depth_median = np.median(
-            res_image['depth'][rotated_mask
-                               & (res_image['depth'] > 2)[:, :, 0]]
+            rotated_depth[res_segment['masks'][i][0]
+                               & (rotated_depth > 2)[:, :, 0]]
             # res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)]  # FIXME not sure why
         )
 
@@ -393,50 +397,57 @@ def get_object_locations_with_sam(
 
         # TODO: Actually rotate this coordinate back correctly using the code
         # snippet below!
+        # FIXME debug
         # Get the inverse rotation angle
         inverse_rotation_angle = -ROTATION_ANGLE[source_name]
         # Create a transformation matrix for the inverse rotation
         transform_matrix = np.array(
             [[np.cos(inverse_rotation_angle), -np.sin(inverse_rotation_angle)],
-             [np.sin(inverse_rotation_angle),
-              np.cos(inverse_rotation_angle)]])
+             [np.sin(inverse_rotation_angle), np.cos(inverse_rotation_angle)]])
         # Subtract the center of the image from the pixel location to translate the rotation to the origin
-        pixel_centered = np.array([x_c, y_c]) - np.array(
-            [rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
+        # center = np.array([rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
+        # TODO x - 0 and y - 1?
+        center = np.array([rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
+        pixel_centered = np.array([x_c, y_c]) - center
         # Apply the rotation
         rotated_pixel_centered = np.dot(transform_matrix, pixel_centered)
         # Add the center of the image back to the pixel location to translate the rotation back from the origin
-        rotated_pixel = rotated_pixel_centered + np.array(
-            [rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
+        rotated_pixel = rotated_pixel_centered + center
         # Now rotated_pixel is the location of the pixel after the inverse rotation
-        x_c = rotated_pixel[0]
-        y_c = rotated_pixel[1]
+        x_c_rotated = rotated_pixel[0]
+        y_c_rotated = rotated_pixel[1]
 
         # Plot center and segmentation mask
+        # TODO masks are for rotated RGB image, so we use the centroid xy computed from it
         if plot:
             plt.imshow(res_segment['masks'][i][0])
             plt.scatter(x=x_c, y=y_c, marker='*', color='red', zorder=3)
             plt.show()
 
         # Get XYZ of the point at center of bounding box and median depth value
+        # TODO want to compute xyz in original frame, so we use original depth image and rotate xy back
         x0, y0, z0 = get_xyz_from_depth(res_image_responses['depth'],
                                         depth_value=depth_median,
-                                        point_x=x_c,
-                                        point_y=y_c)
+                                        point_x=x_c_rotated,
+                                        point_y=y_c_rotated)
 
         res_locations.append((x0, y0, z0))
 
-        x, valid_inds = depth_image_to_pointcloud_custom(
-            res_image_responses['depth'],
-            masks=res_segment['masks'][i][0],
-        )
-
-        if plot:
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(x[:, 0], x[:, 1], x[:, 2], c='blue', marker='.')
-
-            ax.scatter(xs=x0, ys=y0, zs=z0, c='red', marker='*', s=100)
-            plt.show()
+        # TODO also need to rotate
+        # FIXME - can't rotate depth because image response has camera intrinsics,
+        #  but it's also tricky to rotate masks back. But only for visualization, commented for now
+        # x, valid_inds = depth_image_to_pointcloud_custom(
+        #     # res_image_responses['depth'],
+        #     rotated_depth,
+        #     masks=res_segment['masks'][i][0],
+        # )
+        #
+        # if plot:
+        #     fig = plt.figure()
+        #     ax = fig.add_subplot(111, projection='3d')
+        #     ax.scatter(x[:, 0], x[:, 1], x[:, 2], c='blue', marker='.')
+        #
+        #     ax.scatter(xs=x0, ys=y0, zs=z0, c='red', marker='*', s=100)
+        #     plt.show()
 
     return res_locations
