@@ -116,7 +116,8 @@ def query_sam(image_in: np.ndarray,
     #, we only select the most confident one.
     k = 1
     topk_idx = np.argpartition(d['scores'], -k)[-k:]
-    threshold_idx = np.where(d['scores'] > 0.40)[0]
+    # threshold_idx = np.where(d['scores'] > 0.40)[0]
+    threshold_idx = np.where(d['scores'] > 0.30)[0]
     selected_idxs = np.intersect1d(topk_idx, threshold_idx).tolist()
     if len(selected_idxs) == 0:
         return None
@@ -385,9 +386,7 @@ def get_object_locations_with_sam(
                                       # -ROTATION_ANGLE[source_name])
         # Compute median value of depth
         depth_median = np.median(
-            rotated_depth[res_segment['masks'][i][0]
-                               & (rotated_depth > 2)[:, :, 0]]
-            # res_image['depth'][res_segment['masks'][i][0] & (res_image['depth'] > 2)]  # FIXME not sure why
+            rotated_depth[res_segment['masks'][i][0] & (rotated_depth > 2)[:, :, 0]]
         )
 
         # Compute geometric center of object bounding box
@@ -405,7 +404,6 @@ def get_object_locations_with_sam(
             [[np.cos(inverse_rotation_angle), -np.sin(inverse_rotation_angle)],
              [np.sin(inverse_rotation_angle), np.cos(inverse_rotation_angle)]])
         # Subtract the center of the image from the pixel location to translate the rotation to the origin
-        # center = np.array([rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
         # TODO x - 0 and y - 1?
         center = np.array([rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
         pixel_centered = np.array([x_c, y_c]) - center
