@@ -15,11 +15,12 @@ def test_init_sampler():
     utils.reset_config({"env": "ballbin"})
     env = BallbinEnv()
     # t = env._get_tasks(1, [200], env._train_rng)
-    for _ in range(10):
+    for _ in range(1):
         t = env._get_tasks(1, [10], [0], env._train_rng)
         state = t[0].init
         env.render_state_plt(state, t[0])
-        plt.show()
+        # plt.show()
+        plt.savefig("blocks.pdf")
         plt.close()
 
 def test_navigate_bin_action():

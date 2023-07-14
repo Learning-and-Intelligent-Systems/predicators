@@ -29,9 +29,13 @@ class SamplerVizEnv(BaseEnv):
     book_w_ub: ClassVar[float] = 1
     book_h_lb: ClassVar[float] = 1
     book_h_ub: ClassVar[float] = 1.5
-    _shelf_color: ClassVar[List[float]] = [0.89, 0.82, 0.68]
+    # _shelf_color: ClassVar[List[float]] = [0.89, 0.82, 0.68]
+    _shelf_color: ClassVar[str] = "#377eb8"
     _robot_color: ClassVar[List[float]] = [0.5, 0.5, 0.5]
-
+    # _robot_color: ClassVar[str] = "#999999"
+    _goal_color: ClassVar[List[float]] = [1, 0, 0]
+    # _goal_color: ClassVar[str] = "#ff7f00"
+    _goal_reached_color: ClassVar[List[float]] = [0, 1, 0]
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
@@ -54,8 +58,8 @@ class SamplerVizEnv(BaseEnv):
         self._OnGoal = Predicate("OnGoal", [self._shelf_type], self._OnGoal_holds)
 
         # Options
-        lo = [-8, -4]
-        hi = [9, 5]
+        lo = [-1, -2]
+        hi = [2, 3]
         self._NavigateTo = utils.SingletonParameterizedOption(
             # variables: [robot, object to navigate to]
             # params: [offset_x, offset_y]
@@ -254,11 +258,69 @@ class SamplerVizEnv(BaseEnv):
         # [x, y, yaw, offset_gripper, pick_place_navigate]
         # yaw is only used for pick actions
         # pick_place_navigate is -1 for pick, 0 for push, 1 for navigate
-        lowers = np.array([self.env_x_lb, self.env_y_lb, -np.pi, 0.0, -1.0],
+        lowers = np.array([self.env_x_lb-20, self.env_y_lb-20, -np.pi, 0.0, -1.0],
                           dtype=np.float32)
-        uppers = np.array([self.env_x_ub, self.env_y_ub, np.pi, 1.0, 1.0],
+        uppers = np.array([self.env_x_ub+20, self.env_y_ub+20, np.pi, 1.0, 1.0],
                           dtype=np.float32)
         return Box(lowers, uppers)
+
+    def render_overlying_states_plt(self, states):
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+        
+        shelf = self._shelf
+        robby = self._robot
+        goal = self._goal
+        
+        for state in states:
+
+            # Draw robot
+            robby_x = state.get(robby, "pose_x")
+            robby_y = state.get(robby, "pose_y")
+            robby_yaw = state.get(robby, "yaw")
+            gripper_free = state.get(robby, "gripper_free") == 1.0
+            circ = utils.Circle(robby_x, robby_y, self.robot_radius)
+            circ.plot(ax, facecolor=self._robot_color, alpha=0.1)
+            # offset_gripper = 0 if gripper_free else 1
+            # tip_x = robby_x + (self.robot_radius + offset_gripper *
+            #                    self.gripper_length) * np.cos(robby_yaw)
+            # tip_y = robby_y + (self.robot_radius + offset_gripper *
+            #                    self.gripper_length) * np.sin(robby_yaw)
+            # gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
+            # gripper_line.plot(ax, color="white", alpha=0.1)
+
+            # Draw shelf
+            shelf_x = state.get(shelf, "pose_x")
+            shelf_y = state.get(shelf, "pose_y")
+            shelf_w = state.get(shelf, "width")
+            shelf_h = state.get(shelf, "height")
+            shelf_yaw = state.get(shelf, "yaw")
+            holding = state.get(shelf, "held") == 1.0
+            if holding:
+                aux_x = tip_x + shelf_x * np.sin(robby_yaw) + shelf_y * np.cos(robby_yaw)
+                aux_y = tip_y + shelf_y * np.sin(robby_yaw) - shelf_x * np.cos(robby_yaw)
+                shelf_x = aux_x
+                shelf_y = aux_y
+                shelf_yaw += robby_yaw
+            while shelf_yaw > np.pi:
+                shelf_yaw -= (2 * np.pi)
+            while shelf_yaw < -np.pi:
+                shelf_yaw += (2 * np.pi)
+            rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw)
+            rect.plot(ax, facecolor=self._shelf_color, edgecolor="black", alpha=0.1)
+
+            # # Draw goal
+            # goal_x = state.get(goal, "x")
+            # goal_y = state.get(goal, "y")
+            # circle = utils.Circle(goal_x, goal_y, 0.5)
+            # circle.plot(ax, facecolor=self._goal_color if not self._OnGoal_holds(state, [self._shelf]) else self._goal_reached_color, alpha=0.1)
+
+            ax.set_xlim(self.env_x_lb, self.env_x_ub)
+            ax.set_ylim(self.env_y_lb, self.env_y_ub)
+            # plt.suptitle(caption, fontsize=12, wrap=True)
+            plt.tight_layout()
+            plt.axis("off")
+        return fig
+
 
     def render_state_plt(
             self,
@@ -279,14 +341,16 @@ class SamplerVizEnv(BaseEnv):
         robby_yaw = state.get(robby, "yaw")
         gripper_free = state.get(robby, "gripper_free") == 1.0
         circ = utils.Circle(robby_x, robby_y, self.robot_radius)
-        circ.plot(ax, facecolor=self._robot_color)
-        offset_gripper = 0  # if gripper_free else 1
+        # circ.plot(ax, facecolor=self._robot_color)
+        circ.plot(ax, facecolor=self._robot_color, edgecolor="black")
+        offset_gripper = 0 if gripper_free else 1
         tip_x = robby_x + (self.robot_radius + offset_gripper *
                            self.gripper_length) * np.cos(robby_yaw)
         tip_y = robby_y + (self.robot_radius + offset_gripper *
                            self.gripper_length) * np.sin(robby_yaw)
         gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
-        gripper_line.plot(ax, color="white")
+        # gripper_line.plot(ax, color="white")
+        gripper_line.plot(ax, color="black")
 
         # Draw shelf
         shelf_x = state.get(shelf, "pose_x")
@@ -306,7 +370,7 @@ class SamplerVizEnv(BaseEnv):
         while shelf_yaw < -np.pi:
             shelf_yaw += (2 * np.pi)
         rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw)
-        rect.plot(ax, facecolor=self._shelf_color)
+        rect.plot(ax, facecolor=self._shelf_color, edgecolor="black")
 
         # Draw books
         for b in sorted(books):
@@ -328,12 +392,13 @@ class SamplerVizEnv(BaseEnv):
         # Draw goal
         goal_x = state.get(goal, "x")
         goal_y = state.get(goal, "y")
-        circle = utils.Circle(goal_x, goal_y, 0.1)
-        circle.plot(ax, facecolor="red")
+        # circle = utils.Circle(goal_x, goal_y, 0.1)
+        circle = utils.Circle(goal_x, goal_y, 0.5)
+        circle.plot(ax, facecolor=self._goal_color if not self._OnGoal_holds(state, [self._shelf]) else self._goal_reached_color)
 
         ax.set_xlim(self.env_x_lb, self.env_x_ub)
         ax.set_ylim(self.env_y_lb, self.env_y_ub)
-        plt.suptitle(caption, fontsize=12, wrap=True)
+        # plt.suptitle(caption, fontsize=12, wrap=True)
         plt.tight_layout()
         plt.axis("off")
         return fig
@@ -371,7 +436,7 @@ class SamplerVizEnv(BaseEnv):
 
             # Sample goal location
             goal_x = rng.uniform(shelf_x, shelf_x + shelf_w)
-            goal_y = rng.uniform(shelf_y + shelf_y, self.env_y_ub)
+            goal_y = rng.uniform(shelf_y + 2 * shelf_h, self.env_y_ub)
             goal_obj = Object("goal", self._goal_type)
             data[goal_obj] = np.array([goal_x, goal_y], dtype=np.float32)
             if CFG.sampler_viz_singlestep_goal:

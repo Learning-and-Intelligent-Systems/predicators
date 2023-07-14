@@ -100,6 +100,42 @@ class LifelongSamplerLearningApproach(BilevelPlanningApproach):
         raise 'NotImplementedError'
         # TODO: I should probably implement checkpointing here
 
+    def load_checkpoint(self) -> int:
+        self._save_dict = torch.load(f"{CFG.results_dir}/{utils.get_config_path_str()}__checkpoint.pt")
+        self._initialize_ebm_samplers()
+        self._online_learning_cycle = 1 + max(nsrt_dict["online_learning_cycle"] for nsrt_dict in self._save_dict.values())
+        
+        def load_ebm(state_dict, ebm):
+            ebm._input_scale = state_dict["input_scale"]
+            ebm._input_shift = state_dict["input_shift"]
+            ebm._output_scale = state_dict["output_scale"]
+            ebm._output_shift = state_dict["output_shift"]
+            ebm.is_trained = state_dict["is_trained"]
+            ebm._x_cond_dim = state_dict["x_cond_dim"]
+            ebm._t_dim = state_dict["t_dim"]
+            ebm._y_dim = state_dict["y_dim"]
+            ebm._x_dim = state_dict["x_dim"]
+            ebm._initialize_net()
+            ebm.to(ebm._device)
+            ebm.load_state_dict(state_dict["model_state"])
+            ebm._create_optimizer()
+            ebm._optimizer.load_state_dict(state_dict["optimizer_state"])
+
+        for ebm, nsrt, replay in zip(self._ebms, self._nsrts, self._replay):
+            if nsrt.name in self._save_dict:
+                nsrt_dict = self._save_dict[nsrt.name]
+                assert len(replay[0]) == len(replay[1]) == 0
+                replay[0].extend(nsrt_dict["replay"][0])
+                replay[1].extend(nsrt_dict["replay"][1])
+                load_ebm(nsrt_dict, ebm)
+                logging.info(f"Successfully loaded model for {nsrt.name}")
+        
+        self._next_train_task = (CFG.lifelong_burnin_period or CFG.interactive_num_requests_per_cycle) + (self._online_learning_cycle - 1) * CFG.interactive_num_requests_per_cycle
+
+        return self._online_learning_cycle 
+
+
+
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # TODO: I'm not sure whether it makes more sense to treat the initial
         # data collection like all the others or have it be "demos"

@@ -15,11 +15,12 @@ def test_init_sampler():
     utils.reset_config({"env": "boxtray"})
     env = BoxtrayEnv()
     # t = env._get_tasks(1, [200], env._train_rng)
-    for _ in range(10):
+    for _ in range(2):
         t = env._get_tasks(1, [6], [0], env._train_rng)
         state = t[0].init
         env.render_state_plt(state, t[0])
-        plt.show()
+        # plt.show()
+        plt.savefig("boxes.pdf")
         plt.close()
 
 def test_navigate_tray_action():

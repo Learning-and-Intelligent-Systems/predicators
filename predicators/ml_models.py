@@ -1556,6 +1556,87 @@ class DiffusionRegressor(nn.Module):
         logging.info(f"Distilled model with loss: {cum_loss:.5f}")
         return cum_loss
 
+    def fit_balanced(self, data_1, data_2) -> None:
+        assert self.is_trained 
+
+        X_cond_1, Y_out_1, Y_aux_1 = data_1
+        X_cond_2, Y_out_2, Y_aux_2 = data_2
+
+        X_cond_1 = ((X_cond_1 - self._input_shift) / self._input_scale) * 2 - 1
+        Y_out_1 = ((Y_out_1 - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux_1 is not None:
+            Y_aux_1 = ((Y_aux_1 - self._output_aux_shift) / self._output_aux_scale) * 2 - 1       
+        X_cond_2 = ((X_cond_2 - self._input_shift) / self._input_scale) * 2 - 1
+        Y_out_2 = ((Y_out_2 - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux_2 is not None:
+            Y_aux_2 = ((Y_aux_2 - self._output_aux_shift) / self._output_aux_scale) * 2 - 1       
+
+
+        size_1 = X_cond_1.shape[0]
+        size_2 = X_cond_2.shape[0]
+        # Make sure both dataloaders have the same # batches
+        pow_2 = 512
+        batch_size_2 = 0
+        while batch_size_2 == 0:
+            batch_size_1 = pow_2
+            batch_size_2 = pow_2 * min(size_1, size_2) // max(size_1, size_2)
+            pow_2 *= 2
+        if size_2 > size_1:
+            batch_size_2, batch_size_1 = batch_size_1, batch_size_2
+        
+        logging.info(f"Balanced training with {size_1} datapoints and "
+                      f"{size_2} datapoints into {self.__class__.__name__}")
+
+        tensor_X_cond_1 = torch.from_numpy(np.array(X_cond_1, dtype=np.float32)).to(self._device)
+        tensor_Y_out_1 = torch.from_numpy(np.array(Y_out_1, dtype=np.float32)).to(self._device)
+        if Y_aux_1 is not None:
+            tensor_Y_aux_1 = torch.from_numpy(np.array(Y_aux_1, dtype=np.float32)).to(self._device)
+            data_1 = torch.utils.data.TensorDataset(tensor_X_cond_1, tensor_Y_out_1, tensor_Y_aux_1)
+        else:
+            data_1 = torch.utils.data.TensorDataset(tensor_X_cond_1, tensor_Y_out_1)
+        dataloader_1 = torch.utils.data.DataLoader(data_1, batch_size=batch_size_1, shuffle=True)
+
+        tensor_X_cond_2 = torch.from_numpy(np.array(X_cond_2, dtype=np.float32)).to(self._device)
+        tensor_Y_out_2 = torch.from_numpy(np.array(Y_out_2, dtype=np.float32)).to(self._device)
+        if Y_aux_2 is not None:
+            tensor_Y_aux_2 = torch.from_numpy(np.array(Y_aux_2, dtype=np.float32)).to(self._device)
+            data_2 = torch.utils.data.TensorDataset(tensor_X_cond_2, tensor_Y_out_2, tensor_Y_aux_2)
+        else:
+            data_2 = torch.utils.data.TensorDataset(tensor_X_cond_2, tensor_Y_out_2)
+        dataloader_2 = torch.utils.data.DataLoader(data_2, batch_size=batch_size_2, shuffle=True)
+
+        optimizer = self._optimizer
+        assert isinstance(self._max_train_iters, int)
+        self.train()
+        for itr in range(self._max_train_iters // 10):
+            cum_loss = 0
+            n = 0
+            for tensors_1, tensors_2 in zip(dataloader_1, dataloader_2):
+                if len(tensors_1) == 3:
+                    tensor_X_1, tensor_Y_1, tensor_Y_aux_1 = tensors_1
+                    tensor_X_2, tensor_Y_2, tensor_Y_aux_2 = tensors_2
+                else:
+                    tensor_X_1, tensor_Y_1 = tensors_1
+                    tensor_X_2, tensor_Y_2 = tensors_2
+                    tensor_Y_aux_1 = None
+                    tensor_Y_aux_2 = None
+                t_1 = torch.randint(0, self._timesteps, (tensor_X_1.shape[0],), device=self._device)
+                t_2 = torch.randint(0, self._timesteps, (tensor_X_2.shape[0],), device=self._device)
+                loss = self._p_losses(tensor_X_1, tensor_Y_1, t_1, tensor_Y_aux_1)
+                loss += self._p_losses(tensor_X_2, tensor_Y_2, t_2, tensor_Y_aux_2)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                cum_loss += loss.item() * (tensor_X_1.shape[0] + tensor_X_2.shape[0])
+                n += tensor_X_1.shape[0] + tensor_X_2.shape[0]
+            cum_loss /= n
+            if itr % 10 == 0:
+                logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{self._max_train_iters}")
+
+        self.eval()
+        logging.info(f"Distilled model with loss: {cum_loss:.5f}")
+        return cum_loss
+
 
     @torch.no_grad()
     def _p_sample(self, x_cond, y_out, t, t_index):
@@ -1715,6 +1796,7 @@ class DiffusionRegressor(nn.Module):
 
         return loss_1 + loss_2
 
+    @torch.no_grad()
     def predict_aux(self, x_cond: Array, y_out: Array) -> Array:
         x_cond = ((x_cond - self._input_shift) / self._input_scale) * 2 - 1
         x_cond_tensor = torch.from_numpy(np.array(x_cond, dtype=np.float32)).to(self._device)

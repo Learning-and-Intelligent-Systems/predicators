@@ -499,7 +499,9 @@ class GlobalSettings:
     save_only_exploration_results = True
     lifelong_method = "retrain" # "retrain", "distill", "2-distill"
     lifelong_burnin_period = None
+    lifelong_start_from_checkpoint = False
     torch_num_threads = 1
+
 
     # bookshelf env parameters
     bookshelf_num_books_train = [4, 5]#[3, 4]#[2, 3]#[8, 9]#
@@ -522,6 +524,7 @@ class GlobalSettings:
     viz_sampling_distributions = False
     sesame_max_samples_total = float('inf')
     exit_if_result_exists = True
+    use_fully_uniform_actions = False
 
     mix_samplers_uniform = True
     mix_samplers_predictor = False

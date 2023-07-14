@@ -49,11 +49,19 @@ class CupboardEnv(BaseEnv):
         self._GripperFree = Predicate("GripperFree", [self._robot_type], self._GripperFree_holds)
         # Options
         if CFG.bookshelf_add_sampler_idx_to_params:
-            lo = [0, -8, -8]
-            hi = [2, 9, 9]
+            if CFG.use_fully_uniform_actions:
+                lo = [0, self.env_x_lb, self.env_y_lb]
+                hi = [2, self.env_x_ub, self.env_y_ub]
+            else:
+                lo = [0, -8, -8]
+                hi = [2, 9, 9]
         else:
-            lo = [-8, -8]
-            hi = [9, 9]
+            if CFG.use_fully_uniform_actions:
+                lo = [self.env_x_lb, self.env_y_lb]
+                hi = [self.env_x_ub, self.env_y_ub]
+            else:
+                lo = [-8, -8]
+                hi = [9, 9]
         self._NavigateTo = utils.SingletonParameterizedOption(
             # variables: [robot, object to navigate to]
             # params: [offset_x, offset_y]
@@ -637,10 +645,29 @@ class CupboardEnv(BaseEnv):
         obj_w = state.get(obj, "width")
         obj_h = state.get(obj, "height")
         obj_yaw = state.get(obj, "yaw")
-        if CFG.bookshelf_add_sampler_idx_to_params:
-            _, offset_x, offset_y = params
+        if CFG.use_fully_uniform_actions:
+            if CFG.bookshelf_add_sampler_idx_to_params:
+                _, param_pos_x, param_pos_y = params
+            else:
+                param_pos_x, param_pos_y = params
+
+            # pos_x cos = obj_x cos + obj_w offset_x cos2 - obj_h offset_y sincos
+            # pos_y sin = obj_y sin + obj_w offset_x sin2 + obj_h offset_y sincos
+            # pos_x cos + pos_y sin = obj_x cos + obj_y sin + obj_w offset_x
+            # offset_x = ((pos_x - obj_x) cos + (pos_y - obj_y) sin) / obj_w
+
+            # pos_x sin = obj_x sin + obj_w offset_x sincos - obj_h offset_y sin2
+            # pos_y cos = obj_y cos + obj_w offset_x sincos + obj_h offset_y cos2
+            # pos_y cos - pos_x sin = obj_y cos - obj_x sin + obj_h offset_y
+            # offset_y = ((pos_y - obj_y) cos - (pos_x - obj_x) sin) / obj_h
+
+            offset_x = ((param_pos_x - obj_x) * np.cos(obj_yaw) + (param_pos_y - obj_y) * np.sin(obj_yaw)) / obj_w
+            offset_y = ((param_pos_y - obj_y) * np.cos(obj_yaw) - (param_pos_x - obj_x) * np.sin(obj_yaw)) / obj_h
         else:
-            offset_x, offset_y = params
+            if CFG.bookshelf_add_sampler_idx_to_params:
+                _, offset_x, offset_y = params
+            else:
+                offset_x, offset_y = params
 
         pos_x = obj_x + obj_w * offset_x * np.cos(obj_yaw) - \
                 obj_h * offset_y * np.sin(obj_yaw)

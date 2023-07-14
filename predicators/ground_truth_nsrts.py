@@ -71,6 +71,8 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_planar_behavior_gt_nsrts(env_name)
     elif env_name == 'sampler_viz':
         nsrts = _get_sampler_viz_gt_nsrts(env_name)
+    elif env_name == 'sampler_viz2':
+        nsrts = _get_sampler_viz2_gt_nsrts(env_name)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -3723,6 +3725,38 @@ def _get_planar_behavior_gt_nsrts(env_name: str) -> Set[NSRT]:
     nsrts.add(place_nsrt)
 
     return nsrts
+
+def _get_sampler_viz2_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for SamplerViz2Env."""
+    container_type, block_type = _get_types_by_names(env_name, ["container", "block"])
+    InContainer, = _get_predicates_by_names(env_name, ["InContainer"])
+    PlaceBlock, = _get_options_by_names(env_name, ["PlaceBlock"])
+
+    # PlaceBlock
+    container = Variable("?container", container_type)
+    block = Variable("?block", block_type)
+    parameters = [container, block]
+    option_vars = [block, container]
+    option = PlaceBlock
+    preconditions = set()
+    add_effects = {LiftedAtom(InContainer, [block, container])}
+    delete_effects = set()
+    ignore_effects = set()
+
+    def placeblock_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object],
+                           skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton
+        option = PlaceBlock
+        low = option.params_space.low
+        high = option.params_space.high
+        return rng.uniform(low, high)
+
+    placeblock_nsrt = NSRT("PlaceBlock", parameters, preconditions,
+                           add_effects, delete_effects, ignore_effects,
+                           option, option_vars, placeblock_sampler)
+    return {placeblock_nsrt}
 
 def _get_sampler_viz_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for SamplerVizEnv."""

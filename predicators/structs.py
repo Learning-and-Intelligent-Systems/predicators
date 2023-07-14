@@ -1263,7 +1263,6 @@ class InteractionRequest:
     termination_function: Callable[[State], bool]
     skeleton: List[_GroundNSRT]
 
-
 @dataclass(frozen=True, eq=False, repr=False)
 class InteractionResult:
     """The result of an InteractionRequest. Contains a list of states, a list

@@ -162,6 +162,11 @@ def _run_pipeline(env: BaseEnv,
             results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
+
+        # Start from checkpoint
+        if CFG.lifelong_start_from_checkpoint:
+            CFG.skip_until_cycle = approach.load_checkpoint()
+
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:

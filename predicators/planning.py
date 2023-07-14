@@ -534,18 +534,20 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
         num_tries[cur_idx] += 1
-        # logging.info(f"{skeleton[cur_idx].name}, {num_tries[cur_idx]}")
+        # logging.info(f"{skeleton[cur_idx].name}, {skeleton[cur_idx].objects},  {num_tries[cur_idx]}")
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, task.goal, skeleton[cur_idx+1:], rng_sampler)
+        # logging.info(f"\t{option.params}")
         plan[cur_idx] = option
         # Increment num_samples metric by 1
         metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
         if option.initiable(state):
+            # logging.info("option is initiable")
             try:
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
@@ -570,6 +572,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                             static_obj_changed = True
                             break
                 if static_obj_changed:
+                    # logging.info("static_obj_changed, fail")
                     can_continue_on = False
                 # Check if we have exceeded the horizon.
                 elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
@@ -598,6 +601,9 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                                 return [plan] + all_failed_refinements, True
                             return plan, True  # success!
                     else:
+                        # logging.info("Expected atoms check failed")
+                        # logging.info(f"\tExpected: {expected_atoms}")
+                        # logging.info(f"\tActual: {traj[cur_idx]}")
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
@@ -1058,6 +1064,11 @@ def _sesame_plan_with_fast_downward(
             skeleton.append(ground_nsrt)
             atoms_sequence.append(
                 utils.apply_operator(ground_nsrt, atoms_sequence[-1]))
+        # Good debug point #1: print out the skeleton here to see what
+        # for act in skeleton:
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
+
         if len(skeleton) > max_horizon:
             raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
         # Run low-level search on this skeleton.
