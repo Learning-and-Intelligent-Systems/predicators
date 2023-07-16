@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -20,9 +20,8 @@ from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
-    GRAV_ALIGNED_BODY_FRAME_NAME, GROUND_PLANE_FRAME_NAME, ODOM_FRAME_NAME, \
-    VISION_FRAME_NAME, get_a_tform_b, get_se2_a_tform_b, \
-    get_vision_tform_body
+    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, \
+    get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
@@ -301,8 +300,7 @@ class _SpotInterface():
         return (img, image_response)
 
     def get_objects_in_view_by_camera(
-        self,
-        from_apriltag: bool = False  # TODO hardcode
+        self, from_apriltag: bool
     ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get objects currently in view for each camera."""
         tag_to_pose: Dict[str,
@@ -318,35 +316,17 @@ class _SpotInterface():
                 sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
                     source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
-                    # class_name='red hammer',
-                    # class_name='yellow-black brush',
                     class_name='yellow brush',
-                    # TODO add depth camera name
+                    # TODO: use names of different objects
+                    # correctly.
                 )
 
-                if 'yellow brush' in sam_pose_results.keys():
+                if 'yellow brush' in sam_pose_results:
                     viewable_obj_poses = {
                         410: sam_pose_results['yellow brush']
                     }
                 else:
                     viewable_obj_poses = {}
-
-            # # if from_apriltag:
-            # # TODO
-            # # viewable_obj_poses = self.get_apriltag_pose_from_camera(
-            # #     source_name=source_name)
-            # # print('positions from april tags: ', viewable_obj_poses)
-            # # else:
-            # viewable_obj_poses = self.get_sam_object_loc_from_camera(
-            #     source_rgb=source_name,
-            #     source_depth='hand_depth_in_hand_color_frame',
-            #     # class_name='red hammer',
-            #     # class_name='yellow-black brush',
-            #     # class_name='qr code cube',
-            #     class_name='yellow brush',
-            #     # TODO add depth camera name
-            # )
-
             tag_to_pose[source_name].update(viewable_obj_poses)
 
         apriltag_id_to_obj_name = {
@@ -527,14 +507,6 @@ class _SpotInterface():
         # type. We can relax this later.
         if len(res_locations) > 0:
             assert len(res_locations) == 1
-
-            # TODO transform into the correct reference frame - need to double check
-            # Camera body transform.
-            # camera_tform_body = get_a_tform_b(
-            #     res_response[0].shot.transforms_snapshot,
-            #     res_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
-
-            # TODO hack
             camera_tform_body = get_a_tform_b(
                 image_responses['depth'].shot.transforms_snapshot,
                 image_responses['depth'].shot.frame_name_image_sensor,
@@ -766,24 +738,22 @@ class _SpotInterface():
             waypoint = get_memorized_waypoint(waypoint_name)
             assert waypoint is not None
             waypoint_id, offset = waypoint
-            # FIXME comment out for testing
             self.navigate_to(waypoint_id, offset)
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
-
-                # TODO hack on this: test with and without april tag, then
-                # objects_in_view_by_camera = self.get_objects_in_view_by_camera()
-                objects_in_view_by_camera_apriltag = self.get_objects_in_view_by_camera(
-                    from_apriltag=True)
-                objects_in_view_by_camera_sam = self.get_objects_in_view_by_camera(
-                    from_apriltag=False)
-
+                # We want to get objects in view both using AprilTags and
+                # using SAM.
+                objects_in_view_by_camera_apriltag = \
+                    self.get_objects_in_view_by_camera(from_apriltag=True)
+                objects_in_view_by_camera_sam = \
+                    self.get_objects_in_view_by_camera(from_apriltag=False)
+                # Combine these together to get all objects in view.
                 objects_in_view_by_camera = {}
                 objects_in_view_by_camera.update(objects_in_view_by_camera_sam)
-                for k in objects_in_view_by_camera.keys():
-                    objects_in_view_by_camera[k].update(
-                        objects_in_view_by_camera_apriltag[k])
-
+                for k, v in objects_in_view_by_camera.items():
+                    v.update(objects_in_view_by_camera_apriltag[k])
+                # Now update the seen objects vs. objects still
+                # being searched for.
                 for v in objects_in_view_by_camera.values():
                     objects_in_view.update(v)
                 obj_poses.update(objects_in_view)
@@ -975,13 +945,9 @@ class _SpotInterface():
                 g_image_click = _find_object_center(img, obj.name)
 
         elif CFG.spot_grasp_use_sam:
-            # TODO hack get image
             image_sources = [
                 "hand_color_image", "hand_depth_in_hand_color_frame"
             ]
-
-            # FIXME change image resources
-            # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
             image_request = [
                 build_image_request(source, pixel_format=None)
                 for source in image_sources

@@ -1,3 +1,6 @@
+"""A set of utility functions for integrating deep-learning based
+perception models with the Boston Dynamics Spot robot."""
+
 import io
 from typing import Dict, List, Optional, Tuple
 
@@ -10,7 +13,7 @@ import numpy as np
 import requests
 from bosdyn.api import image_pb2
 from bosdyn.client.image import _depth_image_data_to_numpy, \
-    _depth_image_get_valid_indices, build_image_request
+    _depth_image_get_valid_indices
 from PIL import Image
 from scipy import ndimage
 
@@ -35,6 +38,7 @@ def image_to_bytes(img: Image.Image) -> io.BytesIO:
 
 
 def visualize_output(im, masks, input_boxes, classes, scores) -> None:
+    """Visualizes the output of SAM; useful for debugging."""
     plt.figure(figsize=(10, 10))
     plt.imshow(im)
     for mask in masks:
@@ -56,6 +60,7 @@ def visualize_output(im, masks, input_boxes, classes, scores) -> None:
 
 
 def show_mask(mask, ax, random_color: bool = False) -> None:
+    """Helper function for visualization that displays a segmentation mask."""
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
@@ -66,6 +71,7 @@ def show_mask(mask, ax, random_color: bool = False) -> None:
 
 
 def show_box(box, ax) -> None:
+    """Helper function for visualization that displays a bounding box."""
     x0, y0 = box[0], box[1]
     w, h = box[2] - box[0], box[3] - box[1]
     ax.add_patch(
@@ -128,8 +134,8 @@ def query_sam(image_in: np.ndarray,
         "scores": []
     }
     for i in selected_idxs:
-        for key in d.keys():
-            d_filtered[key].append(d[key][i])
+        for key, value in d.items():
+            d_filtered[key].append(value[i])
 
     return d_filtered
 
@@ -153,27 +159,33 @@ def depth_image_to_pointcloud_custom(
     scale factor to convert that distance to meters. In addition, values of
     zero and 2^16 (uint 16 maximum) are used to represent invalid indices.
 
-    A (min_dist * depth_scale) value that casts to an integer value <=0 will be assigned a
-    value of 1 (the minimum representational distance). Similarly, a (max_dist * depth_scale)
-    value that casts to >= 2^16 will be assigned a value of 2^16 - 1 (the maximum
-    representational distance).
+    A (min_dist * depth_scale) value that casts to an integer value <=0
+    will be assigned a value of 1 (the minimum representational distance).
+    Similarly, a (max_dist * depth_scale) value that casts to >= 2^16 will
+    be assigned a value of 2^16 - 1 (the maximum representational distance).
 
     Args:
-        image_response (image_pb2.ImageResponse): An ImageResponse containing a depth image.
-        min_dist (float): All points in the returned point cloud will be greater than min_dist from the image plane [meters].
-        max_dist (float): All points in the returned point cloud will be less than max_dist from the image plane [meters].
+        image_response (image_pb2.ImageResponse): An ImageResponse
+            containing a depth image.
+        min_dist (float): All points in the returned point cloud will be
+            greater than min_dist from the image plane [meters].
+        max_dist (float): All points in the returned point cloud will be
+            less than max_dist from the image plane [meters].
 
     Returns:
-        A numpy stack of (x,y,z) values representing depth image as a point cloud expressed in the sensor frame.
+        A numpy stack of (x,y,z) values representing depth image as a point
+            cloud expressed in the sensor frame.
     """
 
-    if image_response.source.image_type != image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
+    if image_response.source.image_type != \
+            image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
         raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
 
-    if image_response.shot.image.pixel_format != image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+    if image_response.shot.image.pixel_format != \
+            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         raise ValueError(
-            'IMAGE_TYPE_DEPTH with an unsupported format, requires PIXEL_FORMAT_DEPTH_U16.'
-        )
+            'IMAGE_TYPE_DEPTH with an unsupported format, requires' +
+            'PIXEL_FORMAT_DEPTH_U16.')
 
     if not image_response.source.HasField('pinhole'):
         raise ValueError('Requires a pinhole camera_model.')
@@ -204,7 +216,8 @@ def depth_image_to_pointcloud_custom(
     rows = rows[valid_inds]
     cols = cols[valid_inds]
 
-    # Convert the valid distance data to (x,y,z) values expressed in the sensor frame.
+    # Convert the valid distance data to (x,y,z) values
+    # expressed in the sensor frame.
     z = depth_array / depth_scale
     x = np.multiply(z, (cols - cx)) / fx
     y = np.multiply(z, (rows - cy)) / fy
@@ -216,16 +229,21 @@ def process_image_response(
     """Given a Boston Dynamics SDK image response, extract the correct np array
     corresponding to the image."""
     num_bytes = 1  # Assume a default of 1 byte encodings.
-    if image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+    if image_response.shot.image.pixel_format == \
+            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         dtype = np.uint16
     else:
-        if image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGB_U8:
+        if image_response.shot.image.pixel_format == \
+                image_pb2.Image.PIXEL_FORMAT_RGB_U8:
             num_bytes = 3
-        elif image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_RGBA_U8:
+        elif image_response.shot.image.pixel_format == \
+                image_pb2.Image.PIXEL_FORMAT_RGBA_U8:
             num_bytes = 4
-        elif image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U8:
+        elif image_response.shot.image.pixel_format == \
+                image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U8:
             num_bytes = 1
-        elif image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
+        elif image_response.shot.image.pixel_format == \
+                image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
             num_bytes = 2
         dtype = np.uint8  # type: ignore
 
@@ -244,68 +262,19 @@ def process_image_response(
     return img
 
 
-# def get_hand_img(options):
-#     # Create robot object with an image client.
-#     sdk = bosdyn.client.create_standard_sdk('image_capture')
-#     robot = sdk.create_robot(options.hostname)
-#     bosdyn.client.util.authenticate(robot)
-#     robot.sync_with_directory()
-#     robot.time_sync.wait_for_sync()
-
-#     image_client = robot.ensure_client(options.image_service)
-
-#     # image_sources = ["frontleft_fisheye_image", "frontleft_depth_in_visual_frame"]
-#     image_sources = ["hand_color_image", "hand_depth_in_hand_color_frame"]
-
-#     image_request = [
-#         build_image_request(source, pixel_format=None)
-#         for source in image_sources
-#     ]
-#     image_responses = image_client.get_image(image_request)
-
-#     color_img, _ = process_image_response(image_responses[0], options)
-#     print(color_img.shape)
-#     # plt.imshow(color_img)
-#     # plt.show()
-
-#     x, valid_inds = depth_image_to_pointcloud_custom(image_responses[1])
-
-#     d = np.sqrt(np.sum(np.square(x), axis=1))
-#     c = (color_img[:, :, ::-1][valid_inds] / 255.).astype(np.float32)
-#     # c = np.tile((color_img[valid_inds] / 255.).astype(np.float32)[:, None], (1, 3))
-
-#     x = x[d < 2.]
-#     c = c[d < 2.]
-
-#     # print(x.shape, c.shape)
-
-#     # import open3d as o3d
-#     # pcd = o3d.geometry.PointCloud()
-#     # pcd.points = o3d.utility.Vector3dVector(x)
-#     # pcd.colors = o3d.utility.Vector3dVector(c)
-#     # o3d.visualization.draw_geometries([pcd])
-#     # FIXME error: [Open3D WARNING] [DrawGeometries] Failed creating OpenGL window.
-
-#     res = {
-#         'rgb': process_image_response(image_responses[0], options)[0],
-#         'depth': process_image_response(image_responses[1], options)[0],
-#     }
-
-#     return res, image_responses
-
-
 def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
                        depth_value: float, point_x: float,
                        point_y: float) -> Tuple[float, float, float]:
     """This is a function based on `depth_image_to_pointcloud`"""
-    if image_response.source.image_type != image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
+    if image_response.source.image_type != \
+            image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
         raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
-
-    if image_response.shot.image.pixel_format != image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+    if image_response.shot.image.pixel_format != \
+            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         raise ValueError(
-            'IMAGE_TYPE_DEPTH with an unsupported format, requires PIXEL_FORMAT_DEPTH_U16.'
+            'IMAGE_TYPE_DEPTH with an unsupported format, requires ' +
+            'PIXEL_FORMAT_DEPTH_U16.'
         )
-
     if not image_response.source.HasField('pinhole'):
         raise ValueError('Requires a pinhole camera_model.')
 
@@ -315,7 +284,8 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
     cy = image_response.source.pinhole.intrinsics.principal_point.y
     depth_scale = image_response.source.depth_scale
 
-    # Convert the valid distance data to (x,y,z) values expressed in the sensor frame.
+    # Convert the valid distance data to (x,y,z) values expressed in the
+    # sensor frame.
     z = depth_value / depth_scale
     x = np.multiply(z, (point_x - cx)) / fx
     y = np.multiply(z, (point_y - cy)) / fy
@@ -326,7 +296,7 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
 def get_pixel_locations_with_sam(
         classes: List[str],
         in_res_image: Dict[str, np.ndarray],
-        plot: bool = False  # TODO for now
+        plot: bool = False
 ) -> List[Tuple[float, float]]:
     """Method to get the pixel locations of specific objects with class names
     listed in 'classes' within an input image."""
@@ -360,92 +330,103 @@ def get_object_locations_with_sam(
         res_image: Dict[str, np.ndarray],
         res_image_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse],
         source_name: str,
-        plot: bool = False  # TODO for now
+        plot: bool = False
 ) -> List[Tuple[float, float, float]]:
-    """TODO: Docstring"""
-    rotated_rgb = ndimage.rotate(res_image['rgb'], ROTATION_ANGLE[source_name])
-    rotated_depth = ndimage.rotate(res_image['depth'], ROTATION_ANGLE[source_name])
+    """Given a list of string queries (classes), call SAM on these and return
+    the positions of the centroids of these detections in the world frame.
 
-    # Plot the image as a debugging tool.
+    Importantly, note that a number of cameras on the Spot robot are
+    rotated by various degrees. Since SAM doesn't do so well on rotated
+    images, we first rotate these images to be upright, pass them to
+    SAM, then rotate the result back so that we can correctly compute
+    the 3D position in the world frame.
+    """
+    # First, rotate the rgb and depth images by the correct angle.
+    # Importantly, DO NOT reshape the image, because this will
+    # lead to a bunch of problems when we reverse the rotation later.
+    rotated_rgb = ndimage.rotate(res_image['rgb'],
+                                 ROTATION_ANGLE[source_name],
+                                 reshape=False)
+    rotated_depth = ndimage.rotate(res_image['depth'],
+                                   ROTATION_ANGLE[source_name],
+                                   reshape=False)
+
+    # Plot the rotated image before querying SAM.
     if plot:
         plt.imshow(rotated_rgb)
         plt.show()
+
     # Start by querying SAM
     res_segment = query_sam(image_in=rotated_rgb, classes=classes)
-    # return: 'masks', 'boxes', 'classes'
     if res_segment is None:
         return []
 
+    # Detect multiple objects with their masks
     obj_num = len(res_segment['masks'])
     res_locations = []
-    # Detect multiple objects with their masks
     for i in range(obj_num):
-        # TODO Rotate both RGB and depth images,
-        #  (Don't rotate mask back as rotation needs padding and is not reversible)
-        # rotated_mask = ndimage.rotate(res_segment['masks'][i][0],
-                                      # -ROTATION_ANGLE[source_name])
         # Compute median value of depth
-        depth_median = np.median(
-            rotated_depth[res_segment['masks'][i][0] & (rotated_depth > 2)[:, :, 0]]
-        )
-
+        depth_median = np.median(rotated_depth[res_segment['masks'][i][0]
+                                               & (rotated_depth > 2)[:, :, 0]])
         # Compute geometric center of object bounding box
         x1, y1, x2, y2 = res_segment['boxes'][i]
         x_c = (x1 + x2) / 2
         y_c = (y1 + y2) / 2
-
-        # TODO: Actually rotate this coordinate back correctly using the code
-        # snippet below!
-        # FIXME debug
-        # Get the inverse rotation angle
-        inverse_rotation_angle = -ROTATION_ANGLE[source_name]
-        # Create a transformation matrix for the inverse rotation
+        # Create a transformation matrix for the rotation. Be very
+        # careful to use radians, since np.cos and np.sin expect
+        # angles in radians and not degrees.
+        rotation_radians = np.radians(ROTATION_ANGLE[source_name])
         transform_matrix = np.array(
-            [[np.cos(inverse_rotation_angle), -np.sin(inverse_rotation_angle)],
-             [np.sin(inverse_rotation_angle), np.cos(inverse_rotation_angle)]])
-        # Subtract the center of the image from the pixel location to translate the rotation to the origin
-        # TODO x - 0 and y - 1?
-        center = np.array([rotated_rgb.shape[0] / 2., rotated_rgb.shape[1] / 2.])
+            [[np.cos(rotation_radians), -np.sin(rotation_radians)],
+             [np.sin(rotation_radians),
+              np.cos(rotation_radians)]])
+        # Subtract the center of the image from the pixel location to
+        # translate the rotation to the origin.
+        center = np.array(
+            [rotated_rgb.shape[1] / 2., rotated_rgb.shape[0] / 2.])
         pixel_centered = np.array([x_c, y_c]) - center
         # Apply the rotation
-        rotated_pixel_centered = np.dot(transform_matrix, pixel_centered)
-        # Add the center of the image back to the pixel location to translate the rotation back from the origin
+        rotated_pixel_centered = np.matmul(transform_matrix, pixel_centered)
+        # Add the center of the image back to the pixel location to
+        # translate the rotation back from the origin.
         rotated_pixel = rotated_pixel_centered + center
-        # Now rotated_pixel is the location of the pixel after the inverse rotation
+        # Now rotated_pixel is the location of the centroid pixel after the
+        # inverse rotation.
         x_c_rotated = rotated_pixel[0]
         y_c_rotated = rotated_pixel[1]
 
-        # Plot center and segmentation mask
-        # TODO masks are for rotated RGB image, so we use the centroid xy computed from it
+        # Plot (1) the original RGB image, (2) the rotated
+        # segmentation mask from SAM on top of it, (3) the
+        # center of the image, (4) the centroid of the detected
+        # object that comes from SAM, and (5) the centroid
+        # after we rotate it back to align with the original
+        # RGB image.
         if plot:
-            plt.imshow(res_segment['masks'][i][0])
-            plt.scatter(x=x_c, y=y_c, marker='*', color='red', zorder=3)
+            inverse_rotation_angle = -ROTATION_ANGLE[source_name]
+            plt.imshow(res_image['rgb'])
+            plt.imshow(ndimage.rotate(res_segment['masks'][i][0],
+                                      inverse_rotation_angle,
+                                      reshape=False),
+                       alpha=0.5,
+                       cmap='Reds')
+            plt.scatter(x=x_c_rotated,
+                        y=y_c_rotated,
+                        marker='*',
+                        color='red',
+                        zorder=3)
+            plt.scatter(x=center[0],
+                        y=center[1],
+                        marker='.',
+                        color='blue',
+                        zorder=3)
+            plt.scatter(x=x_c, y=y_c, marker='*', color='green', zorder=3)
             plt.show()
 
-        # Get XYZ of the point at center of bounding box and median depth value
-        # TODO want to compute xyz in original frame, so we use original depth image and rotate xy back
+        # Get XYZ of the point at center of bounding box and median depth value.
         x0, y0, z0 = get_xyz_from_depth(res_image_responses['depth'],
                                         depth_value=depth_median,
                                         point_x=x_c_rotated,
                                         point_y=y_c_rotated)
-
         res_locations.append((x0, y0, z0))
-
-        # TODO also need to rotate
-        # FIXME - can't rotate depth because image response has camera intrinsics,
-        #  but it's also tricky to rotate masks back. But only for visualization, commented for now
-        # x, valid_inds = depth_image_to_pointcloud_custom(
-        #     # res_image_responses['depth'],
-        #     rotated_depth,
-        #     masks=res_segment['masks'][i][0],
-        # )
-        #
-        # if plot:
-        #     fig = plt.figure()
-        #     ax = fig.add_subplot(111, projection='3d')
-        #     ax.scatter(x[:, 0], x[:, 1], x[:, 2], c='blue', marker='.')
-        #
-        #     ax.scatter(xs=x0, ys=y0, zs=z0, c='red', marker='*', s=100)
-        #     plt.show()
 
     return res_locations
