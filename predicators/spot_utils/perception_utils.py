@@ -17,7 +17,9 @@ from bosdyn.client.image import _depth_image_data_to_numpy, \
 from PIL import Image
 from scipy import ndimage
 
-matplotlib.use('TkAgg')
+# NOTE: uncomment this line if trying to visualize stuff locally
+# and matplotlib isn't displaying.
+# matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
