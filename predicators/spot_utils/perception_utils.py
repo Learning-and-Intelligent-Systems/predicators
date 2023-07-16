@@ -1,5 +1,5 @@
-"""A set of utility functions for integrating deep-learning based
-perception models with the Boston Dynamics Spot robot."""
+"""A set of utility functions for integrating deep-learning based perception
+models with the Boston Dynamics Spot robot."""
 
 import io
 from typing import Dict, List, Optional, Tuple
@@ -273,8 +273,7 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
             image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         raise ValueError(
             'IMAGE_TYPE_DEPTH with an unsupported format, requires ' +
-            'PIXEL_FORMAT_DEPTH_U16.'
-        )
+            'PIXEL_FORMAT_DEPTH_U16.')
     if not image_response.source.HasField('pinhole'):
         raise ValueError('Requires a pinhole camera_model.')
 
@@ -296,8 +295,7 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
 def get_pixel_locations_with_sam(
         classes: List[str],
         in_res_image: Dict[str, np.ndarray],
-        plot: bool = False
-) -> List[Tuple[float, float]]:
+        plot: bool = False) -> List[Tuple[float, float]]:
     """Method to get the pixel locations of specific objects with class names
     listed in 'classes' within an input image."""
     res_segment = query_sam(image_in=in_res_image['rgb'], classes=classes)
@@ -330,8 +328,7 @@ def get_object_locations_with_sam(
         res_image: Dict[str, np.ndarray],
         res_image_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse],
         source_name: str,
-        plot: bool = False
-) -> List[Tuple[float, float, float]]:
+        plot: bool = False) -> List[Tuple[float, float, float]]:
     """Given a list of string queries (classes), call SAM on these and return
     the positions of the centroids of these detections in the world frame.
 
