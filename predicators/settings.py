@@ -613,6 +613,7 @@ class GlobalSettings:
             # The method used for perception: now only "trivial" or "sokoban".
             perceiver=defaultdict(lambda: "trivial", {
                 "sokoban": "sokoban",
+                "kitchen": "kitchen",
             })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
