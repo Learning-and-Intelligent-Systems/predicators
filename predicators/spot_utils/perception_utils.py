@@ -12,8 +12,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import requests
 from bosdyn.api import image_pb2
-from bosdyn.client.image import _depth_image_data_to_numpy, \
-    _depth_image_get_valid_indices
 from PIL import Image
 from scipy import ndimage
 
@@ -39,8 +37,17 @@ def image_to_bytes(img: Image.Image) -> io.BytesIO:
     return buf
 
 
-def visualize_output(im, masks, input_boxes, classes, scores) -> None:
-    """Visualizes the output of SAM; useful for debugging."""
+def visualize_output(im: Image.Image, masks: np.ndarray,
+                     input_boxes: np.ndarray, classes: np.ndarray,
+                     scores: np.ndarray) -> None:
+    """Visualizes the output of SAM; useful for debugging.
+
+    masks, input_boxes, and scores come from the output of SAM.
+    Specifically, masks is an array of array bools, input_boxes is an
+    array of array of 4 floats (corresponding to the 4 corners of the
+    bounding box), classes is an array of strings, and scores is an
+    array of floats corresponding to confidence values.
+    """
     plt.figure(figsize=(10, 10))
     plt.imshow(im)
     for mask in masks:
@@ -61,18 +68,20 @@ def visualize_output(im, masks, input_boxes, classes, scores) -> None:
     plt.show()
 
 
-def show_mask(mask, ax, random_color: bool = False) -> None:
+def show_mask(mask: np.ndarray,
+              ax: matplotlib.axes.Axes,
+              random_color: bool = False) -> None:
     """Helper function for visualization that displays a segmentation mask."""
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
         color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
     h, w = mask.shape[-2:]
-    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+    mask_image = mask.reshape((h, w, 1)) * color.reshape((1, 1, -1))
     ax.imshow(mask_image)
 
 
-def show_box(box, ax) -> None:
+def show_box(box: np.ndarray, ax: matplotlib.axes.Axes) -> None:
     """Helper function for visualization that displays a bounding box."""
     x0, y0 = box[0], box[1]
     w, h = box[2] - box[0], box[3] - box[1]
@@ -85,8 +94,8 @@ def show_box(box, ax) -> None:
                       lw=2))
 
 
-def query_sam(image_in: np.ndarray,
-              classes: List[str]) -> Optional[Dict[str, List[np.ndarray]]]:
+def query_sam(image_in: np.ndarray, classes: List[str],
+              viz: bool) -> Optional[Dict[str, List[np.ndarray]]]:
     """Send a query to SAM and return the response.
 
     The response is a dictionary that contains 4 keys: 'boxes',
@@ -116,8 +125,10 @@ def query_sam(image_in: np.ndarray,
         "scores": scores
     }
 
-    # Optional visualization useful for debugging.
-    visualize_output(image, d["masks"], d["boxes"], d["classes"], d["scores"])
+    if viz:
+        # Optional visualization useful for debugging.
+        visualize_output(image, d["masks"], d["boxes"], d["classes"],
+                         d["scores"])
 
     # Filter out detections by confidence. We threshold detections
     # at a 40% confidence level minimum, and if there are multiple
@@ -142,94 +153,93 @@ def query_sam(image_in: np.ndarray,
     return d_filtered
 
 
-def pixel_format_type_strings() -> List[str]:
-    """Simple helper to get the names of all the different pixel formats
-    available."""
-    names = image_pb2.Image.PixelFormat.keys()
-    return names[1:]
+# NOTE: the below function is useful for visualization; uncomment
+# if you'd like to convert depth to pointclouds and then visualize
+# the entire pointcloud.
+# def depth_image_to_pointcloud_custom(
+#         image_response: bosdyn.api.image_pb2.ImageResponse,
+#         masks: np.ndarray = None,
+#         min_dist: float = 0.0,
+#         max_dist: float = 1000.0) -> Tuple[np.ndarray, np.ndarray]:
+#     """Converts a depth image into a point cloud using the camera intrinsics.
+#     The point cloud is represented as a numpy array of (x,y,z) values.
+#     Requests can optionally filter the results based on the points distance
+#     to the image plane. A depth image is represented with an unsigned 16 bit
+#     integer and a scale factor to convert that distance to meters. In
+#     addition, values of zero and 2^16 (uint 16 maximum) are used to
+#     represent invalid indices.
 
+#     A (min_dist * depth_scale) value that casts to an integer value <=0
+#     will be assigned a value of 1 (the minimum representational distance).
+#     Similarly, a (max_dist * depth_scale) value that casts to >= 2^16 will
+#     be assigned a value of 2^16 - 1 (the maximum representational distance).
 
-def depth_image_to_pointcloud_custom(
-        image_response: bosdyn.api.image_pb2.ImageResponse,
-        masks: np.ndarray = None,
-        min_dist: float = 0.0,
-        max_dist: float = 1000.0) -> Tuple[np.ndarray, np.ndarray]:
-    """Converts a depth image into a point cloud using the camera intrinsics.
-    The point cloud is represented as a numpy array of (x,y,z) values. Requests
-    can optionally filter the results based on the points distance to the image
-    plane. A depth image is represented with an unsigned 16 bit integer and a
-    scale factor to convert that distance to meters. In addition, values of
-    zero and 2^16 (uint 16 maximum) are used to represent invalid indices.
+#     Args:
+#         image_response (image_pb2.ImageResponse): An ImageResponse
+#             containing a depth image.
+#         min_dist (float): All points in the returned point cloud will be
+#             greater than min_dist from the image plane [meters].
+#         max_dist (float): All points in the returned point cloud will be
+#             less than max_dist from the image plane [meters].
 
-    A (min_dist * depth_scale) value that casts to an integer value <=0
-    will be assigned a value of 1 (the minimum representational distance).
-    Similarly, a (max_dist * depth_scale) value that casts to >= 2^16 will
-    be assigned a value of 2^16 - 1 (the maximum representational distance).
+#     Returns:
+#         A numpy stack of (x,y,z) values representing depth image as a point
+#             cloud expressed in the sensor frame.
+#     """
+# from bosdyn.client.image import _depth_image_data_to_numpy, \
+#     _depth_image_get_valid_indices
+#     if image_response.source.image_type != \
+#             image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
+#         raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
 
-    Args:
-        image_response (image_pb2.ImageResponse): An ImageResponse
-            containing a depth image.
-        min_dist (float): All points in the returned point cloud will be
-            greater than min_dist from the image plane [meters].
-        max_dist (float): All points in the returned point cloud will be
-            less than max_dist from the image plane [meters].
+#     if image_response.shot.image.pixel_format != \
+#             image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+#         raise ValueError(
+#             'IMAGE_TYPE_DEPTH with an unsupported format, requires' +
+#             'PIXEL_FORMAT_DEPTH_U16.')
 
-    Returns:
-        A numpy stack of (x,y,z) values representing depth image as a point
-            cloud expressed in the sensor frame.
-    """
+#     if not image_response.source.HasField('pinhole'):
+#         raise ValueError('Requires a pinhole camera_model.')
 
-    if image_response.source.image_type != \
-            image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
-        raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
+#     source_rows = image_response.source.rows
+#     source_cols = image_response.source.cols
+#     fx = image_response.source.pinhole.intrinsics.focal_length.x
+#     fy = image_response.source.pinhole.intrinsics.focal_length.y
+#     cx = image_response.source.pinhole.intrinsics.principal_point.x
+#     cy = image_response.source.pinhole.intrinsics.principal_point.y
+#     depth_scale = image_response.source.depth_scale
 
-    if image_response.shot.image.pixel_format != \
-            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
-        raise ValueError(
-            'IMAGE_TYPE_DEPTH with an unsupported format, requires' +
-            'PIXEL_FORMAT_DEPTH_U16.')
+#     # Convert the proto representation into a numpy array.
+#     depth_array = _depth_image_data_to_numpy(image_response)
+#     # print(depth_array.shape)
 
-    if not image_response.source.HasField('pinhole'):
-        raise ValueError('Requires a pinhole camera_model.')
+#     # Determine which indices have valid data in the user requested range.
+#     valid_inds = _depth_image_get_valid_indices(
+#         depth_array, np.rint(min_dist * depth_scale),
+#         np.rint(max_dist * depth_scale))
 
-    source_rows = image_response.source.rows
-    source_cols = image_response.source.cols
-    fx = image_response.source.pinhole.intrinsics.focal_length.x
-    fy = image_response.source.pinhole.intrinsics.focal_length.y
-    cx = image_response.source.pinhole.intrinsics.principal_point.x
-    cy = image_response.source.pinhole.intrinsics.principal_point.y
-    depth_scale = image_response.source.depth_scale
+#     if masks is not None:
+#         valid_inds = valid_inds & masks
 
-    # Convert the proto representation into a numpy array.
-    depth_array = _depth_image_data_to_numpy(image_response)
-    # print(depth_array.shape)
+#     # Compute the valid data.
+#     rows, cols = np.mgrid[0:source_rows, 0:source_cols]
+#     depth_array = depth_array[valid_inds]
+#     rows = rows[valid_inds]
+#     cols = cols[valid_inds]
 
-    # Determine which indices have valid data in the user requested range.
-    valid_inds = _depth_image_get_valid_indices(
-        depth_array, np.rint(min_dist * depth_scale),
-        np.rint(max_dist * depth_scale))
-
-    if masks is not None:
-        valid_inds = valid_inds & masks
-
-    # Compute the valid data.
-    rows, cols = np.mgrid[0:source_rows, 0:source_cols]
-    depth_array = depth_array[valid_inds]
-    rows = rows[valid_inds]
-    cols = cols[valid_inds]
-
-    # Convert the valid distance data to (x,y,z) values
-    # expressed in the sensor frame.
-    z = depth_array / depth_scale
-    x = np.multiply(z, (cols - cx)) / fx
-    y = np.multiply(z, (rows - cy)) / fy
-    return np.vstack((x, y, z)).T, valid_inds
+#     # Convert the valid distance data to (x,y,z) values
+#     # expressed in the sensor frame.
+#     z = depth_array / depth_scale
+#     x = np.multiply(z, (cols - cx)) / fx
+#     y = np.multiply(z, (rows - cy)) / fy
+#     return np.vstack((x, y, z)).T, valid_inds
 
 
 def process_image_response(
         image_response: bosdyn.api.image_pb2.ImageResponse) -> np.ndarray:
     """Given a Boston Dynamics SDK image response, extract the correct np array
     corresponding to the image."""
+    # pylint: disable=no-member
     num_bytes = 1  # Assume a default of 1 byte encodings.
     if image_response.shot.image.pixel_format == \
             image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
@@ -268,6 +278,7 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
                        depth_value: float, point_x: float,
                        point_y: float) -> Tuple[float, float, float]:
     """This is a function based on `depth_image_to_pointcloud`"""
+    # pylint: disable=no-member
     if image_response.source.image_type != \
             image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
         raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
@@ -300,7 +311,9 @@ def get_pixel_locations_with_sam(
         plot: bool = False) -> List[Tuple[float, float]]:
     """Method to get the pixel locations of specific objects with class names
     listed in 'classes' within an input image."""
-    res_segment = query_sam(image_in=in_res_image['rgb'], classes=classes)
+    res_segment = query_sam(image_in=in_res_image['rgb'],
+                            classes=classes,
+                            viz=plot)
     # return: 'masks', 'boxes', 'classes'
     if res_segment is None:
         return []
@@ -356,7 +369,7 @@ def get_object_locations_with_sam(
         plt.show()
 
     # Start by querying SAM
-    res_segment = query_sam(image_in=rotated_rgb, classes=classes)
+    res_segment = query_sam(image_in=rotated_rgb, classes=classes, viz=plot)
     if res_segment is None:
         return []
 

@@ -273,9 +273,7 @@ class _SpotInterface():
         img_req = build_image_request(
             source_name,
             quality_percent=100,
-            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8
-        )  # FIXME only RGB format
-        # pixel_format=pixel_format)
+            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
         image_response = self.image_client.get_image([img_req])
 
         # Format image before detecting apriltags.
@@ -313,12 +311,14 @@ class _SpotInterface():
                 viewable_obj_poses = self.get_apriltag_pose_from_camera(
                     source_name=source_name)
             else:
+                # NOTE: we now hard-code the 'yellow brush' to be a
+                # stand-in for the cube, which is quite a hack.
+                # We will remove this and do correct object classing
+                # in a future PR
                 sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
                     source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
                     class_name='yellow brush',
-                    # TODO: use names of different objects
-                    # correctly.
                 )
 
                 if 'yellow brush' in sam_pose_results:
@@ -499,7 +499,7 @@ class _SpotInterface():
             res_image=image,
             res_image_responses=image_responses,
             source_name=source_rgb,
-            plot=True)
+            plot=CFG.spot_visualize_vision_model_outputs)
 
         # We only want the most likely sample (for now).
         # NOTE: we make the hard assumption here that
@@ -958,11 +958,14 @@ class _SpotInterface():
                 'rgb': process_image_response(image_responses[0]),
                 'depth': process_image_response(image_responses[1]),
             }
-            results = get_pixel_locations_with_sam(
-                # TODO: use the object name
-                classes=["yellow brush"],
-                in_res_image=image_for_sam,
-                plot=False)
+            # NOTE: we now hard-code the 'yellow brush' to be a
+            # stand-in for the cube, which is quite a hack.
+            # We will remove this and do correct object classing
+            # in a future PR
+            results = get_pixel_locations_with_sam(classes=["yellow brush"],
+                                    in_res_image=image_for_sam,
+                                    plot=\
+                                    CFG.spot_visualize_vision_model_outputs)
 
             if len(results) > 0:
                 # We only want the most likely sample (for now).

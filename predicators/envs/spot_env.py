@@ -317,7 +317,8 @@ class SpotEnv(BaseEnv):
 
         # Detect objects.
         object_names_in_view_by_camera = \
-            self._spot_interface.get_objects_in_view_by_camera()
+            self._spot_interface.get_objects_in_view_by_camera\
+                (from_apriltag=CFG.spot_grasp_use_apriltag)
         object_names_in_view: Dict[str, Tuple[float, float, float]] = {}
         for source_camera in CAMERA_NAMES:
             object_names_in_view.update(
