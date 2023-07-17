@@ -273,7 +273,6 @@ class _SpotInterface():
         """Get all camera images."""
         camera_images: Dict[str, Image] = {}
         for source_name in CAMERA_NAMES:
-            # TODO: convert to RGB - should be correct
             img, _ = self.get_single_camera_image(source_name, to_rgb=True)
             camera_images[source_name] = img
         return camera_images
