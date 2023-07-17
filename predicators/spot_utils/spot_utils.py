@@ -79,6 +79,17 @@ obj_name_to_apriltag_id = {
     "cube": 410,
 }
 
+# NOTE: we need to optimize the prompts for most of these to be better.
+# Also, this currently isn't being used because we're hardcoding
+# the pipeline to always detect the yellow brush.
+obj_name_to_vision_prompt = {
+    "hammer": "red hammer",
+    "brush": "yellow brush",
+    "hex_key": "hexagonal key",
+    "hex_screwdriver": "red screwdriver",
+    "toolbag": "work bag",
+}
+
 OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
     "hammer": (160, 450, 160, 350),
@@ -146,7 +157,7 @@ def _find_object_center(img: Image,
         return None
 
     # Find the largest non background component.
-    # Note: range() starts from 1 since 0 is the background label.
+    # NOTE: range() starts from 1 since 0 is the background label.
     max_label, _ = max(
         ((i, stats[i, cv2.CC_STAT_AREA]) for i in range(1, nb_components)),
         key=lambda x: x[1])
@@ -318,7 +329,7 @@ class _SpotInterface():
                 sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
                     source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
-                    class_name='yellow brush',
+                    class_name=obj_name_to_vision_prompt['brush'],
                 )
 
                 if 'yellow brush' in sam_pose_results:
@@ -962,7 +973,7 @@ class _SpotInterface():
             # stand-in for the cube, which is quite a hack.
             # We will remove this and do correct object classing
             # in a future PR
-            results = get_pixel_locations_with_sam(classes=["yellow brush"],
+            results = get_pixel_locations_with_sam(classes=[obj_name_to_vision_prompt['brush']],
                                     in_res_image=image_for_sam,
                                     plot=\
                                     CFG.spot_visualize_vision_model_outputs)

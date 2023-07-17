@@ -1,8 +1,8 @@
 # Spot Utils
 
-## About server for perception pipeline
+## Perception
 
-> Date of update: 07/17/2023
+> Last updated: 07/17/2023
 
 We are currently using Detic + Segmentation Anything to provide text-conditioned bounding box + detection-conditioned segmentation mask.
 
@@ -20,4 +20,4 @@ The pipeline is as follows:
   - Use SSH "local port forward"
   - `ssh -L 5550:localhost:5550 <IP-ADDRESS>`
 - Request from your local computer
-  - You can see the notebook / the perception utils / or the `client.py` in that repo.
+  - You can see perception_utils.py, or the `client.py` function in the BDAI repo.
