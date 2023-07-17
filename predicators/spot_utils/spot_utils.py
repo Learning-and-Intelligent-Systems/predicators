@@ -1054,7 +1054,7 @@ class _SpotInterface():
     def stow_arm(self) -> None:
         """A simple example of using the Boston Dynamics API to stow Spot's
         arm."""
-        
+
         # Allow Stowing and Stow Arm
         grasp_carry_state_override = manipulation_api_pb2.\
             ApiGraspedCarryStateOverride(override_request=3)
