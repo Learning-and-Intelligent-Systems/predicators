@@ -33,8 +33,8 @@ For more information on installation see \
 https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
         # Predicates
-        self._At, self._OnTop, self._TurnedOn, self._CanTurnDial = self.get_goal_at_predicates(
-        )
+        self._At, self._OnTop, self._TurnedOn, self._CanTurnDial = \
+            self.get_goal_at_predicates()
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
