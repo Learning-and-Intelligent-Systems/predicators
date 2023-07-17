@@ -100,6 +100,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                      params: Array) -> bool:
             """Terminate when the option's corresponding operator's effects
             have been reached."""
+
+            # NOTE: MoveTo terminates when the target pose is reached, unlike
+            # the other options, which terminate when the effects are reached.
             if "step_count" in memory:
                 step_count = memory["step_count"]
             else:
