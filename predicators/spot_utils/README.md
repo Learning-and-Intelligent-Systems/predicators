@@ -14,7 +14,7 @@ The pipeline is as follows:
 - Set up the server
   - You only need to run the server once
   - See the instructions there
-- Run the server
+- Run the server by running `server.py` from the above-linked repo
   - It is recommended to run on a local computer (faster connection) with CUDA GPU (faster inference)
 - Connect to server from local
   - Use SSH "local port forward"
