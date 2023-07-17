@@ -973,7 +973,8 @@ class _SpotInterface():
             # stand-in for the cube, which is quite a hack.
             # We will remove this and do correct object classing
             # in a future PR
-            results = get_pixel_locations_with_sam(classes=[obj_name_to_vision_prompt['brush']],
+            results = get_pixel_locations_with_sam(classes=\
+                                    [obj_name_to_vision_prompt['brush']],
                                     in_res_image=image_for_sam,
                                     plot=\
                                     CFG.spot_visualize_vision_model_outputs)
