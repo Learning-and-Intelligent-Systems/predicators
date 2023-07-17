@@ -1,14 +1,14 @@
 """An explorer for active sampler learning."""
 
 import logging
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, Iterator, List, Optional, Set
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
-from predicators.planning import run_task_plan_once
+from predicators.planning import PlanningFailure, run_task_plan_once
 from predicators.settings import CFG
 from predicators.structs import NSRT, ExplorationStrategy, GroundAtom, \
     NSRTSampler, ParameterizedOption, Predicate, State, Task, Type, \
@@ -108,25 +108,43 @@ class ActiveSamplerExplorer(BaseExplorer):
             if current_policy is None:
                 # If the assigned goal hasn't yet been reached, try for it.
                 if not assigned_task_goal_reached:
-                    goal = assigned_task.goal
-                    logging.info(
-                        f"[Explorer] Pursuing assigned task goal: {goal}")
+                    logging.info("[Explorer] Pursuing assigned task goal")
+
+                    def generate_goals() -> Iterator[Set[GroundAtom]]:
+                        # Just a single goal.
+                        yield assigned_task.goal
+
                 # Otherwise, practice.
                 else:
-                    # If there are no ground NSRTs that we've tried so far,
-                    # just wait until we have tried to solve some task.
-                    if len(self._ground_op_hist) == 0:
-                        raise utils.OptionExecutionFailure(
-                            "No ground operators to practice yet")
-                    next_practice_nsrt = self._get_practice_ground_nsrt()
-                    logging.info("[Explorer] Pursuing NRST preconditions "
-                                 f"{next_practice_nsrt.name}"
-                                 f"{next_practice_nsrt.objects}")
-                    goal = next_practice_nsrt.preconditions
-                task = Task(state, goal)
-                logging.info(f"[Explorer] Replanning to {task.goal}")
-                current_policy = self._get_option_policy_for_task(task)
+                    logging.info("[Explorer] Pursuing NSRT preconditions")
 
+                    def generate_goals() -> Iterator[Set[GroundAtom]]:
+                        nonlocal next_practice_nsrt
+                        # Generate goals sorted by their descending score.
+                        for op in sorted(self._ground_op_hist,
+                                         key=self._score_ground_op,
+                                         reverse=True):
+                            nsrt = [
+                                n for n in self._nsrts if n.op == op.parent
+                            ][0]
+                            # NOTE: setting nonlocal variable.
+                            next_practice_nsrt = nsrt.ground(op.objects)
+                            yield next_practice_nsrt.preconditions
+
+                # Try to plan to each goal until a task plan is found.
+                for goal in generate_goals():
+                    task = Task(state, goal)
+                    logging.info(f"[Explorer] Replanning to {task.goal}")
+                    try:
+                        current_policy = self._get_option_policy_for_task(task)
+                    except PlanningFailure:
+                        continue
+                    logging.info("[Explorer] Plan found.")
+                    break
+                # Terminate early if no goal could be found.
+                else:
+                    logging.info("[Explorer] No reachable goal found.")
+                    raise utils.RequestActPolicyFailure("Failed to find goal.")
             # Query the current policy.
             assert current_policy is not None
             try:
@@ -178,12 +196,6 @@ class ActiveSamplerExplorer(BaseExplorer):
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
         self._ground_op_hist[last_executed_op].append(success)
-
-    def _get_practice_ground_nsrt(self) -> _GroundNSRT:
-        best_op = max(self._ground_op_hist, key=self._score_ground_op)
-        logging.info(f"[Explorer] Practicing {best_op.name}{best_op.objects}")
-        nsrt = [n for n in self._nsrts if n.op == best_op.parent][0]
-        return nsrt.ground(best_op.objects)
 
     def _get_option_policy_for_task(self,
                                     task: Task) -> Callable[[State], _Option]:
