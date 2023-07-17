@@ -48,18 +48,15 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             ox = state.get(obj, "x")
             oy = state.get(obj, "y")
             oz = state.get(obj, "z")
-            rand_dx = _rng.normal(0,0.5)
-            rand_dy = _rng.normal(0,0.5)
-            rand_dz = _rng.normal(0,0.5)
+            rand_dx = _rng.normal(-0.2,0.5)
+            rand_dy = _rng.normal(-0.3,0.5)
+            rand_dz = _rng.normal(0,0.05)
 
             if obj.name == 'knob3':
                 return np.array([ox + rand_dx, oy + rand_dy, oz + rand_dz],
                                 dtype=np.float32)
-                # return np.array([ox - 0.2, oy, oz - 0.2],
-                #                 dtype=np.float32)
             if obj.name == 'kettle':
                 return np.array([ox, oy + rand_dy, oz + rand_dz], dtype=np.float32)
-                # return np.array([ox + 0.1, oy - 0.3, oz], dtype=np.float32)
             return np.array([ox, oy, oz], dtype=np.float32)
 
         def push_sampler(state: State, goal: Set[GroundAtom],
@@ -74,8 +71,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             x = state.get(gripper, "x")
             y = state.get(gripper, "y")
             z = state.get(gripper, "z")
-            rand_dx = _rng.normal(0,1)
-            rand_dy = _rng.normal(0,1)
+            rand_dx = _rng.uniform(0.0, 5.0)
+            rand_dy = _rng.uniform(0.0, 5.0)
             if obj.name == 'knob3':
                 return np.array([x + rand_dx, y, z], dtype=np.float32)
             if obj.name == 'kettle':
