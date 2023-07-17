@@ -284,7 +284,9 @@ class _SpotInterface():
         img_req = build_image_request(
             source_name,
             quality_percent=100,
-            pixel_format=image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+            pixel_format= None if
+                                ('hand' in source_name or 'depth' in source_name) else
+                                image_pb2.Image.PIXEL_FORMAT_RGB_U8)
         image_response = self.image_client.get_image([img_req])
 
         # Format image before detecting apriltags.
@@ -487,22 +489,23 @@ class _SpotInterface():
             class_name: name of object class
         """
         # Only support using depth image to obatin location
-        image_request = [
-            build_image_request(source,
-                                pixel_format=None if
-                                ('hand' in source or 'depth' in source) else
-                                image_pb2.Image.PIXEL_FORMAT_RGB_U8)
-            for source in [source_rgb, source_depth]
-        ]
-        image_responses = self.image_client.get_image(image_request)
-
+        # image_request = [
+        #     build_image_request(source,
+        #                         pixel_format=None if
+        #                         ('hand' in source or 'depth' in source) else
+        #                         image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+        #     for source in [source_rgb, source_depth]
+        # ]
+        # image_responses = self.image_client.get_image(image_request)
+        _, rgb_img_response = self.get_single_camera_image(source_rgb, True)
+        _, depth_img_response = self.get_single_camera_image(source_rgb, True)
         image = {
-            'rgb': process_image_response(image_responses[0]),
-            'depth': process_image_response(image_responses[1]),
+            'rgb': process_image_response(rgb_img_response[0]),
+            'depth': process_image_response(depth_img_response[0]),
         }
         image_responses = {
-            'rgb': image_responses[0],
-            'depth': image_responses[1],
+            'rgb': rgb_img_response,
+            'depth': depth_img_response,
         }
 
         res_locations = get_object_locations_with_detic_sam(

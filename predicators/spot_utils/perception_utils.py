@@ -19,7 +19,7 @@ from predicators.settings import CFG
 
 # NOTE: uncomment this line if trying to visualize stuff locally
 # and matplotlib isn't displaying.
-# matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
@@ -240,18 +240,6 @@ def process_image_response(
     corresponding to the image."""
     # pylint: disable=no-member
     num_bytes = 1  # Assume a default of 1 byte encodings.
-    # Make sure all the necessary fields exist.
-    if image_response.source.image_type != \
-            image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
-        raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
-    if image_response.shot.image.pixel_format != \
-            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
-        raise ValueError(
-            'IMAGE_TYPE_DEPTH with an unsupported format, requires ' +
-            'PIXEL_FORMAT_DEPTH_U16.')
-    if not image_response.source.HasField('pinhole'):
-        raise ValueError('Requires a pinhole camera_model.')
-
     if image_response.shot.image.pixel_format == \
             image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         dtype = np.uint16
@@ -289,9 +277,18 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
                        depth_value: float, point_x: float,
                        point_y: float) -> Tuple[float, float, float]:
     """This is a function based on `depth_image_to_pointcloud`"""
-    # First call process_image_response to do error checking on the
-    # input image response.
-    process_image_response(image_response)
+    # pylint: disable=no-member
+    # Make sure all the necessary fields exist.
+    if image_response.source.image_type != \
+            image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
+        raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
+    if image_response.shot.image.pixel_format != \
+            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+        raise ValueError(
+            'IMAGE_TYPE_DEPTH with an unsupported format, requires ' +
+            'PIXEL_FORMAT_DEPTH_U16.')
+    if not image_response.source.HasField('pinhole'):
+        raise ValueError('Requires a pinhole camera_model.')
     # Next, compute the xyz point.
     fx = image_response.source.pinhole.intrinsics.focal_length.x
     fy = image_response.source.pinhole.intrinsics.focal_length.y
