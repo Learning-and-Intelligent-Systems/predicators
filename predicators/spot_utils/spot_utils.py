@@ -284,9 +284,12 @@ class _SpotInterface():
         img_req = build_image_request(
             source_name,
             quality_percent=100,
-            pixel_format=None if
-            ('hand' in source_name or 'depth' in source_name) else
-            image_pb2.Image.PIXEL_FORMAT_RGB_U8)
+            pixel_format=(
+                None if
+                ('hand' in source_name or 'depth' in source_name) else
+                image_pb2.Image.PIXEL_FORMAT_RGB_U8
+            )
+        )
         image_response = self.image_client.get_image([img_req])
 
         # Format image before detecting apriltags.
@@ -491,9 +494,14 @@ class _SpotInterface():
         _, rgb_img_response = self.get_single_camera_image(source_rgb, True)
         _, depth_img_response = self.get_single_camera_image(
             source_depth, True)
+        # TODO fix - to rgb in processing response
         image = {
-            'rgb': process_image_response(rgb_img_response[0]),
-            'depth': process_image_response(depth_img_response[0]),
+            'rgb': process_image_response(
+                rgb_img_response[0], to_rgb=True
+            ),
+            'depth': process_image_response(
+                depth_img_response[0], to_rgb=True
+            ),
         }
         image_responses = {
             'rgb': rgb_img_response[0],
@@ -959,11 +967,11 @@ class _SpotInterface():
             # stand-in for the cube, which is quite a hack.
             # We will remove this and do correct object classing
             # in a future PR
-            results = get_pixel_locations_with_detic_sam(classes=\
-                                    [obj_name_to_vision_prompt['brush']],
-                                    in_res_image=image_for_sam,
-                                    plot=\
-                                    CFG.spot_visualize_vision_model_outputs)
+            results = get_pixel_locations_with_detic_sam(
+                classes=[obj_name_to_vision_prompt['brush']],
+                in_res_image=image_for_sam,
+                plot=CFG.spot_visualize_vision_model_outputs
+            )
 
             if len(results) > 0:
                 # We only want the most likely sample (for now).

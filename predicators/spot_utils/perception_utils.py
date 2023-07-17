@@ -235,7 +235,9 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
 
 
 def process_image_response(
-        image_response: bosdyn.api.image_pb2.ImageResponse) -> np.ndarray:
+        image_response: bosdyn.api.image_pb2.ImageResponse,
+        to_rgb: bool = False
+) -> np.ndarray:
     """Given a Boston Dynamics SDK image response, extract the correct np array
     corresponding to the image."""
     # pylint: disable=no-member
@@ -269,6 +271,12 @@ def process_image_response(
             img = cv2.imdecode(img, -1)
     else:
         img = cv2.imdecode(img, -1)
+
+    # TODO also add here; to check duplicate
+    # Convert to RGB color, as some perception models assume RGB format
+    # By default, still use BGR to keep backward compability
+    if to_rgb:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     return img
 
