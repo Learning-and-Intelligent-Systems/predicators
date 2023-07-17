@@ -45,7 +45,8 @@ from predicators.structs import NSRT, Action, ParameterizedOption, Task, \
 _PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 
 ENV_NAME_AND_CLS = [
-    ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),
+    ("cover", CoverEnv),
+    ("cover_typed_options", CoverEnvTypedOptions),
     ("cover_place_hard", CoverEnvPlaceHard),
     ("cover_hierarchical_types", CoverEnvHierarchicalTypes),
     ("cover_regrasp", CoverEnvRegrasp),
