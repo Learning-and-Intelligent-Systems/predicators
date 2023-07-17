@@ -143,7 +143,8 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
     def step(self, action: Action) -> Observation:
         self._gym_env.step(action.arr)
-        self._gym_env.render()
+        if self._using_gui:
+            self._gym_env.render()
         obs = self._gym_env.render(mode='rgb_array')  # type: ignore
         self._current_observation = {
             "obs": obs,
