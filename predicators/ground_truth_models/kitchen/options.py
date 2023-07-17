@@ -118,9 +118,12 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
                 assert name.lower() == "move_delta_ee_pose"
                 if "target_pose" not in memory:
-                    memory["target_pose"] = np.array([params[0], params[1], params[2]])
+                    memory["target_pose"] = np.array(
+                        [params[0], params[1], params[2]])
 
-                if np.allclose(np.array([gx, gy, gz]), memory["target_pose"], atol=0.2):
+                if np.allclose(np.array([gx, gy, gz]),
+                               memory["target_pose"],
+                               atol=0.2):
                     return True
             else:
                 grounded_op = operator.ground(tuple(objects))

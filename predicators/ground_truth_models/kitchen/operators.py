@@ -52,7 +52,10 @@ class KitchenGroundTruthOperatorFactory():
 
         # PushObjTurnOnRight
         parameters = [gripper, obj]
-        preconditions = {LiftedAtom(At, [gripper, obj]), LiftedAtom(CanTurnDial, [gripper])}
+        preconditions = {
+            LiftedAtom(At, [gripper, obj]),
+            LiftedAtom(CanTurnDial, [gripper])
+        }
         add_effects = {LiftedAtom(TurnedOn, [obj])}
         delete_effects = set()
         push_obj_turn_on_right_operator = STRIPSOperator(

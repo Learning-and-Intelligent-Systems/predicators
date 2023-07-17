@@ -33,7 +33,8 @@ For more information on installation see \
 https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
         # Predicates
-        self._At, self._OnTop, self._TurnedOn, self._CanTurnDial = self.get_goal_at_predicates()
+        self._At, self._OnTop, self._TurnedOn, self._CanTurnDial = self.get_goal_at_predicates(
+        )
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
@@ -243,12 +244,12 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         if obj.name in ["knob3", "knob2"]:
             return state.get(obj, "angle") < -0.8
         return False
-    
+
     @classmethod
-    def _CanTurnDial_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _CanTurnDial_holds(cls, state: State,
+                           objects: Sequence[Object]) -> bool:
         gripper = objects[0]
         return state.get(gripper, "y") < 0.2 and state.get(gripper, "z") < 2.2
-
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
@@ -261,5 +262,6 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
             Predicate("OnTop", [self.object_type, self.object_type],
                       self._OnTop_holds),
             Predicate("TurnedOn", [self.object_type], self._On_holds),
-            Predicate("CanTurnDial", [self.gripper_type], self._CanTurnDial_holds)
+            Predicate("CanTurnDial", [self.gripper_type],
+                      self._CanTurnDial_holds)
         ]
