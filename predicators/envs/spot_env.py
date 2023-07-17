@@ -325,7 +325,7 @@ class SpotEnv(BaseEnv):
         # Additionally, if we're using SAM, then update using that.
         if CFG.spot_grasp_use_sam:
             object_names_in_view_by_camera_sam = self._spot_interface.\
-                get_objects_in_view_by_camera(from_apriltag=True)
+                get_objects_in_view_by_camera(from_apriltag=False)
             # Combine these together to get all objects in view.
             for k, v in object_names_in_view_by_camera.items():
                 v.update(object_names_in_view_by_camera_sam[k])
