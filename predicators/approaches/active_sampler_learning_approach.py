@@ -69,13 +69,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def _create_explorer(self) -> BaseExplorer:
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
-        if CFG.active_sampler_learning_explore_growth == "linear":
-            max_steps = b*(1 + self._online_learning_cycle)
-        if CFG.active_sampler_learning_explore_growth == "exponential":
-            max_steps = b**(1 + self._online_learning_cycle)
-        else:
-            assert CFG.active_sampler_learning_explore_growth == "fixed"
-            max_steps = b
+        max_steps = b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
         explorer = create_explorer(
             CFG.explorer,

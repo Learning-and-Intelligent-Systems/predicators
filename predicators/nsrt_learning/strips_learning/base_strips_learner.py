@@ -175,10 +175,7 @@ class BaseSTRIPSLearner(abc.ABC):
         # Note: we want to loop over all segments, NOT just the ones
         # associated with demonstrations.
         for seg_traj in self._segmented_trajs:
-            try:
-                objects = set(seg_traj[0].states[0])
-            except:
-                import ipdb; ipdb.set_trace()
+            objects = set(seg_traj[0].states[0])
             for segment in seg_traj:
                 best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
                     segment, objects, pnads)
