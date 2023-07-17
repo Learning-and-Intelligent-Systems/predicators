@@ -488,24 +488,15 @@ class _SpotInterface():
         Args:
             class_name: name of object class
         """
-        # Only support using depth image to obatin location
-        # image_request = [
-        #     build_image_request(source,
-        #                         pixel_format=None if
-        #                         ('hand' in source or 'depth' in source) else
-        #                         image_pb2.Image.PIXEL_FORMAT_RGB_U8)
-        #     for source in [source_rgb, source_depth]
-        # ]
-        # image_responses = self.image_client.get_image(image_request)
         _, rgb_img_response = self.get_single_camera_image(source_rgb, True)
-        _, depth_img_response = self.get_single_camera_image(source_rgb, True)
+        _, depth_img_response = self.get_single_camera_image(source_depth, True)
         image = {
             'rgb': process_image_response(rgb_img_response[0]),
             'depth': process_image_response(depth_img_response[0]),
         }
         image_responses = {
-            'rgb': rgb_img_response,
-            'depth': depth_img_response,
+            'rgb': rgb_img_response[0],
+            'depth': depth_img_response[0],
         }
 
         res_locations = get_object_locations_with_detic_sam(
