@@ -15,6 +15,8 @@ from bosdyn.api import image_pb2
 from PIL import Image
 from scipy import ndimage
 
+from predicators.settings import CFG
+
 # NOTE: uncomment this line if trying to visualize stuff locally
 # and matplotlib isn't displaying.
 # matplotlib.use('TkAgg')
@@ -94,8 +96,8 @@ def show_box(box: np.ndarray, ax: matplotlib.axes.Axes) -> None:
                       lw=2))
 
 
-def query_sam(image_in: np.ndarray, classes: List[str],
-              viz: bool) -> Optional[Dict[str, List[np.ndarray]]]:
+def query_detic_sam(image_in: np.ndarray, classes: List[str],
+                    viz: bool) -> Optional[Dict[str, List[np.ndarray]]]:
     """Send a query to SAM and return the response.
 
     The response is a dictionary that contains 4 keys: 'boxes',
@@ -131,14 +133,12 @@ def query_sam(image_in: np.ndarray, classes: List[str],
                          d["scores"])
 
     # Filter out detections by confidence. We threshold detections
-    # at a 40% confidence level minimum, and if there are multiple
-    #, we only select the most confident one.
-    k = 1
-    topk_idx = np.argpartition(d['scores'], -k)[-k:]
-    # threshold_idx = np.where(d['scores'] > 0.40)[0]
-    threshold_idx = np.where(d['scores'] > 0.30)[0]
-    selected_idxs = np.intersect1d(topk_idx, threshold_idx).tolist()
-    if len(selected_idxs) == 0:
+    # at a set confidence level minimum, and if there are multiple
+    #, we only select the most confident one. This structure makes
+    # it easy for us to select multiple detections if that's ever
+    # necessary in the future.
+    selected_idx = np.argmax(d['scores'])
+    if d['scores'][selected_idx] < CFG.spot_vision_detection_threshold:
         return None
     d_filtered: Dict[str, List[np.ndarray]] = {
         "boxes": [],
@@ -146,9 +146,8 @@ def query_sam(image_in: np.ndarray, classes: List[str],
         "masks": [],
         "scores": []
     }
-    for i in selected_idxs:
-        for key, value in d.items():
-            d_filtered[key].append(value[i])
+    for key, value in d.items():
+        d_filtered[key].append(value[selected_idx])
 
     return d_filtered
 
@@ -241,6 +240,18 @@ def process_image_response(
     corresponding to the image."""
     # pylint: disable=no-member
     num_bytes = 1  # Assume a default of 1 byte encodings.
+    # Make sure all the necessary fields exist.
+    if image_response.source.image_type != \
+            image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
+        raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
+    if image_response.shot.image.pixel_format != \
+            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+        raise ValueError(
+            'IMAGE_TYPE_DEPTH with an unsupported format, requires ' +
+            'PIXEL_FORMAT_DEPTH_U16.')
+    if not image_response.source.HasField('pinhole'):
+        raise ValueError('Requires a pinhole camera_model.')
+
     if image_response.shot.image.pixel_format == \
             image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         dtype = np.uint16
@@ -278,18 +289,10 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
                        depth_value: float, point_x: float,
                        point_y: float) -> Tuple[float, float, float]:
     """This is a function based on `depth_image_to_pointcloud`"""
-    # pylint: disable=no-member
-    if image_response.source.image_type != \
-            image_pb2.ImageSource.IMAGE_TYPE_DEPTH:
-        raise ValueError('requires an image_type of IMAGE_TYPE_DEPTH.')
-    if image_response.shot.image.pixel_format != \
-            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
-        raise ValueError(
-            'IMAGE_TYPE_DEPTH with an unsupported format, requires ' +
-            'PIXEL_FORMAT_DEPTH_U16.')
-    if not image_response.source.HasField('pinhole'):
-        raise ValueError('Requires a pinhole camera_model.')
-
+    # First call process_image_response to do error checking on the
+    # input image response.
+    process_image_response(image_response)
+    # Next, compute the xyz point.
     fx = image_response.source.pinhole.intrinsics.focal_length.x
     fy = image_response.source.pinhole.intrinsics.focal_length.y
     cx = image_response.source.pinhole.intrinsics.principal_point.x
@@ -305,15 +308,15 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
     return x, y, z
 
 
-def get_pixel_locations_with_sam(
+def get_pixel_locations_with_detic_sam(
         classes: List[str],
         in_res_image: Dict[str, np.ndarray],
         plot: bool = False) -> List[Tuple[float, float]]:
     """Method to get the pixel locations of specific objects with class names
     listed in 'classes' within an input image."""
-    res_segment = query_sam(image_in=in_res_image['rgb'],
-                            classes=classes,
-                            viz=plot)
+    res_segment = query_detic_sam(image_in=in_res_image['rgb'],
+                                  classes=classes,
+                                  viz=plot)
     # return: 'masks', 'boxes', 'classes'
     if res_segment is None:
         return []
@@ -338,7 +341,7 @@ def get_pixel_locations_with_sam(
     return pixel_locations
 
 
-def get_object_locations_with_sam(
+def get_object_locations_with_detic_sam(
         classes: List[str],
         res_image: Dict[str, np.ndarray],
         res_image_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse],
@@ -369,7 +372,9 @@ def get_object_locations_with_sam(
         plt.show()
 
     # Start by querying SAM
-    res_segment = query_sam(image_in=rotated_rgb, classes=classes, viz=plot)
+    res_segment = query_detic_sam(image_in=rotated_rgb,
+                                  classes=classes,
+                                  viz=plot)
     if res_segment is None:
         return []
 

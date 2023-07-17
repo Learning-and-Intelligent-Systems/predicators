@@ -35,7 +35,7 @@ from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
 from predicators.spot_utils.perception_utils import \
-    get_object_locations_with_sam, get_pixel_locations_with_sam, \
+    get_object_locations_with_detic_sam, get_pixel_locations_with_detic_sam, \
     process_image_response
 from predicators.structs import Array, Image, Object
 
@@ -505,7 +505,7 @@ class _SpotInterface():
             'depth': image_responses[1],
         }
 
-        res_locations = get_object_locations_with_sam(
+        res_locations = get_object_locations_with_detic_sam(
             classes=[class_name],
             res_image=image,
             res_image_responses=image_responses,
@@ -546,17 +546,6 @@ class _SpotInterface():
         object_rt_gn_origin = gn_origin_tform_body.transform_point(
             body_tform_object[0], body_tform_object[1], body_tform_object[2])
         return object_rt_gn_origin
-
-    @staticmethod
-    def rotate_image(image: Image, source_name: str) -> Image:
-        """Rotate the image so that it is always displayed upright."""
-        if source_name == "frontleft_fisheye_image":
-            image = cv2.rotate(image, rotateCode=0)
-        elif source_name == "right_fisheye_image":
-            image = cv2.rotate(image, rotateCode=1)
-        elif source_name == "frontright_fisheye_image":
-            image = cv2.rotate(image, rotateCode=0)
-        return image
 
     def get_gripper_obs(self) -> float:
         """Grabs the current observation of relevant quantities from the
@@ -753,16 +742,18 @@ class _SpotInterface():
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
                 # We want to get objects in view both using AprilTags and
-                # using SAM.
+                # using SAM potentially.
+                objects_in_view_by_camera = {}
                 objects_in_view_by_camera_apriltag = \
                     self.get_objects_in_view_by_camera(from_apriltag=True)
-                objects_in_view_by_camera_sam = \
-                    self.get_objects_in_view_by_camera(from_apriltag=False)
-                # Combine these together to get all objects in view.
-                objects_in_view_by_camera = {}
-                objects_in_view_by_camera.update(objects_in_view_by_camera_sam)
-                for k, v in objects_in_view_by_camera.items():
-                    v.update(objects_in_view_by_camera_apriltag[k])
+                objects_in_view_by_camera.update(
+                    objects_in_view_by_camera_apriltag)
+                if CFG.spot_grasp_use_sam:
+                    objects_in_view_by_camera_sam = \
+                        self.get_objects_in_view_by_camera(from_apriltag=False)
+                    # Combine these together to get all objects in view.
+                    for k, v in objects_in_view_by_camera.items():
+                        v.update(objects_in_view_by_camera_sam[k])
                 # Now update the seen objects vs. objects still
                 # being searched for.
                 for v in objects_in_view_by_camera.values():
@@ -973,7 +964,7 @@ class _SpotInterface():
             # stand-in for the cube, which is quite a hack.
             # We will remove this and do correct object classing
             # in a future PR
-            results = get_pixel_locations_with_sam(classes=\
+            results = get_pixel_locations_with_detic_sam(classes=\
                                     [obj_name_to_vision_prompt['brush']],
                                     in_res_image=image_for_sam,
                                     plot=\

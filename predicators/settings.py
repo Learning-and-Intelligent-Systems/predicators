@@ -179,6 +179,7 @@ class GlobalSettings:
     spot_initialize_surfaces_to_default = True
     spot_fiducial_size = 44.45
     spot_visualize_vision_model_outputs = False
+    spot_vision_detection_threshold = 0.30
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
