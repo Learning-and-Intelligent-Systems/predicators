@@ -74,7 +74,7 @@ def test_active_sampler_explorer():
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
     task_idx = 0
     policy, _ = explorer.get_exploration_strategy(task_idx, 500)
-    with pytest.raises(utils.OptionExecutionFailure):
+    with pytest.raises(utils.RequestActPolicyFailure):
         policy(state)
 
     # Test that the PickFromBumpy operator is tried more than the others when
