@@ -27,8 +27,8 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
         return np.array([0.5, 0.0, 0.0])
     dyaw = 0.0
     # For MoveToObjOnFloor
-    if len(objs) == 3:
-        if objs[2].name == "floor":
+    if objs[1].name == "platform" or len(objs) == 3:
+        if objs[1].name == "platform" or objs[2].name == "floor":
             # Sample dyaw so that there is some hope of seeing objects from
             # different angles.
             dyaw = rng.uniform(-np.pi / 8, np.pi / 8)
@@ -69,6 +69,8 @@ def _grasp_sampler(spot_interface: _SpotInterface, state: State,
                    objs: Sequence[Object]) -> Array:
     del state, goal, rng, spot_interface
     if objs[1].type.name == "bag":  # pragma: no cover
+        return np.array([0.0, 0.0, 0.0, -1.0])
+    if objs[1].type.name == "platform":  # pragma: no cover
         return np.array([0.0, 0.0, 0.0, -1.0])
     if objs[2].name == "low_wall_rack":  # pragma: no cover
         return np.array([0.0, 0.0, 0.1, 0.0])
@@ -111,11 +113,34 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
         return fiducial_pose + np.array([dx, dy, dz])
     return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
+def _drag_sampler(spot_interface: _SpotInterface, state: State,
+                   goal: Set[GroundAtom], rng: np.random.Generator,
+                   objs: Sequence[Object]) -> Array:
+    del goal
+    robot, _, surface = objs
+
+    assert surface.name != "floor"
+
+    world_fiducial = math_helpers.Vec2(
+        state.get(surface, "x"),
+        state.get(surface, "y"),
+    )
+    world_to_robot = math_helpers.SE2Pose(state.get(robot, "x"),
+                                          state.get(robot, "y"),
+                                          state.get(robot, "yaw"))
+    fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
+    fiducial_pose = list(fiducial_in_robot_frame) + [spot_interface.hand_z]
+
+    dx, dy, force = 0.0, 0.0, 2.0
+
+    return  np.array([np.clip(fiducial_pose[0] + dx, -0.5, 0.5), np.clip(fiducial_pose[1] + dy, -0.5, 0.5), force])
+
 
 _NAME_TO_SPOT_INTERFACE_SAMPLER = {
     "move": _move_sampler,
     "grasp": _grasp_sampler,
     "place": _place_sampler,
+    "drag": _drag_sampler
 }
 
 
@@ -168,6 +193,8 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 sampler = _SpotInterfaceSampler("grasp")
             elif "Place" in strips_op.name:
                 sampler = _SpotInterfaceSampler("place")
+            elif "Drag" in strips_op.name:
+                sampler = _SpotInterfaceSampler("drag")
             else:
                 sampler = null_sampler
             option = options[strips_op.name]

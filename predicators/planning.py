@@ -1147,7 +1147,7 @@ def run_task_plan_once(
     else:
         raise ValueError("Unrecognized sesame_task_planner: "
                          f"{CFG.sesame_task_planner}")
-
+    import ipdb; ipdb.set_trace()
     return plan, atoms_seq, metrics
 
 

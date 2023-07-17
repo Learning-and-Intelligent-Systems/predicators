@@ -224,6 +224,8 @@ class SpotEnv(BaseEnv):
             return "grasp"
         if "Place" in operator.name:
             return "placeOnTop"
+        if "Drag" in operator.name:
+            return "drag"
         # Forthcoming controllers.
         return "noop"
 
@@ -1013,6 +1015,10 @@ class SpotBikeEnv(SpotEnv):
             cube = self._obj_name_to_obj("cube")
             extra_table = self._obj_name_to_obj("extra_room_table")
             return {GroundAtom(self._On, [cube, extra_table])}
+        if CFG.spot_platform_only:
+            platform = self._obj_name_to_obj("platform")
+            low_wall_rack = self._obj_name_to_obj("low_wall_rack")
+            return {GroundAtom(self._PlatformNear, [platform, low_wall_rack])}
         hammer = self._obj_name_to_obj("hammer")
         hex_key = self._obj_name_to_obj("hex_key")
         brush = self._obj_name_to_obj("brush")
@@ -1031,6 +1037,9 @@ class SpotBikeEnv(SpotEnv):
         if CFG.spot_cube_only:
             cube = Object("cube", self._tool_type)
             objects.append(cube)
+        if CFG.spot_platform_only:
+            platform = Object("platform", self._platform_type)
+            objects.append(platform)
         else:
             hammer = Object("hammer", self._tool_type)
             hex_key = Object("hex_key", self._tool_type)

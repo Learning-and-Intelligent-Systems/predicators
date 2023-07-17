@@ -77,6 +77,7 @@ obj_name_to_apriltag_id = {
     "tool_room_table": 408,
     "extra_room_table": 409,
     "cube": 410,
+    "platform": 411,
 }
 
 OBJECT_CROPS = {
@@ -560,6 +561,14 @@ class _SpotInterface():
                                    open_gripper=False)
                 time.sleep(1.0)
                 return
+        if "platform" in objs[1].name:
+            self.hand_movement(np.array([-0.2, 0.0, -0.25]),
+                                keep_hand_pose=False,
+                                angle=(np.cos(np.pi / 7), 0,
+                                        np.sin(np.pi / 7), 0),
+                                open_gripper=False)
+            time.sleep(1.0)
+            return
         self.stow_arm()
         time.sleep(1.0)
 
@@ -582,7 +591,8 @@ class _SpotInterface():
         self.arm_object_grasp(objs[1])
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
-        self.stow_arm()
+        if objs[1].name != "platform":
+            self.stow_arm()
         # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
         time.sleep(1.0)
@@ -610,7 +620,7 @@ class _SpotInterface():
     def dragController(self, objs: Sequence[Object], params: Array) -> None:
         """Drag Controller."""
         print("Drag", objs)
-        assert len(params) == 4  # [x, y, z] vector for direction and [f] force
+        assert len(params) == 3  # [x, y, z] vector for direction and [f] force
         self.drag_impedence_control(params)
         time.sleep(1.0)
         self.stow_arm()
@@ -1126,35 +1136,11 @@ class _SpotInterface():
         """Simple drag impedence controller."""
         assert len(params) == 3
 
-        # Move to relative robot position in body frame.
-        transforms = self.robot_state_client.get_robot_state(
-        ).kinematic_state.transforms_snapshot
-
-        # Build the transform for where we want the robot to be
-        # relative to where the body currently is.
-        body_tform_goal = math_helpers.SE2Pose(x=params[0],
-                                               y=params[1],
-                                               angle=0.0)
-        # We do not want to command this goal in body frame because
-        # the body will move, thus shifting our goal. Instead, we
-        # transform this offset to get the goal position in the output
-        # frame (which will be either odom or vision).
-        out_tform_body = get_se2_a_tform_b(transforms, ODOM_FRAME_NAME,
-                                           BODY_FRAME_NAME)
-        out_tform_goal = out_tform_body * body_tform_goal
-
-        # Command the robot to go to the goal point in the specified
-        # frame. The command will stop at the new position.
-        move_command = RobotCommandBuilder.\
-            synchro_se2_trajectory_point_command(
-                goal_x=out_tform_goal.x,
-                goal_y=out_tform_goal.y,
-                goal_heading=out_tform_goal.angle,
-                frame_name=ODOM_FRAME_NAME,
-                params=RobotCommandBuilder.mobility_params(stair_hint=False))
-
         # First, let's pick a task frame that is in front of the robot.
         robot_state = self.robot_state_client.get_robot_state()
+        body_T_hand = get_a_tform_b(
+                robot_state.kinematic_state.transforms_snapshot,
+                BODY_FRAME_NAME, "hand")
         odom_T_grav_body = get_a_tform_b(
             robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
             GRAV_ALIGNED_BODY_FRAME_NAME)
@@ -1220,44 +1206,33 @@ class _SpotInterface():
         # Set up our `desired_tool` trajectory. This is where we want the
         # tool to be with respect to the task frame. The stiffness we set will
         # drag the tool towards `desired_tool`.
+        # Transform
+        qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x,\
+                body_T_hand.rot.y, body_T_hand.rot.z
+        flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
+        flat_body_T_hand = geometry_pb2.SE3Pose(position=geometry_pb2.Vec3(x=body_T_hand.x, y=body_T_hand.y, z=body_T_hand.z),
+                                                rotation=flat_body_Q_hand)
+        odom_T_flat_body = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
+            GRAV_ALIGNED_BODY_FRAME_NAME)
+        odom_T_hand = odom_T_flat_body * flat_body_T_hand
+        #
+
         traj = impedance_cmd.task_tform_desired_tool
         pt1 = traj.points.add()
         pt1.time_since_reference.CopyFrom(seconds_to_duration(2.0))
-        pt1.pose.CopyFrom(
-            math_helpers.SE3Pose(0, 0, 0, math_helpers.Quat(1, 0, 0,
-                                                            0)).to_proto())
+        pt1.pose.CopyFrom(odom_T_hand)
         pt2 = traj.points.add()
         pt2.time_since_reference.CopyFrom(seconds_to_duration(4.0))
         pt2.pose.CopyFrom(
-            math_helpers.SE3Pose(params[0], params[1], 0,
-                                 math_helpers.Quat(1, 0, 0, 0)).to_proto())
+            math_helpers.SE3Pose(params[0], params[1], odom_T_hand.z,
+                                 math_helpers.Quat(odom_T_hand.rot.w, odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z)).to_proto())
 
         # Execute the impedance command
         self.robot_command_client.robot_command(robot_cmd)
         time.sleep(5.0)
 
-        # Move body
-        cmd_id = self.robot_command_client.robot_command(
-            lease=None,
-            command=move_command,
-            end_time_secs=time.time() + COMMAND_TIMEOUT)
         start_time = time.perf_counter()
-        while (time.perf_counter() - start_time) <= COMMAND_TIMEOUT:
-            feedback = self.robot_command_client.\
-                robot_command_feedback(cmd_id)
-            mobility_feedback = feedback.feedback.\
-                synchronized_feedback.mobility_command_feedback
-            if mobility_feedback.status != \
-                RobotCommandFeedbackStatus.STATUS_PROCESSING:
-                logging.info("Failed to reach the goal")
-                break
-            traj_feedback = mobility_feedback.se2_trajectory_feedback
-            if (traj_feedback.status == traj_feedback.STATUS_AT_GOAL
-                    and traj_feedback.body_movement_status
-                    == traj_feedback.BODY_STATUS_SETTLED):
-                logging.info("Arrived at the goal.")
-                break
-            time.sleep(1)
         if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
             logging.info("Timed out waiting for movement to execute!")
 
