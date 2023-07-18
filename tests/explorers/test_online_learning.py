@@ -90,7 +90,6 @@ class _MockApproach(BaseApproach):
         self._dummy_saved.append(next_saved)
 
     def load(self, online_learning_cycle):
-        # import ipdb; ipdb.set_trace()
         assert self._dummy_saved.pop(0) == online_learning_cycle
 
 
