@@ -21,21 +21,16 @@ def test_exit_garage_properties():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 5
-    (CarHasExited, CarryingObstacle, NotCarryingObstacle, ObstacleCleared,
-     ObstacleNotCleared) = sorted(env.predicates)
+    assert len(env.predicates) == 3
+    CarHasExited, ObstacleCleared, ObstacleNotCleared = sorted(env.predicates)
     assert CarHasExited.name == "CarHasExited"
-    assert CarryingObstacle.name == "CarryingObstacle"
-    assert NotCarryingObstacle.name == "NotCarryingObstacle"
     assert ObstacleCleared.name == "ObstacleCleared"
     assert ObstacleNotCleared.name == "ObstacleNotCleared"
     assert env.goal_predicates == {CarHasExited}
-    assert len(get_gt_options(env.get_name())) == 3
-    (DriveCarToExit, PickupObstacle,
-     StoreObstacle) = sorted(get_gt_options(env.get_name()))
+    assert len(get_gt_options(env.get_name())) == 2
+    ClearObstacle, DriveCarToExit = sorted(get_gt_options(env.get_name()))
+    assert ClearObstacle.name == "ClearObstacle"
     assert DriveCarToExit.name == "DriveCarToExit"
-    assert PickupObstacle.name == "PickupObstacle"
-    assert StoreObstacle.name == "StoreObstacle"
     assert len(env.types) == 4
     car_type, obstacle_type, robot_type, storage_type = sorted(env.types)
     assert car_type.name == "car"
@@ -54,8 +49,7 @@ def test_exit_garage_actions():
         "num_train_tasks": 1,
     })
     env = ExitGarageEnv()
-    (CarHasExited, CarryingObstacle, NotCarryingObstacle, ObstacleCleared,
-     ObstacleNotCleared) = sorted(env.predicates)
+    CarHasExited, ObstacleCleared, ObstacleNotCleared = sorted(env.predicates)
     car_type, obstacle_type, robot_type, storage_type = sorted(env.types)
 
     # Create task with fixed initial state
@@ -76,10 +70,8 @@ def test_exit_garage_actions():
     storage, = state.get_objects(storage_type)
     # Assert starting state predicates
     assert not GroundAtom(CarHasExited, [car]).holds(state)
-    assert not GroundAtom(CarryingObstacle, [robot, obstacle]).holds(state)
     assert not GroundAtom(ObstacleCleared, [obstacle]).holds(state)
     assert GroundAtom(ObstacleNotCleared, [obstacle]).holds(state)
-    assert GroundAtom(NotCarryingObstacle, [robot]).holds(state)
     task = EnvironmentTask(state, goal)
 
     # Fixed action sequences to test (each is a list of action arrays)
@@ -122,15 +114,15 @@ def test_exit_garage_actions():
     assert s.get(robot, "x") == true_x
     assert s.get(robot, "y") == true_y
     # Robot shouldn't have picked up anything since it wasn't on an obstacle
-    assert not GroundAtom(CarryingObstacle, [robot, obstacle]).holds(s)
-    assert GroundAtom(NotCarryingObstacle, [robot]).holds(s)
+    assert s.get(robot, "carrying") == 0
+    assert s.get(obstacle, "carried") == 0
 
     # Test that going and picking up the obstacle works
     for action in pickup_actions:
         s = env.simulate(s, Action(action))
-    assert GroundAtom(CarryingObstacle, [robot, obstacle]).holds(s)
+    assert s.get(robot, "carrying") == 1
+    assert s.get(obstacle, "carried") == 1
     assert not GroundAtom(ObstacleNotCleared, [obstacle]).holds(s)
-    assert not GroundAtom(NotCarryingObstacle, [robot]).holds(s)
 
     # Test that trying to place the obstacle outside storage does nothing
     true_x = s.get(robot, "x")
@@ -140,18 +132,18 @@ def test_exit_garage_actions():
     assert s.get(robot, "x") == true_x
     assert s.get(robot, "y") == true_y
     # Robot should still be carrying obstacle
-    assert GroundAtom(CarryingObstacle, [robot, obstacle]).holds(s)
+    assert s.get(robot, "carrying") == 1
+    assert s.get(obstacle, "carried") == 1
     assert not GroundAtom(ObstacleNotCleared, [obstacle]).holds(s)
-    assert not GroundAtom(NotCarryingObstacle, [robot]).holds(s)
 
     # Test that moving to storage and placing the obstacle works
     assert s.get(storage, "num_stored") == 0
     for action in store_actions:
         s = env.simulate(s, Action(action))
     # Check obstacle is placed
-    assert not GroundAtom(CarryingObstacle, [robot, obstacle]).holds(s)
+    assert s.get(robot, "carrying") == 0
+    assert s.get(obstacle, "carried") == 0
     assert GroundAtom(ObstacleCleared, [obstacle]).holds(s)
-    assert GroundAtom(NotCarryingObstacle, [robot]).holds(s)
     # Check obstacle and robot are in storage area
     assert s.get(robot, "y") > 0.8
     assert s.get(obstacle, "y") > 0.8
@@ -160,7 +152,8 @@ def test_exit_garage_actions():
 
     # Test that picking up in storage area does nothing
     s = env.simulate(s, Action(bad_robot_action))
-    assert GroundAtom(NotCarryingObstacle, [robot]).holds(s)
+    assert s.get(robot, "carrying") == 0
+    assert s.get(obstacle, "carried") == 0
 
     # Test moving car to exit
     for action in drive_actions:
@@ -303,7 +296,7 @@ def test_exit_garage_options():
     """Tests for exit garage parametrized options."""
     utils.reset_config({
         "env": "exit_garage",
-        "exit_garage_pick_place_refine_penalty": 0,
+        "exit_garage_clear_refine_penalty": 0,
         "exit_garage_min_num_obstacles": 2,
         "exit_garage_max_num_obstacles": 2,
         "exit_garage_rrt_num_control_samples": 15,
@@ -311,10 +304,8 @@ def test_exit_garage_options():
         "num_train_tasks": 1,
     })
     env = ExitGarageEnv()
-    (CarHasExited, CarryingObstacle, NotCarryingObstacle, ObstacleCleared,
-     ObstacleNotCleared) = sorted(env.predicates)
-    (DriveCarToExit, PickupObstacle,
-     StoreObstacle) = sorted(get_gt_options(env.get_name()))
+    CarHasExited, ObstacleCleared, ObstacleNotCleared = sorted(env.predicates)
+    ClearObstacle, DriveCarToExit = sorted(get_gt_options(env.get_name()))
     car_type, obstacle_type, robot_type, _ = sorted(env.types)
 
     # Create task with fixed initial state
@@ -327,13 +318,12 @@ def test_exit_garage_options():
     state.set(obstacle1, "x", 0.5)
     state.set(obstacle1, "y", 0.3)
     state.set(obstacle2, "x", 0.8)
-    state.set(obstacle2, "y", 0.1)
+    state.set(obstacle2, "y", 0.05)
     task = EnvironmentTask(state, goal)
 
-    # Test PickupObstacle, StoreObstacle, then DriveCarToExit
+    # Test ClearObstacle, then DriveCarToExit
     option_plan = [
-        PickupObstacle.ground([robot, obstacle2], [0.2]),
-        StoreObstacle.ground([robot, obstacle2], [0.6]),
+        ClearObstacle.ground([robot, obstacle1], [0.2]),
         DriveCarToExit.ground([car], [0.7]),
     ]
     policy = utils.option_plan_to_policy(option_plan)
@@ -346,37 +336,20 @@ def test_exit_garage_options():
         exceptions_to_break_on={utils.OptionExecutionFailure},
     )
     final_state = traj.states[-1]
+    assert final_state.get(robot, "carrying") == 0
+    assert final_state.get(obstacle1, "carried") == 0
+    assert GroundAtom(ObstacleCleared, [obstacle1]).holds(final_state)
+    assert not GroundAtom(ObstacleNotCleared, [obstacle1]).holds(final_state)
     assert GroundAtom(CarHasExited, [car]).holds(final_state)
-    assert not GroundAtom(CarryingObstacle,
-                          [robot, obstacle2]).holds(final_state)
-    assert GroundAtom(ObstacleCleared, [obstacle2]).holds(final_state)
-    assert not GroundAtom(ObstacleNotCleared, [obstacle2]).holds(final_state)
-    assert GroundAtom(NotCarryingObstacle, [robot]).holds(final_state)
     assert task.task.goal_holds(final_state)
 
     # Test scenarios where options shouldn't be initiable
 
-    # Test StoreObstacle when robot isn't carrying anything
-    assert GroundAtom(NotCarryingObstacle, [robot]).holds(state)
-    store_obstacle = StoreObstacle.ground([robot, obstacle1], [0.3])
-    assert not store_obstacle.initiable(state)
-
-    # Test StoreObstacle when robot carrying different obstacle
-    test_state = state.copy()
-    test_state.set(robot, "carrying", 1)
-    test_state.set(obstacle2, "carried", 1)
-    assert not store_obstacle.initiable(test_state)
-
-    # Test PickupObstacle when robot carrying obstacle already
-    pickup_obstacle = PickupObstacle.ground([robot, obstacle1], [0.8])
-    assert not pickup_obstacle.initiable(test_state)
-
-    # Test PickupObstacle when obstacle already picked or stored
-    pickup_obstacle = PickupObstacle.ground([robot, obstacle2], [0.4])
-    assert not pickup_obstacle.initiable(test_state)  # already picked
+    # Test ClearObstacle when obstacle already picked or stored
+    clear_obstacle = ClearObstacle.ground([robot, obstacle2], [0.4])
     test_state = state.copy()
     test_state.set(obstacle2, "y", 0.9)  # obstacle2 already in storage
-    assert not pickup_obstacle.initiable(test_state)
+    assert not clear_obstacle.initiable(test_state)
 
     # Test DriveCarToExit when car is already in collision for some reason
     test_state.set(car, "x", 0.5)
@@ -389,7 +362,7 @@ def test_exit_garage_failed_rrt():
     if motion planning fails."""
     utils.reset_config({
         "env": "exit_garage",
-        "exit_garage_pick_place_refine_penalty": 0,
+        "exit_garage_clear_refine_penalty": 0,
         "exit_garage_min_num_obstacles": 6,
         "exit_garage_max_num_obstacles": 6,
         "exit_garage_rrt_num_attempts": 1,
@@ -398,7 +371,7 @@ def test_exit_garage_failed_rrt():
         "num_train_tasks": 1,
     })
     env = ExitGarageEnv()
-    DriveCarToExit, _, _ = sorted(get_gt_options(env.get_name()))
+    _, DriveCarToExit = sorted(get_gt_options(env.get_name()))
     car_type, obstacle_type, _, _ = sorted(env.types)
 
     # Create task with fixed initial state

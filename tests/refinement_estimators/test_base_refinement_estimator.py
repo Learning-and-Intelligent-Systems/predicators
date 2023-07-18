@@ -10,6 +10,8 @@ from predicators import utils
 from predicators.refinement_estimators import BaseRefinementEstimator, \
     create_refinement_estimator
 
+# We don't run these tests for gnn because training on an empty dataset is
+# not possible
 ESTIMATOR_NAMES = ["oracle", "tabular", "cnn"]
 
 

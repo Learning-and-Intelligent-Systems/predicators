@@ -49,7 +49,6 @@ class CogMan:
 
     def step(self, observation: Observation) -> Optional[Action]:
         """Receive an observation and produce an action, or None for done."""
-        logging.info("[CogMan] Step called.")
         state = self._perceiver.step(observation)
         # Replace the first step because the state was already added in reset().
         if not self._episode_action_history:
@@ -75,7 +74,6 @@ class CogMan:
         self._exec_monitor.update_approach_info(
             self._approach.get_execution_monitoring_info())
         self._episode_action_history.append(act)
-        logging.info("[CogMan] Returning action.")
         return act
 
     def finish_episode(self, observation: Observation) -> None:

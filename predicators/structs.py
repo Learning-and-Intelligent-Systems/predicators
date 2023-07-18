@@ -1808,7 +1808,7 @@ ObjectOrVariable = TypeVar("ObjectOrVariable", bound=_TypedEntity)
 SamplerDatapoint = Tuple[State, VarToObjSub, _Option,
                          Optional[Set[GroundAtom]]]
 RefinementDatapoint = Tuple[Task, List[_GroundNSRT], List[Set[GroundAtom]],
-                            bool, float]
+                            bool, List[float], List[int]]
 # For PDDLEnv environments, given a desired number of problems and an rng,
 # returns a list of that many PDDL problem strings.
 PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]

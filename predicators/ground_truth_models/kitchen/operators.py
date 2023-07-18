@@ -27,6 +27,7 @@ class KitchenGroundTruthOperatorFactory():
         At = predicates["At"]
         TurnedOn = predicates["TurnedOn"]
         OnTop = predicates["OnTop"]
+        CanTurnDial = predicates["CanTurnDial"]
 
         operators = set()
 
@@ -43,7 +44,7 @@ class KitchenGroundTruthOperatorFactory():
         parameters = [gripper, obj, obj2]
         preconditions = {LiftedAtom(At, [gripper, obj])}
         add_effects = {LiftedAtom(OnTop, [obj, obj2])}
-        delete_effects = set()
+        delete_effects = {LiftedAtom(CanTurnDial, [gripper])}
         push_obj_on_obj_forward_operator = STRIPSOperator(
             "PushObjOnObjForward", parameters, preconditions, add_effects,
             delete_effects, {OnTop})
@@ -51,7 +52,10 @@ class KitchenGroundTruthOperatorFactory():
 
         # PushObjTurnOnRight
         parameters = [gripper, obj]
-        preconditions = {LiftedAtom(At, [gripper, obj])}
+        preconditions = {
+            LiftedAtom(At, [gripper, obj]),
+            LiftedAtom(CanTurnDial, [gripper])
+        }
         add_effects = {LiftedAtom(TurnedOn, [obj])}
         delete_effects = set()
         push_obj_turn_on_right_operator = STRIPSOperator(

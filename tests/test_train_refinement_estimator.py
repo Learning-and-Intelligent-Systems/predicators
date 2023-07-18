@@ -53,11 +53,29 @@ def test_train_refinement_estimator():
     # Test successful data generation and training
     temp_log_file = tempfile.NamedTemporaryFile(delete=False).name
     train_sys_argv = [
-        "dummy", "--env", "narrow_passage", "--approach",
-        "refinement_estimation", "--refinement_estimator", "tabular", "--seed",
-        "123", "--num_train_tasks", "1", "--approach_dir", approach_dir,
-        "--data_dir", data_dir, "--refinement_data_file_name", "test.data",
-        "--log_file", temp_log_file
+        "dummy",
+        "--env",
+        "narrow_passage",
+        "--approach",
+        "refinement_estimation",
+        "--refinement_estimator",
+        "tabular",
+        "--seed",
+        "123",
+        "--num_train_tasks",
+        "1",
+        "--approach_dir",
+        approach_dir,
+        "--data_dir",
+        data_dir,
+        "--refinement_data_file_name",
+        "test.data",
+        "--refinement_data_save_every",
+        "1",
+        "--log_file",
+        temp_log_file,
+        "--refinement_train_with_frac_data",
+        "1.1",
     ]
     sys.argv = train_sys_argv
     _train_refinement_estimation_approach()
@@ -114,5 +132,6 @@ def test_train_refinement_estimator():
     sample_option_model = create_option_model("oracle")
     utils.reset_config_with_parser(parser)
     with pytest.raises(PlanningFailure):
-        _collect_refinement_data_for_task(sample_task, sample_option_model,
-                                          set(), set(), set(), 0, [])
+        _collect_refinement_data_for_task(sample_env, sample_task,
+                                          sample_option_model, set(), set(),
+                                          set(), 0, [])

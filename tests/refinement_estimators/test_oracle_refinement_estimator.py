@@ -18,7 +18,7 @@ def test_oracle_refinement_estimator():
     assert estimator.get_name() == "oracle"
     assert not estimator.is_learning_based
     with pytest.raises(NotImplementedError):
-        sample_task = NarrowPassageEnv().get_train_tasks()[0]
+        sample_task = NarrowPassageEnv().get_train_tasks()[0].task
         estimator.get_cost(sample_task, [], [])
 
 
@@ -94,6 +94,8 @@ def test_exit_garage_oracle_refinement_estimator():
     """Test oracle refinement cost estimator for exit_garage env."""
     utils.reset_config({
         "env": "exit_garage",
+        "exit_garage_min_num_obstacles": 2,
+        "exit_garage_max_num_obstacles": 2,
     })
     estimator = OracleRefinementEstimator()
 
@@ -104,21 +106,19 @@ def test_exit_garage_oracle_refinement_estimator():
     sample_state = sample_task.init
     car, = sample_state.get_objects(car_type)
     robot, = sample_state.get_objects(robot_type)
-    obstacles = sample_state.get_objects(obstacle_type)
+    obstacle1, obstacle2 = sample_state.get_objects(obstacle_type)
+    sample_state.set(obstacle1, "y", 0.6)
+    sample_state.set(obstacle2, "y", 0.4)
     task = Task(sample_state, sample_task.goal)
     gt_nsrts = get_gt_nsrts(CFG.env, env.predicates,
                             get_gt_options(env.get_name()))
-    (drive_car_to_exit_nsrt, pickup_obstacle_nsrt,
-     store_obstacle_nsrt) = sorted(gt_nsrts)
+    clear_obstacle_nsrt, drive_car_to_exit_nsrt = sorted(gt_nsrts)
 
     # Ground NSRTs using objects
     ground_drive_car_to_exit = drive_car_to_exit_nsrt.ground([car])
 
-    def ground_pickup_obstacle(obstacle):
-        return pickup_obstacle_nsrt.ground([robot, obstacle])
-
-    def ground_store_obstacle(obstacle):
-        return store_obstacle_nsrt.ground([robot, obstacle])
+    def ground_clear_obstacle(obstacle):
+        return clear_obstacle_nsrt.ground([robot, obstacle])
 
     # Test direct DriveCarToExit skeleton
     drive_direct_skeleton = [ground_drive_car_to_exit]
@@ -127,13 +127,12 @@ def test_exit_garage_oracle_refinement_estimator():
 
     # Test pickups and stores before driving
     long_skeleton = [
-        ground_pickup_obstacle(obstacles[0]),
-        ground_store_obstacle(obstacles[0]),
-        ground_pickup_obstacle(obstacles[1]),
+        ground_clear_obstacle(obstacle1),
+        ground_clear_obstacle(obstacle2),
         ground_drive_car_to_exit,
     ]
     long_cost = estimator.get_cost(task, long_skeleton, [])
-    assert long_cost == -2
+    assert long_cost == -0.5
 
     # Make sure that sorting the costs considers the long skeleton cheaper
     assert sorted([drive_direct_cost,
