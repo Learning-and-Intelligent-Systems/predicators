@@ -104,7 +104,10 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:
         assert caption is None
-        arr: Image = self._gym_env.render('rgb_array')  # type: ignore
+        arr: Image = self._gym_env.render(
+            'rgb_array',
+            imwidth=CFG.kitchen_camera_size,
+            imheight=CFG.kitchen_camera_size)  # type: ignore
         return [arr]
 
     @property

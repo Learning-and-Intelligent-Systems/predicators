@@ -37,15 +37,12 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         operators = KitchenGroundTruthOperatorFactory.get_operators(
             env_name, types, predicates)
 
-        # Reformat names for consistency with other option naming.
-        def _format_name(name: str) -> str:
-            return "".join([n.capitalize() for n in name.split(" ")])
-
         options: Set[ParameterizedOption] = set()
         for op in operators:
             assert "MoveTo" in op.name or "Push" in op.name
             val = "move_delta_ee_pose"
             if isinstance(primitive_name_to_action_idx[val], int):
+                # TODO: this is not used right now
                 params_space = Box(-np.ones(1) * 5, np.ones(1) * 5)
             else:
                 n = len(primitive_name_to_action_idx[val])

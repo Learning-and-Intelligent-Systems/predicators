@@ -332,6 +332,7 @@ class GlobalSettings:
 
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
+    kitchen_camera_size = 512
 
     # parameters for random options approach
     random_options_max_tries = 100

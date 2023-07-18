@@ -7,6 +7,7 @@ from predicators import utils
 from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.kitchen_perceiver import KitchenPerceiver
+from predicators.structs import Action
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
@@ -91,31 +92,6 @@ def test_kitchen():
     init_state = env.state_info_to_state(obs["state_info"])
     rng = np.random.default_rng(123)
 
-    # For reference.
-    """
-    ######################## STATE #######################
-    type: gripper            x         y        z
-    ---------------  ---------  --------  -------
-    gripper          -0.431879  0.118886  2.02457
-
-    type: obj            x         y        z        angle
-    -----------  ---------  --------  -------  -----------
-    burner1      -0.3       0.3       0.629    0
-    burner2      -0.3       0.8       0.629    0
-    burner3       0.204     0.8       0.629    0
-    burner4       0.206     0.3       0.629    0
-    hinge1       -0.682831  0.580057  2.6      0
-    hinge2       -0.526226  0.582535  2.6      0
-    kettle       -0.272806  0.348292  1.77842  0
-    knob1        -0.133     0.6399    2.22643  0
-    knob2        -0.256     0.6399    2.22643  3.12877e-05
-    knob3        -0.133     0.6399    2.34043  6.28065e-05
-    knob4        -0.256     0.6399    2.34043  0
-    light        -0.368465  0.615715  2.28     0
-    microhandle  -0.641919  0.492627  1.792    0
-    slide        -0.108466  0.607     2.6      0
-    ######################################################
-    """
     obj_name_to_obj = {o.name: o for o in init_state}
     gripper = obj_name_to_obj["gripper"]
     knob3 = obj_name_to_obj["knob3"]
@@ -171,12 +147,27 @@ def test_kitchen():
         state = env.state_info_to_state(obs["state_info"])
         if move_to_kettle_option.terminal(state):
             break
-    # TODO fix: At(gripper, kettle) not true.
     for atom in move_to_kettle_nsrt.add_effects:
         assert atom.holds(state)
     for atom in move_to_kettle_nsrt.delete_effects:
         assert not atom.holds(state)
 
-    # TODO add pushing kettle onto burner3.
+    push_kettle_on_burner2_nsrt = PushObjOnObjForward.ground(
+        [gripper, kettle, burner2])
+    for atom in push_kettle_on_burner2_nsrt.preconditions:
+        assert atom.holds(state)
+    push_kettle_on_burner2_option = push_kettle_on_burner2_nsrt.sample_option(
+        state, set(), rng)
+    assert push_kettle_on_burner2_option.initiable(state)
+    for _ in range(100):
+        act = push_kettle_on_burner2_option.policy(state)
+        obs = env.step(act)
+        state = env.state_info_to_state(obs["state_info"])
+        if push_kettle_on_burner2_option.terminal(state):
+            break
+    for atom in push_kettle_on_burner2_nsrt.add_effects:
+        assert atom.holds(state)
+    for atom in push_kettle_on_burner2_nsrt.delete_effects:
+        assert not atom.holds(state)
 
     # TODO test reverse order (first push kettle, then turn dial).
