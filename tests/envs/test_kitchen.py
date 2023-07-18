@@ -122,7 +122,7 @@ def test_kitchen():
     kettle = obj_name_to_obj["kettle"]
     burner2 = obj_name_to_obj["burner2"]
 
-    # Test moving to and pushing knob3.
+    # Test moving to and pushing knob3, then moving to and pushing the kettle.
     move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
     for atom in move_to_knob3_nsrt.preconditions:
         assert atom.holds(init_state)
@@ -159,24 +159,24 @@ def test_kitchen():
     for atom in push_knob3_nsrt.delete_effects:
         assert not atom.holds(state)
 
-    # # Test moving to and pushing the kettle on top of burner2 from init state.
-    # move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
-    # for atom in move_to_kettle_nsrt.preconditions:
-    #     assert atom.holds(init_state)
-    # move_to_kettle_option = move_to_kettle_nsrt.sample_option(
-    #     init_state, set(), rng)
-    # assert move_to_kettle_option.initiable(init_state)
-    # obs = env.reset("test", 0)
-    # state = env.state_info_to_state(obs["state_info"])
-    # assert state.allclose(init_state)
-    # for _ in range(100):
-    #     act = move_to_kettle_option.policy(state)
-    #     obs = env.step(act)
-    #     state = env.state_info_to_state(obs["state_info"])
-    #     if move_to_kettle_option.terminal(state):
-    #         break
-    # for atom in move_to_kettle_nsrt.add_effects:
-    #     assert atom.holds(state)
-    # for atom in move_to_kettle_nsrt.delete_effects:
-    #     assert not atom.holds(state)
-    # TODO add pushing the kettle on tpo of burner2.
+    move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
+    for atom in move_to_kettle_nsrt.preconditions:
+        assert atom.holds(state)
+    move_to_kettle_option = move_to_kettle_nsrt.sample_option(
+        state, set(), rng)
+    assert move_to_kettle_option.initiable(state)
+    for _ in range(100):
+        act = move_to_kettle_option.policy(state)
+        obs = env.step(act)
+        state = env.state_info_to_state(obs["state_info"])
+        if move_to_kettle_option.terminal(state):
+            break
+    # TODO fix: At(gripper, kettle) not true.
+    for atom in move_to_kettle_nsrt.add_effects:
+        assert atom.holds(state)
+    for atom in move_to_kettle_nsrt.delete_effects:
+        assert not atom.holds(state)
+
+    # TODO add pushing kettle onto burner3.
+
+    # TODO test reverse order (first push kettle, then turn dial).
