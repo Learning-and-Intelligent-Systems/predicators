@@ -131,9 +131,9 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
     fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
     fiducial_pose = list(fiducial_in_robot_frame) + [spot_interface.hand_z]
 
-    dx, dy, force = 0.0, 0.0, 2.0
+    dx, dy = 0.0, -0.4
 
-    return  np.array([np.clip(fiducial_pose[0] + dx, -0.5, 0.5), np.clip(fiducial_pose[1] + dy, -0.5, 0.5), force])
+    return  np.array([fiducial_pose[0] + dx, fiducial_pose[1] + dy])
 
 
 _NAME_TO_SPOT_INTERFACE_SAMPLER = {

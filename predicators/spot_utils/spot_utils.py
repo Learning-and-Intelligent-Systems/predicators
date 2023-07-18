@@ -443,7 +443,7 @@ class _SpotInterface():
             "navigate": Box(-5.0, 5.0, (3, )),
             "grasp": Box(-1.0, 1.0, (4, )),
             "placeOnTop": Box(-5.0, 5.0, (3, )),
-            "drag": Box(-5.0, 5.0, (3, )),
+            "drag": Box(-5.0, 5.0, (2, )),
             "noop": Box(0, 1, (0, ))
         }
 
@@ -620,7 +620,7 @@ class _SpotInterface():
     def dragController(self, objs: Sequence[Object], params: Array) -> None:
         """Drag Controller."""
         print("Drag", objs)
-        assert len(params) == 3  # [x, y, z] vector for direction and [f] force
+        assert len(params) == 2 # [x, y] vector for direction
         self.drag_impedence_control(params)
         time.sleep(1.0)
         self.stow_arm()
@@ -946,6 +946,8 @@ class _SpotInterface():
         open_gripper: bool = True,
         relative_to_default_pose: bool = True,
         keep_hand_pose: bool = True,
+        keep_body_pose: bool = False,
+        clip_z: bool = True,
         angle: Tuple[float, float, float,
                      float] = (np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0)
     ) -> None:
@@ -981,8 +983,12 @@ class _SpotInterface():
         # robot respectively.
         x_clipped = np.clip(x, self.hand_x_bounds[0], self.hand_x_bounds[1])
         y_clipped = np.clip(y, self.hand_y_bounds[0], self.hand_y_bounds[1])
-        z_clipped = np.clip(z, self.hand_z_bounds[0], self.hand_z_bounds[1])
-        self.relative_move((x - x_clipped), (y - y_clipped), 0.0)
+        if clip_z:
+            z_clipped = np.clip(z, self.hand_z_bounds[0], self.hand_z_bounds[1])
+        else:
+            z_clipped = z
+        if not keep_body_pose:
+            self.relative_move((x - x_clipped), (y - y_clipped), 0.0)
         x = x_clipped
         y = y_clipped
         z = z_clipped
@@ -1134,107 +1140,33 @@ class _SpotInterface():
 
     def drag_impedence_control(self, params: Array) -> None:
         """Simple drag impedence controller."""
-        assert len(params) == 3
-
-        # First, let's pick a task frame that is in front of the robot.
+        assert len(params) == 2
+        # Move Body
         robot_state = self.robot_state_client.get_robot_state()
         body_T_hand = get_a_tform_b(
                 robot_state.kinematic_state.transforms_snapshot,
-                BODY_FRAME_NAME, "hand")
-        odom_T_grav_body = get_a_tform_b(
-            robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
-            GRAV_ALIGNED_BODY_FRAME_NAME)
+                GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        self.relative_move(dx=params[0] - body_T_hand.x, dy=params[1] - body_T_hand.y, dyaw=0.0)
 
-        odom_T_gpe = get_a_tform_b(
-            robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
-            GROUND_PLANE_FRAME_NAME)
+        # Move Hand
+        robot_state = self.robot_state_client.get_robot_state()
+        body_T_hand = get_a_tform_b(
+                robot_state.kinematic_state.transforms_snapshot,
+                GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        self.hand_movement(np.array([params[0], params[1], body_T_hand.z]),
+                                keep_hand_pose=True,
+                                keep_body_pose=True,
+                                clip_z=False,
+                                relative_to_default_pose=False,
+                                open_gripper=False)
+        # Open Gripper
+        gripper_command = RobotCommandBuilder.\
+            claw_gripper_open_fraction_command(1.0)
 
-        # Get the frame on the ground right underneath the center of the body.
-        odom_T_ground_body = odom_T_grav_body
-        odom_T_ground_body.z = odom_T_gpe.z
-
-        # Now, get the frame that is 60cm in front of this frame.
-        odom_T_task = odom_T_ground_body * math_helpers.SE3Pose(
-            x=0.6, y=0, z=0, rot=math_helpers.Quat(w=1, x=0, y=0, z=0))
-
-        # Now, let's set our tool frame to be the tip of the robot's
-        # bottom jaw. Flip the orientation so that when the hand is
-        # pointed downwards, the tool's z-axis is pointed upward.
-        wr1_T_tool = math_helpers.SE3Pose(
-            0.23589, 0, -0.03943, math_helpers.Quat.from_pitch(-math.pi / 2))
-
-        # Now, let's move along the surface of the ground, exerting a downward
-        # force while dragging the arm sideways.
-        robot_cmd = robot_command_pb2.RobotCommand()
-        impedance_cmd = robot_cmd.synchronized_command.\
-            arm_command.arm_impedance_command
-
-        # Set up our root frame, task frame, and tool frame.
-        impedance_cmd.root_frame_name = ODOM_FRAME_NAME
-        impedance_cmd.root_tform_task.CopyFrom(odom_T_task.to_proto())
-        impedance_cmd.wrist_tform_tool.CopyFrom(wr1_T_tool.to_proto())
-
-        # Compute unit vector
-        x = params[0]
-        y = params[1]
-        force = params[2]
-        unit_vec = np.array([x, y]) / np.linalg.norm(np.array([x, y]))
-
-        # Set up downward force.
-        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
-            force.x = unit_vec[0] * force
-        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
-            force.y = unit_vec[0] * force  # Newtons
-        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
-            force.z = 0
-        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
-            torque.x = 0
-        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
-            torque.y = 0
-        impedance_cmd.feed_forward_wrench_at_tool_in_desired_tool.\
-            torque.z = 0
-
-        # Set up stiffness and damping matrices. Note that we've set the
-        # stiffness in the z-axis to 0 since we're commanding a constant
-        # downward force, regardless of where the tool is in z relative to
-        # our `desired_tool` frame.
-        impedance_cmd.diagonal_stiffness_matrix.CopyFrom(
-            geometry_pb2.Vector(values=[500, 500, 0, 60, 60, 60]))
-        impedance_cmd.diagonal_damping_matrix.CopyFrom(
-            geometry_pb2.Vector(values=[2.5, 2.5, 2.5, 1.0, 1.0, 1.0]))
-
-        # Set up our `desired_tool` trajectory. This is where we want the
-        # tool to be with respect to the task frame. The stiffness we set will
-        # drag the tool towards `desired_tool`.
-        # Transform
-        qw, qx, qy, qz = body_T_hand.rot.w, body_T_hand.rot.x,\
-                body_T_hand.rot.y, body_T_hand.rot.z
-        flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
-        flat_body_T_hand = geometry_pb2.SE3Pose(position=geometry_pb2.Vec3(x=body_T_hand.x, y=body_T_hand.y, z=body_T_hand.z),
-                                                rotation=flat_body_Q_hand)
-        odom_T_flat_body = get_a_tform_b(
-            robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
-            GRAV_ALIGNED_BODY_FRAME_NAME)
-        odom_T_hand = odom_T_flat_body * flat_body_T_hand
-        #
-
-        traj = impedance_cmd.task_tform_desired_tool
-        pt1 = traj.points.add()
-        pt1.time_since_reference.CopyFrom(seconds_to_duration(2.0))
-        pt1.pose.CopyFrom(odom_T_hand)
-        pt2 = traj.points.add()
-        pt2.time_since_reference.CopyFrom(seconds_to_duration(4.0))
-        pt2.pose.CopyFrom(
-            math_helpers.SE3Pose(params[0], params[1], odom_T_hand.z,
-                                 math_helpers.Quat(odom_T_hand.rot.w, odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z)).to_proto())
-
-        # Execute the impedance command
-        self.robot_command_client.robot_command(robot_cmd)
-        time.sleep(5.0)
-
-        start_time = time.perf_counter()
-        if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
-            logging.info("Timed out waiting for movement to execute!")
+        # Send the request
+        cmd_id = self.robot_command_client.robot_command(gripper_command)
+        self.robot.logger.debug('Opening Gripper.')
+        time.sleep(1)
 
         # Stow the arm
         stow_cmd = RobotCommandBuilder.arm_stow_command()
