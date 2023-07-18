@@ -90,6 +90,7 @@ class _MockApproach(BaseApproach):
         self._dummy_saved.append(next_saved)
 
     def load(self, online_learning_cycle):
+        # import ipdb; ipdb.set_trace()
         assert self._dummy_saved.pop(0) == online_learning_cycle
 
 
@@ -180,7 +181,7 @@ def test_interaction():
     utils.reset_config({
         "max_initial_demos": 1,
         "allow_interaction_in_demo_tasks": False,
-        "num_online_learning_cycles": 1,
+        "num_online_learning_cycles": 2,
         "env": "cover",
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
@@ -191,4 +192,24 @@ def test_interaction():
         "max_num_steps_interaction_request": 3,
     })
     env = create_new_env("cover")
+    _run_pipeline(env, cogman, train_tasks, dataset)
+    # Test restarting learning and going for more cycles than above,
+    # which shouldn't crash.
+    utils.reset_config({
+        "max_initial_demos": 1,
+        "allow_interaction_in_demo_tasks": False,
+        "env": "cover",
+        "cover_initial_holding_prob": 0.0,
+        "approach": "unittest",
+        "timeout": 1,
+        "num_train_tasks": 4,
+        "num_test_tasks": 1,
+        "make_interaction_videos": True,
+        "max_num_steps_interaction_request": 3,
+        "load_approach": True,
+        "load_data": True,
+        "skip_until_cycle": 0,
+        "num_online_learning_cycles": 3,
+        "restart_learning": True
+    })
     _run_pipeline(env, cogman, train_tasks, dataset)
