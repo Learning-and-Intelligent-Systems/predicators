@@ -28,10 +28,10 @@ def test_cnn_refinement_estimator():
     assert estimator.get_name() == "cnn"
     assert estimator.is_learning_based
     with pytest.raises(AssertionError):
-        sample_task = NarrowPassageEnv().get_train_tasks()[0]
+        sample_task = NarrowPassageEnv().get_train_tasks()[0].task
         estimator.get_cost(sample_task, [], [])
     # Check that train actually runs
-    sample_data = [(sample_task, [], [], False, 5)]
+    sample_data = [(sample_task, [], [], False, [], [])]
     estimator.train(sample_data)
     # Check that get_cost works now that the estimator is trained
     estimator.get_cost(sample_task, [], [])
@@ -49,6 +49,7 @@ def test_narrow_passage_cnn_refinement_estimator():
         "cnn_refinement_estimator_crop": True,
         "cnn_refinement_estimator_crop_bounds": (0, 10, 0, 10),
         "cnn_refinement_estimator_downsample": 2,
+        "refinement_data_include_execution_cost": True,
     })
     estimator = CNNRefinementEstimator()
 
@@ -56,7 +57,7 @@ def test_narrow_passage_cnn_refinement_estimator():
     env = NarrowPassageEnv()
     DoorIsClosed, DoorIsOpen, TouchedGoal = sorted(env.predicates)
     door_type, _, robot_type, target_type, _ = sorted(env.types)
-    sample_task = env.get_train_tasks()[0]
+    sample_task = env.get_train_tasks()[0].task
     sample_state = sample_task.init
     door, = sample_state.get_objects(door_type)
     robot, = sample_state.get_objects(robot_type)
@@ -91,10 +92,12 @@ def test_narrow_passage_cnn_refinement_estimator():
 
     # Create sample data to train using
     sample_data = [
-        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, 4),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, True, [4],
+         [3]),
         (sample_task, move_through_door_skeleton, move_through_door_atoms_seq,
-         True, 2),
-        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, 5),
+         True, [0.5, 1.5], [3, 5]),
+        (sample_task, move_direct_skeleton, move_direct_atoms_seq, False, [5],
+         []),
     ]
     estimator.train(sample_data)
 
