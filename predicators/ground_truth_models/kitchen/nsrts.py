@@ -7,6 +7,7 @@ import numpy as np
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.ground_truth_models.kitchen.operators import \
     KitchenGroundTruthOperatorFactory
+from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 
@@ -41,9 +42,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # Samplers
         def moveto_sampler(state: State, goal: Set[GroundAtom],
-                           _rng: np.random.Generator,
+                           rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-            del goal
+            del goal, rng  # unused
             _, obj = objs
             ox = state.get(obj, "x")
             oy = state.get(obj, "y")
@@ -57,7 +58,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             return np.array([ox, oy, oz], dtype=np.float32)
 
         def push_sampler(state: State, goal: Set[GroundAtom],
-                         _rng: np.random.Generator,
+                         rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             del goal
             if len(objs) == 2:
@@ -71,9 +72,11 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if obj.name == 'knob3':
                 return np.array([x + 1.0, y, z], dtype=np.float32)
             if obj.name == 'kettle':
-                rand_dx = _rng.uniform(0.0, 1.0)
-                return np.array([x + rand_dx, y + 5.0, z - 0.3],
-                                dtype=np.float32)
+                if CFG.kitchen_use_perfect_samplers:
+                    dx = 0.0
+                else:
+                    dx = rng.uniform(0.0, 1.0)
+                return np.array([x + dx, y + 5.0, z - 0.3], dtype=np.float32)
             return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
         # MoveTo

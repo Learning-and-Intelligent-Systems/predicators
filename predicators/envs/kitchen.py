@@ -152,8 +152,9 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         }
         return self._copy_observation(self._current_observation)
 
-    def state_info_to_state(self: Any, state_info: Any) -> State:
+    def state_info_to_state(self, state_info: Dict[str, Any]) -> State:
         """Get state from state info dictionary."""
+        assert "end_effector" in state_info  # sanity check
         state_dict = {}
         for key, val in state_info.items():
             if "_site" in key:
