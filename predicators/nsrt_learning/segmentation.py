@@ -61,9 +61,7 @@ def _segment_with_contact_changes(
     elif CFG.env == "coffee":
         keep_pred_names = {"Holding", "HandEmpty", "MachineOn", "CupFilled"}
     elif CFG.env == "exit_garage":
-        keep_pred_names = {
-            "CarryingObstacle", "NotCarryingObstacle", "CarHasExited"
-        }
+        keep_pred_names = {"ObstacleCleared", "CarHasExited"}
     else:
         raise NotImplementedError("Contact-based segmentation not implemented "
                                   f"for environment {CFG.env}.")

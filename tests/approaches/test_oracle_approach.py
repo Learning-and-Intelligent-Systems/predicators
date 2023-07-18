@@ -15,8 +15,8 @@ from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
 from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.cover import BumpyCoverEnv, CoverEnv, \
-    CoverEnvHierarchicalTypes, CoverEnvRegrasp, CoverEnvTypedOptions, \
-    CoverMultistepOptions, RegionalBumpyCoverEnv
+    CoverEnvHierarchicalTypes, CoverEnvPlaceHard, CoverEnvRegrasp, \
+    CoverEnvTypedOptions, CoverMultistepOptions, RegionalBumpyCoverEnv
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.envs.narrow_passage import NarrowPassageEnv
@@ -47,6 +47,7 @@ _PDDL_ENV_MODULE_PATH = predicators.envs.pddl_env.__name__
 ENV_NAME_AND_CLS = [
     ("cover", CoverEnv),
     ("cover_typed_options", CoverEnvTypedOptions),
+    ("cover_place_hard", CoverEnvPlaceHard),
     ("cover_hierarchical_types", CoverEnvHierarchicalTypes),
     ("cover_regrasp", CoverEnvRegrasp),
     ("bumpy_cover", BumpyCoverEnv),
@@ -186,7 +187,7 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_max_obstacles_per_room": 1,
 }]
 EXTRA_ARGS_ORACLE_APPROACH["exit_garage"] = [{
-    "exit_garage_pick_place_refine_penalty":
+    "exit_garage_clear_refine_penalty":
     0,
     "exit_garage_min_num_obstacles":
     1,
@@ -197,7 +198,7 @@ EXTRA_ARGS_ORACLE_APPROACH["exit_garage"] = [{
     "exit_garage_rrt_sample_goal_eps":
     0.3,
 }, {
-    "exit_garage_pick_place_refine_penalty":
+    "exit_garage_clear_refine_penalty":
     0,
     "exit_garage_min_num_obstacles":
     3,

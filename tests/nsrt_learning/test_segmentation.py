@@ -214,7 +214,7 @@ def test_contact_based_segmentation(env):
         "doors_min_room_exists_frac": 1.0,
         "doors_max_room_exists_frac": 1.0,
         "doors_birrt_smooth_amt": 0,
-        "exit_garage_pick_place_refine_penalty": 0,
+        "exit_garage_clear_refine_penalty": 0,
         "exit_garage_min_num_obstacles": 3,
         "exit_garage_max_num_obstacles": 3,
         "exit_garage_raise_environment_failure": True,
