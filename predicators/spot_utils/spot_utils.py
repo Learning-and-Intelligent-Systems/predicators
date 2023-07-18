@@ -2,7 +2,6 @@
 
 import functools
 import logging
-import math
 import os
 import sys
 import time
@@ -16,21 +15,19 @@ import bosdyn.client.util
 import cv2
 import numpy as np
 from bosdyn.api import basic_command_pb2, estop_pb2, geometry_pb2, image_pb2, \
-    manipulation_api_pb2, robot_command_pb2
+    manipulation_api_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
-    GRAV_ALIGNED_BODY_FRAME_NAME, GROUND_PLANE_FRAME_NAME, ODOM_FRAME_NAME, \
-    VISION_FRAME_NAME, get_a_tform_b, get_se2_a_tform_b, \
-    get_vision_tform_body
+    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, \
+    get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
-from bosdyn.util import seconds_to_duration
 from gym.spaces import Box
 
 from predicators import utils
@@ -563,10 +560,10 @@ class _SpotInterface():
                 return
         if "platform" in objs[1].name:
             self.hand_movement(np.array([-0.2, 0.0, -0.25]),
-                                keep_hand_pose=False,
-                                angle=(np.cos(np.pi / 7), 0,
-                                        np.sin(np.pi / 7), 0),
-                                open_gripper=False)
+                               keep_hand_pose=False,
+                               angle=(np.cos(np.pi / 7), 0, np.sin(np.pi / 7),
+                                      0),
+                               open_gripper=False)
             time.sleep(1.0)
             return
         self.stow_arm()
@@ -620,7 +617,7 @@ class _SpotInterface():
     def dragController(self, objs: Sequence[Object], params: Array) -> None:
         """Drag Controller."""
         print("Drag", objs)
-        assert len(params) == 2 # [x, y] vector for direction
+        assert len(params) == 2  # [x, y] vector for direction
         self.drag_impedence_control(params)
         time.sleep(1.0)
         self.stow_arm()
@@ -984,7 +981,8 @@ class _SpotInterface():
         x_clipped = np.clip(x, self.hand_x_bounds[0], self.hand_x_bounds[1])
         y_clipped = np.clip(y, self.hand_y_bounds[0], self.hand_y_bounds[1])
         if clip_z:
-            z_clipped = np.clip(z, self.hand_z_bounds[0], self.hand_z_bounds[1])
+            z_clipped = np.clip(z, self.hand_z_bounds[0],
+                                self.hand_z_bounds[1])
         else:
             z_clipped = z
         if not keep_body_pose:
@@ -1144,27 +1142,29 @@ class _SpotInterface():
         # Move Body
         robot_state = self.robot_state_client.get_robot_state()
         body_T_hand = get_a_tform_b(
-                robot_state.kinematic_state.transforms_snapshot,
-                GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
-        self.relative_move(dx=params[0] - body_T_hand.x, dy=params[1] - body_T_hand.y, dyaw=0.0)
+            robot_state.kinematic_state.transforms_snapshot,
+            GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        self.relative_move(dx=params[0] - body_T_hand.x,
+                           dy=params[1] - body_T_hand.y,
+                           dyaw=0.0)
 
         # Move Hand
         robot_state = self.robot_state_client.get_robot_state()
         body_T_hand = get_a_tform_b(
-                robot_state.kinematic_state.transforms_snapshot,
-                GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+            robot_state.kinematic_state.transforms_snapshot,
+            GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
         self.hand_movement(np.array([params[0], params[1], body_T_hand.z]),
-                                keep_hand_pose=True,
-                                keep_body_pose=True,
-                                clip_z=False,
-                                relative_to_default_pose=False,
-                                open_gripper=False)
+                           keep_hand_pose=True,
+                           keep_body_pose=True,
+                           clip_z=False,
+                           relative_to_default_pose=False,
+                           open_gripper=False)
         # Open Gripper
         gripper_command = RobotCommandBuilder.\
             claw_gripper_open_fraction_command(1.0)
 
         # Send the request
-        cmd_id = self.robot_command_client.robot_command(gripper_command)
+        self.robot_command_client.robot_command(gripper_command)
         self.robot.logger.debug('Opening Gripper.')
         time.sleep(1)
 

@@ -113,10 +113,11 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
         return fiducial_pose + np.array([dx, dy, dz])
     return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
+
 def _drag_sampler(spot_interface: _SpotInterface, state: State,
-                   goal: Set[GroundAtom], rng: np.random.Generator,
-                   objs: Sequence[Object]) -> Array:
-    del goal
+                  goal: Set[GroundAtom], rng: np.random.Generator,
+                  objs: Sequence[Object]) -> Array:
+    del goal, rng
     robot, _, surface = objs
 
     assert surface.name != "floor"
@@ -133,7 +134,7 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
 
     dx, dy = 0.0, -0.4
 
-    return  np.array([fiducial_pose[0] + dx, fiducial_pose[1] + dy])
+    return np.array([fiducial_pose[0] + dx, fiducial_pose[1] + dy])
 
 
 _NAME_TO_SPOT_INTERFACE_SAMPLER = {

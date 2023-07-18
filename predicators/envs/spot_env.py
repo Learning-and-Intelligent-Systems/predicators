@@ -549,7 +549,8 @@ class SpotBikeEnv(SpotEnv):
         self._tool_type = Type("tool", ["x", "y", "z", "lost", "in_view"])
         self._surface_type = Type("flat_surface", ["x", "y", "z"])
         self._bag_type = Type("bag", ["x", "y", "z"])
-        self._platform_type = Type("platform", ["x", "y", "z", "lost", "in_view"])
+        self._platform_type = Type("platform",
+                                   ["x", "y", "z", "lost", "in_view"])
         self._floor_type = Type("floor", ["x", "y", "z"])
 
         # Predicates
@@ -589,9 +590,9 @@ class SpotBikeEnv(SpotEnv):
         self._InViewTool = Predicate("InViewTool",
                                      [self._robot_type, self._tool_type],
                                      self._tool_in_view_classifier)
-        self._InViewPlatform = Predicate("InViewPlatform",
-                                     [self._robot_type, self._platform_type],
-                                     self._platform_in_view_classifier)
+        self._InViewPlatform = Predicate(
+            "InViewPlatform", [self._robot_type, self._platform_type],
+            self._platform_in_view_classifier)
         self._ReachableBag = Predicate("ReachableBag",
                                        [self._robot_type, self._bag_type],
                                        self._reachable_classifier)
@@ -654,8 +655,10 @@ class SpotBikeEnv(SpotEnv):
         # MoveToPlatform
         spot = Variable("?robot", self._robot_type)
         platform = Variable("?platform", self._platform_type)
-        add_effs = {LiftedAtom(self._ReachablePlatform, [spot, platform]),
-                    LiftedAtom(self._InViewPlatform, [spot, platform])}
+        add_effs = {
+            LiftedAtom(self._ReachablePlatform, [spot, platform]),
+            LiftedAtom(self._InViewPlatform, [spot, platform])
+        }
         ignore_effs = {
             self._ReachableBag, self._ReachableSurface,
             self._ReachablePlatform, self._InViewTool, self._InViewPlatform
@@ -895,7 +898,8 @@ class SpotBikeEnv(SpotEnv):
             self._HoldingBag, self._HoldingPlatformLeash, self._ReachableBag,
             self._ReachablePlatform, self._ReachableSurface,
             self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._PlatformNear,
-            self._notHandEmpty, self._InViewTool, self._InViewPlatform, self._OnFloor
+            self._notHandEmpty, self._InViewTool, self._InViewPlatform,
+            self._OnFloor
         }
 
     @staticmethod
@@ -996,22 +1000,21 @@ class SpotBikeEnv(SpotEnv):
                                  objects: Sequence[Object]) -> bool:
         _, tool = objects
         return state.get(tool, "in_view") > 0.5
-    
+
     @staticmethod
     def _platform_in_view_classifier(state: State,
-                                 objects: Sequence[Object]) -> bool:
+                                     objects: Sequence[Object]) -> bool:
         _, platform = objects
         return state.get(platform, "in_view") > 0.5
-    
+
     @staticmethod
-    def _platform_is_near(state: State,
-                                 objects: Sequence[Object]) -> bool:
+    def _platform_is_near(state: State, objects: Sequence[Object]) -> bool:
         platform, surface = objects
         px = state.get(platform, "x")
         py = state.get(platform, "y")
         sx = state.get(surface, "x")
         sy = state.get(surface, "y")
-        return np.allclose(np.array([px, py]),np.array([sx, sy]),atol=0.7)
+        return np.allclose(np.array([px, py]), np.array([sx, sy]), atol=0.7)
 
     @classmethod
     def get_name(cls) -> str:
