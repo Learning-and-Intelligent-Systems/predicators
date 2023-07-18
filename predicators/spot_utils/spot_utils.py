@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple
+from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple, List
 
 import apriltag
 import bosdyn.client
@@ -331,7 +331,7 @@ class _SpotInterface():
                 sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
                     source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
-                    class_name=obj_name_to_vision_prompt['brush'],
+                    classes=[obj_name_to_vision_prompt['brush'], obj_name_to_vision_prompt['hex_screwdriver']],
                 )
 
                 if 'yellow brush' in sam_pose_results:
@@ -478,15 +478,12 @@ class _SpotInterface():
 
     def get_sam_object_loc_from_camera(
         self,
-        class_name: str,
+        classes: List[str],
         source_rgb: str,
         source_depth: str,
     ) -> Dict[str, Tuple[float, float, float]]:
         """Get object location in 3D (no orientation) estimated using
         pretrained SAM model.
-
-        Args:
-            class_name: name of object class
         """
         _, rgb_img_response = self.get_single_camera_image(source_rgb, True)
         _, depth_img_response = self.get_single_camera_image(
@@ -502,7 +499,7 @@ class _SpotInterface():
         }
 
         res_locations = get_object_locations_with_detic_sam(
-            classes=[class_name],
+            classes=classes,
             res_image=image,
             res_image_responses=image_responses,
             source_name=source_rgb,
@@ -523,7 +520,7 @@ class _SpotInterface():
 
             # Use the input class name as the identifier for object(s) and
             # their positions
-            return {class_name: object_rt_gn_origin}
+            return {classes[0]: object_rt_gn_origin}
 
         return {}
 

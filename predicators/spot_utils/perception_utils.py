@@ -19,7 +19,7 @@ from predicators.settings import CFG
 
 # NOTE: uncomment this line if trying to visualize stuff locally
 # and matplotlib isn't displaying.
-# matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
@@ -379,6 +379,8 @@ def get_object_locations_with_detic_sam(
                                   viz=plot)
     if res_segment is None:
         return []
+
+    import ipdb; ipdb.set_trace()
 
     # Detect multiple objects with their masks
     obj_num = len(res_segment['masks'])
