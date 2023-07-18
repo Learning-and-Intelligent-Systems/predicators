@@ -121,6 +121,7 @@ def test_interaction():
         "load_data": True,
         "make_interaction_videos": False,
     })
+    env = create_new_env("cover")
     # Invalid query type.
     with pytest.raises(AssertionError) as e:
         _run_pipeline(env, cogman, train_tasks, dataset)
@@ -189,4 +190,5 @@ def test_interaction():
         "make_interaction_videos": True,
         "max_num_steps_interaction_request": 3,
     })
+    env = create_new_env("cover")
     _run_pipeline(env, cogman, train_tasks, dataset)

@@ -996,6 +996,29 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                (by - bh == 0)
 
 
+class CoverEnvPlaceHard(CoverEnv):
+    """A cover environment where the only thing that's hard is placing.
+    Specifically, there is only one block and one target, and the default grasp
+    sampler always picks up the block directly in the middle. The robot is
+    allowed to place anywhere, and the default sampler tries placing in a
+    region that's 2x bigger than the target, often missing the target. The only
+    thing that needs to be learned is how to place to correctly cover the
+    target.
+
+    This environment is specifically useful for testing various aspects
+    of different sampler learning approaches.
+    """
+    _allow_free_space_placing: ClassVar[bool] = True
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_place_hard"
+
+    def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
+        # Allow placing anywhere!
+        return [(0.0, 1.0)]
+
+
 class BumpyCoverEnv(CoverEnvRegrasp):
     """A variation on the cover regrasp environment where some blocks are
     'bumpy', as indicated by a new feature of blocks.

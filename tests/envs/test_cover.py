@@ -125,7 +125,10 @@ def test_cover(env_name):
 
 def test_cover_typed_options():
     """Tests for CoverEnvTypedOptions class."""
-    utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
+    utils.reset_config({
+        "env": "cover_typed_options",
+        "cover_initial_holding_prob": 0.0
+    })
     env = CoverEnvTypedOptions()
     for task in env.get_train_tasks():
         for obj in task.init:

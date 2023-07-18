@@ -43,24 +43,23 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def moveto_sampler(state: State, goal: Set[GroundAtom],
                            _rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-            del goal, _rng
+            del goal
             _, obj = objs
             ox = state.get(obj, "x")
             oy = state.get(obj, "y")
             oz = state.get(obj, "z")
 
             if obj.name == 'knob3':
-                # -0.3206305345980943 0.46771964121540827 2.15379706076556
-                return np.array([ox - 0.2, oy + 0.5, oz - 0.2],
-                                dtype=np.float32)
+                return np.array([ox - 0.2, oy, oz - 0.2], dtype=np.float32)
             if obj.name == 'kettle':
-                return np.array([ox, oy - 0.5, oz + 0.15], dtype=np.float32)
+                return np.array([ox + 0.1, oy - 0.4, oz - 0.2],
+                                dtype=np.float32)
             return np.array([ox, oy, oz], dtype=np.float32)
 
         def push_sampler(state: State, goal: Set[GroundAtom],
                          _rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            del goal, _rng
+            del goal
             if len(objs) == 2:
                 gripper, obj = objs
             else:
@@ -70,9 +69,11 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             y = state.get(gripper, "y")
             z = state.get(gripper, "z")
             if obj.name == 'knob3':
-                return np.array([x + 0.25, y, z], dtype=np.float32)
+                return np.array([x + 1.0, y, z], dtype=np.float32)
             if obj.name == 'kettle':
-                return np.array([x, y + 5.0, z - 0.3], dtype=np.float32)
+                rand_dx = _rng.uniform(0.0, 1.0)
+                return np.array([x + rand_dx, y + 5.0, z - 0.3],
+                                dtype=np.float32)
             return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
         # MoveTo

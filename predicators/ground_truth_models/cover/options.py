@@ -142,7 +142,7 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"cover_typed_options"}
+        return {"cover_typed_options", "cover_place_hard"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
@@ -157,25 +157,34 @@ class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):
             del m  # unused
             # The pick parameter is a RELATIVE position, so we need to
             # add the pose of the object.
-            pick_pose = s.get(o[0], "pose") + p[0]
-            pick_pose = min(max(pick_pose, 0.0), 1.0)
-            return Action(np.array([pick_pose], dtype=np.float32))
+            if CFG.env == "cover_typed_options":
+                pick_pose = s.get(o[0], "pose") + p[0]
+                pick_pose = min(max(pick_pose, 0.0), 1.0)
+                return Action(np.array([pick_pose], dtype=np.float32))
+            return Action(p)
+
+        lb, ub = (0.0, 1.0)
+        if CFG.env == "cover_typed_options":
+            lb, ub = (-0.1, 0.1)
 
         Pick = utils.SingletonParameterizedOption("Pick",
                                                   _Pick_policy,
                                                   types=[block_type],
                                                   params_space=Box(
-                                                      -0.1, 0.1, (1, )))
+                                                      lb, ub, (1, )))
 
         def _Place_policy(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> Action:
             del state, memory, objects  # unused
             return Action(params)  # action is simply the parameter
 
+        place_types = [block_type, target_type]
+        if CFG.env == "cover_typed_options":
+            place_types = [target_type]
         Place = utils.SingletonParameterizedOption(
             "Place",
             _Place_policy,  # use the parent class's policy
-            types=[target_type],
+            types=place_types,
             params_space=Box(0, 1, (1, )))
 
         return {Pick, Place}
