@@ -618,7 +618,7 @@ class _SpotInterface():
         """Drag Controller."""
         print("Drag", objs)
         assert len(params) == 2  # [x, y] vector for direction
-        self.drag_impedence_control(params)
+        self.drag_arm_control(params)
         time.sleep(1.0)
         self.stow_arm()
         # NOTE: time.sleep(1.0) required afer each option execution
@@ -1136,7 +1136,7 @@ class _SpotInterface():
         except Exception as e:
             logging.info(e)
 
-    def drag_impedence_control(self, params: Array) -> None:
+    def drag_arm_control(self, params: Array) -> None:
         """Simple drag impedence controller."""
         assert len(params) == 2
         # Move Body
