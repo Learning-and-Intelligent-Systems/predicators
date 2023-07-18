@@ -83,10 +83,10 @@ obj_name_to_apriltag_id = {
 # Also, this currently isn't being used because we're hardcoding
 # the pipeline to always detect the yellow brush.
 obj_name_to_vision_prompt = {
-    "hammer": "red hammer",
-    "brush": "yellow brush",
+    "hammer": "hammer",
+    "brush": "brush",
     "hex_key": "hexagonal key",
-    "hex_screwdriver": "red screwdriver",
+    "hex_screwdriver": "screwdriver",
     "toolbag": "work bag",
 }
 

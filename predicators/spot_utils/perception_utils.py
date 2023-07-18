@@ -137,15 +137,22 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
     #, we only select the most confident one. This structure makes
     # it easy for us to select multiple detections if that's ever
     # necessary in the future.
-    selected_idx = np.argmax(d['scores'])
-    if d['scores'][selected_idx] < CFG.spot_vision_detection_threshold:
-        return None
+    import ipdb; ipdb.set_trace()
     d_filtered: Dict[str, List[np.ndarray]] = {
         "boxes": [],
         "classes": [],
         "masks": [],
         "scores": []
     }
+    for obj_class in classes:
+        obj_idxs_with_classes = np.where(d['classes'] == obj_class)
+        if len(obj_idxs_with_classes) == 0:
+            continue
+        # TODO: continue from here!
+
+    selected_idx = np.argmax(d['scores'])
+    if d['scores'][selected_idx] < CFG.spot_vision_detection_threshold:
+        return None
     for key, value in d.items():
         d_filtered[key].append(value[selected_idx])
 
