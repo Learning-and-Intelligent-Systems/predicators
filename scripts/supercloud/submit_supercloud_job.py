@@ -19,11 +19,12 @@ def _run() -> None:
     log_dir = CFG.log_dir
     logfile_prefix = utils.get_config_path_str()
     args_and_flags_str = " ".join(sys.argv[1:])
-    return submit_supercloud_job(job_name, log_dir, logfile_prefix,
+    return submit_supercloud_job("main.py", job_name, log_dir, logfile_prefix,
                                  args_and_flags_str, START_SEED, NUM_SEEDS)
 
 
-def submit_supercloud_job(job_name: str,
+def submit_supercloud_job(entry_point: str,
+                          job_name: str,
                           log_dir: str,
                           logfile_prefix: str,
                           args_and_flags_str: str,
@@ -31,12 +32,13 @@ def submit_supercloud_job(job_name: str,
                           num_seeds: int,
                           use_gpu: bool = False) -> None:
     """Launch the supercloud job."""
+    assert entry_point in ("main.py", "train_refinement_estimator.py")
     os.makedirs(log_dir, exist_ok=True)
     logfile_pattern = os.path.join(log_dir, f"{logfile_prefix}__%j.log")
     assert logfile_pattern.count("None") == 1
     logfile_pattern = logfile_pattern.replace("None", "%a")
-    mystr = (f"#!/bin/bash\npython predicators/main.py {args_and_flags_str} "
-             f"--seed $SLURM_ARRAY_TASK_ID")
+    mystr = (f"#!/bin/bash\npython predicators/{entry_point} "
+             f"{args_and_flags_str} --seed $SLURM_ARRAY_TASK_ID")
     temp_run_file = "temp_run_file.sh"
     assert not os.path.exists(temp_run_file)
     with open(temp_run_file, "w", encoding="utf-8") as f:

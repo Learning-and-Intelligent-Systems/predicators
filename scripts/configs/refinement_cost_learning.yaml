@@ -1,0 +1,76 @@
+# Data collection and training for refinement cost estimation
+---
+APPROACHES:
+  tabular:
+    NAME: "refinement_estimation"
+    SKIP: true
+    FLAGS:
+      refinement_estimator: "tabular"
+  cnn:
+    NAME: "refinement_estimation"
+    SKIP: true
+    FLAGS:
+      refinement_estimator: "cnn"
+      refinement_train_with_frac_data: 0.25
+  gnn:
+    NAME: "refinement_estimation"
+    SKIP: true
+    FLAGS:
+      refinement_estimator: "gnn"
+ENVS:
+  variable_passage:
+    NAME: "narrow_passage"
+    SKIP: true
+    FLAGS:
+      # cnn
+      learning_rate: 0.0002
+      weight_decay: 0.001
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_learning_rate: 0.00001
+      gnn_weight_decay: 0.0005
+      gnn_num_epochs: 10000
+      gnn_batch_size: 300
+      gnn_do_normalization: true
+      gnn_use_validation_set: true
+      # data collection
+      num_train_tasks: 10000
+  exit_garage:
+    NAME: "exit_garage"
+    SKIP: true
+    FLAGS:
+      exit_garage_min_num_obstacles: 2
+      exit_garage_max_num_obstacles: 3  # inclusive
+      exit_garage_rrt_num_attempts: 3
+      refinement_data_num_skeletons: 15
+      refinement_estimation_num_skeletons_generated: 15
+      refinement_data_low_level_search_timeout: 15
+      refinement_data_failed_refinement_penalty: 20
+      # cnn
+      learning_rate: 0.0002
+      weight_decay: 0.001
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_learning_rate: 0.00001
+      gnn_weight_decay: 0.0001
+      gnn_num_epochs: 10000
+      gnn_batch_size: 250
+      gnn_do_normalization: true
+      gnn_use_validation_set: true
+      # data collection
+      num_train_tasks: 500
+ARGS:
+#  - "load_data"
+ - "skip_refinement_estimator_training"
+FLAGS:  # general flags
+  refinement_data_save_every: 100
+  num_test_tasks: 50
+  use_torch_gpu: true
+  pytorch_train_print_every: 10
+  # refinement_data_file_name: "refinement_data_narrow_passage_10000_new2.data"
+START_SEED: 457
+NUM_SEEDS: 1
+USE_GPU: true
+TRAIN_REFINEMENT_ESTIMATOR: true
