@@ -1,7 +1,7 @@
 """A Kitchen environment wrapping kitchen from https://github.com/google-
 research/relay-policy-learning."""
 import copy
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set
 
 import matplotlib
 import numpy as np
@@ -25,6 +25,10 @@ class KitchenEnv(BaseEnv):
 
     gripper_type = Type("gripper", ["x", "y", "z"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
+
+    kettle_push_dx: ClassVar[float] = 0.1
+    kettle_push_dy: ClassVar[float] = -0.3
+    kettle_push_dz: ClassVar[float] = -0.1
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -223,6 +227,12 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
             state.get(obj, "y"),
             state.get(obj, "z")
         ]
+
+        if obj.name == "kettle":
+            obj_xyz[0] += cls.kettle_push_dx
+            obj_xyz[1] += cls.kettle_push_dy
+            obj_xyz[2] += cls.kettle_push_dz
+
         gripper_xyz = [
             state.get(gripper, "x"),
             state.get(gripper, "y"),

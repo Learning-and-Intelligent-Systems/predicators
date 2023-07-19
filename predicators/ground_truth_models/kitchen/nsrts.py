@@ -4,6 +4,7 @@ from typing import Dict, Sequence, Set
 
 import numpy as np
 
+from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.ground_truth_models.kitchen.operators import \
     KitchenGroundTruthOperatorFactory
@@ -53,6 +54,13 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # TODO can we remove?
             if obj.name == 'knob3':
                 return np.array([ox - 0.2, oy, oz - 0.2], dtype=np.float32)
+            if obj.name == 'kettle':
+                # Need to push from behind kettle.
+                return np.array([
+                    ox + KitchenEnv.kettle_push_dx,
+                    oy + KitchenEnv.kettle_push_dy,
+                    oz + KitchenEnv.kettle_push_dz
+                ])
             return np.array([ox, oy, oz], dtype=np.float32)
 
         def push_sampler(state: State, goal: Set[GroundAtom],
@@ -72,9 +80,11 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if obj.name == 'kettle':
                 if CFG.kitchen_use_perfect_samplers:
                     dx = 0.0
+                    dy = 3.0
                 else:
                     dx = rng.uniform(0.0, 1.0)
-                return np.array([x + dx, y, z], dtype=np.float32)
+                    dy = rng.uniform(0.0, 5.0)
+                return np.array([x + dx, y + dy, z], dtype=np.float32)
             return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
         # MoveTo
