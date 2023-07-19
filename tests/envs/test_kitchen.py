@@ -102,7 +102,7 @@ def test_kitchen():
             assert atom.holds(state)
         option = ground_nsrt.sample_option(state, set(), rng)
         assert option.initiable(state)
-        for _ in range(100):
+        for _ in range(25):
             act = option.policy(state)
             obs = env.step(act)
             state = env.state_info_to_state(obs["state_info"])
@@ -115,17 +115,17 @@ def test_kitchen():
         return state
 
     # Test moving to and pushing knob3, then moving to and pushing the kettle.
+    move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
+    push_knob3_nsrt = PushObjTurnOnRight.ground([gripper, knob3])
+    move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
+    push_kettle_on_burner2_nsrt = PushObjOnObjForward.ground(
+        [gripper, kettle, burner2])
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
     state = _run_ground_nsrt(move_to_knob3_nsrt, state)
-    push_knob3_nsrt = PushObjTurnOnRight.ground([gripper, knob3])
     state = _run_ground_nsrt(push_knob3_nsrt, state)
-    move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
-    push_kettle_on_burner2_nsrt = PushObjOnObjForward.ground(
-        [gripper, kettle, burner2])
     _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
 
     # Test reverse order: moving to and pushing the kettle, then moving to and

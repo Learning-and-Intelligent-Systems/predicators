@@ -61,7 +61,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            delta_ee = memory["target_pose"] - (gx, gy, gz)
+            target_pose = memory["target_pose"]
+            delta_ee = target_pose - (gx, gy, gz)
             delta_ee = np.clip(delta_ee, -max_delta_mag, max_delta_mag)
             arr = primitive_and_params_to_primitive_action(
                 "move_delta_ee_pose", delta_ee)
@@ -94,10 +95,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
             del state, memory, objects  # unused
-            push_amount, = params
-            delta_ee = (0.0, push_amount, 0.0)
             arr = primitive_and_params_to_primitive_action(
-                "move_delta_ee_pose", delta_ee)
+                "move_forward", params)
             return Action(arr)
 
         def _PushObjOnObjForward_terminal(state: State, memory: Dict,
@@ -123,10 +122,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                        objects: Sequence[Object],
                                        params: Array) -> Action:
             del state, memory, objects  # unused
-            push_amount, = params
-            delta_ee = (push_amount, 0.0, 0.0)
             arr = primitive_and_params_to_primitive_action(
-                "move_delta_ee_pose", delta_ee)
+                "move_right", params)
             return Action(arr)
 
         def _PushObjTurnOnRight_terminal(state: State, memory: Dict,
