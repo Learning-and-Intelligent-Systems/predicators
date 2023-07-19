@@ -133,15 +133,9 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
         state.get(surface, "x"),
         state.get(surface, "y"),
     )
-    world_to_robot = math_helpers.SE2Pose(state.get(robot, "x"),
-                                          state.get(robot, "y"),
-                                          state.get(robot, "yaw"))
-    fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
-    fiducial_pose = list(fiducial_in_robot_frame) + [spot_interface.hand_z]
+    dx, dy = -0.1, 1
 
-    dx, dy = 0.2, -0.4
-
-    return np.array([fiducial_pose[0] + dx, fiducial_pose[1] + dy])
+    return np.array([world_fiducial[0] + dx, world_fiducial[1] + dy])
 
 
 _NAME_TO_SPOT_INTERFACE_SAMPLER = {

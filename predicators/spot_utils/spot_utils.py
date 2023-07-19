@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple
+from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple, OrderedDict
 
 import apriltag
 import bosdyn.client
@@ -39,6 +39,15 @@ from predicators.spot_utils.perception_utils import \
     get_object_locations_with_detic_sam, get_pixel_locations_with_detic_sam, \
     process_image_response
 from predicators.structs import Array, Image, Object
+
+ARM_6DOF_NAMES = [
+    "arm0.sh0",
+    "arm0.sh1",
+    "arm0.el0",
+    "arm0.el1",
+    "arm0.wr0",
+    "arm0.wr1",
+]
 
 g_image_click = None
 g_image_display = None
@@ -1298,9 +1307,27 @@ class _SpotInterface():
         except Exception as e:
             logging.info(e)
 
+    def get_arm_proprioception(self, robot_state=None):
+        """Return state of each of the 6 joints of the arm"""
+        if robot_state is None:
+            robot_state = self.robot_state_client.get_robot_state()
+        arm_joint_states = OrderedDict(
+            {
+                i.name[len("arm0.") :]: i
+                for i in robot_state.kinematic_state.joint_states
+                if i.name in ARM_6DOF_NAMES
+            }
+        )
+
+        return arm_joint_states
+
     def lock_arm(self) -> None:
         """Helper function to lock arm in body frame when moving."""
-        sh0, sh1, el0, el1, wr0, wr1 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        arm_proprioception = self.get_arm_proprioception()
+        positions = np.array(
+            [v.position.value for v in arm_proprioception.values()]
+        )
+        sh0, sh1, el0, el1, wr0, wr1 = positions
 
         traj_point = RobotCommandBuilder.create_arm_joint_trajectory_point(
             sh0, sh1, el0, el1, wr0, wr1)
@@ -1327,6 +1354,14 @@ class _SpotInterface():
         then moving to a location given by params.
         """
         assert len(params) == 2
+        x, y, _, yaw = self.get_robot_pose()
+        robot_to_world = math_helpers.SE2Pose(x, y, yaw).inverse()
+        fiducial_in_world = math_helpers.Vec2(
+            params[0],
+            params[1],
+        )
+        fiducial_pose_in_body_frame = robot_to_world * fiducial_in_world
+
 
         # Move Hand to Front of Body
         robot_state = self.robot_state_client.get_robot_state()
@@ -1346,15 +1381,28 @@ class _SpotInterface():
             robot_state.kinematic_state.transforms_snapshot,
             GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
         self.lock_arm()
-        self.relative_move(dx=0.0, dy=params[1] - body_T_hand.y, dyaw=0.0)
+        self.relative_move(dx=0.0,
+                           dy=fiducial_pose_in_body_frame[1] - body_T_hand.y,
+                           dyaw=0.0)
 
         # Move Body Vertical
         robot_state = self.robot_state_client.get_robot_state()
         body_T_hand = get_a_tform_b(
             robot_state.kinematic_state.transforms_snapshot,
             GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        
+        x, y, _, yaw = self.get_robot_pose()
+        robot_to_world = math_helpers.SE2Pose(x, y, yaw).inverse()
+        fiducial_in_world = math_helpers.Vec2(
+            params[0],
+            params[1],
+        )
+        new_fiducial_pose_in_body_frame = robot_to_world * fiducial_in_world
+
         self.lock_arm()
-        self.relative_move(dx=params[0] - body_T_hand.x, dy=0.0, dyaw=0.0)
+        self.relative_move(dx=new_fiducial_pose_in_body_frame[0] - body_T_hand.x,
+                           dy=new_fiducial_pose_in_body_frame[1] - body_T_hand.y,
+                           dyaw=0.0)
 
         # Open Gripper
         gripper_command = RobotCommandBuilder.\
