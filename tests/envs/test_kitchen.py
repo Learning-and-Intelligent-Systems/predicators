@@ -113,7 +113,7 @@ def test_kitchen():
         for atom in ground_nsrt.delete_effects:
             assert not atom.holds(state)
         return state
-
+    
     # Test moving to and pushing knob3, then moving to and pushing the kettle.
     move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
     push_knob3_nsrt = PushObjTurnOnRight.ground([gripper, knob3])
@@ -126,7 +126,9 @@ def test_kitchen():
     state = _run_ground_nsrt(move_to_knob3_nsrt, state)
     state = _run_ground_nsrt(push_knob3_nsrt, state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
-    _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
+    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
+    assert OnTop([kettle, burner2]).holds(state)
+    assert TurnedOn([knob3]).holds(state)
 
     # Test reverse order: moving to and pushing the kettle, then moving to and
     # pushing knob3.
@@ -137,4 +139,6 @@ def test_kitchen():
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
     state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
     state = _run_ground_nsrt(move_to_knob3_nsrt, state)
-    _run_ground_nsrt(push_knob3_nsrt, state)
+    state = _run_ground_nsrt(push_knob3_nsrt, state)
+    assert OnTop([kettle, burner2]).holds(state)
+    assert TurnedOn([knob3]).holds(state)
