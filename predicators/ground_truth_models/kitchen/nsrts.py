@@ -50,18 +50,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             ox = state.get(obj, "x")
             oy = state.get(obj, "y")
             oz = state.get(obj, "z")
-
-            # TODO can we remove?
-            if obj.name == 'knob3':
-                return np.array([ox - 0.2, oy, oz - 0.2], dtype=np.float32)
-            if obj.name == 'kettle':
-                # Need to push from behind kettle.
-                return np.array([
-                    ox + KitchenEnv.kettle_push_dx,
-                    oy + KitchenEnv.kettle_push_dy,
-                    oz + KitchenEnv.kettle_push_dz
-                ])
-            return np.array([ox, oy, oz], dtype=np.float32)
+            dpos = KitchenEnv.get_pre_push_delta_pos(obj)
+            return np.array([ox, oy, oz], dtype=np.float32) + dpos
 
         def push_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
@@ -75,8 +65,12 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             x = state.get(gripper, "x")
             y = state.get(gripper, "y")
             z = state.get(gripper, "z")
+
+            # Push the knob from left to right.
             if obj.name == 'knob3':
                 return np.array([x + 1.0, y, z], dtype=np.float32)
+            
+            # Push the kettle forward.
             if obj.name == 'kettle':
                 if CFG.kitchen_use_perfect_samplers:
                     dx = 0.0
@@ -85,6 +79,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     dx = rng.uniform(0.0, 1.0)
                     dy = rng.uniform(0.0, 5.0)
                 return np.array([x + dx, y + dy, z], dtype=np.float32)
+            
+            # Not really implemented.
             return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
         # MoveTo

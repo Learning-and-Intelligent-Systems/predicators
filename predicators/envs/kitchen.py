@@ -1,7 +1,7 @@
 """A Kitchen environment wrapping kitchen from https://github.com/google-
 research/relay-policy-learning."""
 import copy
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
@@ -26,9 +26,14 @@ class KitchenEnv(BaseEnv):
     gripper_type = Type("gripper", ["x", "y", "z"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
-    kettle_push_dx: ClassVar[float] = 0.1
-    kettle_push_dy: ClassVar[float] = -0.3
-    kettle_push_dz: ClassVar[float] = -0.1
+    at_atol = 0.2  # tolerance for At classifier
+    ontop_atol = 0.15  # tolerance for OnTop classifier
+    on_angle_thresh = -0.8  # dial is On if less than this threshold
+
+    obj_name_to_pre_push_dpos = {
+        "kettle": (0.1, -0.3, -0.2),  # need to push from behind kettle
+        "knob3": (-0.2, 0.0, -0.2),  # need to push from left to right
+    }
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -87,6 +92,14 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         for name, pose in burner_poses.items():
             state_info[name] = pose
         return state_info
+    
+    @classmethod
+    def get_pre_push_delta_pos(cls, obj: Object) -> Tuple[float, float, float]:
+        """Get dx, dy, dz offset for pushing."""
+        try:
+            return cls.obj_name_to_pre_push_dpos[obj.name]
+        except KeyError:
+            return (0.0, 0.0, 0.0)
 
     def render_state_plt(
             self,
@@ -172,8 +185,6 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                     "z": val[2],
                     "angle": 0
                 }
-                if obj_name == "kettle":
-                    state_dict[obj]["z"] -= 0.1
             elif key == "end_effector":
                 obj = Object("gripper", self.gripper_type)
                 state_dict[obj] = {
@@ -222,23 +233,19 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
     @classmethod
     def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         gripper, obj = objects
-        obj_xyz = [
+        obj_xyz = np.array([
             state.get(obj, "x"),
             state.get(obj, "y"),
             state.get(obj, "z")
-        ]
-
-        if obj.name == "kettle":
-            obj_xyz[0] += cls.kettle_push_dx
-            obj_xyz[1] += cls.kettle_push_dy
-            obj_xyz[2] += cls.kettle_push_dz
-
-        gripper_xyz = [
+        ])
+        # We care about whether we're "at" the pre-push position for obj.
+        dpos = cls.get_pre_push_delta_pos(obj)
+        gripper_xyz = np.array([
             state.get(gripper, "x"),
             state.get(gripper, "y"),
             state.get(gripper, "z")
-        ]
-        return np.allclose(obj_xyz, gripper_xyz, atol=0.2)
+        ])
+        return np.allclose(obj_xyz + dpos, gripper_xyz, atol=cls.at_atol)
 
     @classmethod
     def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -250,13 +257,13 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         ]
         return np.allclose(
             obj1_xy, obj2_xy,
-            atol=0.15) and state.get(obj1, "z") > state.get(obj2, "z")
+            atol=cls.ontop_atol) and state.get(obj1, "z") > state.get(obj2, "z")
 
     @classmethod
     def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         obj = objects[0]
         if obj.name in ["knob3", "knob2"]:
-            return state.get(obj, "angle") < -0.8
+            return state.get(obj, "angle") < cls.on_angle_thresh
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:
