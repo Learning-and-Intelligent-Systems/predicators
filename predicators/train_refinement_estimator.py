@@ -121,6 +121,12 @@ def _train_refinement_estimation_approach() -> None:
     assert refinement_estimator.is_learning_based, \
         "Refinement estimator (--refinement_estimator) must be learning-based"
 
+    # Train with only a subset of dataset if desired
+    if CFG.refinement_train_with_frac_data >= 0:
+        num_points = int(len(dataset) * CFG.refinement_train_with_frac_data)
+        dataset = dataset[:num_points]
+        logging.info(f"Using {len(dataset)} data points")
+
     # Train estimator
     train_start_time = time.perf_counter()
     refinement_estimator.train(dataset)
@@ -145,8 +151,12 @@ def _get_refinement_estimation_parser() -> ArgumentParser:
     parser = utils.create_arg_parser()
     # Add script-specific flags to the parser
     parser.add_argument("--refinement_data_file_name", default="", type=str)
+    parser.add_argument("--refinement_data_save_every", default=-1, type=int)
     parser.add_argument("--skip_refinement_estimator_training",
                         action="store_true")
+    parser.add_argument("--refinement_train_with_frac_data",
+                        default=-1,
+                        type=float)
     return parser
 
 
@@ -158,36 +168,40 @@ def _generate_refinement_data(
     nsrts = get_gt_nsrts(CFG.env, preds, options)
     option_model = create_option_model(CFG.option_model_name)
 
+    # Create saved data directory.
+    os.makedirs(CFG.data_dir, exist_ok=True)
+    # Create file path.
+    temp_file_path = _get_data_file_path(temp=True)
+    data_file_path = _get_data_file_path()
+
     # Generate the dataset and save it to file.
     dataset: List[RefinementDatapoint] = []
     for test_task_idx, task in enumerate(train_tasks):
         try:
-            _collect_refinement_data_for_task(task, option_model, nsrts, preds,
-                                              env.types,
+            _collect_refinement_data_for_task(env, task, option_model, nsrts,
+                                              preds, env.types,
                                               CFG.seed + test_task_idx,
                                               dataset)
             logging.info(f"Task {test_task_idx+1} / {num_tasks}: Success")
         except (PlanningTimeout, _SkeletonSearchTimeout) as e:
             logging.info(f"Task {test_task_idx+1} / {num_tasks} failed by "
                          f"timing out: {e}")
+
+        # Save the intermediate dataset after every N training tasks
+        if CFG.refinement_data_save_every > 0 and \
+                (test_task_idx + 1) % CFG.refinement_data_save_every == 0:
+            logging.info(f"Writing intermediate dataset to {temp_file_path}")
+            with open(temp_file_path, "wb") as f:
+                pkl.dump(dataset, f)
+
     logging.info(f"Got {len(dataset)} data points.")
-    # Create saved data directory.
-    os.makedirs(CFG.data_dir, exist_ok=True)
-    # Create file path.
-    data_file_path = _get_data_file_path()
-    # Store the train tasks just in case we need it in the future.
-    # (Note: unpickling this doesn't work...)
-    # data_content = {
-    #     "tasks": train_tasks,
-    #     "data": dataset,
-    # }
     logging.info(f"Writing dataset to {data_file_path}")
     with open(data_file_path, "wb") as f:
         pkl.dump(dataset, f)
     return dataset
 
 
-def _collect_refinement_data_for_task(task: Task,
+def _collect_refinement_data_for_task(env: BaseEnv, task: Task,
                                       option_model: _OptionModelBase,
                                       nsrts: Set[NSRT],
                                       predicates: Set[Predicate],
@@ -212,40 +226,64 @@ def _collect_refinement_data_for_task(task: Task,
     heuristic = utils.create_task_planning_heuristic(
         CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
         reachable_nsrts, predicates, objects)
+    generated_skeletons = []
     try:
-        gen = _skeleton_generator(
-            task, reachable_nsrts, init_atoms, heuristic, seed,
-            CFG.refinement_data_skeleton_generator_timeout, metrics,
-            CFG.refinement_data_num_skeletons)
-        for skeleton, atoms_sequence in gen:
-            necessary_atoms_seq = utils.compute_necessary_atoms_seq(
-                skeleton, atoms_sequence, task.goal)
-            refinement_start_time = time.perf_counter()
-            _, suc = run_low_level_search(
-                task, option_model, skeleton, necessary_atoms_seq, seed,
-                CFG.refinement_data_low_level_search_timeout, metrics,
-                CFG.horizon)
-            # Calculate time taken for refinement.
-            refinement_time = time.perf_counter() - refinement_start_time
-            # Add datapoint to dataset
-            data.append((
-                task,
-                skeleton,
-                atoms_sequence,
-                suc,
-                refinement_time,
-            ))
+        for item in _skeleton_generator(
+                task, reachable_nsrts, init_atoms, heuristic, seed,
+                CFG.refinement_data_skeleton_generator_timeout, metrics,
+                CFG.refinement_data_num_skeletons):
+            generated_skeletons.append(item)
     except _MaxSkeletonsFailure:
         # Done finding skeletons
-        return
+        pass
+    logging.info(f"Trying to refine {len(generated_skeletons)} skeletons")
+    for skeleton, atoms_sequence in generated_skeletons:
+        necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+            skeleton, atoms_sequence, task.goal)
+        # This list will be mutated by run_low_level_search to record
+        # the refinement time for each step of the skeleton
+        refinement_time_list: List[float] = []
+        plan, suc = run_low_level_search(
+            task,
+            option_model,
+            skeleton,
+            necessary_atoms_seq,
+            seed,
+            CFG.refinement_data_low_level_search_timeout,
+            metrics,
+            CFG.horizon,
+            refinement_time=refinement_time_list)
+        assert len(refinement_time_list) == len(skeleton)
+        low_level_action_count: List[int] = []
+        # On plan success, count the low level actions per abstract action
+        if suc and CFG.refinement_data_include_execution_cost:
+            s = task.init
+            for action in plan:
+                action_count = 0
+                while not action.terminal(s):
+                    s = env.simulate(s, action.policy(s))
+                    action_count += 1
+                low_level_action_count.append(action_count)
+            assert len(low_level_action_count) == len(skeleton)
+        # Add datapoint to dataset
+        data.append((
+            task,
+            skeleton,
+            atoms_sequence,
+            suc,
+            refinement_time_list,
+            low_level_action_count,
+        ))
 
 
-def _get_data_file_path() -> Path:
+def _get_data_file_path(temp: bool = False) -> Path:
     if len(CFG.refinement_data_file_name):
         file_name = CFG.refinement_data_file_name
     else:
         config_path_str = utils.get_config_path_str()
         file_name = f"refinement_data_{config_path_str}.data"
+    if temp:
+        file_name += ".temp"
     data_file_path = Path(CFG.data_dir) / file_name
     return data_file_path
 

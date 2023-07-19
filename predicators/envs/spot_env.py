@@ -315,9 +315,21 @@ class SpotEnv(BaseEnv):
         # Get the camera images.
         images = self._spot_interface.get_camera_images()
 
-        # Detect objects.
-        object_names_in_view_by_camera = \
-            self._spot_interface.get_objects_in_view_by_camera()
+        # Detect objects using AprilTags (which we need for surfaces anyways).
+        object_names_in_view_by_camera = {}
+        object_names_in_view_by_camera_apriltag = \
+            self._spot_interface.get_objects_in_view_by_camera\
+                (from_apriltag=True)
+        object_names_in_view_by_camera.update(
+            object_names_in_view_by_camera_apriltag)
+        # Additionally, if we're using SAM, then update using that.
+        if CFG.spot_grasp_use_sam:
+            object_names_in_view_by_camera_sam = self._spot_interface.\
+                get_objects_in_view_by_camera(from_apriltag=False)
+            # Combine these together to get all objects in view.
+            for k, v in object_names_in_view_by_camera.items():
+                v.update(object_names_in_view_by_camera_sam[k])
+
         object_names_in_view: Dict[str, Tuple[float, float, float]] = {}
         for source_camera in CAMERA_NAMES:
             object_names_in_view.update(

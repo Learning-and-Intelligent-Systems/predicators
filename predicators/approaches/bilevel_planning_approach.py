@@ -150,7 +150,7 @@ class BilevelPlanningApproach(BaseApproach):
         for metric in [
                 "num_samples", "num_skeletons_optimized",
                 "num_failures_discovered", "num_nodes_expanded",
-                "num_nodes_created", "plan_length"
+                "num_nodes_created", "plan_length", "refinement_time"
         ]:
             self._metrics[f"total_{metric}"] += metrics[metric]
         self._metrics["total_num_nsrts"] += len(nsrts)

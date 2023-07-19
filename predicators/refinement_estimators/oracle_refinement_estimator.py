@@ -3,6 +3,7 @@
 from typing import List, Set
 
 from predicators.envs import BaseEnv
+from predicators.envs.exit_garage import ExitGarageEnv
 from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
 from predicators.structs import GroundAtom, State, Task, _GroundNSRT
@@ -75,11 +76,23 @@ def exit_garage_oracle_estimator(
     atoms_sequence: List[Set[GroundAtom]],
 ) -> float:
     """Oracle refinement estimation function for exit_garage env."""
-    del env, initial_state, atoms_sequence  # unused
+    del atoms_sequence  # unused
+
+    assert isinstance(env, ExitGarageEnv)
+    obstacle_radius = env.obstacle_radius
+    obstruction_ub = env.exit_top + 2 * obstacle_radius
+    obstruction_lb = env.exit_top - env.exit_height - 2 * obstacle_radius
 
     # Each picked-up obstacle decreases the refinement cost of DriveCarToExit
-    cost = 0
+    # if it is in the direct path of the car to the exit, otherwise it has a
+    # positive cost and should be avoided
+    cost: float = 0
     for ground_nsrt in skeleton:
-        if ground_nsrt.name == "PickupObstacle":
-            cost -= 1
+        if ground_nsrt.name == "ClearObstacle":
+            obstacle = ground_nsrt.objects[1]
+            obstacle_y = initial_state.get(obstacle, "y")
+            if obstruction_lb < obstacle_y < obstruction_ub:
+                cost -= 1
+            else:
+                cost += 0.5
     return cost
