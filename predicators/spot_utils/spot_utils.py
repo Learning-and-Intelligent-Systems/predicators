@@ -14,8 +14,9 @@ import bosdyn.client.lease
 import bosdyn.client.util
 import cv2
 import numpy as np
-from bosdyn.api import basic_command_pb2, estop_pb2, geometry_pb2, image_pb2, \
-    manipulation_api_pb2
+from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2, \
+    geometry_pb2, image_pb2, manipulation_api_pb2, robot_command_pb2, \
+    synchronized_command_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
@@ -1297,29 +1298,64 @@ class _SpotInterface():
         except Exception as e:
             logging.info(e)
 
-    def drag_arm_control(self, params: Array) -> None:
-        """Simple drag impedence controller."""
-        assert len(params) == 2
-        # Move Body
-        robot_state = self.robot_state_client.get_robot_state()
-        body_T_hand = get_a_tform_b(
-            robot_state.kinematic_state.transforms_snapshot,
-            GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
-        self.relative_move(dx=params[0] - body_T_hand.x,
-                           dy=params[1] - body_T_hand.y,
-                           dyaw=0.0)
+    def lock_arm(self) -> None:
+        """Helper function to lock arm in body frame when moving."""
+        sh0, sh1, el0, el1, wr0, wr1 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
-        # Move Hand
+        traj_point = RobotCommandBuilder.create_arm_joint_trajectory_point(
+            sh0, sh1, el0, el1, wr0, wr1)
+        arm_joint_traj = arm_command_pb2.ArmJointTrajectory(
+            points=[traj_point])
+        # Make a RobotCommand
+        joint_move_command = arm_command_pb2.ArmJointMoveCommand.Request(
+            trajectory=arm_joint_traj)
+        arm_command = arm_command_pb2.ArmCommand.Request(
+            arm_joint_move_command=joint_move_command)
+        sync_arm = synchronized_command_pb2.SynchronizedCommand.Request(
+            arm_command=arm_command)
+        arm_sync_robot_cmd = robot_command_pb2.RobotCommand(
+            synchronized_command=sync_arm)
+        command = RobotCommandBuilder.build_synchro_command(arm_sync_robot_cmd)
+
+        # Send the request
+        self.robot_command_client.robot_command(command)
+        self.robot.logger.info('Locking Arm.')
+
+    def drag_arm_control(self, params: Array) -> None:
+        """Simple drag controller by locking arm position in body frame.
+
+        then moving to a location given by params.
+        """
+        assert len(params) == 2
+
+        # Move Hand to Front of Body
         robot_state = self.robot_state_client.get_robot_state()
         body_T_hand = get_a_tform_b(
             robot_state.kinematic_state.transforms_snapshot,
             GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
-        self.hand_movement(np.array([params[0], params[1], body_T_hand.z]),
+        self.hand_movement(np.array([body_T_hand.x, 0.0, body_T_hand.z]),
                            keep_hand_pose=True,
                            keep_body_pose=True,
                            clip_z=False,
                            relative_to_default_pose=False,
                            open_gripper=False)
+
+        # Move Body Horizontal
+        robot_state = self.robot_state_client.get_robot_state()
+        body_T_hand = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot,
+            GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        self.lock_arm()
+        self.relative_move(dx=0.0, dy=params[1] - body_T_hand.y, dyaw=0.0)
+
+        # Move Body Vertical
+        robot_state = self.robot_state_client.get_robot_state()
+        body_T_hand = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot,
+            GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        self.lock_arm()
+        self.relative_move(dx=params[0] - body_T_hand.x, dy=0.0, dyaw=0.0)
+
         # Open Gripper
         gripper_command = RobotCommandBuilder.\
             claw_gripper_open_fraction_command(1.0)
@@ -1328,13 +1364,6 @@ class _SpotInterface():
         self.robot_command_client.robot_command(gripper_command)
         self.robot.logger.debug('Opening Gripper.')
         time.sleep(1)
-
-        # Stow the arm
-        stow_cmd = RobotCommandBuilder.arm_stow_command()
-        stow_command_id = self.robot_command_client.robot_command(stow_cmd)
-        self.robot.logger.info("Stow command issued.")
-        block_until_arm_arrives(self.robot_command_client, stow_command_id,
-                                3.0)
 
 
 @functools.lru_cache(maxsize=None)

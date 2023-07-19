@@ -22,6 +22,7 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
                   goal: Set[GroundAtom], rng: np.random.Generator,
                   objs: Sequence[Object]) -> Array:
     del goal
+    # Parameters are relative dx, dy, dyaw (to the object you're moving to)
     assert len(objs) in [2, 3]
     if objs[1].type.name == "bag":  # pragma: no cover
         return np.array([0.5, 0.0, 0.0])
@@ -68,6 +69,9 @@ def _grasp_sampler(spot_interface: _SpotInterface, state: State,
                    goal: Set[GroundAtom], rng: np.random.Generator,
                    objs: Sequence[Object]) -> Array:
     del state, goal, rng, spot_interface
+    # Parameters are 4 dimensional corresponding to a dx, dy, dz
+    # of post grasp position and a top-down grasp (1),
+    # side grasp (-1) or any (0).
     if objs[1].type.name == "bag":  # pragma: no cover
         return np.array([0.0, 0.0, 0.0, -1.0])
     if objs[1].type.name == "platform":  # pragma: no cover
@@ -81,6 +85,7 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
                    goal: Set[GroundAtom], rng: np.random.Generator,
                    objs: Sequence[Object]) -> Array:
     del goal
+    # Parameters are relative dx, dy, dz (to surface objects center)
     robot, _, surface = objs
 
     if surface.name == "floor":
@@ -118,6 +123,8 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
                   goal: Set[GroundAtom], rng: np.random.Generator,
                   objs: Sequence[Object]) -> Array:
     del goal, rng
+    # Parameters are absolute postion x and y you are moving
+    # the object to (in the body frame)
     robot, _, surface = objs
 
     assert surface.name != "floor"
@@ -132,7 +139,7 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
     fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
     fiducial_pose = list(fiducial_in_robot_frame) + [spot_interface.hand_z]
 
-    dx, dy = 0.0, -0.4
+    dx, dy = 0.2, -0.4
 
     return np.array([fiducial_pose[0] + dx, fiducial_pose[1] + dy])
 
