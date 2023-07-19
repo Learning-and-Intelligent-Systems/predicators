@@ -47,9 +47,9 @@ def test_kitchen():
     assert len(options) == 3
     moveto_option, pushobjonobjforward_option, pushobjturnonright_option = \
         sorted(options)
-    assert moveto_option.name == "moveto_option"
-    assert pushobjonobjforward_option.name == "pushobjonobjforward_option"
-    assert pushobjturnonright_option.name == "pushobjturnonright_option"
+    assert moveto_option.name == "MoveTo"
+    assert pushobjonobjforward_option.name == "PushObjOnObjForward"
+    assert pushobjturnonright_option.name == "PushObjTurnOnRight"
     assert len(env.types) == 2
     gripper_type, object_type = env.types
     assert gripper_type.name == "gripper"
@@ -131,6 +131,7 @@ def test_kitchen():
 
     # Test reverse order: moving to and pushing the kettle, then moving to and
     # pushing knob3.
+    # NOTE: this test is currently broken!
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)

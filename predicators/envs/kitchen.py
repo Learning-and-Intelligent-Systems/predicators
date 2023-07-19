@@ -92,7 +92,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         for name, pose in burner_poses.items():
             state_info[name] = pose
         return state_info
-    
+
     @classmethod
     def get_pre_push_delta_pos(cls, obj: Object) -> Tuple[float, float, float]:
         """Get dx, dy, dz offset for pushing."""
@@ -233,11 +233,10 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
     @classmethod
     def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         gripper, obj = objects
-        obj_xyz = np.array([
-            state.get(obj, "x"),
-            state.get(obj, "y"),
-            state.get(obj, "z")
-        ])
+        obj_xyz = np.array(
+            [state.get(obj, "x"),
+             state.get(obj, "y"),
+             state.get(obj, "z")])
         # We care about whether we're "at" the pre-push position for obj.
         dpos = cls.get_pre_push_delta_pos(obj)
         gripper_xyz = np.array([
@@ -255,9 +254,9 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
             state.get(obj2, "x"),
             state.get(obj2, "y"),
         ]
-        return np.allclose(
-            obj1_xy, obj2_xy,
-            atol=cls.ontop_atol) and state.get(obj1, "z") > state.get(obj2, "z")
+        return np.allclose(obj1_xy,
+                           obj2_xy, atol=cls.ontop_atol) and state.get(
+                               obj1, "z") > state.get(obj2, "z")
 
     @classmethod
     def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
