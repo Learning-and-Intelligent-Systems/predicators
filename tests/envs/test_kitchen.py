@@ -98,76 +98,43 @@ def test_kitchen():
     kettle = obj_name_to_obj["kettle"]
     burner2 = obj_name_to_obj["burner2"]
 
+    def _run_ground_nsrt(ground_nsrt, state):
+        for atom in ground_nsrt.preconditions:
+            assert atom.holds(state)
+        option = ground_nsrt.sample_option(state, set(), rng)
+        assert option.initiable(state)
+        for _ in range(100):
+            act = option.policy(state)
+            obs = env.step(act)
+            state = env.state_info_to_state(obs["state_info"])
+            if option.terminal(state):
+                break
+        for atom in ground_nsrt.add_effects:
+            assert atom.holds(state)
+        for atom in ground_nsrt.delete_effects:
+            assert not atom.holds(state)
+        return state
+
     # Test moving to and pushing knob3, then moving to and pushing the kettle.
-    move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
-    for atom in move_to_knob3_nsrt.preconditions:
-        assert atom.holds(init_state)
-    move_to_knob3_option = move_to_knob3_nsrt.sample_option(
-        init_state, set(), rng)
-    assert move_to_knob3_option.initiable(init_state)
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    for _ in range(100):
-        act = move_to_knob3_option.policy(state)
-        obs = env.step(act)
-        state = env.state_info_to_state(obs["state_info"])
-        if move_to_knob3_option.terminal(state):
-            break
-    for atom in move_to_knob3_nsrt.add_effects:
-        assert atom.holds(state)
-    for atom in move_to_knob3_nsrt.delete_effects:
-        assert not atom.holds(state)
-
+    move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
+    state = _run_ground_nsrt(move_to_knob3_nsrt, state)
     push_knob3_nsrt = PushObjTurnOnRight.ground([gripper, knob3])
-    for atom in push_knob3_nsrt.preconditions:
-        assert atom.holds(state)
-    push_knob3_option = push_knob3_nsrt.sample_option(state, set(), rng)
-    assert push_knob3_option.initiable(state)
-    for _ in range(100):
-        act = push_knob3_option.policy(state)
-        obs = env.step(act)
-        state = env.state_info_to_state(obs["state_info"])
-        if push_knob3_option.terminal(state):
-            break
-    for atom in push_knob3_nsrt.add_effects:
-        assert atom.holds(state)
-    for atom in push_knob3_nsrt.delete_effects:
-        assert not atom.holds(state)
-
+    state = _run_ground_nsrt(push_knob3_nsrt, state)
     move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
-    for atom in move_to_kettle_nsrt.preconditions:
-        assert atom.holds(state)
-    move_to_kettle_option = move_to_kettle_nsrt.sample_option(
-        state, set(), rng)
-    assert move_to_kettle_option.initiable(state)
-    for _ in range(100):
-        act = move_to_kettle_option.policy(state)
-        obs = env.step(act)
-        state = env.state_info_to_state(obs["state_info"])
-        if move_to_kettle_option.terminal(state):
-            break
-    for atom in move_to_kettle_nsrt.add_effects:
-        assert atom.holds(state)
-    for atom in move_to_kettle_nsrt.delete_effects:
-        assert not atom.holds(state)
-
+    state = _run_ground_nsrt(move_to_kettle_nsrt, state)
     push_kettle_on_burner2_nsrt = PushObjOnObjForward.ground(
         [gripper, kettle, burner2])
-    for atom in push_kettle_on_burner2_nsrt.preconditions:
-        assert atom.holds(state)
-    push_kettle_on_burner2_option = push_kettle_on_burner2_nsrt.sample_option(
-        state, set(), rng)
-    assert push_kettle_on_burner2_option.initiable(state)
-    for _ in range(100):
-        act = push_kettle_on_burner2_option.policy(state)
-        obs = env.step(act)
-        state = env.state_info_to_state(obs["state_info"])
-        if push_kettle_on_burner2_option.terminal(state):
-            break
-    for atom in push_kettle_on_burner2_nsrt.add_effects:
-        assert atom.holds(state)
-    for atom in push_kettle_on_burner2_nsrt.delete_effects:
-        assert not atom.holds(state)
+    _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
 
-    # TODO test reverse order (first push kettle, then turn dial).
+    # Test reverse order: moving to and pushing the kettle, then moving to and
+    # pushing knob3.
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_kettle_nsrt, state)
+    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
+    state = _run_ground_nsrt(move_to_knob3_nsrt, state)
+    _run_ground_nsrt(push_knob3_nsrt, state)
