@@ -58,10 +58,11 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                            objs: Sequence[Object]) -> Array:
             del state, goal  # unused
             _, obj = objs
-            dpos = KitchenEnv.get_pre_push_delta_pos(obj)
+            params = np.array(KitchenEnv.get_pre_push_delta_pos(obj),
+                              dtype=np.float32)
             if not CFG.kitchen_use_perfect_samplers:
-                dpos = dpos + rng.uniform(0.5, size=3)
-            return np.array(dpos, dtype=np.float32)
+                params = params + rng.uniform(0.5, size=3)
+            return params
 
         move_to_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
                             delete_effects, ignore_effects, option,
