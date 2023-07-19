@@ -39,17 +39,29 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options: Set[ParameterizedOption] = set()
 
+        max_delta_mag = 0.1  # don't move more than this per step
+
         # MoveTo
+        def _MoveTo_initiable(state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> bool:
+            # Store the target pose.
+            _, obj = objects
+            ox = state.get(obj, "x")
+            oy = state.get(obj, "y")
+            oz = state.get(obj, "z")
+            target_pose = params + (ox, oy, oz)
+            memory["target_pose"] = target_pose
+            return True
+
         def _MoveTo_policy(state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
-            del memory  # unused
-            # Use move_delta_ee_pose directly.
-            max_delta_mag = 0.1  # don't move more than this per step
+            del params  # unused
             gripper = objects[0]
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            delta_ee = params - (gx, gy, gz)
+            delta_ee = memory["target_pose"] - (gx, gy, gz)
             delta_ee = np.clip(delta_ee, -max_delta_mag, max_delta_mag)
             arr = primitive_and_params_to_primitive_action(
                 "move_delta_ee_pose", delta_ee)
@@ -57,20 +69,22 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         def _MoveTo_terminal(state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
-            del memory  # unused
+            del params  # unused
             gripper = objects[0]
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            return np.allclose((gx, gy, gz), params, atol=KitchenEnv.at_atol)
+            return np.allclose((gx, gy, gz),
+                               memory["target_pose"],
+                               atol=KitchenEnv.at_atol)
 
         MoveTo = ParameterizedOption(
             "MoveTo",
             types=[gripper_type, object_type],
-            # Parameter is an absolute position to move to.
+            # Parameter is a position to move to relative to the object.
             params_space=Box(-5, 5, (3, )),
             policy=_MoveTo_policy,
-            initiable=lambda _1, _2, _3, _4: True,
+            initiable=_MoveTo_initiable,
             terminal=_MoveTo_terminal)
 
         options.add(MoveTo)
@@ -79,9 +93,12 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _PushObjOnObjForward_policy(state: State, memory: Dict,
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
-            # Currently this is identical to the MoveTo policy, but this is
-            # expected to change soon.
-            return _MoveTo_policy(state, memory, objects, params)
+            del state, memory, objects  # unused
+            push_amount, = params
+            delta_ee = (0.0, push_amount, 0.0)
+            arr = primitive_and_params_to_primitive_action(
+                "move_delta_ee_pose", delta_ee)
+            return Action(arr)
 
         def _PushObjOnObjForward_terminal(state: State, memory: Dict,
                                           objects: Sequence[Object],
@@ -93,8 +110,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
             types=[gripper_type, object_type, object_type],
-            # Parameter is an absolute position to move to.
-            params_space=Box(-5, 5, (3, )),
+            # Parameter is a magnitude for pushing forward.
+            params_space=Box(0.0, max_delta_mag, (1, )),
             policy=_PushObjOnObjForward_policy,
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_PushObjOnObjForward_terminal)
@@ -105,9 +122,12 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _PushObjTurnOnRight_policy(state: State, memory: Dict,
                                        objects: Sequence[Object],
                                        params: Array) -> Action:
-            # Currently this is identical to the MoveTo policy, but this is
-            # expected to change soon.
-            return _MoveTo_policy(state, memory, objects, params)
+            del state, memory, objects  # unused
+            push_amount, = params
+            delta_ee = (push_amount, 0.0, 0.0)
+            arr = primitive_and_params_to_primitive_action(
+                "move_delta_ee_pose", delta_ee)
+            return Action(arr)
 
         def _PushObjTurnOnRight_terminal(state: State, memory: Dict,
                                          objects: Sequence[Object],
@@ -119,8 +139,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         PushObjTurnOnRight = ParameterizedOption(
             "PushObjTurnOnRight",
             types=[gripper_type, object_type],
-            # Parameter is an absolute position to move to.
-            params_space=Box(-5, 5, (3, )),
+            # Parameter is a magnitude for pushing right.
+            params_space=Box(0.0, max_delta_mag, (1, )),
             policy=_PushObjTurnOnRight_policy,
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_PushObjTurnOnRight_terminal)

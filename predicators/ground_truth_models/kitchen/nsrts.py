@@ -56,13 +56,12 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def moveto_sampler(state: State, goal: Set[GroundAtom],
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-            del goal, rng  # unused
+            del state, goal  # unused
             _, obj = objs
-            ox = state.get(obj, "x")
-            oy = state.get(obj, "y")
-            oz = state.get(obj, "z")
             dpos = KitchenEnv.get_pre_push_delta_pos(obj)
-            return np.array([ox, oy, oz], dtype=np.float32) + dpos
+            if not CFG.kitchen_use_perfect_samplers:
+                dpos = dpos + rng.uniform(0.5, size=3)
+            return np.array(dpos, dtype=np.float32)
 
         move_to_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
                             delete_effects, ignore_effects, option,
@@ -82,18 +81,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             goal: Set[GroundAtom],
                                             rng: np.random.Generator,
                                             objs: Sequence[Object]) -> Array:
-            del goal
-            gripper = objs[0]
-            x = state.get(gripper, "x")
-            y = state.get(gripper, "y")
-            z = state.get(gripper, "z")
-            if CFG.kitchen_use_perfect_samplers:
-                dx = 0.0
-                dy = 3.0
-            else:
-                dx = rng.uniform(0.0, 1.0)
-                dy = rng.uniform(0.0, 5.0)
-            return np.array([x + dx, y + dy, z], dtype=np.float32)
+            del state, goal, objs, rng  # unused
+            dy = 0.1
+            return np.array([dy], dtype=np.float32)
 
         push_obj_on_obj_forward_nsrt = NSRT("PushObjOnObjForward", parameters,
                                             preconditions, add_effects,
@@ -114,13 +104,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def push_obj_turn_on_right_sampler(state: State, goal: Set[GroundAtom],
                                            rng: np.random.Generator,
                                            objs: Sequence[Object]) -> Array:
-            del goal, rng
-            gripper = objs[0]
-            x = state.get(gripper, "x")
-            y = state.get(gripper, "y")
-            z = state.get(gripper, "z")
-            dx = 1.0
-            return np.array([x + dx, y, z], dtype=np.float32)
+            del state, goal, objs, rng  # unused
+            dx = 0.1
+            return np.array([dx], dtype=np.float32)
 
         push_obj_turn_on_right_nsrt = NSRT("PushObjTurnOnRight", parameters,
                                            preconditions, add_effects,
