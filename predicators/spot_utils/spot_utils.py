@@ -388,7 +388,8 @@ class _SpotInterface():
                 "low_wall_rack":
                 (10.049931203338616, -6.9443170697742, 0.27881268568327966),
                 "toolbag":
-                (7.043112552148553, -8.198686802340527, -0.18750694527153725)
+                (7.043112552148553, -8.198686802340527, -0.18750694527153725),
+                "platform": (8.81416, -7.60572, -0.0106692)
             }
         waypoints = ["tool_room_table", "low_wall_rack"]
         objects_to_find = object_names - set(object_views.keys())
@@ -567,7 +568,8 @@ class _SpotInterface():
             "navigate": Box(-5.0, 5.0, (3, )),
             "grasp": Box(-1.0, 1.0, (4, )),
             "placeOnTop": Box(-5.0, 5.0, (3, )),
-            "drag": Box(-5.0, 5.0, (2, )),
+            # TODO: make this reasonable later, and remember for now these are absolute coordinates!
+            "drag": Box(-45.0, 45.0, (2, )),
             "noop": Box(0, 1, (0, ))
         }
 
