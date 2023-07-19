@@ -112,7 +112,12 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                           params: Array) -> bool:
             del memory, params  # unused
             _, obj, obj2 = objects
-            return GroundAtom(OnTop, [obj, obj2]).holds(state)
+            if not GroundAtom(OnTop, [obj, obj2]).holds(state):
+                return False
+            # Stronger check to deal with case where push release leads object
+            # to be no longer OnTop.
+            return state.get(
+                obj, "y") > state.get(obj2, "y") - KitchenEnv.at_atol / 2
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",

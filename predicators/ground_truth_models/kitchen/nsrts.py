@@ -56,11 +56,16 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def moveto_sampler(state: State, goal: Set[GroundAtom],
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-            del state, goal  # unused
-            _, obj = objs
+            del goal  # unused
+            gripper, obj = objs
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj),
                               dtype=np.float32)
-            if not CFG.kitchen_use_perfect_samplers:
+            # NOTE: this is a legitimately hard function to hand-write. I could
+            # not figure out how to do it in a state-independent way.
+            if CFG.kitchen_use_perfect_samplers:
+                if state.get(gripper, "x") > -0.15:
+                    params[2] += 0.1
+            else:
                 params = params + rng.uniform(-1e-1, 1e-1, size=3)
             return params
 

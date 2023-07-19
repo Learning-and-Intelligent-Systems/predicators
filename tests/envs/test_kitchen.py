@@ -113,7 +113,7 @@ def test_kitchen():
         for atom in ground_nsrt.delete_effects:
             assert not atom.holds(state)
         return state
-    
+
     # Test moving to and pushing knob3, then moving to and pushing the kettle.
     move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
     push_knob3_nsrt = PushObjTurnOnRight.ground([gripper, knob3])
@@ -132,7 +132,6 @@ def test_kitchen():
 
     # Test reverse order: moving to and pushing the kettle, then moving to and
     # pushing knob3.
-    # NOTE: this test is currently broken!
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
