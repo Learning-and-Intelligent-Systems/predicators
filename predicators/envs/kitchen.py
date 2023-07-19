@@ -32,7 +32,7 @@ class KitchenEnv(BaseEnv):
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.1, -0.3, -0.2),  # need to push from behind kettle
-        "knob3": (-0.2, 0.0, -0.2),  # need to push from left to right
+        "knob3": (-0.3, 0.0, -0.2),  # need to push from left to right
     }
 
     def __init__(self, use_gui: bool = True) -> None:

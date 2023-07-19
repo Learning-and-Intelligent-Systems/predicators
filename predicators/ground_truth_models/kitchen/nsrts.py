@@ -61,7 +61,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj),
                               dtype=np.float32)
             if not CFG.kitchen_use_perfect_samplers:
-                params = params + rng.uniform(0.5, size=3)
+                params = params + rng.uniform(-1e-1, 1e-1, size=3)
             return params
 
         move_to_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
