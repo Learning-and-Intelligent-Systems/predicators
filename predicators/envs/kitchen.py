@@ -1,7 +1,7 @@
 """A Kitchen environment wrapping kitchen from https://github.com/google-
 research/relay-policy-learning."""
 import copy
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
@@ -171,14 +171,15 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         }
         return self._copy_observation(self._current_observation)
 
-    def state_info_to_state(self, state_info: Dict[str, Any]) -> State:
+    @classmethod
+    def state_info_to_state(cls, state_info: Dict[str, Any]) -> State:
         """Get state from state info dictionary."""
         assert "end_effector" in state_info  # sanity check
         state_dict = {}
         for key, val in state_info.items():
             if "_site" in key:
                 obj_name = key.replace("_site", "")
-                obj = Object(obj_name, self.object_type)
+                obj = Object(obj_name, cls.object_type)
                 state_dict[obj] = {
                     "x": val[0],
                     "y": val[1],
@@ -186,7 +187,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                     "angle": 0
                 }
             elif key == "end_effector":
-                obj = Object("gripper", self.gripper_type)
+                obj = Object("gripper", cls.gripper_type)
                 state_dict[obj] = {
                     "x": val[0],
                     "y": val[1],
@@ -195,10 +196,10 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                 }
         for key, val in state_info.items():
             if key == "bottom left burner":
-                obj = Object("knob2", self.object_type)
+                obj = Object("knob2", cls.object_type)
                 state_dict[obj]["angle"] = val[0]
             elif key == "top left burner":
-                obj = Object("knob3", self.object_type)
+                obj = Object("knob3", cls.object_type)
                 state_dict[obj]["angle"] = val[0]
         state = utils.create_state_from_dict(state_dict)
         return state

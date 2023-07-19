@@ -12,8 +12,8 @@ except ImportError:
     _MJKITCHEN_IMPORTED = False
 from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    Predicate, State, Type
+from predicators.structs import Action, Array, GroundAtom, Object, \
+    ParameterizedOption, Predicate, State, Type
 
 
 class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
@@ -88,7 +88,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                           params: Array) -> bool:
             del memory, params  # unused
             _, obj, obj2 = objects
-            return OnTop([obj, obj2]).holds(state)
+            return GroundAtom(OnTop, [obj, obj2]).holds(state)
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
@@ -114,7 +114,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                          params: Array) -> bool:
             del memory, params  # unused
             _, obj = objects
-            return TurnedOn([obj]).holds(state)
+            return GroundAtom(TurnedOn, [obj]).holds(state)
 
         PushObjTurnOnRight = ParameterizedOption(
             "PushObjTurnOnRight",

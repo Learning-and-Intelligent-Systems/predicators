@@ -114,7 +114,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def push_obj_turn_on_right_sampler(state: State, goal: Set[GroundAtom],
                                            rng: np.random.Generator,
                                            objs: Sequence[Object]) -> Array:
-            del goal
+            del goal, rng
             gripper = objs[0]
             x = state.get(gripper, "x")
             y = state.get(gripper, "y")
