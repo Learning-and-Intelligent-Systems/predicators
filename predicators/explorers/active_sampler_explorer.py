@@ -186,7 +186,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             return option
 
         # Finalize policy.
-        policy = utils.option_policy_to_policy(_wrapped_option_policy)
+        policy = utils.option_policy_to_policy(
+            _wrapped_option_policy,
+            max_option_steps=CFG.max_num_steps_option_rollout)
 
         # Never terminate.
         termination_fn = lambda _: False
