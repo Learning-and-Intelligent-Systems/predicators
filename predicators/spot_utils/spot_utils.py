@@ -5,7 +5,8 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple, OrderedDict
+from typing import Any, Collection, Dict, Optional, OrderedDict, Sequence, \
+    Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -1310,16 +1311,14 @@ class _SpotInterface():
             logging.info(e)
 
     def get_arm_proprioception(self, robot_state=None):
-        """Return state of each of the 6 joints of the arm"""
+        """Return state of each of the 6 joints of the arm."""
         if robot_state is None:
             robot_state = self.robot_state_client.get_robot_state()
-        arm_joint_states = OrderedDict(
-            {
-                i.name[len("arm0.") :]: i
-                for i in robot_state.kinematic_state.joint_states
-                if i.name in ARM_6DOF_NAMES
-            }
-        )
+        arm_joint_states = OrderedDict({
+            i.name[len("arm0."):]: i
+            for i in robot_state.kinematic_state.joint_states
+            if i.name in ARM_6DOF_NAMES
+        })
 
         return arm_joint_states
 
@@ -1327,8 +1326,7 @@ class _SpotInterface():
         """Helper function to lock arm in body frame when moving."""
         arm_proprioception = self.get_arm_proprioception()
         positions = np.array(
-            [v.position.value for v in arm_proprioception.values()]
-        )
+            [v.position.value for v in arm_proprioception.values()])
         sh0, sh1, el0, el1, wr0, wr1 = positions
 
         traj_point = RobotCommandBuilder.create_arm_joint_trajectory_point(
@@ -1355,15 +1353,20 @@ class _SpotInterface():
 
         then moving to a location given by params.
         """
+        # NOTE: Core idea here is we firs move the arm to be centered with the
+        # robot, then lock the arm to the robot, then move in the y direction
+        # in the world (which is horizontally in the room), then move
+        # in the x direction in the world (which is forwards)
+        # This doesn't fully achieve the intended effects yet, but the core
+        # logic is getting there!
+
         assert len(params) == 2
         x, y, _, yaw = self.get_robot_pose()
         robot_to_world = math_helpers.SE2Pose(x, y, yaw).inverse()
-        fiducial_in_world = math_helpers.Vec2(
+        world_to_desiredplatform = math_helpers.Vec2(
             params[0],
             params[1],
         )
-        fiducial_pose_in_body_frame = robot_to_world * fiducial_in_world
-
 
         # Move Hand to Front of Body
         robot_state = self.robot_state_client.get_robot_state()
@@ -1377,33 +1380,37 @@ class _SpotInterface():
                            relative_to_default_pose=False,
                            open_gripper=False)
 
-        # Move Body Horizontal
+        # Move Body Horizontally in the world.
         robot_state = self.robot_state_client.get_robot_state()
-        body_T_hand = get_a_tform_b(
+        robot_T_hand = get_a_tform_b(
             robot_state.kinematic_state.transforms_snapshot,
             GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        state = self.get_localized_state()
+        gn_origin_T_robot = math_helpers.SE3Pose.from_obj(
+            state.localization.seed_tform_body)
+        gn_origin_T_hand = gn_origin_T_robot * robot_T_hand
+        # IMPORTANT: we want to keep the x pose of the fiducial the same, and we can get this by
+        # computing the location of the hand in the world frame.
+        world_to_desiredplatform_y_with_robot_x = math_helpers.Vec2(
+            gn_origin_T_hand.x, world_to_desiredplatform[1])
+        robot_to_desiredplatform_y_with_robot_x = robot_to_world * world_to_desiredplatform_y_with_robot_x
         self.lock_arm()
-        self.relative_move(dx=0.0,
-                           dy=fiducial_pose_in_body_frame[1] - body_T_hand.y,
-                           dyaw=0.0)
+        self.relative_move(
+            dx=robot_to_desiredplatform_y_with_robot_x[0] - body_T_hand.x,
+            dy=robot_to_desiredplatform_y_with_robot_x[1] - body_T_hand.y,
+            dyaw=0.0)
 
-        # Move Body Vertical
+        # Move Body remaining
         robot_state = self.robot_state_client.get_robot_state()
         body_T_hand = get_a_tform_b(
             robot_state.kinematic_state.transforms_snapshot,
             GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
-        
         x, y, _, yaw = self.get_robot_pose()
         robot_to_world = math_helpers.SE2Pose(x, y, yaw).inverse()
-        fiducial_in_world = math_helpers.Vec2(
-            params[0],
-            params[1],
-        )
-        new_fiducial_pose_in_body_frame = robot_to_world * fiducial_in_world
-
+        robot_to_desiredplatform = robot_to_world * world_to_desiredplatform
         self.lock_arm()
-        self.relative_move(dx=new_fiducial_pose_in_body_frame[0] - body_T_hand.x,
-                           dy=new_fiducial_pose_in_body_frame[1] - body_T_hand.y,
+        self.relative_move(dx=robot_to_desiredplatform[0] - body_T_hand.x,
+                           dy=robot_to_desiredplatform[1] - body_T_hand.y,
                            dyaw=0.0)
 
         # Open Gripper
