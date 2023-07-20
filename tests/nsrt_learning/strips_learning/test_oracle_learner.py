@@ -137,3 +137,4 @@ def test_oracle_strips_learner():
                                    segmented_trajs,
                                    verify_harmlessness=True,
                                    annotations=None)
+    assert not pnads
