@@ -85,6 +85,18 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler)
         return explorer
 
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        super().load(online_learning_cycle)
+        save_path = utils.get_approach_load_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
+            save_dict = pkl.load(f)
+        self._sampler_data = save_dict["sampler_data"]
+        self._ground_op_hist = save_dict["ground_op_hist"]
+        self._last_seen_segment_traj_idx = save_dict[
+            "last_seen_segment_traj_idx"]
+        self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
+        self._online_learning_cycle = CFG.skip_until_cycle + 1
+
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
                      annotations: Optional[List[Any]]) -> None:
@@ -99,6 +111,18 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._update_sampler_data()
         # Re-learn samplers. Updates the NSRTs.
         self._learn_wrapped_samplers(online_learning_cycle)
+        # Save the things we need other than the NSRTs, which were already
+        # saved in the above call to self._learn_nsrts()
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
+            pkl.dump(
+                {
+                    "sampler_data": self._sampler_data,
+                    "ground_op_hist": self._ground_op_hist,
+                    "last_seen_segment_traj_idx":
+                    self._last_seen_segment_traj_idx,
+                    "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
+                }, f)
 
     def _update_sampler_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
