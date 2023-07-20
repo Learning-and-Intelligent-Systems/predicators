@@ -180,7 +180,7 @@ def test_interaction():
     utils.reset_config({
         "max_initial_demos": 1,
         "allow_interaction_in_demo_tasks": False,
-        "num_online_learning_cycles": 1,
+        "num_online_learning_cycles": 3,
         "env": "cover",
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
