@@ -22,6 +22,7 @@ def test_kitchen():
         "env": "kitchen",
         "num_train_tasks": 1,
         "num_test_tasks": 2,
+        "kitchen_use_perfect_samplers": True,
     })
     env = KitchenEnv()
     perceiver = KitchenPerceiver()
@@ -45,9 +46,9 @@ def test_kitchen():
     assert len(options) == 3
     moveto_option, pushobjonobjforward_option, pushobjturnonright_option = \
         sorted(options)
-    assert moveto_option.name == "moveto_option"
-    assert pushobjonobjforward_option.name == "pushobjonobjforward_option"
-    assert pushobjturnonright_option.name == "pushobjturnonright_option"
+    assert moveto_option.name == "MoveTo"
+    assert pushobjonobjforward_option.name == "PushObjOnObjForward"
+    assert pushobjturnonright_option.name == "PushObjTurnOnRight"
     assert len(env.types) == 2
     gripper_type, object_type = env.types
     assert gripper_type.name == "gripper"
@@ -79,3 +80,64 @@ def test_kitchen():
     with pytest.raises(NotImplementedError) as e:
         env.simulate(obs, env.action_space.sample())
     assert "Simulate not implemented for gym envs." in str(e)
+
+    # Test NSRTs.
+    MoveTo, PushObjOnObjForward, PushObjTurnOnRight = sorted(nsrts)
+    assert MoveTo.name == "MoveTo"
+    assert PushObjOnObjForward.name == "PushObjOnObjForward"
+    assert PushObjTurnOnRight.name == "PushObjTurnOnRight"
+
+    obs = env_test_tasks[0].init_obs
+    init_state = env.state_info_to_state(obs["state_info"])
+    rng = np.random.default_rng(123)
+
+    obj_name_to_obj = {o.name: o for o in init_state}
+    gripper = obj_name_to_obj["gripper"]
+    knob3 = obj_name_to_obj["knob3"]
+    kettle = obj_name_to_obj["kettle"]
+    burner2 = obj_name_to_obj["burner2"]
+
+    def _run_ground_nsrt(ground_nsrt, state):
+        for atom in ground_nsrt.preconditions:
+            assert atom.holds(state)
+        option = ground_nsrt.sample_option(state, set(), rng)
+        assert option.initiable(state)
+        for _ in range(25):
+            act = option.policy(state)
+            obs = env.step(act)
+            state = env.state_info_to_state(obs["state_info"])
+            if option.terminal(state):
+                break
+        for atom in ground_nsrt.add_effects:
+            assert atom.holds(state)
+        for atom in ground_nsrt.delete_effects:
+            assert not atom.holds(state)
+        return state
+
+    # Test moving to and pushing knob3, then moving to and pushing the kettle.
+    move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
+    push_knob3_nsrt = PushObjTurnOnRight.ground([gripper, knob3])
+    move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
+    push_kettle_on_burner2_nsrt = PushObjOnObjForward.ground(
+        [gripper, kettle, burner2])
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_knob3_nsrt, state)
+    state = _run_ground_nsrt(push_knob3_nsrt, state)
+    state = _run_ground_nsrt(move_to_kettle_nsrt, state)
+    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
+    assert OnTop([kettle, burner2]).holds(state)
+    assert TurnedOn([knob3]).holds(state)
+
+    # Test reverse order: moving to and pushing the kettle, then moving to and
+    # pushing knob3.
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_kettle_nsrt, state)
+    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
+    state = _run_ground_nsrt(move_to_knob3_nsrt, state)
+    state = _run_ground_nsrt(push_knob3_nsrt, state)
+    assert OnTop([kettle, burner2]).holds(state)
+    assert TurnedOn([knob3]).holds(state)

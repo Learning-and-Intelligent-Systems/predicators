@@ -32,4 +32,4 @@ class KitchenPerceiver(BasePerceiver):
         return self._observation_to_state(observation)
 
     def _observation_to_state(self, obs: Observation) -> State:
-        return KitchenEnv.state_info_to_state(KitchenEnv, obs["state_info"])
+        return KitchenEnv.state_info_to_state(obs["state_info"])
