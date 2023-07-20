@@ -95,8 +95,11 @@ def _segment_with_option_changes(
         # Segment by checking whether the option changes on the next step.
         option_t = traj.actions[t].get_option()
         # As a special case, if this is the last timestep, then use the
-        # option's terminal function to check if it completed.
+        # option's terminal function to check if it completed, or see if the
+        # termination was due to max_num_steps_option_rollout.
         if t == len(traj.actions) - 1:
+            if t >= CFG.max_num_steps_option_rollout - 1:
+                return True
             return option_t.terminal(traj.states[t + 1])
         return option_t is not traj.actions[t + 1].get_option()
 
