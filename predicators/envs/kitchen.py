@@ -224,11 +224,17 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
     def _get_tasks(self, num: int,
                    train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
-        goal_descriptions = [
-            "Move the kettle to the back burner",
-            "Turn on the back burner",
-            "Move the kettle to the back burner and turn it on",
-        ]
+
+        assert CFG.kitchen_goals in ["all", "kettle_only", "knob_only"]
+        goal_descriptions: List[str] = []
+        if CFG.kitchen_goals in ["all", "kettle_only"]:
+            goal_descriptions.append("Move the kettle to the back burner")
+        if CFG.kitchen_goals in ["all", "knob_only"]:
+            goal_descriptions.append("Turn on the back burner")
+        if CFG.kitchen_goals == "all":
+            desc = "Move the kettle to the back burner and turn it on"
+            goal_descriptions.append(desc)
+
         for task_idx in range(num):
             seed = utils.get_task_seed(train_or_test, task_idx)
             init_obs = self._reset_initial_state_from_seed(seed)
