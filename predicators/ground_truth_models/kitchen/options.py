@@ -52,6 +52,13 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
+            # We always move backward for 8 steps before executing the move.
+            # Ideally we would move to a home position, but it's not possible
+            # to do that reliably with end effector control. Moving for 8 steps
+            # seems to work well enough for now, but it's likely that this will
+            # need to be improved in the future as we add more skills,
+            # especially considering that 5 and 10 backward steps don't work,
+            # indicating that this is very fickle.
             memory["reset_count"] = 8
             return True
 
