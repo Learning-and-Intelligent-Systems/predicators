@@ -162,9 +162,13 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         # Wrap the option policy to keep track of the executed NSRTs and if
         # they succeeded, to update the ground_op_hist.
-        self._last_executed_nsrt = None
+        initialized = False
 
         def _wrapped_option_policy(state: State) -> _Option:
+            nonlocal initialized
+            if not initialized:
+                self._last_executed_nsrt = None
+                initialized = True
             # Update ground_op_hist.
             self._update_ground_op_hist(state)
             # Record last executed NSRT.
