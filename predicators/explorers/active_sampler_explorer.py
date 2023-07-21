@@ -10,9 +10,9 @@ from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, run_task_plan_once
 from predicators.settings import CFG
-from predicators.structs import NSRT, ExplorationStrategy, GroundAtom, \
-    NSRTSampler, ParameterizedOption, Predicate, State, Task, Type, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option
+from predicators.structs import NSRT, Action, ExplorationStrategy, \
+    GroundAtom, NSRTSampler, ParameterizedOption, Predicate, State, Task, \
+    Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 class ActiveSamplerExplorer(BaseExplorer):
@@ -74,6 +74,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         next_practice_nsrt: Optional[_GroundNSRT] = None
 
         def _option_policy(state: State) -> _Option:
+            logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task_goal_reached, current_policy, \
                 next_practice_nsrt
 
@@ -174,6 +175,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Record last executed NSRT.
             option = _option_policy(state)
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
+            logging.info(
+                f"[Explorer] Starting NSRT: {ground_nsrt.name}{ground_nsrt.objects}"
+            )
             self._last_executed_nsrt = ground_nsrt
             return option
 
@@ -182,10 +186,19 @@ class ActiveSamplerExplorer(BaseExplorer):
             _wrapped_option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout)
 
+        # Catch exceptions and update the ground op history.
+        def _wrapped_policy(state: State) -> Action:
+            try:
+                return policy(state)
+            except utils.ExceptionWithInfo as e:
+                # About to terminate.
+                self._update_ground_op_hist(state)
+                raise e
+
         # Never terminate.
         termination_fn = lambda _: False
 
-        return policy, termination_fn
+        return _wrapped_policy, termination_fn
 
     def _update_ground_op_hist(self, state: State) -> None:
         """Should be called when an NSRT has just terminated."""
