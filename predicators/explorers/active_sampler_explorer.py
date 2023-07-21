@@ -189,8 +189,9 @@ class ActiveSamplerExplorer(BaseExplorer):
         def _wrapped_policy(state: State) -> Action:
             try:
                 return policy(state)
-            except utils.ExceptionWithInfo as e:
-                # About to terminate.
+            except utils.OptionTimeoutFailure as e:
+                # If the option was cut off due to max_option_steps, then
+                # we consider the option to be terminated.
                 self._update_ground_op_hist(state)
                 raise e
 

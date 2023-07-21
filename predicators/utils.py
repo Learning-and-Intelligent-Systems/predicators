@@ -1125,6 +1125,10 @@ class OptionExecutionFailure(ExceptionWithInfo):
     """An exception raised by an option policy in the course of execution."""
 
 
+class OptionTimeoutFailure(OptionExecutionFailure):
+    """A special kind of option execution failure due to an exceeded budget."""
+
+
 class RequestActPolicyFailure(ExceptionWithInfo):
     """An exception raised by an acting policy in a request when it fails to
     produce an action, which terminates the interaction."""
@@ -1169,13 +1173,13 @@ def option_policy_to_policy(
 
         if max_option_steps is not None and \
             num_cur_option_steps >= max_option_steps:
-            raise OptionExecutionFailure(
+            raise OptionTimeoutFailure(
                 "Exceeded max option steps.",
                 info={"last_failed_option": last_option})
 
         if last_state is not None and \
             raise_error_on_repeated_state and state.allclose(last_state):
-            raise OptionExecutionFailure(
+            raise OptionTimeoutFailure(
                 "Encountered repeated state.",
                 info={"last_failed_option": last_option})
         last_state = state
