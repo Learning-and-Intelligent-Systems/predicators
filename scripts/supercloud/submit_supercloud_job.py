@@ -50,21 +50,12 @@ cd /state/partition1/user/$USER/mujoco-py
 python setup.py install --user
 python -c "import mujoco_py"
 
-# Move code to this folder and mujoco-py into code
-rsync -av ~/predicators /state/partition1/user/$USER/ --exclude .git \
-    --exclude predicators/logs
-cp -r mujoco_py ../predicators/
-
 # Change directory to predicators
 cd ../predicators
 
 # Run the code
 """
     mujoco_final_str = """
-# Copy this directory back to where it started
-cd ../
-cp -rf predicators ~/
-
 # Remove temporary folder
 rm -rf /state/partition1/user/$USER
 """
