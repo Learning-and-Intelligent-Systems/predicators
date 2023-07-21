@@ -131,6 +131,7 @@ def test_oracle_strips_learner():
     segmented_trajs = [
         segment_trajectory(traj) for traj in ground_atom_dataset
     ]
+    assert len(segmented_trajs[0]) == 0
     pnads = learn_strips_operators(dataset.trajectories,
                                    train_tasks,
                                    env.predicates,
@@ -138,3 +139,16 @@ def test_oracle_strips_learner():
                                    verify_harmlessness=True,
                                    annotations=None)
     assert not pnads
+    # Test the same case, but where the option appears to have terminated due
+    # to the max horizon being exceeded. In this case, there should be one
+    # segment kept.
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "strips_learner": "oracle",
+        "num_train_tasks": 1,
+        "max_num_steps_option_rollout": 1,
+    })
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_dataset
+    ]
+    assert len(segmented_trajs[0]) == 1  # was 0 before
