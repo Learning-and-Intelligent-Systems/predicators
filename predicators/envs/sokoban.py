@@ -7,6 +7,7 @@ import matplotlib
 import numpy as np
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, Image, Object, \
@@ -129,7 +130,7 @@ class SokobanEnv(BaseEnv):
         self._current_observation = self._current_task.init_obs
         # We now need to reset the underlying gym environment to the correct
         # state.
-        seed = self._get_task_seed(train_or_test, task_idx)
+        seed = utils.get_task_seed(train_or_test, task_idx)
         self._reset_initial_state_from_seed(seed)
         return self._copy_observation(self._current_observation)
 
@@ -153,7 +154,7 @@ class SokobanEnv(BaseEnv):
                    train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
         for task_idx in range(num):
-            seed = self._get_task_seed(train_or_test, task_idx)
+            seed = utils.get_task_seed(train_or_test, task_idx)
             init_obs = self._reset_initial_state_from_seed(seed)
             goal_description = "Cover all the goals with boxes"
             task = EnvironmentTask(init_obs, goal_description)
@@ -296,21 +297,3 @@ class SokobanEnv(BaseEnv):
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return tuple(m.copy() for m in obs)
-
-    @staticmethod
-    def _get_task_seed(train_or_test: str, task_idx: int) -> int:
-        assert task_idx < CFG.test_env_seed_offset
-        # SeedSequence generates a sequence of random values given an integer
-        # "entropy". We use CFG.seed to define the "entropy" and then get the
-        # n^th generated random value and use that to seed the gym environment.
-        # This is all to avoid unintentional dependence between experiments
-        # that are conducted with consecutive random seeds. For example, if
-        # we used CFG.seed + task_idx to seed the gym environment, there would
-        # be overlap between experiments when CFG.seed = 1, CFG.seed = 2, etc.
-        entropy = CFG.seed
-        if train_or_test == "test":
-            entropy += CFG.test_env_seed_offset
-        seed_sequence = np.random.SeedSequence(entropy)
-        # Need to cast to int because generate_state() returns a numpy int.
-        task_seed = int(seed_sequence.generate_state(task_idx + 1)[-1])
-        return task_seed
