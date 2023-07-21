@@ -8,8 +8,8 @@ APPROACHES:
 ENVS:
   kitchen-kettle-only:
     NAME: "kitchen"
-  FLAGS:
-    kitchen_goals: "kettle_only"
+    FLAGS:
+      kitchen_goals: "kettle_only"
 ARGS: []
 FLAGS:  # general flags
   bilevel_plan_without_sim: True
