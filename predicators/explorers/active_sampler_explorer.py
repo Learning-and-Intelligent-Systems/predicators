@@ -175,9 +175,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Record last executed NSRT.
             option = _option_policy(state)
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
-            logging.info(
-                f"[Explorer] Starting NSRT: {ground_nsrt.name}{ground_nsrt.objects}"
-            )
+            logging.info(f"[Explorer] Starting NSRT: {ground_nsrt.name}"
+                         f"{ground_nsrt.objects}")
             self._last_executed_nsrt = ground_nsrt
             return option
 
