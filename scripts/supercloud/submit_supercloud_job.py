@@ -37,8 +37,39 @@ def submit_supercloud_job(entry_point: str,
     logfile_pattern = os.path.join(log_dir, f"{logfile_prefix}__%j.log")
     assert logfile_pattern.count("None") == 1
     logfile_pattern = logfile_pattern.replace("None", "%a")
-    mystr = (f"#!/bin/bash\npython predicators/{entry_point} "
-             f"{args_and_flags_str} --seed $SLURM_ARRAY_TASK_ID")
+    # TODO make optional
+    # Reference: https://github.com/openai/mujoco-py/issues/486
+    mujoco_init_str = """# Make temporary folder
+mkdir /state/partition1/user/$USER
+
+# Copy mujoco-py folder to locked part of cluster
+cp -r ~/mujoco-py /state/partition1/user/$USER/
+cd /state/partition1/user/$USER/mujoco-py
+
+# Install it and import it to build
+python setup.py install
+python -c "import mujoco_py"
+
+# Move code to this folder and mujoco-py into code
+cp -r ~/predicators /state/partition1/user/$USER/
+cp -r mujoco_py ../predicators/
+
+# Change directory to predicators
+cd ../predicators
+
+# Run the code
+"""
+    mujoco_final_str = """
+# Copy this directory back to where it started
+cd ../
+cp -rf predicators ~/
+
+# Remove temporary folder
+rm -rf /state/partition1/user/$USER
+"""
+    mystr = (f"#!/bin/bash\n{mujoco_init_str}python predicators/{entry_point} "
+             f"{args_and_flags_str} --seed $SLURM_ARRAY_TASK_ID\n"
+             f"{mujoco_final_str}")
     temp_run_file = "temp_run_file.sh"
     assert not os.path.exists(temp_run_file)
     with open(temp_run_file, "w", encoding="utf-8") as f:
