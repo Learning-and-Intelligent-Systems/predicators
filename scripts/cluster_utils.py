@@ -135,6 +135,7 @@ def generate_run_configs(config_filename: str,
 def get_cmds_to_prep_repo(branch: str) -> List[str]:
     """Get the commands that should be run while already in the repository but
     before launching the experiments."""
+    old_dir_pattern = " ".join(f"{d}/*" for d in SAVE_DIRS)
     return [
         "mkdir -p logs",
         "git stash",
@@ -142,7 +143,7 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         f"git checkout {branch}",
         "git pull",
         # Remove old results.
-        "rm -f results/* logs/* saved_approaches/* saved_datasets/*",
+        f"rm -f {old_dir_pattern}",
     ]
 
 
