@@ -40,10 +40,10 @@ def submit_supercloud_job(entry_point: str,
     # TODO make optional
     # Reference: https://github.com/openai/mujoco-py/issues/486
     mujoco_init_str = """# Make temporary folder
-mkdir /state/partition1/user/$USER
+mkdir -p /state/partition1/user/$USER
 
 # Copy mujoco-py folder to locked part of cluster
-cp -r ~/mujoco-py /state/partition1/user/$USER/
+rsync -av ~/mujoco-py /state/partition1/user/$USER/ --exclude .git
 cd /state/partition1/user/$USER/mujoco-py
 
 # Install it and import it to build
@@ -51,7 +51,7 @@ python setup.py install --user
 python -c "import mujoco_py"
 
 # Move code to this folder and mujoco-py into code
-cp -r ~/predicators /state/partition1/user/$USER/
+rsync -av ~/predicators /state/partition1/user/$USER/ --exclude .git
 cp -r mujoco_py ../predicators/
 
 # Change directory to predicators
