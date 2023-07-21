@@ -10,6 +10,7 @@ ENVS:
     NAME: "kitchen"
   FLAGS:
     kitchen_goals: "kettle_only"
+ARGS: []
 FLAGS:  # general flags
   bilevel_plan_without_sim: True
   num_train_tasks: 100
