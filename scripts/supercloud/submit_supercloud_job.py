@@ -51,7 +51,7 @@ python setup.py install --user
 python -c "import mujoco_py"
 
 # Change directory to predicators
-cd ../predicators
+cd ~/predicators
 
 # Run the code
 """
