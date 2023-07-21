@@ -171,6 +171,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Wrap the option policy to keep track of the executed NSRTs and if
         # they succeeded, to update the ground_op_hist.
         initialized = False
+
         def _wrapped_option_policy(state: State) -> _Option:
             nonlocal initialized
             if not initialized:
