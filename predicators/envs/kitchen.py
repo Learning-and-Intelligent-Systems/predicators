@@ -210,17 +210,36 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         kettle = Object("kettle", self.object_type)
         burner = Object("burner2", self.object_type)
         knob = Object("knob3", self.object_type)
-        return self._OnTop_holds(state=state, objects=[
-            kettle, burner
-        ]) and self._On_holds(state=state, objects=[knob])
+        goal_desc = self._current_task.goal_description
+        kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
+        knob_turned_on = self._On_holds(state, [knob])
+        if goal_desc == "Move the kettle to the back burner and turn it on":
+            return kettle_on_burner and knob_turned_on
+        if goal_desc == "Move the kettle to the back burner":
+            return kettle_on_burner
+        if goal_desc == "Turn on the back burner":
+            return knob_turned_on
+        raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 
     def _get_tasks(self, num: int,
                    train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
+
+        assert CFG.kitchen_goals in ["all", "kettle_only", "knob_only"]
+        goal_descriptions: List[str] = []
+        if CFG.kitchen_goals in ["all", "kettle_only"]:
+            goal_descriptions.append("Move the kettle to the back burner")
+        if CFG.kitchen_goals in ["all", "knob_only"]:
+            goal_descriptions.append("Turn on the back burner")
+        if CFG.kitchen_goals == "all":
+            desc = "Move the kettle to the back burner and turn it on"
+            goal_descriptions.append(desc)
+
         for task_idx in range(num):
             seed = utils.get_task_seed(train_or_test, task_idx)
             init_obs = self._reset_initial_state_from_seed(seed)
-            goal_description = "Move Kettle to Back Burner and Turn On"
+            goal_idx = task_idx % len(goal_descriptions)
+            goal_description = goal_descriptions[goal_idx]
             task = EnvironmentTask(init_obs, goal_description)
             tasks.append(task)
         return tasks
