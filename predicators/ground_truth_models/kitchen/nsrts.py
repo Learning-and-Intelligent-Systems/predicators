@@ -66,7 +66,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 if state.get(gripper, "x") > -0.15:
                     params[2] += 0.1
             else:
-                params = params + rng.uniform(-1e-1, 1e-1, size=3)
+                params[0] += rng.uniform(-0.5, 0.5)
             return params
 
         move_to_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
