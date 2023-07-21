@@ -96,7 +96,14 @@ def _segment_with_option_changes(
         # option's terminal function to check if it completed, or see if the
         # termination was due to max_num_steps_option_rollout.
         if t == len(traj.actions) - 1:
-            if t >= CFG.max_num_steps_option_rollout - 1:
+            # Calculate the number of steps since the option changed.
+            backward_t = t
+            while backward_t > 0:
+                if traj.actions[backward_t - 1].get_option() is not option_t:
+                    break
+                backward_t -= 1
+            option_duration = t - backward_t + 1
+            if option_duration >= CFG.max_num_steps_option_rollout:
                 return True
             return option_t.terminal(traj.states[t + 1])
         return option_t is not traj.actions[t + 1].get_option()

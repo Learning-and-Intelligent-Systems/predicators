@@ -77,6 +77,35 @@ def test_active_sampler_explorer():
     with pytest.raises(utils.RequestActPolicyFailure):
         policy(state)
 
+    # Cover case where the max option horizon is exceeded.
+    ground_op_hist = {}
+    utils.reset_config({
+        "explorer": "active_sampler",
+        "env": "regional_bumpy_cover",
+        "bumpy_cover_init_bumpy_prob": 0.0,
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+        "max_num_steps_option_rollout": 0,  # note
+    })
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        max_steps_before_termination=2,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
+    task_idx = 0
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
+    assert not term_fn(state)
+    with pytest.raises(utils.OptionTimeoutFailure):
+        env.simulate(state, policy(state))
+
     # Test that the PickFromBumpy operator is tried more than the others when
     # we set the parameters of the environment such that picking is hard.
     utils.reset_config({

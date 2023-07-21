@@ -505,7 +505,7 @@ def _run_episode(
                 observations.append(obs)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
+                   any(issubclass(type(e), c) for c in exceptions_to_break_on):
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
