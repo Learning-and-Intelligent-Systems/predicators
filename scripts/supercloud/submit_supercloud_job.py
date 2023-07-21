@@ -47,7 +47,7 @@ cp -r ~/mujoco-py /state/partition1/user/$USER/
 cd /state/partition1/user/$USER/mujoco-py
 
 # Install it and import it to build
-python setup.py install
+python setup.py install --user
 python -c "import mujoco_py"
 
 # Move code to this folder and mujoco-py into code
