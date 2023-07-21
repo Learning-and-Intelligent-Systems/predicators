@@ -51,8 +51,7 @@ python setup.py install --user
 python -c "import mujoco_py"
 
 # Move code to this folder and mujoco-py into code
-rsync -av ~/predicators /state/partition1/user/$USER/ \
-    --exclude predicators/logs
+rsync -av ~/predicators /state/partition1/user/$USER/
 cp -r mujoco_py ../predicators/
 
 # Change directory to predicators
