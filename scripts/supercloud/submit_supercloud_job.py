@@ -6,6 +6,7 @@ import sys
 
 from predicators import utils
 from predicators.settings import CFG
+from scripts.cluster_utils import SAVE_DIRS
 
 START_SEED = 456
 NUM_SEEDS = 10
@@ -25,7 +26,8 @@ def _run() -> None:
 
 # Commands for using MuJoCo.
 # Reference: https://github.com/openai/mujoco-py/issues/486
-_MUJOCO_PREP = """# Make temporary folder
+_OLD_DIRS = " ".join(f"{d}/*" for d in SAVE_DIRS)
+_MUJOCO_PREP = f"""# Make temporary folder
 mkdir -p /state/partition1/user/$USER
 
 # Copy mujoco-py folder to locked part of cluster
@@ -43,6 +45,9 @@ cp -r mujoco_py ../predicators/
 
 # Change directory to predicators
 cd ../predicators
+
+# Remove existing files
+rm -f {_OLD_DIRS}
 
 # Run the code
 """
