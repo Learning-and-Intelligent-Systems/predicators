@@ -48,6 +48,8 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         if uncovered_segment is not None:
             while uncovered_segment is not None and \
                 new_heuristic_val >= init_heuristic_val:
+                covered_segments = [t[0] for p in ret_pnads_list for t in p.datastore]
+                assert uncovered_segment not in covered_segments
                 # We will need to induce an operator to cover this
                 # segment, and thus it must have some necessary add effects.
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
