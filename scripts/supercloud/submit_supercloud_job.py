@@ -76,6 +76,8 @@ def submit_supercloud_job(entry_point: str,
                           use_mujoco: bool = False) -> None:
     """Launch the supercloud job."""
     assert entry_point in ("main.py", "train_refinement_estimator.py")
+    if use_mujoco:
+        log_dir = f"{_MUJOCO_TEMP_OUTDIR}/{log_dir}"
     os.makedirs(log_dir, exist_ok=True)
     logfile_pattern = os.path.join(log_dir, f"{logfile_prefix}__%j.log")
     assert logfile_pattern.count("None") == 1
