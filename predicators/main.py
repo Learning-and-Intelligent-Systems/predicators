@@ -74,6 +74,7 @@ def main() -> None:
     # Log to stderr.
     handlers: List[logging.Handler] = [logging.StreamHandler()]
     if CFG.log_file:
+        os.makedirs(CFG.log_dir, exist_ok=True)
         handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
@@ -87,8 +88,6 @@ def main() -> None:
     logging.info(f"Git commit hash: {utils.get_git_commit_hash()}")
     # Create results directory.
     os.makedirs(CFG.results_dir, exist_ok=True)
-    # Create log directory.
-    os.makedirs(CFG.log_dir, exist_ok=True)
     # Create the eval trajectories directory.
     os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
