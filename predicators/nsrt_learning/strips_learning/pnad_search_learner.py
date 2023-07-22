@@ -44,14 +44,60 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         init_heuristic_val = self._associated_heuristic(pnads)
         new_heuristic_val = float('inf')
         ret_pnads_list = sorted(pnads)
-        uncovered_segment = self._get_first_uncovered_segment(ret_pnads_list)
+
+        #
+        old_ret_pnads_list = ret_pnads_list.copy()
         temp = []
+        #
+
+        uncovered_segment = self._get_first_uncovered_segment(ret_pnads_list)
+        if uncovered_segment is not None:
+            print(f"BackChainingPNADSearchOperator found another uncovered segment that involves option {uncovered_segment.get_option().name}")
+        temp2 = False
+        for pr in old_ret_pnads_list:
+            for d in pr.datastore:
+                if uncovered_segment in d:
+                    lll = [t[0] for t in pr.datastore]
+                    print("First check: Uncovered segment found in a datastore!")
+                    print("Operator who's datastore it was found in: ")
+                    print(pr)
+                    temp_pnad = self._learner.spawn_new_pnad(uncovered_segment)
+                    temp2 = True
+                    print("AT THE JOKER LOCATION")
+                    for aaa in sorted(uncovered_segment.init_atoms):
+                        print(aaa)
+                    print("BLAH")
+                    for bbb in sorted(pr.op.preconditions):
+                        print(bbb)
+                    print("HUEHUE")
+                    for ccc in sorted(pr.op.add_effects):
+                        print(ccc)
+                    print("BOB MARLEY")
+                    objs = list(uncovered_segment.states[0].data.keys())
+                    robot = [o for o in objs if o.name == "robby"][0]
+                    x1 = [o for o in objs if o.name == "block1"][0]
+                    x3 = [o for o in objs if o.name == "block2"][0]
+                    x4 = [o for o in objs if o.name == "block3"][0]
+                    ddd = pr.op.ground((robot, x1, x3, x4))
+                    for ll_traj, seg_traj in zip(self._trajectories,
+                                                 self._segmented_trajs):
+                        if uncovered_segment in seg_traj:
+                            ddd_goal = self._train_tasks[ll_traj.train_task_idx].goal
+                            break
+                    assert ddd_goal is not None
+
+                    temp_segment = self._get_first_uncovered_segment2(ret_pnads_list, uncovered_segment, ddd, ddd_goal)
+                    import pdb; pdb.set_trace()
+        if not temp2:
+            print("First check: Uncovered segment NOT found in a datastore.")
+
         if uncovered_segment is not None:
             while uncovered_segment is not None and \
                 new_heuristic_val >= init_heuristic_val:
                 # We will need to induce an operator to cover this
                 # segment, and thus it must have some necessary add effects.
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
+                # print("Inside while loop, printing pnad that covers: ", new_pnad)
                 ret_pnads_list = self._append_new_pnad_and_keep_effects(
                     new_pnad, ret_pnads_list)
                 ret_pnads = frozenset(pnad.copy() for pnad in ret_pnads_list)
@@ -60,18 +106,18 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                     ret_pnads_list)
 
                 # Can the uncovered segment be found in a datastore of another pnad?
-                # temp2 = False
-                # for p in ret_pnads_list:
-                #     for d in p.datastore:
-                #         if uncovered_segment in d:
-                #             print("Uncovered segment found in a datastore!")
-                #             temp2 = True
-                # if not temp2:
-                #     print("Uncovered segment NOT found in a datastore.")
+                temp2 = False
+                for p in ret_pnads_list:
+                    for d in p.datastore:
+                        if uncovered_segment in d:
+                            print("Second check: Uncovered segment found in a datastore!")
+                            temp2 = True
+                if not temp2:
+                    print("Second check: Uncovered segment NOT found in a datastore.")
 
-                # temp.append(uncovered_segment)
-                # if uncovered_segment is not None:
-                #     print(f"BackChainingPNADSearchOperator found another uncovered segment that involves option {uncovered_segment.get_option().name}")
+                temp.append(uncovered_segment)
+                if uncovered_segment is not None:
+                    print(f"BackChainingPNADSearchOperator found another uncovered segment that involves option {uncovered_segment.get_option().name}")
                 #     print(f"The new pnad has datastore of length: ", len(new_pnad.datastore))
                 #     # print("the operator generated to cover this uncovered segment is:")
                 #     # print(new_pnad.op)
@@ -167,6 +213,41 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                     t = (len(seg_traj) - 1) - len(op_chain)
                     assert t >= 0
                     segment = seg_traj[t]
+                    return segment
+        return None
+
+    def _get_first_uncovered_segment2(
+        self,
+        pnads: List[PNAD], uncovered_segment: Segment, oppen: _GroundSTRIPSOperator, ddd_goal: Set[GroundAtom]
+    ) -> Optional[Segment]:
+        # Find the first uncovered segment. Do this in a kind of breadth-first
+        # backward search over trajectories.
+        # Compute all the chains once up front.
+        max_chain_len, backchaining_results = self._get_backchaining_results(
+            pnads)
+        # Now look for an uncovered segment. If one cannot be found, this
+        # method will automatically return None.
+        for depth in range(max_chain_len + 1):
+            for seg_traj, op_chain in backchaining_results:
+                if not (len(op_chain) > depth
+                        or len(op_chain) == len(seg_traj)):
+                    # We found an uncovered transition: we now need to return
+                    # the information necessary to induce a new operator to
+                    # cover it.
+                    # The timestep of the uncovered transition is the number of
+                    # segments - 1 - (numer of actions in our backchained plan)
+                    t = (len(seg_traj) - 1) - len(op_chain)
+                    assert t >= 0
+                    segment = seg_traj[t]
+                    print("AT THIS LOCATION HAHA")
+                    for aaa in sorted(op_chain[0].preconditions):
+                        print(aaa)
+
+                    end_atoms = utils.apply_operator(op_chain[0], utils.apply_operator(oppen, seg_traj[-2].init_atoms))
+                    goal_met = ddd_goal.issubset(end_atoms)
+                    chain = self._learner.backchain2(seg_traj, pnads, ddd_goal, oppen)
+
+                    import pdb; pdb.set_trace()
                     return segment
         return None
 
@@ -338,8 +419,8 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                              check_goal=lambda _: False,
                                              get_successors=get_successors,
                                              heuristic=heuristic,
-                                             verbose=self._verbose,
-                                             # verbose=True,
+                                             # verbose=self._verbose,
+                                             verbose=True,
                                              timeout=CFG.pnad_search_timeout)
 
         # Extract the best PNADs set.
@@ -418,4 +499,54 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 a.ground(var_to_obj)
                 for a in pnad.op.preconditions
             }
+        return operator_chain
+
+    def backchain2(self, segmented_traj: List[Segment], pnads: List[PNAD],
+                  traj_goal: Set[GroundAtom], oppen: _GroundSTRIPSOperator) -> List[_GroundSTRIPSOperator]:
+        """Returns chain of ground operators in REVERSE order."""
+        print("In backchain2.")
+        operator_chain: List[_GroundSTRIPSOperator] = []
+        atoms_seq = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
+        objects = set(segmented_traj[0].states[0])
+        assert traj_goal.issubset(atoms_seq[-1])
+        necessary_image = set(traj_goal)
+        for t in range(len(atoms_seq) - 2, -1, -1):
+            segment = segmented_traj[t]
+            segment.necessary_add_effects = necessary_image - atoms_seq[t]
+            pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
+                segment, objects, pnads)
+            print("Best matching pnad: ", pnad.op.name)
+            # If no match found, terminate.
+            if pnad is None:
+                import pdb; pdb.set_trace()
+                break
+            assert var_to_obj is not None
+            obj_to_var = {v: k for k, v in var_to_obj.items()}
+            assert len(var_to_obj) == len(obj_to_var)
+            ground_op = pnad.op.ground(
+                tuple(var_to_obj[var] for var in pnad.op.parameters))
+            next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
+            # Update the PNAD's seg_to_keep_effs_sub dict.
+            self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
+                                               ground_op, obj_to_var, segment)
+            # If we're missing something in the necessary image, terminate.
+            if not necessary_image.issubset(next_atoms):
+                nexttt = utils.apply_operator(oppen, segment.init_atoms)
+                import pdb; pdb.set_trace()
+                break
+            # Otherwise, extend the chain.
+            operator_chain.append(ground_op)
+            # Update necessary_image for this timestep. It no longer
+            # needs to include the ground add effects of this PNAD, but
+            # must now include its ground preconditions.
+            necessary_image = necessary_image.copy()
+            necessary_image -= {
+                a.ground(var_to_obj)
+                for a in pnad.op.add_effects
+            }
+            necessary_image |= {
+                a.ground(var_to_obj)
+                for a in pnad.op.preconditions
+            }
+        import pdb; pdb.set_trace()
         return operator_chain

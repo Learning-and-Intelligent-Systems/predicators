@@ -1084,37 +1084,37 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #         predicates_to_keep.add(c)
             #         logging.info("Adding in to debug: ", c.name)
 
-            # remove = [
-            #     "NOT-((0:block).pose_z<=[idx 3]0.282)",
-            #     "NOT-Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]",
-            #     "NOT-((0:block).pose_z<=[idx 1]0.342)",
-            #     "((0:block).pose_z<=[idx 1]0.342)",
-            #     "((0:block).pose_z<=[idx 3]0.282)",
-            #     "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]"
-            # ]
-            #
-            # for c in candidates.keys():
-            #     if c.name in remove:
-            #         predicates_to_keep.remove(c)
-            #         print("Removing: ", c)
-
-            #
-            new_candidates = {}
+            remove = [
+                "NOT-((0:block).pose_z<=[idx 3]0.282)",
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]",
+                "NOT-((0:block).pose_z<=[idx 1]0.342)",
+                "((0:block).pose_z<=[idx 1]0.342)",
+                "((0:block).pose_z<=[idx 3]0.282)",
+                "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]"
+            ]
+            
             for c in candidates.keys():
-                if c in predicates_to_keep:
-                    new_candidates[c] = candidates[c]
-            score_function = create_score_function(
-                CFG.grammar_search_score_function, self._initial_predicates,
-                atom_dataset, new_candidates, self._train_tasks)
+                if c.name in remove:
+                    predicates_to_keep.remove(c)
+                    print("Removing: ", c)
 
-            logging.info(f"Sending {len(new_candidates)} predicates to hill climbing approach.")
-            return self._select_predicates_by_score_hillclimbing(
-                new_candidates,
-                score_function,
-                initial_predicates,
-                atom_dataset,
-                self._train_tasks
-            )
+            #
+            # new_candidates = {}
+            # for c in candidates.keys():
+            #     if c in predicates_to_keep:
+            #         new_candidates[c] = candidates[c]
+            # score_function = create_score_function(
+            #     CFG.grammar_search_score_function, self._initial_predicates,
+            #     atom_dataset, new_candidates, self._train_tasks)
+            #
+            # logging.info(f"Sending {len(new_candidates)} predicates to hill climbing approach.")
+            # return self._select_predicates_by_score_hillclimbing(
+            #     new_candidates,
+            #     score_function,
+            #     initial_predicates,
+            #     atom_dataset,
+            #     self._train_tasks
+            # )
             #
 
             # Remove the initial predicates.

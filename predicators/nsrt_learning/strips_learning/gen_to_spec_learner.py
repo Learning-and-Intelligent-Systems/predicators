@@ -90,7 +90,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
         new_pnad = PNAD(new_pnad_op, [], pnad.option_spec)
-        
+
         ####
         new_pnad.datastore = pnad.datastore
         ####
@@ -246,6 +246,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 pnad for pnads in param_opt_to_nec_pnads.values()
                 for pnad in pnads
             ]
+            # self.spawn_new_pnad(cur_itr_pnads_unfiltered) # did I accidentally put this line here at some point?
             self._recompute_datastores_from_segments(cur_itr_pnads_unfiltered)
             cur_itr_pnads_filtered = []
             for pnad in cur_itr_pnads_unfiltered:
