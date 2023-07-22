@@ -28,7 +28,7 @@ def _run() -> None:
 _MUJOCO_TEMP_OUTDIR = "$HOME/predicators_mujoco_out"
 _MUJOCO_PREP = f"""# Make temporary folders
 mkdir -p /state/partition1/user/$USER
-mkdir -p {_MUJOCO_TEMP_OUTDIR}
+mkdir -p "{_MUJOCO_TEMP_OUTDIR}"
 
 # Copy mujoco-py folder to locked part of cluster
 rsync -av $HOME/mujoco-py /state/partition1/user/$USER/ --exclude .git
@@ -52,12 +52,8 @@ _MUJOCO_FLAGS = f"""--results_dir {_MUJOCO_TEMP_OUTDIR}/results \
     --approach_dir {_MUJOCO_TEMP_OUTDIR}/saved_approaches \
     --data_dir {_MUJOCO_TEMP_OUTDIR}/saved_data \
     --eval_trajectories_dir {_MUJOCO_TEMP_OUTDIR}/eval_trajectories"""
-_MUJOCO_FINISH = f"""# Copy this directory back to where it started
-cd ../
-rsync -av predicators $HOME/ --exclude mujoco_py
-
-# Move the outfiles back into regular predicators
-rsync --remove-source-files -av {_MUJOCO_TEMP_OUTDIR}/* predicators/
+_MUJOCO_FINISH = f"""# Move the outfiles back into regular predicators
+rsync --remove-source-files -av "{_MUJOCO_TEMP_OUTDIR}/*" predicators/
 
 # Remove temporary folder
 rm -rf /state/partition1/user/$USER
