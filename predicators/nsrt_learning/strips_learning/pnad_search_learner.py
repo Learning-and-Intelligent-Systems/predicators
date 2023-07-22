@@ -48,7 +48,9 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         if uncovered_segment is not None:
             while uncovered_segment is not None and \
                 new_heuristic_val >= init_heuristic_val:
-                covered_segments = [t[0] for p in ret_pnads_list for t in p.datastore]
+                covered_segments = [
+                    t[0] for p in ret_pnads_list for t in p.datastore
+                ]
                 assert uncovered_segment not in covered_segments
                 # We will need to induce an operator to cover this
                 # segment, and thus it must have some necessary add effects.
@@ -361,8 +363,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # Check if we're missing something in the necessary image.
                 if necessary_image.issubset(next_atoms):
                     break
-                else:
-                    candidate_pnads.remove(pnad)
+                candidate_pnads.remove(pnad)
             # Extend the chain.
             operator_chain.append(ground_op)
             # Update necessary_image for this timestep. It no longer
