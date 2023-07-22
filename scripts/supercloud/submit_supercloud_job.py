@@ -70,10 +70,6 @@ def submit_supercloud_job(entry_point: str,
     logfile_pattern = os.path.join(log_dir, f"{logfile_prefix}__%j.log")
     assert logfile_pattern.count("None") == 1
     logfile_pattern = logfile_pattern.replace("None", "%a")
-    if use_mujoco:
-        assert "log_file" not in args_and_flags_str
-        local_log = os.path.join(log_dir, "$SLURM_ARRAY_TASK_ID.log")
-        args_and_flags_str = f"{args_and_flags_str} --log_file {local_log}"
     bash_strs = [
         "#!/bin/bash",
         _MUJOCO_PREP if use_mujoco else "",

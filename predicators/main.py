@@ -74,7 +74,6 @@ def main() -> None:
     # Log to stderr.
     handlers: List[logging.Handler] = [logging.StreamHandler()]
     if CFG.log_file:
-        os.makedirs(CFG.log_dir, exist_ok=True)
         handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
