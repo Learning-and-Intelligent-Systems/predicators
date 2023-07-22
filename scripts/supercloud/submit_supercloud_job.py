@@ -25,10 +25,8 @@ def _run() -> None:
 
 # Commands for using MuJoCo.
 # Reference: https://github.com/openai/mujoco-py/issues/486
-_MUJOCO_TEMP_OUTDIR = "~/predicators_mujoco_out"
-_MUJOCO_PREP = f"""# Make temporary folders
+_MUJOCO_PREP = """# Make temporary folder
 mkdir -p /state/partition1/user/$USER
-mkdir -p {_MUJOCO_TEMP_OUTDIR}
 
 # Copy mujoco-py folder to locked part of cluster
 rsync -av ~/mujoco-py /state/partition1/user/$USER/ --exclude .git
@@ -48,17 +46,9 @@ cd ../predicators
 
 # Run the code
 """
-_MUJOCO_FLAGS = f"""--results_dir {_MUJOCO_TEMP_OUTDIR}/results \
-    --log_dir {_MUJOCO_TEMP_OUTDIR}/logs \
-    --approach_dir {_MUJOCO_TEMP_OUTDIR}/saved_approaches \
-    --data_dir {_MUJOCO_TEMP_OUTDIR}/saved_data \
-    --eval_trajectories_dir {_MUJOCO_TEMP_OUTDIR}/eval_trajectories"""
-_MUJOCO_FINISH = f"""# Copy this directory back to where it started
+_MUJOCO_FINISH = """# Copy this directory back to where it started
 cd ../
 rsync -av predicators ~/ --exclude mujoco_py
-
-# Move the outfiles back into regular predicators
-rsync --remove-source-files -av {_MUJOCO_TEMP_OUTDIR}/* predicators/
 
 # Remove temporary folder
 rm -rf /state/partition1/user/$USER
@@ -84,7 +74,7 @@ def submit_supercloud_job(entry_point: str,
         "#!/bin/bash",
         _MUJOCO_PREP if use_mujoco else "",
         f"python predicators/{entry_point} "
-        f"{args_and_flags_str} {_MUJOCO_FLAGS} --seed $SLURM_ARRAY_TASK_ID",
+        f"{args_and_flags_str} --seed $SLURM_ARRAY_TASK_ID",
         _MUJOCO_FINISH if use_mujoco else "",
     ]
     mystr = "\n".join(bash_strs)
@@ -102,9 +92,6 @@ def submit_supercloud_job(entry_point: str,
             f"--array={start_seed}-{start_seed+num_seeds-1} "
             f"-o {logfile_pattern} {temp_run_file}")
     print(f"Running command: {cmd}")
-    if use_mujoco:
-        print(f"NOTE: logs and results are streaming to {_MUJOCO_TEMP_OUTDIR}"
-              " during the run, but will move automatically when finished.")
     output = subprocess.getoutput(cmd)
     if "command not found" in output:
         os.remove(temp_run_file)

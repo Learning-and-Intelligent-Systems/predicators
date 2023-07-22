@@ -33,7 +33,6 @@ class RunConfig:
         assert "log_dir" not in self.flags
         assert "approach_dir" not in self.flags
         assert "data_dir" not in self.flags
-        assert "eval_trajectories_dir" not in self.flags
 
 
 @dataclass(frozen=True)
