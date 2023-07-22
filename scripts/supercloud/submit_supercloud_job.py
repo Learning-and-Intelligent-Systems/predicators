@@ -25,13 +25,13 @@ def _run() -> None:
 
 # Commands for using MuJoCo.
 # Reference: https://github.com/openai/mujoco-py/issues/486
-_MUJOCO_TEMP_OUTDIR = "$HOME/predicators_mujoco_out"
+_MUJOCO_TEMP_OUTDIR = "~/predicators_mujoco_out"
 _MUJOCO_PREP = f"""# Make temporary folders
 mkdir -p /state/partition1/user/$USER
 mkdir -p {_MUJOCO_TEMP_OUTDIR}
 
 # Copy mujoco-py folder to locked part of cluster
-rsync -av $HOME/mujoco-py /state/partition1/user/$USER/ --exclude .git
+rsync -av ~/mujoco-py /state/partition1/user/$USER/ --exclude .git
 cd /state/partition1/user/$USER/mujoco-py
 
 # Install it and import it to build
@@ -39,7 +39,8 @@ python setup.py install --user
 python -c "import mujoco_py"
 
 # Move code to this folder and mujoco-py into code
-rsync -av $HOME/predicators /state/partition1/user/$USER/
+rsync -av ~/predicators /state/partition1/user/$USER/ \
+    --exclude predicators/logs
 cp -r mujoco_py ../predicators/
 
 # Change directory to predicators
@@ -54,7 +55,7 @@ _MUJOCO_FLAGS = f"""--results_dir {_MUJOCO_TEMP_OUTDIR}/results \
     --eval_trajectories_dir {_MUJOCO_TEMP_OUTDIR}/eval_trajectories"""
 _MUJOCO_FINISH = f"""# Copy this directory back to where it started
 cd ../
-rsync -av predicators $HOME/ --exclude mujoco_py
+rsync -av predicators ~/ --exclude mujoco_py
 
 # Move the outfiles back into regular predicators
 rsync --remove-source-files -av {_MUJOCO_TEMP_OUTDIR}/* predicators/
@@ -76,7 +77,7 @@ def submit_supercloud_job(entry_point: str,
     """Launch the supercloud job."""
     assert entry_point in ("main.py", "train_refinement_estimator.py")
     if use_mujoco:
-        log_dir = os.path.join(_MUJOCO_TEMP_OUTDIR, log_dir)
+        log_dir = f"{_MUJOCO_TEMP_OUTDIR}/{log_dir}"
     os.makedirs(log_dir, exist_ok=True)
     logfile_pattern = os.path.join(log_dir, f"{logfile_prefix}__%j.log")
     assert logfile_pattern.count("None") == 1
