@@ -73,7 +73,7 @@ def submit_supercloud_job(entry_point: str,
     if use_mujoco:
         assert "log_file" not in args_and_flags_str
         # TODO generalize
-        log_file = os.path.join("/home/gridsan/tslvr/predicators", logfile_pattern)
+        log_file = os.path.join("/home/gridsan/tslvr", logfile_pattern)
         args_and_flags_str = f"{args_and_flags_str} --log_file {log_file}"
     bash_strs = [
         "#!/bin/bash",
