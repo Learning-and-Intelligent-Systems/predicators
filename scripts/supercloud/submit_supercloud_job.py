@@ -85,7 +85,6 @@ def submit_supercloud_job(entry_point: str,
         _MUJOCO_FINISH if use_mujoco else "",
     ]
     mystr = "\n".join(bash_strs)
-    import ipdb; ipdb.set_trace()
     temp_run_file = "temp_run_file.sh"
     assert not os.path.exists(temp_run_file)
     with open(temp_run_file, "w", encoding="utf-8") as f:
