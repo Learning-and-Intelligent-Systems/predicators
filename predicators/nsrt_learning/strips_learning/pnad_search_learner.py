@@ -338,24 +338,30 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         for t in range(len(atoms_seq) - 2, -1, -1):
             segment = segmented_traj[t]
             segment.necessary_add_effects = necessary_image - atoms_seq[t]
-            pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
-                segment, objects, pnads)
-            # If no match found, terminate.
-            if pnad is None:
-                break
-            assert var_to_obj is not None
-            obj_to_var = {v: k for k, v in var_to_obj.items()}
-            assert len(var_to_obj) == len(obj_to_var)
-            ground_op = pnad.op.ground(
-                tuple(var_to_obj[var] for var in pnad.op.parameters))
-            next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
-            # Update the PNAD's seg_to_keep_effs_sub dict.
-            self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
-                                               ground_op, obj_to_var, segment)
-            # If we're missing something in the necessary image, terminate.
-            if not necessary_image.issubset(next_atoms):
-                break
-            # Otherwise, extend the chain.
+            candidate_pnads = pnads.copy()
+            while True:
+                pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
+                    segment, objects, candidate_pnads)
+                # If no match found, terminate.
+                if pnad is None:
+                    return operator_chain
+                assert var_to_obj is not None
+                obj_to_var = {v: k for k, v in var_to_obj.items()}
+                assert len(var_to_obj) == len(obj_to_var)
+                ground_op = pnad.op.ground(
+                    tuple(var_to_obj[var] for var in pnad.op.parameters))
+                next_atoms = utils.apply_operator(ground_op,
+                                                  segment.init_atoms)
+                # Update the PNAD's seg_to_keep_effs_sub dict.
+                self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
+                                                   ground_op, obj_to_var,
+                                                   segment)
+                # Check if we're missing something in the necessary image.
+                if necessary_image.issubset(next_atoms):
+                    break
+                else:
+                    candidate_pnads.remove(pnad)
+            # Extend the chain.
             operator_chain.append(ground_op)
             # Update necessary_image for this timestep. It no longer
             # needs to include the ground add effects of this PNAD, but
