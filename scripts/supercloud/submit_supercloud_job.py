@@ -28,7 +28,7 @@ def _run() -> None:
 _MUJOCO_TEMP_OUTDIR = "$HOME/predicators_mujoco_out"
 _MUJOCO_PREP = f"""# Make temporary folders
 mkdir -p /state/partition1/user/$USER
-mkdir -p {_MUJOCO_TEMP_OUTDIR}
+mkdir -p "{_MUJOCO_TEMP_OUTDIR}"
 
 # Copy mujoco-py folder to locked part of cluster
 rsync -av $HOME/mujoco-py /state/partition1/user/$USER/ --exclude .git
@@ -52,9 +52,8 @@ _MUJOCO_FLAGS = f"""--results_dir {_MUJOCO_TEMP_OUTDIR}/results \
     --approach_dir {_MUJOCO_TEMP_OUTDIR}/saved_approaches \
     --data_dir {_MUJOCO_TEMP_OUTDIR}/saved_data \
     --eval_trajectories_dir {_MUJOCO_TEMP_OUTDIR}/eval_trajectories"""
-_MUJOCO_FINISH = f"""
-# Move the outfiles back into regular predicators
-rsync --remove-source-files -av {_MUJOCO_TEMP_OUTDIR}/* $HOME/predicators/
+_MUJOCO_FINISH = f"""# Move the outfiles back into regular predicators
+rsync --remove-source-files -av "{_MUJOCO_TEMP_OUTDIR}/*" predicators/
 
 # Remove temporary folder
 rm -rf /state/partition1/user/$USER
@@ -86,6 +85,7 @@ def submit_supercloud_job(entry_point: str,
         _MUJOCO_FINISH if use_mujoco else "",
     ]
     mystr = "\n".join(bash_strs)
+    import ipdb; ipdb.set_trace()
     temp_run_file = "temp_run_file.sh"
     assert not os.path.exists(temp_run_file)
     with open(temp_run_file, "w", encoding="utf-8") as f:
