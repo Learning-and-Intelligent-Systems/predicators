@@ -82,10 +82,6 @@ PLOT_GROUPS = {
         ("Oracle Feats (KNN)", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "bumpy_cover-knn_manual_features" in v)),
     ],
-    "Kitchen (Kettle Only)": [
-        ("Active Learning", "black", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-kettle-only-active_sampler_learning" in v)),
-    ],
 }
 
 # If True, add (0, 0) to every plot.
