@@ -64,15 +64,15 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                     temp_pnad = self._learner.spawn_new_pnad(uncovered_segment)
                     temp2 = True
                     print("AT THE JOKER LOCATION")
-                    for aaa in sorted(uncovered_segment.init_atoms):
-                        print(aaa)
-                    print("BLAH")
-                    for bbb in sorted(pr.op.preconditions):
-                        print(bbb)
-                    print("HUEHUE")
-                    for ccc in sorted(pr.op.add_effects):
-                        print(ccc)
-                    print("BOB MARLEY")
+                    # for aaa in sorted(uncovered_segment.init_atoms):
+                    #     print(aaa)
+                    # print("BLAH")
+                    # for bbb in sorted(pr.op.preconditions):
+                    #     print(bbb)
+                    # print("HUEHUE")
+                    # for ccc in sorted(pr.op.add_effects):
+                    #     print(ccc)
+                    # print("BOB MARLEY")
                     objs = list(uncovered_segment.states[0].data.keys())
                     robot = [o for o in objs if o.name == "robby"][0]
                     x1 = [o for o in objs if o.name == "block1"][0]
@@ -87,7 +87,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                     assert ddd_goal is not None
 
                     temp_segment = self._get_first_uncovered_segment2(ret_pnads_list, uncovered_segment, ddd, ddd_goal)
-                    import pdb; pdb.set_trace()
+                    # import pdb; pdb.set_trace()
         if not temp2:
             print("First check: Uncovered segment NOT found in a datastore.")
 
@@ -247,7 +247,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                     goal_met = ddd_goal.issubset(end_atoms)
                     chain = self._learner.backchain2(seg_traj, pnads, ddd_goal, oppen)
 
-                    import pdb; pdb.set_trace()
+                    # import pdb; pdb.set_trace()
                     return segment
         return None
 
@@ -457,6 +457,50 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                                    self._segmented_trajs, self)
         return backchaining_heur
 
+    # def backchain(self, segmented_traj: List[Segment], pnads: List[PNAD],
+    #               traj_goal: Set[GroundAtom]) -> List[_GroundSTRIPSOperator]:
+    #     """Returns chain of ground operators in REVERSE order."""
+    #     operator_chain: List[_GroundSTRIPSOperator] = []
+    #     atoms_seq = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
+    #     objects = set(segmented_traj[0].states[0])
+    #     assert traj_goal.issubset(atoms_seq[-1])
+    #     necessary_image = set(traj_goal)
+    #     for t in range(len(atoms_seq) - 2, -1, -1):
+    #         segment = segmented_traj[t]
+    #         segment.necessary_add_effects = necessary_image - atoms_seq[t]
+    #         pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
+    #             segment, objects, pnads)
+    #         # If no match found, terminate.
+    #         if pnad is None:
+    #             break
+    #         assert var_to_obj is not None
+    #         obj_to_var = {v: k for k, v in var_to_obj.items()}
+    #         assert len(var_to_obj) == len(obj_to_var)
+    #         ground_op = pnad.op.ground(
+    #             tuple(var_to_obj[var] for var in pnad.op.parameters))
+    #         next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
+    #         # Update the PNAD's seg_to_keep_effs_sub dict.
+    #         self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
+    #                                            ground_op, obj_to_var, segment)
+    #         # If we're missing something in the necessary image, terminate.
+    #         if not necessary_image.issubset(next_atoms):
+    #             break
+    #         # Otherwise, extend the chain.
+    #         operator_chain.append(ground_op)
+    #         # Update necessary_image for this timestep. It no longer
+    #         # needs to include the ground add effects of this PNAD, but
+    #         # must now include its ground preconditions.
+    #         necessary_image = necessary_image.copy()
+    #         necessary_image -= {
+    #             a.ground(var_to_obj)
+    #             for a in pnad.op.add_effects
+    #         }
+    #         necessary_image |= {
+    #             a.ground(var_to_obj)
+    #             for a in pnad.op.preconditions
+    #         }
+    #     return operator_chain
+
     def backchain(self, segmented_traj: List[Segment], pnads: List[PNAD],
                   traj_goal: Set[GroundAtom]) -> List[_GroundSTRIPSOperator]:
         """Returns chain of ground operators in REVERSE order."""
@@ -468,24 +512,29 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         for t in range(len(atoms_seq) - 2, -1, -1):
             segment = segmented_traj[t]
             segment.necessary_add_effects = necessary_image - atoms_seq[t]
-            pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
-                segment, objects, pnads)
-            # If no match found, terminate.
-            if pnad is None:
-                break
-            assert var_to_obj is not None
-            obj_to_var = {v: k for k, v in var_to_obj.items()}
-            assert len(var_to_obj) == len(obj_to_var)
-            ground_op = pnad.op.ground(
-                tuple(var_to_obj[var] for var in pnad.op.parameters))
-            next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
-            # Update the PNAD's seg_to_keep_effs_sub dict.
-            self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
-                                               ground_op, obj_to_var, segment)
-            # If we're missing something in the necessary image, terminate.
-            if not necessary_image.issubset(next_atoms):
-                break
-            # Otherwise, extend the chain.
+            temp_pnads = pnads.copy()
+            while True:
+                pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
+                    segment, objects, temp_pnads)
+                # If no match found, terminate.
+                if pnad is None:
+                    return operator_chain
+                assert var_to_obj is not None
+                obj_to_var = {v: k for k, v in var_to_obj.items()}
+                assert len(var_to_obj) == len(obj_to_var)
+                ground_op = pnad.op.ground(
+                    tuple(var_to_obj[var] for var in pnad.op.parameters))
+                next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
+                # Update the PNAD's seg_to_keep_effs_sub dict.
+                self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
+                                                   ground_op, obj_to_var, segment)
+                # Check if we're missing something in the necessary image.
+                if necessary_image.issubset(next_atoms):
+                    # all set!
+                    break
+                else:
+                    temp_pnads.remove(pnad)
+            # Extend the chain.
             operator_chain.append(ground_op)
             # Update necessary_image for this timestep. It no longer
             # needs to include the ground add effects of this PNAD, but
@@ -518,7 +567,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             print("Best matching pnad: ", pnad.op.name)
             # If no match found, terminate.
             if pnad is None:
-                import pdb; pdb.set_trace()
+                # import pdb; pdb.set_trace()
                 break
             assert var_to_obj is not None
             obj_to_var = {v: k for k, v in var_to_obj.items()}
@@ -531,8 +580,8 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                                ground_op, obj_to_var, segment)
             # If we're missing something in the necessary image, terminate.
             if not necessary_image.issubset(next_atoms):
-                nexttt = utils.apply_operator(oppen, segment.init_atoms)
-                import pdb; pdb.set_trace()
+                # nexttt = utils.apply_operator(oppen, segment.init_atoms)
+                # import pdb; pdb.set_trace()
                 break
             # Otherwise, extend the chain.
             operator_chain.append(ground_op)
@@ -548,5 +597,5 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 a.ground(var_to_obj)
                 for a in pnad.op.preconditions
             }
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         return operator_chain
