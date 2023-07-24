@@ -339,7 +339,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             segment = segmented_traj[t]
             segment.necessary_add_effects = necessary_image - atoms_seq[t]
             candidate_pnads = pnads.copy()
-            while True:
+            while len(candidate_pnads) >= 0:
                 pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
                     segment, objects, candidate_pnads)
                 # If no match found, terminate.
@@ -356,9 +356,11 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
                                                    ground_op, obj_to_var,
                                                    segment)
-                # Check if we're missing something in the necessary image.
+                # If we are not missing anything in the necessary image, we can
+                # extend the chain.
                 if necessary_image.issubset(next_atoms):
                     break
+                # See if a different pnad matches.
                 candidate_pnads.remove(pnad)
             # Extend the chain.
             operator_chain.append(ground_op)
