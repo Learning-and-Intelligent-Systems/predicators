@@ -11,7 +11,7 @@ try:
     from mujoco_kitchen.kitchen_envs import OBS_ELEMENT_INDICES
     from mujoco_kitchen.utils import make_env
     _MJKITCHEN_IMPORTED = True
-except ImportError:
+except (ImportError, RuntimeError):
     _MJKITCHEN_IMPORTED = False
 from predicators import utils
 from predicators.envs import BaseEnv
