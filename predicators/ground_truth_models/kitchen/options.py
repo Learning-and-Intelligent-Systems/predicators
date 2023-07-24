@@ -62,10 +62,13 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                     "drop", [0.25])
                 left_arr = primitive_and_params_to_primitive_action(
                         "move_left", [0.5])
+                noop_arr = primitive_and_params_to_primitive_action(
+                        "move_left", [0.0])
                 memory["reset_moves"] = [backward_arr for _ in range(4)]
                 memory["reset_moves"].extend([left_arr for _ in range(3)])
                 memory["reset_moves"].extend([drop_arr for _ in range(3)])
                 memory["reset_moves"].extend([backward_arr for _ in range(4)])
+                memory["reset_moves"].extend([noop_arr for _ in range(3)])
             else:
                 memory["reset_moves"] = [backward_arr for _ in range(8)]
             return True
