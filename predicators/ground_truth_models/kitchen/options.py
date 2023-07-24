@@ -57,7 +57,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # hardcoded on a scenario-by-scenario basis to move back to home.
             backward_arr = primitive_and_params_to_primitive_action(
                     "move_backward", [1.0])
-            if state.get(gripper, "z") > 2.25:
+            if state.get(gripper, "z") > 2.5:
                 drop_arr = primitive_and_params_to_primitive_action(
                     "drop", [0.25])
                 left_arr = primitive_and_params_to_primitive_action(
