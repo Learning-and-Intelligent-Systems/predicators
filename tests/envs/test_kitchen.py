@@ -114,7 +114,7 @@ def test_kitchen():
         for atom in ground_nsrt.delete_effects:
             assert not atom.holds(state)
         return state
-    
+
     # Test moving to and turning on the light.
     move_to_light_nsrt = MoveTo.ground([gripper, light])
     push_light_nsrt = PushObjTurnOnLeftRight.ground([gripper, light])

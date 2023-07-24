@@ -29,6 +29,7 @@ class KitchenEnv(BaseEnv):
     at_atol = 0.2  # tolerance for At classifier
     ontop_atol = 0.15  # tolerance for OnTop classifier
     on_angle_thresh = -0.8  # dial is On if less than this threshold
+    light_on_thresh = -0.4  # light is On if less than this threshold
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.125, -0.3, -0.25),  # need to push from behind kettle
@@ -226,7 +227,9 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                    train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
 
-        assert CFG.kitchen_goals in ["all", "kettle_only", "knob_only", "light_only"]
+        assert CFG.kitchen_goals in [
+            "all", "kettle_only", "knob_only", "light_only"
+        ]
         goal_descriptions: List[str] = []
         if CFG.kitchen_goals in ["all", "kettle_only"]:
             goal_descriptions.append("Move the kettle to the back burner")
@@ -287,6 +290,8 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         obj = objects[0]
         if obj.name in ["knob3", "knob2"]:
             return state.get(obj, "angle") < cls.on_angle_thresh
+        elif obj.name == "light":
+            return state.get(obj, "x") < cls.light_on_thresh
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:

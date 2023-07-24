@@ -114,10 +114,10 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             dx = 0.1
             return np.array([dx], dtype=np.float32)
 
-        push_obj_turn_on_right_nsrt = NSRT("PushObjTurnOnLeftRight", parameters,
-                                           preconditions, add_effects,
-                                           delete_effects, ignore_effects,
-                                           option, option_vars,
+        push_obj_turn_on_right_nsrt = NSRT("PushObjTurnOnLeftRight",
+                                           parameters, preconditions,
+                                           add_effects, delete_effects,
+                                           ignore_effects, option, option_vars,
                                            push_obj_turn_on_right_sampler)
         nsrts.add(push_obj_turn_on_right_nsrt)
 

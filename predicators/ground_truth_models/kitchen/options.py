@@ -139,8 +139,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # PushObjTurnOnLeftRight
         def _PushObjTurnOnLeftRight_initiable(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
+                                              objects: Sequence[Object],
+                                              params: Array) -> bool:
             # Memorize whether to push left or right based on the relative
             # position of the gripper and object when pushing starts.
             gripper, obj = objects
@@ -154,8 +154,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return True
 
         def _PushObjTurnOnLeftRight_policy(state: State, memory: Dict,
-                                       objects: Sequence[Object],
-                                       params: Array) -> Action:
+                                           objects: Sequence[Object],
+                                           params: Array) -> Action:
             del state, objects  # unused
             direction = memory["direction"]
             arr = primitive_and_params_to_primitive_action(
@@ -163,8 +163,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(arr)
 
         def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
-                                         objects: Sequence[Object],
-                                         params: Array) -> bool:
+                                             objects: Sequence[Object],
+                                             params: Array) -> bool:
             del memory, params  # unused
             _, obj = objects
             return GroundAtom(TurnedOn, [obj]).holds(state)
