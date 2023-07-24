@@ -35,7 +35,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Options
         MoveTo = options["MoveTo"]
         PushObjOnObjForward = options["PushObjOnObjForward"]
-        PushObjTurnOnRight = options["PushObjTurnOnRight"]
+        PushObjTurnOnLeftRight = options["PushObjTurnOnLeftRight"]
 
         # Predicates
         At = predicates["At"]
@@ -63,8 +63,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # NOTE: this is a legitimately hard function to hand-write. I could
             # not figure out how to do it in a state-independent way.
             if CFG.kitchen_use_perfect_samplers:
-                if state.get(gripper, "x") > -0.15:
-                    params[2] += 0.1
+                if state.get(gripper, "x") > -0.15 or state.get(gripper,
+                                                                "z") < 2.0:
+                    params[2] += 0.2
             else:
                 params[0] += rng.uniform(-0.5, 0.5)
             return params
@@ -98,13 +99,13 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             push_obj_on_obj_forward_sampler)
         nsrts.add(push_obj_on_obj_forward_nsrt)
 
-        # PushObjTurnOnRight
+        # PushObjTurnOnLeftRight
         parameters = [gripper, obj]
         preconditions = {LiftedAtom(At, [gripper, obj])}
         add_effects = {LiftedAtom(TurnedOn, [obj])}
         delete_effects = set()
         ignore_effects = set()
-        option = PushObjTurnOnRight
+        option = PushObjTurnOnLeftRight
         option_vars = [gripper, obj]
 
         def push_obj_turn_on_right_sampler(state: State, goal: Set[GroundAtom],
@@ -114,10 +115,10 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             dx = 0.1
             return np.array([dx], dtype=np.float32)
 
-        push_obj_turn_on_right_nsrt = NSRT("PushObjTurnOnRight", parameters,
-                                           preconditions, add_effects,
-                                           delete_effects, ignore_effects,
-                                           option, option_vars,
+        push_obj_turn_on_right_nsrt = NSRT("PushObjTurnOnLeftRight",
+                                           parameters, preconditions,
+                                           add_effects, delete_effects,
+                                           ignore_effects, option, option_vars,
                                            push_obj_turn_on_right_sampler)
         nsrts.add(push_obj_turn_on_right_nsrt)
 
