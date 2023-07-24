@@ -56,19 +56,22 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # to do that reliably with end effector control. These actions are
             # hardcoded on a scenario-by-scenario basis to move back to home.
             backward_arr = primitive_and_params_to_primitive_action(
-                    "move_backward", [1.0])
+                "move_backward", [1.0])
+            drop_arr = primitive_and_params_to_primitive_action("drop", [0.25])
+            left_arr = primitive_and_params_to_primitive_action(
+                "move_left", [0.5])
+            noop_arr = primitive_and_params_to_primitive_action(
+                "move_left", [0.0])
             if state.get(gripper, "z") > 2.5:
-                drop_arr = primitive_and_params_to_primitive_action(
-                    "drop", [0.25])
-                left_arr = primitive_and_params_to_primitive_action(
-                        "move_left", [0.5])
-                noop_arr = primitive_and_params_to_primitive_action(
-                        "move_left", [0.0])
                 memory["reset_moves"] = [backward_arr for _ in range(4)]
                 memory["reset_moves"].extend([left_arr for _ in range(3)])
                 memory["reset_moves"].extend([drop_arr for _ in range(3)])
                 memory["reset_moves"].extend([backward_arr for _ in range(4)])
                 memory["reset_moves"].extend([noop_arr for _ in range(3)])
+            elif state.get(gripper, "z") > 2.25 and state.get(gripper,
+                                                              "x") > -0.195:
+                memory["reset_moves"] = [backward_arr for _ in range(8)]
+                memory["reset_moves"].extend([drop_arr for _ in range(6)])
             else:
                 memory["reset_moves"] = [backward_arr for _ in range(8)]
             return True
