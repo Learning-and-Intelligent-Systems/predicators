@@ -164,9 +164,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         self._gym_env.step(action.arr)
         if self._using_gui:
             self._gym_env.render()
-        obs = self._gym_env.render(mode='rgb_array')  # type: ignore
         self._current_observation = {
-            "obs": obs,
             "state_info": self.get_object_centric_state_info()
         }
         return self._copy_observation(self._current_observation)
@@ -247,8 +245,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
     def _reset_initial_state_from_seed(self, seed: int) -> Observation:
         self._gym_env.seed(seed)  # type: ignore
         self._gym_env.reset()
-        obs = self._gym_env.render(mode='rgb_array')  # type: ignore
-        return {"obs": obs, "state_info": self.get_object_centric_state_info()}
+        return {"state_info": self.get_object_centric_state_info()}
 
     @classmethod
     def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
