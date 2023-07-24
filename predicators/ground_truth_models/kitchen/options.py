@@ -68,8 +68,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 memory["reset_moves"].extend([drop_arr for _ in range(3)])
                 memory["reset_moves"].extend([backward_arr for _ in range(4)])
                 memory["reset_moves"].extend([noop_arr for _ in range(3)])
-            elif state.get(gripper, "z") > 2.25 and state.get(gripper,
-                                                              "x") > -0.195:
+            elif state.get(gripper, "z") > 2.3 and state.get(gripper,
+                                                             "x") > -0.195:
                 memory["reset_moves"] = [backward_arr for _ in range(8)]
                 memory["reset_moves"].extend([drop_arr for _ in range(6)])
                 memory["reset_moves"].extend([noop_arr for _ in range(5)])
