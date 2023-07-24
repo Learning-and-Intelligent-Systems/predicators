@@ -22,13 +22,14 @@ class KitchenPerceiver(BasePerceiver):
         knob = Object("knob3", object_type)
         burner = Object("burner2", object_type)
         light = Object("light", object_type)
+        slide = Object("slide", object_type)
         goal_desc = env_task.goal_description
-        if goal_desc == ("Move the kettle to the back burner and turn it on; "
-                         "also turn on the light"):
+        if goal_desc == "Do everything":
             goal = {
                 GroundAtom(TurnedOn, [knob]),
                 GroundAtom(OnTop, [kettle, burner]),
                 GroundAtom(TurnedOn, [light]),
+                GroundAtom(TurnedOn, [slide])
             }
         elif goal_desc == "Move the kettle to the back burner":
             goal = {GroundAtom(OnTop, [kettle, burner])}
@@ -39,6 +40,10 @@ class KitchenPerceiver(BasePerceiver):
         elif goal_desc == "Turn on the light":
             goal = {
                 GroundAtom(TurnedOn, [light]),
+            }
+        elif goal_desc == "Open the slide":
+            goal = {
+                GroundAtom(TurnedOn, [slide]),
             }
         else:
             raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
