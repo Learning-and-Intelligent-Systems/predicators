@@ -7,7 +7,10 @@ from typing import Any, Dict, Iterator, List, Tuple
 
 import yaml
 
-SAVE_DIRS = ["results", "logs", "saved_datasets", "saved_approaches"]
+SAVE_DIRS = [
+    "results", "logs", "saved_datasets", "saved_approaches",
+    "eval_trajectories"
+]
 SUPERCLOUD_IP = "txe1-login.mit.edu"
 DEFAULT_BRANCH = "master"
 
@@ -21,6 +24,7 @@ class RunConfig:
     args: List[str]  # e.g. --make_test_videos
     flags: Dict[str, Any]  # e.g. --num_train_tasks 1
     use_gpu: bool  # e.g. --use_gpu True
+    use_mujoco: bool  # needed for supercloud only
     train_refinement_estimator: bool  # e.g. --train_refinement_estimator True
 
     def __post_init__(self) -> None:
@@ -92,6 +96,10 @@ def generate_run_configs(config_filename: str,
             use_gpu = config["USE_GPU"]
         else:
             use_gpu = False
+        if "USE_MUJOCO" in config.keys():
+            use_mujoco = config["USE_MUJOCO"]
+        else:
+            use_mujoco = False
         if "TRAIN_REFINEMENT_ESTIMATOR" in config.keys():
             train_refinement_estimator = config["TRAIN_REFINEMENT_ESTIMATOR"]
         else:
@@ -122,12 +130,14 @@ def generate_run_configs(config_filename: str,
                 if batch_seeds:
                     yield BatchSeedRunConfig(experiment_id, approach, env,
                                              run_args, run_flags, use_gpu,
+                                             use_mujoco,
                                              train_refinement_estimator,
                                              start_seed, num_seeds)
                 else:
                     for seed in range(start_seed, start_seed + num_seeds):
                         yield SingleSeedRunConfig(experiment_id, approach, env,
                                                   run_args, run_flags, use_gpu,
+                                                  use_mujoco,
                                                   train_refinement_estimator,
                                                   seed)
 
@@ -135,6 +145,7 @@ def generate_run_configs(config_filename: str,
 def get_cmds_to_prep_repo(branch: str) -> List[str]:
     """Get the commands that should be run while already in the repository but
     before launching the experiments."""
+    old_dir_pattern = " ".join(f"{d}/*" for d in SAVE_DIRS)
     return [
         "mkdir -p logs",
         "git stash",
@@ -142,7 +153,7 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         f"git checkout {branch}",
         "git pull",
         # Remove old results.
-        "rm -f results/* logs/* saved_approaches/* saved_datasets/*",
+        f"rm -f {old_dir_pattern}",
     ]
 
 

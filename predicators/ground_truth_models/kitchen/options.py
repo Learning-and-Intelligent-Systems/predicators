@@ -8,7 +8,7 @@ from gym.spaces import Box
 try:
     from mujoco_kitchen.utils import primitive_and_params_to_primitive_action
     _MJKITCHEN_IMPORTED = True
-except ImportError:
+except (ImportError, RuntimeError):
     _MJKITCHEN_IMPORTED = False
 from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
