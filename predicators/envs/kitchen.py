@@ -29,10 +29,12 @@ class KitchenEnv(BaseEnv):
     at_atol = 0.2  # tolerance for At classifier
     ontop_atol = 0.15  # tolerance for OnTop classifier
     on_angle_thresh = -0.8  # dial is On if less than this threshold
+    light_on_thresh = -0.4  # light is On if less than this threshold
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.125, -0.3, -0.25),  # need to push from behind kettle
-        "knob3": (-0.3, 0.0, -0.2),  # need to push from left to right
+        "knob3": (-0.2, 0.0, -0.2),  # need to push from left to right
+        "light": (0.1, 0.05, -0.2),  # need to push from right to left
     }
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -208,29 +210,39 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         kettle = Object("kettle", self.object_type)
         burner = Object("burner2", self.object_type)
         knob = Object("knob3", self.object_type)
+        light = Object("light", self.object_type)
         goal_desc = self._current_task.goal_description
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
         knob_turned_on = self._On_holds(state, [knob])
-        if goal_desc == "Move the kettle to the back burner and turn it on":
-            return kettle_on_burner and knob_turned_on
+        light_turned_on = self._On_holds(state, [light])
+        if goal_desc == ("Move the kettle to the back burner and turn it on; "
+                         "also turn on the light"):
+            return kettle_on_burner and knob_turned_on and light_turned_on
         if goal_desc == "Move the kettle to the back burner":
             return kettle_on_burner
         if goal_desc == "Turn on the back burner":
             return knob_turned_on
+        if goal_desc == "Turn on the light":
+            return light_turned_on
         raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 
     def _get_tasks(self, num: int,
                    train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
 
-        assert CFG.kitchen_goals in ["all", "kettle_only", "knob_only"]
+        assert CFG.kitchen_goals in [
+            "all", "kettle_only", "knob_only", "light_only"
+        ]
         goal_descriptions: List[str] = []
         if CFG.kitchen_goals in ["all", "kettle_only"]:
             goal_descriptions.append("Move the kettle to the back burner")
         if CFG.kitchen_goals in ["all", "knob_only"]:
             goal_descriptions.append("Turn on the back burner")
+        if CFG.kitchen_goals in ["all", "light_only"]:
+            goal_descriptions.append("Turn on the light")
         if CFG.kitchen_goals == "all":
-            desc = "Move the kettle to the back burner and turn it on"
+            desc = ("Move the kettle to the back burner and turn it on; also "
+                    "turn on the light")
             goal_descriptions.append(desc)
 
         for task_idx in range(num):
@@ -280,6 +292,8 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         obj = objects[0]
         if obj.name in ["knob3", "knob2"]:
             return state.get(obj, "angle") < cls.on_angle_thresh
+        if obj.name == "light":
+            return state.get(obj, "x") < cls.light_on_thresh
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:
