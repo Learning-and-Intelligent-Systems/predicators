@@ -212,6 +212,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         kettle = Object("kettle", self.object_type)
         burner = Object("burner2", self.object_type)
         knob = Object("knob3", self.object_type)
+        light = Object("light", self.object_type)
         goal_desc = self._current_task.goal_description
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
         knob_turned_on = self._On_holds(state, [knob])
