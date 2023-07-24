@@ -152,3 +152,17 @@ def test_kitchen():
     state = _run_ground_nsrt(push_knob3_nsrt, state)
     assert OnTop([kettle, burner2]).holds(state)
     assert TurnedOn([knob3]).holds(state)
+
+    # Test light, kettle, then knob.
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_light_nsrt, state)
+    state = _run_ground_nsrt(push_light_nsrt, state)
+    state = _run_ground_nsrt(move_to_kettle_nsrt, state)
+    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
+    state = _run_ground_nsrt(move_to_knob3_nsrt, state)
+    state = _run_ground_nsrt(push_knob3_nsrt, state)
+    assert OnTop([kettle, burner2]).holds(state)
+    assert TurnedOn([knob3]).holds(state)
+    assert TurnedOn([light]).holds(state)
