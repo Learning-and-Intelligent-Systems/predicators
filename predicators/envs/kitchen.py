@@ -215,12 +215,16 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         goal_desc = self._current_task.goal_description
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
         knob_turned_on = self._On_holds(state, [knob])
-        if goal_desc == "Move the kettle to the back burner and turn it on":
-            return kettle_on_burner and knob_turned_on
+        light_turned_on = self._On_holds(state, [light])
+        if goal_desc == ("Move the kettle to the back burner and turn it on; "
+                         "also turn on the light"):
+            return kettle_on_burner and knob_turned_on and light_turned_on
         if goal_desc == "Move the kettle to the back burner":
             return kettle_on_burner
         if goal_desc == "Turn on the back burner":
             return knob_turned_on
+        if goal_desc == "Turn on the light":
+            return light_turned_on
         raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 
     def _get_tasks(self, num: int,
