@@ -35,7 +35,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Options
         MoveTo = options["MoveTo"]
         PushObjOnObjForward = options["PushObjOnObjForward"]
-        PushObjTurnOnRight = options["PushObjTurnOnRight"]
+        PushObjTurnOnLeftRight = options["PushObjTurnOnLeftRight"]
 
         # Predicates
         At = predicates["At"]
@@ -98,13 +98,13 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             push_obj_on_obj_forward_sampler)
         nsrts.add(push_obj_on_obj_forward_nsrt)
 
-        # PushObjTurnOnRight
+        # PushObjTurnOnLeftRight
         parameters = [gripper, obj]
         preconditions = {LiftedAtom(At, [gripper, obj])}
         add_effects = {LiftedAtom(TurnedOn, [obj])}
         delete_effects = set()
         ignore_effects = set()
-        option = PushObjTurnOnRight
+        option = PushObjTurnOnLeftRight
         option_vars = [gripper, obj]
 
         def push_obj_turn_on_right_sampler(state: State, goal: Set[GroundAtom],
@@ -114,7 +114,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             dx = 0.1
             return np.array([dx], dtype=np.float32)
 
-        push_obj_turn_on_right_nsrt = NSRT("PushObjTurnOnRight", parameters,
+        push_obj_turn_on_right_nsrt = NSRT("PushObjTurnOnLeftRight", parameters,
                                            preconditions, add_effects,
                                            delete_effects, ignore_effects,
                                            option, option_vars,

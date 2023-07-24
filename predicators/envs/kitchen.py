@@ -33,6 +33,7 @@ class KitchenEnv(BaseEnv):
     obj_name_to_pre_push_dpos = {
         "kettle": (0.125, -0.3, -0.25),  # need to push from behind kettle
         "knob3": (-0.3, 0.0, -0.2),  # need to push from left to right
+        "light": (0.1, 0.0, -0.2),  # need to push from right to left
     }
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -225,14 +226,17 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                    train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
 
-        assert CFG.kitchen_goals in ["all", "kettle_only", "knob_only"]
+        assert CFG.kitchen_goals in ["all", "kettle_only", "knob_only", "light_only"]
         goal_descriptions: List[str] = []
         if CFG.kitchen_goals in ["all", "kettle_only"]:
             goal_descriptions.append("Move the kettle to the back burner")
         if CFG.kitchen_goals in ["all", "knob_only"]:
             goal_descriptions.append("Turn on the back burner")
+        if CFG.kitchen_goals in ["all", "light_only"]:
+            goal_descriptions.append("Turn on the light")
         if CFG.kitchen_goals == "all":
-            desc = "Move the kettle to the back burner and turn it on"
+            desc = ("Move the kettle to the back burner and turn it on; also "
+                    "turn on the light")
             goal_descriptions.append(desc)
 
         for task_idx in range(num):

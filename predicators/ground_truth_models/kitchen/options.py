@@ -137,31 +137,47 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options.add(PushObjOnObjForward)
 
-        # PushObjTurnOnRight
-        def _PushObjTurnOnRight_policy(state: State, memory: Dict,
+        # PushObjTurnOnLeftRight
+        def _PushObjTurnOnLeftRight_initiable(state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> bool:
+            # Memorize whether to push left or right based on the relative
+            # position of the gripper and object when pushing starts.
+            gripper, obj = objects
+            ox = state.get(obj, "x")
+            gx = state.get(gripper, "x")
+            if gx > ox:
+                direction = "left"
+            else:
+                direction = "right"
+            memory["direction"] = direction
+            return True
+
+        def _PushObjTurnOnLeftRight_policy(state: State, memory: Dict,
                                        objects: Sequence[Object],
                                        params: Array) -> Action:
-            del state, memory, objects  # unused
+            del state, objects  # unused
+            direction = memory["direction"]
             arr = primitive_and_params_to_primitive_action(
-                "move_right", params)
+                f"move_{direction}", params)
             return Action(arr)
 
-        def _PushObjTurnOnRight_terminal(state: State, memory: Dict,
+        def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
                                          objects: Sequence[Object],
                                          params: Array) -> bool:
             del memory, params  # unused
             _, obj = objects
             return GroundAtom(TurnedOn, [obj]).holds(state)
 
-        PushObjTurnOnRight = ParameterizedOption(
-            "PushObjTurnOnRight",
+        PushObjTurnOnLeftRight = ParameterizedOption(
+            "PushObjTurnOnLeftRight",
             types=[gripper_type, object_type],
             # Parameter is a magnitude for pushing right.
             params_space=Box(0.0, max_delta_mag, (1, )),
-            policy=_PushObjTurnOnRight_policy,
-            initiable=lambda _1, _2, _3, _4: True,
-            terminal=_PushObjTurnOnRight_terminal)
+            policy=_PushObjTurnOnLeftRight_policy,
+            initiable=_PushObjTurnOnLeftRight_initiable,
+            terminal=_PushObjTurnOnLeftRight_terminal)
 
-        options.add(PushObjTurnOnRight)
+        options.add(PushObjTurnOnLeftRight)
 
         return options
