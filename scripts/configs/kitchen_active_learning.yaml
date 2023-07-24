@@ -10,6 +10,14 @@ ENVS:
     NAME: "kitchen"
     FLAGS:
       kitchen_goals: "kettle_only"
+  kitchen-knob-only:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "knob_only"
+  kitchen-kettle-knob:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "all"
 ARGS: []
 FLAGS:  # general flags
   bilevel_plan_without_sim: True

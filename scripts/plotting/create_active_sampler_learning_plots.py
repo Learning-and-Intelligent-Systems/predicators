@@ -86,6 +86,14 @@ PLOT_GROUPS = {
         ("Active Learning", "black", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-kettle-only-active_sampler_learning" in v)),
     ],
+    "Kitchen (Knob Only)": [
+        ("Active Learning", "black", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-knob-only-active_sampler_learning" in v)),
+    ],
+    "Kitchen": [
+        ("Active Learning", "black", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-kettle-knob-active_sampler_learning" in v)),
+    ],
 }
 
 # If True, add (0, 0) to every plot.
