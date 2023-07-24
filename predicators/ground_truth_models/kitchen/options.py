@@ -72,6 +72,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                                               "x") > -0.195:
                 memory["reset_moves"] = [backward_arr for _ in range(8)]
                 memory["reset_moves"].extend([drop_arr for _ in range(6)])
+                memory["reset_moves"].extend([noop_arr for _ in range(5)])
             else:
                 memory["reset_moves"] = [backward_arr for _ in range(8)]
             return True
