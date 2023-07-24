@@ -89,6 +89,7 @@ obj_name_to_vision_prompt = {
     "hex_screwdriver": "screwdriver",
     "toolbag": "work bag",
 }
+vision_prompt_to_obj_name = {value: key for key, value in obj_name_to_vision_prompt.items()}
 
 OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
@@ -324,22 +325,19 @@ class _SpotInterface():
                 viewable_obj_poses = self.get_apriltag_pose_from_camera(
                     source_name=source_name)
             else:
-                # NOTE: we now hard-code the 'yellow brush' to be a
-                # stand-in for the cube, which is quite a hack.
-                # We will remove this and do correct object classing
-                # in a future PR
+                # First, get a dictionary mapping vision prompts
+                # to the corresponding location of that object in the 
+                # scene by camera
                 sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
                     source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
-                    classes=[obj_name_to_vision_prompt['brush'], obj_name_to_vision_prompt['hex_screwdriver']],
+                    classes=list(obj_name_to_vision_prompt.values()),
                 )
-
-                if 'yellow brush' in sam_pose_results:
-                    viewable_obj_poses = {
-                        410: sam_pose_results['yellow brush']
-                    }
-                else:
-                    viewable_obj_poses = {}
+                # Next, convert the keys of this dictionary to be april
+                # tag id's instead.
+                viewable_obj_poses: Dict[int, Tuple[float, float, float]] = {}
+                for k, v in sam_pose_results.items():
+                    viewable_obj_poses[obj_name_to_apriltag_id[vision_prompt_to_obj_name[k]]] = v
             tag_to_pose[source_name].update(viewable_obj_poses)
 
         apriltag_id_to_obj_name = {
@@ -498,31 +496,28 @@ class _SpotInterface():
             'depth': depth_img_response[0],
         }
 
-        res_locations = get_object_locations_with_detic_sam(
+        res_location_dict = get_object_locations_with_detic_sam(
             classes=classes,
             res_image=image,
             res_image_responses=image_responses,
             source_name=source_rgb,
             plot=CFG.spot_visualize_vision_model_outputs)
 
-        # We only want the most likely sample (for now).
-        # NOTE: we make the hard assumption here that
-        # we will only see one instance of a particular object
-        # type. We can relax this later.
-        if len(res_locations) > 0:
-            assert len(res_locations) == 1
-            camera_tform_body = get_a_tform_b(
-                image_responses['depth'].shot.transforms_snapshot,
-                image_responses['depth'].shot.frame_name_image_sensor,
-                BODY_FRAME_NAME)
-            object_rt_gn_origin = self.convert_obj_location(
-                camera_tform_body, *res_locations[0])
+        transformed_location_dict: Dict[str, Tuple[float, float, float]] = {}
+        for obj_class in classes:
+            if obj_class in res_location_dict:
+                camera_tform_body = get_a_tform_b(
+                    image_responses['depth'].shot.transforms_snapshot,
+                    image_responses['depth'].shot.frame_name_image_sensor,
+                    BODY_FRAME_NAME)
+                x, y, z = res_location_dict[obj_class]
+                object_rt_gn_origin = self.convert_obj_location(
+                    camera_tform_body, x, y, z)
+                transformed_location_dict[obj_class] = object_rt_gn_origin
 
-            # Use the input class name as the identifier for object(s) and
-            # their positions
-            return {classes[0]: object_rt_gn_origin}
-
-        return {}
+        # Use the input class name as the identifier for object(s) and
+        # their positions
+        return transformed_location_dict
 
     def convert_obj_location(
             self, camera_tform_body: bosdyn.client.math_helpers.SE3Pose,

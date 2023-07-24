@@ -1031,9 +1031,9 @@ class SpotBikeEnv(SpotEnv):
         hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         bag = self._obj_name_to_obj("toolbag")
         return {
-            GroundAtom(self._InBag, [hammer, bag]),
+            # GroundAtom(self._InBag, [hammer, bag]),
             GroundAtom(self._InBag, [brush, bag]),
-            GroundAtom(self._InBag, [hex_key, bag]),
+            # GroundAtom(self._InBag, [hex_key, bag]),
             GroundAtom(self._InBag, [hex_screwdriver, bag]),
         }
 
