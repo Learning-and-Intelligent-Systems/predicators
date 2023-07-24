@@ -220,7 +220,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
         knob_turned_on = self._On_holds(state, [knob])
         light_turned_on = self._On_holds(state, [light])
-        slide_open = self._On_holds(state, [light])
+        slide_open = self._On_holds(state, [slide])
         if goal_desc == "Do everything":
             return kettle_on_burner and knob_turned_on and \
                 light_turned_on and slide_open
