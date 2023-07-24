@@ -359,21 +359,22 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # If we are not missing anything in the necessary image, we can
                 # extend the chain.
                 if necessary_image.issubset(next_atoms):
+                    operator_chain.append(ground_op)
+                    # Update necessary_image for this timestep. It no longer
+                    # needs to include the ground add effects of this PNAD, but
+                    # must now include its ground preconditions.
+                    necessary_image = necessary_image.copy()
+                    necessary_image -= {
+                        a.ground(var_to_obj)
+                        for a in pnad.op.add_effects
+                    }
+                    necessary_image |= {
+                        a.ground(var_to_obj)
+                        for a in pnad.op.preconditions
+                    }
                     break
+
                 # See if a different pnad matches.
                 candidate_pnads.remove(pnad)
-            # Extend the chain.
-            operator_chain.append(ground_op)
-            # Update necessary_image for this timestep. It no longer
-            # needs to include the ground add effects of this PNAD, but
-            # must now include its ground preconditions.
-            necessary_image = necessary_image.copy()
-            necessary_image -= {
-                a.ground(var_to_obj)
-                for a in pnad.op.add_effects
-            }
-            necessary_image |= {
-                a.ground(var_to_obj)
-                for a in pnad.op.preconditions
-            }
+
         return operator_chain
