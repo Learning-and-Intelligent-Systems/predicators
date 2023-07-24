@@ -295,7 +295,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         obj = objects[0]
         if obj.name in ["knob3", "knob2"]:
             return state.get(obj, "angle") < cls.on_angle_thresh
-        elif obj.name == "light":
+        if obj.name == "light":
             return state.get(obj, "x") < cls.light_on_thresh
         return False
 

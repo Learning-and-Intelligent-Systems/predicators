@@ -141,6 +141,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _PushObjTurnOnLeftRight_initiable(state: State, memory: Dict,
                                               objects: Sequence[Object],
                                               params: Array) -> bool:
+            del params  # unused
             # Memorize whether to push left or right based on the relative
             # position of the gripper and object when pushing starts.
             gripper, obj = objects
