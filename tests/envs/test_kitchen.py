@@ -114,7 +114,7 @@ def test_kitchen():
         for atom in ground_nsrt.delete_effects:
             assert not atom.holds(state)
         return state
-    
+
     # Set up all the NSRTs for the following tests.
     move_to_light_nsrt = MoveTo.ground([gripper, light])
     push_light_nsrt = PushObjTurnOnLeftRight.ground([gripper, light])
@@ -123,7 +123,7 @@ def test_kitchen():
     move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
     push_kettle_on_burner2_nsrt = PushObjOnObjForward.ground(
         [gripper, kettle, burner2])
-    
+
     # Test moving to and turning on the light.
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])

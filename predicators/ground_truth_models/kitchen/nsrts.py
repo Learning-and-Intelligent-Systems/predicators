@@ -63,7 +63,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # NOTE: this is a legitimately hard function to hand-write. I could
             # not figure out how to do it in a state-independent way.
             if CFG.kitchen_use_perfect_samplers:
-                if state.get(gripper, "x") > -0.15 or state.get(gripper, "z") < 2.0:
+                if state.get(gripper, "x") > -0.15 or state.get(gripper,
+                                                                "z") < 2.0:
                     params[2] += 0.2
             else:
                 params[0] += rng.uniform(-0.5, 0.5)
