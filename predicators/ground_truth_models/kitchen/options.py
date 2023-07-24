@@ -46,20 +46,28 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                               objects: Sequence[Object],
                               params: Array) -> bool:
             # Store the target pose.
-            _, obj = objects
+            gripper, obj = objects
             ox = state.get(obj, "x")
             oy = state.get(obj, "y")
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
-            # We always move backward for 8 steps before executing the move.
             # Ideally we would move to a home position, but it's not possible
-            # to do that reliably with end effector control. Moving for 8 steps
-            # seems to work well enough for now, but it's likely that this will
-            # need to be improved in the future as we add more skills,
-            # especially considering that 5 and 10 backward steps don't work,
-            # indicating that this is very fickle.
-            memory["reset_count"] = 8
+            # to do that reliably with end effector control. These actions are
+            # hardcoded on a scenario-by-scenario basis to move back to home.
+            backward_arr = primitive_and_params_to_primitive_action(
+                    "move_backward", [1.0])
+            if state.get(gripper, "z") > 2.25:
+                drop_arr = primitive_and_params_to_primitive_action(
+                    "drop", [0.25])
+                left_arr = primitive_and_params_to_primitive_action(
+                        "move_left", [0.5])
+                memory["reset_moves"] = [backward_arr for _ in range(4)]
+                memory["reset_moves"].extend([left_arr for _ in range(3)])
+                memory["reset_moves"].extend([drop_arr for _ in range(3)])
+                memory["reset_moves"].extend([backward_arr for _ in range(4)])
+            else:
+                memory["reset_moves"] = [backward_arr for _ in range(8)]
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -69,10 +77,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            if memory["reset_count"] > 0:
-                arr = primitive_and_params_to_primitive_action(
-                    "move_backward", [1.0])
-                memory["reset_count"] -= 1
+            if memory["reset_moves"]:
+                arr = memory["reset_moves"].pop(0)
             else:
                 target_pose = memory["target_pose"]
                 delta_ee = target_pose - (gx, gy, gz)
@@ -84,7 +90,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _MoveTo_terminal(state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
             del params  # unused
-            if memory["reset_count"] > 0:
+            if memory["reset_moves"]:
                 return False
             gripper = objects[0]
             gx = state.get(gripper, "x")

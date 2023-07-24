@@ -104,7 +104,7 @@ def test_kitchen():
             assert atom.holds(state)
         option = ground_nsrt.sample_option(state, set(), rng)
         assert option.initiable(state)
-        for _ in range(25):
+        for _ in range(50):
             act = option.policy(state)
             obs = env.step(act)
             state = env.state_info_to_state(obs["state_info"])
