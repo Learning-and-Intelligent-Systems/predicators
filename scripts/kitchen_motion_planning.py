@@ -3,11 +3,14 @@
 from typing import Iterator
 
 import numpy as np
+from pyquaternion import Quaternion
 
 from predicators import utils
 from predicators.envs import create_new_env
 from predicators.structs import Array
 
+
+DOWN_QUAT = np.array([0.0, 0.707, 0.707, 0.0])
 
 def _main() -> None:
     utils.reset_config({
@@ -19,8 +22,10 @@ def _main() -> None:
     env = create_new_env("kitchen", use_gui=use_gui)
     gym_env = env._gym_env
     init_obs = env.reset("train", 0)
-    target = np.add(init_obs["state_info"]["knob3_site"], [0.0, -0.1, 0.0])
-    target_eps = 0.01
+    target_pose = np.add(init_obs["state_info"]["knob3_site"], [0.0, -0.1, 0.0])
+    target_quat = Quaternion(DOWN_QUAT)
+    target_pose_eps = 100.0 #0.01
+    target_quat_eps = 0.1
     start = gym_env.get_robot_joint_position()
 
     cspace = gym_env.robot.robot_pos_bound[:7]
@@ -54,8 +59,11 @@ def _main() -> None:
     def _check_goal_fn(pt: Array) -> bool:
         gym_env.set_robot_joint_position(pt)
         ee_pose = gym_env.get_ee_pose()
-        print(ee_pose)
-        goal_reached = np.sum(np.subtract(ee_pose, target)**2) < target_eps
+        ee_quat = Quaternion(gym_env.get_ee_quat())
+        print(ee_pose, ee_quat)
+        pose_goal_reached = np.sum(np.subtract(ee_pose, target_pose)**2) < target_pose_eps
+        quat_goal_reached = Quaternion.absolute_distance(ee_quat, target_quat) < target_quat_eps
+        goal_reached = pose_goal_reached and quat_goal_reached
         if goal_reached:
             if use_gui:
                 gym_env.render()
