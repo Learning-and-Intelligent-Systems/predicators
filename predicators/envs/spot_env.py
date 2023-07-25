@@ -1049,7 +1049,6 @@ class SpotBikeEnv(SpotEnv):
             hex_screwdriver = Object("hex_screwdriver", self._tool_type)
             brush = Object("brush", self._tool_type)
             objects.extend([hammer, hex_key, hex_screwdriver, brush])
-            objects.extend([hex_screwdriver, brush])
         spot = Object("spot", self._robot_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
         extra_room_table = Object("extra_room_table", self._surface_type)
