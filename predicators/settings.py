@@ -326,6 +326,11 @@ class GlobalSettings:
     # initialization and resetting. use Sokoban-small-v0 for tests
     sokoban_gym_name = "Sokoban-v0"
 
+    # kitchen env parameters
+    kitchen_use_perfect_samplers = False
+    kitchen_camera_size = 512
+    kitchen_goals = "all"
+
     # parameters for random options approach
     random_options_max_tries = 100
 

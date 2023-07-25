@@ -6,19 +6,14 @@ import numpy as np
 from gym.spaces import Box
 
 try:
-    from mujoco_kitchen.utils import \
-        primitive_and_params_to_primitive_action, \
-        primitive_name_to_action_idx
+    from mujoco_kitchen.utils import primitive_and_params_to_primitive_action
     _MJKITCHEN_IMPORTED = True
 except ImportError:
     _MJKITCHEN_IMPORTED = False
-from predicators import utils
+from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.ground_truth_models.kitchen.operators import \
-    KitchenGroundTruthOperatorFactory
-from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    ParameterizedPolicy, ParameterizedTerminal, Predicate, State, \
-    STRIPSOperator, Type
+from predicators.structs import Action, Array, GroundAtom, Object, \
+    ParameterizedOption, Predicate, State, Type
 
 
 class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
@@ -33,111 +28,140 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
         assert _MJKITCHEN_IMPORTED
-        # Operators
-        operators = KitchenGroundTruthOperatorFactory.get_operators(
-            env_name, types, predicates)
 
-        # Reformat names for consistency with other option naming.
-        def _format_name(name: str) -> str:
-            return "".join([n.capitalize() for n in name.split(" ")])
+        # Types
+        gripper_type = types["gripper"]
+        object_type = types["obj"]
+
+        # Predicates
+        TurnedOn = predicates["TurnedOn"]
+        OnTop = predicates["OnTop"]
 
         options: Set[ParameterizedOption] = set()
-        for op in operators:
-            assert "MoveTo" in op.name or "Push" in op.name
-            val = "move_delta_ee_pose"
-            if isinstance(primitive_name_to_action_idx[val], int):
-                params_space = Box(-np.ones(1) * 5, np.ones(1) * 5)
-            else:
-                n = len(primitive_name_to_action_idx[val])
-                params_space = Box(-np.ones(n) * 5, np.ones(n) * 5)
-            obj_types = [param.type for param in op.parameters]
-            options.add(
-                utils.ParameterizedOption(
-                    name=op.name.lower() + "_option",
-                    types=obj_types,
-                    params_space=params_space,
-                    policy=cls._create_policy(name=val),
-                    initiable=lambda _1, _2, _3, _4: True,
-                    terminal=cls._create_terminal(name=val, operator=op)))
-        return options
 
-    @classmethod
-    def _create_policy(cls, name: str) -> ParameterizedPolicy:
+        max_delta_mag = 0.1  # don't move more than this per step
 
-        def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
-            del memory  # unused.
-            if name.lower() == "move_delta_ee_pose":
-                assert len(params) == 3
-                if len(objects) == 2:
-                    gripper, _ = objects
-                else:
-                    assert len(objects) == 3
-                    gripper, _, _ = objects
-                assert gripper.name == "gripper"
-                gx = state.get(gripper, "x")
-                gy = state.get(gripper, "y")
-                gz = state.get(gripper, "z")
-                dx = params[0] - gx
-                dy = params[1] - gy
-                dz = params[2] - gz
-                primitive_params = np.array([dx, dy, dz],
-                                            dtype=np.float32).clip(-0.1, 0.1)
+        # MoveTo
+        def _MoveTo_initiable(state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> bool:
+            # Store the target pose.
+            _, obj = objects
+            ox = state.get(obj, "x")
+            oy = state.get(obj, "y")
+            oz = state.get(obj, "z")
+            target_pose = params + (ox, oy, oz)
+            memory["target_pose"] = target_pose
+            # We always move backward for 8 steps before executing the move.
+            # Ideally we would move to a home position, but it's not possible
+            # to do that reliably with end effector control. Moving for 8 steps
+            # seems to work well enough for now, but it's likely that this will
+            # need to be improved in the future as we add more skills,
+            # especially considering that 5 and 10 backward steps don't work,
+            # indicating that this is very fickle.
+            memory["reset_count"] = 8
+            return True
+
+        def _MoveTo_policy(state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
+            del params  # unused
+            gripper = objects[0]
+            gx = state.get(gripper, "x")
+            gy = state.get(gripper, "y")
+            gz = state.get(gripper, "z")
+            if memory["reset_count"] > 0:
+                arr = primitive_and_params_to_primitive_action(
+                    "move_backward", [1.0])
+                memory["reset_count"] -= 1
             else:
-                primitive_params = params
-            arr = primitive_and_params_to_primitive_action(
-                name, primitive_params)
+                target_pose = memory["target_pose"]
+                delta_ee = target_pose - (gx, gy, gz)
+                delta_ee = np.clip(delta_ee, -max_delta_mag, max_delta_mag)
+                arr = primitive_and_params_to_primitive_action(
+                    "move_delta_ee_pose", delta_ee)
             return Action(arr)
 
-        return policy
-
-    @classmethod
-    def _create_terminal(cls, name: str,
-                         operator: STRIPSOperator) -> ParameterizedTerminal:
-        max_step_count = 25
-
-        def terminal(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> bool:
-            """Terminate when the option's corresponding operator's effects
-            have been reached."""
-
-            # NOTE: MoveTo terminates when the target pose is reached, unlike
-            # the other options, which terminate when the effects are reached.
-            if "step_count" in memory:
-                step_count = memory["step_count"]
-            else:
-                step_count = 0
-
-            if "MoveTo" in operator.name:
-                if len(objects) == 2:
-                    gripper, _ = objects
-                else:
-                    assert len(objects) == 3
-                    gripper, _, _ = objects
-
-                gx = state.get(gripper, "x")
-                gy = state.get(gripper, "y")
-                gz = state.get(gripper, "z")
-
-                assert name.lower() == "move_delta_ee_pose"
-                if "target_pose" not in memory:
-                    memory["target_pose"] = np.array(
-                        [params[0], params[1], params[2]])
-
-                if np.allclose(np.array([gx, gy, gz]),
+        def _MoveTo_terminal(state: State, memory: Dict,
+                             objects: Sequence[Object], params: Array) -> bool:
+            del params  # unused
+            if memory["reset_count"] > 0:
+                return False
+            gripper = objects[0]
+            gx = state.get(gripper, "x")
+            gy = state.get(gripper, "y")
+            gz = state.get(gripper, "z")
+            return np.allclose((gx, gy, gz),
                                memory["target_pose"],
-                               atol=0.2):
-                    return True
-            else:
-                grounded_op = operator.ground(tuple(objects))
-                if all(e.holds(state) for e in grounded_op.add_effects):
-                    step_count = 0
-                    return True
-            if step_count > max_step_count:
-                step_count = 0
-                return True
-            step_count += 1
-            memory["step_count"] = step_count
-            return False
+                               atol=KitchenEnv.at_atol)
 
-        return terminal
+        MoveTo = ParameterizedOption(
+            "MoveTo",
+            types=[gripper_type, object_type],
+            # Parameter is a position to move to relative to the object.
+            params_space=Box(-5, 5, (3, )),
+            policy=_MoveTo_policy,
+            initiable=_MoveTo_initiable,
+            terminal=_MoveTo_terminal)
+
+        options.add(MoveTo)
+
+        # PushObjOnObjForward
+        def _PushObjOnObjForward_policy(state: State, memory: Dict,
+                                        objects: Sequence[Object],
+                                        params: Array) -> Action:
+            del state, memory, objects  # unused
+            arr = primitive_and_params_to_primitive_action(
+                "move_forward", params)
+            return Action(arr)
+
+        def _PushObjOnObjForward_terminal(state: State, memory: Dict,
+                                          objects: Sequence[Object],
+                                          params: Array) -> bool:
+            del memory, params  # unused
+            _, obj, obj2 = objects
+            if not GroundAtom(OnTop, [obj, obj2]).holds(state):
+                return False
+            # Stronger check to deal with case where push release leads object
+            # to be no longer OnTop.
+            return state.get(
+                obj, "y") > state.get(obj2, "y") - KitchenEnv.at_atol / 2
+
+        PushObjOnObjForward = ParameterizedOption(
+            "PushObjOnObjForward",
+            types=[gripper_type, object_type, object_type],
+            # Parameter is a magnitude for pushing forward.
+            params_space=Box(0.0, max_delta_mag, (1, )),
+            policy=_PushObjOnObjForward_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_PushObjOnObjForward_terminal)
+
+        options.add(PushObjOnObjForward)
+
+        # PushObjTurnOnRight
+        def _PushObjTurnOnRight_policy(state: State, memory: Dict,
+                                       objects: Sequence[Object],
+                                       params: Array) -> Action:
+            del state, memory, objects  # unused
+            arr = primitive_and_params_to_primitive_action(
+                "move_right", params)
+            return Action(arr)
+
+        def _PushObjTurnOnRight_terminal(state: State, memory: Dict,
+                                         objects: Sequence[Object],
+                                         params: Array) -> bool:
+            del memory, params  # unused
+            _, obj = objects
+            return GroundAtom(TurnedOn, [obj]).holds(state)
+
+        PushObjTurnOnRight = ParameterizedOption(
+            "PushObjTurnOnRight",
+            types=[gripper_type, object_type],
+            # Parameter is a magnitude for pushing right.
+            params_space=Box(0.0, max_delta_mag, (1, )),
+            policy=_PushObjTurnOnRight_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_PushObjTurnOnRight_terminal)
+
+        options.add(PushObjTurnOnRight)
+
+        return options
