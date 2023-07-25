@@ -46,6 +46,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
+            memory["reset_pose"] = np.array([0.0, 0.3, 2.0], dtype=np.float32)
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -55,21 +56,39 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            import ipdb; ipdb.set_trace()
+            if memory["reset_pose"] is not None:
+                if np.allclose((gx, gy, gz),
+                               memory["reset_pose"],
+                               atol=KitchenEnv.at_atol):
+                    target_pose = memory["target_pose"]
+                    memory["reset_pose"] = None
+                else:
+                    target_pose = memory["reset_pose"]
+            else:
+                target_pose = memory["target_pose"]
+            dx, dy, dz = np.subtract(target_pose, (gx, gy, gz))
+            arr = np.array([dx, dy, dz, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            action_mag = np.linalg.norm(arr)
+            if action_mag > max_delta_mag:
+                scale = max_delta_mag / action_mag
+                arr = arr * scale
             return Action(arr)
 
         def _MoveTo_terminal(state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
             del params  # unused
-            if memory["reset_count"] > 0:
-                return False
             gripper = objects[0]
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            return np.allclose((gx, gy, gz),
+            terminate = np.allclose((gx, gy, gz),
                                memory["target_pose"],
                                atol=KitchenEnv.at_atol)
+            if terminate:
+                print("TERMINATING")
+                print("gripper:", gx, gy, gz)
+                print("target:", memory["target_pose"])
+            return terminate
 
         MoveTo = ParameterizedOption(
             "MoveTo",
@@ -87,7 +106,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
             del state, memory, objects  # unused
-            import ipdb; ipdb.set_trace()
+            # TODO sample direction?
+            arr = np.array([0.0, params[0], 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
         def _PushObjOnObjForward_terminal(state: State, memory: Dict,

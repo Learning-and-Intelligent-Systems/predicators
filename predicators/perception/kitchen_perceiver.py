@@ -20,7 +20,7 @@ class KitchenPerceiver(BasePerceiver):
         object_type = KitchenEnv.object_type
         kettle = Object("kettle", object_type)
         knob = Object("knob3", object_type)
-        burner = Object("burner2", object_type)
+        burner = Object("burner4", object_type)
         light = Object("light", object_type)
         goal_desc = env_task.goal_description
         if goal_desc == ("Move the kettle to the back burner and turn it on; "

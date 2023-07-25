@@ -9,6 +9,7 @@ from gym.spaces import Box
 
 try:
     import gymnasium as mujoco_kitchen_gym
+    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, get_site_xpos
     _MJKITCHEN_IMPORTED = True
 except (ImportError, RuntimeError):
     _MJKITCHEN_IMPORTED = False
@@ -18,6 +19,23 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, Image, Object, \
     Observation, Predicate, State, Type, Video
 
+_TRACKED_SITES = [
+    "hinge_site1", "hinge_site2", "kettle_site", "microhandle_site",
+    "knob1_site", "knob2_site", "knob3_site", "knob4_site",
+    "light_site", "slide_site", "EEF"
+]
+
+_TRACKED_SITE_TO_JOINT = {
+    "knob1_site": "knob_Joint_1",
+    "knob2_site": "knob_Joint_2",
+    "knob3_site": "knob_Joint_3",
+    "knob4_site": "knob_Joint_4"
+}
+
+_TRACKED_BODIES = [
+    "Burner 1", "Burner 2", "Burner 3", "Burner 4"
+]
+
 
 class KitchenEnv(BaseEnv):
     """Kitchen environment wrapping dm_control Kitchen."""
@@ -25,13 +43,13 @@ class KitchenEnv(BaseEnv):
     gripper_type = Type("gripper", ["x", "y", "z"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
-    at_atol = 0.2  # tolerance for At classifier
+    at_atol = 0.01  # tolerance for At classifier
     ontop_atol = 0.15  # tolerance for OnTop classifier
     on_angle_thresh = -0.8  # dial is On if less than this threshold
     light_on_thresh = -0.4  # light is On if less than this threshold
 
     obj_name_to_pre_push_dpos = {
-        "kettle": (0.125, -0.3, -0.25),  # need to push from behind kettle
+        "kettle": (0.0, -0.3, -0.25),  # need to push from behind kettle
         "knob3": (-0.2, 0.0, -0.2),  # need to push from left to right
         "light": (0.1, 0.05, -0.2),  # need to push from right to left
     }
@@ -62,28 +80,14 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
     def get_object_centric_state_info(self) -> Dict[str, Any]:
         """Parse State into Object Centric State."""
-        import ipdb; ipdb.set_trace()
-        state = self._gym_env.env.get_env_state()[0]
         state_info = {}
-        for key, val in OBS_ELEMENT_INDICES.items():
-            state_info[key] = [state[i] for i in val]
-        important_sites = [
-            "hinge_site1", "hinge_site2", "kettle_site", "microhandle_site",
-            "knob1_site", "knob2_site", "knob3_site", "knob4_site",
-            "light_site", "slide_site", "end_effector"
-        ]
-        for site in important_sites:
-            state_info[site] = copy.deepcopy(self._gym_env.get_site_xpos(site))
-            # Potentially can get this ^ from state
-        # Add oven burner plate locations
-        burner_poses = {
-            "burner1_site": [-0.3, 0.3, 0.629],
-            "burner2_site": [-0.3, 0.8, 0.629],
-            "burner3_site": [0.204, 0.8, 0.629],
-            "burner4_site": [0.206, 0.3, 0.629]
-        }
-        for name, pose in burner_poses.items():
-            state_info[name] = pose
+        for site in _TRACKED_SITES:
+            state_info[site] = get_site_xpos(self._gym_env.model, self._gym_env.data, site).copy()
+        for joint in _TRACKED_SITE_TO_JOINT.values():
+            state_info[joint] = get_joint_qpos(self._gym_env.model, self._gym_env.data, joint).copy()
+        for body in _TRACKED_BODIES:
+            body_id = self._gym_env.robot_env.model_names.body_name2id[body]
+            state_info[body] = self._gym_env.data.xpos[body_id].copy()
         return state_info
 
     @classmethod
@@ -161,19 +165,10 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
     @classmethod
     def state_info_to_state(cls, state_info: Dict[str, Any]) -> State:
         """Get state from state info dictionary."""
-        assert "end_effector" in state_info  # sanity check
+        assert "EEF" in state_info  # sanity check
         state_dict = {}
         for key, val in state_info.items():
-            if "_site" in key:
-                obj_name = key.replace("_site", "")
-                obj = Object(obj_name, cls.object_type)
-                state_dict[obj] = {
-                    "x": val[0],
-                    "y": val[1],
-                    "z": val[2],
-                    "angle": 0
-                }
-            elif key == "end_effector":
+            if key == "EEF":
                 obj = Object("gripper", cls.gripper_type)
                 state_dict[obj] = {
                     "x": val[0],
@@ -181,13 +176,22 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                     "z": val[2],
                     "angle": 0
                 }
-        for key, val in state_info.items():
-            if key == "bottom left burner":
-                obj = Object("knob2", cls.object_type)
-                state_dict[obj]["angle"] = val[0]
-            elif key == "top left burner":
-                obj = Object("knob3", cls.object_type)
-                state_dict[obj]["angle"] = val[0]
+            elif key in _TRACKED_SITE_TO_JOINT.values():
+                continue  # used below
+            else:
+                obj_name = key.replace("_site", "").replace(" ", "").lower()
+                obj = Object(obj_name, cls.object_type)
+                if key in _TRACKED_SITE_TO_JOINT:
+                    joint = _TRACKED_SITE_TO_JOINT[key]
+                    angle = state_info[joint][0]
+                else:
+                    angle = 0
+                state_dict[obj] = {
+                    "x": val[0],
+                    "y": val[1],
+                    "z": val[2],
+                    "angle": angle
+                }
         state = utils.create_state_from_dict(state_dict)
         return state
 
@@ -195,7 +199,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         state = self.state_info_to_state(
             self._current_observation["state_info"])
         kettle = Object("kettle", self.object_type)
-        burner = Object("burner2", self.object_type)
+        burner = Object("burner4", self.object_type)
         knob = Object("knob3", self.object_type)
         light = Object("light", self.object_type)
         goal_desc = self._current_task.goal_description

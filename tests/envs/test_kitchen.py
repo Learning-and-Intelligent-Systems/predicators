@@ -95,7 +95,7 @@ def test_kitchen():
     gripper = obj_name_to_obj["gripper"]
     knob3 = obj_name_to_obj["knob3"]
     kettle = obj_name_to_obj["kettle"]
-    burner2 = obj_name_to_obj["burner2"]
+    burner4 = obj_name_to_obj["burner4"]
     light = obj_name_to_obj["light"]
 
     def _run_ground_nsrt(ground_nsrt, state):
@@ -121,8 +121,8 @@ def test_kitchen():
     move_to_knob3_nsrt = MoveTo.ground([gripper, knob3])
     push_knob3_nsrt = PushObjTurnOnLeftRight.ground([gripper, knob3])
     move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
-    push_kettle_on_burner2_nsrt = PushObjOnObjForward.ground(
-        [gripper, kettle, burner2])
+    push_kettle_on_burner4_nsrt = PushObjOnObjForward.ground(
+        [gripper, kettle, burner4])
 
     # Test moving to and turning on the light.
     obs = env.reset("test", 0)
@@ -139,8 +139,8 @@ def test_kitchen():
     state = _run_ground_nsrt(move_to_knob3_nsrt, state)
     state = _run_ground_nsrt(push_knob3_nsrt, state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
-    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
-    assert OnTop([kettle, burner2]).holds(state)
+    state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
+    assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob3]).holds(state)
 
     # Test reverse order: moving to and pushing the kettle, then moving to and
@@ -149,10 +149,10 @@ def test_kitchen():
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
-    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
+    state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
     state = _run_ground_nsrt(move_to_knob3_nsrt, state)
     state = _run_ground_nsrt(push_knob3_nsrt, state)
-    assert OnTop([kettle, burner2]).holds(state)
+    assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob3]).holds(state)
 
     # Test light, kettle, then knob.
@@ -162,10 +162,10 @@ def test_kitchen():
     state = _run_ground_nsrt(move_to_light_nsrt, state)
     state = _run_ground_nsrt(push_light_nsrt, state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
-    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
+    state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
     state = _run_ground_nsrt(move_to_knob3_nsrt, state)
     state = _run_ground_nsrt(push_knob3_nsrt, state)
-    assert OnTop([kettle, burner2]).holds(state)
+    assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob3]).holds(state)
     assert TurnedOn([light]).holds(state)
 
@@ -178,7 +178,7 @@ def test_kitchen():
     state = _run_ground_nsrt(move_to_light_nsrt, state)
     state = _run_ground_nsrt(push_light_nsrt, state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
-    state = _run_ground_nsrt(push_kettle_on_burner2_nsrt, state)
-    assert OnTop([kettle, burner2]).holds(state)
+    state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
+    assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob3]).holds(state)
     assert TurnedOn([light]).holds(state)
