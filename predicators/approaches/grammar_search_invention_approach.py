@@ -629,6 +629,8 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
         seen: Dict[FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]],
                    Predicate] = {}  # keys are from _get_predicate_identifier()
         for (predicate, cost) in self.base_grammar.enumerate():
+            if predicate.name == "((0:block).held<=[idx 0]0.5)":
+                yield (predicate, cost)
             if cost >= CFG.grammar_search_predicate_cost_upper_bound:
                 return
             pred_id = self._get_predicate_identifier(predicate)
@@ -986,7 +988,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for j, cluster in enumerate(all_clusters):
                 example_segment = cluster[0]
                 option_name = example_segment.get_option().name
-                if len(example_segment.get_option().params) == 0:
+                if len(example_segment.get_option().params) == 0 or option_name == "PutOnTable":
                     final_clusters.append(cluster)
                     logging.info(f"STEP 4: generated no further sample-based clusters for the {j+1}th cluster from STEP 3 involving option {option_name}.")
                 else:
@@ -1018,14 +1020,27 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             logging.info(f"Total {len(final_clusters)} final clusters.")
 
+            add_effects_per_cluster = []
             all_add_effects = set()
-            for c in final_clusters:
+            for j, c in enumerate(final_clusters):
                 add_effects_per_segment = [s.add_effects for s in c]
                 ungrounded_add_effects_per_segment = []
                 for add_effects in add_effects_per_segment:
                     ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
                 add_effects = set.intersection(*ungrounded_add_effects_per_segment)
+                add_effects_per_cluster.append(add_effects)
+                print(f"Cluster {j} predicates:")
+                for a in add_effects:
+                    print(a)
+                print()
                 all_add_effects |= add_effects
+
+                #
+                # ex = c[0]
+                # print(f"Cluster {j} with option {ex.get_option().name}:")
+                # for a in add_effects:
+                #     print(a)
+                #
 
             predicates_to_keep = all_add_effects
 
@@ -1036,7 +1051,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # predicates_to_keep: Set[Predicate] = set()
             # for pred in all_add_effects:
             #     keep_pred = True
-            #     for seg_list in final_clusters:
+            #     for j, seg_list in enumerate(final_clusters):
             #         seg_0 = seg_list[0]
             #         pred_in_add_effs_0 = pred in [
             #             atom.predicate for atom in seg_0.add_effects
@@ -1059,6 +1074,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #             #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
             #                 keep_pred = False
             #                 print("INCONSISTENT: ", pred.name)
+            #                 inconsistent_preds.add(pred)
             #                 # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
             #                 #     import pdb; pdb.set_trace()
             #                 break
@@ -1069,34 +1085,56 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #     else:
             #         inconsistent_preds.add(pred)
             #
+            # # Re-add inconsistent predicates that were necessary to disambiguate two clusters.
+            # # That is, if any two clusters's predicates look the same after removing inconsistent predicates from both,
+            # # keep all those predicates.
+            # new_add_effects_per_cluster = []
+            # for effs_cluster in add_effects_per_cluster:
+            #     new_add_effects_per_cluster.append(effs_cluster - inconsistent_preds)
+            # # Check all pairs of clusters, if they are the same, add their original cluster's predicates back.
+            # num_clusters = len(final_clusters)
+            # for i in range(num_clusters):
+            #     for j in range(num_clusters):
+            #         if i == j:
+            #             continue
+            #         else:
+            #             if new_add_effects_per_cluster[i] == new_add_effects_per_cluster[j]:
+            #                 print(f"MATCH! : {i}, {j}")
+            #                 predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[i])
+            #                 predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[j])
+
+            #
             # import pdb; pdb.set_trace()
             # print("inconsistent preds: ", inconsistent_preds)
 
-            # # add back in to debug
+            # add back in to debug
             # add_back = [
             #     # "NOT-((0:obj).grasp<=[idx 1]0.25)",
             #     # "Forall[0:obj].[NOT-((0:obj).grasp<=[idx 1]0.25)(0)]",
             #     # "((0:obj).grasp<=[idx 0]0.5)",
-            #     # "Forall[0:obj].[((0:obj).grasp<=[idx 0]0.5)(0)]"
+            #     # "Forall[0:obj].[((0:obj).grasp<=[idx 0]0.5)(0)]",
+            #     "((0:block).held<=[idx 0]0.5)"
             # ]
             # for c in candidates.keys():
             #     if c.name in add_back:
             #         predicates_to_keep.add(c)
-            #         logging.info("Adding in to debug: ", c.name)
+            #         print("Adding in to debug: ", c.name)
 
-            remove = [
-                "NOT-((0:block).pose_z<=[idx 3]0.282)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]",
-                "NOT-((0:block).pose_z<=[idx 1]0.342)",
-                "((0:block).pose_z<=[idx 1]0.342)",
-                "((0:block).pose_z<=[idx 3]0.282)",
-                "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]"
-            ]
-            
-            for c in candidates.keys():
-                if c.name in remove:
-                    predicates_to_keep.remove(c)
-                    print("Removing: ", c)
+            # remove = [
+            #     # "NOT-((0:block).pose_z<=[idx 3]0.282)",
+            #     # "NOT-Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]",
+            #     # "NOT-((0:block).pose_z<=[idx 1]0.342)",
+            #     "((0:block).pose_z<=[idx 1]0.342)",
+            #     "((0:block).pose_z<=[idx 3]0.282)",
+            #     "Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]"
+            # ]
+            #
+            # for c in candidates.keys():
+            #     if c.name in remove:
+            #         predicates_to_keep.remove(c)
+            #         print("Removing: ", c)
+
+            import pdb; pdb.set_trace()
 
             #
             # new_candidates = {}
@@ -1170,10 +1208,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Next, select predicates that are consistent (either, it is
             # an add effect, or a delete effect, or doesn't change)
             # within all demos.
+            print("LOOKING FOR ANY INCONSISTENT PREDICATES.")
             predicates_to_keep: Set[Predicate] = set()
             for pred in consistent_add_effs_preds:
                 keep_pred = True
-                for seg_list in gt_op_to_segments.values():
+                for op_name, seg_list in gt_op_to_segments.items():
+                    print(f"CHECKING CONSISTENCY FOR OPERATOR {op_name}")
                     segment_0 = seg_list[0]
                     pred_in_add_effs_0 = pred in [
                         atom.predicate for atom in segment_0.add_effects
@@ -1201,6 +1241,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
                 else:
                     predicates_to_keep.add(pred)
+            print("DONE LOOKING FOR ANY INCONSISTENT PREDICATES.")
 
             # Remove all the initial predicates.
             predicates_to_keep -= initial_predicates
