@@ -32,7 +32,8 @@ setup(
         "seaborn",
         "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
         "pg3@git+https://github.com/tomsilver/pg3.git",
-        "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git"  # pylint: disable=line-too-long
+        "gym_sokoban@git+https://github.com/Learning-and-Intelligent-Systems/gym-sokoban.git",  # pylint: disable=line-too-long
+        "gymnasium@git+https://github.com/SiddarGu/Gymnasium-Robotics.git",
     ],
     include_package_data=True,
     extras_require={
