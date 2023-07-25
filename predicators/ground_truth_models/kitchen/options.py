@@ -10,6 +10,12 @@ from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Type
 
+try:
+    from gymnasium_robotics.utils.rotations import quat2euler, euler2quat, subtract_euler
+    _MJKITCHEN_IMPORTED = True
+except (ImportError, RuntimeError):
+    _MJKITCHEN_IMPORTED = False
+
 
 class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the Kitchen environment."""
@@ -22,6 +28,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
+        
+        assert _MJKITCHEN_IMPORTED, "See kitchen.py"
 
         # Types
         gripper_type = types["gripper"]
@@ -46,7 +54,10 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
+            memory["target_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])  # TODO make conditional
             memory["reset_pose"] = np.array([0.0, 0.3, 2.0], dtype=np.float32)
+            memory["reset_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])
+            memory["has_reset"] = False
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -56,18 +67,28 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            if memory["reset_pose"] is not None:
+            gqw = state.get(gripper, "qw")
+            gqx = state.get(gripper, "qx")
+            gqy = state.get(gripper, "qy")
+            gqz = state.get(gripper, "qz")
+            current_euler = quat2euler([gqw, gqx, gqy, gqz])
+            if not memory["has_reset"]:
                 if np.allclose((gx, gy, gz),
                                memory["reset_pose"],
                                atol=KitchenEnv.at_atol):
                     target_pose = memory["target_pose"]
-                    memory["reset_pose"] = None
+                    target_quat = memory["target_quat"]
+                    memory["has_reset"] = True
                 else:
                     target_pose = memory["reset_pose"]
+                    target_quat = memory["reset_quat"]
             else:
                 target_pose = memory["target_pose"]
+                target_quat = memory["reset_quat"]
             dx, dy, dz = np.subtract(target_pose, (gx, gy, gz))
-            arr = np.array([dx, dy, dz, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            target_euler = quat2euler(target_quat)
+            droll, dpitch, dyaw = subtract_euler(target_euler, current_euler)
+            arr = np.array([dx, dy, dz, droll, dpitch, dyaw, 0.0], dtype=np.float32)
             action_mag = np.linalg.norm(arr)
             if action_mag > max_delta_mag:
                 scale = max_delta_mag / action_mag
@@ -81,14 +102,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            terminate = np.allclose((gx, gy, gz),
+            return np.allclose((gx, gy, gz),
                                memory["target_pose"],
                                atol=KitchenEnv.at_atol)
-            if terminate:
-                print("TERMINATING")
-                print("gripper:", gx, gy, gz)
-                print("target:", memory["target_pose"])
-            return terminate
 
         MoveTo = ParameterizedOption(
             "MoveTo",
@@ -106,7 +122,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
             del state, memory, objects  # unused
-            # TODO sample direction?
             arr = np.array([0.0, params[0], 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 

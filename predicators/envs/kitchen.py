@@ -9,7 +9,8 @@ from gym.spaces import Box
 
 try:
     import gymnasium as mujoco_kitchen_gym
-    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, get_site_xpos
+    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, get_site_xpos, get_site_xmat
+    from gymnasium_robotics.utils.rotations import mat2quat
     _MJKITCHEN_IMPORTED = True
 except (ImportError, RuntimeError):
     _MJKITCHEN_IMPORTED = False
@@ -40,7 +41,7 @@ _TRACKED_BODIES = [
 class KitchenEnv(BaseEnv):
     """Kitchen environment wrapping dm_control Kitchen."""
 
-    gripper_type = Type("gripper", ["x", "y", "z"])
+    gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
     at_atol = 0.01  # tolerance for At classifier
@@ -50,7 +51,7 @@ class KitchenEnv(BaseEnv):
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.0, -0.3, -0.25),  # need to push from behind kettle
-        "knob3": (-0.2, 0.0, -0.2),  # need to push from left to right
+        "knob3": (-0.2, -0.2, -0.2),  # need to push from left to right
         "light": (0.1, 0.05, -0.2),  # need to push from right to left
     }
 
@@ -83,6 +84,11 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         state_info = {}
         for site in _TRACKED_SITES:
             state_info[site] = get_site_xpos(self._gym_env.model, self._gym_env.data, site).copy()
+            # Include rotation for gripper.
+            if site == "EEF":
+                xmat = get_site_xmat(self._gym_env.model, self._gym_env.data, site).copy()
+                quat = mat2quat(xmat)
+                state_info[site] = np.concatenate([state_info[site], quat])                             
         for joint in _TRACKED_SITE_TO_JOINT.values():
             state_info[joint] = get_joint_qpos(self._gym_env.model, self._gym_env.data, joint).copy()
         for body in _TRACKED_BODIES:
@@ -174,7 +180,10 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                     "x": val[0],
                     "y": val[1],
                     "z": val[2],
-                    "angle": 0
+                    "qw": val[3],
+                    "qx": val[4],
+                    "qy": val[5],
+                    "qz": val[6],
                 }
             elif key in _TRACKED_SITE_TO_JOINT.values():
                 continue  # used below
