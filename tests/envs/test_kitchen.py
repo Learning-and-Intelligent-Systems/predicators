@@ -108,7 +108,6 @@ def test_kitchen():
             obs = env.step(act)
             state = env.state_info_to_state(obs["state_info"])
             if option.terminal(state):
-                print(f"TERMINATING AFTER {_} steps")
                 break
         for atom in ground_nsrt.add_effects:
             assert atom.holds(state)
