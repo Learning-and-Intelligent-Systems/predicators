@@ -50,10 +50,10 @@ def test_kitchen():
     assert pushobjonobjforward_option.name == "PushObjOnObjForward"
     assert pushobjturnonright_option.name == "PushObjTurnOnLeftRight"
     assert len(env.types) == 2
-    gripper_type, object_type = env.types
+    gripper_type, object_type = sorted(env.types)
     assert gripper_type.name == "gripper"
     assert object_type.name == "obj"
-    assert env.action_space.shape == (29, )
+    assert env.action_space.shape == (7, )
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
     assert len(nsrts) == 3
     env_train_tasks = env.get_train_tasks()
@@ -103,11 +103,12 @@ def test_kitchen():
             assert atom.holds(state)
         option = ground_nsrt.sample_option(state, set(), rng)
         assert option.initiable(state)
-        for _ in range(25):
+        for _ in range(1000):
             act = option.policy(state)
             obs = env.step(act)
             state = env.state_info_to_state(obs["state_info"])
             if option.terminal(state):
+                print(f"TERMINATING AFTER {_} steps")
                 break
         for atom in ground_nsrt.add_effects:
             assert atom.holds(state)
@@ -123,14 +124,6 @@ def test_kitchen():
     move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
     push_kettle_on_burner4_nsrt = PushObjOnObjForward.ground(
         [gripper, kettle, burner4])
-
-    # Test moving to and turning on the light.
-    obs = env.reset("test", 0)
-    state = env.state_info_to_state(obs["state_info"])
-    assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_light_nsrt, state)
-    state = _run_ground_nsrt(push_light_nsrt, state)
-    assert TurnedOn([light]).holds(state)
 
     # Test moving to and pushing knob4, then moving to and pushing the kettle.
     obs = env.reset("test", 0)
@@ -154,6 +147,14 @@ def test_kitchen():
     state = _run_ground_nsrt(push_knob4_nsrt, state)
     assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob4]).holds(state)
+
+    # Test moving to and turning on the light.
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_light_nsrt, state)
+    state = _run_ground_nsrt(push_light_nsrt, state)
+    assert TurnedOn([light]).holds(state)
 
     # Test light, kettle, then knob.
     obs = env.reset("test", 0)

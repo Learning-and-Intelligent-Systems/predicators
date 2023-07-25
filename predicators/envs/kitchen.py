@@ -44,14 +44,14 @@ class KitchenEnv(BaseEnv):
     gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
-    at_atol = 0.01  # tolerance for At classifier
+    at_atol = 0.2  # tolerance for At classifier
     ontop_atol = 0.15  # tolerance for OnTop classifier
     on_angle_thresh = -0.8  # dial is On if less than this threshold
     light_on_thresh = -0.4  # light is On if less than this threshold
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.0, -0.3, -0.3),  # need to push from behind kettle
-        "knob4": (-0.08, -0.12, -0.15),  # need to push from left to right
+        "knob4": (-0.08, -0.12, 0.05),  # need to push from left to right
         "light": (0.1, 0.05, -0.2),  # need to push from right to left
     }
 
@@ -124,10 +124,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:
         assert caption is None
-        arr: Image = self._gym_env.render(
-            'rgb_array',
-            imwidth=CFG.kitchen_camera_size,
-            imheight=CFG.kitchen_camera_size)  # type: ignore
+        arr: Image = self._gym_env.render()  # type: ignore
         return [arr]
 
     @property

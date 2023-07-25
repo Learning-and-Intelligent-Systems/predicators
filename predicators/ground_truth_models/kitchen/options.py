@@ -20,6 +20,8 @@ except (ImportError, RuntimeError):
 class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the Kitchen environment."""
 
+    moveto_tol = 0.01
+
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {"kitchen"}
@@ -79,7 +81,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             if not memory["has_reset"]:
                 if np.allclose((gx, gy, gz),
                                memory["reset_pose"],
-                               atol=KitchenEnv.at_atol):
+                               atol=cls.moveto_tol):
                     target_pose = memory["target_pose"]
                     target_quat = memory["target_quat"]
                     memory["has_reset"] = True
@@ -108,7 +110,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gz = state.get(gripper, "z")
             return np.allclose((gx, gy, gz),
                                memory["target_pose"],
-                               atol=KitchenEnv.at_atol)
+                               atol=cls.moveto_tol)
 
         MoveTo = ParameterizedOption(
             "MoveTo",
@@ -139,7 +141,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Stronger check to deal with case where push release leads object
             # to be no longer OnTop.
             return state.get(
-                obj, "y") > state.get(obj2, "y") - KitchenEnv.at_atol / 2
+                obj, "y") > state.get(obj2, "y") - cls.moveto_tol / 2
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",

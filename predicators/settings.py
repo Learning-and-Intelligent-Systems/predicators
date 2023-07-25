@@ -317,7 +317,6 @@ class GlobalSettings:
 
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
-    kitchen_camera_size = 512
     kitchen_goals = "all"
 
     # parameters for random options approach
