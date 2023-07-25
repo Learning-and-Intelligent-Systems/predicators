@@ -124,6 +124,16 @@ def test_kitchen():
     push_kettle_on_burner4_nsrt = PushObjOnObjForward.ground(
         [gripper, kettle, burner4])
 
+    # Test moving to and turning on the light.
+    # TODO
+    import ipdb; ipdb.set_trace()
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_light_nsrt, state)
+    state = _run_ground_nsrt(push_light_nsrt, state)
+    assert TurnedOn([light]).holds(state)
+
     # Test moving to and pushing knob4, then moving to and pushing the kettle.
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
@@ -146,14 +156,6 @@ def test_kitchen():
     state = _run_ground_nsrt(push_knob4_nsrt, state)
     assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob4]).holds(state)
-
-    # Test moving to and turning on the light.
-    obs = env.reset("test", 0)
-    state = env.state_info_to_state(obs["state_info"])
-    assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_light_nsrt, state)
-    state = _run_ground_nsrt(push_light_nsrt, state)
-    assert TurnedOn([light]).holds(state)
 
     # Test light, kettle, then knob.
     obs = env.reset("test", 0)
