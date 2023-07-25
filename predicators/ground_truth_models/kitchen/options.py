@@ -41,7 +41,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options: Set[ParameterizedOption] = set()
 
-        max_delta_mag = 0.1  # don't move more than this per step
+        max_delta_mag = 1.0  # don't move more than this per step
 
         # MoveTo
         def _MoveTo_initiable(state: State, memory: Dict,
