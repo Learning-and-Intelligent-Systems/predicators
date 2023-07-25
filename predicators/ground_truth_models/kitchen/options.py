@@ -54,7 +54,11 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
-            memory["target_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])  # TODO make conditional
+            # TODO add comment
+            if target_pose[2] > 2.0:
+                memory["target_quat"] = euler2quat([-np.pi / 2, 0.0, -np.pi / 2])
+            else:
+                memory["target_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])
             memory["reset_pose"] = np.array([0.0, 0.3, 2.0], dtype=np.float32)
             memory["reset_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])
             memory["has_reset"] = False
@@ -84,7 +88,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                     target_quat = memory["reset_quat"]
             else:
                 target_pose = memory["target_pose"]
-                target_quat = memory["reset_quat"]
+                target_quat = memory["target_quat"]
             dx, dy, dz = np.subtract(target_pose, (gx, gy, gz))
             target_euler = quat2euler(target_quat)
             droll, dpitch, dyaw = subtract_euler(target_euler, current_euler)
