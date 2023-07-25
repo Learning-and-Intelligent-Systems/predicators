@@ -5,11 +5,6 @@ from typing import Dict, Sequence, Set
 import numpy as np
 from gym.spaces import Box
 
-try:
-    from mujoco_kitchen.utils import primitive_and_params_to_primitive_action
-    _MJKITCHEN_IMPORTED = True
-except (ImportError, RuntimeError):
-    _MJKITCHEN_IMPORTED = False
 from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.structs import Action, Array, GroundAtom, Object, \
@@ -27,7 +22,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
-        assert _MJKITCHEN_IMPORTED
 
         # Types
         gripper_type = types["gripper"]
@@ -52,14 +46,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
-            # We always move backward for 8 steps before executing the move.
-            # Ideally we would move to a home position, but it's not possible
-            # to do that reliably with end effector control. Moving for 8 steps
-            # seems to work well enough for now, but it's likely that this will
-            # need to be improved in the future as we add more skills,
-            # especially considering that 5 and 10 backward steps don't work,
-            # indicating that this is very fickle.
-            memory["reset_count"] = 8
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -69,16 +55,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            if memory["reset_count"] > 0:
-                arr = primitive_and_params_to_primitive_action(
-                    "move_backward", [1.0])
-                memory["reset_count"] -= 1
-            else:
-                target_pose = memory["target_pose"]
-                delta_ee = target_pose - (gx, gy, gz)
-                delta_ee = np.clip(delta_ee, -max_delta_mag, max_delta_mag)
-                arr = primitive_and_params_to_primitive_action(
-                    "move_delta_ee_pose", delta_ee)
+            import ipdb; ipdb.set_trace()
             return Action(arr)
 
         def _MoveTo_terminal(state: State, memory: Dict,
@@ -110,8 +87,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
             del state, memory, objects  # unused
-            arr = primitive_and_params_to_primitive_action(
-                "move_forward", params)
+            import ipdb; ipdb.set_trace()
             return Action(arr)
 
         def _PushObjOnObjForward_terminal(state: State, memory: Dict,
@@ -159,8 +135,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                            params: Array) -> Action:
             del state, objects  # unused
             direction = memory["direction"]
-            arr = primitive_and_params_to_primitive_action(
-                f"move_{direction}", params)
+            import ipdb; ipdb.set_trace()
             return Action(arr)
 
         def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,

@@ -8,8 +8,7 @@ import numpy as np
 from gym.spaces import Box
 
 try:
-    from mujoco_kitchen.kitchen_envs import OBS_ELEMENT_INDICES
-    from mujoco_kitchen.utils import make_env
+    import gymnasium as mujoco_kitchen_gym
     _MJKITCHEN_IMPORTED = True
 except (ImportError, RuntimeError):
     _MJKITCHEN_IMPORTED = False
@@ -40,22 +39,13 @@ class KitchenEnv(BaseEnv):
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         assert _MJKITCHEN_IMPORTED, "Failed to import mujoco_kitchen. \
-For more information on installation see \
-https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
+Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
         # Predicates
         self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
 
-        # NOTE: we can change the level by modifying what we pass
-        # into gym.make here.
-        self._gym_env = make_env(
-            "kitchen", "microwave", {
-                "usage_kwargs": {
-                    "max_path_length": 5000,
-                    "use_raw_action_wrappers": False,
-                    "unflatten_images": False
-                }
-            })
+        render_mode = "human" if self._using_gui else "rgb_array"
+        self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1", render_mode=render_mode)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
@@ -72,6 +62,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
     def get_object_centric_state_info(self) -> Dict[str, Any]:
         """Parse State into Object Centric State."""
+        import ipdb; ipdb.set_trace()
         state = self._gym_env.env.get_env_state()[0]
         state_info = {}
         for key, val in OBS_ELEMENT_INDICES.items():
@@ -143,10 +134,6 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
     @property
     def action_space(self) -> Box:
-        # One-hot encoding of discrete action space with parameters.
-        assert (self._gym_env.num_primitives +
-                self._gym_env.max_arg_len, ) == (29, )  # type: ignore
-        assert self._gym_env.action_space.shape == (29, )
         return self._gym_env.action_space
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
@@ -255,8 +242,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         return tasks
 
     def _reset_initial_state_from_seed(self, seed: int) -> Observation:
-        self._gym_env.seed(seed)  # type: ignore
-        self._gym_env.reset()
+        self._gym_env.reset(seed=seed)
         return {"state_info": self.get_object_centric_state_info()}
 
     @classmethod
