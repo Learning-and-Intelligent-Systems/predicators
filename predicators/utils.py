@@ -1920,9 +1920,10 @@ class RRT(Generic[_RRTState]):
         """
         if self._collision_fn(start):
             return None
-        direct_path = self._try_direct_path(start, goal_sampler())
-        if direct_path is not None:
-            return direct_path
+        if sample_goal_eps > 0.0:
+            direct_path = self._try_direct_path(start, goal_sampler())
+            if direct_path is not None:
+                return direct_path
         for _ in range(self._num_attempts):
             path = self._rrt_connect(start,
                                      goal_sampler,
