@@ -334,9 +334,8 @@ class _SpotInterface():
                 )
                 # Next, convert the keys of this dictionary to be april
                 # tag id's instead.
-                viewable_obj_poses: Dict[int,
-                                         Tuple[float, float,
-                                               float]] = {}  # type: ignore
+                viewable_obj_poses: Dict[int,  # type: ignore
+                                         Tuple[float, float, float]] = {}
                 for k, v in sam_pose_results.items():
                     viewable_obj_poses[obj_name_to_apriltag_id[
                         vision_prompt_to_obj_name[k]]] = v

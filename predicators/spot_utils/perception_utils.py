@@ -151,7 +151,7 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
     # necessary in the future.
     for obj_class in classes:
         class_mask = (d['classes'] == obj_class)
-        if np.all(class_mask is False):
+        if np.all(class_mask == False): # pylint:disable=singleton-comparison
             continue
         max_score = np.max(d['scores'][class_mask])
         max_score_idx = np.where(d['scores'] == max_score)[0]
