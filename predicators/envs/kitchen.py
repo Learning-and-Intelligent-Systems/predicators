@@ -51,7 +51,7 @@ class KitchenEnv(BaseEnv):
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.0, -0.3, -0.3),  # need to push from behind kettle
-        "knob3": (-0.2, -0.125, -0.18),  # need to push from left to right
+        "knob4": (-0.08, -0.12, -0.15),  # need to push from left to right
         "light": (0.1, 0.05, -0.2),  # need to push from right to left
     }
 
@@ -209,7 +209,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             self._current_observation["state_info"])
         kettle = Object("kettle", self.object_type)
         burner = Object("burner4", self.object_type)
-        knob = Object("knob3", self.object_type)
+        knob = Object("knob4", self.object_type)
         light = Object("light", self.object_type)
         goal_desc = self._current_task.goal_description
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
@@ -289,7 +289,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
     @classmethod
     def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         obj = objects[0]
-        if obj.name in ["knob3", "knob2"]:
+        if "knob" in obj.name:
             return state.get(obj, "angle") < cls.on_angle_thresh
         if obj.name == "light":
             return state.get(obj, "x") < cls.light_on_thresh

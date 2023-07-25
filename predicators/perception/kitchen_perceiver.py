@@ -19,7 +19,7 @@ class KitchenPerceiver(BasePerceiver):
         TurnedOn = KitchenEnv.get_goal_at_predicates(KitchenEnv)[2]
         object_type = KitchenEnv.object_type
         kettle = Object("kettle", object_type)
-        knob = Object("knob3", object_type)
+        knob = Object("knob4", object_type)
         burner = Object("burner4", object_type)
         light = Object("light", object_type)
         goal_desc = env_task.goal_description

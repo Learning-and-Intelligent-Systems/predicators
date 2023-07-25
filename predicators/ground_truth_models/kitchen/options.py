@@ -163,18 +163,18 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             ox = state.get(obj, "x")
             gx = state.get(gripper, "x")
             if gx > ox:
-                direction = "left"
+                sign = -1
             else:
-                direction = "right"
-            memory["direction"] = direction
+                sign = 1
+            memory["sign"] = sign
             return True
 
         def _PushObjTurnOnLeftRight_policy(state: State, memory: Dict,
                                            objects: Sequence[Object],
                                            params: Array) -> Action:
             del state, objects  # unused
-            direction = memory["direction"]
-            import ipdb; ipdb.set_trace()
+            sign = memory["sign"]
+            arr = np.array([sign * params[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
         def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
