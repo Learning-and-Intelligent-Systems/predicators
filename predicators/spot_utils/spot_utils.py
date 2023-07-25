@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple, List
+from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -78,10 +78,6 @@ obj_name_to_apriltag_id = {
     "extra_room_table": 409,
     "cube": 410,
 }
-
-# NOTE: we need to optimize the prompts for most of these to be better.
-# Also, this currently isn't being used because we're hardcoding
-# the pipeline to always detect the yellow brush.
 obj_name_to_vision_prompt = {
     "hammer": "hammer",
     "brush": "brush",
@@ -89,7 +85,10 @@ obj_name_to_vision_prompt = {
     "hex_screwdriver": "screwdriver",
     "toolbag": "work bag",
 }
-vision_prompt_to_obj_name = {value: key for key, value in obj_name_to_vision_prompt.items()}
+vision_prompt_to_obj_name = {
+    value: key
+    for key, value in obj_name_to_vision_prompt.items()
+}
 
 OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
@@ -326,7 +325,7 @@ class _SpotInterface():
                     source_name=source_name)
             else:
                 # First, get a dictionary mapping vision prompts
-                # to the corresponding location of that object in the 
+                # to the corresponding location of that object in the
                 # scene by camera
                 sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
@@ -335,9 +334,11 @@ class _SpotInterface():
                 )
                 # Next, convert the keys of this dictionary to be april
                 # tag id's instead.
-                viewable_obj_poses: Dict[int, Tuple[float, float, float]] = {}
+                viewable_obj_poses: Dict[int, Tuple[float, float, float]] = {} # type: ignore
                 for k, v in sam_pose_results.items():
-                    viewable_obj_poses[obj_name_to_apriltag_id[vision_prompt_to_obj_name[k]]] = v
+                    viewable_obj_poses[obj_name_to_apriltag_id[
+                        vision_prompt_to_obj_name[k]]] = v
+
             tag_to_pose[source_name].update(viewable_obj_poses)
 
         apriltag_id_to_obj_name = {
@@ -481,8 +482,7 @@ class _SpotInterface():
         source_depth: str,
     ) -> Dict[str, Tuple[float, float, float]]:
         """Get object location in 3D (no orientation) estimated using
-        pretrained SAM model.
-        """
+        pretrained SAM model."""
         _, rgb_img_response = self.get_single_camera_image(source_rgb, True)
         _, depth_img_response = self.get_single_camera_image(
             source_depth, False)
@@ -507,8 +507,8 @@ class _SpotInterface():
         for obj_class in classes:
             if obj_class in res_location_dict:
                 camera_tform_body = get_a_tform_b(
-                    image_responses['depth'].shot.transforms_snapshot,
-                    image_responses['depth'].shot.frame_name_image_sensor,
+                    image_responses['rgb'].shot.transforms_snapshot,
+                    image_responses['rgb'].shot.frame_name_image_sensor,
                     BODY_FRAME_NAME)
                 x, y, z = res_location_dict[obj_class]
                 object_rt_gn_origin = self.convert_obj_location(
@@ -531,9 +531,9 @@ class _SpotInterface():
         gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
         # Apply transform to object to body location
-        object_rt_gn_origin = gn_origin_tform_body.transform_point(
+        gn_origin_tform_object = gn_origin_tform_body.transform_point(
             body_tform_object[0], body_tform_object[1], body_tform_object[2])
-        return object_rt_gn_origin
+        return gn_origin_tform_object
 
     def get_gripper_obs(self) -> float:
         """Grabs the current observation of relevant quantities from the

@@ -1025,15 +1025,15 @@ class SpotBikeEnv(SpotEnv):
             cube = self._obj_name_to_obj("cube")
             extra_table = self._obj_name_to_obj("extra_room_table")
             return {GroundAtom(self._On, [cube, extra_table])}
-        # hammer = self._obj_name_to_obj("hammer")
-        # hex_key = self._obj_name_to_obj("hex_key")
+        hammer = self._obj_name_to_obj("hammer")
+        hex_key = self._obj_name_to_obj("hex_key")
         brush = self._obj_name_to_obj("brush")
         hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         bag = self._obj_name_to_obj("toolbag")
         return {
-            # GroundAtom(self._InBag, [hammer, bag]),
+            GroundAtom(self._InBag, [hammer, bag]),
             GroundAtom(self._InBag, [brush, bag]),
-            # GroundAtom(self._InBag, [hex_key, bag]),
+            GroundAtom(self._InBag, [hex_key, bag]),
             GroundAtom(self._InBag, [hex_screwdriver, bag]),
         }
 
@@ -1044,11 +1044,11 @@ class SpotBikeEnv(SpotEnv):
             cube = Object("cube", self._tool_type)
             objects.append(cube)
         else:
-            # hammer = Object("hammer", self._tool_type)
-            # hex_key = Object("hex_key", self._tool_type)
+            hammer = Object("hammer", self._tool_type)
+            hex_key = Object("hex_key", self._tool_type)
             hex_screwdriver = Object("hex_screwdriver", self._tool_type)
             brush = Object("brush", self._tool_type)
-            # objects.extend([hammer, hex_key, hex_screwdriver, brush])
+            objects.extend([hammer, hex_key, hex_screwdriver, brush])
             objects.extend([hex_screwdriver, brush])
         spot = Object("spot", self._robot_type)
         tool_room_table = Object("tool_room_table", self._surface_type)

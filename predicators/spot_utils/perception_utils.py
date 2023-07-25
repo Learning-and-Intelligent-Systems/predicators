@@ -2,11 +2,13 @@
 models with the Boston Dynamics Spot robot."""
 
 import io
+import math
 from typing import Dict, List, Tuple
 
 import bosdyn.client
 import bosdyn.client.util
 import cv2
+import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,7 +16,6 @@ import requests
 from bosdyn.api import image_pb2
 from PIL import Image
 from scipy import ndimage
-import dill as pkl
 
 from predicators.settings import CFG
 
@@ -118,7 +119,7 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
     }
     # If the status code is not 200, then fail.
     if r.status_code != 200:
-        d_filtered
+        return d_filtered
 
     with io.BytesIO(r.content) as f:
         try:
@@ -150,7 +151,7 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
     # necessary in the future.
     for obj_class in classes:
         class_mask = (d['classes'] == obj_class)
-        if np.all(class_mask == False):
+        if np.all(class_mask is False):
             continue
         max_score = np.max(d['scores'][class_mask])
         max_score_idx = np.where(d['scores'] == max_score)[0]
@@ -337,7 +338,6 @@ def get_pixel_locations_with_detic_sam(
     if len(res_segment['classes']) == 0:
         return []
 
-    assert res_segment['classes'].count(obj_class) == 1
     pixel_locations = []
 
     # Compute geometric center of object bounding box
@@ -389,18 +389,19 @@ def get_object_locations_with_detic_sam(
                                   viz=plot)
 
     if len(res_segment['classes']) == 0:
-        return []
+        return {}
 
     ret_obj_positions: Dict[str, Tuple[float, float, float]] = {}
     for i, obj_class in enumerate(res_segment['classes']):
         # Check that this particular class is one of the
         # classes we passed in, and that there was only one
         # instance of this class that was found.
-        assert obj_class in classes
+        assert obj_class.item() in classes
         assert res_segment['classes'].count(obj_class) == 1
         # Compute median value of depth
-        depth_median = np.median(rotated_depth[res_segment['masks'][i][0].squeeze()
-                                               & (rotated_depth > 2)[:, :, 0]])
+        depth_median = np.median(
+            rotated_depth[res_segment['masks'][i][0].squeeze()
+                          & (rotated_depth > 2)[:, :, 0]])
         # Compute geometric center of object bounding box
         x1, y1, x2, y2 = res_segment['boxes'][i].squeeze()
         x_c = (x1 + x2) / 2
@@ -436,7 +437,7 @@ def get_object_locations_with_detic_sam(
         # RGB image.
         if plot:
             inverse_rotation_angle = -ROTATION_ANGLE[source_name]
-            plt.imshow(res_image['rgb'])
+            plt.imshow(res_image['depth'])
             plt.imshow(ndimage.rotate(res_segment['masks'][i][0].squeeze(),
                                       inverse_rotation_angle,
                                       reshape=False),
@@ -460,7 +461,7 @@ def get_object_locations_with_detic_sam(
                                         depth_value=depth_median,
                                         point_x=x_c_rotated,
                                         point_y=y_c_rotated)
-        if x0 != float('nan') and y0 != float("nan") and z0 != float("nan"):
+        if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(z0):
             ret_obj_positions[obj_class.item()] = (x0, y0, z0)
 
     return ret_obj_positions
