@@ -21,7 +21,7 @@ from predicators.settings import CFG
 
 # NOTE: uncomment this line if trying to visualize stuff locally
 # and matplotlib isn't displaying.
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
