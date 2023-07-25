@@ -46,12 +46,12 @@ class KitchenEnv(BaseEnv):
 
     at_atol = 0.2  # tolerance for At classifier
     ontop_atol = 0.15  # tolerance for OnTop classifier
-    on_angle_thresh = -0.8  # dial is On if less than this threshold
+    on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.4  # light is On if less than this threshold
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.0, -0.3, -0.12),  # need to push from behind kettle
-        "knob4": (-0.08, -0.12, 0.05),  # need to push from left to right
+        "knob4": (-0.1, -0.15, 0.05),  # need to push from left to right
         "light": (0.1, 0.05, -0.2),  # need to push from right to left
     }
 

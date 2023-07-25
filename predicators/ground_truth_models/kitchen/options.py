@@ -176,7 +176,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                            params: Array) -> Action:
             del state, objects  # unused
             sign = memory["sign"]
-            arr = np.array([sign * params[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            # Also push a little bit forward. TODO factor out.
+            forward_mag = 1e-1
+            arr = np.array([sign * params[0], forward_mag, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
         def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
