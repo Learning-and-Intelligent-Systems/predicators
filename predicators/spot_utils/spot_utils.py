@@ -516,7 +516,7 @@ class _SpotInterface():
                 transformed_location_dict[obj_class] = object_rt_gn_origin
 
         # Use the input class name as the identifier for object(s) and
-        # their positions
+        # their positions.
         return transformed_location_dict
 
     def convert_obj_location(
@@ -948,12 +948,8 @@ class _SpotInterface():
                 'rgb': process_image_response(image_responses[0]),
                 'depth': process_image_response(image_responses[1]),
             }
-            # NOTE: we now hard-code the 'yellow brush' to be a
-            # stand-in for the cube, which is quite a hack.
-            # We will remove this and do correct object classing
-            # in a future PR
             results = get_pixel_locations_with_detic_sam(
-                classes=[obj_name_to_vision_prompt['brush']],
+                obj_class=obj_name_to_vision_prompt[obj.name],
                 in_res_image=image_for_sam,
                 plot=CFG.spot_visualize_vision_model_outputs)
 

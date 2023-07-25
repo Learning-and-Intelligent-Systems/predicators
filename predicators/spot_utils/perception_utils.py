@@ -325,34 +325,30 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
 
 
 def get_pixel_locations_with_detic_sam(
-        classes: List[str],
+        obj_class: str,
         in_res_image: Dict[str, np.ndarray],
         plot: bool = False) -> List[Tuple[float, float]]:
     """Method to get the pixel locations of specific objects with class names
     listed in 'classes' within an input image."""
     res_segment = query_detic_sam(image_in=in_res_image['rgb'],
-                                  classes=classes,
+                                  classes=[obj_class],
                                   viz=plot)
     # return: 'masks', 'boxes', 'classes'
-    if res_segment is None:
+    if len(res_segment['classes']) == 0:
         return []
 
-    obj_num = len(res_segment['masks'])
-    assert obj_num == 1
-
+    assert res_segment['classes'].count(obj_class) == 1
     pixel_locations = []
 
-    # Detect multiple objects with their masks
-    for i in range(obj_num):
-        # Compute geometric center of object bounding box
-        x1, y1, x2, y2 = res_segment['boxes'][i]
-        x_c = (x1 + x2) / 2
-        y_c = (y1 + y2) / 2
-        # Plot center and segmentation mask
-        if plot:
-            plt.imshow(res_segment['masks'][i][0])
-            plt.show()
-        pixel_locations.append((x_c, y_c))
+    # Compute geometric center of object bounding box
+    x1, y1, x2, y2 = res_segment['boxes'][0].squeeze()
+    x_c = (x1 + x2) / 2
+    y_c = (y1 + y2) / 2
+    # Plot center and segmentation mask
+    if plot:
+        plt.imshow(res_segment['masks'][0][0].squeeze())
+        plt.show()
+    pixel_locations.append((x_c, y_c))
 
     return pixel_locations
 
@@ -464,6 +460,7 @@ def get_object_locations_with_detic_sam(
                                         depth_value=depth_median,
                                         point_x=x_c_rotated,
                                         point_y=y_c_rotated)
-        ret_obj_positions[obj_class.item()] = (x0, y0, z0)
+        if x0 != float('nan') and y0 != float("nan") and z0 != float("nan"):
+            ret_obj_positions[obj_class.item()] = (x0, y0, z0)
 
     return ret_obj_positions
