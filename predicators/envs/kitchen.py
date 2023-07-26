@@ -56,7 +56,7 @@ class KitchenEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        assert _MJKITCHEN_IMPORTED, "Failed to import mujoco_kitchen. \
+        assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
 Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
         # Predicates
