@@ -41,7 +41,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         assert _MJKITCHEN_IMPORTED, "See kitchen.py"
 
-        # Need to define these here because uses may not have euler2quat.
+        # Need to define these here because users may not have euler2quat.
         down_quat = euler2quat((-np.pi, 0.0, -np.pi / 2))
         # End effector facing forward (e.g., toward the knobs.)
         fwd_quat = euler2quat((-np.pi / 2, 0.0, -np.pi / 2))
