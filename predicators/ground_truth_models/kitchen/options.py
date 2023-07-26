@@ -1,23 +1,35 @@
 """Ground-truth options for the Kitchen environment."""
 
-from typing import Dict, Sequence, Set
+from typing import ClassVar, Dict, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
 
+from predicators.envs.kitchen import KitchenEnv
+from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.pybullet_helpers.geometry import Pose3D
+from predicators.structs import Action, Array, GroundAtom, Object, \
+    ParameterizedOption, Predicate, State, Type
+
 try:
-    from mujoco_kitchen.utils import primitive_and_params_to_primitive_action
+    from gymnasium_robotics.utils.rotations import euler2quat, quat2euler, \
+        subtract_euler
     _MJKITCHEN_IMPORTED = True
 except (ImportError, RuntimeError):
     _MJKITCHEN_IMPORTED = False
-from predicators.envs.kitchen import KitchenEnv
-from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Type
 
 
 class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the Kitchen environment."""
+
+    moveto_tol: ClassVar[float] = 0.01  # for terminating moving
+    max_delta_mag: ClassVar[float] = 1.0  # don't move more than this per step
+    # A reasonable home position for the end effector.
+    home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
+    # Move forward by this amount while pushing left/right.
+    push_lr_forward_mag: ClassVar[float] = 0.1
+    # Keep pushing a bit even if the On classifier holds.
+    push_lr_thresh_pad: ClassVar[float] = 0.01
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -27,19 +39,22 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
-        assert _MJKITCHEN_IMPORTED
+
+        assert _MJKITCHEN_IMPORTED, "See kitchen.py"
+
+        # Need to define these here because users may not have euler2quat.
+        down_quat = euler2quat((-np.pi, 0.0, -np.pi / 2))
+        # End effector facing forward (e.g., toward the knobs.)
+        fwd_quat = euler2quat((-np.pi / 2, 0.0, -np.pi / 2))
 
         # Types
         gripper_type = types["gripper"]
         object_type = types["obj"]
 
         # Predicates
-        TurnedOn = predicates["TurnedOn"]
         OnTop = predicates["OnTop"]
 
         options: Set[ParameterizedOption] = set()
-
-        max_delta_mag = 0.1  # don't move more than this per step
 
         # MoveTo
         def _MoveTo_initiable(state: State, memory: Dict,
@@ -52,14 +67,14 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
-            # We always move backward for 8 steps before executing the move.
-            # Ideally we would move to a home position, but it's not possible
-            # to do that reliably with end effector control. Moving for 8 steps
-            # seems to work well enough for now, but it's likely that this will
-            # need to be improved in the future as we add more skills,
-            # especially considering that 5 and 10 backward steps don't work,
-            # indicating that this is very fickle.
-            memory["reset_count"] = 8
+            # Turn the knobs by pushing from a "forward" position.
+            if "knob" in obj.name:
+                memory["target_quat"] = fwd_quat
+            else:
+                memory["target_quat"] = down_quat
+            memory["reset_pose"] = np.array(cls.home_pos, dtype=np.float32)
+            memory["reset_quat"] = down_quat
+            memory["has_reset"] = False
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -69,30 +84,45 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
-            if memory["reset_count"] > 0:
-                arr = primitive_and_params_to_primitive_action(
-                    "move_backward", [1.0])
-                memory["reset_count"] -= 1
+            gqw = state.get(gripper, "qw")
+            gqx = state.get(gripper, "qx")
+            gqy = state.get(gripper, "qy")
+            gqz = state.get(gripper, "qz")
+            current_euler = quat2euler([gqw, gqx, gqy, gqz])
+            if not memory["has_reset"]:
+                if np.allclose((gx, gy, gz),
+                               memory["reset_pose"],
+                               atol=cls.moveto_tol):
+                    target_pose = memory["target_pose"]
+                    target_quat = memory["target_quat"]
+                    memory["has_reset"] = True
+                else:
+                    target_pose = memory["reset_pose"]
+                    target_quat = memory["reset_quat"]
             else:
                 target_pose = memory["target_pose"]
-                delta_ee = target_pose - (gx, gy, gz)
-                delta_ee = np.clip(delta_ee, -max_delta_mag, max_delta_mag)
-                arr = primitive_and_params_to_primitive_action(
-                    "move_delta_ee_pose", delta_ee)
+                target_quat = memory["target_quat"]
+            dx, dy, dz = np.subtract(target_pose, (gx, gy, gz))
+            target_euler = quat2euler(target_quat)
+            droll, dpitch, dyaw = subtract_euler(target_euler, current_euler)
+            arr = np.array([dx, dy, dz, droll, dpitch, dyaw, 0.0],
+                           dtype=np.float32)
+            action_mag = np.linalg.norm(arr)
+            if action_mag > cls.max_delta_mag:
+                scale = cls.max_delta_mag / action_mag
+                arr = arr * scale
             return Action(arr)
 
         def _MoveTo_terminal(state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
             del params  # unused
-            if memory["reset_count"] > 0:
-                return False
             gripper = objects[0]
             gx = state.get(gripper, "x")
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
             return np.allclose((gx, gy, gz),
                                memory["target_pose"],
-                               atol=KitchenEnv.at_atol)
+                               atol=cls.moveto_tol)
 
         MoveTo = ParameterizedOption(
             "MoveTo",
@@ -110,8 +140,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
             del state, memory, objects  # unused
-            arr = primitive_and_params_to_primitive_action(
-                "move_forward", params)
+            arr = np.array([0.0, params[0], 0.0, 0.0, 0.0, 0.0, 0.0],
+                           dtype=np.float32)
             return Action(arr)
 
         def _PushObjOnObjForward_terminal(state: State, memory: Dict,
@@ -123,14 +153,14 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 return False
             # Stronger check to deal with case where push release leads object
             # to be no longer OnTop.
-            return state.get(
-                obj, "y") > state.get(obj2, "y") - KitchenEnv.at_atol / 2
+            return state.get(obj,
+                             "y") > state.get(obj2, "y") - cls.moveto_tol / 2
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
             types=[gripper_type, object_type, object_type],
             # Parameter is a magnitude for pushing forward.
-            params_space=Box(0.0, max_delta_mag, (1, )),
+            params_space=Box(0.0, cls.max_delta_mag, (1, )),
             policy=_PushObjOnObjForward_policy,
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_PushObjOnObjForward_terminal)
@@ -148,19 +178,23 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             ox = state.get(obj, "x")
             gx = state.get(gripper, "x")
             if gx > ox:
-                direction = "left"
+                sign = -1
             else:
-                direction = "right"
-            memory["direction"] = direction
+                sign = 1
+            memory["sign"] = sign
             return True
 
         def _PushObjTurnOnLeftRight_policy(state: State, memory: Dict,
                                            objects: Sequence[Object],
                                            params: Array) -> Action:
             del state, objects  # unused
-            direction = memory["direction"]
-            arr = primitive_and_params_to_primitive_action(
-                f"move_{direction}", params)
+            sign = memory["sign"]
+            # Also push a little bit forward.
+            arr = np.array([
+                sign * params[0], cls.push_lr_forward_mag, 0.0, 0.0, 0.0, 0.0,
+                0.0
+            ],
+                           dtype=np.float32)
             return Action(arr)
 
         def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
@@ -168,13 +202,15 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                              params: Array) -> bool:
             del memory, params  # unused
             _, obj = objects
-            return GroundAtom(TurnedOn, [obj]).holds(state)
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv.On_holds(state, [obj],
+                                       thresh_pad=cls.push_lr_thresh_pad)
 
         PushObjTurnOnLeftRight = ParameterizedOption(
             "PushObjTurnOnLeftRight",
             types=[gripper_type, object_type],
-            # Parameter is a magnitude for pushing right.
-            params_space=Box(0.0, max_delta_mag, (1, )),
+            # Parameter is a magnitude for pushing left/right.
+            params_space=Box(0.0, cls.max_delta_mag, (1, )),
             policy=_PushObjTurnOnLeftRight_policy,
             initiable=_PushObjTurnOnLeftRight_initiable,
             terminal=_PushObjTurnOnLeftRight_terminal)
