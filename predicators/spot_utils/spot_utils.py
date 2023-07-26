@@ -262,7 +262,11 @@ class _SpotInterface():
                Dict[str, Image], Dict[str,
                                       bosdyn.api.image_pb2.ImageResponse]]:
         """Get rgb and depth camera images + responses from all of spot's
-        cameras."""
+        cameras.
+
+        Returns rgb images, rgb image responses, depth images, depth
+        image responses.
+        """
         rgb_imgs: Dict[str, Image] = {}
         rgb_img_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse] = {}
         depth_imgs: Dict[str, Image] = {}
@@ -321,7 +325,10 @@ class _SpotInterface():
                                         bosdyn.api.image_pb2.ImageResponse]
     ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get objects currently in view for each camera."""
-        tag_to_pose = {source_name: {} for source_name in CAMERA_NAMES}
+        tag_to_pose: Dict[str, Dict[int, Tuple[float, float, float]]] = {
+            source_name: {}
+            for source_name in CAMERA_NAMES
+        }
         if from_apriltag:
             tag_to_pose = self.get_apriltag_poses_from_imgs(
                 rgb_image_dict, rgb_image_response_dict)
@@ -497,7 +504,7 @@ class _SpotInterface():
         rgb_image_response_dict: Dict[str, bosdyn.api.image_pb2.ImageResponse],
         depth_image_response_dict: Dict[str,
                                         bosdyn.api.image_pb2.ImageResponse],
-    ) -> Dict[str, Tuple[float, float, float]]:
+    ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get object location in 3D (no orientation) estimated using
         pretrained DETIC-SAM model."""
         res_location_dict = get_object_locations_with_detic_sam(
@@ -729,18 +736,33 @@ class _SpotInterface():
             self.navigate_to(waypoint_id, offset)
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
-                rgb_img_dict, rgb_img_response_dict, depth_img_dict, depth_img_response_dict = self.get_camera_images(
-                )
+                rgb_img_dict, rgb_img_response_dict, \
+                    depth_img_dict, depth_img_response_dict = \
+                        self.get_camera_images()
                 # We want to get objects in view both using AprilTags and
                 # using SAM potentially.
                 objects_in_view_by_camera = {}
                 objects_in_view_by_camera_apriltag = \
-                    self.get_objects_in_view_by_camera(from_apriltag=True, rgb_image_dict=rgb_img_dict, rgb_image_response_dict=rgb_img_response_dict, depth_image_dict=depth_img_dict, depth_image_response_dict=depth_img_response_dict)
+                    self.get_objects_in_view_by_camera(from_apriltag=True,
+                                                rgb_image_dict=rgb_img_dict,
+                                                rgb_image_response_dict=\
+                                                    rgb_img_response_dict,
+                                                depth_image_dict=\
+                                                    depth_img_dict,
+                                                depth_image_response_dict=\
+                                                    depth_img_response_dict)
                 objects_in_view_by_camera.update(
                     objects_in_view_by_camera_apriltag)
                 if CFG.spot_grasp_use_sam:
                     objects_in_view_by_camera_sam = \
-                        self.get_objects_in_view_by_camera(from_apriltag=False, rgb_image_dict=rgb_img_dict, rgb_image_response_dict=rgb_img_response_dict, depth_image_dict=depth_img_dict, depth_image_response_dict=depth_img_response_dict)
+                        self.get_objects_in_view_by_camera(from_apriltag=False,
+                                                    rgb_image_dict=rgb_img_dict,
+                                                    rgb_image_response_dict=\
+                                                        rgb_img_response_dict,
+                                                    depth_image_dict=\
+                                                        depth_img_dict,
+                                                    depth_image_response_dict=\
+                                                        depth_img_response_dict)
                     # Combine these together to get all objects in view.
                     for k, v in objects_in_view_by_camera.items():
                         v.update(objects_in_view_by_camera_sam[k])
@@ -966,8 +988,10 @@ class _SpotInterface():
         # Build the proto
         grasp = manipulation_api_pb2.PickObjectInImage(
             pixel_xy=pick_vec,
-            transforms_snapshot_for_camera=rgb_img_response.shot.transforms_snapshot,
-            frame_name_image_sensor=rgb_img_response.shot.frame_name_image_sensor,
+            transforms_snapshot_for_camera=rgb_img_response.shot.
+            transforms_snapshot,
+            frame_name_image_sensor=rgb_img_response.shot.
+            frame_name_image_sensor,
             camera_model=rgb_img_response.source.pinhole)
 
         # Optionally add a grasp constraint.  This lets you tell the robot you

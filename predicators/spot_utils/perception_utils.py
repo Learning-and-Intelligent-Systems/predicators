@@ -7,7 +7,6 @@ from typing import Dict, List, Tuple
 
 import bosdyn.client
 import bosdyn.client.util
-import cv2
 import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
@@ -23,7 +22,7 @@ from predicators.structs import Image
 
 # NOTE: uncomment this line if trying to visualize stuff locally
 # and matplotlib isn't displaying.
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
@@ -115,7 +114,15 @@ def query_detic_sam(rgb_image_dict_in: Dict[str, Image], classes: List[str],
                     viz: bool) -> Dict[str, Dict[str, List[NDArray]]]:
     """Send a query to SAM and return the response.
 
-    TODO
+    rgb_image_dict_in is expected to have keys corresponding to camera
+    names and values corresponding to images taken from the particular
+    camera named in the key. The DETIC-SAM model will send a batched
+    query with this dict, and will receive a response per key in the
+    dictionary (i.e, per input camera). The output will be a dictionary
+    mapping the same cameras named in the input to a dict with 'boxes',
+    'classes', 'masks' and 'scores' returned by DETIC-SAM. Importantly,
+    we only keep the top-scoring result for each class seen by each
+    camera.
     """
     buf_dict = {}
     for source_name in rgb_image_dict_in.keys():
@@ -321,8 +328,7 @@ def get_pixel_locations_with_detic_sam(
     assert len(rgb_image_dict.keys()) == 1
     camera_name = list(rgb_image_dict.keys())[0]
     if len(res_segment[camera_name]['classes']) == 0:
-        return pixel_locations
-
+        return []
 
     pixel_locations = []
 
@@ -345,7 +351,8 @@ def get_object_locations_with_detic_sam(
         depth_image_dict: Dict[str, Image],
         depth_image_response_dict: Dict[str,
                                         bosdyn.api.image_pb2.ImageResponse],
-        plot: bool = False) -> Dict[str, Tuple[float, float, float]]:
+        plot: bool = False
+) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
     """Given a list of string queries (classes), call SAM on these and return
     the positions of the centroids of these detections in the camera frame.
 
@@ -454,7 +461,8 @@ def get_object_locations_with_detic_sam(
                 plt.scatter(x=x_c, y=y_c, marker='*', color='green', zorder=3)
                 plt.show()
 
-            # Get XYZ of the point at center of bounding box and median depth value.
+            # Get XYZ of the point at center of bounding box and median depth
+            # value.
             x0, y0, z0 = get_xyz_from_depth(
                 depth_image_response_dict[source_name],
                 depth_value=depth_median,
