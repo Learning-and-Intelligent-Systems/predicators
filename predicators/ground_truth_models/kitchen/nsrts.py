@@ -123,8 +123,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
-                # Push inward.
-                push_angle = np.pi / 5
+                # Push slightly inward.
+                push_angle = np.pi / 8
             else:
                 push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
