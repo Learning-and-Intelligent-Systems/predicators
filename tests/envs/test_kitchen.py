@@ -36,12 +36,14 @@ def test_kitchen():
         task = perceiver.reset(env_task)
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 3
-    At, OnTop, TurnedOn = sorted(env.predicates)
+    assert len(env.predicates) == 5
+    At, NotOnTop, OnTop, TurnedOff, TurnedOn = sorted(env.predicates)
     assert At.name == "At"
+    assert NotOnTop.name == "NotOnTop"
     assert OnTop.name == "OnTop"
+    assert TurnedOff.name == "TurnedOff"
     assert TurnedOn.name == "TurnedOn"
-    assert env.goal_predicates == {At, OnTop, TurnedOn}
+    assert env.goal_predicates == {OnTop, TurnedOn}
     options = get_gt_options(env.get_name())
     assert len(options) == 3
     moveto_option, pushobjonobjforward_option, pushobjturnonright_option = \

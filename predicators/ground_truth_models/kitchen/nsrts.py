@@ -40,7 +40,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # Predicates
         At = predicates["At"]
         TurnedOn = predicates["TurnedOn"]
+        TurnedOff = predicates["TurnedOff"]
         OnTop = predicates["OnTop"]
+        NotOnTop = predicates["NotOnTop"]
 
         nsrts = set()
 
@@ -74,9 +76,12 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # PushObjOnObjForward
         parameters = [gripper, obj, obj2]
-        preconditions = {LiftedAtom(At, [gripper, obj])}
+        preconditions = {
+            LiftedAtom(At, [gripper, obj]),
+            LiftedAtom(NotOnTop, [obj, obj2])
+        }
         add_effects = {LiftedAtom(OnTop, [obj, obj2])}
-        delete_effects = set()
+        delete_effects = {LiftedAtom(NotOnTop, [obj, obj2])}
         ignore_effects = set()
         option = PushObjOnObjForward
         option_vars = [gripper, obj, obj2]
@@ -102,9 +107,12 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # PushObjTurnOnLeftRight
         parameters = [gripper, obj]
-        preconditions = {LiftedAtom(At, [gripper, obj])}
+        preconditions = {
+            LiftedAtom(At, [gripper, obj]),
+            LiftedAtom(TurnedOff, [obj])
+        }
         add_effects = {LiftedAtom(TurnedOn, [obj])}
-        delete_effects = set()
+        delete_effects = {LiftedAtom(TurnedOff, [obj])}
         ignore_effects = set()
         option = PushObjTurnOnLeftRight
         option_vars = [gripper, obj]

@@ -59,12 +59,11 @@ class KitchenEnv(BaseEnv):
         assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
 Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
+        self._pred_name_to_pred = self.create_predicates()
+
         if use_gui:
             assert not CFG.make_test_videos or CFG.make_failure_videos, \
                 "Turn off --use_gui to make videos in kitchen env"
-
-        # Predicates
-        self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
 
         render_mode = "human" if self._using_gui else "rgb_array"
         self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1",
@@ -138,11 +137,29 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._At, self._TurnedOn, self._OnTop}
+        return set(self._pred_name_to_pred.values())
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._At, self._TurnedOn, self._OnTop}
+        return {
+            self._pred_name_to_pred["OnTop"],
+            self._pred_name_to_pred["TurnedOn"]
+        }
+
+    @classmethod
+    def create_predicates(cls) -> Dict[str, Predicate]:
+        """Exposed for perceiver."""
+        preds = {
+            Predicate("At", [cls.gripper_type, cls.object_type],
+                      cls._At_holds),
+            Predicate("OnTop", [cls.object_type, cls.object_type],
+                      cls._OnTop_holds),
+            Predicate("NotOnTop", [cls.object_type, cls.object_type],
+                      cls._NotOnTop_holds),
+            Predicate("TurnedOn", [cls.object_type], cls.On_holds),
+            Predicate("TurnedOff", [cls.object_type], cls._Off_holds),
+        }
+        return {p.name: p for p in preds}
 
     @property
     def types(self) -> Set[Type]:
@@ -293,6 +310,10 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                                obj1, "z") > state.get(obj2, "z")
 
     @classmethod
+    def _NotOnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return not cls._OnTop_holds(state, objects)
+
+    @classmethod
     def On_holds(cls,
                  state: State,
                  objects: Sequence[Object],
@@ -304,6 +325,10 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         if obj.name == "light":
             return state.get(obj, "x") < cls.light_on_thresh - thresh_pad
         return False
+
+    @classmethod
+    def _Off_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return not cls.On_holds(state, objects)
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
