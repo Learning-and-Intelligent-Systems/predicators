@@ -576,6 +576,7 @@ class STRIPSOperator:
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
     ignore_effects: Set[Predicate]
+    fancy_ignore_effects: List[Tuple[Predicate, Dict[int, Variable]]] = field(default=None)
 
     def make_nsrt(
         self,
@@ -585,6 +586,8 @@ class STRIPSOperator:
     ) -> NSRT:
         """Make an NSRT out of this STRIPSOperator object, given the necessary
         additional fields."""
+        if self.fancy_ignore_effects is not None:
+            raise ValueError("Can only make NSRT if the fancy_ignore_effects are empty")
         return NSRT(self.name, self.parameters, self.preconditions,
                     self.add_effects, self.delete_effects, self.ignore_effects,
                     option, option_vars, sampler)
@@ -603,8 +606,12 @@ class STRIPSOperator:
         preconditions = {atom.ground(sub) for atom in self.preconditions}
         add_effects = {atom.ground(sub) for atom in self.add_effects}
         delete_effects = {atom.ground(sub) for atom in self.delete_effects}
+        if self.fancy_ignore_effects is not None:
+            fancy_ignore_effects = [(pred, {idx: sub[var] for idx, var in partial_vars.items()}) for pred, partial_vars in self.fancy_ignore_effects]
+        else:
+            fancy_ignore_effects = None
         return _GroundSTRIPSOperator(self, list(objects), preconditions,
-                                     add_effects, delete_effects)
+                                     add_effects, delete_effects, fancy_ignore_effects)
 
     @cached_property
     def _str(self) -> str:
@@ -650,6 +657,21 @@ class STRIPSOperator:
                 effects_str += f"(forall ({pred_types_str})" +\
                     f" (not ({pred.name} {pred_eff_variables_str})))"
                 effects_str += "\n        "
+        if self.fancy_ignore_effects:
+            if len(effects_str) != 0:
+                effects_str += "\n        "
+            for pred, partial_vars in sorted(self.fancy_ignore_effects, key=str):
+                pred_types_str = ""
+                pred_eff_variables_str = ""
+                for i in range(pred.arity):
+                    if i in partial_vars:
+                        pred_eff_variables_str += f"{partial_vars[i].name} "
+                    else:
+                        pred_types_str += f"?x{i} - {pred.types[i].name}"
+                        pred_eff_variables_str += f"?x{i} "
+                effects_str += f"(forall ({pred_types_str})" +\
+                    f" (not ({pred.name} {pred_eff_variables_str})))"
+                effects_str += "\n        "
         return f"""(:action {self.name}
     :parameters ({params_str})
     :precondition (and {preconds_str})
@@ -679,7 +701,8 @@ class STRIPSOperator:
                               preconditions=self.preconditions,
                               add_effects=self.add_effects,
                               delete_effects=self.delete_effects,
-                              ignore_effects=self.ignore_effects)
+                              ignore_effects=self.ignore_effects,
+                              fancy_ignore_effects=self.fancy_ignore_effects)
         assert set(kwargs.keys()).issubset(default_kwargs.keys())
         default_kwargs.update(kwargs)
         # mypy is known to have issues with this pattern:
@@ -710,7 +733,8 @@ class STRIPSOperator:
         new_params = [p for p in self.parameters if p in remaining_params]
         return STRIPSOperator(self.name, new_params, self.preconditions,
                               new_add_effects, new_delete_effects,
-                              self.ignore_effects | {effect.predicate})
+                              self.ignore_effects | {effect.predicate},
+                              self.fancy_ignore_effects)
 
     def get_complexity(self) -> float:
         """Get the complexity of this operator.
@@ -733,6 +757,7 @@ class _GroundSTRIPSOperator:
     preconditions: Set[GroundAtom]
     add_effects: Set[GroundAtom]
     delete_effects: Set[GroundAtom]
+    fancy_ignore_effects: List[Tuple[Predicate, Dict(int, Variable)]] = field(default=None)
 
     @cached_property
     def _str(self) -> str:
@@ -741,7 +766,8 @@ class _GroundSTRIPSOperator:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Ignore Effects: {sorted(self.ignore_effects, key=str)}"""
+    Ignore Effects: {sorted(self.ignore_effects, key=str)}
+    Fancy Ignore Effects: {sorted(self.fancy_ignore_effects, key=str) if self.fancy_ignore_effects is not None else None}"""
 
     @cached_property
     def _hash(self) -> int:
@@ -779,7 +805,7 @@ class _GroundSTRIPSOperator:
         return str(self) > str(other)
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=False, repr=False, eq=False)
 class NSRT:
     """Struct defining an NSRT, which contains the components of a STRIPS
     operator, a parameterized option, and a sampler function.
@@ -799,6 +825,8 @@ class NSRT:
     option_vars: Sequence[Variable]
     # A sampler maps a state, RNG, and objects to option parameters.
     _sampler: NSRTSampler = field(repr=False)
+    # Ignore effects that are partially tied to parameters
+    fancy_ignore_effects: List[Tuple[Predicate, Dict[int, Variable]]] = field(init=False, default=None)
 
     @cached_property
     def _str(self) -> str:
@@ -809,6 +837,7 @@ class NSRT:
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
     Ignore Effects: {sorted(self.ignore_effects, key=str)}
+    Fancy ignore effects: {sorted(self.fancy_ignore_effects, key=str) if self.fancy_ignore_effects else None}
     Option Spec: {self.option.name}({option_var_str})"""
 
     @cached_property
@@ -820,13 +849,20 @@ class NSRT:
         """Return the STRIPSOperator associated with this NSRT."""
         return STRIPSOperator(self.name, self.parameters, self.preconditions,
                               self.add_effects, self.delete_effects,
-                              self.ignore_effects)
+                              self.ignore_effects, self.fancy_ignore_effects)
 
     def __str__(self) -> str:
         return self._str
 
     def __repr__(self) -> str:
         return str(self)
+
+    def add_fancy_ignore_effect(self, pred: Predicate, partial_vars: Dict[int, Variable]):
+        if self.fancy_ignore_effects is None:
+            self.fancy_ignore_effects = []
+        for i in partial_vars:
+            assert partial_vars[i].is_instance(pred.types[i])
+        self.fancy_ignore_effects.append((pred, partial_vars))
 
     def pddl_str(self) -> str:
         """Get a string representation suitable for writing out to a PDDL
@@ -882,9 +918,13 @@ class NSRT:
         add_effects = {atom.ground(sub) for atom in self.add_effects}
         delete_effects = {atom.ground(sub) for atom in self.delete_effects}
         option_objs = [sub[v] for v in self.option_vars]
+        if self.fancy_ignore_effects is not None:
+            fancy_ignore_effects = [(pred, {idx: sub[var] for idx, var in partial_vars.items()}) for pred, partial_vars in self.fancy_ignore_effects]
+        else:
+            fancy_ignore_effects = None
         return _GroundNSRT(self, objects, preconditions, add_effects,
                            delete_effects, self.option, option_objs,
-                           self._sampler)
+                           self._sampler, fancy_ignore_effects)
 
     def filter_predicates(self, kept: Collection[Predicate]) -> NSRT:
         """Keep only the given predicates in the preconditions, add effects,
@@ -900,9 +940,15 @@ class NSRT:
             for a in self.delete_effects if a.predicate in kept
         }
         ignore_effects = {a for a in self.ignore_effects if a in kept}
-        return NSRT(self.name, self.parameters, preconditions, add_effects,
+
+        new_nsrt = NSRT(self.name, self.parameters, preconditions, add_effects,
                     delete_effects, ignore_effects, self.option,
                     self.option_vars, self._sampler)
+        if self.fancy_ignore_effects is not None:
+            for pred, partial_vars in self.fancy_ignore_effects:
+                if pred in kept:
+                    new_nsrt.add_fancy_ignore_effect(pred, partial_vars)
+        return new_nsrt
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -919,6 +965,7 @@ class _GroundNSRT:
     option: ParameterizedOption
     option_objs: Sequence[Object]
     _sampler: NSRTSampler = field(repr=False)
+    fancy_ignore_effects: List[Tuple[Pred, Dict(int, Variable)]] = field(default=None)
 
     @cached_property
     def _str(self) -> str:
@@ -928,6 +975,7 @@ class _GroundNSRT:
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
     Ignore Effects: {sorted(self.ignore_effects, key=str)}
+    Fancy Ignore Effects: {sorted(self.fancy_ignore_effects, key=str) if self.fancy_ignore_effects is not None else None}
     Option: {self.option}
     Option Objects: {self.option_objs}"""
 

@@ -590,6 +590,10 @@ class GlobalSettings:
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
+    # Behavior2D
+    behavior_task_name = "defrosting_freezer"
+    behavior_init_states_path = "/home/jmendez/Research/Behavior/predicators_behavior_v2/init_states/"
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the

@@ -506,6 +506,66 @@ class Rectangle(_Geom2D):
                                   **kwargs)
         ax.add_patch(patch)
 
+    def distance_nearest_point(self, x: float, y: float) -> float:
+        # https://stackoverflow.com/a/18157551
+        rotate_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+                                  [-np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        dx = max(-rx, 0, rx - self.width)
+        dy = max(-ry, 0, ry - self.height)
+        dist = np.sqrt(dx * dx + dy * dy)
+
+        return dist
+
+    def nearest_point(self, x: float, y: float) -> Tuple[float, float]:
+        rotate_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+                                  [-np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        if rx < 0 and ry < 0:
+            ra, rb = 0, 0
+        elif rx < 0 and 0 <= ry < self.height:
+            ra, rb = 0, ry
+        elif rx < 0 and ry >= self.height:
+            ra, rb = 0, self.height
+        elif 0 <= rx < self.width and ry < 0:
+            ra, rb = rx, 0
+        elif 0 <= rx < self. width and 0 <= ry < self.height:
+            ra, rb = rx, ry
+        elif 0 <= rx < self.width and ry >= self.height:
+            ra, rb = rx, self.height
+        elif rx >= self.width and ry < 0:
+            ra, rb = self.width, 0
+        elif rx >= self.width and 0 <= ry < self.height:
+            ra, rb = self.width, ry
+        elif rx >= self.width and ry >= self.height:
+            ra, rb = self.width, self.height
+
+        x, y = np.array([ra, rb]) @ rotate_matrix + np.array([self.x, self.y])
+
+        return x, y
+
+    def relative_reoriented_coordinates(self, x: float, y: float) -> Tuple[float, float]:
+        rotate_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+                                  [-np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        return rx, ry
+
+    def distance_to(self, other: Rectangle) -> float:
+        if rectangles_intersect(self, other):
+            return 0
+        dist_a = min(self.distance_nearest_point(*(other.vertices[0])),
+                     self.distance_nearest_point(*(other.vertices[1])),
+                     self.distance_nearest_point(*(other.vertices[2])),
+                     self.distance_nearest_point(*(other.vertices[3])))
+        dist_b = min(other.distance_nearest_point(*(self.vertices[0])),
+                     other.distance_nearest_point(*(self.vertices[1])),
+                     other.distance_nearest_point(*(self.vertices[2])),
+                     other.distance_nearest_point(*(self.vertices[3])))
+        return min(dist_a, dist_b)
+
 
 def line_segments_intersect(seg1: LineSegment, seg2: LineSegment) -> bool:
     """Checks if two line segments intersect.
@@ -2540,6 +2600,19 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     # appears in the effects, we still know that the effects
     # will be true, so we don't want to remove them.
     new_atoms = {a for a in atoms if a.predicate not in op.ignore_effects}
+    new_new_atoms = set()
+    if op.fancy_ignore_effects is not None:
+        for a in new_atoms:
+            remove = False
+            for pred, partial_objs in op.fancy_ignore_effects:
+                if a.predicate == pred:
+                    remove = True
+                    for i in range(pred.arity):
+                        if i in partial_objs and partial_objs[i] != a.objects[i]:
+                            remove = False
+            if not remove:
+                new_new_atoms.add(a)
+    new_atoms = new_new_atoms
     for atom in op.delete_effects:
         new_atoms.discard(atom)
     for atom in op.add_effects:
@@ -2786,9 +2859,12 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
         parent_to_children_types: Dict[Type,
                                        List[Type]] = {t: []
                                                       for t in types}
+        parentless_children_types: List[Type] = []
         for t in sorted(types):
             if t.parent:
                 parent_to_children_types[t.parent].append(t)
+            else:
+                parentless_children_types.append(t)
         types_str = ""
         for parent_type in sorted(parent_to_children_types):
             child_types = parent_to_children_types[parent_type]
@@ -2796,6 +2872,9 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
                 continue
             child_type_str = " ".join(t.name for t in child_types)
             types_str += f"\n    {child_type_str} - {parent_type.name}"
+        parentless_children_types = [t for t in parentless_children_types if not parent_to_children_types[t]]
+        child_type_str = " ".join(t.name for t in parentless_children_types)
+        types_str += f"\n    {child_type_str}"
     ops_lst = sorted(operators)
     preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
     ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)

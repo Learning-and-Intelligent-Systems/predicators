@@ -400,9 +400,9 @@ def _skeleton_generator(
             visited_atom_sets.add(frozen_atoms)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        # for act in node.skeleton:
-        #     logging.info(f"{act.name} {act.objects}")
-        # logging.info("")
+        for act in node.skeleton:
+            logging.info(f"{act.name} {act.objects}")
+        logging.info("")
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
@@ -550,6 +550,7 @@ def run_low_level_search(
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
         num_tries[cur_idx] += 1
+        logging.info(f"{skeleton[cur_idx].name}, {skeleton[cur_idx].objects}, {num_tries[cur_idx]}")
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
@@ -610,7 +611,12 @@ def run_low_level_search(
                         can_continue_on = True
                         if cur_idx == len(skeleton):
                             plan_found = True
+                        logging.info(f"Successfully sampled {skeleton[cur_idx-1].name} params")
                     else:
+                        logging.info("\tFailure: Expected Atoms Check Failed.")
+                        for a in expected_atoms:
+                            if not a.holds(traj[cur_idx]):
+                                logging.info("\t" + a.__str__())
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
@@ -973,9 +979,11 @@ def generate_sas_file_for_fd(
     dom_file = tempfile.NamedTemporaryFile(delete=False).name
     with open(dom_file, "w", encoding="utf-8") as f:
         f.write(dom_str)
+    logging.info(f"Generated domain file at {dom_file}")
     prob_file = tempfile.NamedTemporaryFile(delete=False).name
     with open(prob_file, "w", encoding="utf-8") as f:
         f.write(prob_str)
+    logging.info(f"Generated problem file at {prob_file}")
     # The SAS file is used when augmenting the grounded operators,
     # during dicovered failures, and it's important that we give
     # it a name, because otherwise Fast Downward uses a fixed
@@ -985,7 +993,8 @@ def generate_sas_file_for_fd(
     # Run to generate sas
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
                f"--sas-file {sas_file} {dom_file} {prob_file}")
-    subprocess.getoutput(cmd_str)
+    logging.info(f"Generated sas file at {sas_file}")
+    output = subprocess.getoutput(cmd_str)
     return sas_file
 
 
@@ -1006,7 +1015,7 @@ def fd_plan_from_sas_file(
     metrics: Metrics = defaultdict(float)
     num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
     num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
-    assert len(num_nodes_expanded) == 1
+    assert len(num_nodes_expanded) == 1, f"Failed FD:\n{output}"
     assert len(num_nodes_created) == 1
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
     metrics["num_nodes_created"] = float(num_nodes_created[0])
@@ -1070,6 +1079,7 @@ def _sesame_plan_with_fast_downward(
         alias_flag = "--alias seq-opt-lmcut"
     else:  # satisficing
         alias_flag = "--alias lama-first"
+        # alias_flag = "--alias seq-sat-lama-2011"
     # Run Fast Downward followed by cleanup. Capture the output.
     assert "FD_EXEC_PATH" in os.environ, \
         "Please follow the instructions in the docstring of this method!"
@@ -1084,6 +1094,13 @@ def _sesame_plan_with_fast_downward(
         skeleton, atoms_sequence, metrics = fd_plan_from_sas_file(
             sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
             objects, init_atoms, nsrts, max_horizon)
+        logging.info("Found plan skeleton!")
+        # Good debug point #1: print out the skeleton here to see what
+        # the high-level search is doing. You can accomplish this via:
+        for act in skeleton:
+            logging.info(f"{act.name} {act.objects}")
+        logging.info("")
+        # exit()
         # Run low-level search on this skeleton.
         low_level_timeout = timeout - (time.perf_counter() - start_time)
         try:
