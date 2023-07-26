@@ -10,10 +10,10 @@ ENVS:
   #   NAME: "kitchen"
   #   FLAGS:
   #     kitchen_goals: "kettle_only"
-  kitchen-knob-only:
-    NAME: "kitchen"
-    FLAGS:
-      kitchen_goals: "knob_only"
+  # kitchen-knob-only:
+  #   NAME: "kitchen"
+  #   FLAGS:
+  #     kitchen_goals: "knob_only"
   kitchen-light-only:
     NAME: "kitchen"
     FLAGS:
