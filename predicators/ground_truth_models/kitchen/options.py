@@ -7,7 +7,7 @@ from gym.spaces import Box
 
 from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Type
 
@@ -24,11 +24,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     moveto_tol: ClassVar[float] = 0.01  # for terminating moving
     max_delta_mag: ClassVar[float] = 1.0  # don't move more than this per step
-    # A reasonable home position and rotation for the end effector.
+    # A reasonable home position for the end effector.
     home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
-    down_quat: ClassVar[Quaternion] = euler2quat((-np.pi, 0.0, -np.pi / 2))
-    # End effector facing forward (e.g., toward the knobs.)
-    fwd_quat: ClassVar[Quaternion] = euler2quat((-np.pi / 2, 0.0, -np.pi / 2))
     # Move forward by this amount while pushing left/right.
     push_lr_forward_mag: ClassVar[float] = 0.1
     # Keep pushing a bit even if the On classifier holds.
@@ -44,6 +41,11 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                     action_space: Box) -> Set[ParameterizedOption]:
 
         assert _MJKITCHEN_IMPORTED, "See kitchen.py"
+
+        # Need to define these here because uses may not have euler2quat.
+        down_quat = euler2quat((-np.pi, 0.0, -np.pi / 2))
+        # End effector facing forward (e.g., toward the knobs.)
+        fwd_quat = euler2quat((-np.pi / 2, 0.0, -np.pi / 2))
 
         # Types
         gripper_type = types["gripper"]
@@ -67,11 +69,11 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             memory["target_pose"] = target_pose
             # Turn the knobs by pushing from a "forward" position.
             if "knob" in obj.name:
-                memory["target_quat"] = cls.fwd_quat
+                memory["target_quat"] = fwd_quat
             else:
-                memory["target_quat"] = cls.down_quat
+                memory["target_quat"] = down_quat
             memory["reset_pose"] = np.array(cls.home_pos, dtype=np.float32)
-            memory["reset_quat"] = cls.down_quat
+            memory["reset_quat"] = down_quat
             memory["has_reset"] = False
             return True
 
