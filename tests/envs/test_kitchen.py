@@ -86,7 +86,8 @@ def test_kitchen():
     assert "Simulate not implemented for gym envs." in str(e)
 
     # Test NSRTs.
-    MoveToPrePushOnTop, MoveToPreTurnOn, PushObjOnObjForward, PushObjTurnOnLeftRight = sorted(nsrts)
+    MoveToPrePushOnTop, MoveToPreTurnOn, PushObjOnObjForward, \
+        PushObjTurnOnLeftRight = sorted(nsrts)
     assert MoveToPrePushOnTop.name == "MoveToPrePushOnTop"
     assert MoveToPreTurnOn.name == "MoveToPreTurnOn"
     assert PushObjOnObjForward.name == "PushObjOnObjForward"

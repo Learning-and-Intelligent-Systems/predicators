@@ -363,13 +363,3 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
-
-    def get_goal_at_predicates(self: Any) -> Sequence[Predicate]:
-        """Defined public so that the perceiver can use it."""
-        return [
-            Predicate("At", [self.gripper_type, self.object_type],
-                      self._At_holds),
-            Predicate("OnTop", [self.object_type, self.object_type],
-                      self._OnTop_holds),
-            Predicate("TurnedOn", [self.object_type], self.On_holds),
-        ]

@@ -73,9 +73,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # MoveToPrePushOnTop
         parameters = [gripper, obj]
-        preconditions: Set[LiftedAtom] = set()
+        preconditions = set()
         add_effects = {LiftedAtom(AtPrePushOnTop, [gripper, obj])}
-        delete_effects: Set[LiftedAtom] = set()
+        delete_effects = set()
         ignore_effects = {AtPreTurnOn, AtPrePushOnTop}
         option = MoveTo
         option_vars = [gripper, obj]
