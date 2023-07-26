@@ -100,10 +100,15 @@ def test_kitchen():
     burner4 = obj_name_to_obj["burner4"]
     light = obj_name_to_obj["light"]
 
-    def _run_ground_nsrt(ground_nsrt, state):
+    def _run_ground_nsrt(ground_nsrt,
+                         state,
+                         override_params=None,
+                         assert_effects=True):
         for atom in ground_nsrt.preconditions:
             assert atom.holds(state)
         option = ground_nsrt.sample_option(state, set(), rng)
+        if override_params is not None:
+            option = option.parent.ground(option.objects, override_params)
         assert option.initiable(state)
         for _ in range(1000):
             act = option.policy(state)
@@ -111,10 +116,11 @@ def test_kitchen():
             state = env.state_info_to_state(obs["state_info"])
             if option.terminal(state):
                 break
-        for atom in ground_nsrt.add_effects:
-            assert atom.holds(state)
-        for atom in ground_nsrt.delete_effects:
-            assert not atom.holds(state)
+        if assert_effects:
+            for atom in ground_nsrt.add_effects:
+                assert atom.holds(state)
+            for atom in ground_nsrt.delete_effects:
+                assert not atom.holds(state)
         return state
 
     # Set up all the NSRTs for the following tests.
@@ -184,3 +190,16 @@ def test_kitchen():
     assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob4]).holds(state)
     assert TurnedOn([light]).holds(state)
+
+    # Test that we can't push the knob twice in a row, even if the first push
+    # failed to turn on the burner.
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_knob4_nsrt, state)
+    state = _run_ground_nsrt(push_knob4_nsrt,
+                             state,
+                             override_params=np.array([-np.pi / 6]),
+                             assert_effects=False)
+    assert not TurnedOn([knob4]).holds(state)
+    assert not all(p.holds(state) for p in push_knob4_nsrt.preconditions)
