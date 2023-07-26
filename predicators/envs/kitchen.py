@@ -59,6 +59,10 @@ class KitchenEnv(BaseEnv):
         assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
 Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
+        if use_gui:
+            assert not CFG.make_test_videos or CFG.make_failure_videos, \
+                "Turn off --use_gui to make videos in kitchen env"
+
         # Predicates
         self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
 
@@ -293,6 +297,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                  state: State,
                  objects: Sequence[Object],
                  thresh_pad: float = 0.0) -> bool:
+        """Made public for use in ground-truth options."""
         obj = objects[0]
         if "knob" in obj.name:
             return state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
