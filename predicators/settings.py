@@ -317,7 +317,6 @@ class GlobalSettings:
 
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
-    kitchen_camera_size = 512
     kitchen_goals = "all"
 
     # parameters for random options approach
@@ -617,6 +616,7 @@ class GlobalSettings:
                     "pybullet_blocks": 1000,
                     "doors": 1000,
                     "coffee": 1000,
+                    "kitchen": 1000,
                     # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
