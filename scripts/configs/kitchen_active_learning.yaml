@@ -28,8 +28,8 @@ FLAGS:  # general flags
   num_train_tasks: 100
   num_test_tasks: 10
   max_initial_demos: 0
-  max_num_steps_interaction_request: 100
-  max_num_steps_option_rollout: 50
+  max_num_steps_interaction_request: 1000
+  max_num_steps_option_rollout: 1000
   online_nsrt_learning_requests_per_cycle: 5
   num_online_learning_cycles: 10
   sampler_mlp_classifier_max_itr: 100000
