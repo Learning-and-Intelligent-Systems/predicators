@@ -86,7 +86,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             rng: np.random.Generator,
                                             objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # Sample a direction to push.
+            # Sample a direction to push w.r.t. the y axis.
             if CFG.kitchen_use_perfect_samplers:
                 push_angle = 0.0
             else:
@@ -109,18 +109,22 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = PushObjTurnOnLeftRight
         option_vars = [gripper, obj]
 
-        def push_obj_turn_on_right_sampler(state: State, goal: Set[GroundAtom],
-                                           rng: np.random.Generator,
-                                           objs: Sequence[Object]) -> Array:
-            del state, goal, objs, rng  # unused
-            dx = 0.1
-            return np.array([dx], dtype=np.float32)
+        def push_obj_turn_on_sampler(state: State, goal: Set[GroundAtom],
+                                     rng: np.random.Generator,
+                                     objs: Sequence[Object]) -> Array:
+            del state, goal, objs  # unused
+            # Sample a direction to push w.r.t. the x axis.
+            if CFG.kitchen_use_perfect_samplers:
+                # Push inward.
+                push_angle = np.pi / 5
+            else:
+                push_angle = rng.uniform(-np.pi / 4, np.pi / 4)
+            return np.array([push_angle], dtype=np.float32)
 
-        push_obj_turn_on_right_nsrt = NSRT("PushObjTurnOnLeftRight",
-                                           parameters, preconditions,
-                                           add_effects, delete_effects,
-                                           ignore_effects, option, option_vars,
-                                           push_obj_turn_on_right_sampler)
-        nsrts.add(push_obj_turn_on_right_nsrt)
+        push_obj_turn_on_nsrt = NSRT("PushObjTurnOnLeftRight", parameters,
+                                     preconditions, add_effects,
+                                     delete_effects, ignore_effects, option,
+                                     option_vars, push_obj_turn_on_sampler)
+        nsrts.add(push_obj_turn_on_nsrt)
 
         return nsrts
