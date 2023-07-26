@@ -39,7 +39,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         object_type = types["obj"]
 
         # Predicates
-        TurnedOn = predicates["TurnedOn"]
         OnTop = predicates["OnTop"]
 
         options: Set[ParameterizedOption] = set()
@@ -193,7 +192,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory, params  # unused
             _, obj = objects
             # Use a more stringent threshold to avoid numerical issues.
-            return KitchenEnv._On_holds(state, [obj], thresh_pad=0.01)
+            return KitchenEnv.On_holds(state, [obj], thresh_pad=0.01)
 
         PushObjTurnOnLeftRight = ParameterizedOption(
             "PushObjTurnOnLeftRight",

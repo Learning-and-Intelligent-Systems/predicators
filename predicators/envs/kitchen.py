@@ -215,8 +215,8 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         light = Object("light", self.object_type)
         goal_desc = self._current_task.goal_description
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
-        knob_turned_on = self._On_holds(state, [knob])
-        light_turned_on = self._On_holds(state, [light])
+        knob_turned_on = self.On_holds(state, [knob])
+        light_turned_on = self.On_holds(state, [light])
         if goal_desc == ("Move the kettle to the back burner and turn it on; "
                          "also turn on the light"):
             return kettle_on_burner and knob_turned_on and light_turned_on
@@ -289,10 +289,10 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                                obj1, "z") > state.get(obj2, "z")
 
     @classmethod
-    def _On_holds(cls,
-                  state: State,
-                  objects: Sequence[Object],
-                  thresh_pad: float = 0.0) -> bool:
+    def On_holds(cls,
+                 state: State,
+                 objects: Sequence[Object],
+                 thresh_pad: float = 0.0) -> bool:
         obj = objects[0]
         if "knob" in obj.name:
             return state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
@@ -310,5 +310,5 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                       self._At_holds),
             Predicate("OnTop", [self.object_type, self.object_type],
                       self._OnTop_holds),
-            Predicate("TurnedOn", [self.object_type], self._On_holds),
+            Predicate("TurnedOn", [self.object_type], self.On_holds),
         ]
