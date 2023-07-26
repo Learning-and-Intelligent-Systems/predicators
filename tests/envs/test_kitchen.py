@@ -125,8 +125,6 @@ def test_kitchen():
         [gripper, kettle, burner4])
 
     # Test moving to and turning on the light.
-    # TODO
-    import ipdb; ipdb.set_trace()
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)

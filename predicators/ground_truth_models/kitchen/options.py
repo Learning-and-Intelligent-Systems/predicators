@@ -57,7 +57,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
             # TODO add comment
-            if target_pose[2] > 2.0:
+            if "knob" in obj.name:
                 memory["target_quat"] = euler2quat([-np.pi / 2, 0.0, -np.pi / 2])
             else:
                 memory["target_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])
