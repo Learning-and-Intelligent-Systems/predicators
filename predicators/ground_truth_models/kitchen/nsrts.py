@@ -120,11 +120,15 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def push_obj_turn_on_sampler(state: State, goal: Set[GroundAtom],
                                      rng: np.random.Generator,
                                      objs: Sequence[Object]) -> Array:
-            del state, goal, objs  # unused
+            del state, goal  # unused
+            _, obj = objs
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
                 # Push slightly inward.
-                push_angle = np.pi / 8
+                if "knob" in obj.name:
+                    push_angle = np.pi / 8
+                else:
+                    push_angle = np.pi / 4
             else:
                 push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
