@@ -85,9 +85,13 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             goal: Set[GroundAtom],
                                             rng: np.random.Generator,
                                             objs: Sequence[Object]) -> Array:
-            del state, goal, objs, rng  # unused
-            dy = 0.1
-            return np.array([dy], dtype=np.float32)
+            del state, goal, objs  # unused
+            # Sample a direction to push.
+            if CFG.kitchen_use_perfect_samplers:
+                push_angle = 0.0
+            else:
+                push_angle = rng.uniform(-np.pi/ 4, np.pi / 4)
+            return np.array([push_angle], dtype=np.float32)
 
         push_obj_on_obj_forward_nsrt = NSRT("PushObjOnObjForward", parameters,
                                             preconditions, add_effects,
