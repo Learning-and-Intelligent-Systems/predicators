@@ -629,8 +629,8 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
         seen: Dict[FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]],
                    Predicate] = {}  # keys are from _get_predicate_identifier()
         for (predicate, cost) in self.base_grammar.enumerate():
-            if predicate.name == "((0:block).held<=[idx 0]0.5)":
-                yield (predicate, cost)
+            # if predicate.name == "((0:block).held<=[idx 0]0.5)":
+            #     yield (predicate, cost)
             if cost >= CFG.grammar_search_predicate_cost_upper_bound:
                 return
             pred_id = self._get_predicate_identifier(predicate)
@@ -908,6 +908,20 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         #         learned_clear = p
         # import pdb; pdb.set_trace()
 
+        # predicates_to_keep = set()
+        # for c in candidates.keys():
+        #     if c.name == "(|(0:dot).x - (1:robot).x|<=[idx 7]6.24)":
+        #         predicates_to_keep.add(c)
+        #         print("Adding in to debug: ", c.name)
+        # predicates_to_keep -= initial_predicates
+        # logging.info(
+        #     f"\nSelected {len(predicates_to_keep)} predicates out of "
+        #     f"{len(candidates)} candidates:")
+        # for pred in predicates_to_keep:
+        #     logging.info(f"\t{pred}")
+        # return predicates_to_keep
+
+
         if CFG.grammar_search_pred_clusterer == "option-type-number-sample":
             # Algorithm:
             # Step 1: cluster segments according to which option was executed
@@ -929,6 +943,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
             from functools import reduce
             flattened_segmented_trajs = reduce(lambda a, b: a+b, segmented_trajs)
+
+            # import pdb; pdb.set_trace()
 
             # Step 1:
             option_to_segments = {}
@@ -988,35 +1004,51 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for j, cluster in enumerate(all_clusters):
                 example_segment = cluster[0]
                 option_name = example_segment.get_option().name
-                if len(example_segment.get_option().params) == 0 or option_name == "PutOnTable":
+                if len(example_segment.get_option().params) == 0:
                     final_clusters.append(cluster)
-                    logging.info(f"STEP 4: generated no further sample-based clusters for the {j+1}th cluster from STEP 3 involving option {option_name}.")
+                    logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {j+1}th cluster from STEP 3 involving option {option_name}.")
                 else:
                     # Do model selection between
                     # a uniform distribution and a gaussian mixture?
                     import numpy as np
                     from sklearn.mixture import GaussianMixture as GMM
+                    from scipy.stats import kstest
                     data = np.array([seg.get_option().params for seg in cluster])
-                    max_components = min(len(data), len(np.unique(data)), CFG.grammar_search_clustering_gmm_num_components)
-                    n_components = np.arange(1, max_components+1)
-                    models = [GMM(n, covariance_type="full", random_state=0).fit(data)
-                        for n in n_components]
-                    bic = [m.bic(data) for m in models]
-                    # TODO: add some penalty based on how it gets less data in each cluster.
+                    # If parameter is uniformly distributed, don't cluster
+                    # further. Should do a multi-dimensional test but won't do
+                    # that for now. TODO: do that later.
+                    all_uniform = True
+                    for i in range(data.shape[1]):
+                        col = data[:,i]
+                        p_value = kstest(col, "uniform").pvalue
+                        # Significance value of 0.05
+                        if p_value < 0.05:
+                            all_uniform = False
+                            break
+                    if all_uniform:
+                        final_clusters.append(cluster)
+                        logging.info(f"STEP 4: generated no further sample-based clusters (uniformly distributed parameter!) for the {j+1}th cluster from STEP 3 involving option {option_name}.")
+                    else:
+                        max_components = min(len(data), len(np.unique(data)), CFG.grammar_search_clustering_gmm_num_components)
+                        n_components = np.arange(1, max_components+1)
+                        models = [GMM(n, covariance_type="full", random_state=0).fit(data)
+                            for n in n_components]
+                        bic = [m.bic(data) for m in models]
+                        # TODO: add some penalty based on how it gets less data in each cluster.
 
-                    best = models[np.argmin(bic)]
-                    assignments = best.predict(data)
+                        best = models[np.argmin(bic)]
+                        assignments = best.predict(data)
 
-                    sub_clusters = {}
-                    for i, assignment in enumerate(assignments):
-                        if assignment in sub_clusters:
-                            sub_clusters[assignment].append(cluster[i])
-                        else:
-                            sub_clusters[assignment] = [cluster[i]]
+                        sub_clusters = {}
+                        for i, assignment in enumerate(assignments):
+                            if assignment in sub_clusters:
+                                sub_clusters[assignment].append(cluster[i])
+                            else:
+                                sub_clusters[assignment] = [cluster[i]]
 
-                    logging.info(f"STEP 4: generated {len(sub_clusters.values())} sample-based clusters for the {j+1}th cluster from STEP 3 involving option {option_name}.")
-                    for c in sub_clusters.values():
-                        final_clusters.append(c)
+                        logging.info(f"STEP 4: generated {len(sub_clusters.values())} sample-based clusters for the {j+1}th cluster from STEP 3 involving option {option_name}.")
+                        for c in sub_clusters.values():
+                            final_clusters.append(c)
 
             logging.info(f"Total {len(final_clusters)} final clusters.")
 
@@ -1029,11 +1061,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
                 add_effects = set.intersection(*ungrounded_add_effects_per_segment)
                 add_effects_per_cluster.append(add_effects)
-                print(f"Cluster {j} predicates:")
+                print(f"Cluster {j} with option {c[0].get_option().name}, predicates:")
                 for a in add_effects:
                     print(a)
                 print()
                 all_add_effects |= add_effects
+                # import pdb; pdb.set_trace()
 
                 #
                 # ex = c[0]
@@ -1044,82 +1077,92 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             predicates_to_keep = all_add_effects
 
-            # # Remove inconsistent predicates.
-            # inconsistent_preds = set()
-            #
-            # # Old way to remove inconsistent predicates
-            # predicates_to_keep: Set[Predicate] = set()
-            # for pred in all_add_effects:
-            #     keep_pred = True
-            #     for j, seg_list in enumerate(final_clusters):
-            #         seg_0 = seg_list[0]
-            #         pred_in_add_effs_0 = pred in [
-            #             atom.predicate for atom in seg_0.add_effects
-            #         ]
-            #         pred_in_del_effs_0 = pred in [
-            #             atom.predicate for atom in seg_0.delete_effects
-            #         ]
-            #         for seg in seg_list[1:]:
-            #             pred_in_curr_add_effs = pred in [
-            #                 atom.predicate for atom in seg.add_effects
-            #             ]
-            #             pred_in_curr_del_effs = pred in [
-            #                 atom.predicate for atom in seg.delete_effects
-            #             ]
-            #             A = pred_in_add_effs_0 != pred_in_curr_add_effs
-            #             B = pred_in_del_effs_0 != pred_in_curr_del_effs
-            #             if A or B:
-            #             # if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
-            #             #         and
-            #             #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
-            #                 keep_pred = False
-            #                 print("INCONSISTENT: ", pred.name)
-            #                 inconsistent_preds.add(pred)
-            #                 # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
-            #                 #     import pdb; pdb.set_trace()
-            #                 break
-            #         if not keep_pred:
-            #             break
-            #     if keep_pred:
-            #         predicates_to_keep.add(pred)
-            #     else:
-            #         inconsistent_preds.add(pred)
-            #
-            # # Re-add inconsistent predicates that were necessary to disambiguate two clusters.
-            # # That is, if any two clusters's predicates look the same after removing inconsistent predicates from both,
-            # # keep all those predicates.
-            # new_add_effects_per_cluster = []
-            # for effs_cluster in add_effects_per_cluster:
-            #     new_add_effects_per_cluster.append(effs_cluster - inconsistent_preds)
-            # # Check all pairs of clusters, if they are the same, add their original cluster's predicates back.
-            # num_clusters = len(final_clusters)
-            # for i in range(num_clusters):
-            #     for j in range(num_clusters):
-            #         if i == j:
-            #             continue
-            #         else:
-            #             if new_add_effects_per_cluster[i] == new_add_effects_per_cluster[j]:
-            #                 print(f"MATCH! : {i}, {j}")
-            #                 predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[i])
-            #                 predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[j])
+            # Remove inconsistent predicates.
+            inconsistent_preds = set()
 
+            # Old way to remove inconsistent predicates
+            predicates_to_keep: Set[Predicate] = set()
+            for pred in all_add_effects:
+                keep_pred = True
+                for j, seg_list in enumerate(final_clusters):
+                    seg_0 = seg_list[0]
+                    pred_in_add_effs_0 = pred in [
+                        atom.predicate for atom in seg_0.add_effects
+                    ]
+                    pred_in_del_effs_0 = pred in [
+                        atom.predicate for atom in seg_0.delete_effects
+                    ]
+                    for seg in seg_list[1:]:
+                        pred_in_curr_add_effs = pred in [
+                            atom.predicate for atom in seg.add_effects
+                        ]
+                        pred_in_curr_del_effs = pred in [
+                            atom.predicate for atom in seg.delete_effects
+                        ]
+                        A = pred_in_add_effs_0 != pred_in_curr_add_effs
+                        B = pred_in_del_effs_0 != pred_in_curr_del_effs
+                        if A or B:
+                        # if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
+                        #         and
+                        #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
+                            keep_pred = False
+                            print("INCONSISTENT: ", pred.name)
+
+                            inconsistent_preds.add(pred)
+                            # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
+                            #     import pdb; pdb.set_trace()
+                            break
+                    if not keep_pred:
+                        break
+                if keep_pred:
+                    predicates_to_keep.add(pred)
+                else:
+                    inconsistent_preds.add(pred)
+
+            # Re-add inconsistent predicates that were necessary to disambiguate two clusters.
+            # That is, if any two clusters's predicates look the same after removing inconsistent predicates from both,
+            # keep all those predicates.
+            new_add_effects_per_cluster = []
+            for effs_cluster in add_effects_per_cluster:
+                new_add_effects_per_cluster.append(effs_cluster - inconsistent_preds)
+            # Check all pairs of clusters, if they are the same, add their original cluster's predicates back.
+            num_clusters = len(final_clusters)
+            for i in range(num_clusters):
+                for j in range(num_clusters):
+                    if i == j:
+                        continue
+                    else:
+                        if new_add_effects_per_cluster[i] == new_add_effects_per_cluster[j]:
+                            print(f"MATCH! : {i}, {j}")
+                            predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[i])
+                            predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[j])
+            #
             #
             # import pdb; pdb.set_trace()
             # print("inconsistent preds: ", inconsistent_preds)
 
-            # add back in to debug
+            # # add back in to debug
+            # predicates_to_keep = set()
             # add_back = [
             #     # "NOT-((0:obj).grasp<=[idx 1]0.25)",
             #     # "Forall[0:obj].[NOT-((0:obj).grasp<=[idx 1]0.25)(0)]",
             #     # "((0:obj).grasp<=[idx 0]0.5)",
             #     # "Forall[0:obj].[((0:obj).grasp<=[idx 0]0.5)(0)]",
-            #     "((0:block).held<=[idx 0]0.5)"
+            #     # "((0:block).held<=[idx 0]0.5)"
+            #
+            #
+            #
+            #     # for repeated next to
+            #     "(|(0:dot).x - (1:robot).x|<=[idx 7]6.24)"
             # ]
             # for c in candidates.keys():
-            #     if c.name in add_back:
+            #     print(c.name)
+            #     # if c.name in add_back:
+            #     if c.name == "(|(0:dot).x - (1:robot).x|<=[idx 7]6.24)":
             #         predicates_to_keep.add(c)
             #         print("Adding in to debug: ", c.name)
-
+            #
+            # import pdb; pdb.set_trace()
             # remove = [
             #     # "NOT-((0:block).pose_z<=[idx 3]0.282)",
             #     # "NOT-Forall[0:block].[((0:block).pose_z<=[idx 1]0.342)(0)]",
@@ -1134,7 +1177,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #         predicates_to_keep.remove(c)
             #         print("Removing: ", c)
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
             #
             # new_candidates = {}

@@ -49,11 +49,35 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         if uncovered_segment is not None:
             while uncovered_segment is not None and \
                 new_heuristic_val >= init_heuristic_val:
+
+
+
                 # We will need to induce an operator to cover this
                 # segment, and thus it must have some necessary add effects.
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
+
+                # #
+                # for ll_traj, seg_traj in zip(self._trajectories,
+                #                              self._segmented_trajs):
+                #     if uncovered_segment in seg_traj:
+                #         if ll_traj.is_demo:
+                #             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+                # option_name = uncovered_segment.get_option().name
+                # if option_name == "Stack":
+                #     import pdb; pdb.set_trace()
+                # #
+
+
                 ret_pnads_list = self._append_new_pnad_and_keep_effects(
                     new_pnad, ret_pnads_list)
+
+                # #
+                # option_name = uncovered_segment.get_option().name
+                # if option_name == "Stack":
+                #     relevant = [p for p in ret_pnads_list if "Stack" in p.name]
+                #     import pdb; pdb.set_trace()
+                # #
+
                 ret_pnads = frozenset(pnad.copy() for pnad in ret_pnads_list)
                 new_heuristic_val = self._associated_heuristic(ret_pnads)
                 uncovered_segment = self._get_first_uncovered_segment(
