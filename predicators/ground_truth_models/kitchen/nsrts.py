@@ -118,7 +118,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 # Push inward.
                 push_angle = np.pi / 5
             else:
-                push_angle = rng.uniform(-np.pi / 4, np.pi / 4)
+                push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
 
         push_obj_turn_on_nsrt = NSRT("PushObjTurnOnLeftRight", parameters,
