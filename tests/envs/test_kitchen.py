@@ -135,7 +135,7 @@ def test_kitchen():
     push_kettle_on_burner4_nsrt = PushObjOnObjForward.ground(
         [gripper, kettle, burner4])
 
-    Test moving to and turning on the light.
+    # Test moving to and turning on the light.
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
