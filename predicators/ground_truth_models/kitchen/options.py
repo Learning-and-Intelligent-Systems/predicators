@@ -1,12 +1,13 @@
 """Ground-truth options for the Kitchen environment."""
 
-from typing import Dict, Sequence, Set
+from typing import ClassVar, Dict, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Type
 
@@ -21,7 +22,17 @@ except (ImportError, RuntimeError):
 class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for the Kitchen environment."""
 
-    moveto_tol = 0.01
+    moveto_tol: ClassVar[float] = 0.01  # for terminating moving
+    max_delta_mag: ClassVar[float] = 1.0  # don't move more than this per step
+    # A reasonable home position and rotation for the end effector.
+    home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
+    down_quat: ClassVar[Quaternion] = euler2quat((-np.pi, 0.0, -np.pi / 2))
+    # End effector facing forward (e.g., toward the knobs.)
+    fwd_quat: ClassVar[Quaternion] = euler2quat((-np.pi / 2, 0.0, -np.pi / 2))
+    # Move forward by this amount while pushing left/right.
+    push_lr_forward_mag: ClassVar[float] = 0.1
+    # Keep pushing a bit even if the On classifier holds.
+    push_lr_thresh_pad: ClassVar[float] = 0.01
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -43,8 +54,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options: Set[ParameterizedOption] = set()
 
-        max_delta_mag = 1.0  # don't move more than this per step
-
         # MoveTo
         def _MoveTo_initiable(state: State, memory: Dict,
                               objects: Sequence[Object],
@@ -56,14 +65,13 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
-            # Turn the knobs by pushing from a "side grasp" position.
+            # Turn the knobs by pushing from a "forward" position.
             if "knob" in obj.name:
-                memory["target_quat"] = euler2quat(
-                    [-np.pi / 2, 0.0, -np.pi / 2])
+                memory["target_quat"] = cls.fwd_quat
             else:
-                memory["target_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])
-            memory["reset_pose"] = np.array([0.0, 0.3, 2.0], dtype=np.float32)
-            memory["reset_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])
+                memory["target_quat"] = cls.down_quat
+            memory["reset_pose"] = np.array(cls.home_pos, dtype=np.float32)
+            memory["reset_quat"] = cls.down_quat
             memory["has_reset"] = False
             return True
 
@@ -98,8 +106,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             arr = np.array([dx, dy, dz, droll, dpitch, dyaw, 0.0],
                            dtype=np.float32)
             action_mag = np.linalg.norm(arr)
-            if action_mag > max_delta_mag:
-                scale = max_delta_mag / action_mag
+            if action_mag > cls.max_delta_mag:
+                scale = cls.max_delta_mag / action_mag
                 arr = arr * scale
             return Action(arr)
 
@@ -150,7 +158,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             "PushObjOnObjForward",
             types=[gripper_type, object_type, object_type],
             # Parameter is a magnitude for pushing forward.
-            params_space=Box(0.0, max_delta_mag, (1, )),
+            params_space=Box(0.0, cls.max_delta_mag, (1, )),
             policy=_PushObjOnObjForward_policy,
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_PushObjOnObjForward_terminal)
@@ -180,10 +188,11 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             del state, objects  # unused
             sign = memory["sign"]
             # Also push a little bit forward.
-            forward_mag = 1e-1
-            arr = np.array(
-                [sign * params[0], forward_mag, 0.0, 0.0, 0.0, 0.0, 0.0],
-                dtype=np.float32)
+            arr = np.array([
+                sign * params[0], cls.push_lr_forward_mag, 0.0, 0.0, 0.0, 0.0,
+                0.0
+            ],
+                           dtype=np.float32)
             return Action(arr)
 
         def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
@@ -192,13 +201,14 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory, params  # unused
             _, obj = objects
             # Use a more stringent threshold to avoid numerical issues.
-            return KitchenEnv.On_holds(state, [obj], thresh_pad=0.01)
+            return KitchenEnv.On_holds(state, [obj],
+                                       thresh_pad=cls.push_lr_thresh_pad)
 
         PushObjTurnOnLeftRight = ParameterizedOption(
             "PushObjTurnOnLeftRight",
             types=[gripper_type, object_type],
-            # Parameter is a magnitude for pushing right.
-            params_space=Box(0.0, max_delta_mag, (1, )),
+            # Parameter is a magnitude for pushing left/right.
+            params_space=Box(0.0, cls.max_delta_mag, (1, )),
             policy=_PushObjTurnOnLeftRight_policy,
             initiable=_PushObjTurnOnLeftRight_initiable,
             terminal=_PushObjTurnOnLeftRight_terminal)
