@@ -59,11 +59,11 @@ class KitchenEnv(BaseEnv):
         assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
 Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
-        self._pred_name_to_pred = self.create_predicates()
-
         if use_gui:
             assert not CFG.make_test_videos or CFG.make_failure_videos, \
                 "Turn off --use_gui to make videos in kitchen env"
+
+        self._pred_name_to_pred = self.create_predicates()
 
         render_mode = "human" if self._using_gui else "rgb_array"
         self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1",
