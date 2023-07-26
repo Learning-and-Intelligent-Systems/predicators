@@ -22,7 +22,7 @@ from predicators.settings import CFG
 
 # NOTE: uncomment this line if trying to visualize stuff locally
 # and matplotlib isn't displaying.
-# matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
@@ -151,7 +151,7 @@ def query_detic_sam(image_in: NDArray, classes: List[str],
     # necessary in the future.
     for obj_class in classes:
         class_mask = (d['classes'] == obj_class)
-        if np.any(class_mask):
+        if not np.any(class_mask):
             continue
         max_score = np.max(d['scores'][class_mask])
         max_score_idx = np.where(d['scores'] == max_score)[0]
