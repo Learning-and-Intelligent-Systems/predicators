@@ -9,7 +9,8 @@ from gym.spaces import Box
 
 try:
     import gymnasium as mujoco_kitchen_gym
-    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, get_site_xpos, get_site_xmat
+    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, \
+        get_site_xmat, get_site_xpos
     from gymnasium_robotics.utils.rotations import mat2quat
     _MJKITCHEN_IMPORTED = True
 except (ImportError, RuntimeError):
@@ -22,8 +23,8 @@ from predicators.structs import Action, EnvironmentTask, Image, Object, \
 
 _TRACKED_SITES = [
     "hinge_site1", "hinge_site2", "kettle_site", "microhandle_site",
-    "knob1_site", "knob2_site", "knob3_site", "knob4_site",
-    "light_site", "slide_site", "EEF"
+    "knob1_site", "knob2_site", "knob3_site", "knob4_site", "light_site",
+    "slide_site", "EEF"
 ]
 
 _TRACKED_SITE_TO_JOINT = {
@@ -33,9 +34,7 @@ _TRACKED_SITE_TO_JOINT = {
     "knob4_site": "knob_Joint_4"
 }
 
-_TRACKED_BODIES = [
-    "Burner 1", "Burner 2", "Burner 3", "Burner 4"
-]
+_TRACKED_BODIES = ["Burner 1", "Burner 2", "Burner 3", "Burner 4"]
 
 
 class KitchenEnv(BaseEnv):
@@ -64,7 +63,8 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
 
         render_mode = "human" if self._using_gui else "rgb_array"
-        self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1", render_mode=render_mode)
+        self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1",
+                                                render_mode=render_mode)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
@@ -83,14 +83,18 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         """Parse State into Object Centric State."""
         state_info = {}
         for site in _TRACKED_SITES:
-            state_info[site] = get_site_xpos(self._gym_env.model, self._gym_env.data, site).copy()
+            state_info[site] = get_site_xpos(self._gym_env.model,
+                                             self._gym_env.data, site).copy()
             # Include rotation for gripper.
             if site == "EEF":
-                xmat = get_site_xmat(self._gym_env.model, self._gym_env.data, site).copy()
+                xmat = get_site_xmat(self._gym_env.model, self._gym_env.data,
+                                     site).copy()
                 quat = mat2quat(xmat)
-                state_info[site] = np.concatenate([state_info[site], quat])                             
+                state_info[site] = np.concatenate([state_info[site], quat])
         for joint in _TRACKED_SITE_TO_JOINT.values():
-            state_info[joint] = get_joint_qpos(self._gym_env.model, self._gym_env.data, joint).copy()
+            state_info[joint] = get_joint_qpos(self._gym_env.model,
+                                               self._gym_env.data,
+                                               joint).copy()
         for body in _TRACKED_BODIES:
             body_id = self._gym_env.robot_env.model_names.body_name2id[body]
             state_info[body] = self._gym_env.data.xpos[body_id].copy()
@@ -284,12 +288,15 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                                obj1, "z") > state.get(obj2, "z")
 
     @classmethod
-    def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _On_holds(cls,
+                  state: State,
+                  objects: Sequence[Object],
+                  thresh_pad: float = 0.0) -> bool:
         obj = objects[0]
         if "knob" in obj.name:
-            return state.get(obj, "angle") < cls.on_angle_thresh
+            return state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
         if obj.name == "light":
-            return state.get(obj, "x") < cls.light_on_thresh
+            return state.get(obj, "x") < cls.light_on_thresh - thresh_pad
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:

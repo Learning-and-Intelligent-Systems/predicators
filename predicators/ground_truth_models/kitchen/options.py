@@ -11,7 +11,8 @@ from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Type
 
 try:
-    from gymnasium_robotics.utils.rotations import quat2euler, euler2quat, subtract_euler
+    from gymnasium_robotics.utils.rotations import euler2quat, quat2euler, \
+        subtract_euler
     _MJKITCHEN_IMPORTED = True
 except (ImportError, RuntimeError):
     _MJKITCHEN_IMPORTED = False
@@ -30,7 +31,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
-        
+
         assert _MJKITCHEN_IMPORTED, "See kitchen.py"
 
         # Types
@@ -58,7 +59,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             memory["target_pose"] = target_pose
             # TODO add comment
             if "knob" in obj.name:
-                memory["target_quat"] = euler2quat([-np.pi / 2, 0.0, -np.pi / 2])
+                memory["target_quat"] = euler2quat(
+                    [-np.pi / 2, 0.0, -np.pi / 2])
             else:
                 memory["target_quat"] = euler2quat([-np.pi, 0.0, -np.pi / 2])
             memory["reset_pose"] = np.array([0.0, 0.3, 2.0], dtype=np.float32)
@@ -94,7 +96,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             dx, dy, dz = np.subtract(target_pose, (gx, gy, gz))
             target_euler = quat2euler(target_quat)
             droll, dpitch, dyaw = subtract_euler(target_euler, current_euler)
-            arr = np.array([dx, dy, dz, droll, dpitch, dyaw, 0.0], dtype=np.float32)
+            arr = np.array([dx, dy, dz, droll, dpitch, dyaw, 0.0],
+                           dtype=np.float32)
             action_mag = np.linalg.norm(arr)
             if action_mag > max_delta_mag:
                 scale = max_delta_mag / action_mag
@@ -128,7 +131,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
             del state, memory, objects  # unused
-            arr = np.array([0.0, params[0], 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            arr = np.array([0.0, params[0], 0.0, 0.0, 0.0, 0.0, 0.0],
+                           dtype=np.float32)
             return Action(arr)
 
         def _PushObjOnObjForward_terminal(state: State, memory: Dict,
@@ -140,8 +144,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 return False
             # Stronger check to deal with case where push release leads object
             # to be no longer OnTop.
-            return state.get(
-                obj, "y") > state.get(obj2, "y") - cls.moveto_tol / 2
+            return state.get(obj,
+                             "y") > state.get(obj2, "y") - cls.moveto_tol / 2
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
@@ -178,7 +182,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             sign = memory["sign"]
             # Also push a little bit forward. TODO factor out.
             forward_mag = 1e-1
-            arr = np.array([sign * params[0], forward_mag, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            arr = np.array(
+                [sign * params[0], forward_mag, 0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype=np.float32)
             return Action(arr)
 
         def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
@@ -186,7 +192,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                              params: Array) -> bool:
             del memory, params  # unused
             _, obj = objects
-            return GroundAtom(TurnedOn, [obj]).holds(state)
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv._On_holds(state, [obj], thresh_pad=0.01)
 
         PushObjTurnOnLeftRight = ParameterizedOption(
             "PushObjTurnOnLeftRight",
