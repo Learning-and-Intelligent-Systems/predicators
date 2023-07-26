@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import requests
 from bosdyn.api import image_pb2
+from numpy.typing import NDArray
 from PIL import Image
 from scipy import ndimage
 
@@ -41,9 +42,8 @@ def image_to_bytes(img: Image.Image) -> io.BytesIO:
     return buf
 
 
-def visualize_output(im: Image.Image, masks: np.ndarray,
-                     input_boxes: np.ndarray, classes: np.ndarray,
-                     scores: np.ndarray) -> None:
+def visualize_output(im: Image.Image, masks: NDArray, input_boxes: NDArray,
+                     classes: NDArray, scores: NDArray) -> None:
     """Visualizes the output of SAM; useful for debugging.
 
     masks, input_boxes, and scores come from the output of SAM.
@@ -72,7 +72,7 @@ def visualize_output(im: Image.Image, masks: np.ndarray,
     plt.show()
 
 
-def show_mask(mask: np.ndarray,
+def show_mask(mask: NDArray,
               ax: matplotlib.axes.Axes,
               random_color: bool = False) -> None:
     """Helper function for visualization that displays a segmentation mask."""
@@ -85,7 +85,7 @@ def show_mask(mask: np.ndarray,
     ax.imshow(mask_image)
 
 
-def show_box(box: np.ndarray, ax: matplotlib.axes.Axes) -> None:
+def show_box(box: NDArray, ax: matplotlib.axes.Axes) -> None:
     """Helper function for visualization that displays a bounding box."""
     x0, y0 = box[0], box[1]
     w, h = box[2] - box[0], box[3] - box[1]
@@ -98,8 +98,8 @@ def show_box(box: np.ndarray, ax: matplotlib.axes.Axes) -> None:
                       lw=2))
 
 
-def query_detic_sam(image_in: np.ndarray, classes: List[str],
-                    viz: bool) -> Dict[str, List[np.ndarray]]:
+def query_detic_sam(image_in: NDArray, classes: List[str],
+                    viz: bool) -> Dict[str, List[NDArray]]:
     """Send a query to SAM and return the response.
 
     The response is a dictionary that contains 4 keys: 'boxes',
@@ -111,7 +111,7 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
                       files={"file": buf},
                       data={"classes": ",".join(classes)})
 
-    d_filtered: Dict[str, List[np.ndarray]] = {
+    d_filtered: Dict[str, List[NDArray]] = {
         "boxes": [],
         "classes": [],
         "masks": [],
@@ -151,7 +151,7 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
     # necessary in the future.
     for obj_class in classes:
         class_mask = (d['classes'] == obj_class)
-        if np.all(class_mask == False):  # pylint:disable=singleton-comparison
+        if np.any(class_mask):
             continue
         max_score = np.max(d['scores'][class_mask])
         max_score_idx = np.where(d['scores'] == max_score)[0]
@@ -172,9 +172,9 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
 # the entire pointcloud.
 # def depth_image_to_pointcloud_custom(
 #         image_response: bosdyn.api.image_pb2.ImageResponse,
-#         masks: np.ndarray = None,
+#         masks: NDArray = None,
 #         min_dist: float = 0.0,
-#         max_dist: float = 1000.0) -> Tuple[np.ndarray, np.ndarray]:
+#         max_dist: float = 1000.0) -> Tuple[NDArray, NDArray]:
 #     """Converts a depth image into a point cloud using the camera intrinsics.
 #     The point cloud is represented as a numpy array of (x,y,z) values.
 #     Requests can optionally filter the results based on the points distance
@@ -250,7 +250,7 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
 
 
 def process_image_response(image_response: bosdyn.api.image_pb2.ImageResponse,
-                           to_rgb: bool = False) -> np.ndarray:
+                           to_rgb: bool = False) -> NDArray:
     """Given a Boston Dynamics SDK image response, extract the correct np array
     corresponding to the image."""
     # pylint: disable=no-member
@@ -327,7 +327,7 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
 
 def get_pixel_locations_with_detic_sam(
         obj_class: str,
-        in_res_image: Dict[str, np.ndarray],
+        in_res_image: Dict[str, NDArray],
         plot: bool = False) -> List[Tuple[float, float]]:
     """Method to get the pixel locations of specific objects with class names
     listed in 'classes' within an input image."""
@@ -355,7 +355,7 @@ def get_pixel_locations_with_detic_sam(
 
 def get_object_locations_with_detic_sam(
         classes: List[str],
-        res_image: Dict[str, np.ndarray],
+        res_image: Dict[str, NDArray],
         res_image_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse],
         source_name: str,
         plot: bool = False) -> Dict[str, Tuple[float, float, float]]:
