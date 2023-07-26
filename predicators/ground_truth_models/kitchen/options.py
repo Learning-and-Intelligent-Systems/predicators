@@ -201,7 +201,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # The parameter is a push direction angle with respect to x, with
             # the sign possibly flipping the x direction.
             push_angle = params[0]
-            print("push_angle:", push_angle)
             unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
             dx = sign * unit_x * cls.max_push_mag
             dy = unit_y * cls.max_push_mag
