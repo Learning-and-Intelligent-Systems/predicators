@@ -6,19 +6,19 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
 ENVS:
-  # kitchen-kettle-only:
-  #   NAME: "kitchen"
-  #   FLAGS:
-  #     kitchen_goals: "kettle_only"
-  # kitchen-knob-only:
-  #   NAME: "kitchen"
-  #   FLAGS:
-  #     kitchen_goals: "knob_only"
-  # kitchen-light-only:
-  #   NAME: "kitchen"
-  #   FLAGS:
-  #     kitchen_goals: "light_only"
-  kitchen-kettle-knob:
+  kitchen-kettle-only:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "kettle_only"
+  kitchen-knob-only:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "knob_only"
+  kitchen-light-only:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "light_only"
+  kitchen-all:
     NAME: "kitchen"
     FLAGS:
       kitchen_goals: "all"
