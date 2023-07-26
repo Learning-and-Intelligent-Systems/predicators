@@ -24,6 +24,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     moveto_tol: ClassVar[float] = 0.01  # for terminating moving
     max_delta_mag: ClassVar[float] = 1.0  # don't move more than this per step
+    max_push_forward_mag: ClassVar[float] = 0.1  # for pushing forward
     # A reasonable home position for the end effector.
     home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
     # Move forward by this amount while pushing left/right.
@@ -140,8 +141,12 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
             del state, memory, objects  # unused
-            arr = np.array([0.0, params[0], 0.0, 0.0, 0.0, 0.0, 0.0],
-                           dtype=np.float32)
+            # The parameter is a push direction angle with respect to y.
+            push_angle = params[0]
+            unit_y, unit_x = np.cos(push_angle), np.sin(push_angle)
+            dx = unit_x * cls.max_push_forward_mag
+            dy = unit_y * cls.max_push_forward_mag
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
         def _PushObjOnObjForward_terminal(state: State, memory: Dict,
@@ -165,8 +170,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
             types=[gripper_type, object_type, object_type],
-            # Parameter is a magnitude for pushing forward.
-            params_space=Box(0.0, cls.max_delta_mag, (1, )),
+            # Parameter is an angle for pushing forward.
+            params_space=Box(-np.pi, np.pi, (1, )),
             policy=_PushObjOnObjForward_policy,
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_PushObjOnObjForward_terminal)

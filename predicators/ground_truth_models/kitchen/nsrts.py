@@ -90,7 +90,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if CFG.kitchen_use_perfect_samplers:
                 push_angle = 0.0
             else:
-                push_angle = rng.uniform(-np.pi/ 4, np.pi / 4)
+                push_angle = rng.uniform(-np.pi / 4, np.pi / 4)
             return np.array([push_angle], dtype=np.float32)
 
         push_obj_on_obj_forward_nsrt = NSRT("PushObjOnObjForward", parameters,
