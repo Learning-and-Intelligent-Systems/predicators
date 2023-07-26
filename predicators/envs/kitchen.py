@@ -1,7 +1,7 @@
 """A Kitchen environment wrapping kitchen from https://github.com/google-
 research/relay-policy-learning."""
 import copy
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import matplotlib
 import numpy as np
@@ -81,23 +81,24 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
     def get_object_centric_state_info(self) -> Dict[str, Any]:
         """Parse State into Object Centric State."""
+        mujoco_model = self._gym_env.model  # type: ignore
+        mujoco_data = self._gym_env.data  # type: ignore
+        mujoco_model_names = self._gym_env.robot_env.model_names  # type: ignore
         state_info = {}
         for site in _TRACKED_SITES:
-            state_info[site] = get_site_xpos(self._gym_env.model,
-                                             self._gym_env.data, site).copy()
+            state_info[site] = get_site_xpos(mujoco_model, mujoco_data,
+                                             site).copy()
             # Include rotation for gripper.
             if site == "EEF":
-                xmat = get_site_xmat(self._gym_env.model, self._gym_env.data,
-                                     site).copy()
+                xmat = get_site_xmat(mujoco_model, mujoco_data, site).copy()
                 quat = mat2quat(xmat)
                 state_info[site] = np.concatenate([state_info[site], quat])
         for joint in _TRACKED_SITE_TO_JOINT.values():
-            state_info[joint] = get_joint_qpos(self._gym_env.model,
-                                               self._gym_env.data,
+            state_info[joint] = get_joint_qpos(mujoco_model, mujoco_data,
                                                joint).copy()
         for body in _TRACKED_BODIES:
-            body_id = self._gym_env.robot_env.model_names.body_name2id[body]
-            state_info[body] = self._gym_env.data.xpos[body_id].copy()
+            body_id = mujoco_model_names.body_name2id[body]
+            state_info[body] = mujoco_data.xpos[body_id].copy()
         return state_info
 
     @classmethod
@@ -145,7 +146,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
     @property
     def action_space(self) -> Box:
-        return self._gym_env.action_space
+        return cast(Box, self._gym_env.action_space)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""

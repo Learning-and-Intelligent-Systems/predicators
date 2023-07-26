@@ -57,7 +57,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             oz = state.get(obj, "z")
             target_pose = params + (ox, oy, oz)
             memory["target_pose"] = target_pose
-            # TODO add comment
+            # Turn the knobs by pushing from a "side grasp" position.
             if "knob" in obj.name:
                 memory["target_quat"] = euler2quat(
                     [-np.pi / 2, 0.0, -np.pi / 2])
@@ -180,7 +180,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                            params: Array) -> Action:
             del state, objects  # unused
             sign = memory["sign"]
-            # Also push a little bit forward. TODO factor out.
+            # Also push a little bit forward.
             forward_mag = 1e-1
             arr = np.array(
                 [sign * params[0], forward_mag, 0.0, 0.0, 0.0, 0.0, 0.0],
