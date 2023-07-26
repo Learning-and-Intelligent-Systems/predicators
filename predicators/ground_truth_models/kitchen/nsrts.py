@@ -61,7 +61,10 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj),
                               dtype=np.float32)
             if not CFG.kitchen_use_perfect_samplers:
-                params[0] += rng.uniform(-0.5, 0.5)
+                # Others coming soon...
+                if obj.name == "kettle":
+                    # Truncated on the right to avoid robot self collisions.
+                    params[0] += rng.uniform(-0.25, 0.05)
             return params
 
         move_to_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,

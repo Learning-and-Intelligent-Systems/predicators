@@ -44,7 +44,7 @@ class KitchenEnv(BaseEnv):
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
     at_atol = 0.2  # tolerance for At classifier
-    ontop_atol = 0.15  # tolerance for OnTop classifier
+    ontop_atol = 0.05  # tolerance for OnTop classifier
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.4  # light is On if less than this threshold
 

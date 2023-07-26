@@ -148,13 +148,19 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                           objects: Sequence[Object],
                                           params: Array) -> bool:
             del memory, params  # unused
-            _, obj, obj2 = objects
+            gripper, obj, obj2 = objects
+            gripper_y = state.get(gripper, "y")
+            obj_y = state.get(obj, "y")
+            obj2_y = state.get(obj2, "y")
+            # Terminate early if the gripper is far past either of the objects.
+            if gripper_y - obj_y > 2 * cls.moveto_tol or \
+               gripper_y - obj2_y > 2 * cls.moveto_tol:
+                return True
             if not GroundAtom(OnTop, [obj, obj2]).holds(state):
                 return False
             # Stronger check to deal with case where push release leads object
             # to be no longer OnTop.
-            return state.get(obj,
-                             "y") > state.get(obj2, "y") - cls.moveto_tol / 2
+            return obj_y > obj2_y - cls.moveto_tol / 2
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
