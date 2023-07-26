@@ -43,10 +43,12 @@ class KitchenEnv(BaseEnv):
     gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
-    at_atol = 0.2  # tolerance for At classifier
-    ontop_atol = 0.1  # tolerance for OnTop classifier
+    at_pre_turnon_atol = 0.05  # tolerance for AtPreTurnOn
+    ontop_atol = 0.1  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.4  # light is On if less than this threshold
+    at_pre_pushontop_yz_atol: 0.05  # tolerance for AtPrePushOnTop
+    at_pre_pushontop_x_atol: 1.0  # other tolerance for AtPrePushOnTop
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.0, -0.3, -0.12),  # need to push from behind kettle
@@ -150,8 +152,10 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
     def create_predicates(cls) -> Dict[str, Predicate]:
         """Exposed for perceiver."""
         preds = {
-            Predicate("At", [cls.gripper_type, cls.object_type],
-                      cls._At_holds),
+            Predicate("AtPreTurnOn", [cls.gripper_type, cls.object_type],
+                      cls._AtPreTurnOn_holds),
+            Predicate("AtPrePushOnTop", [cls.gripper_type, cls.object_type],
+                      cls._AtPrePushOnTop_holds),
             Predicate("OnTop", [cls.object_type, cls.object_type],
                       cls._OnTop_holds),
             Predicate("NotOnTop", [cls.object_type, cls.object_type],
@@ -282,20 +286,47 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return {"state_info": self.get_object_centric_state_info()}
 
     @classmethod
-    def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _AtPreTurnOn_holds(cls, state: State,
+                           objects: Sequence[Object]) -> bool:
         gripper, obj = objects
         obj_xyz = np.array(
             [state.get(obj, "x"),
              state.get(obj, "y"),
              state.get(obj, "z")])
-        # We care about whether we're "at" the pre-push position for obj.
         dpos = cls.get_pre_push_delta_pos(obj)
         gripper_xyz = np.array([
             state.get(gripper, "x"),
             state.get(gripper, "y"),
             state.get(gripper, "z")
         ])
-        return np.allclose(obj_xyz + dpos, gripper_xyz, atol=cls.at_atol)
+        return np.allclose(obj_xyz + dpos,
+                           gripper_xyz,
+                           atol=cls.at_pre_turnon_atol)
+
+    @classmethod
+    def _AtPrePushOnTop_holds(cls, state: State,
+                              objects: Sequence[Object]) -> bool:
+        # The main thing that's different from _AtPreTurnOn_holds is that the
+        # x position has a much higher range of allowed values, since it can
+        # be anywhere behind the object.
+        gripper, obj = objects
+        obj_xyz = np.array(
+            [state.get(obj, "x"),
+             state.get(obj, "y"),
+             state.get(obj, "z")])
+        dpos = cls.get_pre_push_delta_pos(obj)
+        target_x, target_y, target_z = obj_xyz + dpos
+        gripper_x, gripper_y, gripper_z = [
+            state.get(gripper, "x"),
+            state.get(gripper, "y"),
+            state.get(gripper, "z")
+        ]
+        if not np.allclose([target_y, target_z], [gripper_y, gripper_z],
+                           atol=cls.at_pre_pushontop_yz_atol):
+            return False
+        return np.isclose(target_x,
+                          gripper_x,
+                          atol=cls.at_pre_pushontop_x_atol)
 
     @classmethod
     def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:

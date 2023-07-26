@@ -38,7 +38,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         PushObjTurnOnLeftRight = options["PushObjTurnOnLeftRight"]
 
         # Predicates
-        At = predicates["At"]
+        AtPreTurnOn = predicates["AtPreTurnOn"]
+        AtPrePushOnTop = predicates["AtPrePushOnTop"]
         TurnedOn = predicates["TurnedOn"]
         TurnedOff = predicates["TurnedOff"]
         OnTop = predicates["OnTop"]
@@ -46,38 +47,62 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         nsrts = set()
 
-        # MoveTo
+        # MoveToPreTurnOn
         parameters = [gripper, obj]
         preconditions: Set[LiftedAtom] = set()
-        add_effects = {LiftedAtom(At, [gripper, obj])}
+        add_effects = {LiftedAtom(AtPreTurnOn, [gripper, obj])}
         delete_effects: Set[LiftedAtom] = set()
-        ignore_effects = {At}
+        ignore_effects = {AtPreTurnOn, AtPrePushOnTop}
         option = MoveTo
         option_vars = [gripper, obj]
 
-        def moveto_sampler(state: State, goal: Set[GroundAtom],
-                           rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
+        def moveto_preturnon_sampler(state: State, goal: Set[GroundAtom],
+                                     rng: np.random.Generator,
+                                     objs: Sequence[Object]) -> Array:
+            del state, goal, rng  # unused
+            _, obj = objs
+            params = np.array(KitchenEnv.get_pre_push_delta_pos(obj),
+                              dtype=np.float32)
+            return params
+
+        move_to_pre_turn_on_nsrt = NSRT("MoveToPreTurnOn", parameters,
+                                        preconditions, add_effects,
+                                        delete_effects, ignore_effects, option,
+                                        option_vars, moveto_preturnon_sampler)
+        nsrts.add(move_to_pre_turn_on_nsrt)
+
+        # MoveToPrePushOnTop
+        parameters = [gripper, obj]
+        preconditions: Set[LiftedAtom] = set()
+        add_effects = {LiftedAtom(AtPrePushOnTop, [gripper, obj])}
+        delete_effects: Set[LiftedAtom] = set()
+        ignore_effects = {AtPreTurnOn, AtPrePushOnTop}
+        option = MoveTo
+        option_vars = [gripper, obj]
+
+        def moveto_prepushontop_sampler(state: State, goal: Set[GroundAtom],
+                                        rng: np.random.Generator,
+                                        objs: Sequence[Object]) -> Array:
             del state, goal  # unused
             _, obj = objs
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj),
                               dtype=np.float32)
             if not CFG.kitchen_use_perfect_samplers:
-                # Others coming soon...
-                if obj.name == "kettle":
-                    # Truncated on the right to avoid robot self collisions.
-                    params[0] += rng.uniform(-0.25, 0.05)
+                # Truncated on the right to avoid robot self collisions.
+                params[0] += rng.uniform(-0.25, 0.05)
             return params
 
-        move_to_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
-                            delete_effects, ignore_effects, option,
-                            option_vars, moveto_sampler)
-        nsrts.add(move_to_nsrt)
+        move_to_pre_push_on_top_nsrt = NSRT("MoveToPrePushOnTop", parameters,
+                                            preconditions, add_effects,
+                                            delete_effects, ignore_effects,
+                                            option, option_vars,
+                                            moveto_prepushontop_sampler)
+        nsrts.add(move_to_pre_push_on_top_nsrt)
 
         # PushObjOnObjForward
         parameters = [gripper, obj, obj2]
         preconditions = {
-            LiftedAtom(At, [gripper, obj]),
+            LiftedAtom(AtPrePushOnTop, [gripper, obj]),
             LiftedAtom(NotOnTop, [obj, obj2])
         }
         add_effects = {LiftedAtom(OnTop, [obj, obj2])}
@@ -108,7 +133,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # PushObjTurnOnLeftRight
         parameters = [gripper, obj]
         preconditions = {
-            LiftedAtom(At, [gripper, obj]),
+            LiftedAtom(AtPreTurnOn, [gripper, obj]),
             LiftedAtom(TurnedOff, [obj])
         }
         add_effects = {LiftedAtom(TurnedOn, [obj])}
