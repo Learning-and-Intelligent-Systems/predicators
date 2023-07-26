@@ -2,16 +2,19 @@
 models with the Boston Dynamics Spot robot."""
 
 import io
-from typing import Dict, List, Optional, Tuple
+import math
+from typing import Dict, List, Tuple
 
 import bosdyn.client
 import bosdyn.client.util
 import cv2
+import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
 from bosdyn.api import image_pb2
+from numpy.typing import NDArray
 from PIL import Image
 from scipy import ndimage
 
@@ -39,9 +42,8 @@ def image_to_bytes(img: Image.Image) -> io.BytesIO:
     return buf
 
 
-def visualize_output(im: Image.Image, masks: np.ndarray,
-                     input_boxes: np.ndarray, classes: np.ndarray,
-                     scores: np.ndarray) -> None:
+def visualize_output(im: Image.Image, masks: NDArray, input_boxes: NDArray,
+                     classes: NDArray, scores: NDArray) -> None:
     """Visualizes the output of SAM; useful for debugging.
 
     masks, input_boxes, and scores come from the output of SAM.
@@ -70,7 +72,7 @@ def visualize_output(im: Image.Image, masks: np.ndarray,
     plt.show()
 
 
-def show_mask(mask: np.ndarray,
+def show_mask(mask: NDArray,
               ax: matplotlib.axes.Axes,
               random_color: bool = False) -> None:
     """Helper function for visualization that displays a segmentation mask."""
@@ -83,7 +85,7 @@ def show_mask(mask: np.ndarray,
     ax.imshow(mask_image)
 
 
-def show_box(box: np.ndarray, ax: matplotlib.axes.Axes) -> None:
+def show_box(box: NDArray, ax: matplotlib.axes.Axes) -> None:
     """Helper function for visualization that displays a bounding box."""
     x0, y0 = box[0], box[1]
     w, h = box[2] - box[0], box[3] - box[1]
@@ -96,8 +98,8 @@ def show_box(box: np.ndarray, ax: matplotlib.axes.Axes) -> None:
                       lw=2))
 
 
-def query_detic_sam(image_in: np.ndarray, classes: List[str],
-                    viz: bool) -> Optional[Dict[str, List[np.ndarray]]]:
+def query_detic_sam(image_in: NDArray, classes: List[str],
+                    viz: bool) -> Dict[str, List[NDArray]]:
     """Send a query to SAM and return the response.
 
     The response is a dictionary that contains 4 keys: 'boxes',
@@ -109,12 +111,22 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
                       files={"file": buf},
                       data={"classes": ",".join(classes)})
 
+    d_filtered: Dict[str, List[NDArray]] = {
+        "boxes": [],
+        "classes": [],
+        "masks": [],
+        "scores": []
+    }
     # If the status code is not 200, then fail.
     if r.status_code != 200:
-        return None
+        return d_filtered
 
     with io.BytesIO(r.content) as f:
-        arr = np.load(f, allow_pickle=True)
+        try:
+            arr = np.load(f, allow_pickle=True)
+        except pkl.UnpicklingError:
+            return d_filtered
+
         boxes = arr['boxes']
         ret_classes = arr['classes']
         masks = arr['masks']
@@ -137,17 +149,20 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
     #, we only select the most confident one. This structure makes
     # it easy for us to select multiple detections if that's ever
     # necessary in the future.
-    selected_idx = np.argmax(d['scores'])
-    if d['scores'][selected_idx] < CFG.spot_vision_detection_threshold:
-        return None
-    d_filtered: Dict[str, List[np.ndarray]] = {
-        "boxes": [],
-        "classes": [],
-        "masks": [],
-        "scores": []
-    }
-    for key, value in d.items():
-        d_filtered[key].append(value[selected_idx])
+    for obj_class in classes:
+        class_mask = (d['classes'] == obj_class)
+        if np.any(class_mask):
+            continue
+        max_score = np.max(d['scores'][class_mask])
+        max_score_idx = np.where(d['scores'] == max_score)[0]
+        if d['scores'][max_score_idx] < CFG.spot_vision_detection_threshold:
+            continue
+        for key, value in d.items():
+            # Sanity check to ensure that we're selecting a value from
+            # the class we're looking for.
+            if key == "classes":
+                assert value[max_score_idx] == obj_class
+            d_filtered[key].append(value[max_score_idx])
 
     return d_filtered
 
@@ -157,9 +172,9 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
 # the entire pointcloud.
 # def depth_image_to_pointcloud_custom(
 #         image_response: bosdyn.api.image_pb2.ImageResponse,
-#         masks: np.ndarray = None,
+#         masks: NDArray = None,
 #         min_dist: float = 0.0,
-#         max_dist: float = 1000.0) -> Tuple[np.ndarray, np.ndarray]:
+#         max_dist: float = 1000.0) -> Tuple[NDArray, NDArray]:
 #     """Converts a depth image into a point cloud using the camera intrinsics.
 #     The point cloud is represented as a numpy array of (x,y,z) values.
 #     Requests can optionally filter the results based on the points distance
@@ -235,7 +250,7 @@ def query_detic_sam(image_in: np.ndarray, classes: List[str],
 
 
 def process_image_response(image_response: bosdyn.api.image_pb2.ImageResponse,
-                           to_rgb: bool = False) -> np.ndarray:
+                           to_rgb: bool = False) -> NDArray:
     """Given a Boston Dynamics SDK image response, extract the correct np array
     corresponding to the image."""
     # pylint: disable=no-member
@@ -311,52 +326,47 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
 
 
 def get_pixel_locations_with_detic_sam(
-        classes: List[str],
-        in_res_image: Dict[str, np.ndarray],
+        obj_class: str,
+        in_res_image: Dict[str, NDArray],
         plot: bool = False) -> List[Tuple[float, float]]:
     """Method to get the pixel locations of specific objects with class names
     listed in 'classes' within an input image."""
     res_segment = query_detic_sam(image_in=in_res_image['rgb'],
-                                  classes=classes,
+                                  classes=[obj_class],
                                   viz=plot)
     # return: 'masks', 'boxes', 'classes'
-    if res_segment is None:
+    if len(res_segment['classes']) == 0:
         return []
-
-    obj_num = len(res_segment['masks'])
-    assert obj_num == 1
 
     pixel_locations = []
 
-    # Detect multiple objects with their masks
-    for i in range(obj_num):
-        # Compute geometric center of object bounding box
-        x1, y1, x2, y2 = res_segment['boxes'][i]
-        x_c = (x1 + x2) / 2
-        y_c = (y1 + y2) / 2
-        # Plot center and segmentation mask
-        if plot:
-            plt.imshow(res_segment['masks'][i][0])
-            plt.show()
-        pixel_locations.append((x_c, y_c))
+    # Compute geometric center of object bounding box
+    x1, y1, x2, y2 = res_segment['boxes'][0].squeeze()
+    x_c = (x1 + x2) / 2
+    y_c = (y1 + y2) / 2
+    # Plot center and segmentation mask
+    if plot:
+        plt.imshow(res_segment['masks'][0][0].squeeze())
+        plt.show()
+    pixel_locations.append((x_c, y_c))
 
     return pixel_locations
 
 
 def get_object_locations_with_detic_sam(
         classes: List[str],
-        res_image: Dict[str, np.ndarray],
+        res_image: Dict[str, NDArray],
         res_image_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse],
         source_name: str,
-        plot: bool = False) -> List[Tuple[float, float, float]]:
+        plot: bool = False) -> Dict[str, Tuple[float, float, float]]:
     """Given a list of string queries (classes), call SAM on these and return
-    the positions of the centroids of these detections in the world frame.
+    the positions of the centroids of these detections in the camera frame.
 
     Importantly, note that a number of cameras on the Spot robot are
     rotated by various degrees. Since SAM doesn't do so well on rotated
     images, we first rotate these images to be upright, pass them to
     SAM, then rotate the result back so that we can correctly compute
-    the 3D position in the world frame.
+    the 3D position in the camera frame.
     """
     # First, rotate the rgb and depth images by the correct angle.
     # Importantly, DO NOT reshape the image, because this will
@@ -377,18 +387,23 @@ def get_object_locations_with_detic_sam(
     res_segment = query_detic_sam(image_in=rotated_rgb,
                                   classes=classes,
                                   viz=plot)
-    if res_segment is None:
-        return []
 
-    # Detect multiple objects with their masks
-    obj_num = len(res_segment['masks'])
-    res_locations = []
-    for i in range(obj_num):
+    if len(res_segment['classes']) == 0:
+        return {}
+
+    ret_obj_positions: Dict[str, Tuple[float, float, float]] = {}
+    for i, obj_class in enumerate(res_segment['classes']):
+        # Check that this particular class is one of the
+        # classes we passed in, and that there was only one
+        # instance of this class that was found.
+        assert obj_class.item() in classes
+        assert res_segment['classes'].count(obj_class) == 1
         # Compute median value of depth
-        depth_median = np.median(rotated_depth[res_segment['masks'][i][0]
-                                               & (rotated_depth > 2)[:, :, 0]])
+        depth_median = np.median(
+            rotated_depth[res_segment['masks'][i][0].squeeze()
+                          & (rotated_depth > 2)[:, :, 0]])
         # Compute geometric center of object bounding box
-        x1, y1, x2, y2 = res_segment['boxes'][i]
+        x1, y1, x2, y2 = res_segment['boxes'][i].squeeze()
         x_c = (x1 + x2) / 2
         y_c = (y1 + y2) / 2
         # Create a transformation matrix for the rotation. Be very
@@ -422,8 +437,8 @@ def get_object_locations_with_detic_sam(
         # RGB image.
         if plot:
             inverse_rotation_angle = -ROTATION_ANGLE[source_name]
-            plt.imshow(res_image['rgb'])
-            plt.imshow(ndimage.rotate(res_segment['masks'][i][0],
+            plt.imshow(res_image['depth'])
+            plt.imshow(ndimage.rotate(res_segment['masks'][i][0].squeeze(),
                                       inverse_rotation_angle,
                                       reshape=False),
                        alpha=0.5,
@@ -446,6 +461,7 @@ def get_object_locations_with_detic_sam(
                                         depth_value=depth_median,
                                         point_x=x_c_rotated,
                                         point_y=y_c_rotated)
-        res_locations.append((x0, y0, z0))
+        if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(z0):
+            ret_obj_positions[obj_class.item()] = (x0, y0, z0)
 
-    return res_locations
+    return ret_obj_positions

@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, Sequence, Set, Tuple
+from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -78,16 +78,16 @@ obj_name_to_apriltag_id = {
     "extra_room_table": 409,
     "cube": 410,
 }
-
-# NOTE: we need to optimize the prompts for most of these to be better.
-# Also, this currently isn't being used because we're hardcoding
-# the pipeline to always detect the yellow brush.
 obj_name_to_vision_prompt = {
-    "hammer": "red hammer",
-    "brush": "yellow brush",
+    "hammer": "hammer",
+    "brush": "brush",
     "hex_key": "hexagonal key",
-    "hex_screwdriver": "red screwdriver",
+    "hex_screwdriver": "screwdriver",
     "toolbag": "work bag",
+}
+vision_prompt_to_obj_name = {
+    value: key
+    for key, value in obj_name_to_vision_prompt.items()
 }
 
 OBJECT_CROPS = {
@@ -324,22 +324,22 @@ class _SpotInterface():
                 viewable_obj_poses = self.get_apriltag_pose_from_camera(
                     source_name=source_name)
             else:
-                # NOTE: we now hard-code the 'yellow brush' to be a
-                # stand-in for the cube, which is quite a hack.
-                # We will remove this and do correct object classing
-                # in a future PR
+                # First, get a dictionary mapping vision prompts
+                # to the corresponding location of that object in the
+                # scene by camera
                 sam_pose_results = self.get_sam_object_loc_from_camera(
                     source_rgb=source_name,
                     source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
-                    class_name=obj_name_to_vision_prompt['brush'],
+                    classes=list(obj_name_to_vision_prompt.values()),
                 )
+                # Next, convert the keys of this dictionary to be april
+                # tag id's instead.
+                viewable_obj_poses: Dict[int,  # type: ignore
+                                         Tuple[float, float, float]] = {}
+                for k, v in sam_pose_results.items():
+                    viewable_obj_poses[obj_name_to_apriltag_id[
+                        vision_prompt_to_obj_name[k]]] = v
 
-                if 'yellow brush' in sam_pose_results:
-                    viewable_obj_poses = {
-                        410: sam_pose_results['yellow brush']
-                    }
-                else:
-                    viewable_obj_poses = {}
             tag_to_pose[source_name].update(viewable_obj_poses)
 
         apriltag_id_to_obj_name = {
@@ -478,16 +478,12 @@ class _SpotInterface():
 
     def get_sam_object_loc_from_camera(
         self,
-        class_name: str,
+        classes: List[str],
         source_rgb: str,
         source_depth: str,
     ) -> Dict[str, Tuple[float, float, float]]:
         """Get object location in 3D (no orientation) estimated using
-        pretrained SAM model.
-
-        Args:
-            class_name: name of object class
-        """
+        pretrained SAM model."""
         _, rgb_img_response = self.get_single_camera_image(source_rgb, True)
         _, depth_img_response = self.get_single_camera_image(
             source_depth, False)
@@ -501,31 +497,28 @@ class _SpotInterface():
             'depth': depth_img_response[0],
         }
 
-        res_locations = get_object_locations_with_detic_sam(
-            classes=[class_name],
+        res_location_dict = get_object_locations_with_detic_sam(
+            classes=classes,
             res_image=image,
             res_image_responses=image_responses,
             source_name=source_rgb,
             plot=CFG.spot_visualize_vision_model_outputs)
 
-        # We only want the most likely sample (for now).
-        # NOTE: we make the hard assumption here that
-        # we will only see one instance of a particular object
-        # type. We can relax this later.
-        if len(res_locations) > 0:
-            assert len(res_locations) == 1
-            camera_tform_body = get_a_tform_b(
-                image_responses['depth'].shot.transforms_snapshot,
-                image_responses['depth'].shot.frame_name_image_sensor,
-                BODY_FRAME_NAME)
-            object_rt_gn_origin = self.convert_obj_location(
-                camera_tform_body, *res_locations[0])
+        transformed_location_dict: Dict[str, Tuple[float, float, float]] = {}
+        for obj_class in classes:
+            if obj_class in res_location_dict:
+                camera_tform_body = get_a_tform_b(
+                    image_responses['rgb'].shot.transforms_snapshot,
+                    image_responses['rgb'].shot.frame_name_image_sensor,
+                    BODY_FRAME_NAME)
+                x, y, z = res_location_dict[obj_class]
+                object_rt_gn_origin = self.convert_obj_location(
+                    camera_tform_body, x, y, z)
+                transformed_location_dict[obj_class] = object_rt_gn_origin
 
-            # Use the input class name as the identifier for object(s) and
-            # their positions
-            return {class_name: object_rt_gn_origin}
-
-        return {}
+        # Use the input class name as the identifier for object(s) and
+        # their positions.
+        return transformed_location_dict
 
     def convert_obj_location(
             self, camera_tform_body: bosdyn.client.math_helpers.SE3Pose,
@@ -539,9 +532,9 @@ class _SpotInterface():
         gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
         # Apply transform to object to body location
-        object_rt_gn_origin = gn_origin_tform_body.transform_point(
+        gn_origin_tform_object = gn_origin_tform_body.transform_point(
             body_tform_object[0], body_tform_object[1], body_tform_object[2])
-        return object_rt_gn_origin
+        return gn_origin_tform_object
 
     def get_gripper_obs(self) -> float:
         """Grabs the current observation of relevant quantities from the
@@ -956,12 +949,8 @@ class _SpotInterface():
                 'rgb': process_image_response(image_responses[0]),
                 'depth': process_image_response(image_responses[1]),
             }
-            # NOTE: we now hard-code the 'yellow brush' to be a
-            # stand-in for the cube, which is quite a hack.
-            # We will remove this and do correct object classing
-            # in a future PR
             results = get_pixel_locations_with_detic_sam(
-                classes=[obj_name_to_vision_prompt['brush']],
+                obj_class=obj_name_to_vision_prompt[obj.name],
                 in_res_image=image_for_sam,
                 plot=CFG.spot_visualize_vision_model_outputs)
 
