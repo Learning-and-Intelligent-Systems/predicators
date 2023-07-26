@@ -47,10 +47,11 @@ def test_kitchen():
     assert TurnedOn.name == "TurnedOn"
     assert env.goal_predicates == {OnTop, TurnedOn}
     options = get_gt_options(env.get_name())
-    assert len(options) == 3
-    moveto_option, pushobjonobjforward_option, pushobjturnonright_option = \
-        sorted(options)
-    assert moveto_option.name == "MoveTo"
+    assert len(options) == 4
+    moveto_prepushontop_option, moveto_preturnon_option, \
+        pushobjonobjforward_option, pushobjturnonright_option = sorted(options)
+    assert moveto_prepushontop_option.name == "MoveToPrePushOnTop"
+    assert moveto_preturnon_option.name == "MoveToPreTurnOn"
     assert pushobjonobjforward_option.name == "PushObjOnObjForward"
     assert pushobjturnonright_option.name == "PushObjTurnOnLeftRight"
     assert len(env.types) == 2

@@ -33,7 +33,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         obj2 = Variable("?obj2", object_type)
 
         # Options
-        MoveTo = options["MoveTo"]
+        MoveToPrePushOnTop = options["MoveToPrePushOnTop"]
+        MoveToPreTurnOn = options["MoveToPreTurnOn"]
         PushObjOnObjForward = options["PushObjOnObjForward"]
         PushObjTurnOnLeftRight = options["PushObjTurnOnLeftRight"]
 
@@ -53,7 +54,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {LiftedAtom(AtPreTurnOn, [gripper, obj])}
         delete_effects: Set[LiftedAtom] = set()
         ignore_effects = {AtPreTurnOn, AtPrePushOnTop}
-        option = MoveTo
+        option = MoveToPreTurnOn
         option_vars = [gripper, obj]
 
         def moveto_preturnon_sampler(state: State, goal: Set[GroundAtom],
@@ -77,7 +78,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {LiftedAtom(AtPrePushOnTop, [gripper, obj])}
         delete_effects = set()
         ignore_effects = {AtPreTurnOn, AtPrePushOnTop}
-        option = MoveTo
+        option = MoveToPrePushOnTop
         option_vars = [gripper, obj]
 
         def moveto_prepushontop_sampler(state: State, goal: Set[GroundAtom],

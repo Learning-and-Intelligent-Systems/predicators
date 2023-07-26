@@ -123,16 +123,18 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                memory["target_pose"],
                                atol=cls.moveto_tol)
 
-        MoveTo = ParameterizedOption(
-            "MoveTo",
-            types=[gripper_type, object_type],
-            # Parameter is a position to move to relative to the object.
-            params_space=Box(-5, 5, (3, )),
-            policy=_MoveTo_policy,
-            initiable=_MoveTo_initiable,
-            terminal=_MoveTo_terminal)
+        # Create two copies just to preserve one-to-one-ness with NSRTs.
+        for suffix in ["PreTurnOn", "PrePushOnTop"]:
+            nsrt = ParameterizedOption(
+                f"MoveTo{suffix}",
+                types=[gripper_type, object_type],
+                # Parameter is a position to move to relative to the object.
+                params_space=Box(-5, 5, (3, )),
+                policy=_MoveTo_policy,
+                initiable=_MoveTo_initiable,
+                terminal=_MoveTo_terminal)
 
-        options.add(MoveTo)
+            options.add(nsrt)
 
         # PushObjOnObjForward
         def _PushObjOnObjForward_policy(state: State, memory: Dict,
