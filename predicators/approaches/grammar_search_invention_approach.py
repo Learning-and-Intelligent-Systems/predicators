@@ -21,8 +21,8 @@ from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
-from predicators.structs import Dataset, GroundAtomTrajectory, \
-    Object, ParameterizedOption, Predicate, Segment, State, Task, Type
+from predicators.structs import Dataset, GroundAtomTrajectory, Object, \
+    ParameterizedOption, Predicate, Segment, State, Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
