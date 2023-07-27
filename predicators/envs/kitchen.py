@@ -53,7 +53,7 @@ class KitchenEnv(BaseEnv):
     obj_name_to_pre_push_dpos = {
         "kettle": (0.0, -0.3, -0.12),  # need to push from behind kettle
         "knob4": (-0.1, -0.15, 0.05),  # need to push from left to right
-        "light": (0.1, -0.05, 0.0),  # need to push from right to left
+        "light": (0.1, -0.05, -0.05),  # need to push from right to left
     }
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -170,7 +170,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             Predicate("NotOnTop", [cls.object_type, cls.object_type],
                       cls._NotOnTop_holds),
             Predicate("TurnedOn", [cls.object_type], cls.On_holds),
-            Predicate("TurnedOff", [cls.object_type], cls._Off_holds),
+            Predicate("TurnedOff", [cls.object_type], cls.Off_holds),
         }
         return {p.name: p for p in preds}
 
@@ -378,8 +378,18 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return False
 
     @classmethod
-    def _Off_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        return not cls.On_holds(state, objects)
+    def Off_holds(cls,
+                  state: State,
+                  objects: Sequence[Object],
+                  thresh_pad: float = 0.0) -> bool:
+        """Made public for use in ground-truth options."""
+        # Can't do not On_holds() because of thresh_pad logic.
+        obj = objects[0]
+        if "knob" in obj.name:
+            return state.get(obj, "angle") >= cls.on_angle_thresh + thresh_pad
+        if obj.name == "light":
+            return state.get(obj, "x") >= cls.light_on_thresh + thresh_pad
+        return False
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)

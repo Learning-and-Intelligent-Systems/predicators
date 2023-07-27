@@ -9,7 +9,7 @@ from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Type
+    ParameterizedOption, ParameterizedTerminal, Predicate, State, Type
 
 try:
     from gymnasium_robotics.utils.rotations import euler2quat, quat2euler, \
@@ -209,31 +209,40 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
-        def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
-                                             objects: Sequence[Object],
-                                             params: Array) -> bool:
-            del params  # unused
-            gripper, obj = objects
-            gripper_x = state.get(gripper, "x")
-            obj_x = state.get(obj, "x")
-            # Terminate early if the gripper is far past the object.
-            if memory["sign"] * (gripper_x - obj_x) > 5 * cls.moveto_tol:
-                return True
-            # Use a more stringent threshold to avoid numerical issues.
-            return KitchenEnv.On_holds(state, [obj],
-                                       thresh_pad=cls.push_lr_thresh_pad)
+        def _create_PushObjTurnOnLeftRight_terminal(
+                on_or_off: str) -> ParameterizedTerminal:
 
-        # Create two copies just to preserve one-to-one-ness with NSRTs.
-        for on_or_off in ["On", "Off"]:
+            def _terminal(state: State, memory: Dict,
+                          objects: Sequence[Object], params: Array) -> bool:
+                del params  # unused
+                gripper, obj = objects
+                gripper_x = state.get(gripper, "x")
+                obj_x = state.get(obj, "x")
+                # Terminate early if the gripper is far past the object.
+                if memory["sign"] * (gripper_x - obj_x) > 5 * cls.moveto_tol:
+                    return True
+                # Use a more stringent threshold to avoid numerical issues.
+                if on_or_off == "on":
+                    return KitchenEnv.On_holds(
+                        state, [obj], thresh_pad=cls.push_lr_thresh_pad)
+                assert on_or_off == "off"
+                return KitchenEnv.Off_holds(state, [obj],
+                                            thresh_pad=cls.push_lr_thresh_pad)
+
+            return _terminal
+
+        # Create two copies to preserve one-to-one-ness with NSRTs.
+        for on_or_off in ["on", "off"]:
+            terminal = _create_PushObjTurnOnLeftRight_terminal(on_or_off)
             nsrt = ParameterizedOption(
-                f"PushObjTurn{on_or_off}LeftRight",
+                f"PushObjTurn{on_or_off.capitalize()}LeftRight",
                 types=[gripper_type, object_type],
                 # The parameter is a push direction angle with respect to x,
                 # with the sign possibly flipping the x direction.
                 params_space=Box(-np.pi, np.pi, (1, )),
                 policy=_PushObjTurnOnLeftRight_policy,
                 initiable=_PushObjTurnOnLeftRight_initiable,
-                terminal=_PushObjTurnOnLeftRight_terminal)
+                terminal=terminal)
 
             options.add(nsrt)
 

@@ -36,10 +36,11 @@ def test_kitchen():
         task = perceiver.reset(env_task)
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 6
-    AtPrePushOnTop, AtPreTurnOn, NotOnTop, OnTop, TurnedOff, TurnedOn = \
-            sorted(env.predicates)
+    assert len(env.predicates) == 7
+    AtPrePushOnTop, AtPreTurnOff, AtPreTurnOn, NotOnTop, OnTop, TurnedOff, \
+        TurnedOn = sorted(env.predicates)
     assert AtPrePushOnTop.name == "AtPrePushOnTop"
+    assert AtPreTurnOff.name == "AtPreTurnOff"
     assert AtPreTurnOn.name == "AtPreTurnOn"
     assert NotOnTop.name == "NotOnTop"
     assert OnTop.name == "OnTop"
@@ -54,7 +55,7 @@ def test_kitchen():
     assert object_type.name == "obj"
     assert env.action_space.shape == (7, )
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
-    assert len(nsrts) == 4
+    assert len(nsrts) == 6
     env_train_tasks = env.get_train_tasks()
     assert len(env_train_tasks) == 1
     env_test_tasks = env.get_test_tasks()
