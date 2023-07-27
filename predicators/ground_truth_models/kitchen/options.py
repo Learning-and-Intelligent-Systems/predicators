@@ -48,7 +48,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # Types
         gripper_type = types["gripper"]
-        object_type = types["obj"]
+        on_off_type = types["on_off"]
+        kettle_type = types["kettle"]
+        surface_type = types["surface"]
 
         # Predicates
         OnTop = predicates["OnTop"]
@@ -124,10 +126,10 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                atol=cls.moveto_tol)
 
         # Create copies just to preserve one-to-one-ness with NSRTs.
-        for suffix in ["PreTurnOn", "PreTurnOff", "PrePushOnTop"]:
+        for suffix in ["PreTurnOn", "PreTurnOff"]:
             nsrt = ParameterizedOption(
                 f"MoveTo{suffix}",
-                types=[gripper_type, object_type],
+                types=[gripper_type, on_off_type],
                 # Parameter is a position to move to relative to the object.
                 params_space=Box(-5, 5, (3, )),
                 policy=_MoveTo_policy,
@@ -135,6 +137,18 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 terminal=_MoveTo_terminal)
 
             options.add(nsrt)
+
+        # MoveToPrePushOnTop (different type)
+        move_to_pre_push_on_top = ParameterizedOption(
+            "MoveToPrePushOnTop",
+            types=[gripper_type, kettle_type],
+            # Parameter is a position to move to relative to the object.
+            params_space=Box(-5, 5, (3, )),
+            policy=_MoveTo_policy,
+            initiable=_MoveTo_initiable,
+            terminal=_MoveTo_terminal)
+
+        options.add(move_to_pre_push_on_top)
 
         # PushObjOnObjForward
         def _PushObjOnObjForward_policy(state: State, memory: Dict,
@@ -169,7 +183,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
-            types=[gripper_type, object_type, object_type],
+            types=[gripper_type, kettle_type, surface_type],
             # Parameter is an angle for pushing forward.
             params_space=Box(-np.pi, np.pi, (1, )),
             policy=_PushObjOnObjForward_policy,
@@ -236,7 +250,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal = _create_PushObjTurnOnLeftRight_terminal(on_or_off)
             nsrt = ParameterizedOption(
                 f"PushObjTurn{on_or_off.capitalize()}LeftRight",
-                types=[gripper_type, object_type],
+                types=[gripper_type, on_off_type],
                 # The parameter is a push direction angle with respect to x,
                 # with the sign possibly flipping the x direction.
                 params_space=Box(-np.pi, np.pi, (1, )),
