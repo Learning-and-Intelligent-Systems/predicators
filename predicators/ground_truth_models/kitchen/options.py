@@ -194,9 +194,10 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options.add(PushObjOnObjForward)
 
-        # TurnOnSwitch / TurnOffSwitch / TurnOnKnob
-        def _Turn_initiable(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
+        # TurnOnSwitch / TurnOffSwitch
+        def _TurnSwitch_initiable(state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> bool:
             del params  # unused
             # Memorize whether to push left or right based on the relative
             # position of the gripper and object when pushing starts.
@@ -210,8 +211,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             memory["sign"] = sign
             return True
 
-        def _Turn_policy(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> Action:
+        def _TurnSwitch_policy(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> Action:
             del state, objects  # unused
             sign = memory["sign"]
             # The parameter is a push direction angle with respect to x, with
@@ -223,7 +225,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
-        def _create_Turn_terminal(on_or_off: str) -> ParameterizedTerminal:
+        def _create_TurnSwitch_terminal(
+                on_or_off: str) -> ParameterizedTerminal:
 
             def _terminal(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> bool:
@@ -246,23 +249,47 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # Create copies to preserve one-to-one-ness with NSRTs.
         for on_or_off in ["on", "off"]:
-            for obj_type in [switch_type, knob_type]:
-                # Coming soon...
-                if on_or_off == "off" and obj_type == knob_type:
-                    continue
-                name = (f"Turn{on_or_off.capitalize()}"
-                        f"{obj_type.name.capitalize()}")
-                terminal = _create_Turn_terminal(on_or_off)
-                nsrt = ParameterizedOption(
-                    name,
-                    types=[gripper_type, obj_type],
-                    # The parameter is a push direction angle with respect to x,
-                    # with the sign possibly flipping the x direction.
-                    params_space=Box(-np.pi, np.pi, (1, )),
-                    policy=_Turn_policy,
-                    initiable=_Turn_initiable,
-                    terminal=terminal)
+            name = f"Turn{on_or_off.capitalize()}Switch"
+            terminal = _create_TurnSwitch_terminal(on_or_off)
+            option = ParameterizedOption(
+                name,
+                types=[gripper_type, switch_type],
+                # The parameter is a push direction angle with respect to x,
+                # with the sign possibly flipping the x direction.
+                params_space=Box(-np.pi, np.pi, (1, )),
+                policy=_TurnSwitch_policy,
+                initiable=_TurnSwitch_initiable,
+                terminal=terminal)
+            options.add(option)
 
-                options.add(nsrt)
+        # TurnOnKnob / TurnOffKnob
+        def _TurnKnob_policy(state: State, memory: Dict,
+                             objects: Sequence[Object],
+                             params: Array) -> Action:
+            del memory  # unused
+            # The parameter is the desired angle.
+            import ipdb
+            ipdb.set_trace()
+
+        def _TurnKnob_terminal(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> bool:
+            del memory  # unused
+            # The parameter is the desired angle.
+            import ipdb
+            ipdb.set_trace()
+
+        # Create copies to preserve one-to-one-ness with NSRTs.
+        for on_or_off in ["on", "off"]:
+            name = f"Turn{on_or_off.capitalize()}Knob"
+            option = ParameterizedOption(
+                name,
+                types=[gripper_type, knob_type],
+                # The parameter is the desired angle.
+                params_space=Box(-np.pi, np.pi, (1, )),
+                policy=_TurnKnob_policy,
+                initiable=lambda _1, _2, _3, _4: True,
+                terminal=_TurnKnob_terminal)
+            options.add(option)
 
         return options
