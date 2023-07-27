@@ -78,9 +78,11 @@ class KitchenEnv(BaseEnv):
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
     obj_name_to_pre_push_dpos = {
-        "kettle": (0.0, -0.3, -0.12),  # need to push from behind kettle
-        "knob4": (-0.1, -0.15, 0.05),  # need to push from left to right
-        "light": (0.1, -0.05, -0.05),  # need to push from right to left
+        ("kettle", "on"): (0.0, -0.3, -0.12),
+        ("knob4", "on"): (-0.1, -0.15, 0.05),
+        ("knob4", "off"): (0.05, -0.12, -0.05),
+        ("light", "on"): (0.1, -0.05, -0.05),
+        ("light", "off"): (-0.1, -0.05, -0.05),
     }
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -138,14 +140,9 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                                on_or_off: str) -> Tuple[float, float, float]:
         """Get dx, dy, dz offset for pushing."""
         try:
-            dx, dy, dz = cls.obj_name_to_pre_push_dpos[obj.name]
+            dx, dy, dz = cls.obj_name_to_pre_push_dpos[(obj.name, on_or_off)]
         except KeyError:
             dx, dy, dz = (0.0, 0.0, 0.0)
-        # Assumed symmetric.
-        if on_or_off == "off":
-            dx *= -1
-        else:
-            assert on_or_off == "on"
         return (dx, dy, dz)
 
     def render_state_plt(

@@ -46,6 +46,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         PushObjOnObjForward = options["PushObjOnObjForward"]
         TurnOffSwitch = options["TurnOffSwitch"]
         TurnOnSwitch = options["TurnOnSwitch"]
+        TurnOffKnob = options["TurnOffKnob"]
         TurnOnKnob = options["TurnOnKnob"]
 
         # Predicates
@@ -144,7 +145,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(OnTop, [kettle, surface])}
         delete_effects = {LiftedAtom(NotOnTop, [kettle, surface])}
-        ignore_effects = set()
+        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
         option = PushObjOnObjForward
         option_vars = [gripper, kettle, surface]
 
@@ -175,7 +176,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(TurnedOff, [switch])}
         delete_effects = {LiftedAtom(TurnedOn, [switch])}
-        ignore_effects = set()
+        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
         option = TurnOffSwitch
         option_vars = [gripper, switch]
 
@@ -184,15 +185,11 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def switch_turn_sampler(state: State, goal: Set[GroundAtom],
                                 rng: np.random.Generator,
                                 objs: Sequence[Object]) -> Array:
-            del state, goal  # unused
-            _, obj = objs
+            del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
                 # Push slightly inward.
-                if "knob" in obj.name:
-                    push_angle = np.pi / 8
-                else:
-                    push_angle = np.pi / 4
+                push_angle = np.pi / 4
             else:
                 push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
@@ -211,7 +208,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(TurnedOn, [switch])}
         delete_effects = {LiftedAtom(TurnedOff, [switch])}
-        ignore_effects = set()
+        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
         option = TurnOnSwitch
         option_vars = [gripper, switch]
 
@@ -228,14 +225,53 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(TurnedOn, [knob])}
         delete_effects = {LiftedAtom(TurnedOff, [knob])}
-        ignore_effects = set()
+        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
         option = TurnOnKnob
         option_vars = [gripper, knob]
 
-        # Coming soon: no longer use the switch turn sampler.
+        def knob_turn_on_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
+                                 objs: Sequence[Object]) -> Array:
+            del state, goal, objs  # unused
+            # Sample a direction to push w.r.t. the x axis.
+            if CFG.kitchen_use_perfect_samplers:
+                # Push slightly inward.
+                push_angle = np.pi / 8
+            else:
+                push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
+            return np.array([push_angle], dtype=np.float32)
+
         turn_on_knob_nsrt = NSRT("TurnOnKnob", parameters, preconditions,
                                  add_effects, delete_effects, ignore_effects,
-                                 option, option_vars, switch_turn_sampler)
+                                 option, option_vars, knob_turn_on_sampler)
         nsrts.add(turn_on_knob_nsrt)
+
+        # TurnOffKnob
+        parameters = [gripper, knob]
+        preconditions = {
+            LiftedAtom(AtPreTurnOff, [gripper, knob]),
+            LiftedAtom(TurnedOn, [knob])
+        }
+        add_effects = {LiftedAtom(TurnedOff, [knob])}
+        delete_effects = {LiftedAtom(TurnedOn, [knob])}
+        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        option = TurnOffKnob
+        option_vars = [gripper, knob]
+
+        def knob_turn_off_sampler(state: State, goal: Set[GroundAtom],
+                                  rng: np.random.Generator,
+                                  objs: Sequence[Object]) -> Array:
+            del state, goal, objs  # unused
+            # Sample a direction to push w.r.t. the y-z plane.
+            if CFG.kitchen_use_perfect_samplers:
+                push_angle = 0.0
+            else:
+                push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
+            return np.array([push_angle], dtype=np.float32)
+
+        turn_off_knob_nsrt = NSRT("TurnOffKnob", parameters, preconditions,
+                                  add_effects, delete_effects, ignore_effects,
+                                  option, option_vars, knob_turn_off_sampler)
+        nsrts.add(turn_off_knob_nsrt)
 
         return nsrts

@@ -29,6 +29,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
     # Keep pushing a bit even if the On classifier holds.
     push_lr_thresh_pad: ClassVar[float] = 0.02
+    turn_knob_tol: ClassVar[float] = 0.01  # for twisting the knob
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -194,9 +195,10 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options.add(PushObjOnObjForward)
 
-        # TurnOnSwitch / TurnOffSwitch / TurnOnKnob
-        def _Turn_initiable(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
+        # TurnOnSwitch / TurnOffSwitch
+        def _TurnSwitch_initiable(state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> bool:
             del params  # unused
             # Memorize whether to push left or right based on the relative
             # position of the gripper and object when pushing starts.
@@ -210,8 +212,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             memory["sign"] = sign
             return True
 
-        def _Turn_policy(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> Action:
+        def _TurnSwitch_policy(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> Action:
             del state, objects  # unused
             sign = memory["sign"]
             # The parameter is a push direction angle with respect to x, with
@@ -223,7 +226,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
-        def _create_Turn_terminal(on_or_off: str) -> ParameterizedTerminal:
+        def _create_TurnSwitch_terminal(
+                on_or_off: str) -> ParameterizedTerminal:
 
             def _terminal(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> bool:
@@ -246,23 +250,91 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # Create copies to preserve one-to-one-ness with NSRTs.
         for on_or_off in ["on", "off"]:
-            for obj_type in [switch_type, knob_type]:
-                # Coming soon...
-                if on_or_off == "off" and obj_type == knob_type:
-                    continue
-                name = (f"Turn{on_or_off.capitalize()}"
-                        f"{obj_type.name.capitalize()}")
-                terminal = _create_Turn_terminal(on_or_off)
-                nsrt = ParameterizedOption(
-                    name,
-                    types=[gripper_type, obj_type],
-                    # The parameter is a push direction angle with respect to x,
-                    # with the sign possibly flipping the x direction.
-                    params_space=Box(-np.pi, np.pi, (1, )),
-                    policy=_Turn_policy,
-                    initiable=_Turn_initiable,
-                    terminal=terminal)
+            name = f"Turn{on_or_off.capitalize()}Switch"
+            terminal = _create_TurnSwitch_terminal(on_or_off)
+            option = ParameterizedOption(
+                name,
+                types=[gripper_type, switch_type],
+                # The parameter is a push direction angle with respect to x,
+                # with the sign possibly flipping the x direction.
+                params_space=Box(-np.pi, np.pi, (1, )),
+                policy=_TurnSwitch_policy,
+                initiable=_TurnSwitch_initiable,
+                terminal=terminal)
+            options.add(option)
 
-                options.add(nsrt)
+        # TurnOnKnob
+        def _TurnOnKnob_policy(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> Action:
+            del state, memory, objects  # unused
+            # The parameter is a push direction angle with respect to x.
+            push_angle = params[0]
+            unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
+            dx = unit_x * cls.max_push_mag
+            dy = unit_y * cls.max_push_mag
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            return Action(arr)
+
+        def _TurnOnKnob_terminal(state: State, memory: Dict,
+                                 objects: Sequence[Object],
+                                 params: Array) -> bool:
+            del memory, params  # unused
+            gripper, obj = objects
+            gripper_x = state.get(gripper, "x")
+            obj_x = state.get(obj, "x")
+            # Terminate early if the gripper is far past the object.
+            if (gripper_x - obj_x) > 5 * cls.moveto_tol:
+                return True
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv.On_holds(state, [obj],
+                                       thresh_pad=cls.push_lr_thresh_pad)
+
+        TurnOnKnob = ParameterizedOption(
+            "TurnOnKnob",
+            types=[gripper_type, knob_type],
+            # The parameter is a push direction angle with respect to x.
+            params_space=Box(-np.pi, np.pi, (1, )),
+            policy=_TurnOnKnob_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_TurnOnKnob_terminal)
+        options.add(TurnOnKnob)
+
+        # TurnOffKnob
+        def _TurnOffKnob_policy(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+            del state, memory, objects  # unused
+            # Push in the zy plane.
+            push_angle = params[0]
+            unit_z, unit_y = np.cos(push_angle), np.sin(push_angle)
+            dy = unit_y * cls.max_push_mag
+            dz = unit_z * cls.max_push_mag
+            arr = np.array([0.0, dy, dz, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            return Action(arr)
+
+        def _TurnOffKnob_terminal(state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> bool:
+            del memory, params  # unused
+            gripper, obj = objects
+            gripper_z = state.get(gripper, "z")
+            obj_z = state.get(obj, "z")
+            # Terminate early if the gripper is far past the object.
+            if (gripper_z - obj_z) > 5 * cls.moveto_tol:
+                return True
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv.Off_holds(state, [obj],
+                                        thresh_pad=cls.push_lr_thresh_pad)
+
+        TurnOffKnob = ParameterizedOption(
+            "TurnOffKnob",
+            types=[gripper_type, knob_type],
+            # The parameter is a push direction angle with respect to x.
+            params_space=Box(-np.pi, np.pi, (1, )),
+            policy=_TurnOffKnob_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_TurnOffKnob_terminal)
+        options.add(TurnOffKnob)
 
         return options
