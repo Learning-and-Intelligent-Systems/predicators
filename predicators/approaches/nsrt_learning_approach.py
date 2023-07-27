@@ -18,8 +18,8 @@ from predicators.approaches.bilevel_planning_approach import \
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, Type
+from predicators.structs import NSRT, Dataset, GroundAtomTrajectory, \
+    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -75,14 +75,14 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 # The saved ground atom dataset consists only of sequences
                 # of sets of GroundAtoms, we need to recombine this with
                 # the LowLevelTrajectories to create a GroundAtomTrajectory.
-                ground_atom_dataset = []
+                ground_atom_dataset: Optional[List[GroundAtomTrajectory]] = []
                 for i, traj in enumerate(trajectories):
                     ground_atom_seq = ground_atom_dataset_atoms[i]
                     ground_atom_dataset.append(
                         (traj, [set(atoms) for atoms in ground_atom_seq]))
             else:
                 raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
-        else:
+        elif CFG.save_atoms:
             # Apply predicates to data, producing a dataset of abstract states.
             ground_atom_dataset = utils.create_ground_atom_dataset(
                 trajectories, self._get_current_predicates())
@@ -98,6 +98,12 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 ground_atom_dataset_to_pkl.append(trajectory)
             with open(dataset_fname, "wb") as f:
                 pkl.dump(ground_atom_dataset_to_pkl, f)
+        else:
+            # By default, we don't create a full ground atom dataset, since
+            # doing so requires called abstract on all states, including states
+            # that might ultimately just be in the middle of segments. When
+            # options take many steps, this makes a big time/space difference.
+            ground_atom_dataset = None
 
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,
