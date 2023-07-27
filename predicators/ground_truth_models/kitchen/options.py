@@ -28,7 +28,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     # A reasonable home position for the end effector.
     home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
     # Keep pushing a bit even if the On classifier holds.
-    push_lr_thresh_pad: ClassVar[float] = 0.01
+    push_lr_thresh_pad: ClassVar[float] = 0.02
 
     @classmethod
     def get_env_names(cls) -> Set[str]:

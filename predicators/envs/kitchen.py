@@ -73,7 +73,7 @@ class KitchenEnv(BaseEnv):
     at_pre_turn_atol = 0.05  # tolerance for AtPreTurnOn/Off
     ontop_atol = 0.1  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
-    light_on_thresh = -0.4  # light is On if less than this threshold
+    light_on_thresh = -0.38  # light is On if less than this threshold
     at_pre_pushontop_yz_atol = 0.05  # tolerance for AtPrePushOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
