@@ -9,6 +9,7 @@ from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.kitchen_perceiver import KitchenPerceiver
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
+USE_GUI = False
 
 
 @longrun
@@ -24,7 +25,7 @@ def test_kitchen():
         "num_test_tasks": 2,
         "kitchen_use_perfect_samplers": True,
     })
-    env = KitchenEnv()
+    env = KitchenEnv(use_gui=USE_GUI)
     perceiver = KitchenPerceiver()
     assert env.get_name() == "kitchen"
     assert perceiver.get_name() == "kitchen"
