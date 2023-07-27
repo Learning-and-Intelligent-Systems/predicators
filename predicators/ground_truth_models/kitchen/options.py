@@ -9,7 +9,7 @@ from predicators.envs.kitchen import KitchenEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Type
+    ParameterizedOption, ParameterizedTerminal, Predicate, State, Type
 
 try:
     from gymnasium_robotics.utils.rotations import euler2quat, quat2euler, \
@@ -28,7 +28,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     # A reasonable home position for the end effector.
     home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
     # Keep pushing a bit even if the On classifier holds.
-    push_lr_thresh_pad: ClassVar[float] = 0.01
+    push_lr_thresh_pad: ClassVar[float] = 0.02
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
@@ -48,7 +48,11 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # Types
         gripper_type = types["gripper"]
-        object_type = types["obj"]
+        on_off_type = types["on_off"]
+        kettle_type = types["kettle"]
+        surface_type = types["surface"]
+        switch_type = types["switch"]
+        knob_type = types["knob"]
 
         # Predicates
         OnTop = predicates["OnTop"]
@@ -123,11 +127,11 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                memory["target_pose"],
                                atol=cls.moveto_tol)
 
-        # Create two copies just to preserve one-to-one-ness with NSRTs.
-        for suffix in ["PreTurnOn", "PrePushOnTop"]:
+        # Create copies just to preserve one-to-one-ness with NSRTs.
+        for suffix in ["PreTurnOn", "PreTurnOff"]:
             nsrt = ParameterizedOption(
                 f"MoveTo{suffix}",
-                types=[gripper_type, object_type],
+                types=[gripper_type, on_off_type],
                 # Parameter is a position to move to relative to the object.
                 params_space=Box(-5, 5, (3, )),
                 policy=_MoveTo_policy,
@@ -135,6 +139,18 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 terminal=_MoveTo_terminal)
 
             options.add(nsrt)
+
+        # MoveToPrePushOnTop (different type)
+        move_to_pre_push_on_top = ParameterizedOption(
+            "MoveToPrePushOnTop",
+            types=[gripper_type, kettle_type],
+            # Parameter is a position to move to relative to the object.
+            params_space=Box(-5, 5, (3, )),
+            policy=_MoveTo_policy,
+            initiable=_MoveTo_initiable,
+            terminal=_MoveTo_terminal)
+
+        options.add(move_to_pre_push_on_top)
 
         # PushObjOnObjForward
         def _PushObjOnObjForward_policy(state: State, memory: Dict,
@@ -169,7 +185,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
-            types=[gripper_type, object_type, object_type],
+            types=[gripper_type, kettle_type, surface_type],
             # Parameter is an angle for pushing forward.
             params_space=Box(-np.pi, np.pi, (1, )),
             policy=_PushObjOnObjForward_policy,
@@ -178,10 +194,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options.add(PushObjOnObjForward)
 
-        # PushObjTurnOnLeftRight
-        def _PushObjTurnOnLeftRight_initiable(state: State, memory: Dict,
-                                              objects: Sequence[Object],
-                                              params: Array) -> bool:
+        # TurnOnSwitch / TurnOffSwitch / TurnOnKnob
+        def _Turn_initiable(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
             del params  # unused
             # Memorize whether to push left or right based on the relative
             # position of the gripper and object when pushing starts.
@@ -195,9 +210,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             memory["sign"] = sign
             return True
 
-        def _PushObjTurnOnLeftRight_policy(state: State, memory: Dict,
-                                           objects: Sequence[Object],
-                                           params: Array) -> Action:
+        def _Turn_policy(state: State, memory: Dict, objects: Sequence[Object],
+                         params: Array) -> Action:
             del state, objects  # unused
             sign = memory["sign"]
             # The parameter is a push direction angle with respect to x, with
@@ -209,30 +223,46 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
-        def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
-                                             objects: Sequence[Object],
-                                             params: Array) -> bool:
-            del params  # unused
-            gripper, obj = objects
-            gripper_x = state.get(gripper, "x")
-            obj_x = state.get(obj, "x")
-            # Terminate early if the gripper is far past the object.
-            if memory["sign"] * (gripper_x - obj_x) > 5 * cls.moveto_tol:
-                return True
-            # Use a more stringent threshold to avoid numerical issues.
-            return KitchenEnv.On_holds(state, [obj],
-                                       thresh_pad=cls.push_lr_thresh_pad)
+        def _create_Turn_terminal(on_or_off: str) -> ParameterizedTerminal:
 
-        PushObjTurnOnLeftRight = ParameterizedOption(
-            "PushObjTurnOnLeftRight",
-            types=[gripper_type, object_type],
-            # The parameter is a push direction angle with respect to x, with
-            # the sign possibly flipping the x direction.
-            params_space=Box(-np.pi, np.pi, (1, )),
-            policy=_PushObjTurnOnLeftRight_policy,
-            initiable=_PushObjTurnOnLeftRight_initiable,
-            terminal=_PushObjTurnOnLeftRight_terminal)
+            def _terminal(state: State, memory: Dict,
+                          objects: Sequence[Object], params: Array) -> bool:
+                del params  # unused
+                gripper, obj = objects
+                gripper_x = state.get(gripper, "x")
+                obj_x = state.get(obj, "x")
+                # Terminate early if the gripper is far past the object.
+                if memory["sign"] * (gripper_x - obj_x) > 5 * cls.moveto_tol:
+                    return True
+                # Use a more stringent threshold to avoid numerical issues.
+                if on_or_off == "on":
+                    return KitchenEnv.On_holds(
+                        state, [obj], thresh_pad=cls.push_lr_thresh_pad)
+                assert on_or_off == "off"
+                return KitchenEnv.Off_holds(state, [obj],
+                                            thresh_pad=cls.push_lr_thresh_pad)
 
-        options.add(PushObjTurnOnLeftRight)
+            return _terminal
+
+        # Create copies to preserve one-to-one-ness with NSRTs.
+        for on_or_off in ["on", "off"]:
+            for obj_type in [switch_type, knob_type]:
+                # Coming soon...
+                if on_or_off == "off" and obj_type == knob_type:
+                    continue
+                name = (f"Turn{on_or_off.capitalize()}"
+                        f"{obj_type.name.capitalize()}")
+                terminal = _create_Turn_terminal(on_or_off)
+                nsrt = ParameterizedOption(
+                    name,
+                    types=[gripper_type, obj_type],
+                    # The parameter is a push direction angle with respect to x,
+                    # with the sign possibly flipping the x direction.
+                    params_space=Box(-np.pi, np.pi, (1, )),
+                    policy=_Turn_policy,
+                    initiable=_Turn_initiable,
+                    terminal=terminal)
+
+                options.add(nsrt)
 
         return options
