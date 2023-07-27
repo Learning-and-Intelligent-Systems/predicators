@@ -7,18 +7,18 @@ from typing import Dict, List, Tuple
 
 import bosdyn.client
 import bosdyn.client.util
-import cv2
 import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import PIL
 import requests
 from bosdyn.api import image_pb2
 from numpy.typing import NDArray
-from PIL import Image
 from scipy import ndimage
 
 from predicators.settings import CFG
+from predicators.structs import Image
 
 # NOTE: uncomment this line if trying to visualize stuff locally
 # and matplotlib isn't displaying.
@@ -32,9 +32,21 @@ ROTATION_ANGLE = {
     'left_fisheye_image': 0,
     'right_fisheye_image': 180
 }
+CAMERA_NAMES = [
+    "hand_color_image", "left_fisheye_image", "right_fisheye_image",
+    "frontleft_fisheye_image", "frontright_fisheye_image", "back_fisheye_image"
+]
+RGB_TO_DEPTH_CAMERAS = {
+    "hand_color_image": "hand_depth_in_hand_color_frame",
+    "left_fisheye_image": "left_depth_in_visual_frame",
+    "right_fisheye_image": "right_depth_in_visual_frame",
+    "frontleft_fisheye_image": "frontleft_depth_in_visual_frame",
+    "frontright_fisheye_image": "frontright_depth_in_visual_frame",
+    "back_fisheye_image": "back_depth_in_visual_frame"
+}
 
 
-def image_to_bytes(img: Image.Image) -> io.BytesIO:
+def image_to_bytes(img: PIL.Image.Image) -> io.BytesIO:
     """Helper function to convert from a PIL image into a bytes object."""
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -42,7 +54,7 @@ def image_to_bytes(img: Image.Image) -> io.BytesIO:
     return buf
 
 
-def visualize_output(im: Image.Image, masks: NDArray, input_boxes: NDArray,
+def visualize_output(im: PIL.Image.Image, masks: NDArray, input_boxes: NDArray,
                      classes: NDArray, scores: NDArray) -> None:
     """Visualizes the output of SAM; useful for debugging.
 
@@ -98,73 +110,95 @@ def show_box(box: NDArray, ax: matplotlib.axes.Axes) -> None:
                       lw=2))
 
 
-def query_detic_sam(image_in: NDArray, classes: List[str],
-                    viz: bool) -> Dict[str, List[NDArray]]:
+def query_detic_sam(rgb_image_dict_in: Dict[str, Image], classes: List[str],
+                    viz: bool) -> Dict[str, Dict[str, List[NDArray]]]:
     """Send a query to SAM and return the response.
 
-    The response is a dictionary that contains 4 keys: 'boxes',
-    'classes', 'masks' and 'scores'.
+    rgb_image_dict_in is expected to have keys corresponding to camera
+    names and values corresponding to images taken from the particular
+    camera named in the key. The DETIC-SAM model will send a batched
+    query with this dict, and will receive a response per key in the
+    dictionary (i.e, per input camera). The output will be a dictionary
+    mapping the same cameras named in the input to a dict with 'boxes',
+    'classes', 'masks' and 'scores' returned by DETIC-SAM. Importantly,
+    we only keep the top-scoring result for each class seen by each
+    camera.
     """
-    image = Image.fromarray(image_in)
-    buf = image_to_bytes(image)
-    r = requests.post("http://localhost:5550/predict",
-                      files={"file": buf},
+    buf_dict = {}
+    for source_name in rgb_image_dict_in.keys():
+        image = PIL.Image.fromarray(rgb_image_dict_in[source_name])
+        buf_dict[source_name] = image_to_bytes(image)
+
+    r = requests.post("http://localhost:5550/batch_predict",
+                      files=buf_dict,
                       data={"classes": ",".join(classes)})
 
-    d_filtered: Dict[str, List[NDArray]] = {
-        "boxes": [],
-        "classes": [],
-        "masks": [],
-        "scores": []
-    }
+    detic_sam_results: Dict[str, Dict[str, List[NDArray]]] = {}
+    for source_name in rgb_image_dict_in.keys():
+        detic_sam_results[source_name] = {
+            "boxes": [],
+            "classes": [],
+            "masks": [],
+            "scores": []
+        }
+
     # If the status code is not 200, then fail.
     if r.status_code != 200:
-        return d_filtered
+        return detic_sam_results
 
     with io.BytesIO(r.content) as f:
         try:
             arr = np.load(f, allow_pickle=True)
         except pkl.UnpicklingError:
-            return d_filtered
+            return detic_sam_results
+        for source_name in rgb_image_dict_in.keys():
+            curr_boxes = arr[source_name + '_boxes']
+            curr_ret_classes = arr[source_name + '_classes']
+            curr_masks = arr[source_name + '_masks']
+            curr_scores = arr[source_name + '_scores']
 
-        boxes = arr['boxes']
-        ret_classes = arr['classes']
-        masks = arr['masks']
-        scores = arr['scores']
+            # If there were no detections (which means all the
+            # returned values will be numpy arrays of shape (0, 0))
+            # then just skip this source.
+            if curr_ret_classes.size == 0:
+                continue
 
-    d = {
-        "boxes": boxes,
-        "classes": ret_classes,
-        "masks": masks,
-        "scores": scores
-    }
+            d = {
+                "boxes": curr_boxes,
+                "classes": curr_ret_classes,
+                "masks": curr_masks,
+                "scores": curr_scores
+            }
 
-    if viz:
-        # Optional visualization useful for debugging.
-        visualize_output(image, d["masks"], d["boxes"], d["classes"],
-                         d["scores"])
+            if viz:
+                image = PIL.Image.fromarray(rgb_image_dict_in[source_name])
+                # Optional visualization useful for debugging.
+                visualize_output(image, d["masks"], d["boxes"], d["classes"],
+                                 d["scores"])
 
-    # Filter out detections by confidence. We threshold detections
-    # at a set confidence level minimum, and if there are multiple
-    #, we only select the most confident one. This structure makes
-    # it easy for us to select multiple detections if that's ever
-    # necessary in the future.
-    for obj_class in classes:
-        class_mask = (d['classes'] == obj_class)
-        if np.any(class_mask):
-            continue
-        max_score = np.max(d['scores'][class_mask])
-        max_score_idx = np.where(d['scores'] == max_score)[0]
-        if d['scores'][max_score_idx] < CFG.spot_vision_detection_threshold:
-            continue
-        for key, value in d.items():
-            # Sanity check to ensure that we're selecting a value from
-            # the class we're looking for.
-            if key == "classes":
-                assert value[max_score_idx] == obj_class
-            d_filtered[key].append(value[max_score_idx])
+            # Filter out detections by confidence. We threshold detections
+            # at a set confidence level minimum, and if there are multiple
+            #, we only select the most confident one. This structure makes
+            # it easy for us to select multiple detections if that's ever
+            # necessary in the future.
+            for obj_class in classes:
+                class_mask = (d['classes'] == obj_class)
+                if not np.any(class_mask):
+                    continue
+                max_score = np.max(d['scores'][class_mask])
+                max_score_idx = np.where(d['scores'] == max_score)[0]
+                if d['scores'][
+                        max_score_idx] < CFG.spot_vision_detection_threshold:
+                    continue
+                for key, value in d.items():
+                    # Sanity check to ensure that we're selecting a value from
+                    # the class we're looking for.
+                    if key == "classes":
+                        assert value[max_score_idx] == obj_class
+                    detic_sam_results[source_name][key].append(
+                        value[max_score_idx])
 
-    return d_filtered
+    return detic_sam_results
 
 
 # NOTE: the below function is useful for visualization; uncomment
@@ -249,50 +283,6 @@ def query_detic_sam(image_in: NDArray, classes: List[str],
 #     return np.vstack((x, y, z)).T, valid_inds
 
 
-def process_image_response(image_response: bosdyn.api.image_pb2.ImageResponse,
-                           to_rgb: bool = False) -> NDArray:
-    """Given a Boston Dynamics SDK image response, extract the correct np array
-    corresponding to the image."""
-    # pylint: disable=no-member
-    num_bytes = 1  # Assume a default of 1 byte encodings.
-    if image_response.shot.image.pixel_format == \
-            image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
-        dtype = np.uint16
-    else:
-        if image_response.shot.image.pixel_format == \
-                image_pb2.Image.PIXEL_FORMAT_RGB_U8:
-            num_bytes = 3
-        elif image_response.shot.image.pixel_format == \
-                image_pb2.Image.PIXEL_FORMAT_RGBA_U8:
-            num_bytes = 4
-        elif image_response.shot.image.pixel_format == \
-                image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U8:
-            num_bytes = 1
-        elif image_response.shot.image.pixel_format == \
-                image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U16:
-            num_bytes = 2
-        dtype = np.uint8  # type: ignore
-
-    img = np.frombuffer(image_response.shot.image.data, dtype=dtype)
-    if image_response.shot.image.format == image_pb2.Image.FORMAT_RAW:
-        try:
-            # Attempt to reshape array into a RGB rows X cols shape.
-            img = img.reshape((image_response.shot.image.rows,
-                               image_response.shot.image.cols, num_bytes))
-        except ValueError:
-            # Unable to reshape the image data, trying a regular decode.
-            img = cv2.imdecode(img, -1)
-    else:
-        img = cv2.imdecode(img, -1)
-
-    # Convert to RGB color, as some perception models assume RGB format
-    # By default, still use BGR to keep backward compability
-    if to_rgb:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    return img
-
-
 def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
                        depth_value: float, point_x: float,
                        point_y: float) -> Tuple[float, float, float]:
@@ -327,26 +317,28 @@ def get_xyz_from_depth(image_response: bosdyn.api.image_pb2.ImageResponse,
 
 def get_pixel_locations_with_detic_sam(
         obj_class: str,
-        in_res_image: Dict[str, NDArray],
+        rgb_image_dict: Dict[str, NDArray],
         plot: bool = False) -> List[Tuple[float, float]]:
     """Method to get the pixel locations of specific objects with class names
     listed in 'classes' within an input image."""
-    res_segment = query_detic_sam(image_in=in_res_image['rgb'],
+    res_segment = query_detic_sam(rgb_image_dict_in=rgb_image_dict,
                                   classes=[obj_class],
                                   viz=plot)
-    # return: 'masks', 'boxes', 'classes'
-    if len(res_segment['classes']) == 0:
+
+    assert len(rgb_image_dict.keys()) == 1
+    camera_name = list(rgb_image_dict.keys())[0]
+    if len(res_segment[camera_name]['classes']) == 0:
         return []
 
     pixel_locations = []
 
     # Compute geometric center of object bounding box
-    x1, y1, x2, y2 = res_segment['boxes'][0].squeeze()
+    x1, y1, x2, y2 = res_segment[camera_name]['boxes'][0].squeeze()
     x_c = (x1 + x2) / 2
     y_c = (y1 + y2) / 2
     # Plot center and segmentation mask
     if plot:
-        plt.imshow(res_segment['masks'][0][0].squeeze())
+        plt.imshow(res_segment[camera_name]['masks'][0][0].squeeze())
         plt.show()
     pixel_locations.append((x_c, y_c))
 
@@ -355,10 +347,12 @@ def get_pixel_locations_with_detic_sam(
 
 def get_object_locations_with_detic_sam(
         classes: List[str],
-        res_image: Dict[str, NDArray],
-        res_image_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse],
-        source_name: str,
-        plot: bool = False) -> Dict[str, Tuple[float, float, float]]:
+        rgb_image_dict: Dict[str, Image],
+        depth_image_dict: Dict[str, Image],
+        depth_image_response_dict: Dict[str,
+                                        bosdyn.api.image_pb2.ImageResponse],
+        plot: bool = False
+) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
     """Given a list of string queries (classes), call SAM on these and return
     the positions of the centroids of these detections in the camera frame.
 
@@ -371,97 +365,112 @@ def get_object_locations_with_detic_sam(
     # First, rotate the rgb and depth images by the correct angle.
     # Importantly, DO NOT reshape the image, because this will
     # lead to a bunch of problems when we reverse the rotation later.
-    rotated_rgb = ndimage.rotate(res_image['rgb'],
-                                 ROTATION_ANGLE[source_name],
-                                 reshape=False)
-    rotated_depth = ndimage.rotate(res_image['depth'],
-                                   ROTATION_ANGLE[source_name],
-                                   reshape=False)
+    rotated_rgb_image_dict = {}
+    rotated_depth_image_dict = {}
+    for source_name in CAMERA_NAMES:
+        assert source_name in rgb_image_dict and source_name in depth_image_dict
+        rotated_rgb = ndimage.rotate(rgb_image_dict[source_name],
+                                     ROTATION_ANGLE[source_name],
+                                     reshape=False)
+        rotated_depth = ndimage.rotate(depth_image_dict[source_name],
+                                       ROTATION_ANGLE[source_name],
+                                       reshape=False)
+        rotated_rgb_image_dict[source_name] = rotated_rgb
+        rotated_depth_image_dict[source_name] = rotated_depth
 
-    # Plot the rotated image before querying SAM.
-    if plot:
-        plt.imshow(rotated_rgb)
-        plt.show()
-
-    # Start by querying SAM
-    res_segment = query_detic_sam(image_in=rotated_rgb,
-                                  classes=classes,
-                                  viz=plot)
-
-    if len(res_segment['classes']) == 0:
-        return {}
-
-    ret_obj_positions: Dict[str, Tuple[float, float, float]] = {}
-    for i, obj_class in enumerate(res_segment['classes']):
-        # Check that this particular class is one of the
-        # classes we passed in, and that there was only one
-        # instance of this class that was found.
-        assert obj_class.item() in classes
-        assert res_segment['classes'].count(obj_class) == 1
-        # Compute median value of depth
-        depth_median = np.median(
-            rotated_depth[res_segment['masks'][i][0].squeeze()
-                          & (rotated_depth > 2)[:, :, 0]])
-        # Compute geometric center of object bounding box
-        x1, y1, x2, y2 = res_segment['boxes'][i].squeeze()
-        x_c = (x1 + x2) / 2
-        y_c = (y1 + y2) / 2
-        # Create a transformation matrix for the rotation. Be very
-        # careful to use radians, since np.cos and np.sin expect
-        # angles in radians and not degrees.
-        rotation_radians = np.radians(ROTATION_ANGLE[source_name])
-        transform_matrix = np.array(
-            [[np.cos(rotation_radians), -np.sin(rotation_radians)],
-             [np.sin(rotation_radians),
-              np.cos(rotation_radians)]])
-        # Subtract the center of the image from the pixel location to
-        # translate the rotation to the origin.
-        center = np.array(
-            [rotated_rgb.shape[1] / 2., rotated_rgb.shape[0] / 2.])
-        pixel_centered = np.array([x_c, y_c]) - center
-        # Apply the rotation
-        rotated_pixel_centered = np.matmul(transform_matrix, pixel_centered)
-        # Add the center of the image back to the pixel location to
-        # translate the rotation back from the origin.
-        rotated_pixel = rotated_pixel_centered + center
-        # Now rotated_pixel is the location of the centroid pixel after the
-        # inverse rotation.
-        x_c_rotated = rotated_pixel[0]
-        y_c_rotated = rotated_pixel[1]
-
-        # Plot (1) the original RGB image, (2) the rotated
-        # segmentation mask from SAM on top of it, (3) the
-        # center of the image, (4) the centroid of the detected
-        # object that comes from SAM, and (5) the centroid
-        # after we rotate it back to align with the original
-        # RGB image.
+        # Plot the rotated image before querying DETIC-SAM.
         if plot:
-            inverse_rotation_angle = -ROTATION_ANGLE[source_name]
-            plt.imshow(res_image['depth'])
-            plt.imshow(ndimage.rotate(res_segment['masks'][i][0].squeeze(),
-                                      inverse_rotation_angle,
-                                      reshape=False),
-                       alpha=0.5,
-                       cmap='Reds')
-            plt.scatter(x=x_c_rotated,
-                        y=y_c_rotated,
-                        marker='*',
-                        color='red',
-                        zorder=3)
-            plt.scatter(x=center[0],
-                        y=center[1],
-                        marker='.',
-                        color='blue',
-                        zorder=3)
-            plt.scatter(x=x_c, y=y_c, marker='*', color='green', zorder=3)
+            plt.imshow(rotated_rgb)
             plt.show()
 
-        # Get XYZ of the point at center of bounding box and median depth value.
-        x0, y0, z0 = get_xyz_from_depth(res_image_responses['depth'],
-                                        depth_value=depth_median,
-                                        point_x=x_c_rotated,
-                                        point_y=y_c_rotated)
-        if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(z0):
-            ret_obj_positions[obj_class.item()] = (x0, y0, z0)
+    # Start by querying the DETIC-SAM model.
+    deticsam_results_all_cameras = query_detic_sam(
+        rgb_image_dict_in=rotated_rgb_image_dict, classes=classes, viz=plot)
 
-    return ret_obj_positions
+    ret_camera_to_obj_positions: Dict[str,
+                                      Dict[str,
+                                           Tuple[float, float, float]]] = {
+                                               source_name: {}
+                                               for source_name in CAMERA_NAMES
+                                           }
+    for source_name in CAMERA_NAMES:
+        curr_res_segment = deticsam_results_all_cameras[source_name]
+        for i, obj_class in enumerate(curr_res_segment['classes']):
+            # Check that this particular class is one of the
+            # classes we passed in, and that there was only one
+            # instance of this class that was found.
+            assert obj_class.item() in classes
+            assert curr_res_segment['classes'].count(obj_class) == 1
+            # Compute median value of depth
+            depth_median = np.median(
+                rotated_depth[curr_res_segment['masks'][i][0].squeeze()
+                              & (rotated_depth > 2)[:, :, 0]])
+            # Compute geometric center of object bounding box
+            x1, y1, x2, y2 = curr_res_segment['boxes'][i].squeeze()
+            x_c = (x1 + x2) / 2
+            y_c = (y1 + y2) / 2
+            # Create a transformation matrix for the rotation. Be very
+            # careful to use radians, since np.cos and np.sin expect
+            # angles in radians and not degrees.
+            rotation_radians = np.radians(ROTATION_ANGLE[source_name])
+            transform_matrix = np.array(
+                [[np.cos(rotation_radians), -np.sin(rotation_radians)],
+                 [np.sin(rotation_radians),
+                  np.cos(rotation_radians)]])
+            # Subtract the center of the image from the pixel location to
+            # translate the rotation to the origin.
+            center = np.array(
+                [rotated_rgb.shape[1] / 2., rotated_rgb.shape[0] / 2.])
+            pixel_centered = np.array([x_c, y_c]) - center
+            # Apply the rotation
+            rotated_pixel_centered = np.matmul(transform_matrix,
+                                               pixel_centered)
+            # Add the center of the image back to the pixel location to
+            # translate the rotation back from the origin.
+            rotated_pixel = rotated_pixel_centered + center
+            # Now rotated_pixel is the location of the centroid pixel after the
+            # inverse rotation.
+            x_c_rotated = rotated_pixel[0]
+            y_c_rotated = rotated_pixel[1]
+
+            # Plot (1) the original RGB image, (2) the rotated
+            # segmentation mask from SAM on top of it, (3) the
+            # center of the image, (4) the centroid of the detected
+            # object that comes from SAM, and (5) the centroid
+            # after we rotate it back to align with the original
+            # RGB image.
+            if plot:
+                inverse_rotation_angle = -ROTATION_ANGLE[source_name]
+                plt.imshow(depth_image_dict[source_name])
+                plt.imshow(ndimage.rotate(
+                    curr_res_segment['masks'][i][0].squeeze(),
+                    inverse_rotation_angle,
+                    reshape=False),
+                           alpha=0.5,
+                           cmap='Reds')
+                plt.scatter(x=x_c_rotated,
+                            y=y_c_rotated,
+                            marker='*',
+                            color='red',
+                            zorder=3)
+                plt.scatter(x=center[0],
+                            y=center[1],
+                            marker='.',
+                            color='blue',
+                            zorder=3)
+                plt.scatter(x=x_c, y=y_c, marker='*', color='green', zorder=3)
+                plt.show()
+
+            # Get XYZ of the point at center of bounding box and median depth
+            # value.
+            x0, y0, z0 = get_xyz_from_depth(
+                depth_image_response_dict[source_name],
+                depth_value=depth_median,
+                point_x=x_c_rotated,
+                point_y=y_c_rotated)
+            if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(
+                    z0):
+                ret_camera_to_obj_positions[source_name][obj_class.item()] = (
+                    x0, y0, z0)
+
+    return ret_camera_to_obj_positions
