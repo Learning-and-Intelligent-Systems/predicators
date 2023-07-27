@@ -43,7 +43,7 @@ class KitchenEnv(BaseEnv):
     gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
-    at_pre_turnon_atol = 0.05  # tolerance for AtPreTurnOn
+    at_pre_turn_atol = 0.05  # tolerance for AtPreTurnOn/Off
     ontop_atol = 0.1  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.4  # light is On if less than this threshold
@@ -107,12 +107,19 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return state_info
 
     @classmethod
-    def get_pre_push_delta_pos(cls, obj: Object) -> Tuple[float, float, float]:
+    def get_pre_push_delta_pos(cls, obj: Object,
+                               on_or_off: str) -> Tuple[float, float, float]:
         """Get dx, dy, dz offset for pushing."""
         try:
-            return cls.obj_name_to_pre_push_dpos[obj.name]
+            dx, dy, dz = cls.obj_name_to_pre_push_dpos[obj.name]
         except KeyError:
-            return (0.0, 0.0, 0.0)
+            dx, dy, dz = (0.0, 0.0, 0.0)
+        # Assumed symmetric.
+        if on_or_off == "off":
+            dx *= -1
+        else:
+            assert on_or_off == "on"
+        return (dx, dy, dz)
 
     def render_state_plt(
             self,
@@ -152,6 +159,8 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
     def create_predicates(cls) -> Dict[str, Predicate]:
         """Exposed for perceiver."""
         preds = {
+            Predicate("AtPreTurnOff", [cls.gripper_type, cls.object_type],
+                      cls._AtPreTurnOff_holds),
             Predicate("AtPreTurnOn", [cls.gripper_type, cls.object_type],
                       cls._AtPreTurnOn_holds),
             Predicate("AtPrePushOnTop", [cls.gripper_type, cls.object_type],
@@ -286,14 +295,15 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return {"state_info": self.get_object_centric_state_info()}
 
     @classmethod
-    def _AtPreTurnOn_holds(cls, state: State,
-                           objects: Sequence[Object]) -> bool:
+    def _AtPreTurn_holds(cls, state: State, objects: Sequence[Object],
+                         on_or_off: str) -> bool:
+        """Helper for _AtPreTurnOn_holds() and _AtPreTurnOff_holds()."""
         gripper, obj = objects
         obj_xyz = np.array(
             [state.get(obj, "x"),
              state.get(obj, "y"),
              state.get(obj, "z")])
-        dpos = cls.get_pre_push_delta_pos(obj)
+        dpos = cls.get_pre_push_delta_pos(obj, on_or_off)
         gripper_xyz = np.array([
             state.get(gripper, "x"),
             state.get(gripper, "y"),
@@ -301,7 +311,17 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         ])
         return np.allclose(obj_xyz + dpos,
                            gripper_xyz,
-                           atol=cls.at_pre_turnon_atol)
+                           atol=cls.at_pre_turn_atol)
+
+    @classmethod
+    def _AtPreTurnOn_holds(cls, state: State,
+                           objects: Sequence[Object]) -> bool:
+        return cls._AtPreTurn_holds(state, objects, "on")
+
+    @classmethod
+    def _AtPreTurnOff_holds(cls, state: State,
+                            objects: Sequence[Object]) -> bool:
+        return cls._AtPreTurn_holds(state, objects, "off")
 
     @classmethod
     def _AtPrePushOnTop_holds(cls, state: State,
@@ -314,7 +334,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             [state.get(obj, "x"),
              state.get(obj, "y"),
              state.get(obj, "z")])
-        dpos = cls.get_pre_push_delta_pos(obj)
+        dpos = cls.get_pre_push_delta_pos(obj, "on")
         target_x, target_y, target_z = obj_xyz + dpos
         gripper_x, gripper_y, gripper_z = [
             state.get(gripper, "x"),

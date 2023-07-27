@@ -47,7 +47,7 @@ def test_kitchen():
     assert TurnedOn.name == "TurnedOn"
     assert env.goal_predicates == {OnTop, TurnedOn}
     options = get_gt_options(env.get_name())
-    assert len(options) == 5
+    assert len(options) == 6
     assert len(env.types) == 2
     gripper_type, object_type = sorted(env.types)
     assert gripper_type.name == "gripper"
@@ -137,7 +137,7 @@ def test_kitchen():
     move_to_kettle_nsrt = MoveToPrePushOnTop.ground([gripper, kettle])
     push_kettle_on_burner4_nsrt = PushObjOnObjForward.ground(
         [gripper, kettle, burner4])
-    
+
     # Test moving to and turning the light on and off.
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])

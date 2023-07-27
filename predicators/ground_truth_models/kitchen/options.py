@@ -123,8 +123,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                memory["target_pose"],
                                atol=cls.moveto_tol)
 
-        # Create two copies just to preserve one-to-one-ness with NSRTs.
-        for suffix in ["PreTurnOn", "PrePushOnTop"]:
+        # Create copies just to preserve one-to-one-ness with NSRTs.
+        for suffix in ["PreTurnOn", "PreTurnOff", "PrePushOnTop"]:
             nsrt = ParameterizedOption(
                 f"MoveTo{suffix}",
                 types=[gripper_type, object_type],
@@ -223,16 +223,18 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             return KitchenEnv.On_holds(state, [obj],
                                        thresh_pad=cls.push_lr_thresh_pad)
 
-        PushObjTurnOnLeftRight = ParameterizedOption(
-            "PushObjTurnOnLeftRight",
-            types=[gripper_type, object_type],
-            # The parameter is a push direction angle with respect to x, with
-            # the sign possibly flipping the x direction.
-            params_space=Box(-np.pi, np.pi, (1, )),
-            policy=_PushObjTurnOnLeftRight_policy,
-            initiable=_PushObjTurnOnLeftRight_initiable,
-            terminal=_PushObjTurnOnLeftRight_terminal)
+        # Create two copies just to preserve one-to-one-ness with NSRTs.
+        for on_or_off in ["On", "Off"]:
+            nsrt = ParameterizedOption(
+                f"PushObjTurn{on_or_off}LeftRight",
+                types=[gripper_type, object_type],
+                # The parameter is a push direction angle with respect to x,
+                # with the sign possibly flipping the x direction.
+                params_space=Box(-np.pi, np.pi, (1, )),
+                policy=_PushObjTurnOnLeftRight_policy,
+                initiable=_PushObjTurnOnLeftRight_initiable,
+                terminal=_PushObjTurnOnLeftRight_terminal)
 
-        options.add(PushObjTurnOnLeftRight)
+            options.add(nsrt)
 
         return options
