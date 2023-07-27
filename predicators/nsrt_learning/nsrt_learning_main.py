@@ -21,7 +21,8 @@ from predicators.structs import NSRT, PNAD, GroundAtomTrajectory, \
 def learn_nsrts_from_data(
     trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
-    action_space: Box, ground_atom_dataset: List[GroundAtomTrajectory],
+    action_space: Box,
+    ground_atom_dataset: Optional[List[GroundAtomTrajectory]],
     sampler_learner: str, annotations: Optional[List[Any]]
 ) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
@@ -51,16 +52,23 @@ def learn_nsrts_from_data(
                 [int(i) for i in range(len(trajectories))],
                 key=lambda _: rng.random())
             trajectories = [trajectories[i] for i in random_data_indices]
-            ground_atom_dataset = [
-                ground_atom_dataset[i] for i in random_data_indices
-            ]
+            if ground_atom_dataset is not None:
+                ground_atom_dataset = [
+                    ground_atom_dataset[i] for i in random_data_indices
+                ]
         # STEP 1: Segment each trajectory in the dataset based on changes in
         #         either predicates or options. If we are doing option learning,
         #         then the data will not contain options, so this segmenting
         #         procedure only uses the predicates.
-        segmented_trajs = [
-            segment_trajectory(traj) for traj in ground_atom_dataset
-        ]
+        if ground_atom_dataset is None:
+            segmented_trajs = [
+                segment_trajectory(traj, predicates) for traj in trajectories
+            ]
+        else:
+            segmented_trajs = [
+                segment_trajectory(traj, predicates, atom_seq=atom_seq)
+                for traj, atom_seq in ground_atom_dataset
+            ]
         # If performing goal-conditioned sampler learning, we need to attach the
         # goals to the segments.
         if CFG.sampler_learning_use_goals:

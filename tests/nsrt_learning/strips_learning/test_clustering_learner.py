@@ -53,10 +53,9 @@ def test_cluster_and_intersect_strips_learner():
     known_option_ll_traj = LowLevelTrajectory(
         [state0.copy() for _ in range(5)],
         [action0, action1, action2, action0])
-    trajectory = (known_option_ll_traj,
-                  [atoms0, atoms0, atoms0, atoms0, atoms0])
-    known_options_trajectory = trajectory  # used later in the test
-    known_option_segments = segment_trajectory(trajectory)
+    known_option_atom_seq = [atoms0, atoms0, atoms0, atoms0, atoms0]
+    known_option_segments = segment_trajectory(known_option_ll_traj, preds,
+                                               known_option_atom_seq)
     assert len(known_option_segments) == 4
     # Test case where the final option does not terminate in the final state.
     infinite_param_option = ParameterizedOption(
@@ -71,9 +70,10 @@ def test_cluster_and_intersect_strips_learner():
     states = [state0.copy() for _ in range(5)]
     infinite_option.initiable(states[0])
     actions = [infinite_option.policy(s) for s in states[:-1]]
-    trajectory = (LowLevelTrajectory(states, actions),
-                  [atoms0, atoms0, atoms0, atoms0, atoms1])
-    assert len(segment_trajectory(trajectory)) == 0
+    atom_seq = [atoms0, atoms0, atoms0, atoms0, atoms1]
+    assert len(
+        segment_trajectory(LowLevelTrajectory(states, actions), preds,
+                           atom_seq)) == 0
 
     # More tests for temporally extended options.
     def _initiable(s, m, o, p):
@@ -113,8 +113,7 @@ def test_cluster_and_intersect_strips_learner():
         termination_function=lambda s: False,
         max_num_steps=6)
     atom_traj = [atoms0] * 3 + [atoms1] * 3 + [atoms0]
-    trajectory = (traj, atom_traj)
-    segments = segment_trajectory(trajectory)
+    segments = segment_trajectory(traj, preds, atom_traj)
     assert len(segments) == 2
     segment0 = segments[0]
     segment1 = segments[1]
@@ -134,22 +133,23 @@ def test_cluster_and_intersect_strips_learner():
     action1.unset_option()
     action2 = option1.policy(state0)
     action2.unset_option()
-    trajectory = (LowLevelTrajectory([state0.copy() for _ in range(5)],
-                                     [action0, action1, action2, action0]),
-                  [atoms0, atoms0, atoms0, atoms0, atoms0])
+    ll_traj = LowLevelTrajectory([state0.copy() for _ in range(5)],
+                                 [action0, action1, action2, action0])
+    atom_seq = [atoms0, atoms0, atoms0, atoms0, atoms0]
     # changes segmenter.
     utils.reset_config({"segmenter": "oracle"})
-    known_option_segments = segment_trajectory(known_options_trajectory)
+    known_option_segments = segment_trajectory(known_option_ll_traj, preds,
+                                               known_option_atom_seq)
     assert len(known_option_segments) == 4
     # Segment with atoms changes instead.
     utils.reset_config({"segmenter": "atom_changes"})
-    assert len(segment_trajectory(trajectory)) == 0
+    assert len(segment_trajectory(ll_traj, preds, atom_seq)) == 0
     unknown_option_ll_traj = LowLevelTrajectory(
         [state0.copy() for _ in range(5)] + [state1],
         [action0, action1, action2, action0, action1])
-    trajectory = (unknown_option_ll_traj,
-                  [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1])
-    unknown_option_segments = segment_trajectory(trajectory)
+    atom_seq = [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1]
+    unknown_option_segments = segment_trajectory(unknown_option_ll_traj, preds,
+                                                 atom_seq)
 
     utils.reset_config({"strips_learner": "cluster_and_intersect"})
     known_option_pnads = learn_strips_operators([known_option_ll_traj],
