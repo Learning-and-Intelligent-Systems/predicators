@@ -133,7 +133,8 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
             self._atom_dataset,
             candidate_predicates | self._initial_predicates)
         segmented_trajs = [
-            segment_trajectory(traj) for traj in pruned_atom_data
+            segment_trajectory(ll_traj, set(candidate_predicates), atom_seq)
+            for (ll_traj, atom_seq) in pruned_atom_data
         ]
         # Each entry in pruned_atom_data is a tuple of (low-level trajectory,
         # low-level ground atoms sequence). We remove the latter, because
