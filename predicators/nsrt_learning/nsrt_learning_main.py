@@ -52,9 +52,10 @@ def learn_nsrts_from_data(
                 [int(i) for i in range(len(trajectories))],
                 key=lambda _: rng.random())
             trajectories = [trajectories[i] for i in random_data_indices]
-            ground_atom_dataset = [
-                ground_atom_dataset[i] for i in random_data_indices
-            ]
+            if ground_atom_dataset is not None:
+                ground_atom_dataset = [
+                    ground_atom_dataset[i] for i in random_data_indices
+                ]
         # STEP 1: Segment each trajectory in the dataset based on changes in
         #         either predicates or options. If we are doing option learning,
         #         then the data will not contain options, so this segmenting

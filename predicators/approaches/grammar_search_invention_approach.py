@@ -614,10 +614,8 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             # states in each segment, which we store into
             # self._state_sequence.
             for traj in self.dataset.trajectories:
-                dummy_atoms_seq: List[Set[GroundAtom]] = [
-                    set() for _ in range(len(traj.states))
-                ]
-                seg_traj = segment_trajectory((traj, dummy_atoms_seq))
+                # The init_atoms and final_atoms are not used.
+                seg_traj = segment_trajectory(traj, predicates=set())
                 state_seq = utils.segment_trajectory_to_state_sequence(
                     seg_traj)
                 self._state_sequences.append(state_seq)
@@ -861,10 +859,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # preconditions.
         logging.info("\nFiltering out predicates that don't appear in "
                      "preconditions...")
-        pruned_atom_data = utils.prune_ground_atom_dataset(
-            atom_dataset, kept_predicates | initial_predicates)
+        preds = kept_predicates | initial_predicates
+        pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, preds)
         segmented_trajs = [
-            segment_trajectory(traj) for traj in pruned_atom_data
+            segment_trajectory(ll_traj, set(preds), atom_seq=atom_seq)
+            for (ll_traj, atom_seq) in pruned_atom_data
         ]
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         preds_in_preconds = set()
@@ -900,8 +899,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             assert dataset.annotations is not None and len(
                 dataset.annotations) == len(dataset.trajectories)
             assert CFG.segmenter == "option_changes"
+            preds = set(initial_predicates) | initial_predicates
             segmented_trajs = [
-                segment_trajectory(traj) for traj in atom_dataset
+                segment_trajectory(ll_traj, preds, atom_seq)
+                for ll_traj, atom_seq in atom_dataset
             ]
             assert len(segmented_trajs) == len(dataset.annotations)
             # First, get the set of all ground truth operator names.

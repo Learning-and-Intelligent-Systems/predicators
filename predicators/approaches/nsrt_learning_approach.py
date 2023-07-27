@@ -62,6 +62,11 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             online_learning_cycle=online_learning_cycle)
         # If CFG.load_atoms is set, then try to create a GroundAtomTrajectory
         # by loading sets of GroundAtoms directly from a saved file.
+        # By default, we don't create a full ground atom dataset, since
+        # doing so requires called abstract on all states, including states
+        # that might ultimately just be in the middle of segments. When
+        # options take many steps, this makes a big time/space difference.
+        ground_atom_dataset: Optional[List[GroundAtomTrajectory]] = None
         if CFG.load_atoms:
             os.makedirs(CFG.data_dir, exist_ok=True)
             # Check that the dataset file was previously saved.
@@ -75,7 +80,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 # The saved ground atom dataset consists only of sequences
                 # of sets of GroundAtoms, we need to recombine this with
                 # the LowLevelTrajectories to create a GroundAtomTrajectory.
-                ground_atom_dataset: Optional[List[GroundAtomTrajectory]] = []
+                ground_atom_dataset = []
                 for i, traj in enumerate(trajectories):
                     ground_atom_seq = ground_atom_dataset_atoms[i]
                     ground_atom_dataset.append(
@@ -98,12 +103,6 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 ground_atom_dataset_to_pkl.append(trajectory)
             with open(dataset_fname, "wb") as f:
                 pkl.dump(ground_atom_dataset_to_pkl, f)
-        else:
-            # By default, we don't create a full ground atom dataset, since
-            # doing so requires called abstract on all states, including states
-            # that might ultimately just be in the middle of segments. When
-            # options take many steps, this makes a big time/space difference.
-            ground_atom_dataset = None
 
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,

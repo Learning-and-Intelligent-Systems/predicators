@@ -6,8 +6,8 @@ from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, GroundAtomTrajectory, \
-    LowLevelTrajectory, Predicate, Segment, State
+from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
+    Predicate, Segment, State
 
 
 def segment_trajectory(
@@ -24,7 +24,7 @@ def segment_trajectory(
                                              lambda _: True)
     # All segmenters below need atom_seq. Create it if it wasn't passed in.
     if atom_seq is None:
-        atom_seq = [utils.abstract(s) for s in ll_traj.states]
+        atom_seq = [utils.abstract(s, predicates) for s in ll_traj.states]
     if CFG.segmenter == "atom_changes":
         return _segment_with_atom_changes(ll_traj, predicates, atom_seq)
     if CFG.segmenter == "oracle":
@@ -36,7 +36,7 @@ def segment_trajectory(
 
 def _segment_with_atom_changes(
         ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
-        atom_seq: List[Set[GroundAtomTrajectory]]) -> List[Segment]:
+        atom_seq: List[Set[GroundAtom]]) -> List[Segment]:
     """Segment a trajectory whenever the abstract state changes."""
 
     def _switch_fn(t: int) -> bool:
@@ -48,7 +48,7 @@ def _segment_with_atom_changes(
 
 def _segment_with_contact_changes(
         ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
-        atom_seq: List[Set[GroundAtomTrajectory]]) -> List[Segment]:
+        atom_seq: List[Set[GroundAtom]]) -> List[Segment]:
     """Segment a trajectory based on contact changes.
 
     Since environments do not expose contacts, this is implemented in an
@@ -95,7 +95,7 @@ def _segment_with_contact_changes(
 
 def _segment_with_option_changes(
         ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
-        atom_seq: Optional[List[Set[GroundAtomTrajectory]]]) -> List[Segment]:
+        atom_seq: Optional[List[Set[GroundAtom]]]) -> List[Segment]:
     """Segment a trajectory whenever the (assumed known) option changes."""
 
     def _switch_fn(t: int) -> bool:
@@ -122,9 +122,9 @@ def _segment_with_option_changes(
                                          _switch_fn)
 
 
-def _segment_with_oracle(
-        ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
-        atom_seq: List[Set[GroundAtomTrajectory]]) -> List[Segment]:
+def _segment_with_oracle(ll_traj: LowLevelTrajectory,
+                         predicates: Set[Predicate],
+                         atom_seq: List[Set[GroundAtom]]) -> List[Segment]:
     """Segment a trajectory using oracle NSRTs.
 
     If options are known, just uses _segment_with_option_changes().
@@ -175,7 +175,7 @@ def _segment_with_oracle(
 
 def _segment_with_switch_function(
         ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
-        atom_seq: Optional[List[Set[GroundAtomTrajectory]]],
+        atom_seq: Optional[List[Set[GroundAtom]]],
         switch_fn: Callable[[int], bool]) -> List[Segment]:
     """Helper for other segmentation methods.
 
@@ -183,11 +183,11 @@ def _segment_with_switch_function(
     should be segmented at the end of that timestep.
     """
     segments = []
-    assert len(ll_traj.states) == len(atom_seq)
     assert len(ll_traj.states) > 0
     current_segment_states: List[State] = []
     current_segment_actions: List[Action] = []
     if atom_seq is not None:
+        assert len(ll_traj.states) == len(atom_seq)
         current_segment_init_atoms = atom_seq[0]
     else:
         s0 = ll_traj.states[0]
