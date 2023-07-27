@@ -147,9 +147,10 @@ def _skeleton_based_score_function(
     train_tasks, dataset, demo_skeleton_lengths = _setup_data_for_env(
         env_name, seed)
     # Learn operators.
-    atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
-                                                    current_predicate_set)
-    segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
+    segmented_trajs = [
+        segment_trajectory(traj, current_predicate_set)
+        for traj in dataset.trajectories
+    ]
     pnads = learn_strips_operators(dataset.trajectories,
                                    train_tasks,
                                    current_predicate_set,

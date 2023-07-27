@@ -50,10 +50,9 @@ def test_segment_trajectory():
     known_option_ll_traj = LowLevelTrajectory(
         [state0.copy() for _ in range(5)],
         [action0, action1, action2, action0])
-    trajectory = (known_option_ll_traj,
-                  [atoms0, atoms0, atoms0, atoms0, atoms0])
-    known_options_trajectory = trajectory  # used later in the test
-    known_option_segments = segment_trajectory(trajectory)
+    known_option_atom_seq = [atoms0, atoms0, atoms0, atoms0, atoms0]
+    known_option_segments = segment_trajectory(known_option_ll_traj, preds,
+                                               known_option_atom_seq)
     assert len(known_option_segments) == 4
     # Test case where the final option does not terminate in the final state.
     infinite_param_option = ParameterizedOption(
@@ -68,9 +67,10 @@ def test_segment_trajectory():
     states = [state0.copy() for _ in range(5)]
     infinite_option.initiable(states[0])
     actions = [infinite_option.policy(s) for s in states[:-1]]
-    trajectory = (LowLevelTrajectory(states, actions),
-                  [atoms0, atoms0, atoms0, atoms0, atoms1])
-    assert len(segment_trajectory(trajectory)) == 0
+    atom_seq = [atoms0, atoms0, atoms0, atoms0, atoms1]
+    assert len(
+        segment_trajectory(LowLevelTrajectory(states, actions), preds,
+                           atom_seq)) == 0
 
     # More tests for temporally extended options.
     def _initiable(s, m, o, p):
@@ -110,8 +110,7 @@ def test_segment_trajectory():
         termination_function=lambda s: False,
         max_num_steps=6)
     atom_traj = [atoms0] * 3 + [atoms1] * 3 + [atoms0]
-    trajectory = (traj, atom_traj)
-    segments = segment_trajectory(trajectory)
+    segments = segment_trajectory(traj, preds, atom_traj)
     assert len(segments) == 2
     segment0 = segments[0]
     segment1 = segments[1]
@@ -131,27 +130,30 @@ def test_segment_trajectory():
     action1.unset_option()
     action2 = option1.policy(state0)
     action2.unset_option()
-    trajectory = (LowLevelTrajectory([state0.copy() for _ in range(5)],
-                                     [action0, action1, action2, action0]),
-                  [atoms0, atoms0, atoms0, atoms0, atoms0])
     # Should crash, because the option_changes segmenter assumes that options
     # are known.
     with pytest.raises(AssertionError):
-        segment_trajectory(trajectory)
+        segment_trajectory(
+            LowLevelTrajectory([state0.copy() for _ in range(5)],
+                               [action0, action1, action2, action0]), preds,
+            [atoms0, atoms0, atoms0, atoms0, atoms0])
     # Test oracle segmenter with known options. Should be the same as option
     # changes segmenter.
     utils.reset_config({"segmenter": "oracle"})
-    known_option_segments = segment_trajectory(known_options_trajectory)
+    known_option_segments = segment_trajectory(known_option_ll_traj, preds,
+                                               known_option_atom_seq)
     assert len(known_option_segments) == 4
     # Segment with atoms changes instead.
     utils.reset_config({"segmenter": "atom_changes"})
-    assert len(segment_trajectory(trajectory)) == 0
+    assert len(
+        segment_trajectory(known_option_ll_traj, preds,
+                           known_option_atom_seq)) == 0
     unknown_option_ll_traj = LowLevelTrajectory(
         [state0.copy() for _ in range(5)] + [state1],
         [action0, action1, action2, action0, action1])
-    trajectory = (unknown_option_ll_traj,
-                  [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1])
-    unknown_option_segments = segment_trajectory(trajectory)
+    atom_seq = [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1]
+    unknown_option_segments = segment_trajectory(unknown_option_ll_traj, preds,
+                                                 atom_seq)
     assert len(unknown_option_segments) == 1
     segment = unknown_option_segments[0]
     assert len(segment.actions) == 5
@@ -160,7 +162,8 @@ def test_segment_trajectory():
     assert segment.final_atoms == atoms1
     # Test segmenting at every step.
     utils.reset_config({"segmenter": "every_step"})
-    every_step_segments = segment_trajectory(trajectory)
+    every_step_segments = segment_trajectory(unknown_option_ll_traj, preds,
+                                             atom_seq)
     assert len(every_step_segments) == 5
     # Test oracle segmenter with unknown options. This segmenter uses the
     # ground truth NSRTs, so we need to use a real environment where those
@@ -189,14 +192,14 @@ def test_segment_trajectory():
     assert train_tasks[0].goal.issubset(atoms[-1])
     assert len(ll_traj.actions) > 0
     assert not ll_traj.actions[0].has_option()
-    segments = segment_trajectory(trajectory)
+    segments = segment_trajectory(ll_traj, env.predicates, atoms)
     # Should be 2 because the hyperparameters force the task to be exactly
     # one pick and one place.
     assert len(segments) == 2
     # Test unknown segmenter.
     utils.reset_config({"segmenter": "not a real segmenter"})
     with pytest.raises(NotImplementedError):
-        segment_trajectory(trajectory)
+        segment_trajectory(ll_traj, env.predicates, atoms)
 
 
 @pytest.mark.parametrize("env", [
@@ -235,7 +238,7 @@ def test_contact_based_segmentation(env):
     assert train_tasks[0].goal.issubset(atoms[-1])
     assert len(ll_traj.actions) > 0
     assert ll_traj.actions[0].has_option()
-    segments = segment_trajectory(trajectory)
+    segments = segment_trajectory(ll_traj, env.predicates, atoms)
     # The options should be grouped together.
     for segment in segments:
         assert len(segment.actions) > 0
@@ -251,5 +254,5 @@ def test_contact_based_segmentation_failure_case():
         "env": "not a real env",
     })
     with pytest.raises(NotImplementedError) as e:
-        segment_trajectory(([], []))
+        segment_trajectory([], set(), [])
     assert "Contact-based segmentation not implemented" in str(e)
