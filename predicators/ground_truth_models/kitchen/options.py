@@ -24,10 +24,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     moveto_tol: ClassVar[float] = 0.01  # for terminating moving
     max_delta_mag: ClassVar[float] = 1.0  # don't move more than this per step
+    max_push_mag: ClassVar[float] = 0.1  # for pushing forward
     # A reasonable home position for the end effector.
     home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
-    # Move forward by this amount while pushing left/right.
-    push_lr_forward_mag: ClassVar[float] = 0.1
     # Keep pushing a bit even if the On classifier holds.
     push_lr_thresh_pad: ClassVar[float] = 0.01
 
@@ -124,43 +123,55 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                memory["target_pose"],
                                atol=cls.moveto_tol)
 
-        MoveTo = ParameterizedOption(
-            "MoveTo",
-            types=[gripper_type, object_type],
-            # Parameter is a position to move to relative to the object.
-            params_space=Box(-5, 5, (3, )),
-            policy=_MoveTo_policy,
-            initiable=_MoveTo_initiable,
-            terminal=_MoveTo_terminal)
+        # Create two copies just to preserve one-to-one-ness with NSRTs.
+        for suffix in ["PreTurnOn", "PrePushOnTop"]:
+            nsrt = ParameterizedOption(
+                f"MoveTo{suffix}",
+                types=[gripper_type, object_type],
+                # Parameter is a position to move to relative to the object.
+                params_space=Box(-5, 5, (3, )),
+                policy=_MoveTo_policy,
+                initiable=_MoveTo_initiable,
+                terminal=_MoveTo_terminal)
 
-        options.add(MoveTo)
+            options.add(nsrt)
 
         # PushObjOnObjForward
         def _PushObjOnObjForward_policy(state: State, memory: Dict,
                                         objects: Sequence[Object],
                                         params: Array) -> Action:
             del state, memory, objects  # unused
-            arr = np.array([0.0, params[0], 0.0, 0.0, 0.0, 0.0, 0.0],
-                           dtype=np.float32)
+            # The parameter is a push direction angle with respect to y.
+            push_angle = params[0]
+            unit_y, unit_x = np.cos(push_angle), np.sin(push_angle)
+            dx = unit_x * cls.max_push_mag
+            dy = unit_y * cls.max_push_mag
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
         def _PushObjOnObjForward_terminal(state: State, memory: Dict,
                                           objects: Sequence[Object],
                                           params: Array) -> bool:
             del memory, params  # unused
-            _, obj, obj2 = objects
+            gripper, obj, obj2 = objects
+            gripper_y = state.get(gripper, "y")
+            obj_y = state.get(obj, "y")
+            obj2_y = state.get(obj2, "y")
+            # Terminate early if the gripper is far past either of the objects.
+            if gripper_y - obj_y > 2 * cls.moveto_tol or \
+               gripper_y - obj2_y > 2 * cls.moveto_tol:
+                return True
             if not GroundAtom(OnTop, [obj, obj2]).holds(state):
                 return False
             # Stronger check to deal with case where push release leads object
             # to be no longer OnTop.
-            return state.get(obj,
-                             "y") > state.get(obj2, "y") - cls.moveto_tol / 2
+            return obj_y > obj2_y - cls.moveto_tol / 2
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
             types=[gripper_type, object_type, object_type],
-            # Parameter is a magnitude for pushing forward.
-            params_space=Box(0.0, cls.max_delta_mag, (1, )),
+            # Parameter is an angle for pushing forward.
+            params_space=Box(-np.pi, np.pi, (1, )),
             policy=_PushObjOnObjForward_policy,
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_PushObjOnObjForward_terminal)
@@ -189,19 +200,25 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                            params: Array) -> Action:
             del state, objects  # unused
             sign = memory["sign"]
-            # Also push a little bit forward.
-            arr = np.array([
-                sign * params[0], cls.push_lr_forward_mag, 0.0, 0.0, 0.0, 0.0,
-                0.0
-            ],
-                           dtype=np.float32)
+            # The parameter is a push direction angle with respect to x, with
+            # the sign possibly flipping the x direction.
+            push_angle = params[0]
+            unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
+            dx = sign * unit_x * cls.max_push_mag
+            dy = unit_y * cls.max_push_mag
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
         def _PushObjTurnOnLeftRight_terminal(state: State, memory: Dict,
                                              objects: Sequence[Object],
                                              params: Array) -> bool:
-            del memory, params  # unused
-            _, obj = objects
+            del params  # unused
+            gripper, obj = objects
+            gripper_x = state.get(gripper, "x")
+            obj_x = state.get(obj, "x")
+            # Terminate early if the gripper is far past the object.
+            if memory["sign"] * (gripper_x - obj_x) > 5 * cls.moveto_tol:
+                return True
             # Use a more stringent threshold to avoid numerical issues.
             return KitchenEnv.On_holds(state, [obj],
                                        thresh_pad=cls.push_lr_thresh_pad)
@@ -209,8 +226,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         PushObjTurnOnLeftRight = ParameterizedOption(
             "PushObjTurnOnLeftRight",
             types=[gripper_type, object_type],
-            # Parameter is a magnitude for pushing left/right.
-            params_space=Box(0.0, cls.max_delta_mag, (1, )),
+            # The parameter is a push direction angle with respect to x, with
+            # the sign possibly flipping the x direction.
+            params_space=Box(-np.pi, np.pi, (1, )),
             policy=_PushObjTurnOnLeftRight_policy,
             initiable=_PushObjTurnOnLeftRight_initiable,
             terminal=_PushObjTurnOnLeftRight_terminal)
