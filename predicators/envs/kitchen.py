@@ -43,10 +43,12 @@ class KitchenEnv(BaseEnv):
     gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
-    at_atol = 0.2  # tolerance for At classifier
-    ontop_atol = 0.15  # tolerance for OnTop classifier
+    at_pre_turnon_atol = 0.05  # tolerance for AtPreTurnOn
+    ontop_atol = 0.1  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.4  # light is On if less than this threshold
+    at_pre_pushontop_yz_atol = 0.05  # tolerance for AtPrePushOnTop
+    at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.0, -0.3, -0.12),  # need to push from behind kettle
@@ -63,8 +65,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             assert not CFG.make_test_videos or CFG.make_failure_videos, \
                 "Turn off --use_gui to make videos in kitchen env"
 
-        # Predicates
-        self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
+        self._pred_name_to_pred = self.create_predicates()
 
         render_mode = "human" if self._using_gui else "rgb_array"
         self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1",
@@ -138,11 +139,31 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._At, self._TurnedOn, self._OnTop}
+        return set(self._pred_name_to_pred.values())
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._At, self._TurnedOn, self._OnTop}
+        return {
+            self._pred_name_to_pred["OnTop"],
+            self._pred_name_to_pred["TurnedOn"]
+        }
+
+    @classmethod
+    def create_predicates(cls) -> Dict[str, Predicate]:
+        """Exposed for perceiver."""
+        preds = {
+            Predicate("AtPreTurnOn", [cls.gripper_type, cls.object_type],
+                      cls._AtPreTurnOn_holds),
+            Predicate("AtPrePushOnTop", [cls.gripper_type, cls.object_type],
+                      cls._AtPrePushOnTop_holds),
+            Predicate("OnTop", [cls.object_type, cls.object_type],
+                      cls._OnTop_holds),
+            Predicate("NotOnTop", [cls.object_type, cls.object_type],
+                      cls._NotOnTop_holds),
+            Predicate("TurnedOn", [cls.object_type], cls.On_holds),
+            Predicate("TurnedOff", [cls.object_type], cls._Off_holds),
+        }
+        return {p.name: p for p in preds}
 
     @property
     def types(self) -> Set[Type]:
@@ -265,20 +286,47 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return {"state_info": self.get_object_centric_state_info()}
 
     @classmethod
-    def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def _AtPreTurnOn_holds(cls, state: State,
+                           objects: Sequence[Object]) -> bool:
         gripper, obj = objects
         obj_xyz = np.array(
             [state.get(obj, "x"),
              state.get(obj, "y"),
              state.get(obj, "z")])
-        # We care about whether we're "at" the pre-push position for obj.
         dpos = cls.get_pre_push_delta_pos(obj)
         gripper_xyz = np.array([
             state.get(gripper, "x"),
             state.get(gripper, "y"),
             state.get(gripper, "z")
         ])
-        return np.allclose(obj_xyz + dpos, gripper_xyz, atol=cls.at_atol)
+        return np.allclose(obj_xyz + dpos,
+                           gripper_xyz,
+                           atol=cls.at_pre_turnon_atol)
+
+    @classmethod
+    def _AtPrePushOnTop_holds(cls, state: State,
+                              objects: Sequence[Object]) -> bool:
+        # The main thing that's different from _AtPreTurnOn_holds is that the
+        # x position has a much higher range of allowed values, since it can
+        # be anywhere behind the object.
+        gripper, obj = objects
+        obj_xyz = np.array(
+            [state.get(obj, "x"),
+             state.get(obj, "y"),
+             state.get(obj, "z")])
+        dpos = cls.get_pre_push_delta_pos(obj)
+        target_x, target_y, target_z = obj_xyz + dpos
+        gripper_x, gripper_y, gripper_z = [
+            state.get(gripper, "x"),
+            state.get(gripper, "y"),
+            state.get(gripper, "z")
+        ]
+        if not np.allclose([target_y, target_z], [gripper_y, gripper_z],
+                           atol=cls.at_pre_pushontop_yz_atol):
+            return False
+        return np.isclose(target_x,
+                          gripper_x,
+                          atol=cls.at_pre_pushontop_x_atol)
 
     @classmethod
     def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -293,6 +341,10 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                                obj1, "z") > state.get(obj2, "z")
 
     @classmethod
+    def _NotOnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return not cls._OnTop_holds(state, objects)
+
+    @classmethod
     def On_holds(cls,
                  state: State,
                  objects: Sequence[Object],
@@ -305,15 +357,9 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             return state.get(obj, "x") < cls.light_on_thresh - thresh_pad
         return False
 
+    @classmethod
+    def _Off_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+        return not cls.On_holds(state, objects)
+
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
-
-    def get_goal_at_predicates(self: Any) -> Sequence[Predicate]:
-        """Defined public so that the perceiver can use it."""
-        return [
-            Predicate("At", [self.gripper_type, self.object_type],
-                      self._At_holds),
-            Predicate("OnTop", [self.object_type, self.object_type],
-                      self._OnTop_holds),
-            Predicate("TurnedOn", [self.object_type], self.On_holds),
-        ]
