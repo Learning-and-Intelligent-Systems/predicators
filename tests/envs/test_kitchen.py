@@ -47,13 +47,7 @@ def test_kitchen():
     assert TurnedOn.name == "TurnedOn"
     assert env.goal_predicates == {OnTop, TurnedOn}
     options = get_gt_options(env.get_name())
-    assert len(options) == 4
-    moveto_prepushontop_option, moveto_preturnon_option, \
-        pushobjonobjforward_option, pushobjturnonright_option = sorted(options)
-    assert moveto_prepushontop_option.name == "MoveToPrePushOnTop"
-    assert moveto_preturnon_option.name == "MoveToPreTurnOn"
-    assert pushobjonobjforward_option.name == "PushObjOnObjForward"
-    assert pushobjturnonright_option.name == "PushObjTurnOnLeftRight"
+    assert len(options) == 5
     assert len(env.types) == 2
     gripper_type, object_type = sorted(env.types)
     assert gripper_type.name == "gripper"
@@ -87,11 +81,14 @@ def test_kitchen():
     assert "Simulate not implemented for gym envs." in str(e)
 
     # Test NSRTs.
-    MoveToPrePushOnTop, MoveToPreTurnOn, PushObjOnObjForward, \
+    MoveToPrePushOnTop, MoveToPreTurnOff, MoveToPreTurnOn, \
+        PushObjOnObjForward, PushObjTurnOffLeftRight, \
         PushObjTurnOnLeftRight = sorted(nsrts)
     assert MoveToPrePushOnTop.name == "MoveToPrePushOnTop"
+    assert MoveToPreTurnOff.name == "MoveToPreTurnOff"
     assert MoveToPreTurnOn.name == "MoveToPreTurnOn"
     assert PushObjOnObjForward.name == "PushObjOnObjForward"
+    assert PushObjTurnOffLeftRight.name == "PushObjTurnOffLeftRight"
     assert PushObjTurnOnLeftRight.name == "PushObjTurnOnLeftRight"
 
     obs = env_test_tasks[0].init_obs
@@ -129,28 +126,46 @@ def test_kitchen():
         return state
 
     # Set up all the NSRTs for the following tests.
-    move_to_light_nsrt = MoveToPreTurnOn.ground([gripper, light])
-    push_light_nsrt = PushObjTurnOnLeftRight.ground([gripper, light])
-    move_to_knob4_nsrt = MoveToPreTurnOn.ground([gripper, knob4])
-    push_knob4_nsrt = PushObjTurnOnLeftRight.ground([gripper, knob4])
+    move_to_light_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, light])
+    turn_on_light_nsrt = PushObjTurnOnLeftRight.ground([gripper, light])
+    move_to_light_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, light])
+    turn_off_light_nsrt = PushObjTurnOffLeftRight.ground([gripper, light])
+    move_to_knob4_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, knob4])
+    turn_on_knob4_nsrt = PushObjTurnOnLeftRight.ground([gripper, knob4])
+    move_to_knob4_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, knob4])
+    turn_off_knob4_nsrt = PushObjTurnOffLeftRight.ground([gripper, knob4])
     move_to_kettle_nsrt = MoveToPrePushOnTop.ground([gripper, kettle])
     push_kettle_on_burner4_nsrt = PushObjOnObjForward.ground(
         [gripper, kettle, burner4])
-
-    # Test moving to and turning on the light.
+    
+    # Test moving to and turning the light on and off.
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_light_nsrt, state)
-    state = _run_ground_nsrt(push_light_nsrt, state)
+    state = _run_ground_nsrt(move_to_light_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_light_nsrt, state)
     assert TurnedOn([light]).holds(state)
+    state = _run_ground_nsrt(move_to_light_pre_off_nsrt, state)
+    state = _run_ground_nsrt(turn_off_light_nsrt, state)
+    assert TurnedOff([light]).holds(state)
+
+    # Test moving to and turning knob4 on and off.
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_knob4_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_knob4_nsrt, state)
+    assert TurnedOn([knob4]).holds(state)
+    state = _run_ground_nsrt(move_to_knob4_pre_off_nsrt, state)
+    state = _run_ground_nsrt(turn_off_knob4_nsrt, state)
+    assert TurnedOff([knob4]).holds(state)
 
     # Test moving to and pushing knob4, then moving to and pushing the kettle.
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_knob4_nsrt, state)
-    state = _run_ground_nsrt(push_knob4_nsrt, state)
+    state = _run_ground_nsrt(move_to_knob4_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_knob4_nsrt, state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
     state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
     assert OnTop([kettle, burner4]).holds(state)
@@ -163,8 +178,8 @@ def test_kitchen():
     assert state.allclose(init_state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
     state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
-    state = _run_ground_nsrt(move_to_knob4_nsrt, state)
-    state = _run_ground_nsrt(push_knob4_nsrt, state)
+    state = _run_ground_nsrt(move_to_knob4_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_knob4_nsrt, state)
     assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob4]).holds(state)
 
@@ -172,12 +187,12 @@ def test_kitchen():
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_light_nsrt, state)
-    state = _run_ground_nsrt(push_light_nsrt, state)
+    state = _run_ground_nsrt(move_to_light_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_light_nsrt, state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
     state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
-    state = _run_ground_nsrt(move_to_knob4_nsrt, state)
-    state = _run_ground_nsrt(push_knob4_nsrt, state)
+    state = _run_ground_nsrt(move_to_knob4_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_knob4_nsrt, state)
     assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob4]).holds(state)
     assert TurnedOn([light]).holds(state)
@@ -186,10 +201,10 @@ def test_kitchen():
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_knob4_nsrt, state)
-    state = _run_ground_nsrt(push_knob4_nsrt, state)
-    state = _run_ground_nsrt(move_to_light_nsrt, state)
-    state = _run_ground_nsrt(push_light_nsrt, state)
+    state = _run_ground_nsrt(move_to_knob4_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_knob4_nsrt, state)
+    state = _run_ground_nsrt(move_to_light_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_light_nsrt, state)
     state = _run_ground_nsrt(move_to_kettle_nsrt, state)
     state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
     assert OnTop([kettle, burner4]).holds(state)
@@ -201,10 +216,10 @@ def test_kitchen():
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_knob4_nsrt, state)
-    state = _run_ground_nsrt(push_knob4_nsrt,
+    state = _run_ground_nsrt(move_to_knob4_pre_on_nsrt, state)
+    state = _run_ground_nsrt(turn_on_knob4_nsrt,
                              state,
                              override_params=np.array([-np.pi / 6]),
                              assert_effects=False)
     assert not TurnedOn([knob4]).holds(state)
-    assert not all(p.holds(state) for p in push_knob4_nsrt.preconditions)
+    assert not all(p.holds(state) for p in turn_on_knob4_nsrt.preconditions)
