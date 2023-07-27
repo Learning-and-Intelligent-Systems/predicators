@@ -380,9 +380,8 @@ class _SpotInterface():
         object_views: Dict[str, Tuple[float, float, float]] = {}
         if CFG.spot_initialize_surfaces_to_default:
             object_views = {
-                "tool_room_table":
-                (6.939992779470081, -6.21562847222872, 0.030711182602548265),
-                "extra_room_table": (8.24384, -6.27615, -0.0035917),
+                "tool_room_table": (6.63041, -6.35143, 0.179613),
+                "extra_room_table": (8.27387, -6.23233, -0.0678132),
                 "low_wall_rack":
                 (10.049931203338616, -6.9443170697742, 0.27881268568327966),
                 "toolbag":
