@@ -9,7 +9,7 @@ from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.kitchen_perceiver import KitchenPerceiver
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
-USE_GUI = True
+USE_GUI = False
 
 
 @longrun
