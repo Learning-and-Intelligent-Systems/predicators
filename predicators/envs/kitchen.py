@@ -41,19 +41,46 @@ class KitchenEnv(BaseEnv):
     """Kitchen environment wrapping dm_control Kitchen."""
 
     gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"])
-    object_type = Type("obj", ["x", "y", "z", "angle"])
+    object_type = Type("object", ["x", "y", "z"])
+    on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
+    hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
+                           parent=on_off_type)
+    slide_door_type = Type("slide_door", ["x", "y", "z", "angle"],
+                           parent=on_off_type)
+    knob_type = Type("knob", ["x", "y", "z", "angle"], parent=on_off_type)
+    switch_type = Type("switch", ["x", "y", "z", "angle"], parent=on_off_type)
+    surface_type = Type("surface", ["x", "y", "z"], parent=object_type)
+    kettle_type = Type("kettle", ["x", "y", "z"], parent=object_type)
 
-    at_pre_turnon_atol = 0.05  # tolerance for AtPreTurnOn
+    obj_name_to_type = {
+        "gripper": gripper_type,
+        "hinge2": hinge_door_type,
+        "kettle": kettle_type,
+        "microhandle": hinge_door_type,
+        "knob1": knob_type,
+        "knob2": knob_type,
+        "knob3": knob_type,
+        "knob4": knob_type,
+        "light": switch_type,
+        "slide": slide_door_type,
+        "hinge1": hinge_door_type,
+        "burner1": surface_type,
+        "burner2": surface_type,
+        "burner3": surface_type,
+        "burner4": surface_type,
+    }
+
+    at_pre_turn_atol = 0.05  # tolerance for AtPreTurnOn/Off
     ontop_atol = 0.1  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
-    light_on_thresh = -0.4  # light is On if less than this threshold
+    light_on_thresh = -0.38  # light is On if less than this threshold
     at_pre_pushontop_yz_atol = 0.05  # tolerance for AtPrePushOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
     obj_name_to_pre_push_dpos = {
         "kettle": (0.0, -0.3, -0.12),  # need to push from behind kettle
         "knob4": (-0.1, -0.15, 0.05),  # need to push from left to right
-        "light": (0.1, -0.05, 0.0),  # need to push from right to left
+        "light": (0.1, -0.05, -0.05),  # need to push from right to left
     }
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -107,12 +134,19 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return state_info
 
     @classmethod
-    def get_pre_push_delta_pos(cls, obj: Object) -> Tuple[float, float, float]:
+    def get_pre_push_delta_pos(cls, obj: Object,
+                               on_or_off: str) -> Tuple[float, float, float]:
         """Get dx, dy, dz offset for pushing."""
         try:
-            return cls.obj_name_to_pre_push_dpos[obj.name]
+            dx, dy, dz = cls.obj_name_to_pre_push_dpos[obj.name]
         except KeyError:
-            return (0.0, 0.0, 0.0)
+            dx, dy, dz = (0.0, 0.0, 0.0)
+        # Assumed symmetric.
+        if on_or_off == "off":
+            dx *= -1
+        else:
+            assert on_or_off == "on"
+        return (dx, dy, dz)
 
     def render_state_plt(
             self,
@@ -152,26 +186,37 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
     def create_predicates(cls) -> Dict[str, Predicate]:
         """Exposed for perceiver."""
         preds = {
-            Predicate("AtPreTurnOn", [cls.gripper_type, cls.object_type],
+            Predicate("AtPreTurnOff", [cls.gripper_type, cls.on_off_type],
+                      cls._AtPreTurnOff_holds),
+            Predicate("AtPreTurnOn", [cls.gripper_type, cls.on_off_type],
                       cls._AtPreTurnOn_holds),
-            Predicate("AtPrePushOnTop", [cls.gripper_type, cls.object_type],
+            Predicate("AtPrePushOnTop", [cls.gripper_type, cls.kettle_type],
                       cls._AtPrePushOnTop_holds),
-            Predicate("OnTop", [cls.object_type, cls.object_type],
+            Predicate("OnTop", [cls.kettle_type, cls.surface_type],
                       cls._OnTop_holds),
-            Predicate("NotOnTop", [cls.object_type, cls.object_type],
+            Predicate("NotOnTop", [cls.kettle_type, cls.surface_type],
                       cls._NotOnTop_holds),
-            Predicate("TurnedOn", [cls.object_type], cls.On_holds),
-            Predicate("TurnedOff", [cls.object_type], cls._Off_holds),
+            Predicate("TurnedOn", [cls.on_off_type], cls.On_holds),
+            Predicate("TurnedOff", [cls.on_off_type], cls.Off_holds),
         }
         return {p.name: p for p in preds}
 
     @property
     def types(self) -> Set[Type]:
-        return {self.gripper_type, self.object_type}
+        return {
+            self.gripper_type, self.object_type, self.on_off_type,
+            self.knob_type, self.kettle_type, self.switch_type,
+            self.hinge_door_type, self.slide_door_type, self.surface_type
+        }
 
     @property
     def action_space(self) -> Box:
         return cast(Box, self._gym_env.action_space)
+
+    @classmethod
+    def object_name_to_object(cls, obj_name: str) -> Object:
+        """Made public for perceiver."""
+        return Object(obj_name, cls.obj_name_to_type[obj_name])
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""
@@ -202,7 +247,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         state_dict = {}
         for key, val in state_info.items():
             if key == "EEF":
-                obj = Object("gripper", cls.gripper_type)
+                obj = cls.object_name_to_object("gripper")
                 state_dict[obj] = {
                     "x": val[0],
                     "y": val[1],
@@ -216,7 +261,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                 continue  # used below
             else:
                 obj_name = key.replace("_site", "").replace(" ", "").lower()
-                obj = Object(obj_name, cls.object_type)
+                obj = cls.object_name_to_object(obj_name)
                 if key in _TRACKED_SITE_TO_JOINT:
                     joint = _TRACKED_SITE_TO_JOINT[key]
                     angle = state_info[joint][0]
@@ -234,21 +279,21 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
     def goal_reached(self) -> bool:
         state = self.state_info_to_state(
             self._current_observation["state_info"])
-        kettle = Object("kettle", self.object_type)
-        burner = Object("burner4", self.object_type)
-        knob = Object("knob4", self.object_type)
-        light = Object("light", self.object_type)
+        kettle = self.object_name_to_object("kettle")
+        burner4 = self.object_name_to_object("burner4")
+        knob4 = self.object_name_to_object("knob4")
+        light = self.object_name_to_object("light")
         goal_desc = self._current_task.goal_description
-        kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
-        knob_turned_on = self.On_holds(state, [knob])
+        kettle_on_burner = self._OnTop_holds(state, [kettle, burner4])
+        knob4_turned_on = self.On_holds(state, [knob4])
         light_turned_on = self.On_holds(state, [light])
         if goal_desc == ("Move the kettle to the back burner and turn it on; "
                          "also turn on the light"):
-            return kettle_on_burner and knob_turned_on and light_turned_on
+            return kettle_on_burner and knob4_turned_on and light_turned_on
         if goal_desc == "Move the kettle to the back burner":
             return kettle_on_burner
         if goal_desc == "Turn on the back burner":
-            return knob_turned_on
+            return knob4_turned_on
         if goal_desc == "Turn on the light":
             return light_turned_on
         raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
@@ -286,14 +331,15 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return {"state_info": self.get_object_centric_state_info()}
 
     @classmethod
-    def _AtPreTurnOn_holds(cls, state: State,
-                           objects: Sequence[Object]) -> bool:
+    def _AtPreTurn_holds(cls, state: State, objects: Sequence[Object],
+                         on_or_off: str) -> bool:
+        """Helper for _AtPreTurnOn_holds() and _AtPreTurnOff_holds()."""
         gripper, obj = objects
         obj_xyz = np.array(
             [state.get(obj, "x"),
              state.get(obj, "y"),
              state.get(obj, "z")])
-        dpos = cls.get_pre_push_delta_pos(obj)
+        dpos = cls.get_pre_push_delta_pos(obj, on_or_off)
         gripper_xyz = np.array([
             state.get(gripper, "x"),
             state.get(gripper, "y"),
@@ -301,7 +347,17 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         ])
         return np.allclose(obj_xyz + dpos,
                            gripper_xyz,
-                           atol=cls.at_pre_turnon_atol)
+                           atol=cls.at_pre_turn_atol)
+
+    @classmethod
+    def _AtPreTurnOn_holds(cls, state: State,
+                           objects: Sequence[Object]) -> bool:
+        return cls._AtPreTurn_holds(state, objects, "on")
+
+    @classmethod
+    def _AtPreTurnOff_holds(cls, state: State,
+                            objects: Sequence[Object]) -> bool:
+        return cls._AtPreTurn_holds(state, objects, "off")
 
     @classmethod
     def _AtPrePushOnTop_holds(cls, state: State,
@@ -314,7 +370,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             [state.get(obj, "x"),
              state.get(obj, "y"),
              state.get(obj, "z")])
-        dpos = cls.get_pre_push_delta_pos(obj)
+        dpos = cls.get_pre_push_delta_pos(obj, "on")
         target_x, target_y, target_z = obj_xyz + dpos
         gripper_x, gripper_y, gripper_z = [
             state.get(gripper, "x"),
@@ -351,15 +407,25 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                  thresh_pad: float = 0.0) -> bool:
         """Made public for use in ground-truth options."""
         obj = objects[0]
-        if "knob" in obj.name:
+        if obj.is_instance(cls.knob_type):
             return state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
-        if obj.name == "light":
+        if obj.is_instance(cls.switch_type):
             return state.get(obj, "x") < cls.light_on_thresh - thresh_pad
         return False
 
     @classmethod
-    def _Off_holds(cls, state: State, objects: Sequence[Object]) -> bool:
-        return not cls.On_holds(state, objects)
+    def Off_holds(cls,
+                  state: State,
+                  objects: Sequence[Object],
+                  thresh_pad: float = 0.0) -> bool:
+        """Made public for use in ground-truth options."""
+        # Can't do not On_holds() because of thresh_pad logic.
+        obj = objects[0]
+        if obj.is_instance(cls.knob_type):
+            return state.get(obj, "angle") >= cls.on_angle_thresh + thresh_pad
+        if obj.is_instance(cls.switch_type):
+            return state.get(obj, "x") >= cls.light_on_thresh + thresh_pad
+        return False
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
