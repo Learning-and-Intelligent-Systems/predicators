@@ -1,15 +1,17 @@
 """A Kitchen environment wrapping kitchen from https://github.com/google-
 research/relay-policy-learning."""
 import copy
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import matplotlib
 import numpy as np
 from gym.spaces import Box
 
 try:
-    from mujoco_kitchen.kitchen_envs import OBS_ELEMENT_INDICES
-    from mujoco_kitchen.utils import make_env
+    import gymnasium as mujoco_kitchen_gym
+    from gymnasium_robotics.utils.mujoco_utils import get_joint_qpos, \
+        get_site_xmat, get_site_xpos
+    from gymnasium_robotics.utils.rotations import mat2quat
     _MJKITCHEN_IMPORTED = True
 except (ImportError, RuntimeError):
     _MJKITCHEN_IMPORTED = False
@@ -19,43 +21,54 @@ from predicators.settings import CFG
 from predicators.structs import Action, EnvironmentTask, Image, Object, \
     Observation, Predicate, State, Type, Video
 
+_TRACKED_SITES = [
+    "hinge_site1", "hinge_site2", "kettle_site", "microhandle_site",
+    "knob1_site", "knob2_site", "knob3_site", "knob4_site", "light_site",
+    "slide_site", "EEF"
+]
+
+_TRACKED_SITE_TO_JOINT = {
+    "knob1_site": "knob_Joint_1",
+    "knob2_site": "knob_Joint_2",
+    "knob3_site": "knob_Joint_3",
+    "knob4_site": "knob_Joint_4"
+}
+
+_TRACKED_BODIES = ["Burner 1", "Burner 2", "Burner 3", "Burner 4"]
+
 
 class KitchenEnv(BaseEnv):
     """Kitchen environment wrapping dm_control Kitchen."""
 
-    gripper_type = Type("gripper", ["x", "y", "z"])
+    gripper_type = Type("gripper", ["x", "y", "z", "qw", "qx", "qy", "qz"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
     at_atol = 0.2  # tolerance for At classifier
     ontop_atol = 0.15  # tolerance for OnTop classifier
-    on_angle_thresh = -0.8  # dial is On if less than this threshold
+    on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.4  # light is On if less than this threshold
 
     obj_name_to_pre_push_dpos = {
-        "kettle": (0.125, -0.3, -0.25),  # need to push from behind kettle
-        "knob3": (-0.2, 0.0, -0.2),  # need to push from left to right
-        "light": (0.1, 0.05, -0.2),  # need to push from right to left
+        "kettle": (0.0, -0.3, -0.12),  # need to push from behind kettle
+        "knob4": (-0.1, -0.15, 0.05),  # need to push from left to right
+        "light": (0.1, -0.05, 0.0),  # need to push from right to left
     }
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        assert _MJKITCHEN_IMPORTED, "Failed to import mujoco_kitchen. \
-For more information on installation see \
-https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
+        assert _MJKITCHEN_IMPORTED, "Failed to import kitchen gym env. \
+Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
+
+        if use_gui:
+            assert not CFG.make_test_videos or CFG.make_failure_videos, \
+                "Turn off --use_gui to make videos in kitchen env"
 
         # Predicates
         self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
 
-        # NOTE: we can change the level by modifying what we pass
-        # into gym.make here.
-        self._gym_env = make_env(
-            "kitchen", "microwave", {
-                "usage_kwargs": {
-                    "max_path_length": 5000,
-                    "use_raw_action_wrappers": False,
-                    "unflatten_images": False
-                }
-            })
+        render_mode = "human" if self._using_gui else "rgb_array"
+        self._gym_env = mujoco_kitchen_gym.make("FrankaKitchen-v1",
+                                                render_mode=render_mode)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
@@ -72,27 +85,24 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
     def get_object_centric_state_info(self) -> Dict[str, Any]:
         """Parse State into Object Centric State."""
-        state = self._gym_env.env.get_env_state()[0]
+        mujoco_model = self._gym_env.model  # type: ignore
+        mujoco_data = self._gym_env.data  # type: ignore
+        mujoco_model_names = self._gym_env.robot_env.model_names  # type: ignore
         state_info = {}
-        for key, val in OBS_ELEMENT_INDICES.items():
-            state_info[key] = [state[i] for i in val]
-        important_sites = [
-            "hinge_site1", "hinge_site2", "kettle_site", "microhandle_site",
-            "knob1_site", "knob2_site", "knob3_site", "knob4_site",
-            "light_site", "slide_site", "end_effector"
-        ]
-        for site in important_sites:
-            state_info[site] = copy.deepcopy(self._gym_env.get_site_xpos(site))
-            # Potentially can get this ^ from state
-        # Add oven burner plate locations
-        burner_poses = {
-            "burner1_site": [-0.3, 0.3, 0.629],
-            "burner2_site": [-0.3, 0.8, 0.629],
-            "burner3_site": [0.204, 0.8, 0.629],
-            "burner4_site": [0.206, 0.3, 0.629]
-        }
-        for name, pose in burner_poses.items():
-            state_info[name] = pose
+        for site in _TRACKED_SITES:
+            state_info[site] = get_site_xpos(mujoco_model, mujoco_data,
+                                             site).copy()
+            # Include rotation for gripper.
+            if site == "EEF":
+                xmat = get_site_xmat(mujoco_model, mujoco_data, site).copy()
+                quat = mat2quat(xmat)
+                state_info[site] = np.concatenate([state_info[site], quat])
+        for joint in _TRACKED_SITE_TO_JOINT.values():
+            state_info[joint] = get_joint_qpos(mujoco_model, mujoco_data,
+                                               joint).copy()
+        for body in _TRACKED_BODIES:
+            body_id = mujoco_model_names.body_name2id[body]
+            state_info[body] = mujoco_data.xpos[body_id].copy()
         return state_info
 
     @classmethod
@@ -123,10 +133,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:
         assert caption is None
-        arr: Image = self._gym_env.render(
-            'rgb_array',
-            imwidth=CFG.kitchen_camera_size,
-            imheight=CFG.kitchen_camera_size)  # type: ignore
+        arr: Image = self._gym_env.render()  # type: ignore
         return [arr]
 
     @property
@@ -143,11 +150,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
     @property
     def action_space(self) -> Box:
-        # One-hot encoding of discrete action space with parameters.
-        assert (self._gym_env.num_primitives +
-                self._gym_env.max_arg_len, ) == (29, )  # type: ignore
-        assert self._gym_env.action_space.shape == (29, )
-        return self._gym_env.action_space
+        return cast(Box, self._gym_env.action_space)
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         """Resets the current state to the train or test task initial state."""
@@ -174,33 +177,36 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
     @classmethod
     def state_info_to_state(cls, state_info: Dict[str, Any]) -> State:
         """Get state from state info dictionary."""
-        assert "end_effector" in state_info  # sanity check
+        assert "EEF" in state_info  # sanity check
         state_dict = {}
         for key, val in state_info.items():
-            if "_site" in key:
-                obj_name = key.replace("_site", "")
-                obj = Object(obj_name, cls.object_type)
-                state_dict[obj] = {
-                    "x": val[0],
-                    "y": val[1],
-                    "z": val[2],
-                    "angle": 0
-                }
-            elif key == "end_effector":
+            if key == "EEF":
                 obj = Object("gripper", cls.gripper_type)
                 state_dict[obj] = {
                     "x": val[0],
                     "y": val[1],
                     "z": val[2],
-                    "angle": 0
+                    "qw": val[3],
+                    "qx": val[4],
+                    "qy": val[5],
+                    "qz": val[6],
                 }
-        for key, val in state_info.items():
-            if key == "bottom left burner":
-                obj = Object("knob2", cls.object_type)
-                state_dict[obj]["angle"] = val[0]
-            elif key == "top left burner":
-                obj = Object("knob3", cls.object_type)
-                state_dict[obj]["angle"] = val[0]
+            elif key in _TRACKED_SITE_TO_JOINT.values():
+                continue  # used below
+            else:
+                obj_name = key.replace("_site", "").replace(" ", "").lower()
+                obj = Object(obj_name, cls.object_type)
+                if key in _TRACKED_SITE_TO_JOINT:
+                    joint = _TRACKED_SITE_TO_JOINT[key]
+                    angle = state_info[joint][0]
+                else:
+                    angle = 0
+                state_dict[obj] = {
+                    "x": val[0],
+                    "y": val[1],
+                    "z": val[2],
+                    "angle": angle
+                }
         state = utils.create_state_from_dict(state_dict)
         return state
 
@@ -208,13 +214,13 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         state = self.state_info_to_state(
             self._current_observation["state_info"])
         kettle = Object("kettle", self.object_type)
-        burner = Object("burner2", self.object_type)
-        knob = Object("knob3", self.object_type)
+        burner = Object("burner4", self.object_type)
+        knob = Object("knob4", self.object_type)
         light = Object("light", self.object_type)
         goal_desc = self._current_task.goal_description
         kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
-        knob_turned_on = self._On_holds(state, [knob])
-        light_turned_on = self._On_holds(state, [light])
+        knob_turned_on = self.On_holds(state, [knob])
+        light_turned_on = self.On_holds(state, [light])
         if goal_desc == ("Move the kettle to the back burner and turn it on; "
                          "also turn on the light"):
             return kettle_on_burner and knob_turned_on and light_turned_on
@@ -255,8 +261,7 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         return tasks
 
     def _reset_initial_state_from_seed(self, seed: int) -> Observation:
-        self._gym_env.seed(seed)  # type: ignore
-        self._gym_env.reset()
+        self._gym_env.reset(seed=seed)
         return {"state_info": self.get_object_centric_state_info()}
 
     @classmethod
@@ -288,12 +293,16 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                                obj1, "z") > state.get(obj2, "z")
 
     @classmethod
-    def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
+    def On_holds(cls,
+                 state: State,
+                 objects: Sequence[Object],
+                 thresh_pad: float = 0.0) -> bool:
+        """Made public for use in ground-truth options."""
         obj = objects[0]
-        if obj.name in ["knob3", "knob2"]:
-            return state.get(obj, "angle") < cls.on_angle_thresh
+        if "knob" in obj.name:
+            return state.get(obj, "angle") < cls.on_angle_thresh - thresh_pad
         if obj.name == "light":
-            return state.get(obj, "x") < cls.light_on_thresh
+            return state.get(obj, "x") < cls.light_on_thresh - thresh_pad
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:
@@ -306,5 +315,5 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                       self._At_holds),
             Predicate("OnTop", [self.object_type, self.object_type],
                       self._OnTop_holds),
-            Predicate("TurnedOn", [self.object_type], self._On_holds),
+            Predicate("TurnedOn", [self.object_type], self.On_holds),
         ]
