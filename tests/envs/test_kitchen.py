@@ -36,17 +36,22 @@ def test_kitchen():
         task = perceiver.reset(env_task)
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 3
-    At, OnTop, TurnedOn = sorted(env.predicates)
-    assert At.name == "At"
+    assert len(env.predicates) == 6
+    AtPrePushOnTop, AtPreTurnOn, NotOnTop, OnTop, TurnedOff, TurnedOn = \
+            sorted(env.predicates)
+    assert AtPrePushOnTop.name == "AtPrePushOnTop"
+    assert AtPreTurnOn.name == "AtPreTurnOn"
+    assert NotOnTop.name == "NotOnTop"
     assert OnTop.name == "OnTop"
+    assert TurnedOff.name == "TurnedOff"
     assert TurnedOn.name == "TurnedOn"
-    assert env.goal_predicates == {At, OnTop, TurnedOn}
+    assert env.goal_predicates == {OnTop, TurnedOn}
     options = get_gt_options(env.get_name())
-    assert len(options) == 3
-    moveto_option, pushobjonobjforward_option, pushobjturnonright_option = \
-        sorted(options)
-    assert moveto_option.name == "MoveTo"
+    assert len(options) == 4
+    moveto_prepushontop_option, moveto_preturnon_option, \
+        pushobjonobjforward_option, pushobjturnonright_option = sorted(options)
+    assert moveto_prepushontop_option.name == "MoveToPrePushOnTop"
+    assert moveto_preturnon_option.name == "MoveToPreTurnOn"
     assert pushobjonobjforward_option.name == "PushObjOnObjForward"
     assert pushobjturnonright_option.name == "PushObjTurnOnLeftRight"
     assert len(env.types) == 2
@@ -55,7 +60,7 @@ def test_kitchen():
     assert object_type.name == "obj"
     assert env.action_space.shape == (7, )
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
-    assert len(nsrts) == 3
+    assert len(nsrts) == 4
     env_train_tasks = env.get_train_tasks()
     assert len(env_train_tasks) == 1
     env_test_tasks = env.get_test_tasks()
@@ -82,8 +87,10 @@ def test_kitchen():
     assert "Simulate not implemented for gym envs." in str(e)
 
     # Test NSRTs.
-    MoveTo, PushObjOnObjForward, PushObjTurnOnLeftRight = sorted(nsrts)
-    assert MoveTo.name == "MoveTo"
+    MoveToPrePushOnTop, MoveToPreTurnOn, PushObjOnObjForward, \
+        PushObjTurnOnLeftRight = sorted(nsrts)
+    assert MoveToPrePushOnTop.name == "MoveToPrePushOnTop"
+    assert MoveToPreTurnOn.name == "MoveToPreTurnOn"
     assert PushObjOnObjForward.name == "PushObjOnObjForward"
     assert PushObjTurnOnLeftRight.name == "PushObjTurnOnLeftRight"
 
@@ -98,10 +105,15 @@ def test_kitchen():
     burner4 = obj_name_to_obj["burner4"]
     light = obj_name_to_obj["light"]
 
-    def _run_ground_nsrt(ground_nsrt, state):
+    def _run_ground_nsrt(ground_nsrt,
+                         state,
+                         override_params=None,
+                         assert_effects=True):
         for atom in ground_nsrt.preconditions:
             assert atom.holds(state)
         option = ground_nsrt.sample_option(state, set(), rng)
+        if override_params is not None:
+            option = option.parent.ground(option.objects, override_params)
         assert option.initiable(state)
         for _ in range(1000):
             act = option.policy(state)
@@ -109,18 +121,19 @@ def test_kitchen():
             state = env.state_info_to_state(obs["state_info"])
             if option.terminal(state):
                 break
-        for atom in ground_nsrt.add_effects:
-            assert atom.holds(state)
-        for atom in ground_nsrt.delete_effects:
-            assert not atom.holds(state)
+        if assert_effects:
+            for atom in ground_nsrt.add_effects:
+                assert atom.holds(state)
+            for atom in ground_nsrt.delete_effects:
+                assert not atom.holds(state)
         return state
 
     # Set up all the NSRTs for the following tests.
-    move_to_light_nsrt = MoveTo.ground([gripper, light])
+    move_to_light_nsrt = MoveToPreTurnOn.ground([gripper, light])
     push_light_nsrt = PushObjTurnOnLeftRight.ground([gripper, light])
-    move_to_knob4_nsrt = MoveTo.ground([gripper, knob4])
+    move_to_knob4_nsrt = MoveToPreTurnOn.ground([gripper, knob4])
     push_knob4_nsrt = PushObjTurnOnLeftRight.ground([gripper, knob4])
-    move_to_kettle_nsrt = MoveTo.ground([gripper, kettle])
+    move_to_kettle_nsrt = MoveToPrePushOnTop.ground([gripper, kettle])
     push_kettle_on_burner4_nsrt = PushObjOnObjForward.ground(
         [gripper, kettle, burner4])
 
@@ -182,3 +195,16 @@ def test_kitchen():
     assert OnTop([kettle, burner4]).holds(state)
     assert TurnedOn([knob4]).holds(state)
     assert TurnedOn([light]).holds(state)
+
+    # Test that we can't push the knob twice in a row, even if the first push
+    # failed to turn on the burner.
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_knob4_nsrt, state)
+    state = _run_ground_nsrt(push_knob4_nsrt,
+                             state,
+                             override_params=np.array([-np.pi / 6]),
+                             assert_effects=False)
+    assert not TurnedOn([knob4]).holds(state)
+    assert not all(p.holds(state) for p in push_knob4_nsrt.preconditions)

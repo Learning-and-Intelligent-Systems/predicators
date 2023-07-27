@@ -90,9 +90,13 @@ PLOT_GROUPS = {
         ("Active Learning", "black", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-knob-only-active_sampler_learning" in v)),
     ],
-    "Kitchen": [
+    "Kitchen (Light Only)": [
         ("Active Learning", "black", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-kettle-knob-active_sampler_learning" in v)),
+            lambda v: "kitchen-light-only-active_sampler_learning" in v)),
+    ],
+    "Kitchen (All Goals)": [
+        ("Active Learning", "black", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-all-active_sampler_learning" in v)),
     ],
 }
 
