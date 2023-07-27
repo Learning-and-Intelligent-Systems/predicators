@@ -51,6 +51,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         on_off_type = types["on_off"]
         kettle_type = types["kettle"]
         surface_type = types["surface"]
+        switch_type = types["switch"]
+        knob_type = types["knob"]
 
         # Predicates
         OnTop = predicates["OnTop"]
@@ -192,10 +194,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         options.add(PushObjOnObjForward)
 
-        # PushObjTurnOnLeftRight
-        def _PushObjTurnOnLeftRight_initiable(state: State, memory: Dict,
-                                              objects: Sequence[Object],
-                                              params: Array) -> bool:
+        # TurnOnSwitch / TurnOffSwitch / TurnOnKnob
+        def _Turn_initiable(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
             del params  # unused
             # Memorize whether to push left or right based on the relative
             # position of the gripper and object when pushing starts.
@@ -209,9 +210,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             memory["sign"] = sign
             return True
 
-        def _PushObjTurnOnLeftRight_policy(state: State, memory: Dict,
-                                           objects: Sequence[Object],
-                                           params: Array) -> Action:
+        def _Turn_policy(state: State, memory: Dict, objects: Sequence[Object],
+                         params: Array) -> Action:
             del state, objects  # unused
             sign = memory["sign"]
             # The parameter is a push direction angle with respect to x, with
@@ -223,8 +223,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
             return Action(arr)
 
-        def _create_PushObjTurnOnLeftRight_terminal(
-                on_or_off: str) -> ParameterizedTerminal:
+        def _create_Turn_terminal(on_or_off: str) -> ParameterizedTerminal:
 
             def _terminal(state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> bool:
@@ -245,19 +244,25 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
             return _terminal
 
-        # Create two copies to preserve one-to-one-ness with NSRTs.
+        # Create copies to preserve one-to-one-ness with NSRTs.
         for on_or_off in ["on", "off"]:
-            terminal = _create_PushObjTurnOnLeftRight_terminal(on_or_off)
-            nsrt = ParameterizedOption(
-                f"PushObjTurn{on_or_off.capitalize()}LeftRight",
-                types=[gripper_type, on_off_type],
-                # The parameter is a push direction angle with respect to x,
-                # with the sign possibly flipping the x direction.
-                params_space=Box(-np.pi, np.pi, (1, )),
-                policy=_PushObjTurnOnLeftRight_policy,
-                initiable=_PushObjTurnOnLeftRight_initiable,
-                terminal=terminal)
+            for obj_type in [switch_type, knob_type]:
+                # Coming soon...
+                if on_or_off == "off" and obj_type == knob_type:
+                    continue
+                name = (f"Turn{on_or_off.capitalize()}"
+                        f"{obj_type.name.capitalize()}")
+                terminal = _create_Turn_terminal(on_or_off)
+                nsrt = ParameterizedOption(
+                    name,
+                    types=[gripper_type, obj_type],
+                    # The parameter is a push direction angle with respect to x,
+                    # with the sign possibly flipping the x direction.
+                    params_space=Box(-np.pi, np.pi, (1, )),
+                    policy=_Turn_policy,
+                    initiable=_Turn_initiable,
+                    terminal=terminal)
 
-            options.add(nsrt)
+                options.add(nsrt)
 
         return options

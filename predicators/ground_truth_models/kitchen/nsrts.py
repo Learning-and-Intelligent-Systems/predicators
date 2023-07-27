@@ -28,20 +28,25 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         on_off_type = types["on_off"]
         kettle_type = types["kettle"]
         surface_type = types["surface"]
+        switch_type = types["switch"]
+        knob_type = types["knob"]
 
         # Objects
         gripper = Variable("?gripper", gripper_type)
         on_off_obj = Variable("?on_off_obj", on_off_type)
         kettle = Variable("?kettle", kettle_type)
         surface = Variable("?surface", surface_type)
+        switch = Variable("?switch", switch_type)
+        knob = Variable("?knob", knob_type)
 
         # Options
         MoveToPrePushOnTop = options["MoveToPrePushOnTop"]
         MoveToPreTurnOff = options["MoveToPreTurnOff"]
         MoveToPreTurnOn = options["MoveToPreTurnOn"]
         PushObjOnObjForward = options["PushObjOnObjForward"]
-        PushObjTurnOffLeftRight = options["PushObjTurnOffLeftRight"]
-        PushObjTurnOnLeftRight = options["PushObjTurnOnLeftRight"]
+        TurnOffSwitch = options["TurnOffSwitch"]
+        TurnOnSwitch = options["TurnOnSwitch"]
+        TurnOnKnob = options["TurnOnKnob"]
 
         # Predicates
         AtPreTurnOn = predicates["AtPreTurnOn"]
@@ -162,23 +167,23 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             push_obj_on_obj_forward_sampler)
         nsrts.add(push_obj_on_obj_forward_nsrt)
 
-        # PushObjTurnOffLeftRight
-        parameters = [gripper, on_off_obj]
+        # TurnOffSwitch
+        parameters = [gripper, switch]
         preconditions = {
-            LiftedAtom(AtPreTurnOff, [gripper, on_off_obj]),
-            LiftedAtom(TurnedOn, [on_off_obj])
+            LiftedAtom(AtPreTurnOff, [gripper, switch]),
+            LiftedAtom(TurnedOn, [switch])
         }
-        add_effects = {LiftedAtom(TurnedOff, [on_off_obj])}
-        delete_effects = {LiftedAtom(TurnedOn, [on_off_obj])}
+        add_effects = {LiftedAtom(TurnedOff, [switch])}
+        delete_effects = {LiftedAtom(TurnedOn, [switch])}
         ignore_effects = set()
-        option = PushObjTurnOffLeftRight
-        option_vars = [gripper, on_off_obj]
+        option = TurnOffSwitch
+        option_vars = [gripper, switch]
 
         # The same sampler is used for both on and off, since the option
         # internally takes care of the direction change.
-        def push_obj_turn_sampler(state: State, goal: Set[GroundAtom],
-                                  rng: np.random.Generator,
-                                  objs: Sequence[Object]) -> Array:
+        def switch_turn_sampler(state: State, goal: Set[GroundAtom],
+                                rng: np.random.Generator,
+                                objs: Sequence[Object]) -> Array:
             del state, goal  # unused
             _, obj = objs
             # Sample a direction to push w.r.t. the x axis.
@@ -192,28 +197,45 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
 
-        push_obj_turn_on_nsrt = NSRT("PushObjTurnOffLeftRight", parameters,
-                                     preconditions, add_effects,
-                                     delete_effects, ignore_effects, option,
-                                     option_vars, push_obj_turn_sampler)
-        nsrts.add(push_obj_turn_on_nsrt)
+        turn_off_switch_nsrt = NSRT("TurnOffSwitch", parameters, preconditions,
+                                    add_effects, delete_effects,
+                                    ignore_effects, option, option_vars,
+                                    switch_turn_sampler)
+        nsrts.add(turn_off_switch_nsrt)
 
-        # PushObjTurnOnLeftRight
-        parameters = [gripper, on_off_obj]
+        # TurnOnSwitch
+        parameters = [gripper, switch]
         preconditions = {
-            LiftedAtom(AtPreTurnOn, [gripper, on_off_obj]),
-            LiftedAtom(TurnedOff, [on_off_obj])
+            LiftedAtom(AtPreTurnOn, [gripper, switch]),
+            LiftedAtom(TurnedOff, [switch])
         }
-        add_effects = {LiftedAtom(TurnedOn, [on_off_obj])}
-        delete_effects = {LiftedAtom(TurnedOff, [on_off_obj])}
+        add_effects = {LiftedAtom(TurnedOn, [switch])}
+        delete_effects = {LiftedAtom(TurnedOff, [switch])}
         ignore_effects = set()
-        option = PushObjTurnOnLeftRight
-        option_vars = [gripper, on_off_obj]
+        option = TurnOnSwitch
+        option_vars = [gripper, switch]
 
-        push_obj_turn_on_nsrt = NSRT("PushObjTurnOnLeftRight", parameters,
-                                     preconditions, add_effects,
-                                     delete_effects, ignore_effects, option,
-                                     option_vars, push_obj_turn_sampler)
-        nsrts.add(push_obj_turn_on_nsrt)
+        turn_on_switch_nsrt = NSRT("TurnOnSwitch", parameters, preconditions,
+                                   add_effects, delete_effects, ignore_effects,
+                                   option, option_vars, switch_turn_sampler)
+        nsrts.add(turn_on_switch_nsrt)
+
+        # TurnOnKnob
+        parameters = [gripper, knob]
+        preconditions = {
+            LiftedAtom(AtPreTurnOn, [gripper, knob]),
+            LiftedAtom(TurnedOff, [knob])
+        }
+        add_effects = {LiftedAtom(TurnedOn, [knob])}
+        delete_effects = {LiftedAtom(TurnedOff, [knob])}
+        ignore_effects = set()
+        option = TurnOnKnob
+        option_vars = [gripper, knob]
+
+        # Coming soon: no longer use the switch turn sampler.
+        turn_on_knob_nsrt = NSRT("TurnOnKnob", parameters, preconditions,
+                                 add_effects, delete_effects, ignore_effects,
+                                 option, option_vars, switch_turn_sampler)
+        nsrts.add(turn_on_knob_nsrt)
 
         return nsrts
