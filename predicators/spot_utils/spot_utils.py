@@ -209,6 +209,7 @@ class _SpotInterface():
         self._force_horizontal_grasp = False
         self._force_squeeze_grasp = False
         self._force_top_down_grasp = False
+        self._force_forward_grasp = False
         self._image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
@@ -567,7 +568,7 @@ class _SpotInterface():
         """The parameter spaces for each of the controllers."""
         return {
             "navigate": Box(-5.0, 5.0, (3, )),
-            "grasp": Box(-1.0, 1.0, (4, )),
+            "grasp": Box(-1.0, 2.0, (4, )),
             "placeOnTop": Box(-5.0, 5.0, (3, )),
             # TODO: make this reasonable later, and remember for now these are absolute coordinates!
             "drag": Box(-45.0, 45.0, (2, )),
@@ -708,13 +709,20 @@ class _SpotInterface():
         """
         print("Grasp", objs)
         assert len(params) == 4
-        assert params[3] in [0, 1, -1]
+        assert params[3] in [0, 1, -1, 2]
         if params[3] == 1:
             self._force_horizontal_grasp = False
             self._force_top_down_grasp = True
+            self._force_forward_grasp = False
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
+            self._force_forward_grasp = False
+        elif params[3] == 2:
+            self._force_horizontal_grasp = False
+            self._force_top_down_grasp = False
+            self._force_forward_grasp = True
+
         self.arm_object_grasp(objs[1])
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
@@ -850,7 +858,7 @@ class _SpotInterface():
 
         # For these options, we'll use a vector alignment constraint.
         use_vector_constraint = self._force_top_down_grasp or \
-            self._force_horizontal_grasp
+            self._force_horizontal_grasp or self._force_forward_grasp
 
         # Specify the frame we're using.
         grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME
@@ -876,6 +884,18 @@ class _SpotInterface():
 
                 # The axis on the gripper is the y-axis.
                 axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=0, y=1, z=0)
+
+                # The axis in the vision frame is the positive z-axis
+                axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=1)
+
+            if self._force_forward_grasp:
+                # Add a constraint that requests that the z-axis of the gripper
+                # is pointing in the positive z direction in the vision frame.
+                # This means that the gripper is constrained to be flat, as
+                # it usually is in the standard sow position.
+
+                # The axis on the gripper is the z-axis.
+                axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=0, y=0, z=1)
 
                 # The axis in the vision frame is the positive z-axis
                 axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=1)
