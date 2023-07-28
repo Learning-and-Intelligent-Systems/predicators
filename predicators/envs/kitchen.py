@@ -73,7 +73,7 @@ class KitchenEnv(BaseEnv):
     at_pre_turn_atol = 0.05  # tolerance for AtPreTurnOn/Off
     ontop_atol = 0.1  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
-    light_on_thresh = -0.38  # light is On if less than this threshold
+    light_on_thresh = -0.39  # light is On if less than this threshold
     at_pre_pushontop_yz_atol = 0.05  # tolerance for AtPrePushOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
@@ -189,6 +189,8 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                       cls._AtPreTurnOn_holds),
             Predicate("AtPrePushOnTop", [cls.gripper_type, cls.kettle_type],
                       cls._AtPrePushOnTop_holds),
+            Predicate("AtPrePullKettle", [cls.gripper_type, cls.kettle_type],
+                      cls._AtPrePullKettle_holds),
             Predicate("OnTop", [cls.kettle_type, cls.surface_type],
                       cls._OnTop_holds),
             Predicate("NotOnTop", [cls.kettle_type, cls.surface_type],
@@ -380,6 +382,12 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return np.isclose(target_x,
                           gripper_x,
                           atol=cls.at_pre_pushontop_x_atol)
+
+    @classmethod
+    def _AtPrePullKettle_holds(cls, state: State,
+                               objects: Sequence[Object]) -> bool:
+        # TODO
+        return False
 
     @classmethod
     def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
