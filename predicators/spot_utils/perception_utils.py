@@ -418,16 +418,35 @@ def get_object_locations_with_detic_sam(
                                            }
 
     # Track the max scores found per object, assuming there is at most one.
-    obj_class_to_max_score: Dict[str, float] = {}
-
+    obj_class_to_max_score_and_source: Dict[str, Tuple[float, str]] = {}
     for source_name in CAMERA_NAMES:
         curr_res_segment = deticsam_results_all_cameras[source_name]
         for i, obj_class in enumerate(curr_res_segment['classes']):
             # Check that this particular class is one of the
             # classes we passed in, and that there was only one
             # instance of this class that was found.
-            assert obj_class.item() in classes
+            obj_cls_str = obj_class.item()
+            assert obj_cls_str in classes
             assert curr_res_segment['classes'].count(obj_class) == 1
+            score = curr_res_segment["scores"][i][0]
+            if obj_class_to_max_score_and_source.get(obj_cls_str) is None:
+                obj_class_to_max_score_and_source[obj_cls_str] = (score, source_name)
+            else:
+                if score > obj_class_to_max_score_and_source[obj_cls_str][0]:
+                    obj_class_to_max_score_and_source[obj_cls_str] = (score, source_name)
+
+    for source_name in CAMERA_NAMES:
+        curr_res_segment = deticsam_results_all_cameras[source_name]
+        for i, obj_class in enumerate(curr_res_segment['classes']):
+            # First, check if this is the highest scoring detection
+            # for this class amongst all detections from all sources.
+            score = curr_res_segment["scores"][i][0]
+            obj_cls_str = obj_class.item()
+            # Skip if we've already seen a higher-scoring detection
+            # for this object class from a different source.
+            if (score, source_name) != obj_class_to_max_score_and_source[obj_cls_str]:
+                continue
+
             # Compute median value of depth
             depth_median = np.median(
                 rotated_depth[curr_res_segment['masks'][i][0].squeeze()
@@ -469,6 +488,7 @@ def get_object_locations_with_detic_sam(
             inverse_rotation_angle = -ROTATION_ANGLE[source_name]
             fig = plt.figure()
             plt.imshow(depth_image_dict[source_name])
+            plt.colorbar()
             plt.imshow(ndimage.rotate(
                 curr_res_segment['masks'][i][0].squeeze(),
                 inverse_rotation_angle,
@@ -500,13 +520,12 @@ def get_object_locations_with_detic_sam(
                 depth_value=depth_median,
                 point_x=x_c_rotated,
                 point_y=y_c_rotated)
-            score = curr_res_segment["scores"][i][0]
-            obj_cls_str = obj_class.item()
-            # Skip if we've already seen a better object.
-            if obj_cls_str in obj_class_to_max_score and \
-                score < obj_class_to_max_score[obj_cls_str]:
-                continue
-            obj_class_to_max_score[obj_cls_str] = score
+
+            print(obj_cls_str)
+            print(depth_median)
+            print((x0, y0, z0))
+            # import ipdb; ipdb.set_trace()
+
             if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(
                     z0):
                 ret_camera_to_obj_positions[source_name][obj_cls_str] = (x0,

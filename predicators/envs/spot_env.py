@@ -994,13 +994,10 @@ class SpotBikeEnv(SpotEnv):
         forward_unit = [np.cos(spot_pose[3]), np.sin(spot_pose[3])]
         spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
         spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
-        yaw_is_near = np.dot(forward_unit,
-                             spot_to_obj_unit) > cls._reachable_yaw_threshold
+        angle_between_robot_and_obj = np.arccos(np.dot(forward_unit, spot_to_obj_unit))
+        is_yaw_near = abs(angle_between_robot_and_obj) < cls._reachable_yaw_threshold
 
-        # if "toolbag" in obj.name:
-        #     import ipdb; ipdb.set_trace()
-
-        return is_xy_near and yaw_is_near
+        return is_xy_near and is_yaw_near
 
     @staticmethod
     def _surface_too_high_classifier(state: State,

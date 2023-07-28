@@ -724,7 +724,7 @@ class _SpotInterface():
             waypoint = get_memorized_waypoint(waypoint_name)
             assert waypoint is not None
             waypoint_id, offset = waypoint
-            self.navigate_to(waypoint_id, offset)
+            # self.navigate_to(waypoint_id, offset)
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
                 rgb_img_dict, rgb_img_response_dict, \
@@ -769,7 +769,7 @@ class _SpotInterface():
                     break
                 logging.info("Still searching for objects:")
                 logging.info(remaining_objects)
-                self.relative_move(0.0, 0.0, np.pi / 4)
+                # self.relative_move(0.0, 0.0, np.pi / 4)
         return obj_poses
 
     def verify_estop(self, robot: Any) -> None:
