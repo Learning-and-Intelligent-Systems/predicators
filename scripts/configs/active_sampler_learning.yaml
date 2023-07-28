@@ -1,16 +1,16 @@
 # Final active sampler learning experiments.
 ---
 APPROACHES:
-  # main_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_scorer: "default"
-  # random_score_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_scorer: "random"
+  main_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_scorer: "default"
+  random_score_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_scorer: "random"
   random_nsrts_explore:
     NAME: "active_sampler_learning"
     FLAGS:
@@ -38,7 +38,6 @@ ENVS:
       max_num_steps_option_rollout: 250
 ARGS:
   - "debug"
-  - "make_test_videos"
 FLAGS:
   strips_learner: "oracle"
   sampler_learner: "oracle"
