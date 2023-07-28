@@ -173,7 +173,7 @@ class CoverEnv(BaseEnv):
         targ_alpha = 0.25
         # Draw blocks
         for i, block in enumerate(state.get_objects(self._block_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             if state.get(block, "grasp") != -1:
                 lcolor = "red"
                 pose = state.get(self._robot, "hand") - state.get(
@@ -195,7 +195,7 @@ class CoverEnv(BaseEnv):
             ax.add_patch(rect)
         # Draw targets
         for i, targ in enumerate(state.get_objects(self._target_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             lcolor = "gray"
             rect = plt.Rectangle(
                 (state.get(targ, "pose") - state.get(targ, "width") / 2.,
