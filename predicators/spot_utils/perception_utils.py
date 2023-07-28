@@ -367,15 +367,16 @@ def get_pixel_locations_with_detic_sam(
 
 
 def get_object_locations_with_detic_sam(
-        classes: List[str],
-        rgb_image_dict: Dict[str, Image],
-        depth_image_dict: Dict[str, Image],
-        depth_image_response_dict: Dict[str,
-                                        bosdyn.api.image_pb2.ImageResponse],
-        plot: bool = False
+    classes: List[str],
+    rgb_image_dict: Dict[str, Image],
+    depth_image_dict: Dict[str, Image],
+    depth_image_response_dict: Dict[str, bosdyn.api.image_pb2.ImageResponse],
+    plot: bool = False
 ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
     """Given a list of string queries (classes), call SAM on these and return
     the positions of the centroids of these detections in the camera frame.
+
+    If the same object is seen multiple times, take only the highest score one.
 
     Importantly, note that a number of cameras on the Spot robot are
     rotated by various degrees. Since SAM doesn't do so well on rotated
@@ -415,6 +416,10 @@ def get_object_locations_with_detic_sam(
                                                source_name: {}
                                                for source_name in CAMERA_NAMES
                                            }
+
+    # Track the max scores found per object, assuming there is at most one.
+    obj_class_to_max_score: Dict[str, float] = {}
+
     for source_name in CAMERA_NAMES:
         curr_res_segment = deticsam_results_all_cameras[source_name]
         for i, obj_class in enumerate(curr_res_segment['classes']):
@@ -495,10 +500,18 @@ def get_object_locations_with_detic_sam(
                 depth_value=depth_median,
                 point_x=x_c_rotated,
                 point_y=y_c_rotated)
+            score = curr_res_segment["scores"][i][0]
+            obj_cls_str = obj_class.item()
+            # Skip if we've already seen a better object.
+            if obj_cls_str in obj_class_to_max_score and \
+                score < obj_class_to_max_score[obj_cls_str]:
+                continue
+            obj_class_to_max_score[obj_cls_str] = score
             if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(
                     z0):
-                ret_camera_to_obj_positions[source_name][obj_class.item()] = (
-                    x0, y0, z0)
+                ret_camera_to_obj_positions[source_name][obj_cls_str] = (x0,
+                                                                         y0,
+                                                                         z0)
 
     return ret_camera_to_obj_positions
 
