@@ -1,16 +1,16 @@
 # Final active sampler learning experiments.
 ---
 APPROACHES:
-  main_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_scorer: "default"
-  random_score_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_scorer: "random"
+  # main_explore:
+  #   NAME: "active_sampler_learning"
+  #   FLAGS:
+  #     explorer: "active_sampler"
+  #     active_sampler_explore_scorer: "default"
+  # random_score_explore:
+  #   NAME: "active_sampler_learning"
+  #   FLAGS:
+  #     explorer: "active_sampler"
+  #     active_sampler_explore_scorer: "random"
   random_nsrts_explore:
     NAME: "active_sampler_learning"
     FLAGS:
