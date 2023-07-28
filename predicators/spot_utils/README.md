@@ -18,6 +18,6 @@ The pipeline is as follows:
   - It is recommended to run on a local computer (faster connection) with CUDA GPU (faster inference)
 - Connect to server from local
   - Use SSH "local port forward"
-  - `ssh -L 5550:localhost:5550 <IP-ADDRESS>`
+  - `ssh -L 5550:localhost:5550 10.17.1.102`
 - Request from your local computer
   - You can see perception_utils.py, or the `client.py` function in the BDAI repo.

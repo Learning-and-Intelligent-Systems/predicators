@@ -25,6 +25,7 @@ machines.txt
 tests/_fake_trajs
 tests/_fake_results
 predicators/envs/assets/task_jsons/spot_bike_env/last.json
+spot_perception_outputs
 
 # Jetbrains IDEs
 .idea/

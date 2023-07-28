@@ -173,6 +173,7 @@ class GlobalSettings:
     spot_fiducial_size = 44.45
     spot_visualize_vision_model_outputs = False
     spot_vision_detection_threshold = 0.30
+    spot_perception_outdir = "spot_perception_outputs"
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
