@@ -16,17 +16,26 @@ APPROACHES:
     FLAGS:
       explorer: "random_nsrts"
 ENVS:
-  cover_place_hard:
-    NAME: "cover_place_hard"
-    num_train_tasks: 1000
-    num_test_tasks: 100
-    max_num_steps_interaction_request: 50
+  bumpy_cover:
+    NAME: "bumpy_cover"
+    FLAGS:
+      num_train_tasks: 1000
+      num_test_tasks: 100
+      max_num_steps_interaction_request: 50
   kitchen:
     NAME: "kitchen"
-    num_train_tasks: 100
-    num_test_tasks: 10
-    max_num_steps_interaction_request: 500
-    max_num_steps_option_rollout: 250
+    FLAGS:
+      num_train_tasks: 100
+      num_test_tasks: 10
+      max_num_steps_interaction_request: 500
+      max_num_steps_option_rollout: 250
+      bumpy_cover_num_bumps: 3
+      bumpy_cover_spaces_per_bump: 3
+      bumpy_cover_init_bumpy_prob: 1.0
+      cover_num_blocks: 10
+      cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
+      cover_num_targets: 10
+      cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
 ARGS:
   - "debug"
 FLAGS:
