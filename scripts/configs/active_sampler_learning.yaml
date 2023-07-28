@@ -38,6 +38,7 @@ ENVS:
       cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
 ARGS:
   - "debug"
+  - "make_test_videos"
 FLAGS:
   strips_learner: "oracle"
   sampler_learner: "oracle"
