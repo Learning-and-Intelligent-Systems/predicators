@@ -154,7 +154,9 @@ def test_kitchen():
     state = _run_ground_nsrt(move_to_kettle_pre_push_nsrt, state)
     state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
     assert OnTop([kettle, burner4]).holds(state)
-    # TODO test pulling back
+    state = _run_ground_nsrt(move_to_kettle_pre_pull_nsrt, state)
+    state = _run_ground_nsrt(pull_kettle_on_burner2_nsrt, state)
+    assert OnTop([kettle, burner2]).holds(state)
 
     # Test moving to and turning the light on and off.
     obs = env.reset("test", 0)
