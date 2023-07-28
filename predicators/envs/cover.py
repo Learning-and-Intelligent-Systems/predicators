@@ -1079,7 +1079,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
         want_block_in_bumpy = rng.uniform() < CFG.bumpy_cover_init_bumpy_prob
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):
-            if i % 2 == 0:
+            if i == 0:
                 bumpy = 1.0
             else:
                 bumpy = 0.0
