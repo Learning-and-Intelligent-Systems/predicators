@@ -50,33 +50,58 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
             while uncovered_segment is not None and \
                 new_heuristic_val >= init_heuristic_val:
 
-
+                option_name = uncovered_segment.get_option().name
+                print(f"_BackChainingPNADSearchOperator found uncovered segment involving option {option_name}.")
+                old_pnads_list = ret_pnads_list.copy()
 
                 # We will need to induce an operator to cover this
                 # segment, and thus it must have some necessary add effects.
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
+                if "Stack" in new_pnad.op.name:
+                    print("Printing new stack pnad: ")
+                    print(new_pnad.op)
 
                 # #
-                # for ll_traj, seg_traj in zip(self._trajectories,
-                #                              self._segmented_trajs):
-                #     if uncovered_segment in seg_traj:
-                #         if ll_traj.is_demo:
-                #             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-                # option_name = uncovered_segment.get_option().name
-                # if option_name == "Stack":
-                #     import pdb; pdb.set_trace()
+                for ll_traj, seg_traj in zip(self._trajectories,
+                                             self._segmented_trajs):
+                    if uncovered_segment in seg_traj:
+                        if ll_traj.is_demo:
+                            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+                            relevant_seg = seg_traj
+                if option_name == "Stack":
+                    print("First breakpoint in get_sucessors().")
+                    # try backchaining and see what happens
+                    self._learner.backchain2(relevant_seg, old_pnads_list, traj_goal)
+                    import pdb; pdb.set_trace()
                 # #
 
 
                 ret_pnads_list = self._append_new_pnad_and_keep_effects(
                     new_pnad, ret_pnads_list)
 
+
+
                 # #
-                # option_name = uncovered_segment.get_option().name
-                # if option_name == "Stack":
-                #     relevant = [p for p in ret_pnads_list if "Stack" in p.name]
-                #     import pdb; pdb.set_trace()
-                # #
+                stack_pnads = [p for p in ret_pnads_list if "Stack" in p.op.name]
+                num_stack_pnads = len(stack_pnads)
+                option_name = uncovered_segment.get_option().name
+                if option_name == "Stack":
+                    print("Second breakpoint in get_sucessors().")
+                    for j, st in enumerate(stack_pnads):
+                        print(f"Preconditions for stack pnad {j}")
+                        preconds = sorted(list(st.op.preconditions))
+                        for pr in preconds:
+                            print(pr)
+                        print(f"Add effects for stack pnad {j}")
+                        preconds = sorted(list(st.op.add_effects))
+                        for pr in preconds:
+                            print(pr)
+                        print(f"Delete effects for stack pnad {j}")
+                        preconds = sorted(list(st.op.delete_effects))
+                        for pr in preconds:
+                            print(pr)
+                    import pdb; pdb.set_trace()
+                #
 
                 ret_pnads = frozenset(pnad.copy() for pnad in ret_pnads_list)
                 new_heuristic_val = self._associated_heuristic(ret_pnads)
@@ -146,6 +171,32 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         return max_chain_len, backchaining_results
 
     def _get_first_uncovered_segment(
+        self,
+        pnads: List[PNAD],
+    ) -> Optional[Segment]:
+        # Find the first uncovered segment. Do this in a kind of breadth-first
+        # backward search over trajectories.
+        # Compute all the chains once up front.
+        max_chain_len, backchaining_results = self._get_backchaining_results(
+            pnads)
+        # Now look for an uncovered segment. If one cannot be found, this
+        # method will automatically return None.
+        for depth in range(max_chain_len + 1):
+            for seg_traj, op_chain in backchaining_results:
+                if not (len(op_chain) > depth
+                        or len(op_chain) == len(seg_traj)):
+                    # We found an uncovered transition: we now need to return
+                    # the information necessary to induce a new operator to
+                    # cover it.
+                    # The timestep of the uncovered transition is the number of
+                    # segments - 1 - (numer of actions in our backchained plan)
+                    t = (len(seg_traj) - 1) - len(op_chain)
+                    assert t >= 0
+                    segment = seg_traj[t]
+                    return segment
+        return None
+
+    def _get_first_uncovered_segment2(
         self,
         pnads: List[PNAD],
     ) -> Optional[Segment]:
@@ -339,8 +390,8 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                              check_goal=lambda _: False,
                                              get_successors=get_successors,
                                              heuristic=heuristic,
-                                             verbose=self._verbose,
-                                             # verbose=True,
+                                             # verbose=self._verbose,
+                                             verbose=True,
                                              timeout=CFG.pnad_search_timeout)
 
         # Extract the best PNADs set.
@@ -427,4 +478,81 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # See if a different pnad matches.
                 candidate_pnads.remove(pnad)
 
+        return operator_chain
+
+    def backchain2(self, segmented_traj: List[Segment], pnads: List[PNAD],
+                  traj_goal: Set[GroundAtom]) -> List[_GroundSTRIPSOperator]:
+        """Returns chain of ground operators in REVERSE order."""
+        print("In backchain2.")
+        operator_chain: List[_GroundSTRIPSOperator] = []
+        atoms_seq = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
+        objects = set(segmented_traj[0].states[0])
+        assert traj_goal.issubset(atoms_seq[-1])
+        necessary_image = set(traj_goal)
+        for t in range(len(atoms_seq) - 2, -1, -1):
+            segment = segmented_traj[t]
+            segment.necessary_add_effects = necessary_image - atoms_seq[t]
+            candidate_pnads = pnads.copy()
+            while len(candidate_pnads) >= 0:
+                pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
+                    segment, objects, candidate_pnads)
+                # If no match found, terminate.
+                if pnad is None:
+                    print("No pnad match found.")
+                    stack_pnads = [pr for pr in pnads if "Stack" in pr.op.name]
+                    print("LENGTH OF STACK PNADS: ", len(stack_pnads))
+                    import pdb; pdb.set_trace()
+                    if len(stack_pnads) == 1:
+                        print("Debugging 1st stack pnad!")
+                        # ground for debugging
+                        objs = list(segmented_traj[1].states[0].data.keys())
+                        block1 = [x for x in objs if x.name == "block1"][0]
+                        block2 = [x for x in objs if x.name == "block2"][0]
+                        robot = [x for x in objs if x.name == "robby"][0]
+                        temp1 = stack_pnads[0].op.ground((robot, block1, block2))
+                    if len(stack_pnads) == 3:
+                        print("Debugging 2nd stack pnad!")
+                        # ground for debugging
+                        objs = list(segmented_traj[1].states[0].data.keys())
+                        block1 = [x for x in objs if x.name == "block1"][0]
+                        block2 = [x for x in objs if x.name == "block2"][0]
+                        robot = [x for x in objs if x.name == "robby"][0]
+                        temp1 = stack_pnads[0].op.ground((robot, block2, block1))
+                        temp2 = stack_pnads[1].op.ground((robot, block2, block1))
+                        temp3 = stack_pnads[2].op.ground((robot, block2, block1))
+
+                    import pdb; pdb.set_trace()
+                    return operator_chain
+                assert var_to_obj is not None
+                obj_to_var = {v: k for k, v in var_to_obj.items()}
+                assert len(var_to_obj) == len(obj_to_var)
+                ground_op = pnad.op.ground(
+                    tuple(var_to_obj[var] for var in pnad.op.parameters))
+                next_atoms = utils.apply_operator(ground_op,
+                                                  segment.init_atoms)
+                # Update the PNAD's seg_to_keep_effs_sub dict.
+                self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
+                                                   ground_op, obj_to_var,
+                                                   segment)
+                # If we are not missing anything in the necessary image, we can
+                # extend the chain.
+                if necessary_image.issubset(next_atoms):
+                    operator_chain.append(ground_op)
+                    # Update necessary_image for this timestep. It no longer
+                    # needs to include the ground add effects of this PNAD, but
+                    # must now include its ground preconditions.
+                    necessary_image = necessary_image.copy()
+                    necessary_image -= {
+                        a.ground(var_to_obj)
+                        for a in pnad.op.add_effects
+                    }
+                    necessary_image |= {
+                        a.ground(var_to_obj)
+                        for a in pnad.op.preconditions
+                    }
+                    break
+
+                # See if a different pnad matches.
+                candidate_pnads.remove(pnad)
+        print("End of backchain2.")
         return operator_chain
