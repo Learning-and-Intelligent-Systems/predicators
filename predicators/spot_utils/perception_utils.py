@@ -7,6 +7,7 @@ import os
 import time
 from pathlib import Path
 from typing import Dict, List, Tuple
+import cv2
 
 import bosdyn.client
 import bosdyn.client.util
@@ -20,6 +21,7 @@ import requests
 from bosdyn.api import image_pb2
 from numpy.typing import NDArray
 from scipy import ndimage
+import skimage.exposure
 
 from predicators import utils
 from predicators.settings import CFG
@@ -449,7 +451,7 @@ def get_object_locations_with_detic_sam(
 
             # Compute median value of depth
             depth_median = np.median(
-                rotated_depth[curr_res_segment['masks'][i][0].squeeze()
+                rotated_depth_image_dict[source_name][curr_res_segment['masks'][i][0].squeeze()
                               & (rotated_depth > 2)[:, :, 0]])
             # Compute geometric center of object bounding box
             x1, y1, x2, y2 = curr_res_segment['boxes'][i].squeeze()
@@ -487,14 +489,28 @@ def get_object_locations_with_detic_sam(
             # RGB image.
             inverse_rotation_angle = -ROTATION_ANGLE[source_name]
             fig = plt.figure()
-            plt.imshow(depth_image_dict[source_name])
-            plt.colorbar()
-            plt.imshow(ndimage.rotate(
-                curr_res_segment['masks'][i][0].squeeze(),
-                inverse_rotation_angle,
-                reshape=False),
-                       alpha=0.5,
-                       cmap='Reds')
+            depth_image = depth_image_dict[source_name]
+            stretch = skimage.exposure.rescale_intensity(depth_image, in_range='image', out_range=(0,255)).astype(np.uint8)
+            # define colors
+            color1 = (0, 0, 255)     #red
+            color2 = (0, 165, 255)   #orange
+            color3 = (0, 255, 255)   #yellow
+            color4 = (255, 255, 0)   #cyan
+            color5 = (255, 0, 0)     #blue
+            color6 = (128, 64, 64)   #violet
+            colorArr = np.array([[color1, color2, color3, color4, color5, color6]], dtype=np.uint8)
+            # resize lut to 256 (or more) values
+            lut = cv2.resize(colorArr, (256,1), interpolation = cv2.INTER_LINEAR)
+            # apply lut
+            result = cv2.LUT(stretch, lut)
+            plt.imshow(result)
+
+            # plt.imshow(ndimage.rotate(
+            #     curr_res_segment['masks'][i][0].squeeze(),
+            #     inverse_rotation_angle,
+            #     reshape=False),
+            #            alpha=0.5,
+            #            cmap='Reds')
             plt.scatter(x=x_c_rotated,
                         y=y_c_rotated,
                         marker='*',
@@ -505,7 +521,7 @@ def get_object_locations_with_detic_sam(
                         marker='.',
                         color='blue',
                         zorder=3)
-            plt.scatter(x=x_c, y=y_c, marker='*', color='green', zorder=3)
+            # plt.scatter(x=x_c, y=y_c, marker='*', color='green', zorder=3)
             debug_img = utils.fig2data(fig, dpi=150)
             _save_spot_perception_output(
                 debug_img,
@@ -524,13 +540,14 @@ def get_object_locations_with_detic_sam(
             print(obj_cls_str)
             print(depth_median)
             print((x0, y0, z0))
-            # import ipdb; ipdb.set_trace()
 
             if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(
                     z0):
                 ret_camera_to_obj_positions[source_name][obj_cls_str] = (x0,
                                                                          y0,
                                                                          z0)
+
+    import ipdb; ipdb.set_trace()
 
     return ret_camera_to_obj_positions
 
