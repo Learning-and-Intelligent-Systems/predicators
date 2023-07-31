@@ -7,10 +7,10 @@ import os
 import time
 from pathlib import Path
 from typing import Dict, List, Tuple
-import cv2
 
 import bosdyn.client
 import bosdyn.client.util
+import cv2
 import dill as pkl
 import imageio.v2 as iio
 import matplotlib
@@ -18,10 +18,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import PIL
 import requests
+import skimage.exposure
 from bosdyn.api import image_pb2
 from numpy.typing import NDArray
 from scipy import ndimage
-import skimage.exposure
 
 from predicators import utils
 from predicators.settings import CFG
@@ -51,6 +51,18 @@ RGB_TO_DEPTH_CAMERAS = {
     "frontright_fisheye_image": "frontright_depth_in_visual_frame",
     "back_fisheye_image": "back_depth_in_visual_frame"
 }
+
+# Define colors for plotting of depthmap
+color1 = (0, 0, 255)  #red
+color2 = (0, 165, 255)  #orange
+color3 = (0, 255, 255)  #yellow
+color4 = (255, 255, 0)  #cyan
+color5 = (255, 0, 0)  #blue
+color6 = (128, 64, 64)  #violet
+colorArr = np.array([[color1, color2, color3, color4, color5, color6]],
+                    dtype=np.uint8)
+# resize lut to 256 (or more) values
+lut = cv2.resize(colorArr, (256, 1), interpolation=cv2.INTER_LINEAR)
 
 
 def image_to_bytes(img: PIL.Image.Image) -> io.BytesIO:
@@ -354,26 +366,18 @@ def get_pixel_locations_with_detic_sam(
     x1, y1, x2, y2 = res_segment[camera_name]['boxes'][0].squeeze()
     x_c = (x1 + x2) / 2
     y_c = (y1 + y2) / 2
-
-    # Save/plot center and segmentation mask
-    bool_segmentation_img = res_segment[camera_name]['masks'][0][0].squeeze()
-    debug_img = 255 * bool_segmentation_img.astype(np.uint8)
-    _save_spot_perception_output(
-        debug_img,
-        prefix=f"detic_sam_{camera_name}_{obj_class}_segmentation",
-        plot=plot)
-
     pixel_locations.append((x_c, y_c))
 
     return pixel_locations
 
 
 def get_object_locations_with_detic_sam(
-    classes: List[str],
-    rgb_image_dict: Dict[str, Image],
-    depth_image_dict: Dict[str, Image],
-    depth_image_response_dict: Dict[str, bosdyn.api.image_pb2.ImageResponse],
-    plot: bool = False
+        classes: List[str],
+        rgb_image_dict: Dict[str, Image],
+        depth_image_dict: Dict[str, Image],
+        depth_image_response_dict: Dict[str,
+                                        bosdyn.api.image_pb2.ImageResponse],
+        plot: bool = False
 ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
     """Given a list of string queries (classes), call SAM on these and return
     the positions of the centroids of these detections in the camera frame.
@@ -432,10 +436,12 @@ def get_object_locations_with_detic_sam(
             assert curr_res_segment['classes'].count(obj_class) == 1
             score = curr_res_segment["scores"][i][0]
             if obj_class_to_max_score_and_source.get(obj_cls_str) is None:
-                obj_class_to_max_score_and_source[obj_cls_str] = (score, source_name)
+                obj_class_to_max_score_and_source[obj_cls_str] = (score,
+                                                                  source_name)
             else:
                 if score > obj_class_to_max_score_and_source[obj_cls_str][0]:
-                    obj_class_to_max_score_and_source[obj_cls_str] = (score, source_name)
+                    obj_class_to_max_score_and_source[obj_cls_str] = (
+                        score, source_name)
 
     for source_name in CAMERA_NAMES:
         curr_res_segment = deticsam_results_all_cameras[source_name]
@@ -446,14 +452,15 @@ def get_object_locations_with_detic_sam(
             obj_cls_str = obj_class.item()
             # Skip if we've already seen a higher-scoring detection
             # for this object class from a different source.
-            if (score, source_name) != obj_class_to_max_score_and_source[obj_cls_str]:
+            if (score, source_name
+                ) != obj_class_to_max_score_and_source[obj_cls_str]:
                 continue
 
             # Compute median value of depth
             curr_rotated_depth = rotated_depth_image_dict[source_name]
             depth_median = np.median(
                 curr_rotated_depth[curr_res_segment['masks'][i][0].squeeze()
-                              & (curr_rotated_depth > 2)[:, :, 0]])
+                                   & (curr_rotated_depth > 2)[:, :, 0]])
             # Compute geometric center of object bounding box
             x1, y1, x2, y2 = curr_res_segment['boxes'][i].squeeze()
             x_c = (x1 + x2) / 2
@@ -490,35 +497,21 @@ def get_object_locations_with_detic_sam(
             # RGB image.
             inverse_rotation_angle = -ROTATION_ANGLE[source_name]
             fig = plt.figure()
-            depth_image = rotated_depth_image_dict[source_name]
-            stretch = skimage.exposure.rescale_intensity(depth_image, in_range='image', out_range=(0,255)).astype(np.uint8)
-            # define colors
-            color1 = (0, 0, 255)     #red
-            color2 = (0, 165, 255)   #orange
-            color3 = (0, 255, 255)   #yellow
-            color4 = (255, 255, 0)   #cyan
-            color5 = (255, 0, 0)     #blue
-            color6 = (128, 64, 64)   #violet
-            colorArr = np.array([[color1, color2, color3, color4, color5, color6]], dtype=np.uint8)
-            # resize lut to 256 (or more) values
-            lut = cv2.resize(colorArr, (256,1), interpolation = cv2.INTER_LINEAR)
-            # apply lut
+            depth_image = depth_image_dict[source_name]
+            stretch = skimage.exposure.rescale_intensity(
+                depth_image, in_range='image',
+                out_range=(0, 255)).astype(np.uint8)
+            # Apply lut.
             result = cv2.LUT(stretch, lut)
             plt.imshow(result)
-            plt.imshow(curr_res_segment['masks'][i][0].squeeze(), alpha=0.3, cmap='spring')
-            # plt.imshow(ndimage.rotate(
-            #     curr_res_segment['masks'][i][0].squeeze(),
-            #     inverse_rotation_angle,
-            #     reshape=False),
-            #            alpha=0.3,
-            #            cmap='spring')
-            # plt.scatter(x=x_c_rotated,
-            #             y=y_c_rotated,
-            #             marker='*',
-            #             color='red',
-            #             zorder=3)
-            plt.scatter(x=x_c,
-                        y=y_c,
+            plt.imshow(ndimage.rotate(
+                curr_res_segment['masks'][i][0].squeeze(),
+                inverse_rotation_angle,
+                reshape=False),
+                       alpha=0.3,
+                       cmap='spring')
+            plt.scatter(x=x_c_rotated,
+                        y=y_c_rotated,
                         marker='*',
                         color='red',
                         zorder=3)
@@ -527,7 +520,6 @@ def get_object_locations_with_detic_sam(
                         marker='.',
                         color='blue',
                         zorder=3)
-            # plt.scatter(x=x_c, y=y_c, marker='*', color='green', zorder=3)
             debug_img = utils.fig2data(fig, dpi=150)
             _save_spot_perception_output(
                 debug_img,

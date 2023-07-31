@@ -795,7 +795,6 @@ class _SpotInterface():
             g_image_click = (x, y)
         else:
             # Draw some lines on the image.
-            #print('mouse', x, y)
             color = (30, 30, 30)
             thickness = 2
             image_title = 'Click to grasp'

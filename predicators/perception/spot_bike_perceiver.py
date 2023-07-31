@@ -7,8 +7,8 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
-from predicators.envs.spot_env import SpotBikeEnv, _PartialPerceptionState, \
-    _SpotObservation
+from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
+    SpotBikeEnv, _PartialPerceptionState, _SpotObservation
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
@@ -83,7 +83,7 @@ class SpotBikePerceiver(BasePerceiver):
                     object_attempted_to_grasp.name]
                 # We only want to update the holding item id feature
                 # if we successfully picked something.
-                if self._gripper_open_percentage > 1.5:
+                if self._gripper_open_percentage > HANDEMPTY_GRIPPER_THRESHOLD:
                     self._holding_item_id_feature = grasp_obj_id
                 else:
                     # We lost the object!
@@ -108,7 +108,7 @@ class SpotBikePerceiver(BasePerceiver):
                 # We ensure the holding item feature is set
                 # back to 0.0 if the hand is ever empty.
                 prev_holding_item_id = self._holding_item_id_feature
-                if self._gripper_open_percentage <= 1.5:
+                if self._gripper_open_percentage <= HANDEMPTY_GRIPPER_THRESHOLD:
                     self._holding_item_id_feature = 0.0
                     # This can only happen if the item was dropped during
                     # something other than a place.

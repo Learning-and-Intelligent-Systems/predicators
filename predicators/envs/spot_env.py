@@ -551,6 +551,8 @@ class SpotEnv(BaseEnv):
 #                                Bike Repair Env                              #
 ###############################################################################
 
+HANDEMPTY_GRIPPER_THRESHOLD = 2.5
+
 
 class SpotBikeEnv(SpotEnv):
     """An environment containing bike-repair related tasks for a real Spot
@@ -559,6 +561,7 @@ class SpotBikeEnv(SpotEnv):
     _ontop_threshold: ClassVar[float] = 0.55
     _reachable_threshold: ClassVar[float] = 1.7
     _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
+    _handempty_gripper_threshold: ClassVar[float] = HANDEMPTY_GRIPPER_THRESHOLD
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -917,11 +920,12 @@ class SpotBikeEnv(SpotEnv):
             self._notHandEmpty, self._InViewTool, self._OnFloor
         }
 
-    @staticmethod
-    def _handempty_classifier(state: State, objects: Sequence[Object]) -> bool:
+    @classmethod
+    def _handempty_classifier(cls, state: State,
+                              objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= 2.5
+        return gripper_open_percentage <= cls._handempty_gripper_threshold
 
     @classmethod
     def _nothandempty_classifier(cls, state: State,
@@ -994,8 +998,10 @@ class SpotBikeEnv(SpotEnv):
         forward_unit = [np.cos(spot_pose[3]), np.sin(spot_pose[3])]
         spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
         spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
-        angle_between_robot_and_obj = np.arccos(np.dot(forward_unit, spot_to_obj_unit))
-        is_yaw_near = abs(angle_between_robot_and_obj) < cls._reachable_yaw_threshold
+        angle_between_robot_and_obj = np.arccos(
+            np.dot(forward_unit, spot_to_obj_unit))
+        is_yaw_near = abs(
+            angle_between_robot_and_obj) < cls._reachable_yaw_threshold
 
         return is_xy_near and is_yaw_near
 
