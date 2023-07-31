@@ -551,6 +551,8 @@ class SpotEnv(BaseEnv):
 #                                Bike Repair Env                              #
 ###############################################################################
 
+HANDEMPTY_GRIPPER_THRESHOLD = 2.5
+
 
 class SpotBikeEnv(SpotEnv):
     """An environment containing bike-repair related tasks for a real Spot
@@ -559,6 +561,7 @@ class SpotBikeEnv(SpotEnv):
     _ontop_threshold: ClassVar[float] = 0.55
     _reachable_threshold: ClassVar[float] = 1.7
     _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
+    _handempty_gripper_threshold: ClassVar[float] = HANDEMPTY_GRIPPER_THRESHOLD
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -917,11 +920,12 @@ class SpotBikeEnv(SpotEnv):
             self._notHandEmpty, self._InViewTool, self._OnFloor
         }
 
-    @staticmethod
-    def _handempty_classifier(state: State, objects: Sequence[Object]) -> bool:
+    @classmethod
+    def _handempty_classifier(cls, state: State,
+                              objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= 2.5
+        return gripper_open_percentage <= cls._handempty_gripper_threshold
 
     @classmethod
     def _nothandempty_classifier(cls, state: State,
@@ -994,10 +998,12 @@ class SpotBikeEnv(SpotEnv):
         forward_unit = [np.cos(spot_pose[3]), np.sin(spot_pose[3])]
         spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
         spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
-        yaw_is_near = np.dot(forward_unit,
-                             spot_to_obj_unit) > cls._reachable_yaw_threshold
+        angle_between_robot_and_obj = np.arccos(
+            np.dot(forward_unit, spot_to_obj_unit))
+        is_yaw_near = abs(
+            angle_between_robot_and_obj) < cls._reachable_yaw_threshold
 
-        return is_xy_near and yaw_is_near
+        return is_xy_near and is_yaw_near
 
     @staticmethod
     def _surface_too_high_classifier(state: State,
@@ -1038,15 +1044,13 @@ class SpotBikeEnv(SpotEnv):
             extra_table = self._obj_name_to_obj("extra_room_table")
             return {GroundAtom(self._On, [cube, extra_table])}
         hammer = self._obj_name_to_obj("hammer")
-        hex_key = self._obj_name_to_obj("hex_key")
+        measuring_tape = self._obj_name_to_obj("measuring_tape")
         brush = self._obj_name_to_obj("brush")
-        hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         bag = self._obj_name_to_obj("toolbag")
         return {
             GroundAtom(self._InBag, [hammer, bag]),
             GroundAtom(self._InBag, [brush, bag]),
-            GroundAtom(self._InBag, [hex_key, bag]),
-            GroundAtom(self._InBag, [hex_screwdriver, bag]),
+            GroundAtom(self._InBag, [measuring_tape, bag]),
         }
 
     @functools.lru_cache(maxsize=None)
@@ -1057,10 +1061,9 @@ class SpotBikeEnv(SpotEnv):
             objects.append(cube)
         else:
             hammer = Object("hammer", self._tool_type)
-            hex_key = Object("hex_key", self._tool_type)
-            hex_screwdriver = Object("hex_screwdriver", self._tool_type)
+            measuring_tape = Object("measuring_tape", self._tool_type)
             brush = Object("brush", self._tool_type)
-            objects.extend([hammer, hex_key, hex_screwdriver, brush])
+            objects.extend([hammer, measuring_tape, brush])
         spot = Object("spot", self._robot_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
         extra_room_table = Object("extra_room_table", self._surface_type)

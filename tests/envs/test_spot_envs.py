@@ -30,8 +30,7 @@ def test_spot_bike_env_load_task_from_json():
         "objects": {
             "hammer": "tool",
             "brush": "tool",
-            "hex_key": "tool",
-            "hex_screwdriver": "tool",
+            "measuring_tape": "tool",
             "low_wall_rack": "flat_surface",
             "tool_room_table": "flat_surface",
             "toolbag": "bag",
@@ -52,17 +51,10 @@ def test_spot_bike_env_load_task_from_json():
                 "lost": 0.0,
                 "in_view": 0.0
             },
-            "hex_key": {
+            "measuring_tape": {
                 "x": 9.90738,
                 "y": -6.84972,
                 "z": 0.643172,
-                "lost": 0.0,
-                "in_view": 0.0
-            },
-            "hex_screwdriver": {
-                "x": 6.57559,
-                "y": -5.87017,
-                "z": 0.286362,
                 "lost": 0.0,
                 "in_view": 0.0
             },
@@ -92,7 +84,7 @@ def test_spot_bike_env_load_task_from_json():
         },
         "goal": {
             "InBag": [["hammer", "toolbag"], ["brush", "toolbag"],
-                      ["hex_key", "toolbag"], ["hex_screwdriver", "toolbag"]]
+                      ["measuring_tape", "toolbag"]]
         }
     }
 
@@ -118,8 +110,8 @@ def test_spot_bike_env_load_task_from_json():
     # pylint: disable=line-too-long
     assert str(
         task.init_obs
-    ) == "_SpotObservation(images={}, objects_in_view={brush:tool: (6.43948, -6.02389, 0.174947), hammer:tool: (9.88252, -7.10786, 0.622855), hex_key:tool: (9.90738, -6.84972, 0.643172), hex_screwdriver:tool: (6.57559, -5.87017, 0.286362), low_wall_rack:flat_surface: (10.0275, -6.96979, 0.275323), tool_room_table:flat_surface: (6.49849, -6.25279, -0.0138028), toolbag:bag: (6.85457, -8.19294, -0.189187)}, objects_in_hand_view=set(), robot=spot:robot, gripper_open_percentage=0.42733, robot_pos=(8.46583, -6.94704, 0.131564, 0.0), nonpercept_atoms=set(), nonpercept_predicates={InBag, ReachableSurface, PlatformNear, OnFloor, HoldingPlatformLeash, HoldingBag})"
+    ) == "_SpotObservation(images={}, objects_in_view={brush:tool: (6.43948, -6.02389, 0.174947), hammer:tool: (9.88252, -7.10786, 0.622855), low_wall_rack:flat_surface: (10.0275, -6.96979, 0.275323), measuring_tape:tool: (9.90738, -6.84972, 0.643172), tool_room_table:flat_surface: (6.49849, -6.25279, -0.0138028), toolbag:bag: (6.85457, -8.19294, -0.189187)}, objects_in_hand_view=set(), robot=spot:robot, gripper_open_percentage=0.42733, robot_pos=(8.46583, -6.94704, 0.131564, 0.0), nonpercept_atoms=set(), nonpercept_predicates={InBag, ReachableSurface, PlatformNear, OnFloor, HoldingPlatformLeash, HoldingBag})"
 
     assert str(
         sorted(task.goal)
-    ) == "[InBag(brush:tool, toolbag:bag), InBag(hammer:tool, toolbag:bag), InBag(hex_key:tool, toolbag:bag), InBag(hex_screwdriver:tool, toolbag:bag)]"
+    ) == "[InBag(brush:tool, toolbag:bag), InBag(hammer:tool, toolbag:bag), InBag(measuring_tape:tool, toolbag:bag)]"

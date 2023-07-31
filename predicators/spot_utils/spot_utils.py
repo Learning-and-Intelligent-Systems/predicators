@@ -69,8 +69,7 @@ def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
 obj_name_to_apriltag_id = {
     "hammer": 401,
     "brush": 402,
-    "hex_key": 403,
-    "hex_screwdriver": 404,
+    "measuring_tape": 403,
     "toolbag": 405,
     "low_wall_rack": 406,
     "front_tool_room": 407,
@@ -81,9 +80,8 @@ obj_name_to_apriltag_id = {
 obj_name_to_vision_prompt = {
     "hammer": "hammer",
     "brush": "brush",
-    "hex_key": "hexagonal key",
-    "hex_screwdriver": "screwdriver",
-    "toolbag": "work bag",
+    "measuring_tape": "measuring tape",
+    "toolbag": "bag for tools",
 }
 vision_prompt_to_obj_name = {
     value: key
@@ -93,25 +91,19 @@ vision_prompt_to_obj_name = {
 OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
     "hammer": (160, 450, 160, 350),
-    "hex_key": (160, 450, 160, 350),
     "brush": (100, 400, 350, 480),
-    "hex_screwdriver": (100, 400, 350, 480),
 }
 
 OBJECT_COLOR_BOUNDS = {
     # (min B, min G, min R), (max B, max G, max R)
     "hammer": ((0, 0, 50), (40, 40, 200)),
-    "hex_key": ((0, 50, 50), (40, 150, 200)),
     "brush": ((0, 100, 200), (80, 255, 255)),
-    "hex_screwdriver": ((0, 0, 50), (40, 40, 200)),
 }
 
 OBJECT_GRASP_OFFSET = {
     # dx, dy
     "hammer": (0, 0),
-    "hex_key": (0, 50),
     "brush": (0, 0),
-    "hex_screwdriver": (0, 0),
 }
 
 COMMAND_TIMEOUT = 20.0
@@ -803,7 +795,6 @@ class _SpotInterface():
             g_image_click = (x, y)
         else:
             # Draw some lines on the image.
-            #print('mouse', x, y)
             color = (30, 30, 30)
             thickness = 2
             image_title = 'Click to grasp'
@@ -937,7 +928,7 @@ class _SpotInterface():
                     g_image_click = result.center
 
         elif CFG.spot_grasp_use_cv2:
-            if obj.name in ["hammer", "hex_key", "brush", "hex_screwdriver"]:
+            if obj.name in ["hammer", "brush"]:
                 g_image_click = _find_object_center(rgb_img, obj.name)
 
         elif CFG.spot_grasp_use_sam:
