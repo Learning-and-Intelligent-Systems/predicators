@@ -150,8 +150,8 @@ def create_dataframes(
     """Returns means, standard deviations, and sizes."""
     df = create_raw_dataframe(column_names_and_keys, derived_keys)
     grouped = df.groupby(list(groups))
-    means = grouped.mean()
-    stds = grouped.std(ddof=0)
+    means = grouped.mean(numeric_only=True)
+    stds = grouped.std(numeric_only=True, ddof=0)
     sizes = grouped.size().to_frame()
     return means, stds, sizes
 
