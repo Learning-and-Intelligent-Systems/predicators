@@ -450,9 +450,10 @@ def get_object_locations_with_detic_sam(
                 continue
 
             # Compute median value of depth
+            curr_rotated_depth = rotated_depth_image_dict[source_name]
             depth_median = np.median(
-                rotated_depth_image_dict[source_name][curr_res_segment['masks'][i][0].squeeze()
-                              & (rotated_depth > 2)[:, :, 0]])
+                curr_rotated_depth[curr_res_segment['masks'][i][0].squeeze()
+                              & (curr_rotated_depth > 2)[:, :, 0]])
             # Compute geometric center of object bounding box
             x1, y1, x2, y2 = curr_res_segment['boxes'][i].squeeze()
             x_c = (x1 + x2) / 2
@@ -489,7 +490,7 @@ def get_object_locations_with_detic_sam(
             # RGB image.
             inverse_rotation_angle = -ROTATION_ANGLE[source_name]
             fig = plt.figure()
-            depth_image = depth_image_dict[source_name]
+            depth_image = rotated_depth_image_dict[source_name]
             stretch = skimage.exposure.rescale_intensity(depth_image, in_range='image', out_range=(0,255)).astype(np.uint8)
             # define colors
             color1 = (0, 0, 255)     #red
@@ -504,15 +505,20 @@ def get_object_locations_with_detic_sam(
             # apply lut
             result = cv2.LUT(stretch, lut)
             plt.imshow(result)
-
+            plt.imshow(curr_res_segment['masks'][i][0].squeeze(), alpha=0.3, cmap='spring')
             # plt.imshow(ndimage.rotate(
             #     curr_res_segment['masks'][i][0].squeeze(),
             #     inverse_rotation_angle,
             #     reshape=False),
-            #            alpha=0.5,
-            #            cmap='Reds')
-            plt.scatter(x=x_c_rotated,
-                        y=y_c_rotated,
+            #            alpha=0.3,
+            #            cmap='spring')
+            # plt.scatter(x=x_c_rotated,
+            #             y=y_c_rotated,
+            #             marker='*',
+            #             color='red',
+            #             zorder=3)
+            plt.scatter(x=x_c,
+                        y=y_c,
                         marker='*',
                         color='red',
                         zorder=3)
@@ -537,17 +543,11 @@ def get_object_locations_with_detic_sam(
                 point_x=x_c_rotated,
                 point_y=y_c_rotated)
 
-            print(obj_cls_str)
-            print(depth_median)
-            print((x0, y0, z0))
-
             if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(
-                    z0):
+                    z0) and depth_median > 0.5:
                 ret_camera_to_obj_positions[source_name][obj_cls_str] = (x0,
                                                                          y0,
                                                                          z0)
-
-    import ipdb; ipdb.set_trace()
 
     return ret_camera_to_obj_positions
 
