@@ -544,7 +544,7 @@ def get_object_locations_with_detic_sam(
                 point_y=y_c_rotated)
 
             if not math.isnan(x0) and not math.isnan(y0) and not math.isnan(
-                    z0) and depth_median > 0.5:
+                    z0):
                 ret_camera_to_obj_positions[source_name][obj_cls_str] = (x0,
                                                                          y0,
                                                                          z0)
