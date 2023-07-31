@@ -98,9 +98,21 @@ PLOT_GROUPS = {
     #     ("Active Learning", "black", lambda df: df["EXPERIMENT_ID"].apply(
     #         lambda v: "kitchen-all-active_sampler_learning" in v)),
     # ],
-    "Cover Place Hard": [
-        ("Main", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "cover_place_hard-main_explore" in v)),
+    "Kitchen (All Goals)": [
+        ("Main Explorer", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-main_explore" in v)),
+        ("Random Score Explorer", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-random_score_explore" in v)),
+        ("Random NSRTs Explorer", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-random_nsrts_explore" in v)),
+    ],
+    "Regional Bumpy Cover": [
+        ("Main Explorer", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-main_explore" in v)),
+        ("Random Score Explorer", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-random_score_explore" in v)),
+        ("Random NSRTs Explorer", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
     ],
 }
 
