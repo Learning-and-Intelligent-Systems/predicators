@@ -5,8 +5,7 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Collection, Dict, Optional, OrderedDict, Sequence, \
-    Set, Tuple
+from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple
 
 import apriltag
 import bosdyn.client
@@ -36,9 +35,9 @@ from predicators import utils
 from predicators.settings import CFG
 from predicators.spot_utils.helpers.graph_nav_command_line import \
     GraphNavInterface
-from predicators.spot_utils.perception_utils import \
-    get_object_locations_with_detic_sam, get_pixel_locations_with_detic_sam, \
-    process_image_response
+from predicators.spot_utils.perception_utils import CAMERA_NAMES, \
+    RGB_TO_DEPTH_CAMERAS, get_object_locations_with_detic_sam, \
+    get_pixel_locations_with_detic_sam
 from predicators.structs import Array, Image, Object
 
 ARM_6DOF_NAMES = [
@@ -80,8 +79,7 @@ def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
 obj_name_to_apriltag_id = {
     "hammer": 401,
     "brush": 402,
-    "hex_key": 403,
-    "hex_screwdriver": 404,
+    "measuring_tape": 403,
     "toolbag": 405,
     "low_wall_rack": 406,
     "front_tool_room": 407,
@@ -90,56 +88,36 @@ obj_name_to_apriltag_id = {
     "cube": 410,
     "platform": 411,
 }
-
-# NOTE: we need to optimize the prompts for most of these to be better.
-# Also, this currently isn't being used because we're hardcoding
-# the pipeline to always detect the yellow brush.
 obj_name_to_vision_prompt = {
-    "hammer": "red hammer",
-    "brush": "yellow brush",
-    "hex_key": "hexagonal key",
-    "hex_screwdriver": "red screwdriver",
-    "toolbag": "work bag",
+    "hammer": "hammer",
+    "brush": "brush",
+    "measuring_tape": "measuring tape",
+    "toolbag": "bag for tools",
+}
+vision_prompt_to_obj_name = {
+    value: key
+    for key, value in obj_name_to_vision_prompt.items()
 }
 
 OBJECT_CROPS = {
     # min_x, max_x, min_y, max_y
     "hammer": (160, 450, 160, 350),
-    "hex_key": (160, 450, 160, 350),
     "brush": (100, 400, 350, 480),
-    "hex_screwdriver": (100, 400, 350, 480),
 }
 
 OBJECT_COLOR_BOUNDS = {
     # (min B, min G, min R), (max B, max G, max R)
     "hammer": ((0, 0, 50), (40, 40, 200)),
-    "hex_key": ((0, 50, 50), (40, 150, 200)),
     "brush": ((0, 100, 200), (80, 255, 255)),
-    "hex_screwdriver": ((0, 0, 50), (40, 40, 200)),
 }
 
 OBJECT_GRASP_OFFSET = {
     # dx, dy
     "hammer": (0, 0),
-    "hex_key": (0, 50),
     "brush": (0, 0),
-    "hex_screwdriver": (0, 0),
 }
 
 COMMAND_TIMEOUT = 20.0
-
-CAMERA_NAMES = [
-    "hand_color_image", "left_fisheye_image", "right_fisheye_image",
-    "frontleft_fisheye_image", "frontright_fisheye_image", "back_fisheye_image"
-]
-RGB_TO_DEPTH_CAMERAS = {
-    "hand_color_image": "hand_depth_in_hand_color_frame",
-    "left_fisheye_image": "left_depth_in_visual_frame",
-    "right_fisheye_image": "right_depth_in_visual_frame",
-    "frontleft_fisheye_image": "frontleft_depth_in_visual_frame",
-    "frontright_fisheye_image": "frontright_depth_in_visual_frame",
-    "back_fisheye_image": "back_depth_in_visual_frame"
-}
 
 
 def _find_object_center(img: Image,
@@ -210,7 +188,7 @@ class _SpotInterface():
         self._force_squeeze_grasp = False
         self._force_top_down_grasp = False
         self._force_forward_grasp = False
-        self._image_source = "hand_color_image"
+        self._grasp_image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
         self.hand_x_bounds = (0.3, 0.9)
@@ -282,17 +260,37 @@ class _SpotInterface():
         blocking_stand(self.robot_command_client, timeout_sec=10)
         self.robot.logger.info("Robot standing.")
 
-    def get_camera_images(self) -> Dict[str, Image]:
-        """Get all camera images."""
-        camera_images: Dict[str, Image] = {}
-        for source_name in CAMERA_NAMES:
-            img, _ = self.get_single_camera_image(source_name, to_rgb=True)
-            camera_images[source_name] = img
-        return camera_images
+    def get_camera_images(
+        self
+    ) -> Tuple[Dict[str, Image], Dict[str, bosdyn.api.image_pb2.ImageResponse],
+               Dict[str, Image], Dict[str,
+                                      bosdyn.api.image_pb2.ImageResponse]]:
+        """Get rgb and depth camera images + responses from all of spot's
+        cameras.
 
-    def get_single_camera_image(self,
-                                source_name: str,
-                                to_rgb: bool = False) -> Tuple[Image, Any]:
+        Returns rgb images, rgb image responses, depth images, depth
+        image responses.
+        """
+        rgb_imgs: Dict[str, Image] = {}
+        rgb_img_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse] = {}
+        depth_imgs: Dict[str, Image] = {}
+        depth_img_responses: Dict[str, bosdyn.api.image_pb2.ImageResponse] = {}
+        for source_name in CAMERA_NAMES:
+            rgb_img, rgb_img_response = self.get_single_camera_image(
+                source_name, to_rgb=True)
+            depth_img, depth_img_response = self.get_single_camera_image(
+                RGB_TO_DEPTH_CAMERAS[source_name], to_rgb=True)
+            rgb_imgs[source_name] = rgb_img
+            rgb_img_responses[source_name] = rgb_img_response
+            depth_imgs[source_name] = depth_img
+            depth_img_responses[source_name] = depth_img_response
+        return (rgb_imgs, rgb_img_responses, depth_imgs, depth_img_responses)
+
+    def get_single_camera_image(
+        self,
+        source_name: str,
+        to_rgb: bool = False
+    ) -> Tuple[Image, bosdyn.api.image_pb2.ImageResponse]:
         """Get a single source camera image and image response."""
         img_req = build_image_request(
             source_name,
@@ -321,39 +319,41 @@ class _SpotInterface():
         if to_rgb:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        return (img, image_response)
+        return (img, image_response[0])
 
     def get_objects_in_view_by_camera(
-        self, from_apriltag: bool
+        self, from_apriltag: bool, rgb_image_dict: Dict[str, Image],
+        depth_image_dict: Dict[str, Image],
+        rgb_image_response_dict: Dict[str, bosdyn.api.image_pb2.ImageResponse],
+        depth_image_response_dict: Dict[str,
+                                        bosdyn.api.image_pb2.ImageResponse]
     ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get objects currently in view for each camera."""
-        tag_to_pose: Dict[str,
-                          Dict[int,
-                               Tuple[float, float,
-                                     float]]] = {k: {}
-                                                 for k in CAMERA_NAMES}
-        for source_name in CAMERA_NAMES:
-            if from_apriltag:
-                viewable_obj_poses = self.get_apriltag_pose_from_camera(
-                    source_name=source_name)
-            else:
-                # NOTE: we now hard-code the 'yellow brush' to be a
-                # stand-in for the cube, which is quite a hack.
-                # We will remove this and do correct object classing
-                # in a future PR
-                sam_pose_results = self.get_sam_object_loc_from_camera(
-                    source_rgb=source_name,
-                    source_depth=RGB_TO_DEPTH_CAMERAS[source_name],
-                    class_name=obj_name_to_vision_prompt['brush'],
-                )
-
-                if 'yellow brush' in sam_pose_results:
-                    viewable_obj_poses = {
-                        410: sam_pose_results['yellow brush']
-                    }
-                else:
-                    viewable_obj_poses = {}
-            tag_to_pose[source_name].update(viewable_obj_poses)
+        tag_to_pose: Dict[str, Dict[int, Tuple[float, float, float]]] = {
+            source_name: {}
+            for source_name in CAMERA_NAMES
+        }
+        if from_apriltag:
+            tag_to_pose = self.get_apriltag_poses_from_imgs(
+                rgb_image_dict, rgb_image_response_dict)
+        else:
+            # First, get a dictionary mapping vision prompts
+            # to the corresponding location of that object in the
+            # scene by camera
+            detic_sam_pose_results = self.get_deticsam_pose_from_imgs(
+                classes=list(obj_name_to_vision_prompt.values()),
+                rgb_image_dict=rgb_image_dict,
+                depth_image_dict=depth_image_dict,
+                rgb_image_response_dict=rgb_image_response_dict,
+                depth_image_response_dict=depth_image_response_dict)
+            # Next, convert the keys of this dictionary to be april
+            # tag id's instead.
+            for source_name, obj_pose_dict in detic_sam_pose_results.items():
+                viewable_obj_poses: Dict[int, Tuple[float, float, float]] = {}
+                for k, v in obj_pose_dict.items():
+                    viewable_obj_poses[obj_name_to_apriltag_id[
+                        vision_prompt_to_obj_name[k]]] = v
+                tag_to_pose[source_name].update(viewable_obj_poses)
 
         apriltag_id_to_obj_name = {
             v: k
@@ -384,9 +384,8 @@ class _SpotInterface():
         object_views: Dict[str, Tuple[float, float, float]] = {}
         if CFG.spot_initialize_surfaces_to_default:
             object_views = {
-                "tool_room_table":
-                (6.939992779470081, -6.21562847222872, 0.030711182602548265),
-                "extra_room_table": (8.24384, -6.27615, -0.0035917),
+                "tool_room_table": (6.63041, -6.35143, 0.179613),
+                "extra_room_table": (8.27387, -6.23233, -0.0678132),
                 "low_wall_rack":
                 (10.049931203338616, -6.9443170697742, 0.27881268568327966),
                 "toolbag":
@@ -416,130 +415,131 @@ class _SpotInterface():
             exec_sec = time.perf_counter() - exec_start
             if str(state.localization.seed_tform_body) != '':
                 break
-            time.sleep(1)
         if str(state.localization.seed_tform_body) == '':
             logging.warning("WARNING: Localization timed out!")
         return state
 
-    def get_apriltag_pose_from_camera(
+    def get_apriltag_poses_from_imgs(
         self,
-        source_name: str = "hand_color_image",
+        rgb_image_dict: Dict[str, Image],
+        rgb_image_response_dict: Dict[str, bosdyn.api.image_pb2.ImageResponse],
         fiducial_size: float = CFG.spot_fiducial_size,
-    ) -> Dict[int, Tuple[float, float, float]]:
+    ) -> Dict[str, Dict[int, Tuple[float, float, float]]]:
         """Get the poses of all fiducials in camera view.
 
-        This only works with these camera sources: "hand_color_image",
-        "back_fisheye_image", "left_fisheye_image". Also, the fiducial
-        size has to be correctly defined in arguments (in mm). Also, it
-        only works for tags that start with "40" in their ID.
+        The fiducial size has to be correctly defined in arguments (in mm).
+        Also, it only works for tags that start with "40" in their ID.
 
         Returns a dict mapping the integer of the tag id to an (x, y, z)
         position tuple in the map frame.
         """
-        img, image_response = self.get_single_camera_image(source_name)
+        tag_to_pose: Dict[str, Dict[int, Tuple[float, float, float]]] = {
+            source_name: {}
+            for source_name in CAMERA_NAMES
+        }
+        for source_name in CAMERA_NAMES:
+            assert source_name in rgb_image_dict
+            assert source_name in rgb_image_response_dict
+            rgb_image = rgb_image_dict[source_name]
+            rgb_image_response = rgb_image_response_dict[source_name]
 
-        # Camera body transform.
-        camera_tform_body = get_a_tform_b(
-            image_response[0].shot.transforms_snapshot,
-            image_response[0].shot.frame_name_image_sensor, BODY_FRAME_NAME)
+            # Camera body transform.
+            camera_tform_body = get_a_tform_b(
+                rgb_image_response.shot.transforms_snapshot,
+                rgb_image_response.shot.frame_name_image_sensor,
+                BODY_FRAME_NAME)
 
-        # Camera intrinsics for the given source camera.
-        intrinsics = image_response[0].source.pinhole.intrinsics
+            # Camera intrinsics for the given source camera.
+            intrinsics = rgb_image_response.source.pinhole.intrinsics
 
-        # Convert the image to grayscale.
-        image_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # Convert the image to grayscale.
+            image_grey = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2GRAY)
 
-        # Create apriltag detector and get all apriltag locations.
-        options = apriltag.DetectorOptions(families="tag36h11")
-        options.refine_pose = 1
-        detector = apriltag.Detector(options)
-        detections = detector.detect(image_grey)
-        obj_poses: Dict[int, Tuple[float, float, float]] = {}
-        # For every detection find location in graph_nav frame.
-        for detection in detections:
-            pose = detector.detection_pose(
-                detection,
-                (intrinsics.focal_length.x, intrinsics.focal_length.y,
-                 intrinsics.principal_point.x, intrinsics.principal_point.y),
-                fiducial_size)[0]
-            tx, ty, tz, tw = pose[:, -1]
-            assert np.isclose(tw, 1.0)
-            fiducial_rt_camera_frame = np.array(
-                [float(tx) / 1000.0,
-                 float(ty) / 1000.0,
-                 float(tz) / 1000.0])
+            # Create apriltag detector and get all apriltag locations.
+            options = apriltag.DetectorOptions(families="tag36h11")
+            options.refine_pose = 1
+            detector = apriltag.Detector(options)
+            detections = detector.detect(image_grey)
+            obj_poses: Dict[int, Tuple[float, float, float]] = {}
+            # For every detection find location in graph_nav frame.
+            for detection in detections:
+                pose = detector.detection_pose(
+                    detection,
+                    (intrinsics.focal_length.x, intrinsics.focal_length.y,
+                     intrinsics.principal_point.x,
+                     intrinsics.principal_point.y), fiducial_size)[0]
+                tx, ty, tz, tw = pose[:, -1]
+                assert np.isclose(tw, 1.0)
+                fiducial_rt_camera_frame = np.array([
+                    float(tx) / 1000.0,
+                    float(ty) / 1000.0,
+                    float(tz) / 1000.0
+                ])
 
-            body_tform_fiducial = (
-                camera_tform_body.inverse()).transform_point(
-                    fiducial_rt_camera_frame[0], fiducial_rt_camera_frame[1],
-                    fiducial_rt_camera_frame[2])
+                body_tform_fiducial = (
+                    camera_tform_body.inverse()).transform_point(
+                        fiducial_rt_camera_frame[0],
+                        fiducial_rt_camera_frame[1],
+                        fiducial_rt_camera_frame[2])
 
-            # Get graph_nav to body frame.
-            state = self.get_localized_state()
-            gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
-                state.localization.seed_tform_body)
+                # Get graph_nav to body frame.
+                state = self.get_localized_state()
+                gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
+                    state.localization.seed_tform_body)
 
-            # Apply transform to fiducial to body location
-            fiducial_rt_gn_origin = gn_origin_tform_body.transform_point(
-                body_tform_fiducial[0], body_tform_fiducial[1],
-                body_tform_fiducial[2])
+                # Apply transform to fiducial to body location
+                fiducial_rt_gn_origin = gn_origin_tform_body.transform_point(
+                    body_tform_fiducial[0], body_tform_fiducial[1],
+                    body_tform_fiducial[2])
 
-            # This only works for small fiducials because of initial size.
-            if detection.tag_id in obj_name_to_apriltag_id.values():
-                obj_poses[detection.tag_id] = fiducial_rt_gn_origin
+                # This only works for small fiducials because of initial size.
+                if detection.tag_id in obj_name_to_apriltag_id.values():
+                    obj_poses[detection.tag_id] = fiducial_rt_gn_origin
 
-        return obj_poses
+            tag_to_pose[source_name].update(obj_poses)
 
-    def get_sam_object_loc_from_camera(
+        return tag_to_pose
+
+    def get_deticsam_pose_from_imgs(
         self,
-        class_name: str,
-        source_rgb: str,
-        source_depth: str,
-    ) -> Dict[str, Tuple[float, float, float]]:
+        classes: List[str],
+        rgb_image_dict: Dict[str, Image],
+        depth_image_dict: Dict[str, Image],
+        rgb_image_response_dict: Dict[str, bosdyn.api.image_pb2.ImageResponse],
+        depth_image_response_dict: Dict[str,
+                                        bosdyn.api.image_pb2.ImageResponse],
+    ) -> Dict[str, Dict[str, Tuple[float, float, float]]]:
         """Get object location in 3D (no orientation) estimated using
-        pretrained SAM model.
-
-        Args:
-            class_name: name of object class
-        """
-        _, rgb_img_response = self.get_single_camera_image(source_rgb, True)
-        _, depth_img_response = self.get_single_camera_image(
-            source_depth, False)
-        image = {
-            'rgb': process_image_response(rgb_img_response[0], to_rgb=True),
-            'depth': process_image_response(depth_img_response[0],
-                                            to_rgb=False),
-        }
-        image_responses = {
-            'rgb': rgb_img_response[0],
-            'depth': depth_img_response[0],
-        }
-
-        res_locations = get_object_locations_with_detic_sam(
-            classes=[class_name],
-            res_image=image,
-            res_image_responses=image_responses,
-            source_name=source_rgb,
+        pretrained DETIC-SAM model."""
+        res_location_dict = get_object_locations_with_detic_sam(
+            classes=classes,
+            rgb_image_dict=rgb_image_dict,
+            depth_image_dict=depth_image_dict,
+            depth_image_response_dict=depth_image_response_dict,
             plot=CFG.spot_visualize_vision_model_outputs)
 
-        # We only want the most likely sample (for now).
-        # NOTE: we make the hard assumption here that
-        # we will only see one instance of a particular object
-        # type. We can relax this later.
-        if len(res_locations) > 0:
-            assert len(res_locations) == 1
-            camera_tform_body = get_a_tform_b(
-                image_responses['depth'].shot.transforms_snapshot,
-                image_responses['depth'].shot.frame_name_image_sensor,
-                BODY_FRAME_NAME)
-            object_rt_gn_origin = self.convert_obj_location(
-                camera_tform_body, *res_locations[0])
+        transformed_location_dict: Dict[str, Dict[str, Tuple[
+            float, float,
+            float]]] = {source_name: {}
+                        for source_name in CAMERA_NAMES}
+        for source_name in CAMERA_NAMES:
+            assert source_name in res_location_dict
+            for obj_class in classes:
+                if obj_class in res_location_dict[source_name]:
+                    camera_tform_body = get_a_tform_b(
+                        rgb_image_response_dict[source_name].shot.
+                        transforms_snapshot,
+                        rgb_image_response_dict[source_name].shot.
+                        frame_name_image_sensor, BODY_FRAME_NAME)
+                    x, y, z = res_location_dict[source_name][obj_class]
+                    object_rt_gn_origin = self.convert_obj_location(
+                        camera_tform_body, x, y, z)
+                    transformed_location_dict[source_name][
+                        obj_class] = object_rt_gn_origin
 
-            # Use the input class name as the identifier for object(s) and
-            # their positions
-            return {class_name: object_rt_gn_origin}
-
-        return {}
+        # Use the input class name as the identifier for object(s) and
+        # their positions.
+        return transformed_location_dict
 
     def convert_obj_location(
             self, camera_tform_body: bosdyn.client.math_helpers.SE3Pose,
@@ -553,9 +553,9 @@ class _SpotInterface():
         gn_origin_tform_body = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
         # Apply transform to object to body location
-        object_rt_gn_origin = gn_origin_tform_body.transform_point(
+        gn_origin_tform_object = gn_origin_tform_body.transform_point(
             body_tform_object[0], body_tform_object[1], body_tform_object[2])
-        return object_rt_gn_origin
+        return gn_origin_tform_object
 
     def get_gripper_obs(self) -> float:
         """Grabs the current observation of relevant quantities from the
@@ -608,7 +608,7 @@ class _SpotInterface():
         # object has not actually fallen, but wasn't grasped.
         if self._find_controller_move_queue_idx == 1:
             self.relative_move(-0.75, 0.0, 0.0)
-            time.sleep(2.0)
+            time.sleep(0.75)
             return
 
         # Now just look down.
@@ -639,7 +639,7 @@ class _SpotInterface():
                            angle=(np.cos(np.pi / 6), 0, np.sin(np.pi / 6), 0))
 
         # Sleep for longer to make sure that there is no shaking.
-        time.sleep(2.0)
+        time.sleep(0.75)
 
     def navigateToController(self, objs: Sequence[Object],
                              params: Array) -> None:
@@ -670,8 +670,6 @@ class _SpotInterface():
             self.navigate_to(waypoint_id, params)
 
         # Set arm view pose
-        # NOTE: time.sleep(1.0) required afer each option execution
-        # to allow time for sensor readings to settle.
         if len(objs) == 3:
             if "_table" in objs[2].name:
                 self.hand_movement(np.array([0.0, 0.0, 0.0]),
@@ -679,7 +677,6 @@ class _SpotInterface():
                                    angle=(np.cos(np.pi / 8), 0,
                                           np.sin(np.pi / 8), 0),
                                    open_gripper=False)
-                time.sleep(1.0)
                 return
             if "floor" in objs[2].name:
                 self.hand_movement(np.array([-0.2, 0.0, -0.25]),
@@ -687,7 +684,6 @@ class _SpotInterface():
                                    angle=(np.cos(np.pi / 7), 0,
                                           np.sin(np.pi / 7), 0),
                                    open_gripper=False)
-                time.sleep(1.0)
                 return
         if "platform" in objs[1].name:
             self.hand_movement(np.array([-0.2, 0.0, -0.25]),
@@ -698,7 +694,6 @@ class _SpotInterface():
             time.sleep(1.0)
             return
         self.stow_arm()
-        time.sleep(1.0)
 
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
         """Wrapper method for grasp controller.
@@ -730,7 +725,6 @@ class _SpotInterface():
             self.stow_arm()
         # NOTE: time.sleep(1.0) required afer each option execution
         # to allow time for sensor readings to settle.
-        time.sleep(1.0)
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Array) -> None:
@@ -746,11 +740,8 @@ class _SpotInterface():
                            keep_hand_pose=False,
                            relative_to_default_pose=False,
                            angle=angle)
-        time.sleep(1.0)
+        time.sleep(0.25)
         self.stow_arm()
-        # NOTE: time.sleep(1.0) required afer each option execution
-        # to allow time for sensor readings to settle.
-        time.sleep(1.0)
 
     def dragController(self, objs: Sequence[Object], params: Array) -> None:
         """Drag Controller."""
@@ -766,7 +757,7 @@ class _SpotInterface():
     def _scan_for_objects(
         self, waypoints: Sequence[str], objects_to_find: Collection[str]
     ) -> Dict[str, Tuple[float, float, float]]:
-        """Walks around and spins around to find object poses by apriltag."""
+        """Walks around and spins around to find object poses."""
         # Stow arm before
         self.stow_arm()
         obj_poses: Dict[str, Tuple[float, float, float]] = {
@@ -782,16 +773,33 @@ class _SpotInterface():
             self.navigate_to(waypoint_id, offset)
             for _ in range(8):
                 objects_in_view: Dict[str, Tuple[float, float, float]] = {}
+                rgb_img_dict, rgb_img_response_dict, \
+                    depth_img_dict, depth_img_response_dict = \
+                        self.get_camera_images()
                 # We want to get objects in view both using AprilTags and
                 # using SAM potentially.
                 objects_in_view_by_camera = {}
                 objects_in_view_by_camera_apriltag = \
-                    self.get_objects_in_view_by_camera(from_apriltag=True)
+                    self.get_objects_in_view_by_camera(from_apriltag=True,
+                                                rgb_image_dict=rgb_img_dict,
+                                                rgb_image_response_dict=\
+                                                    rgb_img_response_dict,
+                                                depth_image_dict=\
+                                                    depth_img_dict,
+                                                depth_image_response_dict=\
+                                                    depth_img_response_dict)
                 objects_in_view_by_camera.update(
                     objects_in_view_by_camera_apriltag)
                 if CFG.spot_grasp_use_sam:
                     objects_in_view_by_camera_sam = \
-                        self.get_objects_in_view_by_camera(from_apriltag=False)
+                        self.get_objects_in_view_by_camera(from_apriltag=False,
+                                                    rgb_image_dict=rgb_img_dict,
+                                                    rgb_image_response_dict=\
+                                                        rgb_img_response_dict,
+                                                    depth_image_dict=\
+                                                        depth_img_dict,
+                                                    depth_image_response_dict=\
+                                                        depth_img_response_dict)
                     # Combine these together to get all objects in view.
                     for k, v in objects_in_view_by_camera.items():
                         v.update(objects_in_view_by_camera_sam[k])
@@ -833,7 +841,6 @@ class _SpotInterface():
             g_image_click = (x, y)
         else:
             # Draw some lines on the image.
-            #print('mouse', x, y)
             color = (30, 30, 30)
             thickness = 2
             image_title = 'Click to grasp'
@@ -956,34 +963,17 @@ class _SpotInterface():
         assert basic_command_pb2.StandCommand.Feedback.STATUS_IS_STANDING
 
         # Take a picture with a camera
-        self.robot.logger.debug(f'Getting an image from: {self._image_source}')
-        time.sleep(1)
-        image_responses = self.image_client.get_image_from_sources(
-            [self._image_source])
-
-        if len(image_responses) != 1:
-            print(f'Got invalid number of images: {str(len(image_responses))}')
-            print(image_responses)
-            assert False
-
-        image = image_responses[0]
-        if image.shot.image.pixel_format == image_pb2.Image.\
-            PIXEL_FORMAT_DEPTH_U16:
-            dtype = np.uint16  # type: ignore
-        else:
-            dtype = np.uint8  # type: ignore
-        img = np.fromstring(image.shot.image.data, dtype=dtype)  # type: ignore
-        if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
-            img = img.reshape(image.shot.image.rows, image.shot.image.cols)
-        else:
-            img = cv2.imdecode(img, -1)
+        self.robot.logger.debug(
+            f'Getting an image from: {self._grasp_image_source}')
+        rgb_img, rgb_img_response = self.get_single_camera_image(
+            self._grasp_image_source)
 
         # pylint: disable=global-variable-not-assigned, global-statement
         global g_image_click, g_image_display
 
         if CFG.spot_grasp_use_apriltag:
             # Convert Image to grayscale
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(rgb_img, cv2.COLOR_BGR2GRAY)
 
             # Define the AprilTags detector options and then detect the tags.
             self.robot.logger.info("[INFO] detecting AprilTags...")
@@ -996,30 +986,13 @@ class _SpotInterface():
                     g_image_click = result.center
 
         elif CFG.spot_grasp_use_cv2:
-            if obj.name in ["hammer", "hex_key", "brush", "hex_screwdriver"]:
-                g_image_click = _find_object_center(img, obj.name)
+            if obj.name in ["hammer", "brush"]:
+                g_image_click = _find_object_center(rgb_img, obj.name)
 
         elif CFG.spot_grasp_use_sam:
-            image_sources = [
-                "hand_color_image", "hand_depth_in_hand_color_frame"
-            ]
-            image_request = [
-                build_image_request(source, pixel_format=None)
-                for source in image_sources
-            ]
-            image_responses = self.image_client.get_image(image_request)
-
-            image_for_sam = {
-                'rgb': process_image_response(image_responses[0]),
-                'depth': process_image_response(image_responses[1]),
-            }
-            # NOTE: we now hard-code the 'yellow brush' to be a
-            # stand-in for the cube, which is quite a hack.
-            # We will remove this and do correct object classing
-            # in a future PR
             results = get_pixel_locations_with_detic_sam(
-                classes=[obj_name_to_vision_prompt['brush']],
-                in_res_image=image_for_sam,
+                obj_class=obj_name_to_vision_prompt[obj.name],
+                rgb_image_dict={self._grasp_image_source: rgb_img},
                 plot=CFG.spot_visualize_vision_model_outputs)
 
             if len(results) > 0:
@@ -1036,7 +1009,7 @@ class _SpotInterface():
             image_title = 'Click to grasp'
             cv2.namedWindow(image_title)
             cv2.setMouseCallback(image_title, self.cv_mouse_callback)
-            g_image_display = img
+            g_image_display = rgb_img
             cv2.imshow(image_title, g_image_display)
 
         while g_image_click is None:
@@ -1063,9 +1036,11 @@ class _SpotInterface():
         # Build the proto
         grasp = manipulation_api_pb2.PickObjectInImage(
             pixel_xy=pick_vec,
-            transforms_snapshot_for_camera=image.shot.transforms_snapshot,
-            frame_name_image_sensor=image.shot.frame_name_image_sensor,
-            camera_model=image.source.pinhole)
+            transforms_snapshot_for_camera=rgb_img_response.shot.
+            transforms_snapshot,
+            frame_name_image_sensor=rgb_img_response.shot.
+            frame_name_image_sensor,
+            camera_model=rgb_img_response.source.pinhole)
 
         # Optionally add a grasp constraint.  This lets you tell the robot you
         # only want top-down grasps or side-on grasps.
@@ -1101,7 +1076,7 @@ class _SpotInterface():
         if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
             logging.info("Timed out waiting for grasp to execute!")
 
-        time.sleep(1.0)
+        time.sleep(0.25)
         g_image_click = None
         g_image_display = None
         self.robot.logger.debug('Finished grasp.')
@@ -1220,8 +1195,7 @@ class _SpotInterface():
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
-
-        time.sleep(1.0)
+        time.sleep(0.5)
 
         if not open_gripper:
             gripper_command = RobotCommandBuilder.\
@@ -1240,7 +1214,7 @@ class _SpotInterface():
 
         # Wait until the arm arrives at the goal.
         block_until_arm_arrives(self.robot_command_client, cmd_id, 3.0)
-        time.sleep(1.0)
+        time.sleep(0.5)
 
     def navigate_to(self, waypoint_id: str, params: Array) -> None:
         """Use GraphNavInterface to localize robot and go to a location."""
@@ -1309,7 +1283,6 @@ class _SpotInterface():
                     == traj_feedback.BODY_STATUS_SETTLED):
                 logging.info("Arrived at the goal.")
                 return True
-            time.sleep(1)
         if (time.perf_counter() - start_time) > COMMAND_TIMEOUT:
             logging.info("Timed out waiting for movement to execute!")
         return False

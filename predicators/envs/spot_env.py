@@ -315,19 +315,30 @@ class SpotEnv(BaseEnv):
         may vary per environment.
         """
         # Get the camera images.
-        images = self._spot_interface.get_camera_images()
+        rgb_img_dict, rgb_img_response_dict, \
+            depth_img_dict, depth_img_response_dict = \
+                    self._spot_interface.get_camera_images()
 
         # Detect objects using AprilTags (which we need for surfaces anyways).
         object_names_in_view_by_camera = {}
         object_names_in_view_by_camera_apriltag = \
             self._spot_interface.get_objects_in_view_by_camera\
-                (from_apriltag=True)
+                (from_apriltag=True, rgb_image_dict=rgb_img_dict,
+                 rgb_image_response_dict=rgb_img_response_dict,
+                 depth_image_dict=depth_img_dict,
+                 depth_image_response_dict=depth_img_response_dict)
         object_names_in_view_by_camera.update(
             object_names_in_view_by_camera_apriltag)
         # Additionally, if we're using SAM, then update using that.
         if CFG.spot_grasp_use_sam:
             object_names_in_view_by_camera_sam = self._spot_interface.\
-                get_objects_in_view_by_camera(from_apriltag=False)
+                get_objects_in_view_by_camera(from_apriltag=False,
+                                            rgb_image_dict=rgb_img_dict,
+                                            rgb_image_response_dict=\
+                                                rgb_img_response_dict,
+                                            depth_image_dict=depth_img_dict,
+                                            depth_image_response_dict=\
+                                                depth_img_response_dict)
             # Combine these together to get all objects in view.
             for k, v in object_names_in_view_by_camera.items():
                 v.update(object_names_in_view_by_camera_sam[k])
@@ -368,8 +379,9 @@ class SpotEnv(BaseEnv):
         # Prepare the non-percepts.
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in ground_atoms)
-        obs = _SpotObservation(images, objects_in_view, objects_in_hand_view,
-                               robot, gripper_open_percentage, robot_pos,
+        obs = _SpotObservation(rgb_img_dict, objects_in_view,
+                               objects_in_hand_view, robot,
+                               gripper_open_percentage, robot_pos,
                                ground_atoms, nonpercept_preds)
 
         return obs
@@ -426,13 +438,13 @@ class SpotEnv(BaseEnv):
         }
         robot_type = next(t for t in self.types if t.name == "robot")
         robot = Object("spot", robot_type)
-        images = self._spot_interface.get_camera_images()
+        rgb_images, _, _, _ = self._spot_interface.get_camera_images()
         gripper_open_percentage = self._spot_interface.get_gripper_obs()
         robot_pos = self._spot_interface.get_robot_pose()
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
-        obs = _SpotObservation(images, objects_in_view, set(), robot,
+        obs = _SpotObservation(rgb_images, objects_in_view, set(), robot,
                                gripper_open_percentage, robot_pos,
                                nonpercept_atoms, nonpercept_preds)
         goal = self._generate_task_goal()
@@ -541,7 +553,7 @@ class SpotEnv(BaseEnv):
 #                                Bike Repair Env                              #
 ###############################################################################
 
-HANDEMPTY_THRESHOLD = 2.5
+HANDEMPTY_GRIPPER_THRESHOLD = 2.5
 
 
 class SpotBikeEnv(SpotEnv):
@@ -551,7 +563,7 @@ class SpotBikeEnv(SpotEnv):
     _ontop_threshold: ClassVar[float] = 0.55
     _reachable_threshold: ClassVar[float] = 1.7
     _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
-    _handempty_threshold: ClassVar[float] = HANDEMPTY_THRESHOLD
+    _handempty_gripper_threshold: ClassVar[float] = HANDEMPTY_GRIPPER_THRESHOLD
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -922,7 +934,7 @@ class SpotBikeEnv(SpotEnv):
                               objects: Sequence[Object]) -> bool:
         spot = objects[0]
         gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= cls._handempty_threshold
+        return gripper_open_percentage <= cls._handempty_gripper_threshold
 
     @classmethod
     def _nothandempty_classifier(cls, state: State,
@@ -995,10 +1007,12 @@ class SpotBikeEnv(SpotEnv):
         forward_unit = [np.cos(spot_pose[3]), np.sin(spot_pose[3])]
         spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
         spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
-        yaw_is_near = np.dot(forward_unit,
-                             spot_to_obj_unit) > cls._reachable_yaw_threshold
+        angle_between_robot_and_obj = np.arccos(
+            np.dot(forward_unit, spot_to_obj_unit))
+        is_yaw_near = abs(
+            angle_between_robot_and_obj) < cls._reachable_yaw_threshold
 
-        return is_xy_near and yaw_is_near
+        return is_xy_near and is_yaw_near
 
     @staticmethod
     def _surface_too_high_classifier(state: State,
@@ -1058,15 +1072,13 @@ class SpotBikeEnv(SpotEnv):
             low_wall_rack = self._obj_name_to_obj("low_wall_rack")
             return {GroundAtom(self._PlatformNear, [platform, low_wall_rack])}
         hammer = self._obj_name_to_obj("hammer")
-        hex_key = self._obj_name_to_obj("hex_key")
+        measuring_tape = self._obj_name_to_obj("measuring_tape")
         brush = self._obj_name_to_obj("brush")
-        hex_screwdriver = self._obj_name_to_obj("hex_screwdriver")
         bag = self._obj_name_to_obj("toolbag")
         return {
             GroundAtom(self._InBag, [hammer, bag]),
             GroundAtom(self._InBag, [brush, bag]),
-            GroundAtom(self._InBag, [hex_key, bag]),
-            GroundAtom(self._InBag, [hex_screwdriver, bag]),
+            GroundAtom(self._InBag, [measuring_tape, bag]),
         }
 
     @functools.lru_cache(maxsize=None)
@@ -1080,10 +1092,9 @@ class SpotBikeEnv(SpotEnv):
             objects.append(platform)
         else:
             hammer = Object("hammer", self._tool_type)
-            hex_key = Object("hex_key", self._tool_type)
-            hex_screwdriver = Object("hex_screwdriver", self._tool_type)
+            measuring_tape = Object("measuring_tape", self._tool_type)
             brush = Object("brush", self._tool_type)
-            objects.extend([hammer, hex_key, hex_screwdriver, brush])
+            objects.extend([hammer, measuring_tape, brush])
         spot = Object("spot", self._robot_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
         extra_room_table = Object("extra_room_table", self._surface_type)

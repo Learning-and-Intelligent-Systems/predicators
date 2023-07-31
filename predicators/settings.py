@@ -174,6 +174,7 @@ class GlobalSettings:
     spot_fiducial_size = 44.45
     spot_visualize_vision_model_outputs = False
     spot_vision_detection_threshold = 0.30
+    spot_perception_outdir = "spot_perception_outputs"
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
@@ -326,6 +327,11 @@ class GlobalSettings:
     # use Sokoban-huge-v0 to show-off, the bottleneck is just the gym env
     # initialization and resetting. use Sokoban-small-v0 for tests
     sokoban_gym_name = "Sokoban-v0"
+
+    # kitchen env parameters
+    kitchen_use_perfect_samplers = False
+    kitchen_camera_size = 512
+    kitchen_goals = "all"
 
     # parameters for random options approach
     random_options_max_tries = 100

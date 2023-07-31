@@ -1,7 +1,7 @@
 """A Kitchen environment wrapping kitchen from https://github.com/google-
 research/relay-policy-learning."""
 import copy
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
@@ -26,6 +26,15 @@ class KitchenEnv(BaseEnv):
     gripper_type = Type("gripper", ["x", "y", "z"])
     object_type = Type("obj", ["x", "y", "z", "angle"])
 
+    at_atol = 0.2  # tolerance for At classifier
+    ontop_atol = 0.15  # tolerance for OnTop classifier
+    on_angle_thresh = -0.8  # dial is On if less than this threshold
+
+    obj_name_to_pre_push_dpos = {
+        "kettle": (0.125, -0.3, -0.25),  # need to push from behind kettle
+        "knob3": (-0.3, 0.0, -0.2),  # need to push from left to right
+    }
+
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
         assert _MJKITCHEN_IMPORTED, "Failed to import mujoco_kitchen. \
@@ -33,8 +42,7 @@ For more information on installation see \
 https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
 
         # Predicates
-        self._At, self._OnTop, self._TurnedOn, self._CanTurnDial = \
-            self.get_goal_at_predicates()
+        self._At, self._OnTop, self._TurnedOn = self.get_goal_at_predicates()
 
         # NOTE: we can change the level by modifying what we pass
         # into gym.make here.
@@ -85,6 +93,14 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
             state_info[name] = pose
         return state_info
 
+    @classmethod
+    def get_pre_push_delta_pos(cls, obj: Object) -> Tuple[float, float, float]:
+        """Get dx, dy, dz offset for pushing."""
+        try:
+            return cls.obj_name_to_pre_push_dpos[obj.name]
+        except KeyError:
+            return (0.0, 0.0, 0.0)
+
     def render_state_plt(
             self,
             state: State,
@@ -105,16 +121,19 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                action: Optional[Action] = None,
                caption: Optional[str] = None) -> Video:
         assert caption is None
-        arr: Image = self._gym_env.render('rgb_array')  # type: ignore
+        arr: Image = self._gym_env.render(
+            'rgb_array',
+            imwidth=CFG.kitchen_camera_size,
+            imheight=CFG.kitchen_camera_size)  # type: ignore
         return [arr]
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._At, self._TurnedOn, self._OnTop, self._CanTurnDial}
+        return {self._At, self._TurnedOn, self._OnTop}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._At, self._TurnedOn, self._OnTop, self._CanTurnDial}
+        return {self._At, self._TurnedOn, self._OnTop}
 
     @property
     def types(self) -> Set[Type]:
@@ -152,23 +171,23 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         }
         return self._copy_observation(self._current_observation)
 
-    def state_info_to_state(self: Any, state_info: Any) -> State:
+    @classmethod
+    def state_info_to_state(cls, state_info: Dict[str, Any]) -> State:
         """Get state from state info dictionary."""
+        assert "end_effector" in state_info  # sanity check
         state_dict = {}
         for key, val in state_info.items():
             if "_site" in key:
                 obj_name = key.replace("_site", "")
-                obj = Object(obj_name, self.object_type)
+                obj = Object(obj_name, cls.object_type)
                 state_dict[obj] = {
                     "x": val[0],
                     "y": val[1],
                     "z": val[2],
                     "angle": 0
                 }
-                if obj_name == "kettle":
-                    state_dict[obj]["z"] -= 0.1
             elif key == "end_effector":
-                obj = Object("gripper", self.gripper_type)
+                obj = Object("gripper", cls.gripper_type)
                 state_dict[obj] = {
                     "x": val[0],
                     "y": val[1],
@@ -177,10 +196,10 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
                 }
         for key, val in state_info.items():
             if key == "bottom left burner":
-                obj = Object("knob2", self.object_type)
+                obj = Object("knob2", cls.object_type)
                 state_dict[obj]["angle"] = val[0]
             elif key == "top left burner":
-                obj = Object("knob3", self.object_type)
+                obj = Object("knob3", cls.object_type)
                 state_dict[obj]["angle"] = val[0]
         state = utils.create_state_from_dict(state_dict)
         return state
@@ -191,17 +210,36 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
         kettle = Object("kettle", self.object_type)
         burner = Object("burner2", self.object_type)
         knob = Object("knob3", self.object_type)
-        return self._OnTop_holds(state=state, objects=[
-            kettle, burner
-        ]) and self._On_holds(state=state, objects=[knob])
+        goal_desc = self._current_task.goal_description
+        kettle_on_burner = self._OnTop_holds(state, [kettle, burner])
+        knob_turned_on = self._On_holds(state, [knob])
+        if goal_desc == "Move the kettle to the back burner and turn it on":
+            return kettle_on_burner and knob_turned_on
+        if goal_desc == "Move the kettle to the back burner":
+            return kettle_on_burner
+        if goal_desc == "Turn on the back burner":
+            return knob_turned_on
+        raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
 
     def _get_tasks(self, num: int,
                    train_or_test: str) -> List[EnvironmentTask]:
         tasks = []
+
+        assert CFG.kitchen_goals in ["all", "kettle_only", "knob_only"]
+        goal_descriptions: List[str] = []
+        if CFG.kitchen_goals in ["all", "kettle_only"]:
+            goal_descriptions.append("Move the kettle to the back burner")
+        if CFG.kitchen_goals in ["all", "knob_only"]:
+            goal_descriptions.append("Turn on the back burner")
+        if CFG.kitchen_goals == "all":
+            desc = "Move the kettle to the back burner and turn it on"
+            goal_descriptions.append(desc)
+
         for task_idx in range(num):
             seed = utils.get_task_seed(train_or_test, task_idx)
             init_obs = self._reset_initial_state_from_seed(seed)
-            goal_description = "Move Kettle to Back Burner and Turn On"
+            goal_idx = task_idx % len(goal_descriptions)
+            goal_description = goal_descriptions[goal_idx]
             task = EnvironmentTask(init_obs, goal_description)
             tasks.append(task)
         return tasks
@@ -215,17 +253,18 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
     @classmethod
     def _At_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         gripper, obj = objects
-        obj_xyz = [
-            state.get(obj, "x"),
-            state.get(obj, "y"),
-            state.get(obj, "z")
-        ]
-        gripper_xyz = [
+        obj_xyz = np.array(
+            [state.get(obj, "x"),
+             state.get(obj, "y"),
+             state.get(obj, "z")])
+        # We care about whether we're "at" the pre-push position for obj.
+        dpos = cls.get_pre_push_delta_pos(obj)
+        gripper_xyz = np.array([
             state.get(gripper, "x"),
             state.get(gripper, "y"),
             state.get(gripper, "z")
-        ]
-        return np.allclose(obj_xyz, gripper_xyz, atol=0.2)
+        ])
+        return np.allclose(obj_xyz + dpos, gripper_xyz, atol=cls.at_atol)
 
     @classmethod
     def _OnTop_holds(cls, state: State, objects: Sequence[Object]) -> bool:
@@ -235,22 +274,16 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
             state.get(obj2, "x"),
             state.get(obj2, "y"),
         ]
-        return np.allclose(
-            obj1_xy, obj2_xy,
-            atol=0.15) and state.get(obj1, "z") > state.get(obj2, "z")
+        return np.allclose(obj1_xy,
+                           obj2_xy, atol=cls.ontop_atol) and state.get(
+                               obj1, "z") > state.get(obj2, "z")
 
     @classmethod
     def _On_holds(cls, state: State, objects: Sequence[Object]) -> bool:
         obj = objects[0]
         if obj.name in ["knob3", "knob2"]:
-            return state.get(obj, "angle") < -0.8
+            return state.get(obj, "angle") < cls.on_angle_thresh
         return False
-
-    @classmethod
-    def _CanTurnDial_holds(cls, state: State,
-                           objects: Sequence[Object]) -> bool:
-        gripper = objects[0]
-        return state.get(gripper, "y") < 0.2 and state.get(gripper, "z") < 2.2
 
     def _copy_observation(self, obs: Observation) -> Observation:
         return copy.deepcopy(obs)
@@ -263,6 +296,4 @@ https://github.com/Learning-and-Intelligent-Systems/mujoco_kitchen"
             Predicate("OnTop", [self.object_type, self.object_type],
                       self._OnTop_holds),
             Predicate("TurnedOn", [self.object_type], self._On_holds),
-            Predicate("CanTurnDial", [self.gripper_type],
-                      self._CanTurnDial_holds)
         ]

@@ -33,6 +33,7 @@ setup(
         "lisdf",
         "seaborn",
         "apriltag",
+        "scikit-image",
         "smepy@git+https://github.com/sebdumancic/structure_mapping.git",
         "bosdyn-client >= 3.1",
         "opencv-python == 4.7.0.72",
