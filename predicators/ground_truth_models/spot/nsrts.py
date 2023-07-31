@@ -75,7 +75,7 @@ def _grasp_sampler(spot_interface: _SpotInterface, state: State,
     if objs[1].type.name == "bag":  # pragma: no cover
         return np.array([0.0, 0.0, 0.0, -1.0])
     if objs[1].type.name == "platform":  # pragma: no cover
-        return np.array([0.0, 0.0, 0.0, 2.0])
+        return np.array([0.0, 0.0, 0.0, 1.0])
     if objs[2].name == "low_wall_rack":  # pragma: no cover
         return np.array([0.0, 0.0, 0.1, 0.0])
     return np.array([0.0, 0.0, 0.0, 0.0])
@@ -133,7 +133,7 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
         state.get(surface, "x"),
         state.get(surface, "y"),
     )
-    dx, dy = -0.5, 0.45
+    dx, dy = -0.90, -0.10
 
     return np.array([world_fiducial[0] + dx, world_fiducial[1] + dy])
 

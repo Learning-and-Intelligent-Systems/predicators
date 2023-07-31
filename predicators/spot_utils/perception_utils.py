@@ -29,7 +29,7 @@ from predicators.structs import Image
 
 # NOTE: uncomment this line if trying to visualize stuff locally
 # and matplotlib isn't displaying.
-# matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
@@ -451,9 +451,12 @@ def get_object_locations_with_detic_sam(
             score = curr_res_segment["scores"][i][0]
             obj_cls_str = obj_class.item()
             # Skip if we've already seen a higher-scoring detection
-            # for this object class from a different source.
+            # for this object class from a different source. The only
+            # exception is if the source is the hand camera: we want to
+            # remember all detections that we see from the hand camera,
+            # because that is used for predicates like "InView".
             if (score, source_name
-                ) != obj_class_to_max_score_and_source[obj_cls_str]:
+                ) != obj_class_to_max_score_and_source[obj_cls_str] and source_name != "hand_color_image":
                 continue
 
             # Compute median value of depth

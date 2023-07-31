@@ -344,6 +344,21 @@ class SpotEnv(BaseEnv):
                 v.update(object_names_in_view_by_camera_sam[k])
 
         object_names_in_view: Dict[str, Tuple[float, float, float]] = {}
+        # IMPORTANT NOTE: when using DETIC-SAM for vision, we generally
+        # only associate an object with the camera source that detected
+        # that object with the highest score. However, we also 
+        # keep around all objects seen by the hand camera, even if
+        # other cameras have higher scores for the same object.
+        # Thus, if an object appears to be associated with more than
+        # one camera, it can only be because it was seen by the hand
+        # camera, and also by another camera, but the other camera
+        # had a higher-scoring detection. "hand_color_image" is the
+        # first element of CAMERA_NAMES, so we will overwrite
+        # the pose of an object if we detect it from another camera
+        # other than the hand, which is exactly what we want.
+        # "hand_color_image" being the first element of the CAMERA_NAMES
+        # list is vital for this behavior; things could start to
+        # silently go wrong here if that's changed.
         for source_camera in CAMERA_NAMES:
             object_names_in_view.update(
                 object_names_in_view_by_camera[source_camera])

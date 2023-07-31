@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+from collections import OrderedDict
 from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple
 
 import apriltag
@@ -28,6 +29,9 @@ from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
+from bosdyn.api import basic_command_pb2, robot_command_pb2
+from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
+from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
 from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
@@ -93,6 +97,7 @@ obj_name_to_vision_prompt = {
     "brush": "brush",
     "measuring_tape": "measuring tape",
     "toolbag": "bag for tools",
+    "platform": "t-shaped handle"
 }
 vision_prompt_to_obj_name = {
     value: key
@@ -748,11 +753,8 @@ class _SpotInterface():
         print("Drag", objs)
         assert len(params) == 2  # [x, y] vector for direction
         self.drag_arm_control(params)
-        time.sleep(1.0)
+        time.sleep(0.5)
         self.stow_arm()
-        # NOTE: time.sleep(1.0) required afer each option execution
-        # to allow time for sensor readings to settle.
-        time.sleep(1.0)
 
     def _scan_for_objects(
         self, waypoints: Sequence[str], objects_to_find: Collection[str]
@@ -1238,8 +1240,7 @@ class _SpotInterface():
     def relative_move(self,
                       dx: float,
                       dy: float,
-                      dyaw: float,
-                      stairs: bool = False) -> bool:
+                      dyaw: float) -> bool:
         """Move to relative robot position in body frame."""
         transforms = self.robot_state_client.get_robot_state(
         ).kinematic_state.transforms_snapshot
@@ -1257,12 +1258,20 @@ class _SpotInterface():
 
         # Command the robot to go to the goal point in the specified
         # frame. The command will stop at the new position.
+        # Constrain the robot not to turn, forcing it to strafe laterally.
+        speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=1.0),
+                                       min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=1.0))
+        import ipdb; ipdb.set_trace()
+        # TODO: Look into why mobility params is an issue; I can't seem to pass in this
+        # vel_limit arg.
+        mobility_params = RobotCommandBuilder.mobility_params(vel_limit=speed_limit)
+
         robot_cmd = RobotCommandBuilder.synchro_se2_trajectory_point_command(
             goal_x=out_tform_goal.x,
             goal_y=out_tform_goal.y,
             goal_heading=out_tform_goal.angle,
             frame_name=ODOM_FRAME_NAME,
-            params=RobotCommandBuilder.mobility_params(stair_hint=stairs))
+            params=mobility_params)
         cmd_id = self.robot_command_client.robot_command(
             lease=None,
             command=robot_cmd,
