@@ -144,8 +144,7 @@ def test_kitchen():
         [gripper, kettle, burner4])
     move_to_kettle_pre_pull_nsrt = MoveToPrePullKettle.ground(
         [gripper, kettle])
-    pull_kettle_on_burner2_nsrt = PushObjOnObjForward.ground(
-        [gripper, kettle, burner2])
+    pull_kettle_on_burner2_nsrt = PullKettle.ground([gripper, kettle, burner2])
 
     # Test pushing the kettle forward and then bringing it back.
     obs = env.reset("test", 0)

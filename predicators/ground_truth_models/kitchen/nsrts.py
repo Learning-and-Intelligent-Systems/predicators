@@ -162,11 +162,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                          objs: Sequence[Object]) -> Array:
             del state, goal  # unused
             _, obj = objs
-            # TODO
             params = np.array(KitchenEnv.get_pre_push_delta_pos(obj, "off"),
                               dtype=np.float32)
             if not CFG.kitchen_use_perfect_samplers:
-                # TODO
                 params[0] += rng.uniform(-0.05, 0.05)
             return params
 
@@ -212,8 +210,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # PullKettle
         parameters = [gripper, kettle, surface]
-        # TODO add to this NSRT and the other one delete effects for leaving
-        # the other surface, or ignore effects
         preconditions = {
             LiftedAtom(AtPrePullKettle, [gripper, kettle]),
             LiftedAtom(NotOnTop, [kettle, surface])
@@ -232,8 +228,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             del state, goal, objs  # unused
             # Sample a direction to pull w.r.t. the negative y axis.
             if CFG.kitchen_use_perfect_samplers:
-                # TODO mess with
-                pull_angle = 0.0
+                pull_angle = np.pi
             else:
                 pull_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([pull_angle], dtype=np.float32)

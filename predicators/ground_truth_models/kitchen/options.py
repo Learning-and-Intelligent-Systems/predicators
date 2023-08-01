@@ -149,8 +149,23 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _MoveToPrePullKettle_initiable(state: State, memory: Dict,
                                            objects: Sequence[Object],
                                            params: Array) -> bool:
-            import ipdb
-            ipdb.set_trace()
+            # Store the target pose.
+            _, obj = objects
+            ox = state.get(obj, "x")
+            oy = state.get(obj, "y")
+            oz = state.get(obj, "z")
+            dx, dy, dz = params
+            target_pose = (ox + dx, oy + dy, oz + dz)
+            target_quat = down_quat
+            offset = 0.25
+            entry_pose = (ox + dx + offset, oy + dy, oz + dz)
+            memory["waypoints"] = [
+                (cls.home_pos, down_quat),
+                (entry_pose, fwd_quat),
+                (target_pose, fwd_quat),
+                (target_pose, target_quat),
+            ]
+            return True
 
         move_to_pre_pull_kettle = ParameterizedOption(
             "MoveToPrePullKettle",
@@ -192,7 +207,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 return False
             # Stronger check to deal with case where push release leads object
             # to be no longer OnTop.
-            return obj_y > obj2_y - cls.moveto_tol / 2
+            return obj_y > obj2_y - cls.moveto_tol / 4.0
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
@@ -209,14 +224,27 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         def _PullKettle_policy(state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> Action:
-            import ipdb
-            ipdb.set_trace()
+            del state, memory, objects  # unused
+            # The parameter is a push direction angle with respect to y.
+            pull_angle = params[0]
+            unit_y, unit_x = np.cos(pull_angle), np.sin(pull_angle)
+            dx = unit_x * cls.max_push_mag / 4.0
+            dy = unit_y * cls.max_push_mag / 4.0
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            return Action(arr)
 
         def _PullKettle_terminal(state: State, memory: Dict,
                                  objects: Sequence[Object],
                                  params: Array) -> bool:
-            import ipdb
-            ipdb.set_trace()
+            del memory, params  # unused
+            _, obj, obj2 = objects
+            obj_y = state.get(obj, "y")
+            obj2_y = state.get(obj2, "y")
+            if not GroundAtom(OnTop, [obj, obj2]).holds(state):
+                return False
+            # Stronger check to deal with case where push release leads object
+            # to be no longer OnTop.
+            return obj_y > obj2_y - cls.moveto_tol / 2
 
         PullKettle = ParameterizedOption(
             "PullKettle",
