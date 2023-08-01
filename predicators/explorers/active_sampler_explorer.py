@@ -14,6 +14,8 @@ from predicators.structs import NSRT, Action, ExplorationStrategy, \
     GroundAtom, NSRTSampler, ParameterizedOption, Predicate, State, Task, \
     Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
 
+from sklearn import linear_model
+
 
 class ActiveSamplerExplorer(BaseExplorer):
     """Uses past ground operator successes and failures to choose a ground
@@ -77,12 +79,14 @@ class ActiveSamplerExplorer(BaseExplorer):
         assigned_task_goal_reached = False
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None
-        self._seen_train_task_idxs.add(train_task_idx)
 
         def _option_policy(state: State) -> _Option:
             logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task_goal_reached, current_policy, \
                 next_practice_nsrt
+            
+            # Need to wait for policy to get called to "see" the train task.
+            self._seen_train_task_idxs.add(train_task_idx)
 
             atoms = utils.abstract(state, self._predicates)
 
@@ -232,7 +236,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Run task planning and then greedily execute.
         timeout = CFG.timeout
         task_planning_heuristic = CFG.sesame_task_planning_heuristic
-        ground_op_costs = self._get_ground_op_planning_costs()
+        ground_op_costs = utils.ground_op_history_to_planning_costs(
+            self._ground_op_hist)
         plan, atoms_seq, _ = run_task_plan_once(
             task,
             self._nsrts,
@@ -245,22 +250,17 @@ class ActiveSamplerExplorer(BaseExplorer):
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
-    def _get_ground_op_planning_costs(
-            self) -> Dict[_GroundSTRIPSOperator, float]:
-        return {
-            op: utils.success_history_to_planning_cost([o for o, _ in hist])
-            for op, hist in self._ground_op_hist.items()
-        }
-
     def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
         # Score NSRTs according to their success rate and a bonus for ones
         # that haven't been tried very much.
-        history = self._ground_op_hist[ground_op]
+        history = [o for o, _ in self._ground_op_hist[ground_op]]
         num_tries = len(history)
-        success_rate = sum(r for r, _ in history) / num_tries
+        success_rate = sum(history) / num_tries
+        competence = utils.beta_bernoulli_posterior(history)
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
         logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
+        logging.info(f"[Explorer]   posterior competence: {competence}")
         logging.info(f"[Explorer]   num attempts: {num_tries}")
         if CFG.active_sampler_explore_scorer == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
@@ -286,7 +286,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         c_hat = self._extrapolate_competence_cost(ground_op, num_attempts + 1)
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
-        ground_op_costs = self._get_ground_op_planning_costs()
+        ground_op_costs = utils.ground_op_history_to_planning_costs(
+            self._ground_op_hist)
         ground_op_costs[ground_op] = c_hat  # override
         # Make plans on all of the training tasks we've seen so far and record
         # the total plan costs.
@@ -304,18 +305,48 @@ class ActiveSamplerExplorer(BaseExplorer):
                 self._seed,
                 task_planning_heuristic=task_planning_heuristic,
                 ground_op_costs=ground_op_costs)
-            plan_cost = 0.0
+            task_plan_costs = []
             for ground_nsrt in plan:
                 ground_op = ground_nsrt.op
                 # TODO remove magic number here and elsewhere
                 ground_op_cost = ground_op_costs.get(ground_op, -np.log(0.5))
-                plan_cost += ground_op_cost
-            plan_costs.append(plan_cost)
+                task_plan_costs.append(ground_op_cost)
+            logging.info(f"[Explorer]   task {train_task_idx} plan: {[(o.name, o.objects) for o in plan]}")
+            plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # lower is better
 
     def _extrapolate_competence_cost(self, ground_op: _GroundSTRIPSOperator,
-                            num_attempts: int) -> float:
-        # TODO
-        outcomes = [o for o, _ in self._ground_op_hist[ground_op]]
-        cost = utils.success_history_to_planning_cost(outcomes)
-        return cost / 2
+                                     num_attempts: int) -> float:
+        # Partition success history based on num_data.
+        num_datas: List[int] = []
+        history_for_num_datas: List[List[bool]] = []
+        last_seen_num_data = -1
+        for success, num_data in self._ground_op_hist[ground_op]:
+            if num_data != last_seen_num_data:
+                num_datas.append(num_data)
+                # Need to accumulate to match elsewhere.
+                cumulative = []
+                if history_for_num_datas:
+                    cumulative.extend(history_for_num_datas[-1])
+                history_for_num_datas.append(cumulative)
+                last_seen_num_data = num_data
+            history_for_num_datas[-1].append(success)
+        # Convert histories into PREDICTED competencies.
+        # TODO magic number
+        competencies = [utils.beta_bernoulli_posterior(h) for h in history_for_num_datas]
+        logging.info(f"[Explorer]   c inputs: {num_datas}")
+        logging.info(f"[Explorer]   c outputs: {history_for_num_datas}")
+        # Fit model for num_data -> competency.
+        assert len(num_datas) >= 1
+        if len(num_datas) == 1:
+            # For the first round, there's no obvious way to extrapolate, so
+            # just make the assumption that competence will improve by a constant.
+            y_hat = min(1.0, competencies[0] + 1e-2) # TODO magic number
+            logging.info(f"[Explorer]   extrapolated competence (1): {y_hat}")
+        else:
+            reg = linear_model.LinearRegression()
+            reg.fit(np.reshape(num_datas, (-1, 1)), competencies)
+            y_hat = reg.predict([[num_attempts]])[0]
+            logging.info(f"[Explorer]   extrapolated competence (2): {y_hat}")
+            import ipdb; ipdb.set_trace()
+        return -np.log(y_hat)
