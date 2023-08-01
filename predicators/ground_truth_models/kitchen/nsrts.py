@@ -228,9 +228,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             del state, goal, objs  # unused
             # Sample a direction to pull w.r.t. the negative y axis.
             if CFG.kitchen_use_perfect_samplers:
-                pull_angle = np.pi
+                pull_angle = np.pi + (np.pi / 16.0)
             else:
-                pull_angle = rng.uniform(-np.pi / 3, np.pi / 3)
+                pull_angle = rng.uniform(7 * np.pi / 8, 9 * np.pi / 8)
             return np.array([pull_angle], dtype=np.float32)
 
         pull_kettle_nsrt = NSRT("PullKettle", parameters, preconditions,

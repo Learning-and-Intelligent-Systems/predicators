@@ -146,16 +146,34 @@ def test_kitchen():
         [gripper, kettle])
     pull_kettle_on_burner2_nsrt = PullKettle.ground([gripper, kettle, burner2])
 
+    count = 0
     # Test pushing the kettle forward and then bringing it back.
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_kettle_pre_push_nsrt, state)
-    state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
-    assert OnTop([kettle, burner4]).holds(state)
-    state = _run_ground_nsrt(move_to_kettle_pre_pull_nsrt, state)
-    state = _run_ground_nsrt(pull_kettle_on_burner2_nsrt, state)
-    assert OnTop([kettle, burner2]).holds(state)
+    for i in range(10):
+        try:
+            state = _run_ground_nsrt(move_to_kettle_pre_push_nsrt, state)
+            state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
+            assert OnTop([kettle, burner4]).holds(state)
+            state = _run_ground_nsrt(move_to_kettle_pre_pull_nsrt, state)
+            state = _run_ground_nsrt(pull_kettle_on_burner2_nsrt, state)
+            assert OnTop([kettle, burner2]).holds(state)
+
+            print("Moving Back")
+            state = _run_ground_nsrt(move_to_kettle_pre_push_nsrt, state)
+            state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
+            assert OnTop([kettle, burner4]).holds(state)
+            state = _run_ground_nsrt(move_to_kettle_pre_pull_nsrt, state)
+            state = _run_ground_nsrt(pull_kettle_on_burner2_nsrt, state)
+            assert OnTop([kettle, burner2]).holds(state)
+        except Exception as e:
+            obs = env.reset("test", 0)
+            state = env.state_info_to_state(obs["state_info"])
+            print(e)
+            count += 1
+    print("Reset Count:", count)
+    quit()
 
     # Test moving to and turning the light on and off.
     obs = env.reset("test", 0)

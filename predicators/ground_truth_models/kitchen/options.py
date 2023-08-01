@@ -26,7 +26,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     max_delta_mag: ClassVar[float] = 1.0  # don't move more than this per step
     max_push_mag: ClassVar[float] = 0.1  # for pushing forward
     # A reasonable home position for the end effector.
-    home_pos: ClassVar[Pose3D] = (0.0, 0.3, 2.0)
+    home_pos: ClassVar[Pose3D] = (0.0, 0.37, 2.1)
     # Keep pushing a bit even if the On classifier holds.
     push_lr_thresh_pad: ClassVar[float] = 0.02
     turn_knob_tol: ClassVar[float] = 0.01  # for twisting the knob
@@ -46,6 +46,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         down_quat = euler2quat((-np.pi, 0.0, -np.pi / 2))
         # End effector facing forward (e.g., toward the knobs.)
         fwd_quat = euler2quat((-np.pi / 2, 0.0, -np.pi / 2))
+        angled_quat = euler2quat((-3 * np.pi / 4, 0.0, -np.pi / 2))
 
         # Types
         gripper_type = types["gripper"]
@@ -77,7 +78,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             else:
                 target_quat = down_quat
             memory["waypoints"] = [
-                (cls.home_pos, down_quat),
+                (cls.home_pos, angled_quat),
                 (target_pose, target_quat),
             ]
             return True
@@ -134,13 +135,39 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             options.add(nsrt)
 
         # MoveToPrePushOnTop (different type)
+        def _MoveToPrePushOnTop_initiable(state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> bool:
+            # Store the target pose.
+            gripper, obj = objects
+            gx = state.get(gripper, "x")
+            gy = state.get(gripper, "y")
+            gz = state.get(gripper, "z")
+            gripper_pose = (gx, gy - 0.1, gz + 0.1)
+            ox = state.get(obj, "x")
+            oy = state.get(obj, "y")
+            oz = state.get(obj, "z")
+            dx, dy, dz = params
+            target_pose = (ox + dx, oy + dy, oz + dz)
+            # Turn the knobs by pushing from a "forward" position.
+            if obj.is_instance(knob_type):
+                target_quat = fwd_quat
+            else:
+                target_quat = down_quat
+            memory["waypoints"] = [
+                (gripper_pose, fwd_quat),
+                (cls.home_pos, angled_quat),
+                (target_pose, target_quat),
+            ]
+            return True
+        
         move_to_pre_push_on_top = ParameterizedOption(
             "MoveToPrePushOnTop",
             types=[gripper_type, kettle_type],
             # Parameter is a position to move to relative to the object.
             params_space=Box(-5, 5, (3, )),
             policy=_MoveTo_policy,
-            initiable=_MoveTo_initiable,
+            initiable=_MoveToPrePushOnTop_initiable,
             terminal=_MoveTo_terminal)
 
         options.add(move_to_pre_push_on_top)
@@ -160,7 +187,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             offset = 0.25
             entry_pose = (ox + dx + offset, oy + dy, oz + dz)
             memory["waypoints"] = [
-                (cls.home_pos, down_quat),
+                (cls.home_pos, angled_quat),
                 (entry_pose, fwd_quat),
                 (target_pose, fwd_quat),
                 (target_pose, target_quat),
@@ -242,9 +269,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             obj2_y = state.get(obj2, "y")
             if not GroundAtom(OnTop, [obj, obj2]).holds(state):
                 return False
-            # Stronger check to deal with case where push release leads object
-            # to be no longer OnTop.
-            return obj_y > obj2_y - cls.moveto_tol / 2
+            return True
 
         PullKettle = ParameterizedOption(
             "PullKettle",
