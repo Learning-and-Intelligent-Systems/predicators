@@ -5,6 +5,7 @@ from typing import Dict, Sequence, Set
 
 import numpy as np
 
+from predicators import utils
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
@@ -525,5 +526,35 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    set(), option, option_vars,
                                    place_on_bumpy_sampler)
         nsrts.add(place_on_bumpy_nsrt)
+
+        # Optionally include an NSRT that appears to directly pick and place
+        # blocks onto targets, but actually fails completely in practice.
+        if CFG.regional_bumpy_cover_include_impossible_nsrt:
+
+            ImpossiblePickPlace = options["ImpossiblePickPlace"]
+
+            parameters = [block, target]
+            preconditions = {
+                LiftedAtom(HandEmpty, []),
+                LiftedAtom(Clear, [target]),
+            }
+            add_effects = {
+                LiftedAtom(HandEmpty, []),
+                LiftedAtom(InSmoothRegion, [block]),
+                LiftedAtom(Covers, [block, target]),
+            }
+            delete_effects = {
+                LiftedAtom(HandEmpty, []),
+                LiftedAtom(InBumpyRegion, [block])
+            }
+            option = ImpossiblePickPlace
+            option_vars = []
+
+            impossible_pick_place_nsrt = NSRT("ImpossiblePickPlace",
+                                              parameters, preconditions,
+                                              add_effects, delete_effects,
+                                              set(), option, option_vars,
+                                              utils.null_sampler)
+            nsrts.add(impossible_pick_place_nsrt)
 
         return nsrts
