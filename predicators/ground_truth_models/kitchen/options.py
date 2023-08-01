@@ -136,8 +136,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         # MoveToPrePushOnTop (different type)
         def _MoveToPrePushOnTop_initiable(state: State, memory: Dict,
-                              objects: Sequence[Object],
-                              params: Array) -> bool:
+                                          objects: Sequence[Object],
+                                          params: Array) -> bool:
             # Store the target pose.
             gripper, obj = objects
             gx = state.get(gripper, "x")
@@ -160,7 +160,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 (target_pose, target_quat),
             ]
             return True
-        
+
         move_to_pre_push_on_top = ParameterizedOption(
             "MoveToPrePushOnTop",
             types=[gripper_type, kettle_type],
@@ -265,8 +265,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                  params: Array) -> bool:
             del memory, params  # unused
             _, obj, obj2 = objects
-            obj_y = state.get(obj, "y")
-            obj2_y = state.get(obj2, "y")
             if not GroundAtom(OnTop, [obj, obj2]).holds(state):
                 return False
             return True
