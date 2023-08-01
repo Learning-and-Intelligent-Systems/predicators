@@ -226,7 +226,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         timeout = CFG.timeout
         task_planning_heuristic = CFG.sesame_task_planning_heuristic
         ground_op_competence = {
-            op: np.mean(hist)
+            op: float(np.mean(hist))
             for op, hist in self._ground_op_hist.items()
         }
         plan, atoms_seq, _ = run_task_plan_once(
