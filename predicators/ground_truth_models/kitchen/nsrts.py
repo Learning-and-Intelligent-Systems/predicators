@@ -43,6 +43,8 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         MoveToPrePushOnTop = options["MoveToPrePushOnTop"]
         MoveToPreTurnOff = options["MoveToPreTurnOff"]
         MoveToPreTurnOn = options["MoveToPreTurnOn"]
+        MoveToPrePullKettle = options["MoveToPrePullKettle"]
+        PullKettle = options["PullKettle"]
         PushObjOnObjForward = options["PushObjOnObjForward"]
         TurnOffSwitch = options["TurnOffSwitch"]
         TurnOnSwitch = options["TurnOnSwitch"]
@@ -53,6 +55,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         AtPreTurnOn = predicates["AtPreTurnOn"]
         AtPreTurnOff = predicates["AtPreTurnOff"]
         AtPrePushOnTop = predicates["AtPrePushOnTop"]
+        AtPrePullKettle = predicates["AtPrePullKettle"]
         TurnedOn = predicates["TurnedOn"]
         TurnedOff = predicates["TurnedOff"]
         OnTop = predicates["OnTop"]
@@ -65,7 +68,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions: Set[LiftedAtom] = set()
         add_effects = {LiftedAtom(AtPreTurnOff, [gripper, on_off_obj])}
         delete_effects: Set[LiftedAtom] = set()
-        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
         option = MoveToPreTurnOff
         option_vars = [gripper, on_off_obj]
 
@@ -90,7 +95,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = set()
         add_effects = {LiftedAtom(AtPreTurnOn, [gripper, on_off_obj])}
         delete_effects = set()
-        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
         option = MoveToPreTurnOn
         option_vars = [gripper, on_off_obj]
 
@@ -114,7 +121,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = set()
         add_effects = {LiftedAtom(AtPrePushOnTop, [gripper, kettle])}
         delete_effects = set()
-        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
         option = MoveToPrePushOnTop
         option_vars = [gripper, kettle]
 
@@ -137,6 +146,35 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             moveto_prepushontop_sampler)
         nsrts.add(move_to_pre_push_on_top_nsrt)
 
+        # MoveToPrePullKettle
+        parameters = [gripper, kettle]
+        preconditions = set()
+        add_effects = {LiftedAtom(AtPrePullKettle, [gripper, kettle])}
+        delete_effects = set()
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
+        option = MoveToPrePullKettle
+        option_vars = [gripper, kettle]
+
+        def moveto_prepullkettle_sampler(state: State, goal: Set[GroundAtom],
+                                         rng: np.random.Generator,
+                                         objs: Sequence[Object]) -> Array:
+            del state, goal  # unused
+            _, obj = objs
+            params = np.array(KitchenEnv.get_pre_push_delta_pos(obj, "off"),
+                              dtype=np.float32)
+            if not CFG.kitchen_use_perfect_samplers:
+                params[0] += rng.uniform(-0.05, 0.05)
+            return params
+
+        move_to_pre_pull_kettle_nsrt = NSRT("MoveToPrePullKettle", parameters,
+                                            preconditions, add_effects,
+                                            delete_effects, ignore_effects,
+                                            option, option_vars,
+                                            moveto_prepullkettle_sampler)
+        nsrts.add(move_to_pre_pull_kettle_nsrt)
+
         # PushObjOnObjForward
         parameters = [gripper, kettle, surface]
         preconditions = {
@@ -145,7 +183,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(OnTop, [kettle, surface])}
         delete_effects = {LiftedAtom(NotOnTop, [kettle, surface])}
-        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
         option = PushObjOnObjForward
         option_vars = [gripper, kettle, surface]
 
@@ -168,6 +208,36 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                             push_obj_on_obj_forward_sampler)
         nsrts.add(push_obj_on_obj_forward_nsrt)
 
+        # PullKettle
+        parameters = [gripper, kettle, surface]
+        preconditions = {
+            LiftedAtom(AtPrePullKettle, [gripper, kettle]),
+            LiftedAtom(NotOnTop, [kettle, surface])
+        }
+        add_effects = {LiftedAtom(OnTop, [kettle, surface])}
+        delete_effects = {LiftedAtom(AtPrePullKettle, [gripper, kettle])}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
+        option = PullKettle
+        option_vars = [gripper, kettle, surface]
+
+        def pull_kettle_sampler(state: State, goal: Set[GroundAtom],
+                                rng: np.random.Generator,
+                                objs: Sequence[Object]) -> Array:
+            del state, goal, objs  # unused
+            # Sample a direction to pull w.r.t. the negative y axis.
+            if CFG.kitchen_use_perfect_samplers:
+                pull_angle = np.pi
+            else:
+                pull_angle = rng.uniform(-np.pi / 3, np.pi / 3)
+            return np.array([pull_angle], dtype=np.float32)
+
+        pull_kettle_nsrt = NSRT("PullKettle", parameters, preconditions,
+                                add_effects, delete_effects, ignore_effects,
+                                option, option_vars, pull_kettle_sampler)
+        nsrts.add(pull_kettle_nsrt)
+
         # TurnOffSwitch
         parameters = [gripper, switch]
         preconditions = {
@@ -176,7 +246,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(TurnedOff, [switch])}
         delete_effects = {LiftedAtom(TurnedOn, [switch])}
-        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
         option = TurnOffSwitch
         option_vars = [gripper, switch]
 
@@ -208,7 +280,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(TurnedOn, [switch])}
         delete_effects = {LiftedAtom(TurnedOff, [switch])}
-        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
         option = TurnOnSwitch
         option_vars = [gripper, switch]
 
@@ -225,7 +299,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(TurnedOn, [knob])}
         delete_effects = {LiftedAtom(TurnedOff, [knob])}
-        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
         option = TurnOnKnob
         option_vars = [gripper, knob]
 
@@ -254,7 +330,9 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         add_effects = {LiftedAtom(TurnedOff, [knob])}
         delete_effects = {LiftedAtom(TurnedOn, [knob])}
-        ignore_effects = {AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
         option = TurnOffKnob
         option_vars = [gripper, knob]
 
