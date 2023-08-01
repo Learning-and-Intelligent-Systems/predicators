@@ -1052,7 +1052,6 @@ def fd_plan_from_sas_file(
     """Given a SAS file, runs search on it to generate a plan."""
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
     output = subprocess.getoutput(cmd_str)
-    print(output)
     cleanup_cmd_str = f"{exec_str} --cleanup"
     subprocess.getoutput(cleanup_cmd_str)
     if time.perf_counter() - start_time > timeout:
@@ -1238,8 +1237,9 @@ def run_task_plan_once(
         if use_competence_costs:
             assert ground_op_competence is not None
             assert all(0 <= p <= 1 for p in ground_op_competence.values())
+            # Avoid divide by zero issues.
             ground_op_costs = {
-                op: -np.log(c)
+                op: -np.log(max(1e-6, c))
                 for op, c in ground_op_competence.items()
             }
             default_cost = -np.log(default_competence)

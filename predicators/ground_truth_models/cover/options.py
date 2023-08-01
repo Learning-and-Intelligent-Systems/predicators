@@ -144,7 +144,7 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                                    objects: Sequence[Object],
                                    params: Array) -> Action:
                 del state, memory, objects, params  # unused
-                raise utils.OptionExecutionFailure("Policy impossible.")
+                raise utils.OptionTimeoutFailure("Policy impossible.")
 
             ImpossiblePickPlace = utils.SingletonParameterizedOption(
                 "ImpossiblePickPlace",
