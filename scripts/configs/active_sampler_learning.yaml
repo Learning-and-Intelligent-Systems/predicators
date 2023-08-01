@@ -5,7 +5,7 @@ APPROACHES:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
-      active_sampler_explore_scorer: "plan_ning_progress"
+      active_sampler_explore_scorer: "planning_progress"
   success_rate_explore:
     NAME: "active_sampler_learning"
     FLAGS:
@@ -32,12 +32,12 @@ ENVS:
       cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
       cover_num_targets: 10
       cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
-  kitchen:
-    NAME: "kitchen"
-    num_train_tasks: 100
-    num_test_tasks: 10
-    max_num_steps_interaction_request: 500
-    max_num_steps_option_rollout: 250
+  # kitchen:
+  #   NAME: "kitchen"
+  #   num_train_tasks: 100
+  #   num_test_tasks: 10
+  #   max_num_steps_interaction_request: 500
+  #   max_num_steps_option_rollout: 250
 ARGS:
   - "debug"
 FLAGS:
