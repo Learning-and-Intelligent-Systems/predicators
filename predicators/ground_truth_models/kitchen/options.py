@@ -69,16 +69,17 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             ox = state.get(obj, "x")
             oy = state.get(obj, "y")
             oz = state.get(obj, "z")
-            target_pose = params + (ox, oy, oz)
-            memory["target_pose"] = target_pose
+            dx, dy, dz = params
+            target_pose = (ox + dx, oy + dy, oz + dz)
             # Turn the knobs by pushing from a "forward" position.
-            if "knob" in obj.name:
-                memory["target_quat"] = fwd_quat
+            if obj.is_instance(knob_type):
+                target_quat = fwd_quat
             else:
-                memory["target_quat"] = down_quat
-            memory["reset_pose"] = np.array(cls.home_pos, dtype=np.float32)
-            memory["reset_quat"] = down_quat
-            memory["has_reset"] = False
+                target_quat = down_quat
+            memory["waypoints"] = [
+                (cls.home_pos, down_quat),
+                (target_pose, target_quat),
+            ]
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -93,21 +94,12 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gqy = state.get(gripper, "qy")
             gqz = state.get(gripper, "qz")
             current_euler = quat2euler([gqw, gqx, gqy, gqz])
-            if not memory["has_reset"]:
-                if np.allclose((gx, gy, gz),
-                               memory["reset_pose"],
-                               atol=cls.moveto_tol):
-                    target_pose = memory["target_pose"]
-                    target_quat = memory["target_quat"]
-                    memory["has_reset"] = True
-                else:
-                    target_pose = memory["reset_pose"]
-                    target_quat = memory["reset_quat"]
-            else:
-                target_pose = memory["target_pose"]
-                target_quat = memory["target_quat"]
-            dx, dy, dz = np.subtract(target_pose, (gx, gy, gz))
-            target_euler = quat2euler(target_quat)
+            way_pos, way_quat = memory["waypoints"][0]
+            if np.allclose((gx, gy, gz), way_pos, atol=cls.moveto_tol):
+                memory["waypoints"].pop(0)
+                way_pos, way_quat = memory["waypoints"][0]
+            dx, dy, dz = np.subtract(way_pos, (gx, gy, gz))
+            target_euler = quat2euler(way_quat)
             droll, dpitch, dyaw = subtract_euler(target_euler, current_euler)
             arr = np.array([dx, dy, dz, droll, dpitch, dyaw, 0.0],
                            dtype=np.float32)
@@ -125,7 +117,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             gy = state.get(gripper, "y")
             gz = state.get(gripper, "z")
             return np.allclose((gx, gy, gz),
-                               memory["target_pose"],
+                               memory["waypoints"][-1][0],
                                atol=cls.moveto_tol)
 
         # Create copies just to preserve one-to-one-ness with NSRTs.
@@ -152,6 +144,39 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_MoveTo_terminal)
 
         options.add(move_to_pre_push_on_top)
+
+        # MoveToPrePullKettle (requires waypoints to avoid collisions).
+        def _MoveToPrePullKettle_initiable(state: State, memory: Dict,
+                                           objects: Sequence[Object],
+                                           params: Array) -> bool:
+            # Store the target pose.
+            _, obj = objects
+            ox = state.get(obj, "x")
+            oy = state.get(obj, "y")
+            oz = state.get(obj, "z")
+            dx, dy, dz = params
+            target_pose = (ox + dx, oy + dy, oz + dz)
+            target_quat = down_quat
+            offset = 0.25
+            entry_pose = (ox + dx + offset, oy + dy, oz + dz)
+            memory["waypoints"] = [
+                (cls.home_pos, down_quat),
+                (entry_pose, fwd_quat),
+                (target_pose, fwd_quat),
+                (target_pose, target_quat),
+            ]
+            return True
+
+        move_to_pre_pull_kettle = ParameterizedOption(
+            "MoveToPrePullKettle",
+            types=[gripper_type, kettle_type],
+            # Parameter is a position to move to relative to the object.
+            params_space=Box(-5, 5, (3, )),
+            policy=_MoveTo_policy,
+            initiable=_MoveToPrePullKettle_initiable,
+            terminal=_MoveTo_terminal)
+
+        options.add(move_to_pre_pull_kettle)
 
         # PushObjOnObjForward
         def _PushObjOnObjForward_policy(state: State, memory: Dict,
@@ -182,7 +207,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 return False
             # Stronger check to deal with case where push release leads object
             # to be no longer OnTop.
-            return obj_y > obj2_y - cls.moveto_tol / 2
+            return obj_y > obj2_y - cls.moveto_tol / 4.0
 
         PushObjOnObjForward = ParameterizedOption(
             "PushObjOnObjForward",
@@ -194,6 +219,43 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_PushObjOnObjForward_terminal)
 
         options.add(PushObjOnObjForward)
+
+        # PullKettle
+        def _PullKettle_policy(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> Action:
+            del state, memory, objects  # unused
+            # The parameter is a push direction angle with respect to y.
+            pull_angle = params[0]
+            unit_y, unit_x = np.cos(pull_angle), np.sin(pull_angle)
+            dx = unit_x * cls.max_push_mag / 4.0
+            dy = unit_y * cls.max_push_mag / 4.0
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            return Action(arr)
+
+        def _PullKettle_terminal(state: State, memory: Dict,
+                                 objects: Sequence[Object],
+                                 params: Array) -> bool:
+            del memory, params  # unused
+            _, obj, obj2 = objects
+            obj_y = state.get(obj, "y")
+            obj2_y = state.get(obj2, "y")
+            if not GroundAtom(OnTop, [obj, obj2]).holds(state):
+                return False
+            # Stronger check to deal with case where push release leads object
+            # to be no longer OnTop.
+            return obj_y > obj2_y - cls.moveto_tol / 2
+
+        PullKettle = ParameterizedOption(
+            "PullKettle",
+            types=[gripper_type, kettle_type, surface_type],
+            # Parameter is an angle for pulling backward.
+            params_space=Box(-np.pi, np.pi, (1, )),
+            policy=_PullKettle_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_PullKettle_terminal)
+
+        options.add(PullKettle)
 
         # TurnOnSwitch / TurnOffSwitch
         def _TurnSwitch_initiable(state: State, memory: Dict,
