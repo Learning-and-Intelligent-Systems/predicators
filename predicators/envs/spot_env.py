@@ -346,7 +346,7 @@ class SpotEnv(BaseEnv):
         object_names_in_view: Dict[str, Tuple[float, float, float]] = {}
         # IMPORTANT NOTE: when using DETIC-SAM for vision, we generally
         # only associate an object with the camera source that detected
-        # that object with the highest score. However, we also 
+        # that object with the highest score. However, we also
         # keep around all objects seen by the hand camera, even if
         # other cameras have higher scores for the same object.
         # Thus, if an object appears to be associated with more than

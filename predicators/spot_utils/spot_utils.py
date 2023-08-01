@@ -19,6 +19,8 @@ from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2, \
     geometry_pb2, image_pb2, manipulation_api_pb2, robot_command_pb2, \
     synchronized_command_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
+from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
+from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
@@ -29,9 +31,6 @@ from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
-from bosdyn.api import basic_command_pb2, robot_command_pb2
-from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
-from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
 from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
@@ -1237,10 +1236,14 @@ class _SpotInterface():
         except Exception as e:
             logging.info(e)
 
-    def relative_move(self,
-                      dx: float,
-                      dy: float,
-                      dyaw: float) -> bool:
+    def relative_move(
+        self,
+        dx: float,
+        dy: float,
+        dyaw: float,
+        max_xytheta_vel: Tuple[float, float, float] = (2.0, 2.0, 1.0),
+        min_xytheta_vel: Tuple[float, float, float] = (-2.0, -2.0, -1.0)
+    ) -> bool:
         """Move to relative robot position in body frame."""
         transforms = self.robot_state_client.get_robot_state(
         ).kinematic_state.transforms_snapshot
@@ -1259,12 +1262,15 @@ class _SpotInterface():
         # Command the robot to go to the goal point in the specified
         # frame. The command will stop at the new position.
         # Constrain the robot not to turn, forcing it to strafe laterally.
-        speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=1.0),
-                                       min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=1.0))
-        import ipdb; ipdb.set_trace()
-        # TODO: Look into why mobility params is an issue; I can't seem to pass in this
-        # vel_limit arg.
-        mobility_params = RobotCommandBuilder.mobility_params(vel_limit=speed_limit)
+        speed_limit = SE2VelocityLimit(
+            max_vel=SE2Velocity(linear=Vec2(x=max_xytheta_vel[0],
+                                            y=max_xytheta_vel[1]),
+                                angular=max_xytheta_vel[2]),
+            min_vel=SE2Velocity(linear=Vec2(x=min_xytheta_vel[0],
+                                            y=min_xytheta_vel[1]),
+                                angular=min_xytheta_vel[2]))
+        mobility_params = spot_command_pb2.MobilityParams(
+            vel_limit=speed_limit)
 
         robot_cmd = RobotCommandBuilder.synchro_se2_trajectory_point_command(
             goal_x=out_tform_goal.x,
@@ -1400,7 +1406,9 @@ class _SpotInterface():
         self.relative_move(
             dx=robot_to_desiredplatform_y_with_robot_x[0] - body_T_hand.x,
             dy=robot_to_desiredplatform_y_with_robot_x[1] - body_T_hand.y,
-            dyaw=0.0)
+            dyaw=0.0,
+            max_xytheta_vel=(0.25, 0.25, 0.5),
+            min_xytheta_vel=(-0.25, -0.25, -0.5))
 
         # Move Body remaining
         robot_state = self.robot_state_client.get_robot_state()
@@ -1413,7 +1421,9 @@ class _SpotInterface():
         self.lock_arm()
         self.relative_move(dx=robot_to_desiredplatform[0] - body_T_hand.x,
                            dy=robot_to_desiredplatform[1] - body_T_hand.y,
-                           dyaw=0.0)
+                           dyaw=0.0,
+                           max_xytheta_vel=(0.25, 0.25, 0.5),
+                           min_xytheta_vel=(-0.25, -0.25, -0.5))
 
         # Open Gripper
         gripper_command = RobotCommandBuilder.\

@@ -455,8 +455,8 @@ def get_object_locations_with_detic_sam(
             # exception is if the source is the hand camera: we want to
             # remember all detections that we see from the hand camera,
             # because that is used for predicates like "InView".
-            if (score, source_name
-                ) != obj_class_to_max_score_and_source[obj_cls_str] and source_name != "hand_color_image":
+            if (score, source_name) != obj_class_to_max_score_and_source[
+                    obj_cls_str] and source_name != "hand_color_image":
                 continue
 
             # Compute median value of depth

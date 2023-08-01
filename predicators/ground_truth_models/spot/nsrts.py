@@ -133,7 +133,7 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
         state.get(surface, "x"),
         state.get(surface, "y"),
     )
-    dx, dy = -0.90, -0.10
+    dx, dy = -0.95, -0.20
 
     return np.array([world_fiducial[0] + dx, world_fiducial[1] + dy])
 
