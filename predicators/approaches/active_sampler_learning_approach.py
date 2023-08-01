@@ -52,8 +52,12 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._sampler_data: _SamplerDataset = {}
         # Maps used ground operators to all historical outcomes (whether they
         # successfully reached their effects or not). Updated in-place by the
-        # explorer when CFG.explorer is active_sampler_explorer.
-        self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
+        # explorer when CFG.explorer is active_sampler_explorer. The int after
+        # the bool records the number of data that the sampler was trained on
+        # at the time when the bool occurred.
+        self._ground_op_hist: Dict[_GroundSTRIPSOperator,
+                                   List[Tuple[bool, int]]] = {}
+        self._nsrt_num_train_data: Dict[NSRT, int] = {}
         self._last_seen_segment_traj_idx = -1
 
         # For certain methods, we may want the NSRTs used for exploration to
@@ -75,7 +79,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
         # Add ground operator competence for competence-aware planning.
         ground_op_costs = {
-            op: -np.log(max(float(np.mean(hist)), 1e-6))
+            op: -np.log(max(float(np.mean([o for o, _ in hist])), 1e-6))
             for op, hist in self._ground_op_hist.items()
         }
         return super()._run_task_plan(task,
@@ -101,6 +105,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             self._get_current_nsrts(),
             self._option_model,
             ground_op_hist=self._ground_op_hist,
+            nsrt_num_train_data=self._nsrt_num_train_data,
             max_steps_before_termination=max_steps,
             nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler,
             seen_train_task_idxs=self._seen_train_task_idxs)
@@ -113,6 +118,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             save_dict = pkl.load(f)
         self._sampler_data = save_dict["sampler_data"]
         self._ground_op_hist = save_dict["ground_op_hist"]
+        self._nsrt_num_train_data = save_dict["nsrt_num_train_data"]
         self._last_seen_segment_traj_idx = save_dict[
             "last_seen_segment_traj_idx"]
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
@@ -141,6 +147,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 {
                     "sampler_data": self._sampler_data,
                     "ground_op_hist": self._ground_op_hist,
+                    "nsrt_num_train_data": self._nsrt_num_train_data,
                     "last_seen_segment_traj_idx":
                     self._last_seen_segment_traj_idx,
                     "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
@@ -251,6 +258,12 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
+        # Update number of data for each of the NSRTs.
+        self._nsrt_num_train_data = {n: 0 for n in self._nsrts}
+        for param_opt, param_opt_data in self._sampler_data.items():
+            nsrt = utils.param_option_to_nsrt(param_opt, self._nsrts)
+            num_data = len(param_opt_data)
+            self._nsrt_num_train_data[nsrt] = num_data
 
 
 class _WrappedSamplerLearner(abc.ABC):

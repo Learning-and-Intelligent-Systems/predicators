@@ -1,7 +1,7 @@
 """An explorer for active sampler learning."""
 
 import logging
-from typing import Callable, Dict, Iterator, List, Optional, Set
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -31,7 +31,9 @@ class ActiveSamplerExplorer(BaseExplorer):
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task],
                  max_steps_before_termination: int, nsrts: Set[NSRT],
-                 ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
+                 ground_op_hist: Dict[_GroundSTRIPSOperator, List[Tuple[bool,
+                                                                        int]]],
+                 nsrt_num_train_data: Dict[NSRT, int],
                  nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler],
                  seen_train_task_idxs: Set[int]) -> None:
 
@@ -44,6 +46,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                          max_steps_before_termination)
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
+        self._nsrt_num_train_data = nsrt_num_train_data
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
@@ -221,7 +224,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
-        self._ground_op_hist[last_executed_op].append(success)
+        num_data = self._nsrt_num_train_data[nsrt.parent]
+        self._ground_op_hist[last_executed_op].append((success, num_data))
 
     def _get_option_policy_for_task(self,
                                     task: Task) -> Callable[[State], _Option]:
@@ -243,17 +247,26 @@ class ActiveSamplerExplorer(BaseExplorer):
 
     def _get_ground_op_planning_costs(
             self) -> Dict[_GroundSTRIPSOperator, float]:
-        return {
-            op: -np.log(max(float(np.mean(hist)), 1e-6))
-            for op, hist in self._ground_op_hist.items()
-        }
+        costs: Dict[_GroundSTRIPSOperator, float] = {}
+        for op, hist in self._ground_op_hist.items():
+            # TODO: do this in a proper Bayesian way...
+            # TODO: refactor code (approach)
+            outcomes = [o for o, _ in hist]
+            num_tries = len(outcomes)
+            success_prob = float(np.mean(outcomes))
+            total_trials = sum(len(h) for h in self._ground_op_hist.values())
+            success_prob += 1e-3 * np.sqrt(np.log(total_trials) / num_tries)
+            success_prob = np.clip(success_prob, 1e-6, 1)
+            cost = -np.log(success_prob)
+            costs[op] = 1e-3 + cost  # TODO think about this 1 + ...
+        return costs
 
     def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
         # Score NSRTs according to their success rate and a bonus for ones
         # that haven't been tried very much.
         history = self._ground_op_hist[ground_op]
         num_tries = len(history)
-        success_rate = sum(history) / num_tries
+        success_rate = sum(r for r, _ in history) / num_tries
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
         logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
@@ -291,7 +304,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         task_planning_heuristic = CFG.sesame_task_planning_heuristic
         for train_task_idx in sorted(self._seen_train_task_idxs):
             task = self._train_tasks[train_task_idx]
-            plan, atoms_seq, metrics = run_task_plan_once(
+            plan, _, _ = run_task_plan_once(
                 task,
                 self._nsrts,
                 self._predicates,
@@ -300,10 +313,19 @@ class ActiveSamplerExplorer(BaseExplorer):
                 self._seed,
                 task_planning_heuristic=task_planning_heuristic,
                 ground_op_costs=ground_op_costs)
-            import ipdb
-            ipdb.set_trace()
+            plan_cost = 0.0
+            for ground_nsrt in plan:
+                ground_op = ground_nsrt.op
+                plan_cost += ground_op_costs.get(ground_op, -np.log(0.5))
+            plan_costs.append(plan_cost)        
+        return -sum(plan_costs)  # lower is better
 
     def _predict_competence(self, ground_op: _GroundSTRIPSOperator,
                             num_attempts: int) -> float:
-        import ipdb
-        ipdb.set_trace()
+        # TODO
+        if num_attempts <= 1:
+          return 0.5
+        outcomes = [o for o, _ in self._ground_op_hist[ground_op]]
+        num_tries = len(outcomes)
+        success_prob = float(np.mean(outcomes))
+        return min(1.0, success_prob + 1e-1)
