@@ -1033,7 +1033,7 @@ def _update_sas_file_with_costs(
                 cost = remaining_sas_ground_op_costs.pop(sas_op_name)
             else:
                 cost = default_ground_op_cost
-                
+
             int_cost = int((10**cost_precision) * cost)
             sas_lines[cost_idx] = str(int_cost)
     if remaining_sas_ground_op_costs:

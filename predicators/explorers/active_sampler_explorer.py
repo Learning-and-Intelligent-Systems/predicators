@@ -247,19 +247,10 @@ class ActiveSamplerExplorer(BaseExplorer):
 
     def _get_ground_op_planning_costs(
             self) -> Dict[_GroundSTRIPSOperator, float]:
-        costs: Dict[_GroundSTRIPSOperator, float] = {}
-        for op, hist in self._ground_op_hist.items():
-            # TODO: do this in a proper Bayesian way...
-            # TODO: refactor code (approach)
-            outcomes = [o for o, _ in hist]
-            num_tries = len(outcomes)
-            success_prob = float(np.mean(outcomes))
-            total_trials = sum(len(h) for h in self._ground_op_hist.values())
-            success_prob += 1e-3 * np.sqrt(np.log(total_trials) / num_tries)
-            success_prob = np.clip(success_prob, 1e-6, 1)
-            cost = -np.log(success_prob)
-            costs[op] = 1e-3 + cost  # TODO think about this 1 + ...
-        return costs
+        return {
+            op: utils.success_history_to_planning_cost([o for o, _ in hist])
+            for op, hist in self._ground_op_hist.items()
+        }
 
     def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
         # Score NSRTs according to their success rate and a bonus for ones
@@ -292,11 +283,11 @@ class ActiveSamplerExplorer(BaseExplorer):
             self, ground_op: _GroundSTRIPSOperator) -> float:
         # Predict the competence if we had one more data point.
         num_attempts = len(self._ground_op_hist[ground_op])
-        c_hat = self._predict_competence(ground_op, num_attempts + 1)
-        assert 0 <= c_hat <= 1
+        c_hat = self._extrapolate_competence_cost(ground_op, num_attempts + 1)
+        assert c_hat >= 0
         # Update the ground op costs hypothetically.
         ground_op_costs = self._get_ground_op_planning_costs()
-        ground_op_costs[ground_op] = -np.log(max(c_hat, 1e-6))  # override
+        ground_op_costs[ground_op] = c_hat  # override
         # Make plans on all of the training tasks we've seen so far and record
         # the total plan costs.
         plan_costs: List[float] = []
@@ -316,16 +307,15 @@ class ActiveSamplerExplorer(BaseExplorer):
             plan_cost = 0.0
             for ground_nsrt in plan:
                 ground_op = ground_nsrt.op
-                plan_cost += ground_op_costs.get(ground_op, -np.log(0.5))
-            plan_costs.append(plan_cost)        
+                # TODO remove magic number here and elsewhere
+                ground_op_cost = ground_op_costs.get(ground_op, -np.log(0.5))
+                plan_cost += ground_op_cost
+            plan_costs.append(plan_cost)
         return -sum(plan_costs)  # lower is better
 
-    def _predict_competence(self, ground_op: _GroundSTRIPSOperator,
+    def _extrapolate_competence_cost(self, ground_op: _GroundSTRIPSOperator,
                             num_attempts: int) -> float:
         # TODO
-        if num_attempts <= 1:
-          return 0.5
         outcomes = [o for o, _ in self._ground_op_hist[ground_op]]
-        num_tries = len(outcomes)
-        success_prob = float(np.mean(outcomes))
-        return min(1.0, success_prob + 1e-1)
+        cost = utils.success_history_to_planning_cost(outcomes)
+        return cost / 2

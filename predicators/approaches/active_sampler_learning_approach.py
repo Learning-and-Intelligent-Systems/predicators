@@ -79,7 +79,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
         # Add ground operator competence for competence-aware planning.
         ground_op_costs = {
-            op: -np.log(max(float(np.mean([o for o, _ in hist])), 1e-6))
+            op: utils.success_history_to_planning_cost([o for o, _ in hist])
             for op, hist in self._ground_op_hist.items()
         }
         return super()._run_task_plan(task,

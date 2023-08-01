@@ -3384,3 +3384,22 @@ def get_task_seed(train_or_test: str, task_idx: int) -> int:
     # Need to cast to int because generate_state() returns a numpy int.
     task_seed = int(seed_sequence.generate_state(task_idx + 1)[-1])
     return task_seed
+
+
+def success_history_to_planning_cost(success_history: List[bool],
+                                     alpha: float = 2,
+                                     beta: float = 1) -> float:
+    """Helper to convert a sequence of outcomes for an operator into a
+    nonnegative cost that can be used in planning.
+
+    This is a Bayesian implementation. Reference:
+
+    https://gregorygundersen.com/blog/2020/08/19/bernoulli-beta/
+    """
+    n = len(success_history)
+    s = sum(success_history)
+    alpha_n = alpha + s
+    beta_n = n - s + beta
+    expectation = alpha_n / (alpha_n + beta_n)
+    assert 0 < expectation < 1
+    return -np.log(expectation)
