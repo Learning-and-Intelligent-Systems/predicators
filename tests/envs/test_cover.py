@@ -759,6 +759,8 @@ def test_regional_bumpy_cover_env():
                               train_tasks=[])
     for task in test_tasks:
         policy = approach.solve(task, 500)
-        with pytest.raises(ApproachFailure) as e:
-            policy(task.init)
-        assert "Policy impossible" in str(e)
+        # Expected no-op.
+        state = task.init.copy()
+        act = policy(state)
+        next_state = env.simulate(state, act)
+        assert state.allclose(next_state)

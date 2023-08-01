@@ -155,7 +155,8 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                 for x in np.linspace(0, 1, 100):
                     if not any(lb <= x <= ub for lb, ub in obj_regions):
                         return Action(np.array([x], dtype=np.float32))
-                raise utils.OptionExecutionFailure("No noop possible.")
+                raise utils.OptionExecutionFailure(
+                    "No noop possible.")  # pragma: no cover
 
             ImpossiblePickPlace = utils.SingletonParameterizedOption(
                 "ImpossiblePickPlace",
