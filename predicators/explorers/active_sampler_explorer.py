@@ -5,7 +5,6 @@ from typing import Callable, Dict, Iterator, List, Optional, Set
 
 import numpy as np
 from gym.spaces import Box
-from sklearn import linear_model
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
@@ -48,6 +47,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
+        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
 
     @classmethod
     def get_name(cls) -> str:
@@ -241,7 +241,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             timeout,
             self._seed,
             task_planning_heuristic=task_planning_heuristic,
-            ground_op_costs=ground_op_costs)
+            ground_op_costs=ground_op_costs,
+            default_cost=self._default_cost)
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
@@ -299,12 +300,13 @@ class ActiveSamplerExplorer(BaseExplorer):
                 timeout,
                 self._seed,
                 task_planning_heuristic=task_planning_heuristic,
-                ground_op_costs=ground_op_costs)
+                ground_op_costs=ground_op_costs,
+                default_cost=self._default_cost)
             task_plan_costs = []
             for ground_nsrt in plan:
                 ground_op = ground_nsrt.op
-                # TODO remove magic number here and elsewhere
-                ground_op_cost = ground_op_costs.get(ground_op, -np.log(0.5))
+                ground_op_cost = ground_op_costs.get(ground_op,
+                                                     self._default_cost)
                 task_plan_costs.append(ground_op_cost)
             plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # lower is better
@@ -314,6 +316,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # This is a placeholder for a more sophisticated thing coming soon!
         # For now, we make the highly simplified assumption that practicing
         # anything will improve the thing by a small constant amount.
+        del num_attempts  # not used yet
         outcomes = self._ground_op_hist[ground_op]
         competence = utils.beta_bernoulli_posterior(outcomes)
         extrap = min(1.0, competence + 1e-2)

@@ -1173,7 +1173,7 @@ def run_task_plan_once(
         seed: int,
         task_planning_heuristic: Optional[str] = None,
         ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
-        default_cost: float = -np.log(0.5),
+        default_cost: float = 1.0,
         cost_precision: int = 3,
         **kwargs: Any
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:

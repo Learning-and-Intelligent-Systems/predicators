@@ -67,6 +67,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Record what train tasks have been seen during exploration so far.
         self._seen_train_task_idxs: Set[int] = set()
 
+        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
+
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler_learning"
@@ -84,6 +86,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                                       timeout,
                                       seed,
                                       ground_op_costs=ground_op_costs,
+                                      default_cost=self._default_cost,
                                       **kwargs)
 
     def _create_explorer(self) -> BaseExplorer:
