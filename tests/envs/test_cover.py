@@ -5,7 +5,6 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
