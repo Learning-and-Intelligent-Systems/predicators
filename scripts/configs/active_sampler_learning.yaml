@@ -34,10 +34,11 @@ ENVS:
       cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
   # kitchen:
   #   NAME: "kitchen"
-  #   num_train_tasks: 100
-  #   num_test_tasks: 10
-  #   max_num_steps_interaction_request: 500
-  #   max_num_steps_option_rollout: 250
+  #   FLAGS:
+  #     num_train_tasks: 100
+  #     num_test_tasks: 10
+  #     max_num_steps_interaction_request: 500
+  #     max_num_steps_option_rollout: 250
 ARGS:
   - "debug"
 FLAGS:
