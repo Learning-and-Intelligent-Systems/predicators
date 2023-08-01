@@ -28,7 +28,7 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
         return np.array([0.5, 0.0, 0.0])
     dyaw = 0.0
     # For MoveToObjOnFloor
-    if objs[1].name == "platform" or len(objs) == 3:
+    if objs[1].name == "platform" or (len(objs) == 3 and objs[-1].name != "platform"):
         if objs[1].name == "platform" or objs[2].name == "floor":
             # Sample dyaw so that there is some hope of seeing objects from
             # different angles.
@@ -62,6 +62,11 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
                                atol=0.1):
                 angle = -angle
             return np.array([new_xy[0], new_xy[1], angle + dyaw])
+    # Case for attempting to move to a surface that's high
+    # while also stepping on the platform.
+    elif objs[-1].name == "platform":
+        return np.array([0.65, 0.0, 0.0])
+    
     return np.array([-0.25, 0.0, dyaw])
 
 
