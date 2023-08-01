@@ -32,7 +32,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                  action_space: Box, train_tasks: List[Task],
                  max_steps_before_termination: int, nsrts: Set[NSRT],
                  ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
-                 nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler]) -> None:
+                 nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler],
+                 seen_train_task_idxs: Set[int]) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"
@@ -45,6 +46,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._ground_op_hist = ground_op_hist
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
+        self._seen_train_task_idxs = seen_train_task_idxs
 
     @classmethod
     def get_name(cls) -> str:
@@ -72,6 +74,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         assigned_task_goal_reached = False
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None
+        self._seen_train_task_idxs.add(train_task_idx)
 
         def _option_policy(state: State) -> _Option:
             logging.info("[Explorer] Option policy called.")
@@ -225,10 +228,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Run task planning and then greedily execute.
         timeout = CFG.timeout
         task_planning_heuristic = CFG.sesame_task_planning_heuristic
-        ground_op_costs = {
-            op: -np.log(max(float(np.mean(hist)), 1e-6))
-            for op, hist in self._ground_op_hist.items()
-        }
+        ground_op_costs = self._get_ground_op_planning_costs()
         plan, atoms_seq, _ = run_task_plan_once(
             task,
             self._nsrts,
@@ -241,6 +241,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
+    def _get_ground_op_planning_costs(
+            self) -> Dict[_GroundSTRIPSOperator, float]:
+        return {
+            op: -np.log(max(float(np.mean(hist)), 1e-6))
+            for op, hist in self._ground_op_hist.items()
+        }
+
     def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
         # Score NSRTs according to their success rate and a bonus for ones
         # that haven't been tried very much.
@@ -250,12 +257,14 @@ class ActiveSamplerExplorer(BaseExplorer):
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
         logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
-        # UCB-like bonus.
-        c = CFG.active_sampler_explore_bonus
-        bonus = c * np.sqrt(np.log(total_trials) / num_tries)
         logging.info(f"[Explorer]   num attempts: {num_tries}")
-        if CFG.active_sampler_explore_scorer == "default":
+        if CFG.active_sampler_explore_scorer == "planning_progress":
+            score = self._score_ground_op_planning_progress(ground_op)
+        elif CFG.active_sampler_explore_scorer == "success_rate":
             # Try less successful operators more often.
+            # UCB-like bonus.
+            c = CFG.active_sampler_explore_bonus
+            bonus = c * np.sqrt(np.log(total_trials) / num_tries)
             score = (1.0 - success_rate) + bonus
         elif CFG.active_sampler_explore_scorer == "random":
             # Random scores baseline.
@@ -265,3 +274,36 @@ class ActiveSamplerExplorer(BaseExplorer):
                                       f"{CFG.active_sampler_explore_scorer}")
         logging.info(f"[Explorer]   total score: {score}")
         return score
+
+    def _score_ground_op_planning_progress(
+            self, ground_op: _GroundSTRIPSOperator) -> float:
+        # Predict the competence if we had one more data point.
+        num_attempts = len(self._ground_op_hist[ground_op])
+        c_hat = self._predict_competence(ground_op, num_attempts + 1)
+        assert 0 <= c_hat <= 1
+        # Update the ground op costs hypothetically.
+        ground_op_costs = self._get_ground_op_planning_costs()
+        ground_op_costs[ground_op] = -np.log(max(c_hat, 1e-6))  # override
+        # Make plans on all of the training tasks we've seen so far and record
+        # the total plan costs.
+        plan_costs: List[float] = []
+        timeout = CFG.timeout
+        task_planning_heuristic = CFG.sesame_task_planning_heuristic
+        for train_task_idx in sorted(self._seen_train_task_idxs):
+            task = self._train_tasks[train_task_idx]
+            plan, atoms_seq, metrics = run_task_plan_once(
+                task,
+                self._nsrts,
+                self._predicates,
+                self._types,
+                timeout,
+                self._seed,
+                task_planning_heuristic=task_planning_heuristic,
+                ground_op_costs=ground_op_costs)
+            import ipdb
+            ipdb.set_trace()
+
+    def _predict_competence(self, ground_op: _GroundSTRIPSOperator,
+                            num_attempts: int) -> float:
+        import ipdb
+        ipdb.set_trace()
