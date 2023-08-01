@@ -52,9 +52,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._sampler_data: _SamplerDataset = {}
         # Maps used ground operators to all historical outcomes (whether they
         # successfully reached their effects or not). Updated in-place by the
-        # explorer when CFG.explorer is active_sampler_explorer. The int after
-        # the bool records the number of data that the sampler was trained on
-        # at the time when the bool occurred.
+        # explorer when CFG.explorer is active_sampler_explorer.
         self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
         self._last_seen_segment_traj_idx = -1
 

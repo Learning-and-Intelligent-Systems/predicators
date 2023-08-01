@@ -3387,8 +3387,8 @@ def get_task_seed(train_or_test: str, task_idx: int) -> int:
 
 
 def beta_bernoulli_posterior(success_history: List[bool],
-                             alpha: float = 3,
-                             beta: float = 1) -> float:
+                             alpha: float = 0.5,
+                             beta: float = 0.5) -> float:
     """See https://gregorygundersen.com/blog/2020/08/19/bernoulli-beta/"""
     n = len(success_history)
     s = sum(success_history)
@@ -3401,8 +3401,8 @@ def beta_bernoulli_posterior(success_history: List[bool],
 
 def ground_op_history_to_planning_costs(
         ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
-        alpha: float = 3,
-        beta: float = 1) -> Dict[_GroundSTRIPSOperator, float]:
+        alpha: float = 0.5,
+        beta: float = 0.5) -> Dict[_GroundSTRIPSOperator, float]:
     """Helper for active sampler learning approach and explorer."""
     costs: Dict[_GroundSTRIPSOperator, float] = {}
     for op, hist in ground_op_hist.items():

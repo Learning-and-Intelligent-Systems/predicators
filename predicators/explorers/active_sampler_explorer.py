@@ -309,7 +309,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                                                      self._default_cost)
                 task_plan_costs.append(ground_op_cost)
             plan_costs.append(sum(task_plan_costs))
-        return -sum(plan_costs)  # lower is better
+        return -sum(plan_costs)  # higher scores are better
 
     def _extrapolate_competence_cost(self, ground_op: _GroundSTRIPSOperator,
                                      num_attempts: int) -> float:
