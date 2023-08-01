@@ -548,7 +548,7 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 LiftedAtom(InBumpyRegion, [block])
             }
             option = ImpossiblePickPlace
-            option_vars = []
+            option_vars = parameters
 
             impossible_pick_place_nsrt = NSRT("ImpossiblePickPlace",
                                               parameters, preconditions,

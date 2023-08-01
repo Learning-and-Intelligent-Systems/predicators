@@ -147,7 +147,9 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
                 raise utils.OptionExecutionFailure("Policy impossible.")
 
             ImpossiblePickPlace = utils.SingletonParameterizedOption(
-                "ImpossiblePickPlace", _impossible_policy)
+                "ImpossiblePickPlace",
+                _impossible_policy,
+                types=[block_type, target_type])
             options.add(ImpossiblePickPlace)
 
         return options
