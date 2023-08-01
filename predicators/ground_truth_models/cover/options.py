@@ -101,40 +101,58 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         block_type = types["block"]
         target_type = types["target"]
 
+        options: Set[ParameterizedOption] = set()
+
         PickFromSmooth = utils.SingletonParameterizedOption("PickFromSmooth",
                                                             _policy,
                                                             types=[block_type],
                                                             params_space=Box(
                                                                 0, 1, (1, )))
+        options.add(PickFromSmooth)
 
         PickFromBumpy = utils.SingletonParameterizedOption("PickFromBumpy",
                                                            _policy,
                                                            types=[block_type],
                                                            params_space=Box(
                                                                0, 1, (1, )))
+        options.add(PickFromBumpy)
 
         PickFromTarget = utils.SingletonParameterizedOption(
             "PickFromTarget",
             _policy,
             types=[block_type, target_type],
             params_space=Box(0, 1, (1, )))
+        options.add(PickFromTarget)
 
         PlaceOnTarget = utils.SingletonParameterizedOption(
             "PlaceOnTarget",
             _policy,
             types=[block_type, target_type],
             params_space=Box(0, 1, (1, )))
+        options.add(PlaceOnTarget)
 
         PlaceOnBumpy = utils.SingletonParameterizedOption("PlaceOnBumpy",
                                                           _policy,
                                                           types=[block_type],
                                                           params_space=Box(
                                                               0, 1, (1, )))
+        options.add(PlaceOnBumpy)
 
-        return {
-            PickFromSmooth, PickFromBumpy, PickFromTarget, PlaceOnTarget,
-            PlaceOnBumpy
-        }
+        if CFG.regional_bumpy_cover_include_impossible_nsrt:
+
+            def _impossible_policy(state: State, memory: Dict,
+                                   objects: Sequence[Object],
+                                   params: Array) -> Action:
+                del state, memory, objects, params  # unused
+                raise utils.OptionExecutionFailure("Policy impossible.")
+
+            ImpossiblePickPlace = utils.SingletonParameterizedOption(
+                "ImpossiblePickPlace",
+                _impossible_policy,
+                types=[block_type, target_type])
+            options.add(ImpossiblePickPlace)
+
+        return options
 
 
 class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):

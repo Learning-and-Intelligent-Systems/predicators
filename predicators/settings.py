@@ -63,6 +63,9 @@ class GlobalSettings:
     bumpy_cover_bumpy_region_start = 0.8
     bumpy_cover_init_bumpy_prob = 0.25
 
+    # regional bumpy cover env parameters
+    regional_bumpy_cover_include_impossible_nsrt = False
+
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
