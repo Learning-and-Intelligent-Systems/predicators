@@ -63,6 +63,9 @@ class GlobalSettings:
     bumpy_cover_bumpy_region_start = 0.8
     bumpy_cover_init_bumpy_prob = 0.25
 
+    # regional bumpy cover env parameters
+    regional_bumpy_cover_include_impossible_nsrt = False
+
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
@@ -560,6 +563,7 @@ class GlobalSettings:
 
     # active sampler explorer parameters
     active_sampler_explore_bonus = 1e-1
+    active_sampler_explore_scorer = "default"
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

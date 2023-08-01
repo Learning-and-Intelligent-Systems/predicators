@@ -249,7 +249,14 @@ class ActiveSamplerExplorer(BaseExplorer):
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
         logging.info(f"[Explorer]   num attempts: {num_tries}")
-        # Try less successful operators more often.
-        score = (1.0 - success_rate) + bonus
+        if CFG.active_sampler_explore_scorer == "default":
+            # Try less successful operators more often.
+            score = (1.0 - success_rate) + bonus
+        elif CFG.active_sampler_explore_scorer == "random":
+            # Random scores baseline.
+            score = self._rng.uniform()
+        else:
+            raise NotImplementedError("Unrecognized explore scorer: "
+                                      f"{CFG.active_sampler_explore_scorer}")
         logging.info(f"[Explorer]   total score: {score}")
         return score

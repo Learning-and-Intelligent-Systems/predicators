@@ -1,96 +1,17 @@
-# Active sampler learning experiments.
-
-# Experiment with random explorer, myopic classifier in bumpy_cover.
+# Final active sampler learning experiments.
 ---
 APPROACHES:
-  random-explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "random_nsrts"
-ENVS:
-  bumpy_cover:
-    NAME: "bumpy_cover"
-ARGS:
-  - "debug"
-FLAGS:
-  strips_learner: "oracle"
-  sampler_learner: "oracle"
-  bilevel_plan_without_sim: "True"
-  max_initial_demos: 0
-  num_train_tasks: 1000
-  num_test_tasks: 100
-  max_num_steps_interaction_request: 50
-  sampler_mlp_classifier_max_itr: 100000
-  mlp_classifier_balance_data: False
-  pytorch_train_print_every: 10000
-  active_sampler_learning_use_teacher: False  # NOTE
-  online_nsrt_learning_requests_per_cycle: 10  # NOTE
-  num_online_learning_cycles: 25
-START_SEED: 123
-NUM_SEEDS: 10
-
-# Experiment comparing myopic classifier, fitted Q iteration, and classifier
-# with teacher.
----
-APPROACHES:
-  myopic_classifier_mlp:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      active_sampler_learning_model: "myopic_classifier_mlp"
-      active_sampler_learning_use_teacher: False
-  teacher_classifier:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      active_sampler_learning_model: "myopic_classifier_mlp"
-      active_sampler_learning_use_teacher: True
-  fitted_q:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      active_sampler_learning_model: "fitted_q"
-      active_sampler_learning_use_teacher: False
-ENVS:
-  bumpy_cover:
-    NAME: "bumpy_cover"
-    FLAGS:
-      bumpy_cover_right_targets: True
-ARGS:
-  - "debug"
-FLAGS:
-  strips_learner: "oracle"
-  sampler_learner: "oracle"
-  bilevel_plan_without_sim: "True"
-  max_initial_demos: 0
-  num_train_tasks: 1000
-  num_test_tasks: 100
-  max_num_steps_interaction_request: 50
-  sampler_mlp_classifier_max_itr: 100000
-  mlp_classifier_balance_data: False
-  pytorch_train_print_every: 10000
-  explorer: "random_nsrts"  # NOTE
-  online_nsrt_learning_requests_per_cycle: 10  # NOTE
-  num_online_learning_cycles: 25
-START_SEED: 123
-NUM_SEEDS: 10
-
-# Experiment comparing random_nsrts exploration to active_sampler exploration
-# both with and without an ensemble in the regional bumpy cover environment.
-# Use fewer online learning requests per cycle because we're only learning
-# the pick bumpy classifier.
----
-APPROACHES:
-  # No ensemble approach
-  main:
+  main_explore:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
-  # Approach with ensemble
-  ensemble:
+      active_sampler_explore_scorer: "default"
+  random_score_explore:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
-      active_sampler_learning_model: "myopic_classifier_ensemble"
-  # Random explore baseline
-  random-explore:
+      active_sampler_explore_scorer: "random"
+  random_nsrts_explore:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "random_nsrts"
@@ -105,6 +26,12 @@ ENVS:
       cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
       cover_num_targets: 10
       cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
+  kitchen:
+    NAME: "kitchen"
+    num_train_tasks: 100
+    num_test_tasks: 10
+    max_num_steps_interaction_request: 500
+    max_num_steps_option_rollout: 250
 ARGS:
   - "debug"
 FLAGS:
@@ -112,60 +39,13 @@ FLAGS:
   sampler_learner: "oracle"
   bilevel_plan_without_sim: "True"
   max_initial_demos: 0
-  num_train_tasks: 1000
-  num_test_tasks: 100
-  max_num_steps_interaction_request: 50
   sampler_mlp_classifier_max_itr: 100000
   mlp_classifier_balance_data: False
   pytorch_train_print_every: 10000
-  active_sampler_learning_use_teacher: False  # NOTE
-  online_nsrt_learning_requests_per_cycle: 1  # NOTE
-  num_online_learning_cycles: 25
-START_SEED: 123
-NUM_SEEDS: 10
-
-# Compare manual feature design to default feature design, with MLP vs KNN.
----
-APPROACHES:
-  mlp_manual_features:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      active_sampler_learning_model: "myopic_classifier_mlp"
-      active_sampler_learning_feature_selection: "oracle"
-  mlp_all_features:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      active_sampler_learning_model: "myopic_classifier_mlp"
-      active_sampler_learning_feature_selection: "all"
-  knn_manual_features:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      active_sampler_learning_model: "myopic_classifier_knn"
-      active_sampler_learning_feature_selection: "oracle"
-  knn_all_features:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      active_sampler_learning_model: "myopic_classifier_knn"
-      active_sampler_learning_feature_selection: "all"
-ENVS:
-  bumpy_cover:
-    NAME: "bumpy_cover"
-ARGS:
-  - "debug"
-FLAGS:
+  active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
-  strips_learner: "oracle"
-  sampler_learner: "oracle"
-  bilevel_plan_without_sim: "True"
-  max_initial_demos: 0
-  num_train_tasks: 1000
-  num_test_tasks: 100
-  max_num_steps_interaction_request: 50
-  sampler_mlp_classifier_max_itr: 100000
-  mlp_classifier_balance_data: False
-  pytorch_train_print_every: 10000
-  explorer: "random_nsrts"  # NOTE
-  online_nsrt_learning_requests_per_cycle: 1
-  num_online_learning_cycles: 50
-START_SEED: 123
+  online_nsrt_learning_requests_per_cycle: 5
+  num_online_learning_cycles: 10
+  active_sampler_learning_explore_length_base: 10000  # effectively disable
+START_SEED: 456
 NUM_SEEDS: 10

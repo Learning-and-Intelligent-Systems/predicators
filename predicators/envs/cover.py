@@ -173,7 +173,7 @@ class CoverEnv(BaseEnv):
         targ_alpha = 0.25
         # Draw blocks
         for i, block in enumerate(state.get_objects(self._block_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             if state.get(block, "grasp") != -1:
                 lcolor = "red"
                 pose = state.get(self._robot, "hand") - state.get(
@@ -195,7 +195,7 @@ class CoverEnv(BaseEnv):
             ax.add_patch(rect)
         # Draw targets
         for i, targ in enumerate(state.get_objects(self._target_type)):
-            c = cs[i]
+            c = cs[i % len(cs)]
             lcolor = "gray"
             rect = plt.Rectangle(
                 (state.get(targ, "pose") - state.get(targ, "width") / 2.,
@@ -1079,7 +1079,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
         want_block_in_bumpy = rng.uniform() < CFG.bumpy_cover_init_bumpy_prob
         for i, (block, width) in enumerate(zip(blocks,
                                                CFG.cover_block_widths)):
-            if i % 2 == 0:
+            if i == 0:
                 bumpy = 1.0
             else:
                 bumpy = 0.0
