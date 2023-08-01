@@ -697,9 +697,9 @@ class SpotBikeEnv(SpotEnv):
             self._ReachablePlatform, self._InViewTool, self._InViewPlatform
         }
         self._MoveToSurfaceNotHighOp = STRIPSOperator("MoveToSurfaceNotHigh",
-                                                      [spot, surface], preconditions,
-                                                      add_effs, set(),
-                                                      ignore_effs)
+                                                      [spot, surface],
+                                                      preconditions, add_effs,
+                                                      set(), ignore_effs)
         # MoveToSurfaceTooHigh
         spot = Variable("?robot", self._robot_type)
         surface = Variable("?surface", self._surface_type)
@@ -717,8 +717,8 @@ class SpotBikeEnv(SpotEnv):
             self._ReachablePlatform, self._InViewTool, self._InViewPlatform
         }
         self._MoveToSurfaceTooHighOp = STRIPSOperator(
-            "MoveToSurfaceTooHigh", [spot, surface, platform], preconditions, add_effs,
-            set(), ignore_effs)
+            "MoveToSurfaceTooHigh", [spot, surface, platform], preconditions,
+            add_effs, set(), ignore_effs)
         # MoveToPlatform
         spot = Variable("?robot", self._robot_type)
         platform = Variable("?platform", self._platform_type)
@@ -1158,7 +1158,8 @@ class SpotBikeEnv(SpotEnv):
         bag = Object("toolbag", self._bag_type)
         floor = Object("floor", self._floor_type)
         objects.extend([
-            spot, tool_room_table, low_wall_rack, high_wall_rack, bag, extra_room_table, floor
+            spot, tool_room_table, low_wall_rack, high_wall_rack, bag,
+            extra_room_table, floor
         ])
         return {o.name: o for o in objects}
 

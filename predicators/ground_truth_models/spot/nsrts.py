@@ -28,7 +28,8 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
         return np.array([0.5, 0.0, 0.0])
     dyaw = 0.0
     # For MoveToObjOnFloor
-    if objs[1].name == "platform" or (len(objs) == 3 and objs[-1].name != "platform"):
+    if objs[1].name == "platform" or (len(objs) == 3
+                                      and objs[-1].name != "platform"):
         if objs[1].name == "platform" or objs[2].name == "floor":
             # Sample dyaw so that there is some hope of seeing objects from
             # different angles.
@@ -66,7 +67,7 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
     # while also stepping on the platform.
     elif objs[-1].name == "platform":
         return np.array([0.65, 0.0, 0.0])
-    
+
     return np.array([-0.25, 0.0, dyaw])
 
 
@@ -130,7 +131,7 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
     del goal, rng
     # Parameters are absolute postion x and y you are moving
     # the object to (in the body frame)
-    robot, _, surface = objs
+    _, _, surface = objs
 
     assert surface.name != "floor"
 
@@ -138,7 +139,7 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
         state.get(surface, "x"),
         state.get(surface, "y"),
     )
-    dx, dy = -0.65, -0.15
+    dx, dy = -0.65, -0.30
 
     return np.array([world_fiducial[0] + dx, world_fiducial[1] + dy])
 

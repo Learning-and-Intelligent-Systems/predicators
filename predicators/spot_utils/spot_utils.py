@@ -96,7 +96,7 @@ obj_name_to_vision_prompt = {
     "brush": "brush",
     "measuring_tape": "measuring tape",
     "toolbag": "bag for tools",
-    "platform": "red dolly handle"
+    "platform": "red t-shaped dolly handle"
 }
 vision_prompt_to_obj_name = {
     value: key
@@ -396,7 +396,7 @@ class _SpotInterface():
                 (10.049931203338616, -6.9443170697742, 1.257881268568327966),
                 "toolbag":
                 (7.043112552148553, -8.198686802340527, -0.18750694527153725),
-                # "platform": (8.81416, -7.60572, -0.0106692)
+                "platform": (8.79312, -7.8821, -0.100635)
             }
         waypoints = ["tool_room_table", "low_wall_rack"]
         objects_to_find = object_names - set(object_views.keys())
@@ -1320,7 +1320,10 @@ class _SpotInterface():
         except Exception as e:
             logging.info(e)
 
-    def get_arm_proprioception(self, robot_state=None):
+    def get_arm_proprioception(
+        self,
+        robot_state: Optional[bosdyn.api.robot_state_pb2.RobotState] = None
+    ) -> Dict[str, bosdyn.api.robot_state_pb2.JointState]:
         """Return state of each of the 6 joints of the arm."""
         if robot_state is None:
             robot_state = self.robot_state_client.get_robot_state()

@@ -558,7 +558,7 @@ def _save_spot_perception_output(img: Image,
         plt.show()
     # Save image for debugging.
     time_str = time.strftime("%Y%m%d-%H%M%S")
-    filename = f"{prefix}_{time_str}.png"
+    filename = f"{time_str}_{prefix}.png"
     outfile = Path(CFG.spot_perception_outdir) / filename
     os.makedirs(CFG.spot_perception_outdir, exist_ok=True)
     iio.imsave(outfile, img)
