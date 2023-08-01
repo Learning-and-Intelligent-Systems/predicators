@@ -1171,9 +1171,8 @@ def run_task_plan_once(
         timeout: float,
         seed: int,
         task_planning_heuristic: Optional[str] = None,
-        ground_op_competence: Optional[Dict[_GroundSTRIPSOperator,
-                                            float]] = None,
-        default_competence: float = 0.5,
+        ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
+        default_cost: float = -np.log(0.5),
         cost_precision: int = 3,
         **kwargs: Any
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
@@ -1216,11 +1215,11 @@ def run_task_plan_once(
             "_sesame_plan_with_fast_downward method in planning.py"
 
         sesame_task_planner = CFG.sesame_task_planner
-        if sesame_task_planner.endswith("-competence"):
-            use_competence_costs = True
-            sesame_task_planner = sesame_task_planner[:-len("-competence")]
+        if sesame_task_planner.endswith("-costs"):
+            use_costs = True
+            sesame_task_planner = sesame_task_planner[:-len("-costs")]
         else:
-            use_competence_costs = False
+            use_costs = False
 
         if sesame_task_planner == "fdopt":
             alias_flag = "--alias seq-opt-lmcut"
@@ -1234,15 +1233,9 @@ def run_task_plan_once(
                                             timeout_cmd, alias_flag, exec_str,
                                             list(objects), init_atoms)
 
-        if use_competence_costs:
-            assert ground_op_competence is not None
-            assert all(0 <= p <= 1 for p in ground_op_competence.values())
-            # Avoid divide by zero issues.
-            ground_op_costs = {
-                op: -np.log(max(1e-6, c))
-                for op, c in ground_op_competence.items()
-            }
-            default_cost = -np.log(default_competence)
+        if use_costs:
+            assert ground_op_costs is not None
+            assert all(c >= 0 for c in ground_op_costs.values())
             _update_sas_file_with_costs(sas_file,
                                         ground_op_costs,
                                         default_ground_op_cost=default_cost,

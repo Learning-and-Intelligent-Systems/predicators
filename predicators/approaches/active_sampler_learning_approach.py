@@ -71,18 +71,17 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         timeout: float, seed: int, **kwargs: Any
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
         # Add ground operator competence for competence-aware planning.
-        ground_op_competence = {
-            op: np.mean(hist)
+        ground_op_costs = {
+            op: -np.log(max(float(np.mean(hist)), 1e-6))
             for op, hist in self._ground_op_hist.items()
         }
-        return super()._run_task_plan(
-            task,
-            nsrts,
-            preds,
-            timeout,
-            seed,
-            ground_op_competence=ground_op_competence,
-            **kwargs)
+        return super()._run_task_plan(task,
+                                      nsrts,
+                                      preds,
+                                      timeout,
+                                      seed,
+                                      ground_op_costs=ground_op_costs,
+                                      **kwargs)
 
     def _create_explorer(self) -> BaseExplorer:
         # Geometrically increase the length of exploration.

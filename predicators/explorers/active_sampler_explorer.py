@@ -225,8 +225,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Run task planning and then greedily execute.
         timeout = CFG.timeout
         task_planning_heuristic = CFG.sesame_task_planning_heuristic
-        ground_op_competence = {
-            op: float(np.mean(hist))
+        ground_op_costs = {
+            op: -np.log(max(float(np.mean(hist)), 1e-6))
             for op, hist in self._ground_op_hist.items()
         }
         plan, atoms_seq, _ = run_task_plan_once(
@@ -237,7 +237,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             timeout,
             self._seed,
             task_planning_heuristic=task_planning_heuristic,
-            ground_op_competence=ground_op_competence)
+            ground_op_costs=ground_op_costs)
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
