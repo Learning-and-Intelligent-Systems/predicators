@@ -74,12 +74,13 @@ class KitchenEnv(BaseEnv):
     ontop_atol = 0.15  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.39  # light is On if less than this threshold
-    at_pre_pushontop_yz_atol = 0.05  # tolerance for AtPrePushOnTop
+    at_pre_pushontop_yz_atol = 0.1  # tolerance for AtPrePushOnTop
+    at_pre_pullontop_yz_atol = 0.04  # tolerance for AtPrePullOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
     obj_name_to_pre_push_dpos = {
-        ("kettle", "on"): (0.0, -0.3, -0.12),
-        ("kettle", "off"): (0.1, -0.05, 0.1),
+        ("kettle", "on"): (-0.05, -0.3, -0.12),
+        ("kettle", "off"): (0.0, -0.05, 0.06),
         ("knob4", "on"): (-0.1, -0.15, 0.05),
         ("knob4", "off"): (0.05, -0.12, -0.05),
         ("light", "on"): (0.1, -0.05, -0.05),
@@ -400,7 +401,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             state.get(gripper, "z")
         ]
         if not np.allclose([target_y, target_z], [gripper_y, gripper_z],
-                           atol=cls.at_pre_pushontop_yz_atol):
+                           atol=cls.at_pre_pullontop_yz_atol):
             return False
         return np.isclose(target_x,
                           gripper_x,
