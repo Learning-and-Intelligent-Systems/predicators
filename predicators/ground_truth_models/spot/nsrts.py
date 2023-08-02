@@ -125,9 +125,10 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
     return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
 
-def _drag_sampler(_: _SpotInterface, state: State, goal: Set[GroundAtom],
-                  rng: np.random.Generator, objs: Sequence[Object]) -> Array:
-    del goal, rng
+def _drag_sampler(spot_interface: _SpotInterface, state: State,
+                  goal: Set[GroundAtom], rng: np.random.Generator,
+                  objs: Sequence[Object]) -> Array:
+    del spot_interface, goal, rng
     # Parameters are absolute postion x and y you are moving
     # the object to (in the body frame)
     _, _, surface = objs
