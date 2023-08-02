@@ -173,7 +173,7 @@ class GlobalSettings:
     spot_initialize_surfaces_to_default = True
     spot_fiducial_size = 44.45
     spot_visualize_vision_model_outputs = False
-    spot_vision_detection_threshold = 0.30
+    spot_vision_detection_threshold = 0.4
     spot_perception_outdir = "spot_perception_outputs"
 
     # pddl blocks env parameters
