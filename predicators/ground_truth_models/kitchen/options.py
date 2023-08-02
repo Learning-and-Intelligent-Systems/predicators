@@ -265,9 +265,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                  params: Array) -> bool:
             del memory, params  # unused
             _, obj, obj2 = objects
-            if not GroundAtom(OnTop, [obj, obj2]).holds(state):
-                return False
-            return True
+            return GroundAtom(OnTop, [obj, obj2]).holds(state)
 
         PullKettle = ParameterizedOption(
             "PullKettle",
