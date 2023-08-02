@@ -48,7 +48,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
         self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
-        self._task_plan_steps_since_replan: Dict[int, int] = {}
+        self._task_plan_calls_since_replan: Dict[int, int] = {}
         self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
 
     @classmethod
@@ -287,17 +287,22 @@ class ActiveSamplerExplorer(BaseExplorer):
         ground_op_costs = utils.ground_op_history_to_planning_costs(
             self._ground_op_hist)
         ground_op_costs[ground_op] = c_hat  # override
-        # Make plans on all of the training tasks we've seen so far and record
+        # Make plans on some of the training tasks we've seen so far and record
         # the total plan costs.
         plan_costs: List[float] = []
-        for train_task_idx in sorted(self._seen_train_task_idxs):
+        # Select a random subset for a cheap approximation.
+        train_task_idxs = sorted(self._seen_train_task_idxs)
+        max_num_tasks = CFG.active_sampler_explorer_planning_progress_max_tasks
+        num_tasks = min(max_num_tasks, len(train_task_idxs))
+        self._rng.shuffle(train_task_idxs)
+        train_task_idxs = train_task_idxs[:num_tasks]
+        for train_task_idx in train_task_idxs:
             plan = self._get_task_plan_for_training_task(
                 train_task_idx, ground_op_costs)
             task_plan_costs = []
-            for ground_op in plan:
-                ground_op_cost = ground_op_costs.get(ground_op,
-                                                     self._default_cost)
-                task_plan_costs.append(ground_op_cost)
+            for op in plan:
+                op_cost = ground_op_costs.get(op, self._default_cost)
+                task_plan_costs.append(op_cost)
             plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # higher scores are better
 
@@ -319,10 +324,9 @@ class ActiveSamplerExplorer(BaseExplorer):
     ) -> List[_GroundSTRIPSOperator]:
         # Optimization: only re-plan at a certain frequency.
         replan_freq = CFG.active_sampler_explorer_replan_frequency
-        if train_task_idx not in self._task_plan_steps_since_replan or \
-            self._task_plan_steps_since_replan[train_task_idx] >= replan_freq:
-
-            self._task_plan_steps_since_replan[train_task_idx] = 0
+        if train_task_idx not in self._task_plan_calls_since_replan or \
+            self._task_plan_calls_since_replan[train_task_idx] >= replan_freq:
+            self._task_plan_calls_since_replan[train_task_idx] = 0
             timeout = CFG.timeout
             task_planning_heuristic = CFG.sesame_task_planning_heuristic
             task = self._train_tasks[train_task_idx]
@@ -338,5 +342,5 @@ class ActiveSamplerExplorer(BaseExplorer):
                 default_cost=self._default_cost)
             self._task_plan_cache[train_task_idx] = [n.op for n in plan]
 
-        self._task_plan_steps_since_replan[train_task_idx] += 1
+        self._task_plan_calls_since_replan[train_task_idx] += 1
         return self._task_plan_cache[train_task_idx]
