@@ -57,18 +57,18 @@ PLOT_GROUPS = {
             lambda v: "kitchen-planning_progress_explore" in v)),
         ("Fail Focus", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-success_rate_explore" in v)),
-        ("Random Score", "purple", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "kitchen-random_score_explore" in v)),
+        ("Random Score", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-random_score_explore" in v)),
         ("Random NSRTs", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-random_nsrts_explore" in v)),
     ],
     "Regional Bumpy Cover": [
-       ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
         ("Fail Focus", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-success_rate_explore" in v)),
-        ("Random Score", "purple", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "regional_bumpy_cover-random_score_explore" in v)),
+        ("Random Score", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-random_score_explore" in v)),
         ("Random NSRTs", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
     ],
