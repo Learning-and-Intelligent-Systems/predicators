@@ -32,7 +32,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                  action_space: Box, train_tasks: List[Task],
                  max_steps_before_termination: int, nsrts: Set[NSRT],
                  ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
-                 nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler]) -> None:
+                 nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler],
+                 seen_train_task_idxs: Set[int]) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"
@@ -45,6 +46,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._ground_op_hist = ground_op_hist
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
+        self._seen_train_task_idxs = seen_train_task_idxs
+        self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
+        self._task_plan_calls_since_replan: Dict[int, int] = {}
+        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
 
     @classmethod
     def get_name(cls) -> str:
@@ -77,6 +82,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task_goal_reached, current_policy, \
                 next_practice_nsrt
+
+            # Need to wait for policy to get called to "see" the train task.
+            self._seen_train_task_idxs.add(train_task_idx)
 
             atoms = utils.abstract(state, self._predicates)
 
@@ -225,6 +233,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Run task planning and then greedily execute.
         timeout = CFG.timeout
         task_planning_heuristic = CFG.sesame_task_planning_heuristic
+        ground_op_costs = utils.ground_op_history_to_planning_costs(
+            self._ground_op_hist)
         plan, atoms_seq, _ = run_task_plan_once(
             task,
             self._nsrts,
@@ -232,7 +242,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             self._types,
             timeout,
             self._seed,
-            task_planning_heuristic=task_planning_heuristic)
+            task_planning_heuristic=task_planning_heuristic,
+            ground_op_costs=ground_op_costs,
+            default_cost=self._default_cost)
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
@@ -242,15 +254,19 @@ class ActiveSamplerExplorer(BaseExplorer):
         history = self._ground_op_hist[ground_op]
         num_tries = len(history)
         success_rate = sum(history) / num_tries
+        competence = utils.beta_bernoulli_posterior(history)
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
         logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
-        # UCB-like bonus.
-        c = CFG.active_sampler_explore_bonus
-        bonus = c * np.sqrt(np.log(total_trials) / num_tries)
+        logging.info(f"[Explorer]   posterior competence: {competence}")
         logging.info(f"[Explorer]   num attempts: {num_tries}")
-        if CFG.active_sampler_explore_scorer == "default":
+        if CFG.active_sampler_explore_scorer == "planning_progress":
+            score = self._score_ground_op_planning_progress(ground_op)
+        elif CFG.active_sampler_explore_scorer == "success_rate":
             # Try less successful operators more often.
+            # UCB-like bonus.
+            c = CFG.active_sampler_explore_bonus
+            bonus = c * np.sqrt(np.log(total_trials) / num_tries)
             score = (1.0 - success_rate) + bonus
         elif CFG.active_sampler_explore_scorer == "random":
             # Random scores baseline.
@@ -260,3 +276,71 @@ class ActiveSamplerExplorer(BaseExplorer):
                                       f"{CFG.active_sampler_explore_scorer}")
         logging.info(f"[Explorer]   total score: {score}")
         return score
+
+    def _score_ground_op_planning_progress(
+            self, ground_op: _GroundSTRIPSOperator) -> float:
+        # Predict the competence if we had one more data point.
+        num_attempts = len(self._ground_op_hist[ground_op])
+        c_hat = self._extrapolate_competence_cost(ground_op, num_attempts + 1)
+        assert c_hat >= 0
+        # Update the ground op costs hypothetically.
+        ground_op_costs = utils.ground_op_history_to_planning_costs(
+            self._ground_op_hist)
+        ground_op_costs[ground_op] = c_hat  # override
+        # Make plans on some of the training tasks we've seen so far and record
+        # the total plan costs.
+        plan_costs: List[float] = []
+        # Select a random subset for a cheap approximation.
+        train_task_idxs = sorted(self._seen_train_task_idxs)
+        max_num_tasks = CFG.active_sampler_explorer_planning_progress_max_tasks
+        num_tasks = min(max_num_tasks, len(train_task_idxs))
+        self._rng.shuffle(train_task_idxs)
+        train_task_idxs = train_task_idxs[:num_tasks]
+        for train_task_idx in train_task_idxs:
+            plan = self._get_task_plan_for_training_task(
+                train_task_idx, ground_op_costs)
+            task_plan_costs = []
+            for op in plan:
+                op_cost = ground_op_costs.get(op, self._default_cost)
+                task_plan_costs.append(op_cost)
+            plan_costs.append(sum(task_plan_costs))
+        return -sum(plan_costs)  # higher scores are better
+
+    def _extrapolate_competence_cost(self, ground_op: _GroundSTRIPSOperator,
+                                     num_attempts: int) -> float:
+        # This is a placeholder for a more sophisticated thing coming soon!
+        # For now, we make the highly simplified assumption that practicing
+        # anything will improve the thing by a small constant amount.
+        del num_attempts  # not used yet
+        outcomes = self._ground_op_hist[ground_op]
+        competence = utils.beta_bernoulli_posterior(outcomes)
+        extrap = min(1.0, competence + 1e-2)
+        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
+        return -np.log(extrap)
+
+    def _get_task_plan_for_training_task(
+        self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
+                                                         float]
+    ) -> List[_GroundSTRIPSOperator]:
+        # Optimization: only re-plan at a certain frequency.
+        replan_freq = CFG.active_sampler_explorer_replan_frequency
+        if train_task_idx not in self._task_plan_calls_since_replan or \
+            self._task_plan_calls_since_replan[train_task_idx] >= replan_freq:
+            self._task_plan_calls_since_replan[train_task_idx] = 0
+            timeout = CFG.timeout
+            task_planning_heuristic = CFG.sesame_task_planning_heuristic
+            task = self._train_tasks[train_task_idx]
+            plan, _, _ = run_task_plan_once(
+                task,
+                self._nsrts,
+                self._predicates,
+                self._types,
+                timeout,
+                self._seed,
+                task_planning_heuristic=task_planning_heuristic,
+                ground_op_costs=ground_op_costs,
+                default_cost=self._default_cost)
+            self._task_plan_cache[train_task_idx] = [n.op for n in plan]
+
+        self._task_plan_calls_since_replan[train_task_idx] += 1
+        return self._task_plan_cache[train_task_idx]

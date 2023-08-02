@@ -31,6 +31,7 @@ def test_active_sampler_explorer():
     nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
     for nsrt in nsrts:
         nsrt_to_explorer_sampler[nsrt] = nsrt.sampler
+    seen_train_task_idxs = set(range(len(train_tasks)))
     explorer = create_explorer(
         "active_sampler",
         env.predicates,
@@ -42,7 +43,8 @@ def test_active_sampler_explorer():
         option_model,
         ground_op_hist=ground_op_hist,
         max_steps_before_termination=2,
-        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     task = train_tasks[0]
@@ -71,7 +73,8 @@ def test_active_sampler_explorer():
         option_model,
         ground_op_hist={},
         max_steps_before_termination=2,
-        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
     task_idx = 0
     policy, _ = explorer.get_exploration_strategy(task_idx, 500)
     with pytest.raises(utils.RequestActPolicyFailure):
@@ -98,7 +101,8 @@ def test_active_sampler_explorer():
         option_model,
         ground_op_hist=ground_op_hist,
         max_steps_before_termination=2,
-        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
@@ -117,6 +121,7 @@ def test_active_sampler_explorer():
         "active_sampler_explore_bonus": 0.0,  # disable explore bonus
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
+        "active_sampler_explore_scorer": "success_rate",
     })
     env = RegionalBumpyCoverEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
@@ -137,7 +142,8 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     task = train_tasks[0]
@@ -172,10 +178,41 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     for _ in range(25):
+        assert not term_fn(state)
+        state = env.simulate(state, policy(state))
+    assert len(ground_op_hist) > 0
+
+    # Test planning progrss scoring (but keep it short).
+    utils.reset_config({
+        "explorer": "active_sampler",
+        "env": "regional_bumpy_cover",
+        "bumpy_cover_num_bumps": 3,
+        "bumpy_cover_spaces_per_bump": 3,
+        "bumpy_cover_init_bumpy_prob": 1.0,
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+        "active_sampler_explore_scorer": "planning_progress",
+    })
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
+    for _ in range(5):
         assert not term_fn(state)
         state = env.simulate(state, policy(state))
     assert len(ground_op_hist) > 0
@@ -201,7 +238,8 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler)
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     with pytest.raises(NotImplementedError) as e:

@@ -34,6 +34,7 @@ def create_explorer(
     max_steps_before_termination: Optional[int] = None,
     ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
     nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
+    seen_train_task_idxs: Optional[Set[int]] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
     if max_steps_before_termination is None:
@@ -79,10 +80,12 @@ def create_explorer(
             elif name == "active_sampler":
                 assert ground_op_hist is not None
                 assert nsrt_to_explorer_sampler is not None
+                assert seen_train_task_idxs is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
                                max_steps_before_termination, nsrts,
-                               ground_op_hist, nsrt_to_explorer_sampler)
+                               ground_op_hist, nsrt_to_explorer_sampler,
+                               seen_train_task_idxs)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,

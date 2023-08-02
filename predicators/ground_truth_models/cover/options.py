@@ -1,6 +1,6 @@
 """Ground-truth options for the cover environment."""
 
-from typing import ClassVar, Dict, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -143,8 +143,20 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
             def _impossible_policy(state: State, memory: Dict,
                                    objects: Sequence[Object],
                                    params: Array) -> Action:
-                del state, memory, objects, params  # unused
-                raise utils.OptionExecutionFailure("Policy impossible.")
+                del memory, objects, params  # unused
+                # Find a place to click that is effectively a no-op.
+                obj_regions: List[Tuple[float, float]] = []
+                objs = state.get_objects(block_type) + \
+                    state.get_objects(target_type)
+                for obj in objs:
+                    pose = state.get(obj, "pose")
+                    width = state.get(obj, "width")
+                    obj_regions.append((pose - width, pose + width))
+                for x in np.linspace(0, 1, 100):
+                    if not any(lb <= x <= ub for lb, ub in obj_regions):
+                        return Action(np.array([x], dtype=np.float32))
+                raise utils.OptionExecutionFailure(
+                    "No noop possible.")  # pragma: no cover
 
             ImpossiblePickPlace = utils.SingletonParameterizedOption(
                 "ImpossiblePickPlace",

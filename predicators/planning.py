@@ -28,7 +28,7 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
     DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _Option
+    _GroundNSRT, _GroundSTRIPSOperator, _Option
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
@@ -989,6 +989,60 @@ def generate_sas_file_for_fd(
     return sas_file
 
 
+def _ground_op_to_sas_op(
+        ground_op: _GroundSTRIPSOperator) -> str:  # pragma: no cover
+    name = ground_op.parent.name.lower()
+    objs = [o.name.lower() for o in ground_op.objects]
+    objs_str = " ".join(objs)
+    return f"{name} {objs_str}".strip()
+
+
+def _update_sas_file_with_costs(
+        sas_file: str, ground_op_costs: Dict[_GroundSTRIPSOperator, float],
+        default_ground_op_cost: float,
+        cost_precision: int) -> None:  # pragma: no cover
+    """Modifies the SAS file in place.
+
+    See https://www.fast-downward.org/TranslatorOutputFormat for info on SAS.
+    """
+    with open(sas_file, "r", encoding="utf-8") as f:
+        sas_str = f.read()
+    # Make sure that 'metric' is turned on.
+    metric_off_str = "begin_metric\n0\nend_metric"
+    metric_on_str = "begin_metric\n1\nend_metric"
+    assert metric_off_str in sas_str
+    sas_str = sas_str.replace(metric_off_str, metric_on_str)
+    # Convert ground op names to SAS format.
+    remaining_sas_ground_op_costs = {
+        _ground_op_to_sas_op(op): c
+        for op, c in ground_op_costs.items()
+    }
+    # Replace costs for all operators.
+    sas_lines = sas_str.split("\n")
+    num_lines = len(sas_lines)
+    for idx in range(num_lines):
+        if sas_lines[idx] == "begin_operator":
+            name_idx = idx + 1
+            end_idx = next(i for i in range(idx + 1, num_lines)
+                           if sas_lines[i] == "end_operator")
+            cost_idx = end_idx - 1
+            assert sas_lines[end_idx] == "end_operator"
+            assert sas_lines[cost_idx] == "1"  # original cost
+            sas_op_name = sas_lines[name_idx]
+            if sas_op_name in remaining_sas_ground_op_costs:
+                cost = remaining_sas_ground_op_costs.pop(sas_op_name)
+            else:
+                cost = default_ground_op_cost
+            int_cost = int((10**cost_precision) * cost)
+            sas_lines[cost_idx] = str(int_cost)
+    if remaining_sas_ground_op_costs:
+        unmatched_ops = sorted(remaining_sas_ground_op_costs)
+        raise ValueError(f"No SAS file matches found for ops: {unmatched_ops}")
+    new_sas_str = "\n".join(sas_lines)
+    with open(sas_file, "w", encoding="utf-8") as f:
+        f.write(new_sas_str)
+
+
 def fd_plan_from_sas_file(
     sas_file: str, timeout_cmd: str, timeout: float, exec_str: str,
     alias_flag: str, start_time: float, objects: List[Object],
@@ -1117,6 +1171,9 @@ def run_task_plan_once(
         timeout: float,
         seed: int,
         task_planning_heuristic: Optional[str] = None,
+        ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
+        default_cost: float = 1.0,
+        cost_precision: int = 3,
         **kwargs: Any
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
     """Get a single abstract plan for a task."""
@@ -1156,9 +1213,17 @@ def run_task_plan_once(
         assert "FD_EXEC_PATH" in os.environ, \
             "Please follow instructions in the docstring of the" +\
             "_sesame_plan_with_fast_downward method in planning.py"
-        if CFG.sesame_task_planner == "fdopt":
+
+        sesame_task_planner = CFG.sesame_task_planner
+        if sesame_task_planner.endswith("-costs"):
+            use_costs = True
+            sesame_task_planner = sesame_task_planner[:-len("-costs")]
+        else:
+            use_costs = False
+
+        if sesame_task_planner == "fdopt":
             alias_flag = "--alias seq-opt-lmcut"
-        elif CFG.sesame_task_planner == "fdsat":
+        elif sesame_task_planner == "fdsat":
             alias_flag = "--alias lama-first"
         else:
             raise ValueError("Unrecognized sesame_task_planner: "
@@ -1167,6 +1232,15 @@ def run_task_plan_once(
         sas_file = generate_sas_file_for_fd(task, nsrts, preds, types, timeout,
                                             timeout_cmd, alias_flag, exec_str,
                                             list(objects), init_atoms)
+
+        if use_costs:
+            assert ground_op_costs is not None
+            assert all(c >= 0 for c in ground_op_costs.values())
+            _update_sas_file_with_costs(sas_file,
+                                        ground_op_costs,
+                                        default_ground_op_cost=default_cost,
+                                        cost_precision=cost_precision)
+
         plan, atoms_seq, metrics = fd_plan_from_sas_file(
             sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
             list(objects), init_atoms, nsrts, CFG.horizon)

@@ -5,7 +5,6 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.approaches import ApproachFailure
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
@@ -759,6 +758,8 @@ def test_regional_bumpy_cover_env():
                               train_tasks=[])
     for task in test_tasks:
         policy = approach.solve(task, 500)
-        with pytest.raises(ApproachFailure) as e:
-            policy(task.init)
-        assert "Policy impossible" in str(e)
+        # Expected no-op.
+        state = task.init.copy()
+        act = policy(state)
+        next_state = env.simulate(state, act)
+        assert state.allclose(next_state)
