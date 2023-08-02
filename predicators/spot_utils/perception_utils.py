@@ -169,6 +169,7 @@ def query_detic_sam(rgb_image_dict_in: Dict[str, Image], classes: List[str],
 
     # If the status code is not 200, then fail.
     if r.status_code != 200:
+        print(f"WARNING: DETIC-SAM FAILED! STATUS CODE: {r.status_code}")
         return detic_sam_results
 
     with io.BytesIO(r.content) as f:
