@@ -576,8 +576,7 @@ class _SpotInterface():
             "navigate": Box(-5.0, 5.0, (3, )),
             "grasp": Box(-1.0, 2.0, (4, )),
             "placeOnTop": Box(-5.0, 5.0, (3, )),
-            # TODO: make this reasonable later, and remember for now these are absolute coordinates!
-            "drag": Box(-45.0, 45.0, (2, )),
+            "drag": Box(-12.0, 12.0, (2, )),
             "noop": Box(0, 1, (0, ))
         }
 
@@ -1366,12 +1365,12 @@ class _SpotInterface():
 
         then moving to a location given by params.
         """
-        # NOTE: Core idea here is we firs move the arm to be centered with the
+        # NOTE: Core idea here is we first move the arm to be centered with the
         # robot, then lock the arm to the robot, then move in the y direction
         # in the world (which is horizontally in the room), then move
         # in the x direction in the world (which is forwards)
-        # This doesn't fully achieve the intended effects yet, but the core
-        # logic is getting there!
+        # This may require some modification as we start dragging to different
+        # locations.
 
         assert len(params) == 2
         x, y, _, yaw = self.get_robot_pose()
@@ -1402,11 +1401,13 @@ class _SpotInterface():
         gn_origin_T_robot = math_helpers.SE3Pose.from_obj(
             state.localization.seed_tform_body)
         gn_origin_T_hand = gn_origin_T_robot * robot_T_hand
-        # IMPORTANT: we want to keep the x pose of the fiducial the same, and we can get this by
-        # computing the location of the hand in the world frame.
+        # IMPORTANT: we want to keep the x pose of the platform the same,
+        # and we can get this by computing the location of the
+        # hand in the world frame.
         world_to_desiredplatform_y_with_robot_x = math_helpers.Vec2(
             gn_origin_T_hand.x, world_to_desiredplatform[1])
-        robot_to_desiredplatform_y_with_robot_x = robot_to_world * world_to_desiredplatform_y_with_robot_x
+        robot_to_desiredplatform_y_with_robot_x = robot_to_world * \
+            world_to_desiredplatform_y_with_robot_x
         self.lock_arm()
         self.relative_move(
             dx=robot_to_desiredplatform_y_with_robot_x[0] - body_T_hand.x,
