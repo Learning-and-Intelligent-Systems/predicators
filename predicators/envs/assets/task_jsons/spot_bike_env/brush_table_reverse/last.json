@@ -8,7 +8,7 @@
         "tool_room_table": "flat_surface",
         "hex_key": "tool",
         "hex_screwdriver": "tool",
-        "toolbag": "bag",
+        "bucket": "bag",
         "spot": "robot"
     },
     "init": {
@@ -60,7 +60,7 @@
             "in_view": 0.0,
             "lost": 0.0
         },
-        "toolbag": {
+        "bucket": {
             "x": 7.0388673173067335,
             "y": -8.184029915334659,
             "z": -0.18799250814185073

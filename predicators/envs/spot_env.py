@@ -1129,7 +1129,7 @@ class SpotBikeEnv(SpotEnv):
         hammer = self._obj_name_to_obj("hammer")
         measuring_tape = self._obj_name_to_obj("measuring_tape")
         brush = self._obj_name_to_obj("brush")
-        bag = self._obj_name_to_obj("toolbag")
+        bag = self._obj_name_to_obj("bucket")
         return {
             GroundAtom(self._InBag, [hammer, bag]),
             GroundAtom(self._InBag, [brush, bag]),
@@ -1155,7 +1155,7 @@ class SpotBikeEnv(SpotEnv):
         extra_room_table = Object("extra_room_table", self._surface_type)
         low_wall_rack = Object("low_wall_rack", self._surface_type)
         high_wall_rack = Object("high_wall_rack", self._surface_type)
-        bag = Object("toolbag", self._bag_type)
+        bag = Object("bucket", self._bag_type)
         floor = Object("floor", self._floor_type)
         objects.extend([
             spot, tool_room_table, low_wall_rack, high_wall_rack, bag,
