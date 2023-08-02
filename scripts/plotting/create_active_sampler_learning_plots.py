@@ -57,7 +57,7 @@ PLOT_GROUPS = {
             lambda v: "kitchen-planning_progress_explore" in v)),
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-success_rate_explore" in v)),
-        ("Random Score", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Ablate Improve", "purple", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-random_nsrts_explore" in v)),
