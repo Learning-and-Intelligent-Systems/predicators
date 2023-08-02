@@ -26,8 +26,8 @@ from predicators.ml_models import BinaryClassifier, BinaryClassifierEnsemble, \
     KNeighborsClassifier, MLPBinaryClassifier, MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
-    NSRTSampler, Object, ParameterizedOption, Predicate, Segment, State, \
-    Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    Metrics, NSRTSampler, Object, ParameterizedOption, Predicate, Segment, \
+    State, Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 # Dataset for sampler learning: includes (s, option, s', label) per param opt.
 _OptionSamplerDataset = List[Tuple[State, _Option, State, Any]]
@@ -65,6 +65,23 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler_learning"
+
+    def _run_task_plan(
+        self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+        timeout: float, seed: int, **kwargs: Any
+    ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
+        # Add ground operator competence for competence-aware planning.
+        ground_op_costs = {
+            op: -np.log(max(float(np.mean(hist)), 1e-6))
+            for op, hist in self._ground_op_hist.items()
+        }
+        return super()._run_task_plan(task,
+                                      nsrts,
+                                      preds,
+                                      timeout,
+                                      seed,
+                                      ground_op_costs=ground_op_costs,
+                                      **kwargs)
 
     def _create_explorer(self) -> BaseExplorer:
         # Geometrically increase the length of exploration.
