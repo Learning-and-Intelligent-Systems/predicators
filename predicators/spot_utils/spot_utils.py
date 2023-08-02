@@ -64,7 +64,7 @@ def get_memorized_waypoint(obj_name: str) -> Optional[Tuple[str, Array]]:
     graph_nav_loc_to_id = {
         "front_tool_room": "dented-marlin-HZHTzO56529oo0oGfAFHdg==",
         "tool_room_table": "lumpen-squid-p9fT8Ui8TYI7JWQJvfQwKw==",
-        "toolbag": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
+        "bucket": "seared-hare-0JBmyRiYHfbxn58ymEwPaQ==",
         "tool_room_tool_stand": "roving-gibbon-3eduef4VV0itZzkpHZueNQ==",
         "tool_room_platform": "comfy-auk-W0iygJ1WJyKR1eB3qe2mlg==",
         "low_wall_rack": "alight-coyote-Nvl0i02Mk7Ds8ax0sj0Hsw==",
@@ -83,7 +83,7 @@ obj_name_to_apriltag_id = {
     "hammer": 401,
     "brush": 402,
     "measuring_tape": 403,
-    "toolbag": 405,
+    "bucket": 405,
     "low_wall_rack": 406,
     "front_tool_room": 407,
     "tool_room_table": 408,
@@ -95,8 +95,8 @@ obj_name_to_vision_prompt = {
     "hammer": "hammer",
     "brush": "brush",
     "measuring_tape": "measuring tape",
-    "toolbag": "bag for tools",
-    "platform": "red t-shaped dolly handle"
+    "platform": "red t-shaped dolly handle",
+    "bucket": "bucket",
 }
 vision_prompt_to_obj_name = {
     value: key
@@ -394,7 +394,7 @@ class _SpotInterface():
                 (10.049931203338616, -6.9443170697742, 0.27881268568327966),
                 "high_wall_rack":
                 (10.049931203338616, -6.9443170697742, 1.257881268568327966),
-                "toolbag":
+                "bucket":
                 (7.043112552148553, -8.198686802340527, -0.18750694527153725),
                 "platform": (8.79312, -7.8821, -0.100635)
             }

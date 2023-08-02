@@ -6,7 +6,7 @@
         "extra_room_table": "flat_surface",
         "tool_room_table": "flat_surface",
         "brush": "tool",
-        "toolbag": "bag",
+        "bucket": "bag",
         "measuring_tape": "tool",
         "spot": "robot"
     },
@@ -45,7 +45,7 @@
             "lost": 0.0,
             "in_view": 1.0
         },
-        "toolbag": {
+        "bucket": {
             "x": 7.72705,
             "y": -7.98225,
             "z": -0.209524
@@ -70,15 +70,15 @@
         "InBag": [
             [
                 "brush",
-                "toolbag"
+                "bucket"
             ],
             [
                 "hammer",
-                "toolbag"
+                "bucket"
             ],
             [
                 "measuring_tape",
-                "toolbag"
+                "bucket"
             ]
         ]
     }

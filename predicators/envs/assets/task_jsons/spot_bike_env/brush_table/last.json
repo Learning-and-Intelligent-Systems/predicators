@@ -5,7 +5,7 @@
         "extra_room_table": "flat_surface",
         "tool_room_table": "flat_surface",
         "brush": "tool",
-        "toolbag": "bag",
+        "bucket": "bag",
         "spot": "robot"
     },
     "init": {
@@ -36,7 +36,7 @@
             "in_view": 1.0,
             "lost": 0.0
         },
-        "toolbag": {
+        "bucket": {
             "x": 7.092497069796229,
             "y": -8.170518353942528,
             "z": -0.19140555385012878

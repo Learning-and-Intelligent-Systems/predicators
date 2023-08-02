@@ -4,7 +4,7 @@
         "brush": "tool",
         "hex_screwdriver": "tool",
         "floor": "floor",
-        "toolbag": "bag",
+        "bucket": "bag",
         "low_wall_rack": "flat_surface",
         "extra_room_table": "flat_surface",
         "spot": "robot"
@@ -34,7 +34,7 @@
             "y": 0.0,
             "z": -1.0
         },
-        "toolbag": {
+        "bucket": {
             "x": 7.526377653037925,
             "y": -8.160384704149124,
             "z": -0.20881993379295502
@@ -62,11 +62,11 @@
         "InBag": [
             [
                 "brush",
-                "toolbag"
+                "bucket"
             ],
             [
                 "hex_screwdriver",
-                "toolbag"
+                "bucket"
             ]
         ]
     }
