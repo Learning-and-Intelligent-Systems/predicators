@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+from collections import OrderedDict
 from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple
 
 import apriltag
@@ -14,9 +15,12 @@ import bosdyn.client.lease
 import bosdyn.client.util
 import cv2
 import numpy as np
-from bosdyn.api import basic_command_pb2, estop_pb2, geometry_pb2, image_pb2, \
-    manipulation_api_pb2
+from bosdyn.api import arm_command_pb2, basic_command_pb2, estop_pb2, \
+    geometry_pb2, image_pb2, manipulation_api_pb2, robot_command_pb2, \
+    synchronized_command_pb2
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
+from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
+from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
@@ -38,6 +42,15 @@ from predicators.spot_utils.perception_utils import CAMERA_NAMES, \
     RGB_TO_DEPTH_CAMERAS, get_object_locations_with_detic_sam, \
     get_pixel_locations_with_detic_sam
 from predicators.structs import Array, Image, Object
+
+ARM_6DOF_NAMES = [
+    "arm0.sh0",
+    "arm0.sh1",
+    "arm0.el0",
+    "arm0.el1",
+    "arm0.wr0",
+    "arm0.wr1",
+]
 
 g_image_click = None
 g_image_display = None
@@ -76,12 +89,14 @@ obj_name_to_apriltag_id = {
     "tool_room_table": 408,
     "extra_room_table": 409,
     "cube": 410,
+    "platform": 411,
 }
 obj_name_to_vision_prompt = {
     "hammer": "hammer",
     "brush": "brush",
     "measuring_tape": "measuring tape",
     "toolbag": "bag for tools",
+    "platform": "red t-shaped dolly handle"
 }
 vision_prompt_to_obj_name = {
     value: key
@@ -176,6 +191,7 @@ class _SpotInterface():
         self._force_horizontal_grasp = False
         self._force_squeeze_grasp = False
         self._force_top_down_grasp = False
+        self._force_forward_grasp = False
         self._grasp_image_source = "hand_color_image"
 
         self.hand_x, self.hand_y, self.hand_z = (0.80, 0, 0.45)
@@ -376,8 +392,11 @@ class _SpotInterface():
                 "extra_room_table": (8.27387, -6.23233, -0.0678132),
                 "low_wall_rack":
                 (10.049931203338616, -6.9443170697742, 0.27881268568327966),
+                "high_wall_rack":
+                (10.049931203338616, -6.9443170697742, 1.257881268568327966),
                 "toolbag":
-                (7.043112552148553, -8.198686802340527, -0.18750694527153725)
+                (7.043112552148553, -8.198686802340527, -0.18750694527153725),
+                "platform": (8.79312, -7.8821, -0.100635)
             }
         waypoints = ["tool_room_table", "low_wall_rack"]
         objects_to_find = object_names - set(object_views.keys())
@@ -555,8 +574,9 @@ class _SpotInterface():
         """The parameter spaces for each of the controllers."""
         return {
             "navigate": Box(-5.0, 5.0, (3, )),
-            "grasp": Box(-1.0, 1.0, (4, )),
+            "grasp": Box(-1.0, 2.0, (4, )),
             "placeOnTop": Box(-5.0, 5.0, (3, )),
+            "drag": Box(-12.0, 12.0, (2, )),
             "noop": Box(0, 1, (0, ))
         }
 
@@ -575,8 +595,10 @@ class _SpotInterface():
             return self.navigateToController(objects, params)
         if name == "grasp":
             return self.graspController(objects, params)
-        assert name == "placeOnTop"
-        return self.placeOntopController(objects, params)
+        if name == "placeOnTop":
+            return self.placeOntopController(objects, params)
+        assert name == "drag"
+        return self.dragController(objects, params)
 
     def findController(self) -> None:
         """Execute look around."""
@@ -668,6 +690,14 @@ class _SpotInterface():
                                           np.sin(np.pi / 7), 0),
                                    open_gripper=False)
                 return
+        if "platform" in objs[1].name:
+            self.hand_movement(np.array([-0.2, 0.0, -0.25]),
+                               keep_hand_pose=False,
+                               angle=(np.cos(np.pi / 7), 0, np.sin(np.pi / 7),
+                                      0),
+                               open_gripper=False)
+            time.sleep(1.0)
+            return
         self.stow_arm()
 
     def graspController(self, objs: Sequence[Object], params: Array) -> None:
@@ -679,17 +709,27 @@ class _SpotInterface():
         """
         print("Grasp", objs)
         assert len(params) == 4
-        assert params[3] in [0, 1, -1]
+        assert params[3] in [0, 1, -1, 2]
         if params[3] == 1:
             self._force_horizontal_grasp = False
             self._force_top_down_grasp = True
+            self._force_forward_grasp = False
         elif params[3] == -1:
             self._force_horizontal_grasp = True
             self._force_top_down_grasp = False
+            self._force_forward_grasp = False
+        elif params[3] == 2:
+            self._force_horizontal_grasp = False
+            self._force_top_down_grasp = False
+            self._force_forward_grasp = True
+
         self.arm_object_grasp(objs[1])
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
-        self.stow_arm()
+        if objs[1].name != "platform":
+            self.stow_arm()
+        # NOTE: time.sleep(1.0) required afer each option execution
+        # to allow time for sensor readings to settle.
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Array) -> None:
@@ -706,6 +746,14 @@ class _SpotInterface():
                            relative_to_default_pose=False,
                            angle=angle)
         time.sleep(0.25)
+        self.stow_arm()
+
+    def dragController(self, objs: Sequence[Object], params: Array) -> None:
+        """Drag Controller."""
+        print("Drag", objs)
+        assert len(params) == 2  # [x, y] vector for direction
+        self.drag_arm_control(params)
+        time.sleep(0.5)
         self.stow_arm()
 
     def _scan_for_objects(
@@ -819,7 +867,7 @@ class _SpotInterface():
 
         # For these options, we'll use a vector alignment constraint.
         use_vector_constraint = self._force_top_down_grasp or \
-            self._force_horizontal_grasp
+            self._force_horizontal_grasp or self._force_forward_grasp
 
         # Specify the frame we're using.
         grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME
@@ -845,6 +893,18 @@ class _SpotInterface():
 
                 # The axis on the gripper is the y-axis.
                 axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=0, y=1, z=0)
+
+                # The axis in the vision frame is the positive z-axis
+                axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=1)
+
+            if self._force_forward_grasp:
+                # Add a constraint that requests that the z-axis of the gripper
+                # is pointing in the positive z direction in the vision frame.
+                # This means that the gripper is constrained to be flat, as
+                # it usually is in the standard sow position.
+
+                # The axis on the gripper is the z-axis.
+                axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=0, y=0, z=1)
 
                 # The axis in the vision frame is the positive z-axis
                 axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=1)
@@ -1054,6 +1114,8 @@ class _SpotInterface():
         open_gripper: bool = True,
         relative_to_default_pose: bool = True,
         keep_hand_pose: bool = True,
+        keep_body_pose: bool = False,
+        clip_z: bool = True,
         angle: Tuple[float, float, float,
                      float] = (np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0)
     ) -> None:
@@ -1089,8 +1151,13 @@ class _SpotInterface():
         # robot respectively.
         x_clipped = np.clip(x, self.hand_x_bounds[0], self.hand_x_bounds[1])
         y_clipped = np.clip(y, self.hand_y_bounds[0], self.hand_y_bounds[1])
-        z_clipped = np.clip(z, self.hand_z_bounds[0], self.hand_z_bounds[1])
-        self.relative_move((x - x_clipped), (y - y_clipped), 0.0)
+        if clip_z:
+            z_clipped = np.clip(z, self.hand_z_bounds[0],
+                                self.hand_z_bounds[1])
+        else:
+            z_clipped = z
+        if not keep_body_pose:
+            self.relative_move((x - x_clipped), (y - y_clipped), 0.0)
         x = x_clipped
         y = y_clipped
         z = z_clipped
@@ -1170,11 +1237,14 @@ class _SpotInterface():
         except Exception as e:
             logging.info(e)
 
-    def relative_move(self,
-                      dx: float,
-                      dy: float,
-                      dyaw: float,
-                      stairs: bool = False) -> bool:
+    def relative_move(
+        self,
+        dx: float,
+        dy: float,
+        dyaw: float,
+        max_xytheta_vel: Tuple[float, float, float] = (2.0, 2.0, 1.0),
+        min_xytheta_vel: Tuple[float, float, float] = (-2.0, -2.0, -1.0)
+    ) -> bool:
         """Move to relative robot position in body frame."""
         transforms = self.robot_state_client.get_robot_state(
         ).kinematic_state.transforms_snapshot
@@ -1192,12 +1262,23 @@ class _SpotInterface():
 
         # Command the robot to go to the goal point in the specified
         # frame. The command will stop at the new position.
+        # Constrain the robot not to turn, forcing it to strafe laterally.
+        speed_limit = SE2VelocityLimit(
+            max_vel=SE2Velocity(linear=Vec2(x=max_xytheta_vel[0],
+                                            y=max_xytheta_vel[1]),
+                                angular=max_xytheta_vel[2]),
+            min_vel=SE2Velocity(linear=Vec2(x=min_xytheta_vel[0],
+                                            y=min_xytheta_vel[1]),
+                                angular=min_xytheta_vel[2]))
+        mobility_params = spot_command_pb2.MobilityParams(
+            vel_limit=speed_limit)
+
         robot_cmd = RobotCommandBuilder.synchro_se2_trajectory_point_command(
             goal_x=out_tform_goal.x,
             goal_y=out_tform_goal.y,
             goal_heading=out_tform_goal.angle,
             frame_name=ODOM_FRAME_NAME,
-            params=RobotCommandBuilder.mobility_params(stair_hint=stairs))
+            params=mobility_params)
         cmd_id = self.robot_command_client.robot_command(
             lease=None,
             command=robot_cmd,
@@ -1229,14 +1310,135 @@ class _SpotInterface():
         try:
             # (1) Initialize location
             self.graph_nav_command_line.set_initial_localization_fiducial()
-            self.graph_nav_command_line.graph_nav_client.get_localization_state(
-            )
+            self.graph_nav_command_line.graph_nav_client.\
+                get_localization_state()
 
             # (2) Just move
             self.relative_move(params[0], params[1], params[2])
 
         except Exception as e:
             logging.info(e)
+
+    def get_arm_proprioception(
+        self,
+        robot_state: Optional[bosdyn.api.robot_state_pb2.RobotState] = None
+    ) -> Dict[str, bosdyn.api.robot_state_pb2.JointState]:
+        """Return state of each of the 6 joints of the arm."""
+        if robot_state is None:
+            robot_state = self.robot_state_client.get_robot_state()
+        arm_joint_states = OrderedDict({
+            i.name[len("arm0."):]: i
+            for i in robot_state.kinematic_state.joint_states
+            if i.name in ARM_6DOF_NAMES
+        })
+
+        return arm_joint_states
+
+    def lock_arm(self) -> None:
+        """Helper function to lock arm in body frame when moving."""
+        arm_proprioception = self.get_arm_proprioception()
+        positions = np.array(
+            [v.position.value for v in arm_proprioception.values()])
+        sh0, sh1, el0, el1, wr0, wr1 = positions
+
+        traj_point = RobotCommandBuilder.create_arm_joint_trajectory_point(
+            sh0, sh1, el0, el1, wr0, wr1)
+        arm_joint_traj = arm_command_pb2.ArmJointTrajectory(
+            points=[traj_point])
+        # Make a RobotCommand
+        joint_move_command = arm_command_pb2.ArmJointMoveCommand.Request(
+            trajectory=arm_joint_traj)
+        arm_command = arm_command_pb2.ArmCommand.Request(
+            arm_joint_move_command=joint_move_command)
+        sync_arm = synchronized_command_pb2.SynchronizedCommand.Request(
+            arm_command=arm_command)
+        arm_sync_robot_cmd = robot_command_pb2.RobotCommand(
+            synchronized_command=sync_arm)
+        command = RobotCommandBuilder.build_synchro_command(arm_sync_robot_cmd)
+
+        # Send the request
+        self.robot_command_client.robot_command(command)
+        self.robot.logger.info('Locking Arm.')
+
+    def drag_arm_control(self, params: Array) -> None:
+        """Simple drag controller by locking arm position in body frame.
+
+        then moving to a location given by params.
+        """
+        # NOTE: Core idea here is we first move the arm to be centered with the
+        # robot, then lock the arm to the robot, then move in the y direction
+        # in the world (which is horizontally in the room), then move
+        # in the x direction in the world (which is forwards)
+        # This may require some modification as we start dragging to different
+        # locations.
+
+        assert len(params) == 2
+        x, y, _, yaw = self.get_robot_pose()
+        robot_to_world = math_helpers.SE2Pose(x, y, yaw).inverse()
+        world_to_desiredplatform = math_helpers.Vec2(
+            params[0],
+            params[1],
+        )
+
+        # Move Hand to Front of Body
+        robot_state = self.robot_state_client.get_robot_state()
+        body_T_hand = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot,
+            GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        self.hand_movement(np.array([body_T_hand.x, 0.0, body_T_hand.z]),
+                           keep_hand_pose=True,
+                           keep_body_pose=True,
+                           clip_z=False,
+                           relative_to_default_pose=False,
+                           open_gripper=False)
+
+        # Move Body Horizontally in the world.
+        robot_state = self.robot_state_client.get_robot_state()
+        robot_T_hand = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot,
+            GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        state = self.get_localized_state()
+        gn_origin_T_robot = math_helpers.SE3Pose.from_obj(
+            state.localization.seed_tform_body)
+        gn_origin_T_hand = gn_origin_T_robot * robot_T_hand
+        # IMPORTANT: we want to keep the x pose of the platform the same,
+        # and we can get this by computing the location of the
+        # hand in the world frame.
+        world_to_desiredplatform_y_with_robot_x = math_helpers.Vec2(
+            gn_origin_T_hand.x, world_to_desiredplatform[1])
+        robot_to_desiredplatform_y_with_robot_x = robot_to_world * \
+            world_to_desiredplatform_y_with_robot_x
+        self.lock_arm()
+        self.relative_move(
+            dx=robot_to_desiredplatform_y_with_robot_x[0] - body_T_hand.x,
+            dy=robot_to_desiredplatform_y_with_robot_x[1] - body_T_hand.y,
+            dyaw=0.0,
+            max_xytheta_vel=(0.25, 0.25, 0.5),
+            min_xytheta_vel=(-0.25, -0.25, -0.5))
+
+        # Move Body remaining
+        robot_state = self.robot_state_client.get_robot_state()
+        body_T_hand = get_a_tform_b(
+            robot_state.kinematic_state.transforms_snapshot,
+            GRAV_ALIGNED_BODY_FRAME_NAME, "hand")
+        x, y, _, yaw = self.get_robot_pose()
+        robot_to_world = math_helpers.SE2Pose(x, y, yaw).inverse()
+        robot_to_desiredplatform = robot_to_world * world_to_desiredplatform
+        self.lock_arm()
+        self.relative_move(dx=robot_to_desiredplatform[0] - body_T_hand.x,
+                           dy=robot_to_desiredplatform[1] - body_T_hand.y,
+                           dyaw=0.0,
+                           max_xytheta_vel=(0.25, 0.25, 0.5),
+                           min_xytheta_vel=(-0.25, -0.25, -0.5))
+
+        # Open Gripper
+        gripper_command = RobotCommandBuilder.\
+            claw_gripper_open_fraction_command(1.0)
+
+        # Send the request
+        self.robot_command_client.robot_command(gripper_command)
+        self.robot.logger.debug('Opening Gripper.')
+        time.sleep(1)
 
 
 @functools.lru_cache(maxsize=None)

@@ -164,7 +164,7 @@ class SpotBikePerceiver(BasePerceiver):
                 "y": y,
                 "z": z,
             }
-            if obj.type.name == "tool":
+            if obj.type.name in ("tool", "platform"):
                 # Detect if the object is in view currently.
                 if obj in self._known_objects_in_hand_view:
                     in_view_val = 1.0

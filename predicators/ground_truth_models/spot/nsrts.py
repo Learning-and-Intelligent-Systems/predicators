@@ -22,13 +22,15 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
                   goal: Set[GroundAtom], rng: np.random.Generator,
                   objs: Sequence[Object]) -> Array:
     del goal
+    # Parameters are relative dx, dy, dyaw (to the object you're moving to)
     assert len(objs) in [2, 3]
     if objs[1].type.name == "bag":  # pragma: no cover
         return np.array([0.5, 0.0, 0.0])
     dyaw = 0.0
     # For MoveToObjOnFloor
-    if len(objs) == 3:
-        if objs[2].name == "floor":
+    if objs[1].name == "platform" or (len(objs) == 3
+                                      and objs[-1].name != "platform"):
+        if objs[1].name == "platform" or objs[2].name == "floor":
             # Sample dyaw so that there is some hope of seeing objects from
             # different angles.
             dyaw = rng.uniform(-np.pi / 8, np.pi / 8)
@@ -61,6 +63,11 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
                                atol=0.1):
                 angle = -angle
             return np.array([new_xy[0], new_xy[1], angle + dyaw])
+    # Case for attempting to move to a surface that's high
+    # while also stepping on the platform.
+    elif objs[-1].name == "platform":
+        return np.array([0.65, 0.0, 0.0])
+
     return np.array([-0.25, 0.0, dyaw])
 
 
@@ -68,8 +75,13 @@ def _grasp_sampler(spot_interface: _SpotInterface, state: State,
                    goal: Set[GroundAtom], rng: np.random.Generator,
                    objs: Sequence[Object]) -> Array:
     del state, goal, rng, spot_interface
+    # Parameters are 4 dimensional corresponding to a dx, dy, dz
+    # of post grasp position and a top-down grasp (1),
+    # side grasp (-1) or any (0).
     if objs[1].type.name == "bag":  # pragma: no cover
         return np.array([0.0, 0.0, 0.0, -1.0])
+    if objs[1].type.name == "platform":  # pragma: no cover
+        return np.array([0.0, 0.0, 0.0, 1.0])
     if objs[2].name == "low_wall_rack":  # pragma: no cover
         return np.array([0.0, 0.0, 0.1, 0.0])
     return np.array([0.0, 0.0, 0.0, 0.0])
@@ -79,6 +91,7 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
                    goal: Set[GroundAtom], rng: np.random.Generator,
                    objs: Sequence[Object]) -> Array:
     del goal
+    # Parameters are relative dx, dy, dz (to surface objects center)
     robot, _, surface = objs
 
     if surface.name == "floor":
@@ -112,10 +125,30 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
     return fiducial_pose + np.array([0.0, 0.0, 0.0])
 
 
+def _drag_sampler(spot_interface: _SpotInterface, state: State,
+                  goal: Set[GroundAtom], rng: np.random.Generator,
+                  objs: Sequence[Object]) -> Array:
+    del spot_interface, goal, rng
+    # Parameters are absolute postion x and y you are moving
+    # the object to (in the body frame)
+    _, _, surface = objs
+
+    assert surface.name != "floor"
+
+    world_fiducial = math_helpers.Vec2(
+        state.get(surface, "x"),
+        state.get(surface, "y"),
+    )
+    dx, dy = -0.65, -0.30
+
+    return np.array([world_fiducial[0] + dx, world_fiducial[1] + dy])
+
+
 _NAME_TO_SPOT_INTERFACE_SAMPLER = {
     "move": _move_sampler,
     "grasp": _grasp_sampler,
     "place": _place_sampler,
+    "drag": _drag_sampler
 }
 
 
@@ -168,6 +201,8 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 sampler = _SpotInterfaceSampler("grasp")
             elif "Place" in strips_op.name:
                 sampler = _SpotInterfaceSampler("place")
+            elif "Drag" in strips_op.name:
+                sampler = _SpotInterfaceSampler("drag")
             else:
                 sampler = null_sampler
             option = options[strips_op.name]

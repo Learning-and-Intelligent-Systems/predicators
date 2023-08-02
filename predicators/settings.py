@@ -169,6 +169,7 @@ class GlobalSettings:
     spot_grasp_use_cv2 = False
     spot_grasp_use_sam = False
     spot_cube_only = False
+    spot_platform_only = False
     spot_initialize_surfaces_to_default = True
     spot_fiducial_size = 44.45
     spot_visualize_vision_model_outputs = False

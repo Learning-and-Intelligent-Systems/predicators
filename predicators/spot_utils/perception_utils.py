@@ -451,9 +451,12 @@ def get_object_locations_with_detic_sam(
             score = curr_res_segment["scores"][i][0]
             obj_cls_str = obj_class.item()
             # Skip if we've already seen a higher-scoring detection
-            # for this object class from a different source.
-            if (score, source_name
-                ) != obj_class_to_max_score_and_source[obj_cls_str]:
+            # for this object class from a different source. The only
+            # exception is if the source is the hand camera: we want to
+            # remember all detections that we see from the hand camera,
+            # because that is used for predicates like "InView".
+            if (score, source_name) != obj_class_to_max_score_and_source[
+                    obj_cls_str] and source_name != "hand_color_image":
                 continue
 
             # Compute median value of depth
@@ -555,7 +558,7 @@ def _save_spot_perception_output(img: Image,
         plt.show()
     # Save image for debugging.
     time_str = time.strftime("%Y%m%d-%H%M%S")
-    filename = f"{prefix}_{time_str}.png"
+    filename = f"{time_str}_{prefix}.png"
     outfile = Path(CFG.spot_perception_outdir) / filename
     os.makedirs(CFG.spot_perception_outdir, exist_ok=True)
     iio.imsave(outfile, img)
