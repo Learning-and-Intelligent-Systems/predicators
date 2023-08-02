@@ -62,6 +62,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # NSRTs to samplers to be used at exploration time.
         self._nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
 
+        # Record what train tasks have been seen during exploration so far.
+        self._seen_train_task_idxs: Set[int] = set()
+
+        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
+
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler_learning"
@@ -71,16 +76,15 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         timeout: float, seed: int, **kwargs: Any
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
         # Add ground operator competence for competence-aware planning.
-        ground_op_costs = {
-            op: -np.log(max(float(np.mean(hist)), 1e-6))
-            for op, hist in self._ground_op_hist.items()
-        }
+        ground_op_costs = utils.ground_op_history_to_planning_costs(
+            self._ground_op_hist)
         return super()._run_task_plan(task,
                                       nsrts,
                                       preds,
                                       timeout,
                                       seed,
                                       ground_op_costs=ground_op_costs,
+                                      default_cost=self._default_cost,
                                       **kwargs)
 
     def _create_explorer(self) -> BaseExplorer:
@@ -99,7 +103,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             self._option_model,
             ground_op_hist=self._ground_op_hist,
             max_steps_before_termination=max_steps,
-            nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler)
+            nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler,
+            seen_train_task_idxs=self._seen_train_task_idxs)
         return explorer
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
@@ -112,6 +117,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._last_seen_segment_traj_idx = save_dict[
             "last_seen_segment_traj_idx"]
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
+        self._seen_train_task_idxs = save_dict["seen_train_task_idxs"]
         self._online_learning_cycle = CFG.skip_until_cycle + 1
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
@@ -139,6 +145,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                     "last_seen_segment_traj_idx":
                     self._last_seen_segment_traj_idx,
                     "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
+                    "seen_train_task_idxs": self._seen_train_task_idxs,
                 }, f)
 
     def _update_sampler_data(self) -> None:
