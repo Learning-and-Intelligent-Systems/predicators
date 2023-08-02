@@ -47,6 +47,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
+        self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
+        self._task_plan_calls_since_replan: Dict[int, int] = {}
         self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
 
     @classmethod
@@ -285,29 +287,22 @@ class ActiveSamplerExplorer(BaseExplorer):
         ground_op_costs = utils.ground_op_history_to_planning_costs(
             self._ground_op_hist)
         ground_op_costs[ground_op] = c_hat  # override
-        # Make plans on all of the training tasks we've seen so far and record
+        # Make plans on some of the training tasks we've seen so far and record
         # the total plan costs.
         plan_costs: List[float] = []
-        timeout = CFG.timeout
-        task_planning_heuristic = CFG.sesame_task_planning_heuristic
-        for train_task_idx in sorted(self._seen_train_task_idxs):
-            task = self._train_tasks[train_task_idx]
-            plan, _, _ = run_task_plan_once(
-                task,
-                self._nsrts,
-                self._predicates,
-                self._types,
-                timeout,
-                self._seed,
-                task_planning_heuristic=task_planning_heuristic,
-                ground_op_costs=ground_op_costs,
-                default_cost=self._default_cost)
+        # Select a random subset for a cheap approximation.
+        train_task_idxs = sorted(self._seen_train_task_idxs)
+        max_num_tasks = CFG.active_sampler_explorer_planning_progress_max_tasks
+        num_tasks = min(max_num_tasks, len(train_task_idxs))
+        self._rng.shuffle(train_task_idxs)
+        train_task_idxs = train_task_idxs[:num_tasks]
+        for train_task_idx in train_task_idxs:
+            plan = self._get_task_plan_for_training_task(
+                train_task_idx, ground_op_costs)
             task_plan_costs = []
-            for ground_nsrt in plan:
-                ground_op = ground_nsrt.op
-                ground_op_cost = ground_op_costs.get(ground_op,
-                                                     self._default_cost)
-                task_plan_costs.append(ground_op_cost)
+            for op in plan:
+                op_cost = ground_op_costs.get(op, self._default_cost)
+                task_plan_costs.append(op_cost)
             plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # higher scores are better
 
@@ -322,3 +317,30 @@ class ActiveSamplerExplorer(BaseExplorer):
         extrap = min(1.0, competence + 1e-2)
         logging.info(f"[Explorer]   extrapolated competence: {extrap}")
         return -np.log(extrap)
+
+    def _get_task_plan_for_training_task(
+        self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
+                                                         float]
+    ) -> List[_GroundSTRIPSOperator]:
+        # Optimization: only re-plan at a certain frequency.
+        replan_freq = CFG.active_sampler_explorer_replan_frequency
+        if train_task_idx not in self._task_plan_calls_since_replan or \
+            self._task_plan_calls_since_replan[train_task_idx] >= replan_freq:
+            self._task_plan_calls_since_replan[train_task_idx] = 0
+            timeout = CFG.timeout
+            task_planning_heuristic = CFG.sesame_task_planning_heuristic
+            task = self._train_tasks[train_task_idx]
+            plan, _, _ = run_task_plan_once(
+                task,
+                self._nsrts,
+                self._predicates,
+                self._types,
+                timeout,
+                self._seed,
+                task_planning_heuristic=task_planning_heuristic,
+                ground_op_costs=ground_op_costs,
+                default_cost=self._default_cost)
+            self._task_plan_cache[train_task_idx] = [n.op for n in plan]
+
+        self._task_plan_calls_since_replan[train_task_idx] += 1
+        return self._task_plan_cache[train_task_idx]
