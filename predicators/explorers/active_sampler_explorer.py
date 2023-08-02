@@ -47,6 +47,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
+        self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
+        self._task_plan_steps_since_replan: Dict[int, int] = {}
         self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
 
     @classmethod
@@ -288,23 +290,11 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Make plans on all of the training tasks we've seen so far and record
         # the total plan costs.
         plan_costs: List[float] = []
-        timeout = CFG.timeout
-        task_planning_heuristic = CFG.sesame_task_planning_heuristic
         for train_task_idx in sorted(self._seen_train_task_idxs):
-            task = self._train_tasks[train_task_idx]
-            plan, _, _ = run_task_plan_once(
-                task,
-                self._nsrts,
-                self._predicates,
-                self._types,
-                timeout,
-                self._seed,
-                task_planning_heuristic=task_planning_heuristic,
-                ground_op_costs=ground_op_costs,
-                default_cost=self._default_cost)
+            plan = self._get_task_plan_for_training_task(
+                train_task_idx, ground_op_costs)
             task_plan_costs = []
-            for ground_nsrt in plan:
-                ground_op = ground_nsrt.op
+            for ground_op in plan:
                 ground_op_cost = ground_op_costs.get(ground_op,
                                                      self._default_cost)
                 task_plan_costs.append(ground_op_cost)
@@ -322,3 +312,31 @@ class ActiveSamplerExplorer(BaseExplorer):
         extrap = min(1.0, competence + 1e-2)
         logging.info(f"[Explorer]   extrapolated competence: {extrap}")
         return -np.log(extrap)
+
+    def _get_task_plan_for_training_task(
+        self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
+                                                         float]
+    ) -> List[_GroundSTRIPSOperator]:
+        # Optimization: only re-plan at a certain frequency.
+        replan_freq = CFG.active_sampler_explorer_replan_frequency
+        if train_task_idx not in self._task_plan_steps_since_replan or \
+            self._task_plan_steps_since_replan[train_task_idx] >= replan_freq:
+
+            self._task_plan_steps_since_replan[train_task_idx] = 0
+            timeout = CFG.timeout
+            task_planning_heuristic = CFG.sesame_task_planning_heuristic
+            task = self._train_tasks[train_task_idx]
+            plan, _, _ = run_task_plan_once(
+                task,
+                self._nsrts,
+                self._predicates,
+                self._types,
+                timeout,
+                self._seed,
+                task_planning_heuristic=task_planning_heuristic,
+                ground_op_costs=ground_op_costs,
+                default_cost=self._default_cost)
+            self._task_plan_cache[train_task_idx] = [n.op for n in plan]
+
+        self._task_plan_steps_since_replan[train_task_idx] += 1
+        return self._task_plan_cache[train_task_idx]
