@@ -55,6 +55,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         surface_type = types["surface"]
         switch_type = types["switch"]
         knob_type = types["knob"]
+        hinge_door_type = types["hinge_door"]
 
         # Predicates
         OnTop = predicates["OnTop"]
@@ -73,7 +74,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             dx, dy, dz = params
             target_pose = (ox + dx, oy + dy, oz + dz)
             # Turn the knobs by pushing from a "forward" position.
-            if obj.is_instance(knob_type):
+            if obj.is_instance(knob_type) or obj.is_instance(hinge_door_type):
                 target_quat = fwd_quat
             else:
                 target_quat = down_quat
@@ -419,5 +420,74 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_TurnOffKnob_terminal)
         options.add(TurnOffKnob)
+
+        # PushOpen
+        def _PushOpen_policy(state: State, memory: Dict,
+                             objects: Sequence[Object],
+                             params: Array) -> Action:
+            del state, memory, objects  # unused
+            # The parameter is a push direction angle with respect to x.
+            push_angle = params[0]
+            unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
+            dx = unit_x * cls.max_push_mag
+            dy = unit_y * cls.max_push_mag
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            return Action(arr)
+
+        def _PushOpen_terminal(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> bool:
+            del memory, params  # unused
+            gripper, obj = objects
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv.Open_holds(state, [obj]) and \
+                (state.get(gripper, "y") < state.get(obj, "y")  - 0.1)
+
+        PushOpen = ParameterizedOption(
+            "PushOpen",
+            types=[gripper_type, on_off_type],
+            # The parameter is a push direction angle with respect to x.
+            params_space=Box(-np.pi, np.pi, (1, )),
+            policy=_PushOpen_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_PushOpen_terminal)
+        options.add(PushOpen)
+
+        # PushClose
+        def _PushClose_policy(state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> Action:
+            del state, memory, objects  # unused
+            # The parameter is a push direction angle with respect to x.
+            push_angle = params[0]
+            unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
+            dx = unit_x * cls.max_push_mag
+            dy = unit_y * cls.max_push_mag
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            return Action(arr)
+
+        def _PushClose_terminal(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> bool:
+            del memory, params  # unused
+            gripper, obj = objects
+            gripper_x = state.get(gripper, "x")
+            obj_x = state.get(obj, "x")
+            # Terminate early if the gripper is far past the object.
+            if (gripper_x - obj_x) > 5 * cls.moveto_tol:
+                return True
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv.Close_holds(state, [obj],
+                                          thresh_pad=cls.push_lr_thresh_pad)
+
+        PushClose = ParameterizedOption(
+            "PushClose",
+            types=[gripper_type, knob_type],
+            # The parameter is a push direction angle with respect to x.
+            params_space=Box(-np.pi, np.pi, (1, )),
+            policy=_PushClose_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_PushClose_terminal)
+        options.add(PushClose)
 
         return options
