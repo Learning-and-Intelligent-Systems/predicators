@@ -107,6 +107,7 @@ def test_spot_bike_env_load_task_from_json():
     assert len(test_tasks) == 1
     task = test_tasks[0]
 
+    # pylint:disable=line-too-long
     assert str(
         sorted(task.goal)
     ) == "[InBag(brush:tool, bucket:bag), InBag(hammer:tool, bucket:bag), InBag(measuring_tape:tool, bucket:bag)]"
