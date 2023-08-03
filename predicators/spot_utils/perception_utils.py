@@ -574,12 +574,11 @@ def _run_offline_analysis() -> None:
         "yellow measuring tape",
         "small measuring tape",
         "small yellow measuring tape",
+        "top-down view of small measuring tape",
     ]
     # pylint:disable=line-too-long
     files = [
-        "20230802-153004_detic_sam_hand_color_image_object_locs_inputs.png",
-        "20230802-153005_detic_sam_frontright_fisheye_image_object_locs_inputs.png",
-        "20230802-153005_detic_sam_frontleft_fisheye_image_object_locs_inputs.png",
+        "20230803-094028_detic_sam_hand_color_image_object_locs_inputs.png",
     ]
     root_dir = Path(__file__).parent / "../.."
     utils.reset_config({
@@ -594,6 +593,11 @@ def _run_offline_analysis() -> None:
     for file in files:
         path = (root_dir / "spot_perception_outputs" / file).resolve()
         img = iio.imread(path)
+
+        # TODO try rotate image
+        # import scipy.ndimage as ndimage
+        # img = ndimage.rotate(img, 180, reshape=False)
+
         # NOTE: cannot batch class candidates for some strange reason, they
         # apparently interfere.
         for candidate in class_candidates:

@@ -94,16 +94,15 @@ class SpotBikePerceiver(BasePerceiver):
                 # Check if the item we just placed is on the surface we meant
                 # to place it on. If not, the item is lost.
                 robot, obj, surface = objects
-                if surface.type.name == "flat_surface":
-                    state = self._create_state()
-                    ontop_classifier = self._curr_env._ontop_classifier  # pylint: disable=protected-access
-                    in_view_classifier = self._curr_env._tool_in_view_classifier  # pylint: disable=protected-access
-                    is_on = ontop_classifier(state, [obj, surface])
-                    is_in_view = in_view_classifier(state, [robot, obj])
-                    if not is_on or not is_in_view:
-                        # We lost the object!
-                        logging.info("[Perceiver] Object was lost!")
-                        self._lost_objects.add(obj)
+                state = self._create_state()
+                ontop_classifier = self._curr_env._ontop_classifier  # pylint: disable=protected-access
+                in_view_classifier = self._curr_env._tool_in_view_classifier  # pylint: disable=protected-access
+                is_on = ontop_classifier(state, [obj, surface])
+                is_in_view = in_view_classifier(state, [robot, obj])
+                if not is_on or not is_in_view:
+                    # We lost the object!
+                    logging.info("[Perceiver] Object was lost!")
+                    self._lost_objects.add(obj)
             else:
                 # We ensure the holding item feature is set
                 # back to 0.0 if the hand is ever empty.
