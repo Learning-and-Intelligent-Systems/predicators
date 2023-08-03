@@ -548,6 +548,38 @@ def _wrap_sampler(
     return _sample
 
 
+def _wrap_sampler_exploration(base_sampler: NSRTSampler,
+                              score_fn: _ScoreFn) -> NSRTSampler:
+    """Create a wrapped sampler that uses a score function to select among
+    candidates from a base sampler at exploration time."""
+
+    def _sample(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
+                objects: Sequence[Object]) -> Array:
+        samples = [
+            base_sampler(state, goal, rng, objects)
+            for _ in range(CFG.active_sampler_learning_num_samples)
+        ]
+        scores = score_fn(state, objects, samples)
+
+        if CFG.active_sampler_learning_exploration_sample_strategy in [
+                "greedy", "epsilon_greedy"
+        ]:
+            idx = np.argmax(scores)
+            if CFG.active_sampler_learning_exploration_sample_strategy == "epsilon_greedy" and rng.uniform(
+            ) <= CFG.active_Sampler_learning_exploration_epsilon:
+                # Randomly select a sample to pick, following the epsilon
+                # greedy strategy!
+                idx = rng.integers(0, len(scores))
+
+        else:
+            raise NotImplementedError(
+                f'Exploration strategy {CFG.active_sampler_learning_exploration_sample_strategy} is not implemented.'
+            )
+        return samples[idx]
+
+    return _sample
+
+
 def _vector_score_fn_to_score_fn(vector_fn: Callable[[Array], float],
                                  nsrt: NSRT) -> _ScoreFn:
     """Helper for _classifier_to_score_fn() and _regressor_to_score_fn()."""
