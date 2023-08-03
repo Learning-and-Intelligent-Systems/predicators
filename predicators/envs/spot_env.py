@@ -1116,7 +1116,7 @@ class SpotBikeEnv(SpotEnv):
             self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On,
             self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._ReachableBag,
             self._ReachablePlatform, self._InViewTool, self._InViewPlatform,
-            self._RobotStandingOnPlatform, self._InBag
+            self._RobotStandingOnPlatform, self._InBag, self._OnFloor
         }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
