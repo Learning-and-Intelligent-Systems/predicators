@@ -579,7 +579,7 @@ class SpotBikeEnv(SpotEnv):
     _reachable_threshold: ClassVar[float] = 1.7
     _bucket_center_offset_x: ClassVar[float] = -0.11
     _bucket_center_offset_y: ClassVar[float] = -0.15
-    _inbag_threshold: ClassVar[float] = 0.2
+    _inbag_threshold: ClassVar[float] = 0.25
     _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
     _handempty_gripper_threshold: ClassVar[float] = HANDEMPTY_GRIPPER_THRESHOLD
     _robot_on_platform_threshold: ClassVar[float] = 0.18

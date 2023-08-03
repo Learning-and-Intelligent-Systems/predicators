@@ -148,14 +148,20 @@ class SpotBikePerceiver(BasePerceiver):
         # If a container is being updated, change the poses for contained
         # objects.
         for container in observation.objects_in_view:
+            print("CHECK 1:", container)
             if container not in self._container_to_contained_objects:
                 continue
             if container not in self._known_object_poses:
                 continue
+            print("CHECK 2:", container)
             last_container_pose = self._known_object_poses[container]
             new_container_pose = observation.objects_in_view[container]
+            print("last:", last_container_pose)
+            print("new:", new_container_pose)
             dx, dy, dz = np.subtract(new_container_pose, last_container_pose)
+            print("DICT:", self._container_to_contained_objects[container])
             for obj in self._container_to_contained_objects[container]:
+                print("CHECK 3:", obj)
                 x, y, z = self._known_object_poses[obj]
                 new_obj_pose = (x + dx, y + dy, z + dz)
                 self._known_object_poses[obj] = new_obj_pose
