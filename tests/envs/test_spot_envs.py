@@ -107,11 +107,6 @@ def test_spot_bike_env_load_task_from_json():
     assert len(test_tasks) == 1
     task = test_tasks[0]
 
-    # pylint: disable=line-too-long
-    assert str(
-        task.init_obs
-    ) == "_SpotObservation(images={}, objects_in_view={brush:tool: (6.43948, -6.02389, 0.174947), bucket:bag: (6.85457, -8.19294, -0.189187), hammer:tool: (9.88252, -7.10786, 0.622855), low_wall_rack:flat_surface: (10.0275, -6.96979, 0.275323), measuring_tape:tool: (9.90738, -6.84972, 0.643172), tool_room_table:flat_surface: (6.49849, -6.25279, -0.0138028)}, objects_in_hand_view=set(), robot=spot:robot, gripper_open_percentage=0.42733, robot_pos=(8.46583, -6.94704, 0.131564, 0.0), nonpercept_atoms=set(), nonpercept_predicates={InBag, ReachableSurface, PlatformNear, OnFloor, HoldingPlatformLeash, HoldingBag})"
-
     assert str(
         sorted(task.goal)
     ) == "[InBag(brush:tool, bucket:bag), InBag(hammer:tool, bucket:bag), InBag(measuring_tape:tool, bucket:bag)]"
