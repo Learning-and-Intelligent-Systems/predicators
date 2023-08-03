@@ -607,12 +607,8 @@ class SpotBikeEnv(SpotEnv):
         self._OnFloor = Predicate("OnFloor",
                                   [self._tool_type, self._floor_type],
                                   self._onfloor_classifier)
-        self._temp_InBag = Predicate("InBag",
-                                     [self._tool_type, self._bag_type],
-                                     self._inbag_classifier)
-        self._InBag = Predicate(
-            "InBag", [self._tool_type, self._bag_type],
-            _create_dummy_predicate_classifier(self._temp_InBag))
+        self._InBag = Predicate("InBag", [self._tool_type, self._bag_type],
+                                self._inbag_classifier)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._handempty_classifier)
         self._notHandEmpty = Predicate("Not-HandEmpty", [self._robot_type],
@@ -1120,7 +1116,7 @@ class SpotBikeEnv(SpotEnv):
             self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On,
             self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._ReachableBag,
             self._ReachablePlatform, self._InViewTool, self._InViewPlatform,
-            self._RobotStandingOnPlatform
+            self._RobotStandingOnPlatform, self._InBag
         }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
