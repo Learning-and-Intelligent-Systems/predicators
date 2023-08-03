@@ -577,7 +577,7 @@ class SpotBikeEnv(SpotEnv):
 
     _ontop_threshold: ClassVar[float] = 0.55
     _reachable_threshold: ClassVar[float] = 1.7
-    _bucket_center_offset_x: ClassVar[float] = -0.11
+    _bucket_center_offset_x: ClassVar[float] = 0.0
     _bucket_center_offset_y: ClassVar[float] = -0.15
     _inbag_threshold: ClassVar[float] = 0.25
     _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
@@ -1032,8 +1032,8 @@ class SpotBikeEnv(SpotEnv):
         obj_y = state.get(obj, "y")
         bag_x = state.get(bag, "x") + cls._bucket_center_offset_x
         bag_y = state.get(bag, "y") + cls._bucket_center_offset_y
-        return np.sqrt((obj_x - bag_x)**2 +
-                       (obj_y - bag_y)**2) <= cls._inbag_threshold
+        dist = np.sqrt((obj_x - bag_x)**2 + (obj_y - bag_y)**2)
+        return dist <= cls._inbag_threshold
 
     @classmethod
     def _reachable_classifier(cls, state: State,

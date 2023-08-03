@@ -36,7 +36,8 @@ class SpotBikePerceiver(BasePerceiver):
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
         # Keep track of objects that are contained (out of view) in another
-        # object, like a bag or bucket.
+        # object, like a bag or bucket. This is important not only for gremlins
+        # but also for small changes in the container's perceived pose.
         self._container_to_contained_objects: Dict[Object, Set[Object]] = {}
 
     @classmethod
@@ -105,14 +106,14 @@ class SpotBikePerceiver(BasePerceiver):
                 robot, obj, surface = objects
                 state = self._create_state()
                 in_view_classifier = self._curr_env._tool_in_view_classifier  # pylint: disable=protected-access
-                on_top_classifier = self._curr_env._ontop_classifier  # pylint: disable=protected-access
+                in_bag_classifier = self._curr_env._inbag_classifier  # pylint: disable=protected-access
                 is_in_view = in_view_classifier(state, [robot, obj])
-                on_top = on_top_classifier(state, [obj, surface])
+                is_in_bag = in_bag_classifier(state, [obj, surface])
                 if not is_in_view:
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(obj)
-                elif on_top:
+                elif is_in_bag:
                     # The object is now contained.
                     if surface not in self._container_to_contained_objects:
                         self._container_to_contained_objects[surface] = set()
@@ -148,20 +149,14 @@ class SpotBikePerceiver(BasePerceiver):
         # If a container is being updated, change the poses for contained
         # objects.
         for container in observation.objects_in_view:
-            print("CHECK 1:", container)
             if container not in self._container_to_contained_objects:
                 continue
             if container not in self._known_object_poses:
                 continue
-            print("CHECK 2:", container)
             last_container_pose = self._known_object_poses[container]
             new_container_pose = observation.objects_in_view[container]
-            print("last:", last_container_pose)
-            print("new:", new_container_pose)
             dx, dy, dz = np.subtract(new_container_pose, last_container_pose)
-            print("DICT:", self._container_to_contained_objects[container])
             for obj in self._container_to_contained_objects[container]:
-                print("CHECK 3:", obj)
                 x, y, z = self._known_object_poses[obj]
                 new_obj_pose = (x + dx, y + dy, z + dz)
                 self._known_object_poses[obj] = new_obj_pose
