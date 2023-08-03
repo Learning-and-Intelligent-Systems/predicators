@@ -45,8 +45,6 @@ class KitchenEnv(BaseEnv):
     on_off_type = Type("on_off", ["x", "y", "z", "angle"], parent=object_type)
     hinge_door_type = Type("hinge_door", ["x", "y", "z", "angle"],
                            parent=on_off_type)
-    slide_door_type = Type("slide_door", ["x", "y", "z", "angle"],
-                           parent=on_off_type)
     knob_type = Type("knob", ["x", "y", "z", "angle"], parent=on_off_type)
     switch_type = Type("switch", ["x", "y", "z", "angle"], parent=on_off_type)
     surface_type = Type("surface", ["x", "y", "z"], parent=object_type)
@@ -62,7 +60,7 @@ class KitchenEnv(BaseEnv):
         "knob3": knob_type,
         "knob4": knob_type,
         "light": switch_type,
-        "slide": slide_door_type,
+        "slide": hinge_door_type,
         "hinge1": hinge_door_type,
         "burner1": surface_type,
         "burner2": surface_type,
@@ -85,6 +83,12 @@ class KitchenEnv(BaseEnv):
         ("knob4", "off"): (0.05, -0.12, -0.05),
         ("light", "on"): (0.1, -0.05, -0.05),
         ("light", "off"): (-0.1, -0.05, -0.05),
+        ("microhandle", "on"): (0.1, 0.05, 0.19),
+        ("microhandle", "off"): (-0.1, 0.05, 0.19),
+        ("hinge1", "on"): (0.3, -0.1, 0.0),
+        ("hinge1", "off"): (-0.3, 0.1, 0.0),
+        ("hinge2", "on"): (0.1, -0.1, 0.0),
+        ("hinge2", "off"): (-0.1, -0.1, 0.0),
     }
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -178,7 +182,8 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
     def goal_predicates(self) -> Set[Predicate]:
         return {
             self._pred_name_to_pred["OnTop"],
-            self._pred_name_to_pred["TurnedOn"]
+            self._pred_name_to_pred["TurnedOn"],
+            self._pred_name_to_pred["Open"]
         }
 
     @classmethod
@@ -199,6 +204,8 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
                       cls._NotOnTop_holds),
             Predicate("TurnedOn", [cls.on_off_type], cls.On_holds),
             Predicate("TurnedOff", [cls.on_off_type], cls.Off_holds),
+            Predicate("Open", [cls.on_off_type], cls.Open_holds),
+            Predicate("Close", [cls.on_off_type], cls.Close_holds),
         }
         return {p.name: p for p in preds}
 
@@ -207,7 +214,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         return {
             self.gripper_type, self.object_type, self.on_off_type,
             self.knob_type, self.kettle_type, self.switch_type,
-            self.hinge_door_type, self.slide_door_type, self.surface_type
+            self.hinge_door_type, self.surface_type
         }
 
     @property
@@ -340,6 +347,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             [state.get(obj, "x"),
              state.get(obj, "y"),
              state.get(obj, "z")])
+        # On refers to Open and Off to Close
         dpos = cls.get_pre_push_delta_pos(obj, on_or_off)
         gripper_xyz = np.array([
             state.get(gripper, "x"),
@@ -448,6 +456,39 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             return state.get(obj, "angle") >= cls.on_angle_thresh + thresh_pad
         if obj.is_instance(cls.switch_type):
             return state.get(obj, "x") >= cls.light_on_thresh + thresh_pad
+        return False
+
+    @classmethod
+    def Open_holds(cls,
+                   state: State,
+                   objects: Sequence[Object],
+                   thresh_pad: float = 0.0) -> bool:
+        """Made public for use in ground-truth options."""
+        obj = objects[0]
+        if obj.is_instance(cls.hinge_door_type):
+            if obj.name == "microhandle":
+                return state.get(obj, "x") < -0.72 - thresh_pad
+            if obj.name == "hinge1":
+                return state.get(obj, "x") < -0.72 - thresh_pad
+            if obj.name == "hinge2":
+                return state.get(obj, "x") < -0.72 - thresh_pad
+        return False
+
+    @classmethod
+    def Close_holds(cls,
+                    state: State,
+                    objects: Sequence[Object],
+                    thresh_pad: float = 0.0) -> bool:
+        """Made public for use in ground-truth options."""
+        # Can't do not Open_holds() because of thresh_pad logic.
+        obj = objects[0]
+        if obj.is_instance(cls.hinge_door_type):
+            if obj.name == "microhandle":
+                return state.get(obj, "x") >= -0.72 + thresh_pad
+            if obj.name == "hinge1":
+                return state.get(obj, "x") >= -0.72 + thresh_pad
+            if obj.name == "hinge2":
+                return state.get(obj, "x") >= -0.72 + thresh_pad
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:

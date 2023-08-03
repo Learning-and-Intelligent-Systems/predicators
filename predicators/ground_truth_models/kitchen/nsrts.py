@@ -30,6 +30,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         surface_type = types["surface"]
         switch_type = types["switch"]
         knob_type = types["knob"]
+        hinge_door_type = types["hinge_door"]
 
         # Objects
         gripper = Variable("?gripper", gripper_type)
@@ -38,6 +39,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         surface = Variable("?surface", surface_type)
         switch = Variable("?switch", switch_type)
         knob = Variable("?knob", knob_type)
+        hinge_door = Variable("?hinge_door", hinge_door_type)
 
         # Options
         MoveToPrePushOnTop = options["MoveToPrePushOnTop"]
@@ -50,15 +52,19 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         TurnOnSwitch = options["TurnOnSwitch"]
         TurnOffKnob = options["TurnOffKnob"]
         TurnOnKnob = options["TurnOnKnob"]
+        PushOpen = options["PushOpen"]
+        PushClose = options["PushClose"]
 
         # Predicates
         AtPreTurnOn = predicates["AtPreTurnOn"]
         AtPreTurnOff = predicates["AtPreTurnOff"]
         AtPrePushOnTop = predicates["AtPrePushOnTop"]
         AtPrePullKettle = predicates["AtPrePullKettle"]
+        Close = predicates["Close"]
         TurnedOn = predicates["TurnedOn"]
         TurnedOff = predicates["TurnedOff"]
         OnTop = predicates["OnTop"]
+        Open = predicates["Open"]
         NotOnTop = predicates["NotOnTop"]
 
         nsrts = set()
@@ -351,5 +357,75 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                   add_effects, delete_effects, ignore_effects,
                                   option, option_vars, knob_turn_off_sampler)
         nsrts.add(turn_off_knob_nsrt)
+
+        # PushOpenHingeDoor
+        parameters = [gripper, hinge_door]
+        preconditions = {
+            LiftedAtom(AtPreTurnOn, [gripper, hinge_door]),
+            LiftedAtom(Close, [hinge_door])
+        }
+        add_effects = {LiftedAtom(Open, [hinge_door])}
+        delete_effects = {LiftedAtom(Close, [hinge_door])}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
+        option = PushOpen
+        option_vars = [gripper, hinge_door]
+
+        def push_open_hinge_door_sampler(state: State, goal: Set[GroundAtom],
+                                         rng: np.random.Generator,
+                                         objs: Sequence[Object]) -> Array:
+            del state, goal  # unused
+            # TODO fix
+            # Sample a direction to push w.r.t. the x axis.
+            if CFG.kitchen_use_perfect_samplers:
+                # Push slightly inward.
+                push_angle = 9 * np.pi / 8
+                if objs[1].name == "hinge1" or objs[1].name == "hinge2":
+                    push_angle = np.pi / 8
+            else:
+                push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
+            return np.array([push_angle], dtype=np.float32)
+
+        push_open_hinge_door_nsrt = NSRT("PushOpenHingeDoor", parameters,
+                                         preconditions, add_effects,
+                                         delete_effects, ignore_effects,
+                                         option, option_vars,
+                                         push_open_hinge_door_sampler)
+        nsrts.add(push_open_hinge_door_nsrt)
+
+        # PushCloseHingeDoor
+        parameters = [gripper, hinge_door]
+        preconditions = {
+            LiftedAtom(AtPreTurnOff, [gripper, hinge_door]),
+            LiftedAtom(Open, [hinge_door])
+        }
+        add_effects = {LiftedAtom(Close, [hinge_door])}
+        delete_effects = {LiftedAtom(Open, [hinge_door])}
+        ignore_effects = {
+            AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
+        }
+        option = PushClose
+        option_vars = [gripper, hinge_door]
+
+        def push_close_hinge_door_sampler(state: State, goal: Set[GroundAtom],
+                                          rng: np.random.Generator,
+                                          objs: Sequence[Object]) -> Array:
+            del state, goal, objs  # unused
+            # TODO fix
+            # Sample a direction to push w.r.t. the x axis.
+            if CFG.kitchen_use_perfect_samplers:
+                # Push slightly inward.
+                push_angle = 0
+            else:
+                push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
+            return np.array([push_angle], dtype=np.float32)
+
+        push_close_hinge_door_nsrt = NSRT("PushCloseHingeDoor", parameters,
+                                          preconditions, add_effects,
+                                          delete_effects, ignore_effects,
+                                          option, option_vars,
+                                          push_close_hinge_door_sampler)
+        nsrts.add(push_close_hinge_door_nsrt)
 
         return nsrts
