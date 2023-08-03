@@ -108,12 +108,12 @@ class SpotBikePerceiver(BasePerceiver):
                 in_view_classifier = self._curr_env._tool_in_view_classifier  # pylint: disable=protected-access
                 in_bag_classifier = self._curr_env._inbag_classifier  # pylint: disable=protected-access
                 is_in_view = in_view_classifier(state, [robot, obj])
-                is_in_bag = in_bag_classifier(state, [obj, surface])
                 if not is_in_view:
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(obj)
-                elif is_in_bag:
+                elif surface.type.name == "bag" and in_bag_classifier(
+                        state, [obj, surface]):
                     # The object is now contained.
                     if surface not in self._container_to_contained_objects:
                         self._container_to_contained_objects[surface] = set()
