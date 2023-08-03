@@ -345,9 +345,10 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         # Easiest way to access the base sampler.
         base_sampler = nsrt._sampler  # pylint: disable=protected-access
         score_fn = _classifier_to_score_fn(classifier, nsrt)
-        wrapped_sampler = _wrap_sampler(base_sampler, score_fn)
-
-        return (wrapped_sampler, wrapped_sampler)
+        wrapped_sampler_test = _wrap_sampler(base_sampler, score_fn)
+        wrapped_sampler_exploration = _wrap_sampler_exploration(
+            base_sampler, score_fn)
+        return (wrapped_sampler_test, wrapped_sampler_exploration)
 
 
 class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
@@ -399,13 +400,14 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
         test_score_fn = _classifier_ensemble_to_score_fn(classifier,
                                                          nsrt,
                                                          test_time=True)
-        test_wrapped_sampler = _wrap_sampler(base_sampler, test_score_fn)
+        wrapped_sampler_test = _wrap_sampler(base_sampler, test_score_fn)
         explore_score_fn = _classifier_ensemble_to_score_fn(classifier,
                                                             nsrt,
                                                             test_time=False)
-        explore_wrapped_sampler = _wrap_sampler(base_sampler, explore_score_fn)
+        wrapped_sampler_exploration = _wrap_sampler_exploration(
+            base_sampler, explore_score_fn)
 
-        return (test_wrapped_sampler, explore_wrapped_sampler)
+        return (wrapped_sampler_test, wrapped_sampler_exploration)
 
 
 class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
@@ -457,8 +459,10 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         score_fn = _regressor_to_score_fn(regressor, nsrt)
         # Save the score function for use in later target computation.
         self._next_nsrt_score_fns[nsrt] = score_fn
-        wrapped_sampler = _wrap_sampler(base_sampler, score_fn)
-        return (wrapped_sampler, wrapped_sampler)
+        wrapped_sampler_test = _wrap_sampler(base_sampler, score_fn)
+        wrapped_sampler_exploration = _wrap_sampler_exploration(
+            base_sampler, score_fn)
+        return (wrapped_sampler_test, wrapped_sampler_exploration)
 
     def _predict(self, state: State, option: _Option) -> float:
         """Predict Q(s, a)."""
@@ -560,21 +564,21 @@ def _wrap_sampler_exploration(base_sampler: NSRTSampler,
             for _ in range(CFG.active_sampler_learning_num_samples)
         ]
         scores = score_fn(state, objects, samples)
-
         if CFG.active_sampler_learning_exploration_sample_strategy in [
                 "greedy", "epsilon_greedy"
         ]:
-            idx = np.argmax(scores)
-            if CFG.active_sampler_learning_exploration_sample_strategy == "epsilon_greedy" and rng.uniform(
-            ) <= CFG.active_Sampler_learning_exploration_epsilon:
+            idx = int(np.argmax(scores))
+            if CFG.active_sampler_learning_exploration_sample_strategy == \
+                "epsilon_greedy" and rng.uniform(
+            ) <= CFG.active_sampler_learning_exploration_epsilon:
                 # Randomly select a sample to pick, following the epsilon
                 # greedy strategy!
                 idx = rng.integers(0, len(scores))
-
         else:
             raise NotImplementedError(
-                f'Exploration strategy {CFG.active_sampler_learning_exploration_sample_strategy} is not implemented.'
-            )
+                'Exploration strategy ' +
+                f'{CFG.active_sampler_learning_exploration_sample_strategy} ' +
+                'is not implemented.')
         return samples[idx]
 
     return _sample
