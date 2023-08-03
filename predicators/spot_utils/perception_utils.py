@@ -574,7 +574,6 @@ def _run_offline_analysis() -> None:
         "yellow measuring tape",
         "small measuring tape",
         "small yellow measuring tape",
-        "top-down view of small measuring tape",
     ]
     # pylint:disable=line-too-long
     files = [
@@ -593,10 +592,6 @@ def _run_offline_analysis() -> None:
     for file in files:
         path = (root_dir / "spot_perception_outputs" / file).resolve()
         img = iio.imread(path)
-
-        # TODO try rotate image
-        # import scipy.ndimage as ndimage
-        # img = ndimage.rotate(img, 180, reshape=False)
 
         # NOTE: cannot batch class candidates for some strange reason, they
         # apparently interfere.
