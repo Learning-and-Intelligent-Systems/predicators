@@ -26,6 +26,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()
+        self._percept_predicates: Set[Predicate] = set()
         self._prev_action: Optional[Action] = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
@@ -48,6 +49,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._robot = None
         self._nonpercept_atoms = set()
         self._nonpercept_predicates = set()
+        self._percept_predicates = self._curr_env.percept_predicates
         self._prev_action = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
@@ -91,15 +93,13 @@ class SpotBikePerceiver(BasePerceiver):
                     self._lost_objects.add(object_attempted_to_grasp)
             elif "place" in controller_name.lower():
                 self._holding_item_id_feature = 0.0
-                # Check if the item we just placed is on the surface we meant
-                # to place it on. If not, the item is lost.
-                robot, obj, surface = objects
+                # Check if the item we just placed is in view. It needs to
+                # be in view to assess whether it was placed correctly.
+                robot, obj, _ = objects
                 state = self._create_state()
-                ontop_classifier = self._curr_env._ontop_classifier  # pylint: disable=protected-access
                 in_view_classifier = self._curr_env._tool_in_view_classifier  # pylint: disable=protected-access
-                is_on = ontop_classifier(state, [obj, surface])
                 is_in_view = in_view_classifier(state, [robot, obj])
-                if not is_on or not is_in_view:
+                if not is_in_view:
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(obj)
@@ -180,6 +180,13 @@ class SpotBikePerceiver(BasePerceiver):
         percept_state = utils.create_state_from_dict(state_dict)
         logging.info("Percept state:")
         logging.info(percept_state.pretty_str())
+        logging.info("Percept atoms:")
+        atom_str = "\n".join(
+            map(
+                str,
+                sorted(utils.abstract(percept_state,
+                                      self._percept_predicates))))
+        logging.info(atom_str)
         # Prepare the simulator state.
         simulator_state = {
             "predicates": self._nonpercept_predicates,
