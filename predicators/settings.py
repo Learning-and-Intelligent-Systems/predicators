@@ -592,7 +592,7 @@ class GlobalSettings:
 
     # Behavior2D
     behavior_task_name = "defrosting_freezer"
-    behavior_init_states_path = "/home/jmendez/Research/Behavior/predicators_behavior_v2/init_states/"
+    behavior_init_states_path = "init_states/"
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -708,6 +708,12 @@ class GlobalSettings:
             cover_initial_holding_prob=defaultdict(lambda: 0.75, {
                 "cover_place_hard": 0.0,
             })[args.get("env", "")],
+            # Incremental NSRT/precondition learning
+            excluded_nsrts=defaultdict(lambda: "", {
+                "behavior2d": "CleanStained",
+                "cover": ""
+            })[args.get("env", "")]
+
         )
 
 

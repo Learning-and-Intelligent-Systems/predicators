@@ -85,7 +85,7 @@ class Behavior2DEnv(BaseEnv):
         self.slicer_types = set()
 
         self.all_features = ["pose_x", "pose_y", "yaw", "width", "height", "held",
-                             "open", "toggled-on", "dusty", "stained", "sliced",
+                             "open", "toggled_on", "dusty", "stained", "sliced",
                              "cooked", "burnt", "frozen", "soaked"]
         self._parent_object_type = Type("object", self.all_features)
         self._object_types = self._get_all_object_types()
@@ -153,7 +153,7 @@ class Behavior2DEnv(BaseEnv):
             ("onfloor", self._onfloor_classifier, 1),
             # Symbolic
             ("open", self._open_classifier, 1), 
-            ("toggled-on", self._toggled_on_classifier, 1),
+            ("toggled_on", self._toggled_on_classifier, 1),
             ("cooked", self._cooked_classifier, 1),
             ("burnt", self._burnt_classifier, 1),
             ("frozen", self._frozen_classifier, 1),
@@ -186,7 +186,7 @@ class Behavior2DEnv(BaseEnv):
             # Negations
             ("not-inside", self._not_inside_classifier, 2),
             ("closed", self._closed_classifier, 1),
-            ("toggled-off", self._toggled_off_classifier, 1),
+            ("toggled_off", self._toggled_off_classifier, 1),
             ("not-dusty", self._not_dusty_classifier, 1),
             ("not-stained", self._not_stained_classifier, 1),
             ("not-openable", self._not_openable_classifier, 1),
@@ -337,7 +337,7 @@ class Behavior2DEnv(BaseEnv):
 
         obj = self._get_held_object(state)
         if obj is None:
-            print("no object held")
+            # print("no object held")
             return next_state
         rot_rel_x = state.get(obj, "pose_x")
         rot_rel_y = state.get(obj, "pose_y")
@@ -351,14 +351,14 @@ class Behavior2DEnv(BaseEnv):
         robby_yaw = state.get(robby, "yaw")
         gripper_free = state.get(robby, "gripper_free")
         if gripper_free != 0.0:
-            print("gripper is free")
+            # print("gripper is free")
             return next_state
 
         inside_obj = self.get_object_by_id(state, int(inside_obj_id))
         if inside_obj.type.name not in self.insideable_types:
             return next_state
         if inside_obj.type.name in self.openable_types and not self._open_classifier(state, [inside_obj]):
-            print("inside object is openable and is not open")
+            # print("inside object is openable and is not open")
             return next_state
 
         inside_obj_x = state.get(inside_obj, "pose_x")
@@ -367,7 +367,7 @@ class Behavior2DEnv(BaseEnv):
         inside_obj_h = state.get(inside_obj, "height")
         inside_obj_yaw = state.get(inside_obj, "yaw")
 
-        print(f"Big sides: ({inside_obj_w}, {inside_obj_h}); small sides: ({obj_w}, {obj_h})")
+        # print(f"Big sides: ({inside_obj_w}, {inside_obj_h}); small sides: ({obj_w}, {obj_h})")
         tip_x = robby_x + (self.robot_radius + offset_gripper *
                            self.gripper_length) * np.cos(robby_yaw)
         tip_y = robby_y + (self.robot_radius + offset_gripper *
@@ -408,7 +408,7 @@ class Behavior2DEnv(BaseEnv):
         if not inside_obj_rect.contains_point(*(obj_rect.center)):# or \
             # self.detect_collision(state, obj_rect, ignore_objects): #or \
             # self.detect_collision(state, gripper_line, ignore_objects):
-            print("object not inside")
+            # print("object not inside")
             return next_state
 
         next_state.set(obj, "held", 0.0)
@@ -440,7 +440,7 @@ class Behavior2DEnv(BaseEnv):
             next_state.set(other_obj, "pose_y", place_y)
             next_state.set(other_obj, "yaw", place_yaw)
             assert self._inside_classifier(next_state, [other_obj, obj])
-        print("success")
+        # print("success")
         return next_state
 
     def _transition_place_nextto(self, state: State, action: Action) -> State:
@@ -579,7 +579,7 @@ class Behavior2DEnv(BaseEnv):
         if not target_obj.type.name in self.toggleable_types:
             return next_state
 
-        next_state.set(target_obj, "toggled-on", 1.0)
+        next_state.set(target_obj, "toggled_on", 1.0)
         return next_state
 
     def _transition_cook(self, state: State, action: Action) -> State:
@@ -1119,7 +1119,7 @@ class Behavior2DEnv(BaseEnv):
     def _toggled_on_classifier(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         if obj.type.name in self.toggleable_types:
-            return state.get(obj,"toggled-on")
+            return state.get(obj,"toggled_on")
         return False
 
     def _cooked_classifier(self, state: State, objects: Sequence[Object]) -> bool:
@@ -1275,7 +1275,7 @@ class Behavior2DEnv(BaseEnv):
     def _toggled_off_classifier(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         if obj.type.name in self.toggleable_types:
-            return not state.get(obj,"toggled-on")
+            return not state.get(obj,"toggled_on")
         return False
 
     def _not_dusty_classifier(self, state: State, objects: Sequence[Object]) -> bool:

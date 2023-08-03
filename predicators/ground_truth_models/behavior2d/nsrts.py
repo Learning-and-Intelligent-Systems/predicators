@@ -355,10 +355,10 @@ class Behavior2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [robot_obj, toggle_obj]
         option_vars = [robot_obj, toggle_obj]
         toggleable = LiftedAtom(predicates["toggleable"], [toggle_obj])
-        toggledoff = LiftedAtom(predicates["toggled-off"], [toggle_obj])
+        toggledoff = LiftedAtom(predicates["toggled_off"], [toggle_obj])
         reachable = LiftedAtom(predicates["reachable"], [toggle_obj])
         preconditions = {reachable, toggledoff, toggleable, handempty}
-        add_effects = {LiftedAtom(predicates["toggled-on"], [toggle_obj])}
+        add_effects = {LiftedAtom(predicates["toggled_on"], [toggle_obj])}
         delete_effects = {toggledoff}
         nsrt = NSRT(
             f"ToggleOn", parameters,
@@ -377,7 +377,7 @@ class Behavior2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         cookable = LiftedAtom(predicates["cookable"], [cook_obj])
         cooker = LiftedAtom(predicates["cooker"], [cooker_obj])
         not_toggleable = LiftedAtom(predicates["not-toggleable"], [cooker_obj])
-        toggled = LiftedAtom(predicates["toggled-on"], [cooker_obj])
+        toggled = LiftedAtom(predicates["toggled_on"], [cooker_obj])
         preconditions_toggleable = {reachable, holding_held, cookable, cooker, toggled}
         preconditions_not_toggleable = {reachable, holding_held, cookable, cooker, not_toggleable}
         add_effects = {LiftedAtom(predicates["cooked"], [cook_obj])}
@@ -405,7 +405,7 @@ class Behavior2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         freezable = LiftedAtom(predicates["freezable"], [freeze_obj])
         freezer = LiftedAtom(predicates["freezer"], [freezer_obj])
         not_toggleable = LiftedAtom(predicates["not-toggleable"], [freezer_obj])
-        toggled = LiftedAtom(predicates["toggled-on"], [freezer_obj])
+        toggled = LiftedAtom(predicates["toggled_on"], [freezer_obj])
         preconditions_toggleable = {reachable, holding_held, freezable, freezer, toggled}
         preconditions_not_toggleable = {reachable, holding_held, freezable, freezer, not_toggleable}
         add_effects = {LiftedAtom(predicates["frozen"], [freeze_obj])}
@@ -433,7 +433,7 @@ class Behavior2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         soakable = LiftedAtom(predicates["soakable"], [soak_obj])
         soaker = LiftedAtom(predicates["soaker"], [soaker_obj])
         not_toggleable = LiftedAtom(predicates["not-toggleable"], [soaker_obj])
-        toggled = LiftedAtom(predicates["toggled-on"], [soaker_obj])
+        toggled = LiftedAtom(predicates["toggled_on"], [soaker_obj])
         preconditions_toggleable = {reachable, holding_held, soakable, soaker, toggled}
         preconditions_not_toggleable = {reachable, holding_held, soakable, soaker, not_toggleable}
         add_effects = {LiftedAtom(predicates["soaked"], [soak_obj])}

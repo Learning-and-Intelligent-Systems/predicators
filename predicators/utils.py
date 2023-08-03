@@ -1495,8 +1495,11 @@ def find_substitution(
         for obj in atom.entities:
             if obj not in super_entities_by_type[obj.type]:
                 super_entities_by_type[obj.type].append(obj)
+            if obj.type.parent is not None and obj not in super_entities_by_type[obj.type.parent]:
+                super_entities_by_type[obj.type.parent].append(obj)
         super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
     sub_variables = sorted({e for atom in sub_atoms for e in atom.entities})
+
     return _find_substitution_helper(sub_atoms, super_entities_by_type,
                                      sub_variables, super_pred_to_tuples, {},
                                      allow_redundant)
@@ -2634,6 +2637,22 @@ def compute_necessary_atoms_seq(
         necessary_image |= set(curr_nsrt.preconditions)
         necessary_atoms_seq = [set(necessary_image)] + necessary_atoms_seq
     return necessary_atoms_seq
+
+def trim_skeleton_to_necessary_atoms(
+        skeleton: List[_GroundNSRT], necessary_atoms_seq: List[Set[GroundAtom]]
+    ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]:
+   
+    new_skeleton: List[_GroundNSRT] = []
+    new_necessary_atoms_seq: List[_GroundNSRT] = [set(necessary_atoms_seq[-1])]
+    necessary_image = set(necessary_atoms_seq[-1])
+    for t in range(len(necessary_atoms_seq) - 2, -1, -1):
+        curr_nsrt = skeleton[t]
+        if any(atom in necessary_image for atom in curr_nsrt.add_effects):
+            necessary_image -= set(curr_nsrt.add_effects)
+            necessary_image |= set(curr_nsrt.preconditions)
+            new_skeleton = [curr_nsrt] + new_skeleton
+            new_necessary_atoms_seq = [set(necessary_image)] + new_necessary_atoms_seq
+    return new_skeleton, new_necessary_atoms_seq
 
 
 def get_successors_from_ground_ops(

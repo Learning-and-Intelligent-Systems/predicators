@@ -611,7 +611,7 @@ def run_low_level_search(
                         can_continue_on = True
                         if cur_idx == len(skeleton):
                             plan_found = True
-                        logging.info(f"Successfully sampled {skeleton[cur_idx-1].name} params")
+                        logging.info(f"Successfully sampled {skeleton[cur_idx-1].name} params,")
                     else:
                         logging.info("\tFailure: Expected Atoms Check Failed.")
                         for a in expected_atoms:
@@ -1095,17 +1095,25 @@ def _sesame_plan_with_fast_downward(
             sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
             objects, init_atoms, nsrts, max_horizon)
         logging.info("Found plan skeleton!")
-        # Good debug point #1: print out the skeleton here to see what
-        # the high-level search is doing. You can accomplish this via:
-        for act in skeleton:
-            logging.info(f"{act.name} {act.objects}")
-        logging.info("")
+        # # Good debug point #1: print out the skeleton here to see what
+        # # the high-level search is doing. You can accomplish this via:
+        # for act in skeleton:
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
         # exit()
         # Run low-level search on this skeleton.
         low_level_timeout = timeout - (time.perf_counter() - start_time)
         try:
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)
+            skeleton, necessary_atoms_seq = utils.trim_skeleton_to_necessary_atoms(
+                skeleton, necessary_atoms_seq)
+            # Good debug point #1: print out the skeleton here to see what
+            # the high-level search is doing. You can accomplish this via:
+            for act in skeleton:
+                logging.info(f"{act.name} {act.objects}")
+            logging.info("")
+
             refinement_start_time = time.perf_counter()
             plan, suc = run_low_level_search(task, option_model, skeleton,
                                              necessary_atoms_seq, seed,
