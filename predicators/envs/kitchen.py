@@ -83,11 +83,11 @@ class KitchenEnv(BaseEnv):
         ("knob4", "off"): (0.05, -0.12, -0.05),
         ("light", "on"): (0.1, -0.05, -0.05),
         ("light", "off"): (-0.1, -0.05, -0.05),
-        ("microhandle", "on"): (0.1, 0.05, 0.19),
-        ("microhandle", "off"): (-0.1, 0.05, 0.19),
-        ("hinge1", "on"): (0.3, -0.1, 0.0),
+        ("microhandle", "on"): (0.12, 0.03, 0.17),
+        ("microhandle", "off"): (0.0, -0.1, 0.2),
+        ("hinge1", "on"): (0.1, -0.1, 0.0),
         ("hinge1", "off"): (-0.3, 0.1, 0.0),
-        ("hinge2", "on"): (0.1, -0.1, 0.0),
+        ("hinge2", "on"): (0.1, -0.15, 0.0),
         ("hinge2", "off"): (-0.1, -0.1, 0.0),
     }
 
@@ -466,12 +466,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            if obj.name == "microhandle":
-                return state.get(obj, "x") < -0.72 - thresh_pad
-            if obj.name == "hinge1":
-                return state.get(obj, "x") < -0.72 - thresh_pad
-            if obj.name == "hinge2":
-                return state.get(obj, "x") < -0.72 - thresh_pad
+            return state.get(obj, "x") < -0.68 - thresh_pad
         return False
 
     @classmethod
@@ -483,12 +478,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         # Can't do not Open_holds() because of thresh_pad logic.
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            if obj.name == "microhandle":
-                return state.get(obj, "x") >= -0.72 + thresh_pad
-            if obj.name == "hinge1":
-                return state.get(obj, "x") >= -0.72 + thresh_pad
-            if obj.name == "hinge2":
-                return state.get(obj, "x") >= -0.72 + thresh_pad
+            return state.get(obj, "x") >= -0.68 + thresh_pad
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:

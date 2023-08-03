@@ -381,8 +381,6 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             if CFG.kitchen_use_perfect_samplers:
                 # Push slightly inward.
                 push_angle = 9 * np.pi / 8
-                if objs[1].name == "hinge1" or objs[1].name == "hinge2":
-                    push_angle = np.pi / 8
             else:
                 push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
@@ -416,7 +414,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
                 # Push slightly inward.
-                push_angle = 0
+                push_angle = np.pi / 2
             else:
                 push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
