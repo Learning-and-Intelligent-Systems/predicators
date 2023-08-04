@@ -299,7 +299,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             score = self._rng.uniform()
         else:
             raise NotImplementedError(
-                "Unrecognized explore scorer: "
+                "Unrecognized explore task strategy: "
                 f"{CFG.active_sampler_explore_task_strategy}")
         logging.info(f"[Explorer]   total score: {score}")
         return score

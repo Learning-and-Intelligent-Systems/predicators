@@ -255,7 +255,7 @@ def test_active_sampler_explorer():
         state = env.simulate(state, policy(state))
     assert len(ground_op_hist) > 0
 
-    # Test unrecognized scorer.
+    # Test unrecognized task strategy.
     utils.reset_config({
         "explorer":
         "active_sampler",
@@ -272,7 +272,7 @@ def test_active_sampler_explorer():
         "sampler_learner":
         "oracle",
         "active_sampler_explore_task_strategy":
-        "not a real scorer",
+        "not a real task strategy",
     })
     explorer = create_explorer(
         "active_sampler",
@@ -292,4 +292,4 @@ def test_active_sampler_explorer():
         for _ in range(25):
             assert not term_fn(state)
             state = env.simulate(state, policy(state))
-    assert "Unrecognized explore scorer" in str(e)
+    assert "Unrecognized explore task strategy" in str(e)
