@@ -287,7 +287,7 @@ def test_active_sampler_explorer():
         seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
-    for _ in range(25):
+    for _ in range(100):
         assert not term_fn(state)
         state = env.simulate(state, policy(state))
 
@@ -334,4 +334,4 @@ def test_active_sampler_explorer():
         for _ in range(25):
             assert not term_fn(state)
             state = env.simulate(state, policy(state))
-        assert "is not implemented" in str(e)
+    assert "is not implemented" in str(e)
