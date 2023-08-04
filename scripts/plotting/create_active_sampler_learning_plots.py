@@ -55,6 +55,8 @@ PLOT_GROUPS = {
     "Kitchen (All Goals)": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-planning_progress_explore" in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-task_repeat_explore" in v)),
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-success_rate_explore" in v)),
         ("Ablate Improve", "purple", lambda df: df["EXPERIMENT_ID"].apply(
@@ -65,6 +67,8 @@ PLOT_GROUPS = {
     "Regional Bumpy Cover": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-success_rate_explore" in v)),
         ("Ablate Improve", "purple", lambda df: df["EXPERIMENT_ID"].apply(
