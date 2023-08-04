@@ -139,15 +139,14 @@ class ActiveSamplerExplorer(BaseExplorer):
                         for train_task_idx in train_task_idxs:
                             task = self._train_tasks[train_task_idx]
                             # Can only practice the task if the objects match.
-                            if set(task.init) != set(state):
-                                continue
-                            possible_goals = [
-                                task.goal,
-                                utils.abstract(task.init, self._predicates)
-                            ]
-                            for goal in possible_goals:
-                                if any(not a.holds(state) for a in goal):
-                                    yield goal
+                            if set(task.init) == set(state):
+                                possible_goals = [
+                                    task.goal,
+                                    utils.abstract(task.init, self._predicates)
+                                ]
+                                for goal in possible_goals:
+                                    if any(not a.holds(state) for a in goal):
+                                        yield goal
 
                 # Otherwise, practice.
                 else:
