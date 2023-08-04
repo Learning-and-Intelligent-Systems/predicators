@@ -249,9 +249,9 @@ def _generate_interaction_results(
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
-        monitor: Optional[TeacherInteractionMonitorWithVideo] = None
+        monitor: Optional[utils.VideoMonitor] = None
         if teacher is not None:
-            monitor: utils.LoggingMonitor = TeacherInteractionMonitorWithVideo(
+            monitor = TeacherInteractionMonitorWithVideo(
                 env.render, request, teacher)
         elif CFG.make_interaction_videos:
             monitor = utils.VideoMonitor(env.render)
