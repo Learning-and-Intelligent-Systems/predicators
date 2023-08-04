@@ -5,7 +5,7 @@ import pytest
 
 from predicators import utils
 from predicators.approaches.active_sampler_learning_approach import \
-    _wrap_sampler_exploration
+    _wrap_sampler
 from predicators.envs.cover import RegionalBumpyCoverEnv
 from predicators.explorers import create_explorer
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
@@ -271,8 +271,8 @@ def test_active_sampler_explorer():
     })
     new_nsrt_to_greedy_explorer_sampler = {}
     for nsrt, sampler in nsrt_to_explorer_sampler.items():
-        new_nsrt_to_greedy_explorer_sampler[nsrt] = _wrap_sampler_exploration(
-            sampler, lambda s, o, x: [0.0] * len(x))
+        new_nsrt_to_greedy_explorer_sampler[nsrt] = _wrap_sampler(
+            sampler, lambda s, o, x: [0.0] * len(x), strategy="epsilon_greedy")
     explorer = create_explorer(
         "active_sampler",
         env.predicates,
