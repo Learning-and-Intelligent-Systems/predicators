@@ -278,7 +278,7 @@ def _generate_interaction_results(
         request_responses: List[Optional[Response]] = [
             None for _ in traj.states
         ]
-        if monitor is not None:
+        if isinstance(monitor, TeacherInteractionMonitorWithVideo):
             request_responses = monitor.get_responses()
             query_cost += monitor.get_query_cost()
         assert len(traj.states) == len(observed_traj[0])
