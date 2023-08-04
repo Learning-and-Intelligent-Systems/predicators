@@ -123,6 +123,31 @@ class ActiveSamplerExplorer(BaseExplorer):
                         # Just a single goal.
                         yield assigned_task.goal
 
+                # Baseline where we try the assigned task over and over,
+                # going back to the initial (abstract) state after reaching
+                # the goal.
+                elif CFG.active_sampler_explorer_do_task_repeat:
+                    logging.info("[Explorer] Pursuing repeat task")
+
+                    def generate_goals() -> Iterator[Set[GroundAtom]]:
+                        # Loop through seen tasks in random order. Propose
+                        # their initial abstract states and their goals until
+                        # one is found that is not already achieved.
+                        train_task_idxs = sorted(self._seen_train_task_idxs)
+                        self._rng.shuffle(train_task_idxs)
+                        for train_task_idx in train_task_idxs:
+                            task = self._train_tasks[train_task_idx]
+                            # Can only practice the task if the objects match.
+                            if set(task.init) != set(state):
+                                continue
+                            possible_goals = [
+                                task.goal,
+                                utils.abstract(task.init, self._predicates)
+                            ]
+                            for goal in possible_goals:
+                                if any(not a.holds(state) for a in goal):
+                                    yield goal
+
                 # Otherwise, practice.
                 else:
                     logging.info("[Explorer] Pursuing NSRT preconditions")
