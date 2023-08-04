@@ -310,8 +310,28 @@ def test_active_sampler_explorer():
         "active_sampler_learning_exploration_sample_strategy":
         "not a real explorer"
     })
+    new_nsrt_to_greedy_explorer_sampler = {}
+    for nsrt, sampler in nsrt_to_explorer_sampler.items():
+        new_nsrt_to_greedy_explorer_sampler[nsrt] = _wrap_sampler(
+            sampler,
+            lambda s, o, x: [0.0] * len(x),
+            strategy="not a real explorer")
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        nsrt_to_explorer_sampler=new_nsrt_to_greedy_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
     with pytest.raises(NotImplementedError) as e:
         for _ in range(25):
             assert not term_fn(state)
             state = env.simulate(state, policy(state))
-    assert "is not implemented" in str(e)
+        assert "is not implemented" in str(e)
