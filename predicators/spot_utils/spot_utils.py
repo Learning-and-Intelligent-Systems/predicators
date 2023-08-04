@@ -745,8 +745,14 @@ class _SpotInterface():
                            keep_hand_pose=False,
                            relative_to_default_pose=False,
                            angle=angle)
-        time.sleep(0.25)
-        self.stow_arm()
+        # Look down to see if the object landed where we hoped.
+        self.hand_movement(params,
+                           keep_hand_pose=False,
+                           relative_to_default_pose=False,
+                           open_gripper=False,
+                           angle=(np.cos(np.pi / 4), 0, np.sin(np.pi / 4), 0))
+        # Longer sleep necessary to prevent blurry images.
+        time.sleep(2.0)
 
     def dragController(self, objs: Sequence[Object], params: Array) -> None:
         """Drag Controller."""

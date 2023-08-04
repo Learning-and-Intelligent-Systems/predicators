@@ -26,6 +26,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()
+        self._percept_predicates: Set[Predicate] = set()
         self._prev_action: Optional[Action] = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
@@ -34,6 +35,10 @@ class SpotBikePerceiver(BasePerceiver):
         assert CFG.env == "spot_bike_env"
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
+        # Keep track of objects that are contained (out of view) in another
+        # object, like a bag or bucket. This is important not only for gremlins
+        # but also for small changes in the container's perceived pose.
+        self._container_to_contained_objects: Dict[Object, Set[Object]] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -48,11 +53,13 @@ class SpotBikePerceiver(BasePerceiver):
         self._robot = None
         self._nonpercept_atoms = set()
         self._nonpercept_predicates = set()
+        self._percept_predicates = self._curr_env.percept_predicates
         self._prev_action = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
         self._robot_pos = (0.0, 0.0, 0.0, 0.0)
         self._lost_objects = set()
+        self._container_to_contained_objects = {}
         init_state = self._create_state()
         return Task(init_state, env_task.goal)
 
@@ -79,6 +86,9 @@ class SpotBikePerceiver(BasePerceiver):
                 # We know that the object that we attempted to grasp was
                 # the second argument to the controller.
                 object_attempted_to_grasp = objects[1]
+                # Remove from contained objects.
+                for contained in self._container_to_contained_objects.values():
+                    contained.discard(object_attempted_to_grasp)
                 grasp_obj_id = obj_name_to_apriltag_id[
                     object_attempted_to_grasp.name]
                 # We only want to update the holding item id feature
@@ -91,19 +101,23 @@ class SpotBikePerceiver(BasePerceiver):
                     self._lost_objects.add(object_attempted_to_grasp)
             elif "place" in controller_name.lower():
                 self._holding_item_id_feature = 0.0
-                # Check if the item we just placed is on the surface we meant
-                # to place it on. If not, the item is lost.
+                # Check if the item we just placed is in view. It needs to
+                # be in view to assess whether it was placed correctly.
                 robot, obj, surface = objects
-                if surface.type.name == "flat_surface":
-                    state = self._create_state()
-                    ontop_classifier = self._curr_env._ontop_classifier  # pylint: disable=protected-access
-                    in_view_classifier = self._curr_env._tool_in_view_classifier  # pylint: disable=protected-access
-                    is_on = ontop_classifier(state, [obj, surface])
-                    is_in_view = in_view_classifier(state, [robot, obj])
-                    if not is_on or not is_in_view:
-                        # We lost the object!
-                        logging.info("[Perceiver] Object was lost!")
-                        self._lost_objects.add(obj)
+                state = self._create_state()
+                in_view_classifier = self._curr_env._tool_in_view_classifier  # pylint: disable=protected-access
+                in_bag_classifier = self._curr_env._inbag_classifier  # pylint: disable=protected-access
+                is_in_view = in_view_classifier(state, [robot, obj])
+                if not is_in_view:
+                    # We lost the object!
+                    logging.info("[Perceiver] Object was lost!")
+                    self._lost_objects.add(obj)
+                elif surface.type.name == "bag" and in_bag_classifier(
+                        state, [obj, surface]):
+                    # The object is now contained.
+                    if surface not in self._container_to_contained_objects:
+                        self._container_to_contained_objects[surface] = set()
+                    self._container_to_contained_objects[surface].add(obj)
             else:
                 # We ensure the holding item feature is set
                 # back to 0.0 if the hand is ever empty.
@@ -132,6 +146,20 @@ class SpotBikePerceiver(BasePerceiver):
 
     def _update_state_from_observation(self, observation: Observation) -> None:
         assert isinstance(observation, _SpotObservation)
+        # If a container is being updated, change the poses for contained
+        # objects.
+        for container in observation.objects_in_view:
+            if container not in self._container_to_contained_objects:
+                continue
+            if container not in self._known_object_poses:
+                continue
+            last_container_pose = self._known_object_poses[container]
+            new_container_pose = observation.objects_in_view[container]
+            dx, dy, dz = np.subtract(new_container_pose, last_container_pose)
+            for obj in self._container_to_contained_objects[container]:
+                x, y, z = self._known_object_poses[obj]
+                new_obj_pose = (x + dx, y + dy, z + dz)
+                self._known_object_poses[obj] = new_obj_pose
         self._waiting_for_observation = False
         self._robot = observation.robot
         self._known_object_poses.update(observation.objects_in_view)
@@ -181,6 +209,13 @@ class SpotBikePerceiver(BasePerceiver):
         percept_state = utils.create_state_from_dict(state_dict)
         logging.info("Percept state:")
         logging.info(percept_state.pretty_str())
+        logging.info("Percept atoms:")
+        atom_str = "\n".join(
+            map(
+                str,
+                sorted(utils.abstract(percept_state,
+                                      self._percept_predicates))))
+        logging.info(atom_str)
         # Prepare the simulator state.
         simulator_state = {
             "predicates": self._nonpercept_predicates,

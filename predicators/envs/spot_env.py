@@ -577,6 +577,9 @@ class SpotBikeEnv(SpotEnv):
 
     _ontop_threshold: ClassVar[float] = 0.55
     _reachable_threshold: ClassVar[float] = 1.7
+    _bucket_center_offset_x: ClassVar[float] = 0.0
+    _bucket_center_offset_y: ClassVar[float] = -0.15
+    _inbag_threshold: ClassVar[float] = 0.25
     _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
     _handempty_gripper_threshold: ClassVar[float] = HANDEMPTY_GRIPPER_THRESHOLD
     _robot_on_platform_threshold: ClassVar[float] = 0.18
@@ -604,12 +607,8 @@ class SpotBikeEnv(SpotEnv):
         self._OnFloor = Predicate("OnFloor",
                                   [self._tool_type, self._floor_type],
                                   self._onfloor_classifier)
-        self._temp_InBag = Predicate("InBag",
-                                     [self._tool_type, self._bag_type],
-                                     lambda s, o: False)
-        self._InBag = Predicate(
-            "InBag", [self._tool_type, self._bag_type],
-            _create_dummy_predicate_classifier(self._temp_InBag))
+        self._InBag = Predicate("InBag", [self._tool_type, self._bag_type],
+                                self._inbag_classifier)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._handempty_classifier)
         self._notHandEmpty = Predicate("Not-HandEmpty", [self._robot_type],
@@ -1026,6 +1025,17 @@ class SpotBikeEnv(SpotEnv):
         return state.get(obj_on, "z") < 0.0
 
     @classmethod
+    def _inbag_classifier(cls, state: State,
+                          objects: Sequence[Object]) -> bool:
+        obj, bag = objects
+        obj_x = state.get(obj, "x")
+        obj_y = state.get(obj, "y")
+        bag_x = state.get(bag, "x") + cls._bucket_center_offset_x
+        bag_y = state.get(bag, "y") + cls._bucket_center_offset_y
+        dist = np.sqrt((obj_x - bag_x)**2 + (obj_y - bag_y)**2)
+        return dist <= cls._inbag_threshold
+
+    @classmethod
     def _reachable_classifier(cls, state: State,
                               objects: Sequence[Object]) -> bool:
         spot, obj = objects
@@ -1106,7 +1116,7 @@ class SpotBikeEnv(SpotEnv):
             self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On,
             self._SurfaceTooHigh, self._SurfaceNotTooHigh, self._ReachableBag,
             self._ReachablePlatform, self._InViewTool, self._InViewPlatform,
-            self._RobotStandingOnPlatform
+            self._RobotStandingOnPlatform, self._InBag, self._OnFloor
         }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:

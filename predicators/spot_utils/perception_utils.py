@@ -154,10 +154,6 @@ def query_detic_sam(rgb_image_dict_in: Dict[str, Image], classes: List[str],
         image = PIL.Image.fromarray(rgb_image_dict_in[source_name])
         buf_dict[source_name] = image_to_bytes(image)
 
-    r = requests.post("http://localhost:5550/batch_predict",
-                      files=buf_dict,
-                      data={"classes": ",".join(classes)})
-
     detic_sam_results: Dict[str, Dict[str, List[NDArray]]] = {}
     for source_name in rgb_image_dict_in.keys():
         detic_sam_results[source_name] = {
@@ -166,6 +162,19 @@ def query_detic_sam(rgb_image_dict_in: Dict[str, Image], classes: List[str],
             "masks": [],
             "scores": []
         }
+
+    # Retry to handle possible wifi issues.
+    for _ in range(5):
+        try:
+            r = requests.post("http://localhost:5550/batch_predict",
+                              files=buf_dict,
+                              data={"classes": ",".join(classes)})
+            break
+        except requests.exceptions.ConnectionError:
+            continue
+    else:
+        print("WARNING: DETIC-SAM FAILED, POSSIBLE SERVER/WIFI ISSUE")
+        return detic_sam_results
 
     # If the status code is not 200, then fail.
     if r.status_code != 200:
