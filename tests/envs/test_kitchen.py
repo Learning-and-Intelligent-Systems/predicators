@@ -37,23 +37,26 @@ def test_kitchen():
         task = perceiver.reset(env_task)
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 8
-    AtPrePullKettle, AtPrePushOnTop, AtPreTurnOff, AtPreTurnOn, NotOnTop, \
-        OnTop, TurnedOff, TurnedOn = sorted(env.predicates)
+    assert len(env.predicates) == 10
+
+    AtPrePullKettle, AtPrePushOnTop, AtPreTurnOff, AtPreTurnOn, Close, \
+        NotOnTop, OnTop, Open, TurnedOff, TurnedOn = sorted(env.predicates)
     assert AtPrePullKettle.name == "AtPrePullKettle"
     assert AtPrePushOnTop.name == "AtPrePushOnTop"
     assert AtPreTurnOff.name == "AtPreTurnOff"
     assert AtPreTurnOn.name == "AtPreTurnOn"
+    assert Close.name == "Close"
     assert NotOnTop.name == "NotOnTop"
     assert OnTop.name == "OnTop"
+    assert Open.name == "Open"
     assert TurnedOff.name == "TurnedOff"
     assert TurnedOn.name == "TurnedOn"
-    assert env.goal_predicates == {OnTop, TurnedOn}
+    assert env.goal_predicates == {OnTop, TurnedOn, Open}
     options = get_gt_options(env.get_name())
-    assert len(env.types) == 9
+    assert len(env.types) == 8
     assert env.action_space.shape == (7, )
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
-    assert len(nsrts) == 10
+    assert len(nsrts) == 12
     assert len(options) == len(nsrts)
     env_train_tasks = env.get_train_tasks()
     assert len(env_train_tasks) == 1
@@ -82,14 +85,17 @@ def test_kitchen():
 
     # Test NSRTs.
     MoveToPrePullKettle, MoveToPrePushOnTop, MoveToPreTurnOff, \
-        MoveToPreTurnOn, PullKettle, PushObjOnObjForward, TurnOffKnob, \
+        MoveToPreTurnOn, PullKettle, PushCloseHingeDoor, \
+        PushObjOnObjForward, PushOpenHingeDoor, TurnOffKnob, \
         TurnOffSwitch, TurnOnKnob, TurnOnSwitch = sorted(nsrts)
     assert MoveToPrePushOnTop.name == "MoveToPrePushOnTop"
     assert MoveToPrePullKettle.name == "MoveToPrePullKettle"
     assert MoveToPreTurnOff.name == "MoveToPreTurnOff"
     assert MoveToPreTurnOn.name == "MoveToPreTurnOn"
     assert PullKettle.name == "PullKettle"
+    assert PushCloseHingeDoor.name == "PushCloseHingeDoor"
     assert PushObjOnObjForward.name == "PushObjOnObjForward"
+    assert PushOpenHingeDoor.name == "PushOpenHingeDoor"
     assert TurnOffSwitch.name == "TurnOffSwitch"
     assert TurnOnKnob.name == "TurnOnKnob"
     assert TurnOffKnob.name == "TurnOffKnob"
@@ -106,6 +112,9 @@ def test_kitchen():
     burner2 = obj_name_to_obj["burner2"]
     burner4 = obj_name_to_obj["burner4"]
     light = obj_name_to_obj["light"]
+    microhandle = obj_name_to_obj["microhandle"]
+    hinge1 = obj_name_to_obj["hinge1"]
+    hinge2 = obj_name_to_obj["hinge2"]
 
     def _run_ground_nsrt(ground_nsrt,
                          state,
@@ -117,7 +126,7 @@ def test_kitchen():
         if override_params is not None:
             option = option.parent.ground(option.objects, override_params)
         assert option.initiable(state)
-        for _ in range(1000):
+        for _ in range(200):
             act = option.policy(state)
             obs = env.step(act)
             state = env.state_info_to_state(obs["state_info"])
@@ -145,6 +154,58 @@ def test_kitchen():
     move_to_kettle_pre_pull_nsrt = MoveToPrePullKettle.ground(
         [gripper, kettle])
     pull_kettle_on_burner2_nsrt = PullKettle.ground([gripper, kettle, burner2])
+
+    move_to_microhandle_pre_on_nsrt = MoveToPreTurnOn.ground(
+        [gripper, microhandle])
+    push_open_microhandle_nsrt = PushOpenHingeDoor.ground(
+        [gripper, microhandle])
+    move_to_microhandle_pre_off_nsrt = MoveToPreTurnOff.ground(
+        [gripper, microhandle])
+    push_closed_microhandle_nsrt = PushCloseHingeDoor.ground(
+        [gripper, microhandle])
+
+    move_to_hinge1_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, hinge1])
+    push_open_hinge1_nsrt = PushOpenHingeDoor.ground([gripper, hinge1])
+    move_to_hinge1_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, hinge1])
+    push_closed_hinge1_nsrt = PushCloseHingeDoor.ground([gripper, hinge1])
+
+    move_to_hinge2_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, hinge2])
+    push_open_hinge2_nsrt = PushOpenHingeDoor.ground([gripper, hinge2])
+    move_to_hinge2_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, hinge2])
+    push_closed_hinge2_nsrt = PushCloseHingeDoor.ground([gripper, hinge2])
+
+    # Test pushing the microwave open and then closing it
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_microhandle_pre_on_nsrt, state)
+    state = _run_ground_nsrt(push_open_microhandle_nsrt, state)
+    assert Open([microhandle]).holds(state)
+    state = _run_ground_nsrt(move_to_microhandle_pre_off_nsrt, state)
+    state = _run_ground_nsrt(push_closed_microhandle_nsrt, state)
+    assert Close([microhandle]).holds(state)
+
+    # Test pushing the hinge1 open and then closing it
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_hinge1_pre_on_nsrt, state)
+    state = _run_ground_nsrt(push_open_hinge1_nsrt, state)
+    assert Open([hinge1]).holds(state)
+    state = _run_ground_nsrt(move_to_hinge1_pre_off_nsrt, state)
+    state = _run_ground_nsrt(push_closed_hinge1_nsrt, state)
+    assert Close([hinge1]).holds(state)
+
+    # Test pushing the hinge2 open and then closing it
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_hinge2_pre_on_nsrt, state)
+    state = _run_ground_nsrt(push_open_hinge2_nsrt, state)
+    assert Open([hinge2]).holds(state)
+    state = _run_ground_nsrt(move_to_hinge2_pre_off_nsrt, state)
+    state = _run_ground_nsrt(push_closed_hinge2_nsrt, state)
+    assert Close([hinge2]).holds(state)
 
     # Test pushing the kettle forward and then bringing it back. Twice!
     obs = env.reset("test", 0)
