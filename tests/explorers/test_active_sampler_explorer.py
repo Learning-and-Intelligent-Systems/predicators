@@ -121,7 +121,7 @@ def test_active_sampler_explorer():
         "active_sampler_explore_bonus": 0.0,  # disable explore bonus
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
-        "active_sampler_explore_scorer": "success_rate",
+        "active_sampler_explore_task_strategy": "success_rate",
     })
     env = RegionalBumpyCoverEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
@@ -166,7 +166,7 @@ def test_active_sampler_explorer():
         "bumpy_cover_init_bumpy_prob": 1.0,
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
-        "active_sampler_explore_scorer": "random",
+        "active_sampler_explore_task_strategy": "random",
     })
     explorer = create_explorer(
         "active_sampler",
@@ -189,14 +189,22 @@ def test_active_sampler_explorer():
 
     # Test planning progrss scoring (but keep it short).
     utils.reset_config({
-        "explorer": "active_sampler",
-        "env": "regional_bumpy_cover",
-        "bumpy_cover_num_bumps": 3,
-        "bumpy_cover_spaces_per_bump": 3,
-        "bumpy_cover_init_bumpy_prob": 1.0,
-        "strips_learner": "oracle",
-        "sampler_learner": "oracle",
-        "active_sampler_explore_scorer": "planning_progress",
+        "explorer":
+        "active_sampler",
+        "env":
+        "regional_bumpy_cover",
+        "bumpy_cover_num_bumps":
+        3,
+        "bumpy_cover_spaces_per_bump":
+        3,
+        "bumpy_cover_init_bumpy_prob":
+        1.0,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "active_sampler_explore_task_strategy":
+        "planning_progress",
     })
     explorer = create_explorer(
         "active_sampler",
@@ -226,7 +234,7 @@ def test_active_sampler_explorer():
         "bumpy_cover_init_bumpy_prob": 1.0,
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
-        "active_sampler_explorer_do_task_repeat": True,
+        "active_sampler_explore_task_strategy": "task_repeat",
     })
     explorer = create_explorer(
         "active_sampler",
@@ -249,14 +257,22 @@ def test_active_sampler_explorer():
 
     # Test unrecognized scorer.
     utils.reset_config({
-        "explorer": "active_sampler",
-        "env": "regional_bumpy_cover",
-        "bumpy_cover_num_bumps": 3,
-        "bumpy_cover_spaces_per_bump": 3,
-        "bumpy_cover_init_bumpy_prob": 1.0,
-        "strips_learner": "oracle",
-        "sampler_learner": "oracle",
-        "active_sampler_explore_scorer": "not a real scorer",
+        "explorer":
+        "active_sampler",
+        "env":
+        "regional_bumpy_cover",
+        "bumpy_cover_num_bumps":
+        3,
+        "bumpy_cover_spaces_per_bump":
+        3,
+        "bumpy_cover_init_bumpy_prob":
+        1.0,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "active_sampler_explore_task_strategy":
+        "not a real scorer",
     })
     explorer = create_explorer(
         "active_sampler",

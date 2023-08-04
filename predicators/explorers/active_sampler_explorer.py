@@ -127,7 +127,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 # Baseline where we try the assigned task over and over,
                 # going back to the initial (abstract) state after reaching
                 # the goal.
-                elif CFG.active_sampler_explorer_do_task_repeat:
+                elif CFG.active_sampler_explore_task_strategy == "task_repeat":
                     logging.info("[Explorer] Pursuing repeat task")
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
@@ -286,20 +286,21 @@ class ActiveSamplerExplorer(BaseExplorer):
         logging.info(f"[Explorer]   success rate: {success_rate}")
         logging.info(f"[Explorer]   posterior competence: {competence}")
         logging.info(f"[Explorer]   num attempts: {num_tries}")
-        if CFG.active_sampler_explore_scorer == "planning_progress":
+        if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
-        elif CFG.active_sampler_explore_scorer == "success_rate":
+        elif CFG.active_sampler_explore_task_strategy == "success_rate":
             # Try less successful operators more often.
             # UCB-like bonus.
             c = CFG.active_sampler_explore_bonus
             bonus = c * np.sqrt(np.log(total_trials) / num_tries)
             score = (1.0 - success_rate) + bonus
-        elif CFG.active_sampler_explore_scorer == "random":
+        elif CFG.active_sampler_explore_task_strategy == "random":
             # Random scores baseline.
             score = self._rng.uniform()
         else:
-            raise NotImplementedError("Unrecognized explore scorer: "
-                                      f"{CFG.active_sampler_explore_scorer}")
+            raise NotImplementedError(
+                "Unrecognized explore scorer: "
+                f"{CFG.active_sampler_explore_task_strategy}")
         logging.info(f"[Explorer]   total score: {score}")
         return score
 
