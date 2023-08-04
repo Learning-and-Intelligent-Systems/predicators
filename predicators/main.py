@@ -253,6 +253,8 @@ def _generate_interaction_results(
         if teacher is not None:
             monitor = TeacherInteractionMonitorWithVideo(
                 env.render, request, teacher)
+        elif CFG.make_interaction_videos:
+            monitor = utils.VideoMonitor(env.render)
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
         env_task = env.get_train_tasks()[request.train_task_idx]
