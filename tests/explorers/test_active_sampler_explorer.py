@@ -4,6 +4,8 @@ from typing import Dict
 import pytest
 
 from predicators import utils
+from predicators.approaches.active_sampler_learning_approach import \
+    _wrap_sampler
 from predicators.envs.cover import RegionalBumpyCoverEnv
 from predicators.explorers import create_explorer
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
@@ -247,3 +249,89 @@ def test_active_sampler_explorer():
             assert not term_fn(state)
             state = env.simulate(state, policy(state))
     assert "Unrecognized explore scorer" in str(e)
+
+    # Test the epsilon-greedy vs non-epsilon-greedy exploration.
+    utils.reset_config({
+        "explorer":
+        "active_sampler",
+        "env":
+        "regional_bumpy_cover",
+        "bumpy_cover_num_bumps":
+        3,
+        "bumpy_cover_spaces_per_bump":
+        3,
+        "bumpy_cover_init_bumpy_prob":
+        1.0,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "active_sampler_learning_exploration_sample_strategy":
+        "epsilon_greedy"
+    })
+    new_nsrt_to_greedy_explorer_sampler = {}
+    for nsrt, sampler in nsrt_to_explorer_sampler.items():
+        new_nsrt_to_greedy_explorer_sampler[nsrt] = _wrap_sampler(
+            sampler, lambda s, o, x: [0.0] * len(x), strategy="epsilon_greedy")
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        nsrt_to_explorer_sampler=new_nsrt_to_greedy_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
+    for _ in range(100):
+        assert not term_fn(state)
+        state = env.simulate(state, policy(state))
+
+    # Test a non-existent exploration sampling strategy
+    utils.reset_config({
+        "explorer":
+        "active_sampler",
+        "env":
+        "regional_bumpy_cover",
+        "bumpy_cover_num_bumps":
+        3,
+        "bumpy_cover_spaces_per_bump":
+        3,
+        "bumpy_cover_init_bumpy_prob":
+        1.0,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "active_sampler_learning_exploration_sample_strategy":
+        "not a real explorer"
+    })
+    new_nsrt_to_greedy_explorer_sampler = {}
+    for nsrt, sampler in nsrt_to_explorer_sampler.items():
+        new_nsrt_to_greedy_explorer_sampler[nsrt] = _wrap_sampler(
+            sampler,
+            lambda s, o, x: [0.0] * len(x),
+            strategy="not a real explorer")
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        nsrt_to_explorer_sampler=new_nsrt_to_greedy_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
+    with pytest.raises(NotImplementedError) as e:
+        for _ in range(25):
+            assert not term_fn(state)
+            state = env.simulate(state, policy(state))
+    assert "is not implemented" in str(e)
