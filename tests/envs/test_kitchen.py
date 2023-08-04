@@ -132,11 +132,11 @@ def test_kitchen():
             state = env.state_info_to_state(obs["state_info"])
             if option.terminal(state):
                 break
-        # if assert_effects:
-        #     for atom in ground_nsrt.add_effects:
-        #         assert atom.holds(state)
-        #     for atom in ground_nsrt.delete_effects:
-        #         assert not atom.holds(state)
+        if assert_effects:
+            for atom in ground_nsrt.add_effects:
+                assert atom.holds(state)
+            for atom in ground_nsrt.delete_effects:
+                assert not atom.holds(state)
         return state
 
     # Set up all the NSRTs for the following tests.

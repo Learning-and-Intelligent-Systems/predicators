@@ -375,14 +375,13 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def push_open_hinge_door_sampler(state: State, goal: Set[GroundAtom],
                                          rng: np.random.Generator,
                                          objs: Sequence[Object]) -> Array:
-            del state, goal  # unused
-            # TODO fix
+            del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
                 # Push slightly inward.
                 push_angle = 9 * np.pi / 8
             else:
-                push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
+                push_angle = rng.uniform(np.pi, 4 * np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
 
         push_open_hinge_door_nsrt = NSRT("PushOpenHingeDoor", parameters,
@@ -410,13 +409,12 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                           rng: np.random.Generator,
                                           objs: Sequence[Object]) -> Array:
             del state, goal, objs  # unused
-            # TODO fix
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
                 # Push slightly inward.
                 push_angle = np.pi / 2
             else:
-                push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
+                push_angle = rng.uniform(np.pi / 3, 2 * np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
 
         push_close_hinge_door_nsrt = NSRT("PushCloseHingeDoor", parameters,

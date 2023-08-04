@@ -86,6 +86,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 (cls.home_pos, angled_quat),
                 (target_pose, target_quat),
             ]
+            # Moves away from handle to prevent collision.
             if obj.name == "microhandle":
                 memory["waypoints"] = [
                     ((gx - 0.15, gy - 0.15, gz + 0.2), down_quat)
@@ -446,7 +447,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                objects: Sequence[Object],
                                params: Array) -> bool:
             del memory, params  # unused
-            gripper, obj = objects
+            _, obj = objects
             # Use a more stringent threshold to avoid numerical issues.
             return KitchenEnv.Open_holds(
                 state, [obj], thresh_pad=cls.push_microhandle_thresh_pad)
@@ -478,7 +479,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                                 objects: Sequence[Object],
                                 params: Array) -> bool:
             del memory, params  # unused
-            gripper, obj = objects
+            _, obj = objects
             # Use a more stringent threshold to avoid numerical issues.
             return KitchenEnv.Close_holds(
                 state, [obj], thresh_pad=cls.push_microhandle_thresh_pad)
