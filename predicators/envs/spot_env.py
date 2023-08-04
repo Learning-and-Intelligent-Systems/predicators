@@ -221,6 +221,10 @@ class SpotEnv(BaseEnv):
         if "MoveTo" in operator.name:
             return "navigate"
         if "Grasp" in operator.name:
+            # If we're grasping from atop a platform
+            # then we want to modify the skill execution.
+            if "FromHigh" in operator.name:
+                return "grasp_from_platform"
             return "grasp"
         if "Place" in operator.name:
             return "placeOnTop"
@@ -1016,7 +1020,7 @@ class SpotBikeEnv(SpotEnv):
             (obj_on_pose[0] - obj_surface_pose[0])**2) <= cls._ontop_threshold
         is_y_same = np.sqrt(
             (obj_on_pose[1] - obj_surface_pose[1])**2) <= cls._ontop_threshold
-        is_above_z = (obj_on_pose[2] - obj_surface_pose[2]) > 0.0
+        is_above_z = 0.0 < (obj_on_pose[2] - obj_surface_pose[2]) < 0.25
         return is_x_same and is_y_same and is_above_z
 
     @staticmethod
@@ -1131,10 +1135,11 @@ class SpotBikeEnv(SpotEnv):
             platform = self._obj_name_to_obj("platform")
             high_wall_rack = self._obj_name_to_obj("high_wall_rack")
             spot = self._obj_name_to_obj("spot")
+            hammer = self._obj_name_to_obj("hammer")
+            bucket = self._obj_name_to_obj("bucket")
             return {
                 GroundAtom(self._PlatformNear, [platform, high_wall_rack]),
-                GroundAtom(self._RobotStandingOnPlatform, [spot, platform]),
-                GroundAtom(self._ReachableSurface, [spot, high_wall_rack])
+                GroundAtom(self._InBag, [hammer, bucket])
             }
         hammer = self._obj_name_to_obj("hammer")
         measuring_tape = self._obj_name_to_obj("measuring_tape")
@@ -1154,7 +1159,8 @@ class SpotBikeEnv(SpotEnv):
             objects.append(cube)
         if CFG.spot_platform_only:
             platform = Object("platform", self._platform_type)
-            objects.append(platform)
+            hammer = Object("hammer", self._tool_type)
+            objects.extend([platform, hammer])
         else:
             hammer = Object("hammer", self._tool_type)
             measuring_tape = Object("measuring_tape", self._tool_type)
