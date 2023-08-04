@@ -161,18 +161,18 @@ def test_kitchen():
         [gripper, microhandle])
     move_to_microhandle_pre_off_nsrt = MoveToPreTurnOff.ground(
         [gripper, microhandle])
-    push_close_microhandle_nsrt = PushCloseHingeDoor.ground(
+    push_closed_microhandle_nsrt = PushCloseHingeDoor.ground(
         [gripper, microhandle])
 
     move_to_hinge1_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, hinge1])
     push_open_hinge1_nsrt = PushOpenHingeDoor.ground([gripper, hinge1])
     move_to_hinge1_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, hinge1])
-    push_close_hinge1_nsrt = PushCloseHingeDoor.ground([gripper, hinge1])
+    push_closed_hinge1_nsrt = PushCloseHingeDoor.ground([gripper, hinge1])
 
     move_to_hinge2_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, hinge2])
     push_open_hinge2_nsrt = PushOpenHingeDoor.ground([gripper, hinge2])
     move_to_hinge2_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, hinge2])
-    push_close_hinge2_nsrt = PushCloseHingeDoor.ground([gripper, hinge2])
+    push_closed_hinge2_nsrt = PushCloseHingeDoor.ground([gripper, hinge2])
 
     # Test pushing the microwave open and then closing it
     obs = env.reset("test", 0)
@@ -182,7 +182,7 @@ def test_kitchen():
     state = _run_ground_nsrt(push_open_microhandle_nsrt, state)
     assert Open([microhandle]).holds(state)
     state = _run_ground_nsrt(move_to_microhandle_pre_off_nsrt, state)
-    state = _run_ground_nsrt(push_close_microhandle_nsrt, state)
+    state = _run_ground_nsrt(push_closed_microhandle_nsrt, state)
     assert Close([microhandle]).holds(state)
 
     # Test pushing the hinge1 open and then closing it
@@ -193,7 +193,7 @@ def test_kitchen():
     state = _run_ground_nsrt(push_open_hinge1_nsrt, state)
     assert Open([hinge1]).holds(state)
     state = _run_ground_nsrt(move_to_hinge1_pre_off_nsrt, state)
-    state = _run_ground_nsrt(push_close_hinge1_nsrt, state)
+    state = _run_ground_nsrt(push_closed_hinge1_nsrt, state)
     assert Close([hinge1]).holds(state)
 
     # Test pushing the hinge2 open and then closing it
@@ -204,7 +204,7 @@ def test_kitchen():
     state = _run_ground_nsrt(push_open_hinge2_nsrt, state)
     assert Open([hinge2]).holds(state)
     state = _run_ground_nsrt(move_to_hinge2_pre_off_nsrt, state)
-    state = _run_ground_nsrt(push_close_hinge2_nsrt, state)
+    state = _run_ground_nsrt(push_closed_hinge2_nsrt, state)
     assert Close([hinge2]).holds(state)
 
     # Test pushing the kettle forward and then bringing it back. Twice!
