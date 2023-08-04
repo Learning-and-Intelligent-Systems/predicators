@@ -467,19 +467,21 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            return state.get(obj, "x") < cls.microhandle_open_thresh - thresh_pad
+            return state.get(obj,
+                             "x") < cls.microhandle_open_thresh - thresh_pad
         return False
 
     @classmethod
     def Closed_holds(cls,
-                    state: State,
-                    objects: Sequence[Object],
-                    thresh_pad: float = 0.0) -> bool:
+                     state: State,
+                     objects: Sequence[Object],
+                     thresh_pad: float = 0.0) -> bool:
         """Made public for use in ground-truth options."""
         # Can't do not Open_holds() because of thresh_pad logic.
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            return state.get(obj, "x") >= cls.microhandle_open_thresh + thresh_pad
+            return state.get(obj,
+                             "x") >= cls.microhandle_open_thresh + thresh_pad
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:
