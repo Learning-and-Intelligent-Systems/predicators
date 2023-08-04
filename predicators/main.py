@@ -251,7 +251,7 @@ def _generate_interaction_results(
                                "if allow_interaction_in_demo_tasks is False.")
         monitor: Optional[TeacherInteractionMonitorWithVideo] = None
         if teacher is not None:
-            monitor = TeacherInteractionMonitorWithVideo(
+            monitor: utils.LoggingMonitor = TeacherInteractionMonitorWithVideo(
                 env.render, request, teacher)
         elif CFG.make_interaction_videos:
             monitor = utils.VideoMonitor(env.render)
