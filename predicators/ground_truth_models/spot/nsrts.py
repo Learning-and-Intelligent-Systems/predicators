@@ -23,7 +23,7 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
                   objs: Sequence[Object]) -> Array:
     del goal
     # Parameters are relative dx, dy, dyaw (to the object you're moving to)
-    assert len(objs) in [2, 3]
+    assert len(objs) in [2, 3, 4]
     if objs[1].type.name == "bag":  # pragma: no cover
         return np.array([0.5, 0.0, 0.0])
     dyaw = 0.0
@@ -82,7 +82,7 @@ def _grasp_sampler(spot_interface: _SpotInterface, state: State,
         return np.array([0.0, 0.0, 0.0, -1.0])
     if objs[1].type.name == "platform":  # pragma: no cover
         return np.array([0.0, 0.0, 0.0, 1.0])
-    if objs[2].name == "low_wall_rack":  # pragma: no cover
+    if "wall_rack" in objs[2].name:  # pragma: no cover
         return np.array([0.0, 0.0, 0.1, 0.0])
     return np.array([0.0, 0.0, 0.0, 0.0])
 
@@ -139,7 +139,7 @@ def _drag_sampler(spot_interface: _SpotInterface, state: State,
         state.get(surface, "x"),
         state.get(surface, "y"),
     )
-    dx, dy = -0.65, -0.30
+    dx, dy = -0.80, 0.05
 
     return np.array([world_fiducial[0] + dx, world_fiducial[1] + dy])
 

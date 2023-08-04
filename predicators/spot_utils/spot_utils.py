@@ -90,6 +90,7 @@ obj_name_to_apriltag_id = {
     "extra_room_table": 409,
     "cube": 410,
     "platform": 411,
+    "high_wall_rack": 412,
 }
 obj_name_to_vision_prompt = {
     "hammer": "hammer",
@@ -383,7 +384,7 @@ class _SpotInterface():
                 "low_wall_rack":
                 (10.049931203338616, -6.9443170697742, 0.27881268568327966),
                 "high_wall_rack":
-                (10.049931203338616, -6.9443170697742, 1.257881268568327966),
+                (10.049931203338616, -6.9443170697742, 0.757881268568327966),
                 "bucket":
                 (7.043112552148553, -8.198686802340527, -0.18750694527153725),
                 "platform": (8.79312, -7.8821, -0.100635)
@@ -591,7 +592,7 @@ class _SpotInterface():
         if name == "grasp_from_platform":
             return self.graspController(objects,
                                         params,
-                                        move_while_grasping=True)
+                                        move_while_grasping=False)
         if name == "placeOnTop":
             return self.placeOntopController(objects, params)
         assert name == "drag"
@@ -654,7 +655,7 @@ class _SpotInterface():
 
         print("NavigateTo", objs)
         assert len(params) == 3
-        assert len(objs) in [2, 3]
+        assert len(objs) in [2, 3, 4]
 
         waypoint = ("", np.zeros(3, dtype=np.float32))  # default
         for obj in objs[1:]:
@@ -697,8 +698,11 @@ class _SpotInterface():
             return
         self.stow_arm()
 
-    def graspController(self, objs: Sequence[Object], params: Array,
-                        move_while_grasping: bool) -> None:
+    def graspController(self,
+                        objs: Sequence[Object],
+                        params: Array,
+                        move_while_grasping: bool,
+                        grasp_dist_in_hand: Optional[float] = None) -> None:
         """Wrapper method for grasp controller.
 
         Params are 4 dimensional corresponding to a top-down grasp (1),
@@ -721,15 +725,13 @@ class _SpotInterface():
             self._force_top_down_grasp = False
             self._force_forward_grasp = True
 
-        self.arm_object_grasp(objs[1])
+        self.arm_object_grasp(objs[1],
+                              move_while_grasping=move_while_grasping,
+                              grasp_dist_in_hand=grasp_dist_in_hand)
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
-            self.hand_movement(params[:3],
-                               open_gripper=False,
-                               move_while_grasping=move_while_grasping)
+            self.hand_movement(params[:3], open_gripper=False)
         if objs[1].name != "platform":
             self.stow_arm()
-        # NOTE: time.sleep(1.0) required afer each option execution
-        # to allow time for sensor readings to settle.
 
     def placeOntopController(self, objs: Sequence[Object],
                              params: Array) -> None:
@@ -787,7 +789,7 @@ class _SpotInterface():
                     # We only want to do this in situations where (1) we won't
                     # collide with an obstacle, and (2) we are likely to actually
                     # see something.
-                    self.hand_movement(np.array([0.0, 0.0, 0.0]),
+                    self.hand_movement(np.array([0.0, 0.0, 0.1]),
                                        keep_hand_pose=False,
                                        angle=(np.cos(0), 0, np.sin(0), 0),
                                        open_gripper=False)
@@ -979,7 +981,8 @@ class _SpotInterface():
 
     def arm_object_grasp(self,
                          obj: Object,
-                         move_while_grasping: bool = True) -> None:
+                         move_while_grasping: bool = True,
+                         grasp_dist_in_hand: Optional[float] = None) -> None:
         """A helper function (largely copied from SDK example) to grasp an
         object. We assume the object is already in the view of the hand camera
         before calling this function.
@@ -1066,7 +1069,7 @@ class _SpotInterface():
         # https://dev.bostondynamics.com/protos/bosdyn/api/proto_reference.html#walkgazemode
         walk_gaze_mode = 1
         if not move_while_grasping:
-            walk_gaze_mode = 3
+            walk_gaze_mode = 2
         grasp = manipulation_api_pb2.PickObjectInImage(
             pixel_xy=pick_vec,
             transforms_snapshot_for_camera=rgb_img_response.shot.
@@ -1076,12 +1079,20 @@ class _SpotInterface():
             camera_model=rgb_img_response.source.pinhole,
             walk_gaze_mode=walk_gaze_mode)
 
+        # We can specify where in the gripper we want to grasp.
+        # About halfway is generally good for small objects like this.
+        # For a bigger object like a shoe, 0 is better (use the entire
+        # gripper)
+        if grasp_dist_in_hand is not None:
+            grasp.grasp_params.grasp_palm_to_fingertip = grasp_dist_in_hand
+
         # Optionally add a grasp constraint.  This lets you tell the robot you
         # only want top-down grasps or side-on grasps.
         grasp = self.add_grasp_constraint(grasp, self.robot_state_client)
 
-        # Stow Arm First
-        self.stow_arm()
+        if move_while_grasping:
+            # Stow Arm first (only if robot is allowed to move while grasping)
+            self.stow_arm()
 
         # Ask the robot to pick up the object
         grasp_request = manipulation_api_pb2.ManipulationApiRequest(
@@ -1102,7 +1113,6 @@ class _SpotInterface():
             response = self.manipulation_api_client.\
                 manipulation_api_feedback_command(
                 manipulation_api_feedback_request=feedback_request)
-
             if response.current_state in [manipulation_api_pb2.\
                 MANIP_STATE_GRASP_SUCCEEDED, manipulation_api_pb2.\
                 MANIP_STATE_GRASP_FAILED]:

@@ -662,20 +662,43 @@ class SpotBikeEnv(SpotEnv):
             self._robot_on_platform_classifier)
 
         # STRIPS Operators (needed for option creation)
-        # MoveToToolOnSurface
+        # MoveToToolOnSurfaceNotHigh
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         surface = Variable("?surface", self._surface_type)
-        preconditions = {LiftedAtom(self._On, [tool, surface])}
+        preconditions = {
+            LiftedAtom(self._On, [tool, surface]),
+            LiftedAtom(self._SurfaceNotTooHigh, [spot, surface])
+        }
         add_effs = {LiftedAtom(self._InViewTool, [spot, tool])}
         ignore_effs = {
             self._ReachableBag, self._ReachableSurface,
             self._ReachablePlatform, self._InViewTool, self._InViewPlatform
         }
-        self._MoveToToolOnSurfaceOp = STRIPSOperator("MoveToToolOnSurface",
-                                                     [spot, tool, surface],
-                                                     preconditions, add_effs,
-                                                     set(), ignore_effs)
+        self._MoveToToolOnSurfaceNotHighOp = STRIPSOperator(
+            "MoveToToolOnSurfaceNotHigh", [spot, tool, surface], preconditions,
+            add_effs, set(), ignore_effs)
+        # MoveToToolOnSurfaceTooHigh
+        spot = Variable("?robot", self._robot_type)
+        tool = Variable("?tool", self._tool_type)
+        surface = Variable("?surface", self._surface_type)
+        platform = Variable("?platform", self._platform_type)
+        preconditions = {
+            LiftedAtom(self._On, [tool, surface]),
+            LiftedAtom(self._PlatformNear, [platform, surface]),
+            LiftedAtom(self._SurfaceTooHigh, [spot, surface])
+        }
+        add_effs = {
+            LiftedAtom(self._InViewTool, [spot, tool]),
+            LiftedAtom(self._RobotStandingOnPlatform, [spot, platform])
+        }
+        ignore_effs = {
+            self._ReachableBag, self._ReachableSurface,
+            self._ReachablePlatform, self._InViewTool, self._InViewPlatform
+        }
+        self._MoveToToolOnSurfaceTooHighOp = STRIPSOperator(
+            "MoveToToolOnSurfaceTooHigh", [spot, tool, surface, platform],
+            preconditions, add_effs, set(), ignore_effs)
         # MoveToToolOnFloor
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -854,7 +877,7 @@ class SpotBikeEnv(SpotEnv):
             LiftedAtom(self._InViewTool, [spot, tool])
         }
         self._GraspToolFromHighOp = STRIPSOperator(
-            "GraspToolFromHigh", [spot, tool, platform, surface], preconds,
+            "GraspToolFromHigh", [spot, tool, surface, platform], preconds,
             add_effs, del_effs, set())
         # GraspBag
         spot = Variable("?robot", self._robot_type)
@@ -939,7 +962,8 @@ class SpotBikeEnv(SpotEnv):
                                               add_effs, del_effs, set())
 
         self._strips_operators = {
-            self._MoveToToolOnSurfaceOp,
+            self._MoveToToolOnSurfaceNotHighOp,
+            self._MoveToToolOnSurfaceTooHighOp,
             self._MoveToSurfaceNotHighOp,
             self._MoveToSurfaceTooHighOp,
             self._MoveToPlatformOp,
@@ -1074,7 +1098,7 @@ class SpotBikeEnv(SpotEnv):
     def _surface_too_high_classifier(state: State,
                                      objects: Sequence[Object]) -> bool:
         _, surface = objects
-        return state.get(surface, "z") > 1.0
+        return state.get(surface, "z") > 0.8
 
     @classmethod
     def _surface_not_too_high_classifier(cls, state: State,
