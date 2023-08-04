@@ -29,6 +29,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
     home_pos: ClassVar[Pose3D] = (0.0, 0.37, 2.1)
     # Keep pushing a bit even if the On classifier holds.
     push_lr_thresh_pad: ClassVar[float] = 0.02
+    push_microhandle_thresh_pad: ClassVar[float] = 0.02
     turn_knob_tol: ClassVar[float] = 0.01  # for twisting the knob
 
     @classmethod
@@ -55,6 +56,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
         surface_type = types["surface"]
         switch_type = types["switch"]
         knob_type = types["knob"]
+        hinge_door_type = types["hinge_door"]
 
         # Predicates
         OnTop = predicates["OnTop"]
@@ -66,7 +68,10 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                               objects: Sequence[Object],
                               params: Array) -> bool:
             # Store the target pose.
-            _, obj = objects
+            gripper, obj = objects
+            gx = state.get(gripper, "x")
+            gy = state.get(gripper, "y")
+            gz = state.get(gripper, "z")
             ox = state.get(obj, "x")
             oy = state.get(obj, "y")
             oz = state.get(obj, "z")
@@ -81,6 +86,11 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 (cls.home_pos, angled_quat),
                 (target_pose, target_quat),
             ]
+            # Moves away from handle to prevent collision.
+            if obj.name == "microhandle":
+                memory["waypoints"] = [
+                    ((gx - 0.15, gy - 0.15, gz + 0.2), down_quat)
+                ] + memory["waypoints"]
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -419,5 +429,69 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             initiable=lambda _1, _2, _3, _4: True,
             terminal=_TurnOffKnob_terminal)
         options.add(TurnOffKnob)
+
+        # PushOpen
+        def _PushOpen_policy(state: State, memory: Dict,
+                             objects: Sequence[Object],
+                             params: Array) -> Action:
+            del state, memory, objects  # unused
+            # The parameter is a push direction angle with respect to x.
+            push_angle = params[0]
+            unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
+            dx = unit_x * cls.max_push_mag
+            dy = unit_y * cls.max_push_mag
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            return Action(arr)
+
+        def _PushOpen_terminal(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> bool:
+            del memory, params  # unused
+            _, obj = objects
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv.Open_holds(
+                state, [obj], thresh_pad=cls.push_microhandle_thresh_pad)
+
+        PushOpen = ParameterizedOption(
+            "PushOpen",
+            types=[gripper_type, on_off_type],
+            # The parameter is a push direction angle with respect to x.
+            params_space=Box(-np.pi, np.pi, (1, )),
+            policy=_PushOpen_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_PushOpen_terminal)
+        options.add(PushOpen)
+
+        # PushClose
+        def _PushClose_policy(state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> Action:
+            del state, memory, objects  # unused
+            # The parameter is a push direction angle with respect to x.
+            push_angle = params[0]
+            unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
+            dx = unit_x * cls.max_push_mag
+            dy = unit_y * cls.max_push_mag
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            return Action(arr)
+
+        def _PushClose_terminal(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> bool:
+            del memory, params  # unused
+            _, obj = objects
+            # Use a more stringent threshold to avoid numerical issues.
+            return KitchenEnv.Closed_holds(
+                state, [obj], thresh_pad=cls.push_microhandle_thresh_pad)
+
+        PushClose = ParameterizedOption(
+            "PushClose",
+            types=[gripper_type, hinge_door_type],
+            # The parameter is a push direction angle with respect to x.
+            params_space=Box(-np.pi, np.pi, (1, )),
+            policy=_PushClose_policy,
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=_PushClose_terminal)
+        options.add(PushClose)
 
         return options
