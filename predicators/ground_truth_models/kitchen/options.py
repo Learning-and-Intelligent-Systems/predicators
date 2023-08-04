@@ -481,7 +481,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             del memory, params  # unused
             _, obj = objects
             # Use a more stringent threshold to avoid numerical issues.
-            return KitchenEnv.Close_holds(
+            return KitchenEnv.Closed_holds(
                 state, [obj], thresh_pad=cls.push_microhandle_thresh_pad)
 
         PushClose = ParameterizedOption(

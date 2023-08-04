@@ -72,6 +72,7 @@ class KitchenEnv(BaseEnv):
     ontop_atol = 0.15  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.39  # light is On if less than this threshold
+    microhandle_open_thresh = -0.68
     at_pre_pushontop_yz_atol = 0.1  # tolerance for AtPrePushOnTop
     at_pre_pullontop_yz_atol = 0.04  # tolerance for AtPrePullOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
@@ -205,7 +206,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             Predicate("TurnedOn", [cls.on_off_type], cls.On_holds),
             Predicate("TurnedOff", [cls.on_off_type], cls.Off_holds),
             Predicate("Open", [cls.on_off_type], cls.Open_holds),
-            Predicate("Close", [cls.on_off_type], cls.Close_holds),
+            Predicate("Close", [cls.on_off_type], cls.Closed_holds),
         }
         return {p.name: p for p in preds}
 
@@ -466,11 +467,11 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            return state.get(obj, "x") < -0.68 - thresh_pad
+            return state.get(obj, "x") < cls.microhandle_open_thresh - thresh_pad
         return False
 
     @classmethod
-    def Close_holds(cls,
+    def Closed_holds(cls,
                     state: State,
                     objects: Sequence[Object],
                     thresh_pad: float = 0.0) -> bool:
@@ -478,7 +479,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         # Can't do not Open_holds() because of thresh_pad logic.
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            return state.get(obj, "x") >= -0.68 + thresh_pad
+            return state.get(obj, "x") >= cls.microhandle_open_thresh + thresh_pad
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:
