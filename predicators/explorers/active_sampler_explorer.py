@@ -8,7 +8,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
-from predicators.planning import PlanningFailure, run_task_plan_once
+from predicators.planning import PlanningFailure, PlanningTimeout, \
+    run_task_plan_once
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, ExplorationStrategy, \
     GroundAtom, NSRTSampler, ParameterizedOption, Predicate, State, Task, \
@@ -175,7 +176,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                     # explorer is to be used in environments where any goal can
                     # be reached from anywhere, but we still don't want to
                     # crash in case that assumption is not met.
-                    except PlanningFailure:  # pragma: no cover
+                    except (PlanningFailure,
+                            PlanningTimeout):  # pragma: no cover
                         continue
                     logging.info("[Explorer] Plan found.")
                     break
