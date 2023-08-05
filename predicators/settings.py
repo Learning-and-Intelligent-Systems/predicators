@@ -565,7 +565,7 @@ class GlobalSettings:
 
     # active sampler explorer parameters
     active_sampler_explore_bonus = 1e-1
-    active_sampler_explore_scorer = "planning_progress"
+    active_sampler_explore_task_strategy = "planning_progress"
     active_sampler_explorer_replan_frequency = 100
     active_sampler_explorer_planning_progress_max_tasks = 10
 

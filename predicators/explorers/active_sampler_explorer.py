@@ -8,7 +8,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
-from predicators.planning import PlanningFailure, run_task_plan_once
+from predicators.planning import PlanningFailure, PlanningTimeout, \
+    run_task_plan_once
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, ExplorationStrategy, \
     GroundAtom, NSRTSampler, ParameterizedOption, Predicate, State, Task, \
@@ -123,6 +124,30 @@ class ActiveSamplerExplorer(BaseExplorer):
                         # Just a single goal.
                         yield assigned_task.goal
 
+                # Baseline where we try the assigned task over and over,
+                # going back to the initial (abstract) state after reaching
+                # the goal.
+                elif CFG.active_sampler_explore_task_strategy == "task_repeat":
+                    logging.info("[Explorer] Pursuing repeat task")
+
+                    def generate_goals() -> Iterator[Set[GroundAtom]]:
+                        # Loop through seen tasks in random order. Propose
+                        # their initial abstract states and their goals until
+                        # one is found that is not already achieved.
+                        train_task_idxs = sorted(self._seen_train_task_idxs)
+                        self._rng.shuffle(train_task_idxs)
+                        for train_task_idx in train_task_idxs:
+                            task = self._train_tasks[train_task_idx]
+                            # Can only practice the task if the objects match.
+                            if set(task.init) == set(state):
+                                possible_goals = [
+                                    task.goal,
+                                    utils.abstract(task.init, self._predicates)
+                                ]
+                                for goal in possible_goals:
+                                    if any(not a.holds(state) for a in goal):
+                                        yield goal
+
                 # Otherwise, practice.
                 else:
                     logging.info("[Explorer] Pursuing NSRT preconditions")
@@ -150,7 +175,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                     # explorer is to be used in environments where any goal can
                     # be reached from anywhere, but we still don't want to
                     # crash in case that assumption is not met.
-                    except PlanningFailure:  # pragma: no cover
+                    except (PlanningFailure,
+                            PlanningTimeout):  # pragma: no cover
                         continue
                     logging.info("[Explorer] Plan found.")
                     break
@@ -260,20 +286,21 @@ class ActiveSamplerExplorer(BaseExplorer):
         logging.info(f"[Explorer]   success rate: {success_rate}")
         logging.info(f"[Explorer]   posterior competence: {competence}")
         logging.info(f"[Explorer]   num attempts: {num_tries}")
-        if CFG.active_sampler_explore_scorer == "planning_progress":
+        if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
-        elif CFG.active_sampler_explore_scorer == "success_rate":
+        elif CFG.active_sampler_explore_task_strategy == "success_rate":
             # Try less successful operators more often.
             # UCB-like bonus.
             c = CFG.active_sampler_explore_bonus
             bonus = c * np.sqrt(np.log(total_trials) / num_tries)
             score = (1.0 - success_rate) + bonus
-        elif CFG.active_sampler_explore_scorer == "random":
+        elif CFG.active_sampler_explore_task_strategy == "random":
             # Random scores baseline.
             score = self._rng.uniform()
         else:
-            raise NotImplementedError("Unrecognized explore scorer: "
-                                      f"{CFG.active_sampler_explore_scorer}")
+            raise NotImplementedError(
+                "Unrecognized explore task strategy: "
+                f"{CFG.active_sampler_explore_task_strategy}")
         logging.info(f"[Explorer]   total score: {score}")
         return score
 
