@@ -123,7 +123,7 @@ def test_active_sampler_explorer():
         "active_sampler_explore_bonus": 0.0,  # disable explore bonus
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
-        "active_sampler_explore_scorer": "success_rate",
+        "active_sampler_explore_task_strategy": "success_rate",
     })
     env = RegionalBumpyCoverEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
@@ -168,7 +168,7 @@ def test_active_sampler_explorer():
         "bumpy_cover_init_bumpy_prob": 1.0,
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
-        "active_sampler_explore_scorer": "random",
+        "active_sampler_explore_task_strategy": "random",
     })
     explorer = create_explorer(
         "active_sampler",
@@ -191,14 +191,22 @@ def test_active_sampler_explorer():
 
     # Test planning progrss scoring (but keep it short).
     utils.reset_config({
-        "explorer": "active_sampler",
-        "env": "regional_bumpy_cover",
-        "bumpy_cover_num_bumps": 3,
-        "bumpy_cover_spaces_per_bump": 3,
-        "bumpy_cover_init_bumpy_prob": 1.0,
-        "strips_learner": "oracle",
-        "sampler_learner": "oracle",
-        "active_sampler_explore_scorer": "planning_progress",
+        "explorer":
+        "active_sampler",
+        "env":
+        "regional_bumpy_cover",
+        "bumpy_cover_num_bumps":
+        3,
+        "bumpy_cover_spaces_per_bump":
+        3,
+        "bumpy_cover_init_bumpy_prob":
+        1.0,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "active_sampler_explore_task_strategy":
+        "planning_progress",
     })
     explorer = create_explorer(
         "active_sampler",
@@ -219,7 +227,7 @@ def test_active_sampler_explorer():
         state = env.simulate(state, policy(state))
     assert len(ground_op_hist) > 0
 
-    # Test unrecognized scorer.
+    # Test task repeating (but keep it short).
     utils.reset_config({
         "explorer": "active_sampler",
         "env": "regional_bumpy_cover",
@@ -228,7 +236,45 @@ def test_active_sampler_explorer():
         "bumpy_cover_init_bumpy_prob": 1.0,
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
-        "active_sampler_explore_scorer": "not a real scorer",
+        "active_sampler_explore_task_strategy": "task_repeat",
+    })
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
+    for _ in range(5):
+        assert not term_fn(state)
+        state = env.simulate(state, policy(state))
+    assert len(ground_op_hist) > 0
+
+    # Test unrecognized task strategy.
+    utils.reset_config({
+        "explorer":
+        "active_sampler",
+        "env":
+        "regional_bumpy_cover",
+        "bumpy_cover_num_bumps":
+        3,
+        "bumpy_cover_spaces_per_bump":
+        3,
+        "bumpy_cover_init_bumpy_prob":
+        1.0,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "active_sampler_explore_task_strategy":
+        "not a real task strategy",
     })
     explorer = create_explorer(
         "active_sampler",
@@ -248,7 +294,7 @@ def test_active_sampler_explorer():
         for _ in range(25):
             assert not term_fn(state)
             state = env.simulate(state, policy(state))
-    assert "Unrecognized explore scorer" in str(e)
+    assert "Unrecognized explore task strategy" in str(e)
 
     # Test the epsilon-greedy vs non-epsilon-greedy exploration.
     utils.reset_config({
