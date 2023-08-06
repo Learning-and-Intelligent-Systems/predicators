@@ -80,7 +80,9 @@ def test_active_sampler_explorer():
         seen_train_task_idxs=seen_train_task_idxs)
     task_idx = 0
     policy, _ = explorer.get_exploration_strategy(task_idx, 500)
-    _ = policy(state)
+    act = policy(state)
+    next_state = env.simulate(state, act)
+    _ = policy(next_state)
 
     # Cover case where the max option horizon is exceeded.
     ground_op_hist = {}
