@@ -1277,6 +1277,22 @@ def nsrt_plan_to_greedy_policy(
     return option_policy_to_policy(option_policy)
 
 
+def sample_applicable_option(param_options: List[ParameterizedOption],
+                             state: State,
+                             rng: np.random.Generator) -> Optional[_Option]:
+    """Sample an applicable option."""
+    for _ in range(CFG.random_options_max_tries):
+        param_opt = param_options[rng.choice(len(param_options))]
+        objs = get_random_object_combination(list(state), param_opt.types, rng)
+        if objs is None:
+            continue
+        params = param_opt.params_space.sample()
+        opt = param_opt.ground(objs, params)
+        if opt.initiable(state):
+            return opt
+    return None
+
+
 def create_random_option_policy(
         options: Collection[ParameterizedOption], rng: np.random.Generator,
         fallback_policy: Callable[[State],
@@ -1292,17 +1308,9 @@ def create_random_option_policy(
         nonlocal cur_option
         if cur_option is DummyOption or cur_option.terminal(state):
             cur_option = DummyOption
-            for _ in range(CFG.random_options_max_tries):
-                param_opt = sorted_options[rng.choice(len(sorted_options))]
-                objs = get_random_object_combination(list(state),
-                                                     param_opt.types, rng)
-                if objs is None:
-                    continue
-                params = param_opt.params_space.sample()
-                opt = param_opt.ground(objs, params)
-                if opt.initiable(state):
-                    cur_option = opt
-                    break
+            sample = sample_applicable_option(sorted_options, state, rng)
+            if sample is not None:
+                cur_option = sample
             else:
                 return fallback_policy(state)
         act = cur_option.policy(state)
