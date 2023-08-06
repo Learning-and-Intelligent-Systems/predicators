@@ -1,30 +1,30 @@
 # Final active sampler learning experiments.
 ---
 APPROACHES:
-  # planning_progress_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "planning_progress"
+  planning_progress_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "planning_progress"
   task_repeat_explore:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "task_repeat"
-  # success_rate_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "success_rate"
-  # random_score_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "random"
-  # random_nsrts_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "random_nsrts"
+  success_rate_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "success_rate"
+  random_score_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "random"
+  random_nsrts_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "random_nsrts"
 ENVS:
   regional_bumpy_cover:
     NAME: "regional_bumpy_cover"
