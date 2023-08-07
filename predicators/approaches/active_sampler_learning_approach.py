@@ -161,6 +161,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def _update_sampler_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
+        ground_op_to_num_data: DefaultDict[_GroundSTRIPSOperator,
+                                           int] = defaultdict(int)
         for segmented_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             just_made_incorrect_pick = False
@@ -204,6 +206,17 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 if o.parent not in self._sampler_data:
                     self._sampler_data[o.parent] = []
                 self._sampler_data[o.parent].append((s, o, ns, label))
+                ground_nsrt = utils.option_to_ground_nsrt(o, self._nsrts)
+                ground_op_to_num_data[ground_nsrt.op] += 1
+        # Update _ground_op_competence_data.
+        for ground_op, num_data in ground_op_to_num_data.items():
+            current_competence = utils.beta_bernoulli_posterior(
+                self._ground_op_hist[ground_op])
+            if ground_op not in self._ground_op_competence_data:
+                self._ground_op_competence_data[ground_op] = ([], [])
+            X, y = self._ground_op_competence_data[ground_op]
+            X.append(num_data)
+            y.append(current_competence)
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
@@ -262,21 +275,6 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
-        # Update _ground_op_competence_data.
-        ground_op_to_num_data: DefaultDict[_GroundSTRIPSOperator,
-                                           int] = defaultdict(int)
-        for sampler_transitions in self._sampler_data.values():
-            for _, option, _, _ in sampler_transitions:
-                ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
-                ground_op_to_num_data[ground_nsrt.op] += 1
-        for ground_op, num_data in ground_op_to_num_data.items():
-            current_competence = utils.beta_bernoulli_posterior(
-                self._ground_op_hist[ground_op])
-            if ground_op not in self._ground_op_competence_data:
-                self._ground_op_competence_data[ground_op] = ([], [])
-            X, Y = self._ground_op_competence_data[ground_op]
-            X.append(num_data)
-            Y.append(current_competence)
 
 
 class _WrappedSamplerLearner(abc.ABC):

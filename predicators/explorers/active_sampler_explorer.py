@@ -366,6 +366,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         else:
             exp_competence = model.predict([[num_attempts]])[0]
             competence = np.log(exp_competence)
+            import ipdb
+            ipdb.set_trace()
         logging.info(f"[Explorer]   extrapolated competence: {competence}")
         return competence
 
@@ -412,11 +414,12 @@ class ActiveSamplerExplorer(BaseExplorer):
         num_datas, competences = self._ground_op_competence_data[ground_op]
         if len(num_datas) < 2:
             return None
-        exp_competences = np.exp(competences)
+        y = np.exp(competences)
         logging.info("[Explorer]   Fitting competence extrapolator for "
                      f"{ground_op.name}{ground_op.objects}")
         model = LinearRegression()
-        model.fit(num_datas, exp_competences)
+        X = np.reshape(num_datas, (-1, 1))
+        model.fit(X, y)
         return model
 
     def _get_random_option(self, state: State) -> _Option:
