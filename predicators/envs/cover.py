@@ -1226,7 +1226,7 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
         goal = set()
         while not goal:
             for block_group in [bumpy_blocks, smooth_blocks]:
-                num_in_goal = rng.integers(0, len(block_group))
+                num_in_goal = rng.integers(0, len(block_group) + 1)
                 block_group_idxs = list(range(len(block_group)))
                 selected_block_idxs = rng.choice(block_group_idxs,
                                                  size=num_in_goal,
