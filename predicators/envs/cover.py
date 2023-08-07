@@ -1223,7 +1223,7 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
         free_targets = list(state.get_objects(self._target_type))
         free_target_idxs = list(range(len(free_targets)))
         rng.shuffle(free_target_idxs)
-        goal = set()
+        goal: Set[GroundAtom] = set()
         while not goal:
             for block_group in [bumpy_blocks, smooth_blocks]:
                 num_in_goal = rng.integers(0, len(block_group) + 1)

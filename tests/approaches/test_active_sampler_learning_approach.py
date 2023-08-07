@@ -52,6 +52,7 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
         "bumpy_cover_right_targets": right_targets,
         "active_sampler_learning_num_ensemble_members": 2,
         "bilevel_plan_without_sim": True,
+        "active_sampler_learning_exploration_epsilon": 1.0,
     })
     env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
