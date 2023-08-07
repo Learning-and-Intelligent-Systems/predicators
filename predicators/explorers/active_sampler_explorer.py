@@ -360,7 +360,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         if model is None:
             hist = self._ground_op_hist[ground_op]
             current_competence = utils.beta_bernoulli_posterior(hist)
-            competence = max(
+            competence = min(
                 1.0, current_competence +
                 CFG.active_sampler_explore_competence_improvement_default)
         else:
