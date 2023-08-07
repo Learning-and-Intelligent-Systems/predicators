@@ -1057,6 +1057,10 @@ class BumpyCoverEnv(CoverEnvRegrasp):
     def get_name(cls) -> str:
         return "bumpy_cover"
 
+    @staticmethod
+    def _block_is_bumpy(block: Object, state: State) -> bool:
+        return abs(state.get(block, "bumpy") - 1.0) < 1e-3
+
     def _create_initial_state(self, blocks: List[Object],
                               targets: List[Object],
                               rng: np.random.Generator) -> State:
@@ -1105,7 +1109,7 @@ class BumpyCoverEnv(CoverEnvRegrasp):
         hand_regions = []
         for block in state.get_objects(self._block_type):
             pose = state.get(block, "pose")
-            bumpy = abs(state.get(block, "bumpy") - 1.0) < 1e-3
+            bumpy = self._block_is_bumpy(block, state)
             in_bumpy_region = not self._bumps_regional or \
                 pose > CFG.bumpy_cover_bumpy_region_start
             if bumpy and in_bumpy_region:
@@ -1193,3 +1197,43 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
         if self._Holding_holds(state, objects):
             return False
         return not self._InBumpyRegion_holds(state, objects)
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
+        tasks = []
+        # Create blocks and targets.
+        blocks, targets = self._create_blocks_and_targets()
+        # Create tasks.
+        for _ in range(num):
+            init = self._create_initial_state(blocks, targets, rng)
+            assert init.get_objects(self._block_type) == blocks
+            assert init.get_objects(self._target_type) == targets
+            goal = self._sample_goal(init, rng)
+            tasks.append(EnvironmentTask(init, goal))
+        return tasks
+
+    def _sample_goal(self, state: State,
+                     rng: np.random.Generator) -> Set[GroundAtom]:
+        bumpy_blocks, smooth_blocks = [], []
+        for b in state.get_objects(self._block_type):
+            if self._block_is_bumpy(b, state):
+                bumpy_blocks.append(b)
+            else:
+                smooth_blocks.append(b)
+        free_targets = list(state.get_objects(self._target_type))
+        free_target_idxs = list(range(len(free_targets)))
+        rng.shuffle(free_target_idxs)
+        goal = set()
+        for block_group in [bumpy_blocks, smooth_blocks]:
+            num_in_goal = rng.integers(0, len(block_group))
+            block_group_idxs = list(range(len(block_group)))
+            selected_block_idxs = rng.choice(block_group_idxs,
+                                             size=num_in_goal,
+                                             replace=False)
+            selected_blocks = [block_group[i] for i in selected_block_idxs]
+            for block in selected_blocks:
+                target_idx = free_target_idxs.pop()
+                target = free_targets[target_idx]
+                goal_atom = GroundAtom(self._Covers, [block, target])
+                goal.add(goal_atom)
+        return goal
