@@ -265,7 +265,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Update _ground_op_competence_data.
         ground_op_to_num_data: DefaultDict[_GroundSTRIPSOperator,
                                            int] = defaultdict(int)
-        for _, sampler_transitions in self._sampler_data.values():
+        for sampler_transitions in self._sampler_data.values():
             for _, option, _, _ in sampler_transitions:
                 ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
                 ground_op_to_num_data[ground_nsrt.op] += 1
