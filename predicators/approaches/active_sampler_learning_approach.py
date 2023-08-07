@@ -209,13 +209,14 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 ground_nsrt = utils.option_to_ground_nsrt(o, self._nsrts)
                 ground_op_to_num_data[ground_nsrt.op] += 1
         # Update _ground_op_competence_data.
-        for ground_op, num_data in ground_op_to_num_data.items():
+        for ground_op, num_new_data in ground_op_to_num_data.items():
             current_competence = utils.beta_bernoulli_posterior(
                 self._ground_op_hist[ground_op])
             if ground_op not in self._ground_op_competence_data:
                 self._ground_op_competence_data[ground_op] = ([], [])
             X, y = self._ground_op_competence_data[ground_op]
-            X.append(num_data)
+            last_num_data = 0 if not X else X[-1]
+            X.append(last_num_data + num_new_data)
             y.append(current_competence)
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:

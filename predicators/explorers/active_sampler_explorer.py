@@ -413,12 +413,23 @@ class ActiveSamplerExplorer(BaseExplorer):
                 # as we continue to learn.
                 slope = max(slope, slope_)
 
+            # Debugging.
+            from matplotlib import pyplot as plt
+            plt.figure()
+            plt.plot(num_datas, competences, marker="o")
+            plt.title(f"{ground_op.name}{ground_op.objects}")
+            plt.xlabel("Num data")
+            plt.ylabel("Competence")
+            plt.savefig(f"debug/active_explore_{ground_op.name}{ground_op.objects}.png")
+            plt.close()
+
         def model(num_attempts: int) -> float:
             assert num_attempts > last_num_attempts
             delta_num_attempts = num_attempts - last_num_attempts
             delta_exp_competence = slope * delta_num_attempts
             next_exp_competence = last_exp_competence + delta_exp_competence
             next_competence = np.log(next_exp_competence)
+            next_competence = min(1.0, next_competence)
             # print("last_num_attempts:", last_num_attempts)
             # print("last_exp_competence:", last_exp_competence)
             # print("delta_num_attempts:", delta_num_attempts)
