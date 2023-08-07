@@ -300,20 +300,13 @@ def test_active_sampler_explorer():
 
     # Test the epsilon-greedy vs non-epsilon-greedy exploration.
     utils.reset_config({
-        "explorer":
-        "active_sampler",
-        "env":
-        "regional_bumpy_cover",
-        "bumpy_cover_num_bumps":
-        3,
-        "bumpy_cover_spaces_per_bump":
-        3,
-        "bumpy_cover_init_bumpy_prob":
-        1.0,
-        "strips_learner":
-        "oracle",
-        "sampler_learner":
-        "oracle",
+        "explorer": "active_sampler",
+        "env": "regional_bumpy_cover",
+        "bumpy_cover_num_bumps": 3,
+        "bumpy_cover_spaces_per_bump": 3,
+        "bumpy_cover_init_bumpy_prob": 1.0,
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
         "active_sampler_learning_exploration_sample_strategy":
         "epsilon_greedy",
         "active_sampler_learning_exploration_epsilon": 1.0,
