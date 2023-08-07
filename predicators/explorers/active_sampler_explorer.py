@@ -2,7 +2,7 @@
 
 import functools
 import logging
-from typing import Callable, Dict, Iterator, List, Optional, Set
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -35,6 +35,9 @@ class ActiveSamplerExplorer(BaseExplorer):
                  action_space: Box, train_tasks: List[Task],
                  max_steps_before_termination: int, nsrts: Set[NSRT],
                  ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
+                 ground_op_competence_data: Dict[_GroundSTRIPSOperator,
+                                                 Tuple[List[float],
+                                                       List[float]]],
                  nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler],
                  seen_train_task_idxs: Set[int]) -> None:
 
@@ -47,6 +50,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                          max_steps_before_termination)
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
+        self._ground_op_competence_data = ground_op_competence_data
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
@@ -350,10 +354,18 @@ class ActiveSamplerExplorer(BaseExplorer):
         # of data, i.e., competence \approx log(num_attempts). So, we expect
         # exp(competence) to be approximately linear in num data. We'll fit
         # a linear function and then use it to extrapolate num_attempts.
-        # Note that this function returns -log(competence).
         model = self._get_exp_competence_model(ground_op)
-        exp_competence = model.predict([[num_attempts]])[0]
-        competence = np.log(exp_competence)
+        # If we haven't seen enough data yet to extrapolate, then use an
+        # optimistic assumption that competence will improve by a constant.
+        if model is None:
+            hist = self._ground_op_hist[ground_op]
+            current_competence = utils.beta_bernoulli_posterior(hist)
+            competence = max(
+                1.0, current_competence +
+                CFG.active_sampler_explore_competence_improvement_default)
+        else:
+            exp_competence = model.predict([[num_attempts]])[0]
+            competence = np.log(exp_competence)
         logging.info(f"[Explorer]   extrapolated competence: {competence}")
         return competence
 
@@ -386,11 +398,26 @@ class ActiveSamplerExplorer(BaseExplorer):
 
     @functools.lru_cache(maxsize=None)
     def _get_exp_competence_model(
-            self, ground_op: _GroundSTRIPSOperator) -> LinearRegression:
+            self,
+            ground_op: _GroundSTRIPSOperator) -> Optional[LinearRegression]:
         """Note that we can cache the models because a new explorer is
-        instantiated after every online learing cycle."""
-        import ipdb
-        ipdb.set_trace()
+        instantiated after every online learning cycle.
+
+        Return None if we have seen less than two data points for the
+        ground operator, in which case extrapolation is not yet
+        possible.
+        """
+        if ground_op not in self._ground_op_competence_data:
+            return None
+        num_datas, competences = self._ground_op_competence_data[ground_op]
+        if len(num_datas) < 2:
+            return None
+        exp_competences = np.exp(competences)
+        logging.info("[Explorer]   Fitting competence extrapolator for "
+                     f"{ground_op.name}{ground_op.objects}")
+        model = LinearRegression()
+        model.fit(num_datas, exp_competences)
+        return model
 
     def _get_random_option(self, state: State) -> _Option:
         option = utils.sample_applicable_option(self._sorted_options, state,
