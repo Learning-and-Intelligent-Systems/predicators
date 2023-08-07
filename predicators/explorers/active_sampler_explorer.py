@@ -1,10 +1,12 @@
 """An explorer for active sampler learning."""
 
+import functools
 import logging
 from typing import Callable, Dict, Iterator, List, Optional, Set
 
 import numpy as np
 from gym.spaces import Box
+from sklearn.linear_model import LinearRegression
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
@@ -316,8 +318,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             self, ground_op: _GroundSTRIPSOperator) -> float:
         # Predict the competence if we had one more data point.
         num_attempts = len(self._ground_op_hist[ground_op])
-        c_hat = self._extrapolate_competence_cost(ground_op, num_attempts + 1)
-        assert c_hat >= 0
+        competence = self._extrapolate_competence(ground_op, num_attempts + 1)
+        assert 0.0 < competence < 1.0
+        c_hat = -np.log(competence)
         # Update the ground op costs hypothetically.
         ground_op_costs = utils.ground_op_history_to_planning_costs(
             self._ground_op_hist)
@@ -341,17 +344,18 @@ class ActiveSamplerExplorer(BaseExplorer):
             plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # higher scores are better
 
-    def _extrapolate_competence_cost(self, ground_op: _GroundSTRIPSOperator,
-                                     num_attempts: int) -> float:
-        # This is a placeholder for a more sophisticated thing coming soon!
-        # For now, we make the highly simplified assumption that practicing
-        # anything will improve the thing by a small constant amount.
-        del num_attempts  # not used yet
-        outcomes = self._ground_op_hist[ground_op]
-        competence = utils.beta_bernoulli_posterior(outcomes)
-        extrap = min(1.0, competence + 1e-2)
-        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
-        return -np.log(extrap)
+    def _extrapolate_competence(self, ground_op: _GroundSTRIPSOperator,
+                                num_attempts: int) -> float:
+        # We expect the competence to improve logarithmically with the number
+        # of data, i.e., competence \approx log(num_attempts). So, we expect
+        # exp(competence) to be approximately linear in num data. We'll fit
+        # a linear function and then use it to extrapolate num_attempts.
+        # Note that this function returns -log(competence).
+        model = self._get_exp_competence_model(ground_op)
+        exp_competence = model.predict([[num_attempts]])[0]
+        competence = np.log(exp_competence)
+        logging.info(f"[Explorer]   extrapolated competence: {competence}")
+        return competence
 
     def _get_task_plan_for_training_task(
         self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
@@ -379,6 +383,14 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         self._task_plan_calls_since_replan[train_task_idx] += 1
         return self._task_plan_cache[train_task_idx]
+
+    @functools.lru_cache(maxsize=None)
+    def _get_exp_competence_model(
+            self, ground_op: _GroundSTRIPSOperator) -> LinearRegression:
+        """Note that we can cache the models because a new explorer is
+        instantiated after every online learing cycle."""
+        import ipdb
+        ipdb.set_trace()
 
     def _get_random_option(self, state: State) -> _Option:
         option = utils.sample_applicable_option(self._sorted_options, state,
