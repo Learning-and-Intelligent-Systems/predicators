@@ -1098,7 +1098,7 @@ class SpotBikeEnv(SpotEnv):
     def _surface_too_high_classifier(state: State,
                                      objects: Sequence[Object]) -> bool:
         _, surface = objects
-        return state.get(surface, "z") > 0.8
+        return state.get(surface, "z") > 0.7
 
     @classmethod
     def _surface_not_too_high_classifier(cls, state: State,
@@ -1158,7 +1158,6 @@ class SpotBikeEnv(SpotEnv):
         if CFG.spot_platform_only:
             platform = self._obj_name_to_obj("platform")
             high_wall_rack = self._obj_name_to_obj("high_wall_rack")
-            spot = self._obj_name_to_obj("spot")
             hammer = self._obj_name_to_obj("hammer")
             bucket = self._obj_name_to_obj("bucket")
             return {

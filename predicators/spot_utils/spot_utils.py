@@ -730,7 +730,16 @@ class _SpotInterface():
                               grasp_dist_in_hand=grasp_dist_in_hand)
         if not np.allclose(params[:3], [0.0, 0.0, 0.0]):
             self.hand_movement(params[:3], open_gripper=False)
-        if objs[1].name != "platform":
+        if objs[1].name == "platform":
+            # Make sure the gripper is closed.
+            gripper_close_command = RobotCommandBuilder.\
+            claw_gripper_open_fraction_command(0.0)
+            gripper_close_command_id = self.robot_command_client.robot_command(
+                gripper_close_command)
+            self.robot.logger.debug("Stow command issued.")
+            block_until_arm_arrives(self.robot_command_client,
+                                    gripper_close_command_id, 3.0)
+        else:
             self.stow_arm()
 
     def placeOntopController(self, objs: Sequence[Object],
@@ -787,8 +796,8 @@ class _SpotInterface():
                                        and i in [0, 1, 6, 7]):
                     # Lift arm to pose where it can see things that are high.
                     # We only want to do this in situations where (1) we won't
-                    # collide with an obstacle, and (2) we are likely to actually
-                    # see something.
+                    # collide with an obstacle, and (2) we are likely to
+                    # actually see something.
                     self.hand_movement(np.array([0.0, 0.0, 0.1]),
                                        keep_hand_pose=False,
                                        angle=(np.cos(0), 0, np.sin(0), 0),
