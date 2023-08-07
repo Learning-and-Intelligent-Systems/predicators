@@ -323,7 +323,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Predict the competence if we had one more data point.
         num_attempts = len(self._ground_op_hist[ground_op])
         competence = self._extrapolate_competence(ground_op, num_attempts + 1)
-        assert 0.0 < competence < 1.0
+        assert 0.0 < competence <= 1.0
         c_hat = -np.log(competence)
         # Update the ground op costs hypothetically.
         ground_op_costs = utils.ground_op_history_to_planning_costs(
