@@ -315,7 +315,8 @@ def test_active_sampler_explorer():
         "sampler_learner":
         "oracle",
         "active_sampler_learning_exploration_sample_strategy":
-        "epsilon_greedy"
+        "epsilon_greedy",
+        "active_sampler_learning_exploration_epsilon": 1.0,
     })
     new_nsrt_to_greedy_explorer_sampler = {}
     for nsrt, sampler in nsrt_to_explorer_sampler.items():
