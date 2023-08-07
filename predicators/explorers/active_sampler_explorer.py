@@ -51,6 +51,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
         self._task_plan_calls_since_replan: Dict[int, int] = {}
         self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
+        self._sorted_options = sorted(options, key=lambda o: o.name)
 
     @classmethod
     def get_name(cls) -> str:
@@ -78,16 +79,21 @@ class ActiveSamplerExplorer(BaseExplorer):
         assigned_task_goal_reached = False
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None
+        using_random = False
 
         def _option_policy(state: State) -> _Option:
             logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task_goal_reached, current_policy, \
-                next_practice_nsrt
+                next_practice_nsrt, using_random
 
             # Need to wait for policy to get called to "see" the train task.
             self._seen_train_task_idxs.add(train_task_idx)
 
             atoms = utils.abstract(state, self._predicates)
+
+            if using_random:
+                logging.info("[Explorer] Using random option policy.")
+                return self._get_random_option(state)
 
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_goal_reached and \
@@ -182,8 +188,10 @@ class ActiveSamplerExplorer(BaseExplorer):
                     break
                 # Terminate early if no goal could be found.
                 else:
-                    logging.info("[Explorer] No reachable goal found.")
-                    raise utils.RequestActPolicyFailure("Failed to find goal.")
+                    logging.info("[Explorer] No reachable goal found. "
+                                 "Switching to random exploration.")
+                    using_random = True
+                    return self._get_random_option(state)
             # Query the current policy.
             assert current_policy is not None
             try:
@@ -371,3 +379,9 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         self._task_plan_calls_since_replan[train_task_idx] += 1
         return self._task_plan_cache[train_task_idx]
+
+    def _get_random_option(self, state: State) -> _Option:
+        option = utils.sample_applicable_option(self._sorted_options, state,
+                                                self._rng)
+        assert option is not None
+        return option
