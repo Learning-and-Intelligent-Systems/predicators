@@ -6,7 +6,6 @@ from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
-from sklearn.linear_model import LinearRegression
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
@@ -354,22 +353,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         # of data, i.e., competence \approx log(num_attempts). So, we expect
         # exp(competence) to be approximately linear in num data. We'll fit
         # a linear function and then use it to extrapolate num_attempts.
-        model = self._get_exp_competence_model(ground_op)
-        # If we haven't seen enough data yet to extrapolate, then use an
-        # optimistic assumption that competence will improve by a constant.
-        if model is None:
-            hist = self._ground_op_hist[ground_op]
-            current_competence = utils.beta_bernoulli_posterior(hist)
-            competence = min(
-                1.0, current_competence +
-                CFG.active_sampler_explore_competence_improvement_default)
-        else:
-            exp_competence = model.predict([[num_attempts]])[0]
-            competence = np.log(exp_competence)
-            import ipdb
-            ipdb.set_trace()
-        logging.info(f"[Explorer]   extrapolated competence: {competence}")
-        return competence
+        model = self._get_competence_model(ground_op)
+        next_competence = model(num_attempts)
+        logging.info(f"[Explorer]   next competence: {next_competence}")
+        return next_competence
 
     def _get_task_plan_for_training_task(
         self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
@@ -399,9 +386,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         return self._task_plan_cache[train_task_idx]
 
     @functools.lru_cache(maxsize=None)
-    def _get_exp_competence_model(
-            self,
-            ground_op: _GroundSTRIPSOperator) -> Optional[LinearRegression]:
+    def _get_competence_model(
+            self, ground_op: _GroundSTRIPSOperator) -> Callable[[int], float]:
         """Note that we can cache the models because a new explorer is
         instantiated after every online learning cycle.
 
@@ -409,17 +395,39 @@ class ActiveSamplerExplorer(BaseExplorer):
         ground operator, in which case extrapolation is not yet
         possible.
         """
-        if ground_op not in self._ground_op_competence_data:
-            return None
-        num_datas, competences = self._ground_op_competence_data[ground_op]
-        if len(num_datas) < 2:
-            return None
-        y = np.exp(competences)
-        logging.info("[Explorer]   Fitting competence extrapolator for "
-                     f"{ground_op.name}{ground_op.objects}")
-        model = LinearRegression()
-        X = np.reshape(num_datas, (-1, 1))
-        model.fit(X, y)
+        slope = CFG.active_sampler_explore_competence_improvement_default
+        last_num_attempts = 0
+        last_exp_competence = np.exp(utils.beta_bernoulli_posterior([]))
+        if ground_op in self._ground_op_competence_data:
+            num_datas, competences = self._ground_op_competence_data[ground_op]
+            last_num_attempts = num_datas[-1]
+            last_exp_competence = np.exp(competences[-1])
+            if len(num_datas) >= 2:
+                # Average the last N changes in exponential competences.
+                N = CFG.active_sampler_explore_competence_moving_window
+                y = np.exp(competences)[:N]
+                delta_ys = np.subtract(y[1:], y[:-1])
+                delta_xs = np.subtract(num_datas[1:], num_datas[:-1])
+                slope_ = np.mean(delta_ys / delta_xs)
+                # Optimism/monotone bias: skills will continue to improve
+                # as we continue to learn.
+                slope = max(slope, slope_)
+
+        def model(num_attempts: int) -> float:
+            assert num_attempts > last_num_attempts
+            delta_num_attempts = num_attempts - last_num_attempts
+            delta_exp_competence = slope * delta_num_attempts
+            next_exp_competence = last_exp_competence + delta_exp_competence
+            next_competence = np.log(next_exp_competence)
+            # print("last_num_attempts:", last_num_attempts)
+            # print("last_exp_competence:", last_exp_competence)
+            # print("delta_num_attempts:", delta_num_attempts)
+            # print("delta_exp_competence:", delta_exp_competence)
+            # print("next_exp_competence:", next_exp_competence)
+            # print("next_competence:", next_competence)
+            # import ipdb; ipdb.set_trace()
+            return next_competence
+
         return model
 
     def _get_random_option(self, state: State) -> _Option:
