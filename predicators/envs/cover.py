@@ -1224,16 +1224,18 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
         free_target_idxs = list(range(len(free_targets)))
         rng.shuffle(free_target_idxs)
         goal = set()
-        for block_group in [bumpy_blocks, smooth_blocks]:
-            num_in_goal = rng.integers(0, len(block_group))
-            block_group_idxs = list(range(len(block_group)))
-            selected_block_idxs = rng.choice(block_group_idxs,
-                                             size=num_in_goal,
-                                             replace=False)
-            selected_blocks = [block_group[i] for i in selected_block_idxs]
-            for block in selected_blocks:
-                target_idx = free_target_idxs.pop()
-                target = free_targets[target_idx]
-                goal_atom = GroundAtom(self._Covers, [block, target])
-                goal.add(goal_atom)
+        while not goal:
+            for block_group in [bumpy_blocks, smooth_blocks]:
+                num_in_goal = rng.integers(0, len(block_group))
+                block_group_idxs = list(range(len(block_group)))
+                selected_block_idxs = rng.choice(block_group_idxs,
+                                                 size=num_in_goal,
+                                                 replace=False)
+                selected_blocks = [block_group[i] for i in selected_block_idxs]
+                for block in selected_blocks:
+                    target_idx = free_target_idxs.pop()
+                    target = free_targets[target_idx]
+                    goal_atom = GroundAtom(self._Covers, [block, target])
+                    if not goal_atom.holds(state):
+                        goal.add(goal_atom)
         return goal
