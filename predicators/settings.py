@@ -322,6 +322,9 @@ class GlobalSettings:
     kitchen_use_perfect_samplers = False
     kitchen_goals = "all"
 
+    # sticky table env parameters
+    sticky_table_num_tables = 5
+
     # parameters for random options approach
     random_options_max_tries = 100
 
