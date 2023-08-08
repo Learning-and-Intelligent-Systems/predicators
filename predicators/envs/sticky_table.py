@@ -35,13 +35,11 @@ class StickyTableEnv(BaseEnv):
     y_lb: ClassVar[float] = 0.0
     y_ub: ClassVar[float] = 1.0
     cube_scale: ClassVar[float] = 0.25  # as a function of table radius
-    place_smooth_fall_prob: ClassVar[float] = 0.95
-    place_sticky_fall_prob: ClassVar[float] = 0.05
-    pick_success_prob: ClassVar[float] = 0.9
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
+        # For noisy simulation.
         self._noise_rng = np.random.default_rng(CFG.seed)
 
         # Types
@@ -73,7 +71,7 @@ class StickyTableEnv(BaseEnv):
         # Picking logic.
         if hand_empty:
             # Fail sometimes.
-            if self._noise_rng.uniform() < self.pick_success_prob:
+            if self._noise_rng.uniform() < CFG.sticky_table_pick_success_prob:
                 rect = self._object_to_geom(cube, state)
                 if rect.contains_point(act_x, act_y):
                     next_state.set(cube, "held", 1.0)
@@ -93,12 +91,12 @@ class StickyTableEnv(BaseEnv):
                 next_state.set(cube, "y", act_y)
             else:
                 # Possibly put on the table, or have it fall somewhere near.
-                fall_prob = self.place_sticky_fall_prob
+                fall_prob = CFG.sticky_table_place_sticky_fall_prob
                 if self._table_is_sticky(table, state):
                     # Check if placing on the smooth side of the sticky table.
                     table_y = state.get(table, "y")
                     if act_y < table_y:
-                        fall_prob = self.place_smooth_fall_prob
+                        fall_prob = CFG.sticky_table_place_smooth_fall_prob
                 if self._noise_rng.uniform() < fall_prob:
                     fall_x, fall_y = self._sample_floor_point_around_table(
                         table, state, self._noise_rng)
@@ -242,6 +240,8 @@ class StickyTableEnv(BaseEnv):
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         cube, table = objects
+        if self._Holding_holds(state, [cube]):
+            return False
         rect = self._object_to_geom(cube, state)
         circ = self._object_to_geom(table, state)
         assert isinstance(rect, utils.Rectangle)
@@ -252,6 +252,8 @@ class StickyTableEnv(BaseEnv):
 
     def _OnFloor_holds(self, state: State, objects: Sequence[Object]) -> bool:
         cube, = objects
+        if self._Holding_holds(state, [cube]):
+            return False
         for table in state.get_objects(self._table_type):
             if self._OnTable_holds(state, [cube, table]):
                 return False
