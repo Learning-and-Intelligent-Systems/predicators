@@ -4,6 +4,7 @@ from typing import Dict, Sequence, Set
 
 import numpy as np
 
+from predicators.envs.sticky_table import StickyTableEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
@@ -127,9 +128,10 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                 rng: np.random.Generator,
                                 objs: Sequence[Object]) -> Array:
             del state, goal, objs  # not used
-            # TODO
-            import ipdb
-            ipdb.set_trace()
+            # Just place in the center of the room.
+            x = (StickyTableEnv.x_lb + StickyTableEnv.x_ub) / 2
+            y = (StickyTableEnv.y_lb + StickyTableEnv.y_ub) / 2
+            return np.array([x, y], dtype=np.float32)
 
         placeonfloor_nsrt = NSRT("PlaceOnFloor", parameters,
                                  preconditions, add_effects, delete_effects,
