@@ -37,6 +37,7 @@ class StickyTableEnv(BaseEnv):
     cube_scale: ClassVar[float] = 0.25  # as a function of table radius
     place_smooth_fall_prob: ClassVar[float] = 0.95
     place_sticky_fall_prob: ClassVar[float] = 0.05
+    pick_success_prob: ClassVar[float] = 0.9
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -71,9 +72,11 @@ class StickyTableEnv(BaseEnv):
         cube, = state.get_objects(self._cube_type)
         # Picking logic.
         if hand_empty:
-            rect = self._object_to_geom(cube, state)
-            if rect.contains_point(act_x, act_y):
-                next_state.set(cube, "held", 1.0)
+            # Fail sometimes.
+            if self._noise_rng.uniform() < self.pick_success_prob:
+                rect = self._object_to_geom(cube, state)
+                if rect.contains_point(act_x, act_y):
+                    next_state.set(cube, "held", 1.0)
         # Placing logic.
         else:
             next_state.set(cube, "held", 0.0)
