@@ -218,6 +218,15 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             last_num_data = 0 if not X else X[-1]
             X.append(last_num_data + num_new_data)
             y.append(current_competence)
+            # Save the _ground_op_competence_data() for external analysis.
+            approach_save_path = utils.get_approach_save_path_str()
+            save_path = "_".join([
+                approach_save_path, f"{ground_op.name}{ground_op.objects}",
+                f"{self._online_learning_cycle}.competence"
+            ])
+            with open(save_path, "wb") as f:
+                pkl.dump((X, y), f)
+            logging.info(f"Saved competence data to {save_path}.")
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
