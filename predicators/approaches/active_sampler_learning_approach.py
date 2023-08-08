@@ -210,8 +210,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 ground_op_to_num_data[ground_nsrt.op] += 1
         # Update _ground_op_competence_data.
         for ground_op, num_new_data in ground_op_to_num_data.items():
-            current_competence = utils.beta_bernoulli_posterior(
-                self._ground_op_hist[ground_op])
+            hist = self._ground_op_hist.get(ground_op, [])
+            current_competence = utils.beta_bernoulli_posterior(hist)
             if ground_op not in self._ground_op_competence_data:
                 self._ground_op_competence_data[ground_op] = ([], [])
             X, y = self._ground_op_competence_data[ground_op]
