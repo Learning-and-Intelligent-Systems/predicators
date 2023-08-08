@@ -95,11 +95,12 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
             del goal  # unused
-            _, table = objs
+            cube, table = objs
             table_x = state.get(table, "x")
             table_y = state.get(table, "y")
             table_radius = state.get(table, "radius")
-            dist = rng.uniform(0, table_radius)
+            cube_size = state.get(cube, "size")
+            dist = rng.uniform(0, table_radius - cube_size)
             theta = rng.uniform(0, 2 * np.pi)
             x = table_x + dist * np.cos(theta)
             y = table_y + dist * np.sin(theta)
