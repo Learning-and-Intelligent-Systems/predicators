@@ -40,8 +40,8 @@ class StickyTableEnv(BaseEnv):
         super().__init__(use_gui)
 
         # Types
-        self._cube_type = Type("robot", ["x", "y", "size", "held"])
-        self._table_type = Type("target", ["x", "y", "radius", "sticky"])
+        self._cube_type = Type("cube", ["x", "y", "size", "held"])
+        self._table_type = Type("table", ["x", "y", "radius", "sticky"])
 
         # Predicates
         self._OnTable = Predicate("OnTable",
