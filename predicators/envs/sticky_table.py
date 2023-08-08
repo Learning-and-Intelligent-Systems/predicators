@@ -270,5 +270,9 @@ class StickyTableEnv(BaseEnv):
     def _sample_floor_point_around_table(
             self, table: Object, state: State,
             rng: np.random.Generator) -> Tuple[float, float]:
-        import ipdb
-        ipdb.set_trace()
+        x = state.get(table, "x")
+        y = state.get(table, "y")
+        radius = state.get(table, "radius")
+        dist = radius + rng.uniform(radius / 10, radius / 4)
+        theta = rng.uniform(0, 2 * np.pi)
+        return (x + dist * np.cos(theta), y + dist * np.sin(theta))
