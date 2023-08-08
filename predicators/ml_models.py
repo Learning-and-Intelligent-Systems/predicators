@@ -23,6 +23,7 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
 from predicators.structs import Array, MaxTrainIters, Object, State
+from predicators.rl.rl_utils import identity, fanin_init
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -534,20 +535,6 @@ class MLPRegressor(PyTorchRegressor):
 
 # TODO: Standardize this with the existing MLP: this is stolen from MAPLE.
 ### START pillaging from MAPLE
-def fanin_init(tensor):
-    size = tensor.size()
-    if len(size) == 2:
-        fan_in = size[0]
-    elif len(size) > 2:
-        fan_in = np.prod(size[1:])
-    else:
-        raise Exception("Shape must be have dimension at least 2.")
-    bound = 1. / np.sqrt(fan_in)
-    return tensor.data.uniform_(-bound, bound)
-
-def identity(x):
-    return x
-
 class LayerNorm(nn.Module):
     """
     Simple 1D LayerNorm.
