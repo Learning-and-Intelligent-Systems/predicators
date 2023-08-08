@@ -49,7 +49,7 @@ def test_sticky_table():
     assert len(env_test_tasks) == 2
     env_task = env_test_tasks[1]
     env.reset("test", 1)
-    imgs = env.render()
+    imgs = env.render(caption="Test")
     assert len(imgs) == 1
 
     # Test NSRTs.
@@ -69,6 +69,8 @@ def test_sticky_table():
     sticky_table = sticky_tables[0]
     normal_tables = [t for t in tables if t != sticky_table]
     init_table = [t for t in tables if OnTable([cube, t]).holds(init_state)][0]
+
+    assert not OnFloor([cube]).holds(init_state)
 
     # Test noise-free picking and placing on the floor and normal tables.
     table_order = [init_table] + [t for t in normal_tables if t != init_table]
