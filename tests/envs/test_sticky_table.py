@@ -1,7 +1,6 @@
 """Test cases for the Sticky Table environment."""
 
 import numpy as np
-import pytest
 
 from predicators import utils
 from predicators.envs.sticky_table import StickyTableEnv
