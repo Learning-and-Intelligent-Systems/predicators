@@ -71,7 +71,8 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
             cube = objects[0]
             x = state.get(cube, "x")
             y = state.get(cube, "y")
-            arr = np.array([x, y], dtype=np.float32)
+            size = state.get(cube, "size")
+            arr = np.array([x + size / 2, y + size / 2], dtype=np.float32)
             arr = np.clip(arr, action_space.low, action_space.high)
             return Action(arr)
 

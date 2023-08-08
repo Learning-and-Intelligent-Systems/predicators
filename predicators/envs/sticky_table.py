@@ -35,8 +35,8 @@ class StickyTableEnv(BaseEnv):
     y_lb: ClassVar[float] = 0.0
     y_ub: ClassVar[float] = 1.0
     cube_scale: ClassVar[float] = 0.25  # as a function of table radius
-    place_smooth_fall_prob: ClassVar[float] = 0.05
-    place_sticky_fall_prob: ClassVar[float] = 0.95
+    place_smooth_fall_prob: ClassVar[float] = 0.95
+    place_sticky_fall_prob: ClassVar[float] = 0.05
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
