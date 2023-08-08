@@ -127,7 +127,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def place_on_floor_nsrt(state: State, goal: Set[GroundAtom],
                                 rng: np.random.Generator,
                                 objs: Sequence[Object]) -> Array:
-            del state, goal, objs  # not used
+            del state, goal, rng, objs  # not used
             # Just place in the center of the room.
             x = (StickyTableEnv.x_lb + StickyTableEnv.x_ub) / 2
             y = (StickyTableEnv.y_lb + StickyTableEnv.y_ub) / 2

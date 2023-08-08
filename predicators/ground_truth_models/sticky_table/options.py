@@ -8,7 +8,6 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs.sticky_table import StickyTableEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, Type
 
