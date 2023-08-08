@@ -1,6 +1,5 @@
 """An explorer for active sampler learning."""
 
-import functools
 import logging
 from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
@@ -321,9 +320,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             self, ground_op: _GroundSTRIPSOperator) -> float:
         # Predict the competence if we had one more data point.
         num_attempts = len(self._ground_op_hist[ground_op])
-        competence = self._extrapolate_competence(ground_op, num_attempts + 1)
-        assert 0.0 < competence <= 1.0
-        c_hat = -np.log(competence)
+        c_hat = self._extrapolate_competence_cost(ground_op, num_attempts + 1)
+        assert c_hat >= 0
         # Update the ground op costs hypothetically.
         ground_op_costs = utils.ground_op_history_to_planning_costs(
             self._ground_op_hist)
@@ -347,16 +345,17 @@ class ActiveSamplerExplorer(BaseExplorer):
             plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # higher scores are better
 
-    def _extrapolate_competence(self, ground_op: _GroundSTRIPSOperator,
-                                num_attempts: int) -> float:
-        # We expect the competence to improve logarithmically with the number
-        # of data, i.e., competence \approx log(num_attempts). So, we expect
-        # exp(competence) to be approximately linear in num data. We'll fit
-        # a linear function and then use it to extrapolate num_attempts.
-        model = self._get_competence_model(ground_op)
-        next_competence = model(num_attempts)
-        logging.info(f"[Explorer]   next competence: {next_competence}")
-        return next_competence
+    def _extrapolate_competence_cost(self, ground_op: _GroundSTRIPSOperator,
+                                     num_attempts: int) -> float:
+        # This is a placeholder for a more sophisticated thing coming soon!
+        # For now, we make the highly simplified assumption that practicing
+        # anything will improve the thing by a small constant amount.
+        del num_attempts  # not used yet
+        outcomes = self._ground_op_hist[ground_op]
+        competence = utils.beta_bernoulli_posterior(outcomes)
+        extrap = min(1.0, competence + 1e-2)
+        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
+        return -np.log(extrap)
 
     def _get_task_plan_for_training_task(
         self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
@@ -384,62 +383,6 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         self._task_plan_calls_since_replan[train_task_idx] += 1
         return self._task_plan_cache[train_task_idx]
-
-    @functools.lru_cache(maxsize=None)
-    def _get_competence_model(
-            self, ground_op: _GroundSTRIPSOperator) -> Callable[[int], float]:
-        """Note that we can cache the models because a new explorer is
-        instantiated after every online learning cycle.
-
-        Return None if we have seen less than two data points for the
-        ground operator, in which case extrapolation is not yet
-        possible.
-        """
-        slope = CFG.active_sampler_explore_competence_improvement_default
-        last_num_attempts = 0
-        last_exp_competence = np.exp(utils.beta_bernoulli_posterior([]))
-        if ground_op in self._ground_op_competence_data:
-            num_datas, competences = self._ground_op_competence_data[ground_op]
-            last_num_attempts = num_datas[-1]
-            last_exp_competence = np.exp(competences[-1])
-            if len(num_datas) >= 2:
-                # Average the last N changes in exponential competences.
-                N = CFG.active_sampler_explore_competence_moving_window
-                y = np.exp(competences)[:N]
-                delta_ys = np.subtract(y[1:], y[:-1])
-                delta_xs = np.subtract(num_datas[1:], num_datas[:-1])
-                slope_ = np.mean(delta_ys / delta_xs)
-                # Optimism/monotone bias: skills will continue to improve
-                # as we continue to learn.
-                slope = max(slope, slope_)
-
-            # Debugging.
-            from matplotlib import pyplot as plt
-            plt.figure()
-            plt.plot(num_datas, competences, marker="o")
-            plt.title(f"{ground_op.name}{ground_op.objects}")
-            plt.xlabel("Num data")
-            plt.ylabel("Competence")
-            plt.savefig(f"debug/active_explore_{ground_op.name}{ground_op.objects}.png")
-            plt.close()
-
-        def model(num_attempts: int) -> float:
-            assert num_attempts > last_num_attempts
-            delta_num_attempts = num_attempts - last_num_attempts
-            delta_exp_competence = slope * delta_num_attempts
-            next_exp_competence = last_exp_competence + delta_exp_competence
-            next_competence = np.log(next_exp_competence)
-            next_competence = min(1.0, next_competence)
-            # print("last_num_attempts:", last_num_attempts)
-            # print("last_exp_competence:", last_exp_competence)
-            # print("delta_num_attempts:", delta_num_attempts)
-            # print("delta_exp_competence:", delta_exp_competence)
-            # print("next_exp_competence:", next_exp_competence)
-            # print("next_competence:", next_competence)
-            # import ipdb; ipdb.set_trace()
-            return next_competence
-
-        return model
 
     def _get_random_option(self, state: State) -> _Option:
         option = utils.sample_applicable_option(self._sorted_options, state,
