@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Tuple
 
 import dill as pkl
 from matplotlib import pyplot as plt
@@ -23,7 +23,7 @@ def _main() -> None:
         "*",  # operator[arguments]
         "*.competence"  # online learning cycle
     ])
-    operator_str_results: Dict[str, Dict[Optional[int]]] = {}
+    operator_str_results: Dict[str, Dict[int, Tuple[Array, Array]]] = {}
     for load_path in Path(".").glob(load_path_pattern):
         with open(load_path, "rb") as f:
             x, y = pkl.load(f)
@@ -39,7 +39,7 @@ def _main() -> None:
     for operator_str, operator_results in operator_str_results.items():
         last = max(operator_results)
         x, y = operator_results[last]
-        _make_plot(x, y, operator_str, online_learning_cycle)
+        _make_plot(x, y, operator_str, last)
 
 
 def _make_plot(x: Array, y: Array, operator_str: str,
