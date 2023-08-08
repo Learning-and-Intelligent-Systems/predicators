@@ -1,6 +1,6 @@
 """Sticky table simulated environment."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -35,9 +35,13 @@ class StickyTableEnv(BaseEnv):
     y_lb: ClassVar[float] = 0.0
     y_ub: ClassVar[float] = 1.0
     cube_scale: ClassVar[float] = 0.25  # as a function of table radius
+    place_smooth_fall_prob: ClassVar[float] = 0.05
+    place_sticky_fall_prob: ClassVar[float] = 0.95
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        self._noise_rng = np.random.default_rng(CFG.seed)
 
         # Types
         self._cube_type = Type("cube", ["x", "y", "size", "held"])
@@ -58,9 +62,50 @@ class StickyTableEnv(BaseEnv):
         return "sticky_table"
 
     def simulate(self, state: State, action: Action) -> State:
+        # NOTE: noise is added here. Two calls to simulate with the same
+        # inputs may produce different outputs!
         assert self.action_space.contains(action.arr)
-        # TODO
-        return state.copy()
+        act_x, act_y = action.arr
+        next_state = state.copy()
+        hand_empty = self._HandEmpty_holds(state, [])
+        cube, = state.get_objects(self._cube_type)
+        # Picking logic.
+        if hand_empty:
+            rect = self._object_to_geom(cube, state)
+            if rect.contains_point(act_x, act_y):
+                next_state.set(cube, "held", 1.0)
+        # Placing logic.
+        else:
+            next_state.set(cube, "held", 0.0)
+            # Find the table for placing, if any.
+            table: Optional[Object] = None
+            for target in state.get_objects(self._table_type):
+                rect = self._object_to_geom(target, state)
+                if rect.contains_point(act_x, act_y):
+                    table = target
+                    break
+            if table is None:
+                # Put on the floor here.
+                next_state.set(cube, "x", act_x)
+                next_state.set(cube, "y", act_y)
+            else:
+                # Possibly put on the table, or have it fall somewhere near.
+                fall_prob = self.place_sticky_fall_prob
+                if self._table_is_sticky(table, state):
+                    # Check if placing on the smooth side of the sticky table.
+                    table_y = state.get(table, "y")
+                    if act_y < table_y:
+                        fall_prob = self.place_smooth_fall_prob
+                if self._noise_rng.uniform() < fall_prob:
+                    fall_x, fall_y = self._sample_floor_point_around_table(
+                        table, state, self._noise_rng)
+                    next_state.set(cube, "x", fall_x)
+                    next_state.set(cube, "y", fall_y)
+                    assert self._OnFloor_holds(next_state, [cube])
+                else:
+                    next_state.set(cube, "x", act_x)
+                    next_state.set(cube, "y", act_y)
+        return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
@@ -121,8 +166,10 @@ class StickyTableEnv(BaseEnv):
                 radius = state.get(table, "radius")
                 wedge = Wedge((x, y), radius, 0, 180, fill=False, hatch="OO")
                 ax.add_artist(wedge)
+        cube_is_held = self._Holding_holds(state, [cube])
+        edge_color = "white" if cube_is_held else "black"
         rect = self._object_to_geom(cube, state)
-        rect.plot(ax, facecolor=cube_color, edgecolor="black", alpha=alpha)
+        rect.plot(ax, facecolor=cube_color, edgecolor=edge_color, alpha=alpha)
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
@@ -219,3 +266,9 @@ class StickyTableEnv(BaseEnv):
 
     def _table_is_sticky(self, table: Object, state: State) -> bool:
         return state.get(table, "sticky") > 0.5
+
+    def _sample_floor_point_around_table(
+            self, table: Object, state: State,
+            rng: np.random.Generator) -> Tuple[float, float]:
+        import ipdb
+        ipdb.set_trace()
