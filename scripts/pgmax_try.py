@@ -18,7 +18,7 @@ num_quants = 20
 def _get_quant_centers(start=0.0, end=1.0, num_quants=num_quants):
     lefts = np.linspace(start, end, num_quants, endpoint=False)
     delta = lefts[1] - lefts[0]
-    return lefts + delta / 2
+    return (lefts + delta / 2).squeeze()
 
 def _quantize(fn, start=0.0, end=1.0, num_quants=num_quants):
     centers = _get_quant_centers(start, end, num_quants)
@@ -30,16 +30,30 @@ def _quant_to_value(quant, start=0.0, end=1.0, num_quants=num_quants):
     centers = _get_quant_centers(start, end, num_quants)
     return centers[quant]
 
+def _quantize2d(fn, start=0.0, end=1.0, num_quants=num_quants):
+    # TODO figure out way to unify this.
+    unnormed = np.empty((num_quants, num_quants))
+    centers0 = _get_quant_centers(start, end, num_quants)
+    centers1 = _get_quant_centers(start, end, num_quants)
+    for i, center0 in enumerate(centers0):
+        for j, center1 in enumerate(centers1):
+            unnormed[i, j] = fn(center0, center1)
+    z = logsumexp(unnormed.flat)
+    return unnormed - z
+
 
 # Data
 outcomes = [
     [False, False, False],
     [True, False, False, True, False, False, False, False, False],
     [False, True, True, False, True, False, False, False],
+    [False],
     [True, True, False, False, True, True],
     [True, True, True],
 ]
 num_cycles = len(outcomes)
+all_num_outcomes = [len(o) for o in outcomes]
+cum_num_outcomes = np.cumsum(all_num_outcomes)
 
 # Create variables and initialize factor graph.
 obs_variable_groups = []
@@ -98,6 +112,43 @@ for cycle, cycle_outcomes in enumerate(outcomes):
     )
     factors.append(cycle_observation_factor)
 
+# Create competence transition factors.
+# TODO make these hyperparameters RVs.
+logistic_x0 = 50
+logistic_k = 1
+logistic_L = 1
+# y = L / (1 + exp(-k(x - x0)))
+# inverse: x0 + k^(-1)(-log(-1 + L/x))
+def _generalized_logit(x):
+    return logistic_x0 + 1/(logistic_k) * (-np.log(logistic_L / x - 1))
+
+def create_competence_transition_log_potential(current_cycle):
+    current_cum_outcomes = cum_num_outcomes[current_cycle]
+    next_cum_outcomes = cum_num_outcomes[current_cycle + 1]
+    assert next_cum_outcomes >= current_cum_outcomes
+    expected_gain = next_cum_outcomes - current_cum_outcomes
+
+    def competence_transition_log_potential(current_competence, next_competence):
+        current_logit = _generalized_logit(current_competence)
+        next_logit = _generalized_logit(next_competence)
+        gain = next_logit - current_logit
+        if gain < 0:  # can't get worse!
+            return -np.inf
+        return -(expected_gain - gain)**2
+    
+    return competence_transition_log_potential
+
+for cycle in range(num_cycles-1):
+    current_competence_var = competence_variable_group[cycle]
+    next_competence_var = competence_variable_group[cycle + 1]
+    competence_transition_log_potential = create_competence_transition_log_potential(cycle)
+    quantized_competence_transition_log_potential = _quantize2d(competence_transition_log_potential)
+    cycle_competence_transition_factor = fgroup.PairwiseFactorGroup(
+        variables_for_factors=[[current_competence_var, next_competence_var]],
+        log_potential_matrix=quantized_competence_transition_log_potential,
+    )
+    factors.append(cycle_competence_transition_factor)
+
 # Finalize factor graph.
 fg.add_factors(factors)
 
@@ -109,9 +160,6 @@ map_states = infer.decode_map_states(beliefs)
 
 # Print results.
 print("Inference results...")
-# for t, outcome in enumerate(outcomes0):
-#     print(f"\nCycle 0 Time {t}\nOutcome={outcome}...\nObservation={map_states[obs0][t]}")
-
 map_competences = [_quant_to_value(map_states[competence_variable_group][i]) for i in range(num_cycles)]
 for cycle in range(num_cycles):
     print(f"Competence {cycle}: {map_competences[cycle]}")
