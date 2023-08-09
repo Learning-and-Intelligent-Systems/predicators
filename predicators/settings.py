@@ -518,6 +518,10 @@ class GlobalSettings:
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
 
+    # online rl parameters
+    online_rl_max_replay_buffer_size = 1e6
+    online_rl_qnetwork_hidden_sizes = [256, 256]
+
     # active sampler learning parameters
     active_sampler_learning_model = "myopic_classifier_mlp"
     active_sampler_learning_feature_selection = "all"

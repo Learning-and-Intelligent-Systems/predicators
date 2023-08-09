@@ -22,8 +22,8 @@ from sklearn.neighbors import \
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
+from predicators.rl.rl_utils import fanin_init, identity
 from predicators.structs import Array, MaxTrainIters, Object, State
-from predicators.rl.rl_utils import identity, fanin_init
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -533,12 +533,12 @@ class MLPRegressor(PyTorchRegressor):
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         return nn.MSELoss()
 
+
 # TODO: Standardize this with the existing MLP: this is stolen from MAPLE.
 ### START pillaging from MAPLE
 class LayerNorm(nn.Module):
-    """
-    Simple 1D LayerNorm.
-    """
+    """Simple 1D LayerNorm."""
+
     def __init__(self, features, center=True, scale=False, eps=1e-6):
         super().__init__()
         self.center = center
@@ -563,19 +563,21 @@ class LayerNorm(nn.Module):
             output = output + self.center_param
         return output
 
+
 class FancyMLP(torch.nn.Module):
+
     def __init__(
-            self,
-            hidden_sizes,
-            output_size,
-            input_size,
-            init_w=3e-3,
-            hidden_activation=F.relu,
-            output_activation=identity,
-            hidden_init=fanin_init,
-            b_init_value=0.,
-            layer_norm=False,
-            layer_norm_kwargs=None,
+        self,
+        hidden_sizes,
+        output_size,
+        input_size,
+        init_w=3e-3,
+        hidden_activation=F.relu,
+        output_activation=identity,
+        hidden_init=fanin_init,
+        b_init_value=0.,
+        layer_norm=False,
+        layer_norm_kwargs=None,
     ):
         super().__init__()
 
@@ -622,7 +624,21 @@ class FancyMLP(torch.nn.Module):
         else:
             return output
 
+
+class ConcatMLP(FancyMLP):
+    """Concatenate inputs along dimension and then pass through MLP."""
+
+    def __init__(self, *args, dim=1, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dim = dim
+
+    def forward(self, *inputs, **kwargs):
+        flat_inputs = torch.cat(inputs, dim=self.dim)
+        return super().forward(flat_inputs, **kwargs)
+
+
 #### END pillaging from MAPLE ####
+
 
 class ImplicitMLPRegressor(PyTorchRegressor):
     """A regressor implemented via an energy function.

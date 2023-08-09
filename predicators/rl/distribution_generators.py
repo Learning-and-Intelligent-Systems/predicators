@@ -1,5 +1,5 @@
-"""Wrappers around distributions so that things play
-nicely with torch I think?????
+"""Wrappers around distributions so that things play nicely with torch I
+think?????
 
 TODO: merge or simplify this once things actually start to
 work decently well
@@ -12,16 +12,13 @@ import abc
 
 from torch import nn
 
-from predicators.rl.distributions import (
-    Bernoulli,
-    Beta,
-    Distribution,
-    Independent,
-    GaussianMixture as GaussianMixtureDistribution,
-    GaussianMixtureFull as GaussianMixtureFullDistribution,
-    MultivariateDiagonalNormal,
-    TanhNormal,
-)
+from predicators.rl.distributions import Bernoulli, Beta, Distribution
+from predicators.rl.distributions import \
+    GaussianMixture as GaussianMixtureDistribution
+from predicators.rl.distributions import \
+    GaussianMixtureFull as GaussianMixtureFullDistribution
+from predicators.rl.distributions import Independent, \
+    MultivariateDiagonalNormal, TanhNormal
 
 
 class MultiInputSequential(nn.Sequential):

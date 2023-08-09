@@ -1,16 +1,16 @@
 """Various utils for running RL approaches.
 
-This file is adapted from the MAPLE codebase
-(https://github.com/UT-Austin-RPL/maple) by Nasiriany et. al.
+This file is adapted from the MAPLE codebase (https://github.com/UT-
+Austin-RPL/maple) by Nasiriany et. al.
 """
 
 import abc
 import logging
 from collections import OrderedDict
-import torch
 from numbers import Number
 
 import numpy as np
+import torch
 
 
 def elem_or_tuple_to_numpy(elem_or_tuple):
@@ -67,10 +67,8 @@ def maximum_2d(t1, t2):
 
 
 def kronecker_product(t1, t2):
-    """
-    Computes the Kronecker product between two tensors
-    See https://en.wikipedia.org/wiki/Kronecker_product
-    """
+    """Computes the Kronecker product between two tensors See
+    https://en.wikipedia.org/wiki/Kronecker_product."""
     t1_height, t1_width = t1.size()
     t2_height, t2_width = t2.size()
     out_height = t1_height * t2_height
@@ -118,8 +116,7 @@ def alpha_selu(x, training=False):
 
 
 def double_moments(x, y):
-    """
-    Returns the first two moments between x and y.
+    """Returns the first two moments between x and y.
 
     Specifically, for each vector x_i and y_i in x and y, compute their
     outer-product. Flatten this resulting matrix and return it.
@@ -156,9 +153,7 @@ def batch_diag(diag_values, diag_mask=None):
 
 
 def batch_square_vector(vector, M):
-    """
-    Compute x^T M x
-    """
+    """Compute x^T M x."""
     vector = vector.unsqueeze(2)
     return torch.bmm(torch.bmm(vector.transpose(2, 1), M), vector).squeeze(2)
 
@@ -330,23 +325,19 @@ def normal(*args, **kwargs):
 
 # Various replay buffer implementations
 class ReplayBuffer(object, metaclass=abc.ABCMeta):
-    """
-    A class used to save and replay data.
-    """
+    """A class used to save and replay data."""
 
     @abc.abstractmethod
     def add_sample(self, observation, action, reward, next_observation,
                    terminal, **kwargs):
-        """
-        Add a transition tuple.
-        """
+        """Add a transition tuple."""
         pass
 
     @abc.abstractmethod
     def terminate_episode(self):
-        """
-        Let the replay buffer know that the episode has terminated in case some
-        special book-keeping has to happen.
+        """Let the replay buffer know that the episode has terminated in case
+        some special book-keeping has to happen.
+
         :return:
         """
         pass
@@ -359,8 +350,7 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
         pass
 
     def add_path(self, path):
-        """
-        Add a path to the replay buffer.
+        """Add a path to the replay buffer.
 
         This default implementation naively goes through every step, but you
         may want to optimize this.
@@ -404,8 +394,8 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def random_batch(self, batch_size):
-        """
-        Return a batch of size `batch_size`.
+        """Return a batch of size `batch_size`.
+
         :param batch_size:
         :return:
         """

@@ -1,18 +1,21 @@
 """Custom distributions in addition to torch's existing ones.
 
-This file is adapted from the MAPLE codebase
-(https://github.com/UT-Austin-RPL/maple) by Nasiriany et. al.
+This file is adapted from the MAPLE codebase (https://github.com/UT-
+Austin-RPL/maple) by Nasiriany et. al.
 """
-import torch
-from torch.distributions import Categorical, OneHotCategorical, kl_divergence
-from torch.distributions import Normal as TorchNormal
-from torch.distributions import Beta as TorchBeta
-from torch.distributions import Distribution as TorchDistribution
-from torch.distributions import Bernoulli as TorchBernoulli
-from torch.distributions import Independent as TorchIndependent
-from torch.distributions.utils import _sum_rightmost
-import numpy as np
 from collections import OrderedDict
+
+import numpy as np
+import torch
+from torch.distributions import Bernoulli as TorchBernoulli
+from torch.distributions import Beta as TorchBeta
+from torch.distributions import Categorical
+from torch.distributions import Distribution as TorchDistribution
+from torch.distributions import Independent as TorchIndependent
+from torch.distributions import Normal as TorchNormal
+from torch.distributions import OneHotCategorical, kl_divergence
+from torch.distributions.utils import _sum_rightmost
+
 
 class Distribution(TorchDistribution):
     def sample_and_logprob(self):
@@ -93,7 +96,7 @@ class TorchDistributionWrapper(Distribution):
 
 
 class Delta(Distribution):
-    """A deterministic distribution"""
+    """A deterministic distribution."""
     def __init__(self, value):
         self.value = value
 
@@ -232,7 +235,8 @@ class GaussianMixture(Distribution):
     def mle_estimate(self):
         """Return the mean of the most likely component.
 
-        This often computes the mode of the distribution, but not always.
+        This often computes the mode of the distribution, but not
+        always.
         """
         c = ptu.zeros(self.weights.shape[:2])
         ind = torch.argmax(self.weights, dim=1) # [:, 0]
@@ -298,7 +302,8 @@ class GaussianMixtureFull(Distribution):
     def mle_estimate(self):
         """Return the mean of the most likely component.
 
-        This often computes the mode of the distribution, but not always.
+        This often computes the mode of the distribution, but not
+        always.
         """
         ind = torch.argmax(self.weights, dim=2)[:, :, None]
         means = torch.gather(self.normal_means, dim=2, index=ind)
@@ -310,10 +315,7 @@ class GaussianMixtureFull(Distribution):
 
 
 class TanhNormal(Distribution):
-    """
-    Represent distribution of X where
-        X ~ tanh(Z)
-        Z ~ N(mean, std)
+    """Represent distribution of X where X ~ tanh(Z) Z ~ N(mean, std)
 
     Note: this is not very numerically stable.
     """
@@ -340,9 +342,8 @@ class TanhNormal(Distribution):
             return torch.tanh(z)
 
     def _log_prob_from_pre_tanh(self, pre_tanh_value):
-        """
-        Adapted from
-        https://github.com/tensorflow/probability/blob/master/tensorflow_probability/python/bijectors/tanh.py#L73
+        """Adapted from https://github.com/tensorflow/probability/blob/master/t
+        ensorflow_probability/python/bijectors/tanh.py#L73.
 
         This formula is mathematically equivalent to log(1 - tanh(x)^2).
 
@@ -386,18 +387,16 @@ class TanhNormal(Distribution):
         return torch.tanh(z), z
 
     def sample(self):
-        """
-        Gradients will and should *not* pass through this operation.
+        """Gradients will and should *not* pass through this operation.
 
-        See https://github.com/pytorch/pytorch/issues/4620 for discussion.
+        See https://github.com/pytorch/pytorch/issues/4620 for
+        discussion.
         """
         value, pre_tanh_value = self.rsample_with_pretanh()
         return value.detach()
 
     def rsample(self):
-        """
-        Sampling in the reparameterization case.
-        """
+        """Sampling in the reparameterization case."""
         value, pre_tanh_value = self.rsample_with_pretanh()
         return value
 
@@ -486,10 +485,10 @@ class Softmax(Distribution):
         torch.set_printoptions(profile="default")
 
     def sample(self):
-        """
-        Gradients will and should *not* pass through this operation.
+        """Gradients will and should *not* pass through this operation.
 
-        See https://github.com/pytorch/pytorch/issues/4620 for discussion.
+        See https://github.com/pytorch/pytorch/issues/4620 for
+        discussion.
         """
         try:
             if not self.one_hot:
@@ -505,9 +504,7 @@ class Softmax(Distribution):
             exit()
 
     def rsample(self):
-        """
-        Sampling in the reparameterization case.
-        """
+        """Sampling in the reparameterization case."""
         try:
             if not self.one_hot:
                 return self.distr.rsample()
@@ -628,19 +625,17 @@ class ConcatDistribution(HybridDistribution):
         raise NotImplementedError
 
     def sample(self):
-        """
-        Gradients will and should *not* pass through this operation.
+        """Gradients will and should *not* pass through this operation.
 
-        See https://github.com/pytorch/pytorch/issues/4620 for discussion.
+        See https://github.com/pytorch/pytorch/issues/4620 for
+        discussion.
         """
         value1 = self.distr1.sample()
         value2 = self.distr2.sample()
         return self.concat_values(value1, value2)
 
     def rsample(self):
-        """
-        Sampling in the reparameterization case.
-        """
+        """Sampling in the reparameterization case."""
         value1 = self.distr1.rsample()
         value2 = self.distr2.rsample()
         return self.concat_values(value1, value2)
@@ -717,10 +712,10 @@ class HierarchicalDistribution(HybridDistribution):
         raise NotImplementedError
 
     def sample(self):
-        """
-        Gradients will and should *not* pass through this operation.
+        """Gradients will and should *not* pass through this operation.
 
-        See https://github.com/pytorch/pytorch/issues/4620 for discussion.
+        See https://github.com/pytorch/pytorch/issues/4620 for
+        discussion.
         """
         value1 = self.distr1.sample()
         distr2 = self.distr2_cond_fn(value1)
@@ -729,9 +724,7 @@ class HierarchicalDistribution(HybridDistribution):
         return self.concat_values(value1, value2)
 
     def rsample(self):
-        """
-        Sampling in the reparameterization case.
-        """
+        """Sampling in the reparameterization case."""
         value1 = self.distr1.rsample()
         distr2 = self.distr2_cond_fn(value1)
         self.distr2_tmp = distr2
@@ -812,18 +805,16 @@ class DistributionConcatValue(HybridDistribution):
         raise NotImplementedError
 
     def sample(self):
-        """
-        Gradients will and should *not* pass through this operation.
+        """Gradients will and should *not* pass through this operation.
 
-        See https://github.com/pytorch/pytorch/issues/4620 for discussion.
+        See https://github.com/pytorch/pytorch/issues/4620 for
+        discussion.
         """
         value_distr = self.distr.sample()
         return self.concat_values(self.value_fixed, value_distr)
 
     def rsample(self):
-        """
-        Sampling in the reparameterization case.
-        """
+        """Sampling in the reparameterization case."""
         value_distr = self.distr.rsample()
         return self.concat_values(self.value_fixed, value_distr)
 

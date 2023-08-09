@@ -1,14 +1,17 @@
 """Policies that might be output by RL approaches.
 
-This file is adapted from the MAPLE codebase
-(https://github.com/UT-Austin-RPL/maple) by Nasiriany et. al.
+This file is adapted from the MAPLE codebase (https://github.com/UT-
+Austin-RPL/maple) by Nasiriany et. al.
 """
 
 import abc
+
 import torch
-from predicators.rl.distribution_generators import DistributionGenerator
-from predicators.rl.distributions import Delta, Softmax, TanhNormal, ConcatDistribution, HierarchicalDistribution
+
 from predicators.ml_models import FancyMLP
+from predicators.rl.distribution_generators import DistributionGenerator
+from predicators.rl.distributions import ConcatDistribution, Delta, \
+    HierarchicalDistribution, Softmax, TanhNormal
 
 LOGITS_SCALE = 10
 LOG_SIG_MAX = 2

@@ -1,5 +1,4 @@
-"""Various 'Trainers' that do all the training necessary for
-RL approaches.
+"""Various 'Trainers' that do all the training necessary for RL approaches.
 
 TODO: Deprecate this file and fold + simplify the training procedure into a more
 standard file.
@@ -11,14 +10,13 @@ This file is adapted from the MAPLE codebase
 from collections import OrderedDict, namedtuple
 from typing import Tuple
 
+import gtimer as gt
 import numpy as np
 import torch
 import torch.optim as optim
 
-from predicators.rl.policies import PAMDPPolicy
-
 import predicators.rl.rl_utils as rtu
-import gtimer as gt
+from predicators.rl.policies import PAMDPPolicy
 
 SACLosses = namedtuple(
     'SACLosses',
@@ -28,7 +26,7 @@ SACLosses = namedtuple(
 class SACTrainer:
     def __init__(
             self,
-            env,
+            env_action_space,
             policy,
             qf1,
             qf2,
@@ -52,7 +50,7 @@ class SACTrainer:
             target_entropy_config=None,
     ):
         super().__init__()
-        self.env = env
+        self.env_action_space = env_action_space
         self.policy = policy
         self.qf1 = qf1
         self.qf2 = qf2
@@ -71,7 +69,7 @@ class SACTrainer:
             if target_entropy is None:
                 # Use heuristic value from SAC paper
                 self.target_entropy = -np.prod(
-                    self.env.action_space.shape).item()
+                    self.env_action_space.shape).item()
             else:
                 self.target_entropy = target_entropy
 
@@ -302,16 +300,28 @@ SACHybridLosses = namedtuple(
 class SACHybridTrainer(SACTrainer):
     def __init__(
             self,
+            env_action_space,
+            policy,
+            qf1,
+            qf2,
+            target_qf1,
+            target_qf2,
+            discount=0.99,
+            reward_scale=1.0,
+            policy_lr=1e-3,
+            qf_lr=1e-3,
+            optimizer_class=optim.Adam,
+            soft_target_tau=1e-2,
+            target_update_period=1,
+            plotter=None,
+            render_eval_paths=False,
+            use_automatic_entropy_tuning=True,
+            target_entropy=None,
             target_entropy_s=None,
             target_entropy_p=None,
             target_entropy_config=None,
-            **sac_kwargs
     ):
-        super().__init__(**sac_kwargs)
-
-        optimizer_class = sac_kwargs.get('optimizer_class', optim.Adam)
-        policy_lr = sac_kwargs.get('policy_lr', None)
-
+        super().__init__(env_action_space=env_action_space, policy=policy, qf1=qf1, qf2=qf2, target_qf1=target_qf1, target_qf2=target_qf2, discount=discount, reward_scale=reward_scale, policy_lr=policy_lr, qf_lr=qf_lr, optimizer_class=optimizer_class, soft_target_tau=soft_target_tau, target_update_period=target_update_period, plotter=plotter, render_eval_paths=render_eval_paths, use_automatic_entropy_tuning=use_automatic_entropy_tuning, target_entropy=target_entropy, target_entropy_config=target_entropy_config)
         if target_entropy_config is None:
             self.target_entropy_config = {}
         else:
@@ -442,7 +452,7 @@ class SACHybridTrainer(SACTrainer):
         self,
         batch,
         skip_statistics=False,
-    ) -> Tuple[SACLosses, OrderedDict]:
+    ) -> Tuple[SACHybridLosses, OrderedDict]:
         rewards = batch['rewards']
         terminals = batch['terminals']
         obs = batch['observations']
@@ -558,7 +568,7 @@ class SACHybridTrainer(SACTrainer):
                 eval_statistics['Alpha P'] = alpha_p.item()
                 eval_statistics['Alpha P Loss'] = alpha_p_loss.item()
 
-        loss = SACLosses(
+        loss = SACHybridLosses(
             policy_loss=policy_loss,
             qf1_loss=qf1_loss,
             qf2_loss=qf2_loss,
