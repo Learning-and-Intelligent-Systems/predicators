@@ -9,7 +9,7 @@ from scipy.special import logsumexp
 from scipy.stats import bernoulli, beta
 
 # Quantizing.
-num_quants = 20
+num_quants = 100
 
 
 def _get_quant_centers(start=0.0, end=1.0, num_quants=num_quants):
