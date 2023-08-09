@@ -587,6 +587,8 @@ class SpotBikeEnv(SpotEnv):
     _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
     _handempty_gripper_threshold: ClassVar[float] = HANDEMPTY_GRIPPER_THRESHOLD
     _robot_on_platform_threshold: ClassVar[float] = 0.18
+    _surface_too_high_threshold: ClassVar[float] = 0.7
+    _ontop_max_height_threshold: ClassVar[float] = 0.25
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -1044,7 +1046,8 @@ class SpotBikeEnv(SpotEnv):
             (obj_on_pose[0] - obj_surface_pose[0])**2) <= cls._ontop_threshold
         is_y_same = np.sqrt(
             (obj_on_pose[1] - obj_surface_pose[1])**2) <= cls._ontop_threshold
-        is_above_z = 0.0 < (obj_on_pose[2] - obj_surface_pose[2]) < 0.25
+        is_above_z = 0.0 < (obj_on_pose[2] - obj_surface_pose[2]
+                            ) < cls._ontop_max_height_threshold
         return is_x_same and is_y_same and is_above_z
 
     @staticmethod
@@ -1094,11 +1097,11 @@ class SpotBikeEnv(SpotEnv):
 
         return is_xy_near and is_yaw_near
 
-    @staticmethod
-    def _surface_too_high_classifier(state: State,
+    @classmethod
+    def _surface_too_high_classifier(cls, state: State,
                                      objects: Sequence[Object]) -> bool:
         _, surface = objects
-        return state.get(surface, "z") > 0.7
+        return state.get(surface, "z") > cls._surface_too_high_threshold
 
     @classmethod
     def _surface_not_too_high_classifier(cls, state: State,
