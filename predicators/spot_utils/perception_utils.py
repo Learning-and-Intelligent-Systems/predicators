@@ -578,17 +578,12 @@ def _run_offline_analysis() -> None:
     # Convenient script for identifying which classes might be best for a
     # group of images that all have the same object. The images should still
     # be manually inspected (in the debug dir).
-    class_candidates = [
-        "measuring tape",
-        "yellow measuring tape",
-        "small measuring tape",
-        "small yellow measuring tape",
-    ]
+    class_candidates = ["hammer", "hammer tool", "mallet"]
     # pylint:disable=line-too-long
     files = [
-        "20230802-153004_detic_sam_hand_color_image_object_locs_inputs.png",
-        "20230802-153005_detic_sam_frontright_fisheye_image_object_locs_inputs.png",
-        "20230802-153005_detic_sam_frontleft_fisheye_image_object_locs_inputs.png",
+        "20230804-135530_detic_sam_hand_color_image_object_locs_inputs.png",
+        "20230804-135448_detic_sam_hand_color_image_object_locs_inputs.png",
+        "20230804-135310_detic_sam_right_fisheye_image_object_locs_inputs.png",
     ]
     root_dir = Path(__file__).parent / "../.."
     utils.reset_config({
