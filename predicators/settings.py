@@ -519,7 +519,7 @@ class GlobalSettings:
     online_learning_max_novelty_count = 0
 
     # online rl parameters
-    online_rl_max_replay_buffer_size = 1e6
+    online_rl_max_replay_buffer_size = int(1e6)
     online_rl_qnetwork_hidden_sizes = [256, 256]
 
     # active sampler learning parameters

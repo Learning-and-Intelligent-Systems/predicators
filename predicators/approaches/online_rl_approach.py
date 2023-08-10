@@ -14,8 +14,8 @@ from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.envs import get_or_create_env
 from predicators.ml_models import ConcatMLP
-from predicators.rl.policies import PAMDPPolicy
-from predicators.rl.rl_utils import ReplayBuffer, SimpleReplayBuffer
+from predicators.rl.policies import PAMDPPolicy, MakeDeterministic
+from predicators.rl.rl_utils import EnvReplayBuffer
 from predicators.rl.training_functions import SACHybridTrainer
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Array, Dataset, GroundAtom, \
@@ -36,6 +36,10 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         assert CFG.strips_learner == "oracle"
         # The base sampler should also be unchanging and from the oracle.
         assert CFG.sampler_learner == "oracle"
+        # As we collect more online data, the self._learn_nsrts function
+        # will update self._segmented_trajs. We need an index to keep track
+        # of what is new.
+        self._last_seen_segment_traj_idx = -1
         # Construct all information necessary to setup, train and eval
         # RL models.
         curr_env = get_or_create_env(CFG.env)
@@ -51,12 +55,13 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # Thus, for now, we will set these to be None.
         self._discrete_actions_size = None
         self._continuous_actions_size = sum(opt.params_space.shape[0] for opt in self._initial_options)
-        self._trainable_policy = None
+        self._learned_policy = None
         self._qf1 = None
         self._qf2 = None
         self._target_qf1 = None
         self._target_qf2 = None
         self._trainer_function = None
+        self._replay_buffer = None
         # Seed torch.
         torch.manual_seed(self._seed)
         
@@ -65,6 +70,15 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
     def get_name(cls) -> str:
         return "online_rl"
     
+    # TODO: add the necessary inputs and then actually finish implementing
+    # this.
+    def get_reward(self) -> float:
+        """
+        Given transition data, returns the corresponding reward value.
+
+        Used to construct the dataset for the learner.
+        """
+
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Update the dataset with the offline data.
         for traj in dataset.trajectories:
@@ -87,7 +101,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             # TODO: not really sure what the 'one_hot_s' setting is about...
             # Also, not really sure about setting all the additional policy_kwargs
             # that the robosuite_launcher script in the original codebase sets.
-            self._trainable_policy = PAMDPPolicy(obs_dim=self._observation_size, action_dim_s=self._discrete_actions_size, action_dim_p=self._continuous_actions_size, one_hot_s=True)
+            self._learned_policy = PAMDPPolicy(obs_dim=self._observation_size, action_dim_s=self._discrete_actions_size, action_dim_p=self._continuous_actions_size, one_hot_s=True, hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,)
             self._qf1 = ConcatMLP(
                 input_size=self._observation_size + self._discrete_actions_size + self._continuous_actions_size,
                 output_size=1,
@@ -108,8 +122,8 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 output_size=1,
                 hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,
             )
-            self._trainer_function = SACHybridTrainer(env_action_space=curr_env.action_space, policy=self._trainable_policy, qf1=self._qf1, qf2=self._qf2, target_qf1=self._target_qf1, target_qf2=self._target_qf2)
-            # TODO: setup the replay buffer here
+            self._trainer_function = SACHybridTrainer(env_action_space=curr_env.action_space, policy=self._learned_policy, qf1=self._qf1, qf2=self._qf2, target_qf1=self._target_qf1, target_qf2=self._target_qf2)
+            self._replay_buffer = EnvReplayBuffer(CFG.online_rl_max_replay_buffer_size, self._observation_size, self._discrete_actions_size + self._continuous_actions_size)
 
     
     def learn_from_interaction_results(
@@ -122,20 +136,28 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         annotations = None
         if self._dataset.has_annotations:
             annotations = self._dataset.annotations  # pragma: no cover
-        self._learn_nsrts(self._dataset.trajectories,
+        super()._learn_nsrts(self._dataset.trajectories,
                           self._online_learning_cycle,
                           annotations=annotations)
+        # Check the assumption that operators and options are 1:1.
+        # This is just an implementation convenience.
+        assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
+        for nsrt in self._nsrts:
+            assert nsrt.option_vars == nsrt.parameters
+        # Now, loop thru newly-collected trajectories and add their
+        # corresponding transitions to the replay buffer.
+        start_idx = self._last_seen_segment_traj_idx + 1
+        new_trajs = self._segmented_trajs[start_idx:]
         import ipdb; ipdb.set_trace()
-        # TODO: Figure out how exactly to call learning here.
-        # This will likely first require digging into the details of
-        # the TorchBatchRLAlgorithm implementation inside the MAPLE
-        # codebase.
-
+        # TODO: add this new data to the replay buffer, then call
+        # a model update.
+        
         # Advance the online learning cycle.
         self._online_learning_cycle += 1
 
     
-    # TODO: override the explorer.
+    # TODO: override the explorer. Be sure to put the policy into deterministic mode
+    # and then sample actions from it.
     
 
     
@@ -151,4 +173,16 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
 
     # TODO: override _solve.
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        import ipdb; ipdb.set_trace()
+        eval_policy = MakeDeterministic(self._learned_policy)
+
+        def _rollout_rl_policy(state: State) -> Action:
+            nonlocal eval_policy
+            state_vec = state.vec(sorted(list(state)))
+            assert state_vec.shape[0] == self._observation_size
+            policy_action = eval_policy.get_action(state_vec)
+            # TODO: convert this action to a proper environment action
+            # by selecting the correct operator and gorunding it
+            # with the correct parameters.
+            import ipdb; ipdb.set_trace()
+
+        return _rollout_rl_policy

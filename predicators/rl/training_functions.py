@@ -207,26 +207,26 @@ class SACTrainer:
         """
         eval_statistics = OrderedDict()
         if not skip_statistics:
-            eval_statistics['QF1 Loss'] = np.mean(rtu.get_numpy(qf1_loss))
-            eval_statistics['QF2 Loss'] = np.mean(rtu.get_numpy(qf2_loss))
-            eval_statistics['Policy Loss'] = np.mean(rtu.get_numpy(
+            eval_statistics['QF1 Loss'] = np.mean(rtu.to_numpy(qf1_loss))
+            eval_statistics['QF2 Loss'] = np.mean(rtu.to_numpy(qf2_loss))
+            eval_statistics['Policy Loss'] = np.mean(rtu.to_numpy(
                 policy_loss
             ))
             eval_statistics.update(rtu.rtu.create_stats_ordered_dict(
                 'Q1 Predictions',
-                rtu.get_numpy(q1_pred),
+                rtu.to_numpy(q1_pred),
             ))
             eval_statistics.update(rtu.rtu.create_stats_ordered_dict(
                 'Q2 Predictions',
-                rtu.get_numpy(q2_pred),
+                rtu.to_numpy(q2_pred),
             ))
             eval_statistics.update(rtu.rtu.create_stats_ordered_dict(
                 'Q Targets',
-                rtu.get_numpy(q_target),
+                rtu.to_numpy(q_target),
             ))
             eval_statistics.update(rtu.rtu.create_stats_ordered_dict(
                 'Log Pis',
-                rtu.get_numpy(log_pi),
+                rtu.to_numpy(log_pi),
             ))
             policy_statistics = rtu.add_prefix(dist.get_diagnostics(), "policy/")
             eval_statistics.update(policy_statistics)
@@ -530,32 +530,32 @@ class SACHybridTrainer(SACTrainer):
         if not skip_statistics:
             dd = self.get_dist_dict(obs)
 
-            eval_statistics['QF1 Loss'] = np.mean(rtu.get_numpy(qf1_loss))
-            eval_statistics['QF2 Loss'] = np.mean(rtu.get_numpy(qf2_loss))
-            eval_statistics['Policy Loss'] = np.mean(rtu.get_numpy(
+            eval_statistics['QF1 Loss'] = np.mean(rtu.to_numpy(qf1_loss))
+            eval_statistics['QF2 Loss'] = np.mean(rtu.to_numpy(qf2_loss))
+            eval_statistics['Policy Loss'] = np.mean(rtu.to_numpy(
                 policy_loss
             ))
             eval_statistics.update(rtu.create_stats_ordered_dict(
                 'Q1 Predictions',
-                rtu.get_numpy(q1_pred),
+                rtu.to_numpy(q1_pred),
             ))
             eval_statistics.update(rtu.create_stats_ordered_dict(
                 'Q2 Predictions',
-                rtu.get_numpy(q2_pred),
+                rtu.to_numpy(q2_pred),
             ))
             eval_statistics.update(rtu.create_stats_ordered_dict(
                 'Q Targets',
-                rtu.get_numpy(q_target),
+                rtu.to_numpy(q_target),
             ))
 
             if 'log_pi_s' in dd:
                 eval_statistics.update(rtu.create_stats_ordered_dict(
                     'Log Pis S',
-                    rtu.get_numpy(dd['log_pi_s']),
+                    rtu.to_numpy(dd['log_pi_s']),
                 ))
             eval_statistics.update(rtu.create_stats_ordered_dict(
                 'Log Pis P',
-                rtu.get_numpy(dd['log_pi_p']),
+                rtu.to_numpy(dd['log_pi_p']),
             ))
 
             policy_statistics = rtu.add_prefix(dd['dist'].get_diagnostics(), "policy/")

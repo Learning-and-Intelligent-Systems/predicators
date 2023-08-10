@@ -9,6 +9,7 @@ import logging
 from collections import OrderedDict
 from numbers import Number
 
+from gym.spaces import Box, Discrete, Tuple
 import numpy as np
 import torch
 
@@ -273,7 +274,7 @@ def from_numpy(*args, **kwargs):
     return torch.from_numpy(*args, **kwargs).float().to(device)
 
 
-def get_numpy(tensor):
+def to_numpy(tensor):
     return tensor.to('cpu').detach().numpy()
 
 
@@ -321,6 +322,19 @@ def tensor(*args, torch_device=None, **kwargs):
 
 def normal(*args, **kwargs):
     return torch.normal(*args, **kwargs).to(device)
+
+
+def get_dim(space):
+    if isinstance(space, Box):
+        return space.low.size
+    elif isinstance(space, Discrete):
+        return space.n
+    elif isinstance(space, Tuple):
+        return sum(get_dim(subspace) for subspace in space.spaces)
+    elif hasattr(space, 'flat_dim'):
+        return space.flat_dim
+    else:
+        raise TypeError("Unknown space: {}".format(space))
 
 
 # Various replay buffer implementations
@@ -502,6 +516,43 @@ class SimpleReplayBuffer(ReplayBuffer):
         return OrderedDict([
             ('size', self._size)
         ])
+
+
+class EnvReplayBuffer(SimpleReplayBuffer):
+    def __init__(
+            self,
+            max_replay_buffer_size,
+            ob_space_size,
+            action_space_size,
+            env_info_sizes=dict()
+    ):
+        """
+        :param max_replay_buffer_size:
+        :param env:
+        """
+        super().__init__(
+            max_replay_buffer_size=max_replay_buffer_size,
+            observation_dim=ob_space_size,
+            action_dim=action_space_size,
+            env_info_sizes=env_info_sizes
+        )
+
+    def add_sample(self, observation, action, reward, terminal,
+                   next_observation, **kwargs):
+        if isinstance(self._action_space, Discrete):
+            new_action = np.zeros(self._action_dim)
+            new_action[action] = 1
+        else:
+            new_action = action
+        return super().add_sample(
+            observation=observation,
+            action=new_action,
+            reward=reward,
+            next_observation=next_observation,
+            terminal=terminal,
+            **kwargs
+        )
+
 
 def create_stats_ordered_dict(
         name,

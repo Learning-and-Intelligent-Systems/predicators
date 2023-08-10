@@ -16,6 +16,8 @@ from torch.distributions import Normal as TorchNormal
 from torch.distributions import OneHotCategorical, kl_divergence
 from torch.distributions.utils import _sum_rightmost
 
+import predicators.rl.rl_utils as rtu
+
 
 class Distribution(TorchDistribution):
     def sample_and_logprob(self):
@@ -124,7 +126,7 @@ class Bernoulli(Distribution, TorchBernoulli):
         stats = OrderedDict()
         stats.update(create_stats_ordered_dict(
             'probability',
-            ptu.get_numpy(self.probs),
+            rtu.to_numpy(self.probs),
         ))
         return stats
 
@@ -139,15 +141,15 @@ class Beta(Distribution, TorchBeta):
         stats = OrderedDict()
         stats.update(create_stats_ordered_dict(
             'alpha',
-            ptu.get_numpy(self.concentration0),
+            rtu.to_numpy(self.concentration0),
         ))
         stats.update(create_stats_ordered_dict(
             'beta',
-            ptu.get_numpy(self.concentration1),
+            rtu.to_numpy(self.concentration1),
         ))
         stats.update(create_stats_ordered_dict(
             'entropy',
-            ptu.get_numpy(self.entropy()),
+            rtu.to_numpy(self.entropy()),
         ))
         return stats
 
@@ -165,12 +167,12 @@ class MultivariateDiagonalNormal(TorchDistributionWrapper):
         stats = OrderedDict()
         stats.update(create_stats_ordered_dict(
             'mean',
-            ptu.get_numpy(self.mean),
+            rtu.to_numpy(self.mean),
             # exclude_max_min=True,
         ))
         stats.update(create_stats_ordered_dict(
             'std',
-            ptu.get_numpy(self.distribution.stddev),
+            rtu.to_numpy(self.distribution.stddev),
         ))
         return stats
 
@@ -223,8 +225,8 @@ class GaussianMixture(Distribution):
                 self.normal_means +
                 self.normal_stds *
                 MultivariateDiagonalNormal(
-                    ptu.zeros(self.normal_means.size()),
-                    ptu.ones(self.normal_stds.size())
+                    rtu.zeros(self.normal_means.size()),
+                    rtu.ones(self.normal_stds.size())
                 ).sample()
         )
         z.requires_grad_()
@@ -238,7 +240,7 @@ class GaussianMixture(Distribution):
         This often computes the mode of the distribution, but not
         always.
         """
-        c = ptu.zeros(self.weights.shape[:2])
+        c = rtu.zeros(self.weights.shape[:2])
         ind = torch.argmax(self.weights, dim=1) # [:, 0]
         c.scatter_(1, ind, 1)
         s = torch.matmul(self.normal_means, c[:, :, None])
@@ -290,8 +292,8 @@ class GaussianMixtureFull(Distribution):
                 self.normal_means +
                 self.normal_stds *
                 MultivariateDiagonalNormal(
-                    ptu.zeros(self.normal_means.size()),
-                    ptu.ones(self.normal_stds.size())
+                    rtu.zeros(self.normal_means.size()),
+                    rtu.ones(self.normal_stds.size())
                 ).sample()
         )
         z.requires_grad_()
@@ -362,7 +364,7 @@ class TanhNormal(Distribution):
         """
         log_prob = self.normal.log_prob(pre_tanh_value)
         correction = - 2. * (
-            ptu.from_numpy(np.log([2.]))
+            rtu.from_numpy(np.log([2.]))
             - pre_tanh_value
             - torch.nn.functional.softplus(-2. * pre_tanh_value)
         ).sum(dim=-1)
@@ -380,8 +382,8 @@ class TanhNormal(Distribution):
                 self.normal_mean +
                 self.normal_std *
                 MultivariateDiagonalNormal(
-                    ptu.zeros(self.normal_mean.size()),
-                    ptu.ones(self.normal_std.size())
+                    rtu.zeros(self.normal_mean.size()),
+                    rtu.ones(self.normal_std.size())
                 ).sample()
         )
         return torch.tanh(z), z
@@ -419,16 +421,16 @@ class TanhNormal(Distribution):
         stats = OrderedDict()
         stats.update(create_stats_ordered_dict(
             'normal{}/mean'.format(self.prefix),
-            ptu.get_numpy(self.mean),
+            rtu.to_numpy(self.mean),
         ))
         stats.update(create_stats_ordered_dict(
             'normal{}/std'.format(self.prefix),
-            ptu.get_numpy(self.normal_std),
+            rtu.to_numpy(self.normal_std),
             exclude_max_min=False,
         ))
         stats.update(create_stats_ordered_dict(
             'normal{}/log_std'.format(self.prefix),
-            ptu.get_numpy(torch.log(self.normal_std)),
+            rtu.to_numpy(torch.log(self.normal_std)),
         ))
         return stats
 
@@ -454,7 +456,7 @@ class Softmax(Distribution):
             )
         else:
             self.distr = torch.distributions.relaxed_categorical.RelaxedOneHotCategorical(
-                temperature=ptu.ones(1),
+                temperature=rtu.ones(1),
                 logits=self.logits,
             )
 
@@ -466,8 +468,8 @@ class Softmax(Distribution):
         ### check logits are valid
         nans = torch.isnan(self.logits)
         infs = torch.isinf(self.logits)
-        num_nans = ptu.get_numpy(torch.sum(nans))
-        num_infs = ptu.get_numpy(torch.sum(infs))
+        num_nans = rtu.to_numpy(torch.sum(nans))
+        num_infs = rtu.to_numpy(torch.sum(infs))
         if num_nans > 0:
             print("WARNING! num nans:", num_nans)
         if num_infs > 0:
@@ -536,7 +538,7 @@ class Softmax(Distribution):
 
     def get_diagnostics(self):
         stats = OrderedDict()
-        logits_np = ptu.get_numpy(self.logits)
+        logits_np = rtu.to_numpy(self.logits)
         stats.update(create_stats_ordered_dict(
             'softmax{}/logit'.format(self.prefix),
             logits_np,
@@ -567,7 +569,7 @@ class Softmax(Distribution):
             bs, action_dim = logits_shape[0], logits_shape[-1]
             tile_dim = torch.numel(self.logits) // bs // action_dim
 
-            value = torch.eye(action_dim).to(ptu.device)
+            value = torch.eye(action_dim).to(rtu.device)
             value = value.unsqueeze(0).repeat(bs, tile_dim, 1)
             log_p = torch.log(self.distr.probs)
 

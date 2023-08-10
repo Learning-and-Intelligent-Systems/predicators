@@ -9,15 +9,17 @@ import abc
 import torch
 
 from predicators.ml_models import FancyMLP
-from predicators.rl.distribution_generators import DistributionGenerator
+from predicators.rl.distribution_generators import DistributionGenerator, Distribution
 from predicators.rl.distributions import ConcatDistribution, Delta, \
     HierarchicalDistribution, Softmax, TanhNormal
+from predicators.rl.rl_utils import from_numpy, to_numpy
 
 LOGITS_SCALE = 10
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
 
-class TorchStochasticPolicy(metaclass=abc.ABCMeta):
+
+class TorchStochasticPolicy():
     def get_action(self, obs_np, return_dist=False):
         info = {}
         if return_dist:
@@ -31,13 +33,13 @@ class TorchStochasticPolicy(metaclass=abc.ABCMeta):
         dist = self._get_dist_from_np(obs_np)
         actions = dist.sample()
         if return_dist:
-            return elem_or_tuple_to_numpy(actions), dist
-        return elem_or_tuple_to_numpy(actions)
+            return to_numpy(actions), dist
+        return to_numpy(actions)
 
     def _get_dist_from_np(self, *args, **kwargs):
-        torch_args = tuple(torch_ify(x) for x in args)
-        torch_kwargs = {k: torch_ify(v) for k, v in kwargs.items()}
-        dist = self(*torch_args, **torch_kwargs)
+        torch_args = tuple(from_numpy(x) for x in args)
+        torch_kwargs = {k: from_numpy(v) for k, v in kwargs.items()}
+        dist = self.forward(*torch_args, **torch_kwargs)
         return dist
 
 
