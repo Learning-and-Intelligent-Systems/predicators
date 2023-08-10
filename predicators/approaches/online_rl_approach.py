@@ -54,7 +54,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # action spaces. This can't happen until the first round of NSRT learning is called.
         # Thus, for now, we will set these to be None.
         self._discrete_actions_size = None
-        self._continuous_actions_size = sum(opt.params_space.shape[0] for opt in self._initial_options)
+        self._continuous_actions_size = max(opt.params_space.shape[0] for opt in self._initial_options)
         self._learned_policy = None
         self._qf1 = None
         self._qf2 = None
@@ -62,6 +62,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         self._target_qf2 = None
         self._trainer_function = None
         self._replay_buffer = None
+        self._sorted_ground_nsrts: Optional[List[_GroundNSRT]] = None
         # Seed torch.
         torch.manual_seed(self._seed)
         
@@ -96,8 +97,10 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
                     ground_nsrts.append(ground_nsrt)
             self._discrete_actions_size = len(ground_nsrts)
-            # Additionally, we can now setup the policy, the q-function
-            # networks, the model trainer, and the replay buffer.
+            # Additionally, we can now setup the precise ground NSRTs list,
+            # the learned policy, the q-function networks, the model trainer,
+            # and the replay buffer.
+            self._sorted_ground_nsrts = ground_nsrts
             # TODO: not really sure what the 'one_hot_s' setting is about...
             # Also, not really sure about setting all the additional policy_kwargs
             # that the robosuite_launcher script in the original codebase sets.
@@ -171,18 +174,35 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         pass
 
 
+    def _convert_policy_action_to_env_action(self, policy_action: Array) -> Action:
+        """Convert the output of our learned policy into an environment
+        action by selecting the correct operator and grounding it with the
+        correct parameters."""
+        assert self._sorted_ground_nsrts is not None
+        assert policy_action.shape[0] == self._discrete_actions_size + self._continuous_actions_size
+        # Discrete actions output should be 0 everywhere except for one place.
+        discrete_actions_output = policy_action[:self._discrete_actions_size]
+        discrete_action_idx = np.argmax(discrete_actions_output)
+        assert discrete_actions_output[discrete_action_idx] == 1.0
+        ground_nsrt = self._sorted_ground_nsrts[discrete_action_idx]
+        continuous_params_output = policy_action[-self._continuous_actions_size:]
+        continuous_params_for_option = continuous_params_output[ground_nsrt.option.params_space.shape[0]]
+        output_ground_option = ground_nsrt.option.ground(ground_nsrt.option_objs, continuous_params_for_option)
+
+
+
+
     # TODO: override _solve.
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         eval_policy = MakeDeterministic(self._learned_policy)
 
         def _rollout_rl_policy(state: State) -> Action:
-            nonlocal eval_policy
+            # TODO: execute the option policy until we get an option termination or timeout (i.e, we exceed the max steps for the option)
+            # and then get a new output from the model.
+            nonlocal self, eval_policy
             state_vec = state.vec(sorted(list(state)))
             assert state_vec.shape[0] == self._observation_size
-            policy_action = eval_policy.get_action(state_vec)
-            # TODO: convert this action to a proper environment action
-            # by selecting the correct operator and gorunding it
-            # with the correct parameters.
-            import ipdb; ipdb.set_trace()
+            policy_action = eval_policy.get_action(state_vec)[0]
+            return self._convert_policy_action_to_env_action(policy_action)
 
         return _rollout_rl_policy
