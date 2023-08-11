@@ -95,16 +95,25 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
 
 def test_competence_model() -> None:
     """Tests for competence models."""
+    # TODO convert to longrun? Or make faster...
+    utils.reset_config()
 
     # Test with an impossible skill, i.e., all outcomes are False.
     competence_model = PowerPGMCompetenceModel("test")
     assert competence_model.name == "test"
     assert competence_model.num_cycles == 1
     initial_competence = competence_model.estimate_current_competence()
-    for _ in range(3):
-        competence_model.observe(False)
+    assert 0.4 < initial_competence < 0.6
+    gain = competence_model.predict_competence_gain(1)
+    assert gain > 0
+    competence_model.observe(False)
     updated_competence = competence_model.estimate_current_competence()
     assert updated_competence < initial_competence
-    
-
-    import ipdb; ipdb.set_trace()
+    for _ in range(10):
+        competence_model.observe(False)
+    competence_model.advance_cycle()
+    for _ in range(20):
+        competence_model.observe(False)
+    competence_model.advance_cycle()
+    final_competence = competence_model.estimate_current_competence()
+    assert final_competence < 1e-2
