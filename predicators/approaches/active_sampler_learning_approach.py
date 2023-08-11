@@ -733,7 +733,8 @@ class PowerPGMCompetenceModel(SequenceLatentVariableCompetenceModel):
     def predict_competence_gain(self, num_additional_data: int) -> float:
         before_data = self._get_num_data_before_cycle(self.current_cycle)
         current_data = len(self._cycle_observations[-1])
-        current_model_prediction = self._model_predict(current_data)
+        current_model_prediction = self._model_predict(before_data +
+                                                       current_data)
         total_future_data = before_data + current_data + num_additional_data
         future_model_prediction = self._model_predict(total_future_data)
         return future_model_prediction - current_model_prediction
@@ -875,7 +876,10 @@ class PowerPGMCompetenceModel(SequenceLatentVariableCompetenceModel):
         best_popt = None
         best_sigma = np.inf
         for i in range(CFG.active_sampler_learning_competence_num_restarts):
-            p0 = self._rng.normal(size=2)
+            p0 = self._rng.normal(
+                scale=10,
+                size=2,
+            )
             popt, _ = curve_fit(self._power_law_fn, x, y, maxfev=100000, p0=p0)
             yhat = self._power_law_fn(x, *popt)
             err = (y - yhat)
