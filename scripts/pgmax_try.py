@@ -156,18 +156,21 @@ def run_inference(outcomes, model_params, model_sigma):
 
 def parameterized_model_predict(x, a, b, c):
     # https://arxiv.org/pdf/2103.10948.pdf
-    # POW3 model for negative log of competence
+    # POW3 model
     mu = a * x ** (-b) + c
     return 1.0 - np.exp(-mu)
+
+    # Logistic function
+    # return a / (1 + np.exp(-b * (x - c)))
 
 def get_init_model_params():
     a = 1
     b = 1
-    c = 0
+    c = 10
     sigma = 1
     return (np.array([a, b, c]), sigma)
 
-def run_learning(cum_num_outcomes, map_competences, maxfev=10000):
+def run_learning(cum_num_outcomes, map_competences, maxfev=100000):
     x = np.array(cum_num_outcomes, dtype=np.float32)
     y = np.array(map_competences, dtype=np.float32)
     popt, _ = curve_fit(parameterized_model_predict, x, y, maxfev=maxfev)
@@ -203,7 +206,7 @@ def run_em(outcomes, num_iters=10):
 #                                  Analysis                                   #
 ###############################################################################
 
-def _make_plots(outcomes, all_model_params):
+def _make_plots(outcomes, all_model_params, outfile = "pgmax_script_out.mp4"):
     imgs = []
     all_num_outcomes = [len(o) for o in outcomes]
     num_trials = sum(all_num_outcomes)
@@ -236,17 +239,32 @@ def _make_plots(outcomes, all_model_params):
         plt.legend(loc="lower right", framealpha=1.0)
         img = utils.fig2data(fig, dpi=300)
         imgs.append(img)
-    outfile = "pgmax_script_out.mp4"
     utils.save_video(outfile, imgs)
 
 
 if __name__ == "__main__":
-    data = [
-        [False, False, False],
-        [True, False, False, True, False, False, False, False, False],
-        [False, True, True, False, True, False, False, False],
-        [False],
-        [True, True, False, False, True, True],
-        [True, True, True],
-    ]
-    _make_plots(data, run_em(data))
+        data = [
+            [False, False, False],
+            [True, False, False, True, False, False, False, False, False],
+            [False, True, True, False, True, False, False, False],
+            [False],
+            [True, True, False, False, True, True],
+            [True, True, True],
+        ]
+        _make_plots(data, run_em(data), outfile = "pgmax_script_out_v1.mp4")
+        data = [
+            [False, False, False, False, False],
+            [False, False, False, False],
+            [False, False, False, False, False, False, False],
+            [False, False],
+        ]
+        _make_plots(data, run_em(data), outfile = "pgmax_script_out_v2.mp4")
+        data = [
+            [True, True, True, True, True],
+            [True, True, True, True, True, True, True],
+            [True, True, True, True, True],
+            [True, True, True, True, True, True, True, True, True],
+            [True, True, True, True, True],
+
+        ]
+        _make_plots(data, run_em(data), outfile = "pgmax_script_out_v3.mp4")
