@@ -52,24 +52,28 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Kitchen (All Goals)": [
-        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-planning_progress_explore" in v)),
-        ("Fail Focus", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-success_rate_explore" in v)),
-        ("Random Score", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-random_score_explore" in v)),
-        ("Random NSRTs", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "kitchen-random_nsrts_explore" in v)),
-    ],
+    # "Kitchen (All Goals)": [
+    #     ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "kitchen-planning_progress_explore" in v)),
+    #     ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "kitchen-task_repeat_explore" in v)),
+    #     ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "kitchen-success_rate_explore" in v)),
+    #     ("Ablate Improve", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "kitchen-random_score_explore" in v)),
+    #     ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "kitchen-random_nsrts_explore" in v)),
+    # ],
     "Regional Bumpy Cover": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
-        ("Fail Focus", "green", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-success_rate_explore" in v)),
-        ("Random Score", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Ablate Improve", "purple", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random_score_explore" in v)),
-        ("Random NSRTs", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
     ],
 }

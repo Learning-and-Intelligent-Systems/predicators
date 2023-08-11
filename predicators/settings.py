@@ -322,6 +322,12 @@ class GlobalSettings:
     kitchen_use_perfect_samplers = False
     kitchen_goals = "all"
 
+    # sticky table env parameters
+    sticky_table_num_tables = 5
+    sticky_table_place_smooth_fall_prob = 0.95
+    sticky_table_place_sticky_fall_prob = 0.05
+    sticky_table_pick_success_prob = 0.9
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -530,6 +536,8 @@ class GlobalSettings:
     active_sampler_learning_num_next_option_samples = 5
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
+    active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
+    active_sampler_learning_exploration_epsilon = 0.05
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -563,7 +571,7 @@ class GlobalSettings:
 
     # active sampler explorer parameters
     active_sampler_explore_bonus = 1e-1
-    active_sampler_explore_scorer = "planning_progress"
+    active_sampler_explore_task_strategy = "planning_progress"
     active_sampler_explorer_replan_frequency = 100
     active_sampler_explorer_planning_progress_max_tasks = 10
 
