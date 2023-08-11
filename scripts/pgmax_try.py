@@ -166,14 +166,15 @@ def get_init_model_params():
     sigma = 1
     return (np.array([a, b, c]), sigma)
 
-def run_learning(cum_num_outcomes, map_competences):
+def run_learning(cum_num_outcomes, map_competences, maxfev=10000):
     x = np.array(cum_num_outcomes, dtype=np.float32)
     y = np.array(map_competences, dtype=np.float32)
-    popt, _ = curve_fit(parameterized_model_predict, x, y, maxfev=1000)
+    popt, _ = curve_fit(parameterized_model_predict, x, y, maxfev=maxfev)
     yhat = parameterized_model_predict(x, *popt)
     err = (y - yhat)
     err_mean = err.mean()
     sigma = (err-err_mean).T @ (err-err_mean) / err.shape[0]
+    print(f"[Learning] Learned parameters: {popt}")
     print(f"[Learning] Prediction variance: {sigma}")
     return popt, sigma
 
@@ -193,7 +194,7 @@ def run_em(outcomes, num_iters=10):
         map_competences = run_inference(outcomes, model_params, model_sigma)
         for cycle in range(len(outcomes)):
             print(f"[Inference] Competence {cycle}: {map_competences[cycle]}")
-        model_params, model_sigma = run_learning(cum_num_outcomes, map_competences)
+        model_params, model_sigma = run_learning(cum_num_outcomes, map_competences, model_params)
         all_model_params.append((model_params.copy(), model_sigma))
     return all_model_params
 
@@ -208,4 +209,3 @@ if __name__ == "__main__":
         [True, True, True],
     ]
     all_model_params = run_em(data)
-    
