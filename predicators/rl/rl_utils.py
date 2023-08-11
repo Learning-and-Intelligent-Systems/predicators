@@ -8,17 +8,15 @@ import abc
 import logging
 from collections import OrderedDict
 from numbers import Number
+from typing import Callable, List
 
 import numpy as np
 import torch
 from gym.spaces import Box, Discrete, Tuple
 
-
-def elem_or_tuple_to_numpy(elem_or_tuple):
-    if isinstance(elem_or_tuple, tuple):
-        return tuple(np_ify(x) for x in elem_or_tuple)
-    else:
-        return np_ify(elem_or_tuple)
+from predicators import utils
+from predicators.settings import CFG
+from predicators.structs import Action, Array, State, _GroundNSRT, _Option
 
 
 def add_prefix(log_dict: OrderedDict, prefix: str, divider=''):
@@ -599,3 +597,66 @@ def create_stats_ordered_dict(
         stats[name + ' Max'] = np.max(data)
         stats[name + ' Min'] = np.min(data)
     return stats
+
+
+def convert_policy_action_to_ground_option(policy_action: Array, ground_nsrts: List[_GroundNSRT], discrete_actions_size: int, continuous_actions_size: int) -> _Option:
+    """Converts an action (in the form of a vector) output by a HybridSACAgent
+    into an _Option that can be executed in the actual environment.
+
+    Importantly, the ground_nsrts input list must have the correct order
+    so that indexing it with the output from policy_action will work
+    correctly.
+    """
+    assert policy_action.shape[0] == discrete_actions_size + continuous_actions_size
+    # Discrete actions output should be 0 everywhere except for one place.
+    discrete_actions_output = policy_action[:discrete_actions_size]
+    discrete_action_idx = np.argmax(discrete_actions_output)
+    assert discrete_actions_output[discrete_action_idx] == 1.0
+    ground_nsrt = ground_nsrts[discrete_action_idx]
+    continuous_params_output = policy_action[-continuous_actions_size:]
+    continuous_params_for_option = continuous_params_output[:ground_nsrt.option.params_space.shape[0]]
+    # Clip these continuous params to ensure they're within the bounds of the
+    # parameter space.
+    continuous_params_for_option = np.clip(continuous_params_for_option, ground_nsrt.option.params_space.low, ground_nsrt.option.params_space.high)
+    logging.debug(f"[RL] Running {ground_nsrt} with clipped params {continuous_params_for_option}")
+    output_ground_option = ground_nsrt.option.ground(ground_nsrt.option_objs, continuous_params_for_option)
+    return output_ground_option
+
+
+def make_executable_maple_policy(policy, ground_nsrts: List[_GroundNSRT], observation_size: int, discrete_actions_size: int, continuous_actions_size: int) -> Callable[[State], Action]:
+    curr_option = None
+    num_curr_option_steps = 0
+
+    def _rollout_rl_policy(state: State) -> Action:
+        """Execute the option policy until we get an option termination or
+        timeout (i.e, we exceed the max steps for the option) and then get a
+        new output from the model."""
+        nonlocal policy, curr_option, num_curr_option_steps, observation_size, discrete_actions_size, continuous_actions_size
+        state_vec = state.vec(sorted(list(state)))
+        if curr_option is None:
+            # We need to produce a new ground option from the network.
+            assert state_vec.shape[0] == observation_size
+            num_curr_option_steps = 0
+            policy_action = policy.get_action(state_vec)[0]
+            curr_option = convert_policy_action_to_ground_option(policy_action, ground_nsrts, discrete_actions_size, continuous_actions_size)
+
+        if not curr_option.initiable(state):
+            num_curr_option_steps = 0
+            raise utils.OptionExecutionFailure(
+                "Unsound option policy.",
+                info={"last_failed_option": curr_option})
+            
+        if CFG.max_num_steps_option_rollout is not None and \
+            num_curr_option_steps >= CFG.max_num_steps_option_rollout:
+            raise utils.OptionTimeoutFailure(
+                "Exceeded max option steps.",
+                info={"last_failed_option": curr_option})
+
+        if curr_option.terminal(state):
+            curr_option = None
+
+        num_curr_option_steps += 1
+
+        return curr_option.policy(state)
+
+    return _rollout_rl_policy

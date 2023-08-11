@@ -14,9 +14,11 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.envs import get_or_create_env
+from predicators.explorers import BaseExplorer, create_explorer
 from predicators.ml_models import ConcatMLP
 from predicators.rl.policies import MakeDeterministic, PAMDPPolicy
-from predicators.rl.rl_utils import EnvReplayBuffer
+from predicators.rl.rl_utils import EnvReplayBuffer, \
+    make_executable_maple_policy
 from predicators.rl.training_functions import SACHybridTrainer
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Array, Dataset, GroundAtom, \
@@ -155,14 +157,31 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         import ipdb; ipdb.set_trace()
         # TODO: add this new data to the replay buffer, then call
         # a model update.
-
         # Advance the online learning cycle.
         self._online_learning_cycle += 1
 
     
-    # TODO: override the explorer. Be sure to put the policy into deterministic mode
-    # and then sample actions from it.
-    
+    def _create_explorer(self) -> BaseExplorer:
+        # Geometrically increase the length of exploration.
+        b = CFG.active_sampler_learning_explore_length_base
+        max_steps = b**(1 + self._online_learning_cycle)
+        preds = self._get_current_predicates()
+        explorer = create_explorer(
+            "maple_explorer",
+            preds,
+            self._initial_options,
+            self._types,
+            self._action_space,
+            self._train_tasks,
+            self._get_current_nsrts(),
+            self._option_model,
+            max_steps_before_termination=max_steps,
+            ground_nsrts = self._sorted_ground_nsrts,
+            exploration_policy = MakeDeterministic(self._learned_policy),
+            observations_size = self._observation_size,
+            discrete_actions_size = self._discrete_actions_size,
+            continuous_actions_size = self._continuous_actions_size)
+        return explorer
 
     
     def _update_replay_buffer() -> None:
@@ -175,63 +194,6 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         pass
 
 
-    def _convert_policy_action_to_env_action(self, policy_action: Array) -> _Option:
-        """Convert the output of our learned policy into an environment action
-        by selecting the correct operator and grounding it with the correct
-        parameters."""
-        assert self._sorted_ground_nsrts is not None
-        assert policy_action.shape[0] == self._discrete_actions_size + self._continuous_actions_size
-        # Discrete actions output should be 0 everywhere except for one place.
-        discrete_actions_output = policy_action[:self._discrete_actions_size]
-        discrete_action_idx = np.argmax(discrete_actions_output)
-        assert discrete_actions_output[discrete_action_idx] == 1.0
-        ground_nsrt = self._sorted_ground_nsrts[discrete_action_idx]
-        continuous_params_output = policy_action[-self._continuous_actions_size:]
-        continuous_params_for_option = continuous_params_output[:ground_nsrt.option.params_space.shape[0]]
-        # Clip these continuous params to ensure they're within the bounds of the
-        # parameter space.
-        continuous_params_for_option = np.clip(continuous_params_for_option, ground_nsrt.option.params_space.low, ground_nsrt.option.params_space.high)
-        logging.info(f"[RL] Running {ground_nsrt} with clipped params {continuous_params_for_option}")
-        output_ground_option = ground_nsrt.option.ground(ground_nsrt.option_objs, continuous_params_for_option)
-        return output_ground_option
-
-
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         eval_policy = MakeDeterministic(self._learned_policy)
-        curr_option = None
-        num_curr_option_steps = 0
-
-        def _rollout_rl_policy(state: State) -> Action:
-            """Execute the option policy until we get an option termination or
-            timeout (i.e, we exceed the max steps for the option) and then get
-            a new output from the model."""
-            nonlocal self, eval_policy, curr_option, num_curr_option_steps
-            state_vec = state.vec(sorted(list(state)))
-            if curr_option is None:
-                # We need to produce a new ground option from the network.
-                assert state_vec.shape[0] == self._observation_size
-                num_curr_option_steps = 0
-                policy_action = eval_policy.get_action(state_vec)[0]
-                curr_option = self._convert_policy_action_to_env_action(policy_action)
-    
-            if not curr_option.initiable(state):
-                num_curr_option_steps = 0
-                raise utils.OptionExecutionFailure(
-                    "Unsound option policy.",
-                    info={"last_failed_option": curr_option})
-                
-            if CFG.max_num_steps_option_rollout is not None and \
-                num_curr_option_steps >= CFG.max_num_steps_option_rollout:
-                raise utils.OptionTimeoutFailure(
-                    "Exceeded max option steps.",
-                    info={"last_failed_option": curr_option})
-
-            if curr_option.terminal(state):
-                curr_option = None
-
-            num_curr_option_steps += 1
-
-            return curr_option.policy(state)
-
-
-        return _rollout_rl_policy
+        return make_executable_maple_policy(eval_policy, self._sorted_ground_nsrts, self._observation_size, self._discrete_actions_size, self._continuous_actions_size)

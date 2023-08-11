@@ -9,9 +9,11 @@ from predicators.explorers.base_explorer import BaseExplorer
 from predicators.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.option_model import _OptionModelBase
+from predicators.rl.policies import TorchStochasticPolicy
 from predicators.settings import CFG
 from predicators.structs import NSRT, GroundAtom, NSRTSampler, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundSTRIPSOperator
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
+    _GroundSTRIPSOperator
 
 __all__ = ["BaseExplorer"]
 
@@ -35,6 +37,11 @@ def create_explorer(
     ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
     nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
     seen_train_task_idxs: Optional[Set[int]] = None,
+    ground_nsrts: Optional[List[_GroundNSRT]] = None,
+    exploration_policy: Optional[TorchStochasticPolicy] = None,
+    observations_size: Optional[int] = None,
+    discrete_actions_size: Optional[int] = None,
+    continuous_actions_size: Optional[int] = None
 ) -> BaseExplorer:
     """Create an explorer given its name."""
     if max_steps_before_termination is None:
@@ -86,6 +93,16 @@ def create_explorer(
                                max_steps_before_termination, nsrts,
                                ground_op_hist, nsrt_to_explorer_sampler,
                                seen_train_task_idxs)
+            # MAPLE explorer uses ground_nsrts, exploration policy, and observations,
+            # discrete actions and continuous actions sizes
+            elif name == "maple_explorer":
+                assert ground_nsrts is not None
+                assert observations_size is not None
+                assert discrete_actions_size is not None
+                assert continuous_actions_size is not None
+                explorer = cls(initial_predicates, initial_options, types,
+                               action_space, train_tasks,
+                               max_steps_before_termination, ground_nsrts, exploration_policy, observations_size, discrete_actions_size, continuous_actions_size)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
