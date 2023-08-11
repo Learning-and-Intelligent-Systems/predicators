@@ -60,7 +60,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         AtPreTurnOff = predicates["AtPreTurnOff"]
         AtPrePushOnTop = predicates["AtPrePushOnTop"]
         AtPrePullKettle = predicates["AtPrePullKettle"]
-        Close = predicates["Closed"]
+        Closed = predicates["Closed"]
         TurnedOn = predicates["TurnedOn"]
         TurnedOff = predicates["TurnedOff"]
         OnTop = predicates["OnTop"]
@@ -362,10 +362,10 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         parameters = [gripper, hinge_door]
         preconditions = {
             LiftedAtom(AtPreTurnOn, [gripper, hinge_door]),
-            LiftedAtom(Close, [hinge_door])
+            LiftedAtom(Closed, [hinge_door])
         }
         add_effects = {LiftedAtom(Open, [hinge_door])}
-        delete_effects = {LiftedAtom(Close, [hinge_door])}
+        delete_effects = {LiftedAtom(Closed, [hinge_door])}
         ignore_effects = {
             AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
         }
@@ -406,7 +406,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(AtPreTurnOff, [gripper, hinge_door]),
             LiftedAtom(Open, [hinge_door])
         }
-        add_effects = {LiftedAtom(Close, [hinge_door])}
+        add_effects = {LiftedAtom(Closed, [hinge_door])}
         delete_effects = {LiftedAtom(Open, [hinge_door])}
         ignore_effects = {
             AtPreTurnOn, AtPrePushOnTop, AtPreTurnOff, AtPrePullKettle
