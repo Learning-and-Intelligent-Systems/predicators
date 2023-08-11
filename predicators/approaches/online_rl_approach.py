@@ -154,6 +154,12 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # corresponding transitions to the replay buffer.
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
+        for seg_traj in new_trajs:
+            for segment in seg_traj:
+                # TODO: extract the segment initial and final low-level states,
+                # convert them to vectors by making a function. Somehow get the reward,
+                # then get the index of this action to construct the action vector.
+                # Add this to the replay buffer.
         import ipdb; ipdb.set_trace()
         # TODO: add this new data to the replay buffer, then call
         # a model update.
