@@ -166,7 +166,7 @@ def parameterized_model_predict(x, a, b, c):
 def get_init_model_params():
     a = 1
     b = 1
-    c = 10
+    c = 0
     sigma = 1
     return (np.array([a, b, c]), sigma)
 
@@ -193,20 +193,24 @@ def run_em(outcomes, num_iters=10):
     all_model_params = [
        (model_params.copy(), model_sigma)
     ]
+    all_map_competences = []
     for it in range(num_iters):
         print(f"Starting EM iteration {it}...")
         map_competences = run_inference(outcomes, model_params, model_sigma)
+        all_map_competences.append(map_competences)
         for cycle in range(len(outcomes)):
             print(f"[Inference] Competence {cycle}: {map_competences[cycle]}")
         model_params, model_sigma = run_learning(cum_num_outcomes, map_competences)
         all_model_params.append((model_params.copy(), model_sigma))
-    return all_model_params
+    map_competences = run_inference(outcomes, model_params, model_sigma)
+    all_map_competences.append(map_competences)
+    return all_model_params, all_map_competences
 
 ###############################################################################
 #                                  Analysis                                   #
 ###############################################################################
 
-def _make_plots(outcomes, all_model_params, outfile = "pgmax_script_out.mp4"):
+def _make_plots(outcomes, all_model_params, all_map_competences, outfile = "pgmax_script_out.mp4"):
     imgs = []
     all_num_outcomes = [len(o) for o in outcomes]
     num_trials = sum(all_num_outcomes)
@@ -235,36 +239,47 @@ def _make_plots(outcomes, all_model_params, outfile = "pgmax_script_out.mp4"):
         plt.plot(inputs, lb, color="blue", linestyle="--")
         ub = outputs + model_sigma
         plt.plot(inputs, ub, color="blue", linestyle="--")
+        # Plot MAP competences.
+        map_competences = all_map_competences[em_iter]
+        for cycle, cycle_map_competence in enumerate(map_competences):
+            label = "MAP Competence" if cycle == 0 else None
+            x_start = 0 if cycle == 0 else cum_num_outcomes[cycle-1]
+            x_end = cum_num_outcomes[cycle]
+            y = cycle_map_competence
+            plt.plot((x_start, x_end), (y, y), color="green", label=label)
         # Finish figure.
-        plt.legend(loc="lower right", framealpha=1.0)
+        plt.legend(loc="center right", framealpha=1.0)
         img = utils.fig2data(fig, dpi=300)
         imgs.append(img)
     utils.save_video(outfile, imgs)
 
 
 if __name__ == "__main__":
-        data = [
-            [False, False, False],
-            [True, False, False, True, False, False, False, False, False],
-            [False, True, True, False, True, False, False, False],
-            [False],
-            [True, True, False, False, True, True],
-            [True, True, True],
-        ]
-        _make_plots(data, run_em(data), outfile = "pgmax_script_out_v1.mp4")
-        data = [
-            [False, False, False, False, False],
-            [False, False, False, False],
-            [False, False, False, False, False, False, False],
-            [False, False],
-        ]
-        _make_plots(data, run_em(data), outfile = "pgmax_script_out_v2.mp4")
-        data = [
-            [True, True, True, True, True],
-            [True, True, True, True, True, True, True],
-            [True, True, True, True, True],
-            [True, True, True, True, True, True, True, True, True],
-            [True, True, True, True, True],
+    data = [
+        [False, False, False],
+        [True, False, False, True, False, False, False, False, False],
+        [False, True, True, False, True, False, False, False],
+        [False],
+        [True, True, False, False, True, True],
+        [True, True, True],
+    ]
+    mp_out, map_out = run_em(data)
+    _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v1.mp4")
+    data = [
+        [False, False, False, False, False],
+        [False, False, False, False],
+        [False, False, False, False, False, False, False],
+        [False, False],
+    ]
+    mp_out, map_out = run_em(data)
+    _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v2.mp4")
+    data = [
+        [True, True, True, True, True],
+        [True, True, True, True, True, True, True],
+        [True, True, True, True, True],
+        [True, True, True, True, True, True, True, True, True],
+        [True, True, True, True, True],
 
-        ]
-        _make_plots(data, run_em(data), outfile = "pgmax_script_out_v3.mp4")
+    ]
+    mp_out, map_out = run_em(data)
+    _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v3.mp4")
