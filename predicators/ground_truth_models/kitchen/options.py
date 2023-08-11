@@ -99,9 +99,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                     ((gx - 0.15, gy - 0.15, gz + 0.2), down_quat)
                 ] + memory["waypoints"]
             if obj.name == "slide":
-                memory["waypoints"] = [
-                    ((gx, gy - 0.15, gz), down_quat)
-                ] + memory["waypoints"]
+                memory["waypoints"] = [(
+                    (gx, gy - 0.15, gz), down_quat)] + memory["waypoints"]
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -426,7 +425,6 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             obj_z = state.get(obj, "z")
             # Terminate early if the gripper is far past the object.
             if (gripper_z - obj_z) > 5 * cls.moveto_tol:
-                import ipdb; ipdb.set_trace()
                 return True
             # Use a more stringent threshold to avoid numerical issues.
             return KitchenEnv.Off_holds(state, [obj],
@@ -452,7 +450,8 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
             dx = unit_x * cls.max_push_mag / 2.0
             dy = unit_y * cls.max_push_mag / 2.0
-            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, -1.0],
+                           dtype=np.float32)
             return Action(arr)
 
         def _PushOpen_terminal(state: State, memory: Dict,

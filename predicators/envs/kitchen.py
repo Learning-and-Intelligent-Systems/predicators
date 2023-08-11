@@ -71,12 +71,12 @@ class KitchenEnv(BaseEnv):
         "burner4": surface_type,
     }
 
-    at_pre_turn_atol = 0.1 # tolerance for AtPreTurnOn/Off
+    at_pre_turn_atol = 0.1  # tolerance for AtPreTurnOn/Off
     ontop_atol = 0.15  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.39  # light is On if less than this threshold
     microhandle_open_thresh = -0.65
-    hinge_open_thresh  = 0.084
+    hinge_open_thresh = 0.084
     cabinet_open_thresh = 0.02
     at_pre_pushontop_yz_atol = 0.1  # tolerance for AtPrePushOnTop
     at_pre_pullontop_yz_atol = 0.04  # tolerance for AtPrePullOnTop
@@ -474,14 +474,12 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            if obj.name == "hinge1" or obj.name == "hinge2":
-                return state.get(obj,
-                                "angle") > cls.hinge_open_thresh
+            if obj.name in ("hinge1", "hinge2"):
+                return state.get(obj, "angle") > cls.hinge_open_thresh
             if obj.name == "microhandle":
-                return state.get(obj,
-                                "x") < cls.microhandle_open_thresh - thresh_pad
-            return state.get(obj,
-                                "x") > cls.cabinet_open_thresh + thresh_pad
+                return state.get(
+                    obj, "x") < cls.microhandle_open_thresh - thresh_pad
+            return state.get(obj, "x") > cls.cabinet_open_thresh + thresh_pad
         return False
 
     @classmethod
@@ -493,14 +491,12 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         # Can't do not Open_holds() because of thresh_pad logic.
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            if obj.name == "hinge1" or obj.name == "hinge2":
-                return state.get(obj,
-                                "angle") <= cls.hinge_open_thresh
+            if obj.name in ("hinge1", "hinge2"):
+                return state.get(obj, "angle") <= cls.hinge_open_thresh
             if obj.name == "microhandle":
-                return state.get(obj,
-                                "x") >= cls.microhandle_open_thresh + thresh_pad
-            return state.get(obj,
-                                "x") <= cls.cabinet_open_thresh - thresh_pad
+                return state.get(
+                    obj, "x") >= cls.microhandle_open_thresh + thresh_pad
+            return state.get(obj, "x") <= cls.cabinet_open_thresh - thresh_pad
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:
