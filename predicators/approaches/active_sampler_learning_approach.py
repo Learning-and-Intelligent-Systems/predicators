@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from collections import defaultdict
+from typing import Any, Callable, DefaultDict, Dict, List, Optional, \
+    Sequence, Set, Tuple
 
 import dill as pkl
 import numpy as np
@@ -54,6 +56,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # successfully reached their effects or not). Updated in-place by the
         # explorer when CFG.explorer is active_sampler_explorer.
         self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
+        # The two lists here track (number of training data, competence)
+        # for each skill after each online learning cycle.
+        self._ground_op_competence_data: Dict[_GroundSTRIPSOperator,
+                                              Tuple[List[float],
+                                                    List[float]]] = {}
         self._last_seen_segment_traj_idx = -1
 
         # For certain methods, we may want the NSRTs used for exploration to
@@ -102,6 +109,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             self._get_current_nsrts(),
             self._option_model,
             ground_op_hist=self._ground_op_hist,
+            ground_op_competence_data=self._ground_op_competence_data,
             max_steps_before_termination=max_steps,
             nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler,
             seen_train_task_idxs=self._seen_train_task_idxs)
@@ -114,6 +122,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             save_dict = pkl.load(f)
         self._sampler_data = save_dict["sampler_data"]
         self._ground_op_hist = save_dict["ground_op_hist"]
+        self._ground_op_competence_data = save_dict[
+            "ground_op_competence_data"]
         self._last_seen_segment_traj_idx = save_dict[
             "last_seen_segment_traj_idx"]
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
@@ -142,6 +152,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 {
                     "sampler_data": self._sampler_data,
                     "ground_op_hist": self._ground_op_hist,
+                    "ground_op_competence_data":
+                    self._ground_op_competence_data,
                     "last_seen_segment_traj_idx":
                     self._last_seen_segment_traj_idx,
                     "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
@@ -151,6 +163,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
     def _update_sampler_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
+        ground_op_to_num_data: DefaultDict[_GroundSTRIPSOperator,
+                                           int] = defaultdict(int)
         for segmented_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             just_made_incorrect_pick = False
@@ -194,6 +208,27 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 if o.parent not in self._sampler_data:
                     self._sampler_data[o.parent] = []
                 self._sampler_data[o.parent].append((s, o, ns, label))
+                ground_nsrt = utils.option_to_ground_nsrt(o, self._nsrts)
+                ground_op_to_num_data[ground_nsrt.op] += 1
+        # Update _ground_op_competence_data.
+        for ground_op, num_new_data in ground_op_to_num_data.items():
+            hist = self._ground_op_hist.get(ground_op, [])
+            current_competence = utils.beta_bernoulli_posterior(hist)
+            if ground_op not in self._ground_op_competence_data:
+                self._ground_op_competence_data[ground_op] = ([], [])
+            X, y = self._ground_op_competence_data[ground_op]
+            last_num_data = 0 if not X else X[-1]
+            X.append(last_num_data + num_new_data)
+            y.append(current_competence)
+            # Save the _ground_op_competence_data() for external analysis.
+            approach_save_path = utils.get_approach_save_path_str()
+            save_path = "_".join([
+                approach_save_path, f"{ground_op.name}{ground_op.objects}",
+                f"{self._online_learning_cycle}.competence"
+            ])
+            with open(save_path, "wb") as f:
+                pkl.dump((X, y), f)
+            logging.info(f"Saved competence data to {save_path}.")
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)

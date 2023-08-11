@@ -1,7 +1,7 @@
 """An explorer for active sampler learning."""
 
 import logging
-from typing import Callable, Dict, Iterator, List, Optional, Set
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -33,6 +33,9 @@ class ActiveSamplerExplorer(BaseExplorer):
                  action_space: Box, train_tasks: List[Task],
                  max_steps_before_termination: int, nsrts: Set[NSRT],
                  ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
+                 ground_op_competence_data: Dict[_GroundSTRIPSOperator,
+                                                 Tuple[List[float],
+                                                       List[float]]],
                  nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler],
                  seen_train_task_idxs: Set[int]) -> None:
 
@@ -45,6 +48,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                          max_steps_before_termination)
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
+        self._ground_op_competence_data = ground_op_competence_data
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
