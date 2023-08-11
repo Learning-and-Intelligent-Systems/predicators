@@ -154,33 +154,43 @@ def run_inference(outcomes, model_params, model_sigma):
 #                                 Learning                                    #
 ###############################################################################
 
-def parameterized_model_predict(x, a, b, c):
+def parameterized_model_predict(x, a, b, c, d):
     # https://arxiv.org/pdf/2103.10948.pdf
     # POW3 model
-    mu = a * x ** (-b) + c
-    return 1.0 - np.exp(-mu)
+    # mu = a * (x - d) ** (-b) + c
+    # return 1.0 - np.exp(-mu)
 
     # Logistic function
-    # return a / (1 + np.exp(-b * (x - c)))
+    return a / (1 + np.exp(-b * (x - d))) + c
 
 def get_init_model_params():
     a = 1
     b = 1
     c = 0
+    d = 10
     sigma = 1
-    return (np.array([a, b, c]), sigma)
+    return (np.array([a, b, c, d]), sigma)
 
-def run_learning(cum_num_outcomes, map_competences, maxfev=100000):
+def run_learning(cum_num_outcomes, map_competences, maxfev=1000000, num_restarts=5):
+    rng = np.random.default_rng(0)
     x = np.array(cum_num_outcomes, dtype=np.float32)
     y = np.array(map_competences, dtype=np.float32)
-    popt, _ = curve_fit(parameterized_model_predict, x, y, maxfev=maxfev)
-    yhat = parameterized_model_predict(x, *popt)
-    err = (y - yhat)
-    err_mean = err.mean()
-    sigma = (err-err_mean).T @ (err-err_mean) / err.shape[0]
-    print(f"[Learning] Learned parameters: {popt}")
-    print(f"[Learning] Prediction variance: {sigma}")
-    return popt, sigma
+    best_popt = None
+    best_sigma = np.inf
+    for i in range(num_restarts):
+        p0 = rng.normal(size=4)
+        popt, _ = curve_fit(parameterized_model_predict, x, y, maxfev=maxfev, p0=p0)
+        yhat = parameterized_model_predict(x, *popt)
+        err = (y - yhat)
+        err_mean = err.mean()
+        sigma = (err-err_mean).T @ (err-err_mean) / err.shape[0]
+        print(f"[Learning] Restart {i} sigma: {sigma}")
+        if sigma < best_sigma:
+            best_sigma = sigma
+            best_popt = popt
+    print(f"[Learning] Learned parameters: {best_popt}")
+    print(f"[Learning] Prediction variance: {best_sigma}")
+    return best_popt, best_sigma
 
 ###############################################################################
 #                                    EM                                       #
@@ -255,24 +265,24 @@ def _make_plots(outcomes, all_model_params, all_map_competences, outfile = "pgma
 
 
 if __name__ == "__main__":
-    data = [
-        [False, False, False],
-        [True, False, False, True, False, False, False, False, False],
-        [False, True, True, False, True, False, False, False],
-        [False],
-        [True, True, False, False, True, True],
-        [True, True, True],
-    ]
-    mp_out, map_out = run_em(data)
-    _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v1.mp4")
-    data = [
-        [False, False, False, False, False],
-        [False, False, False, False],
-        [False, False, False, False, False, False, False],
-        [False, False],
-    ]
-    mp_out, map_out = run_em(data)
-    _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v2.mp4")
+    # data = [
+    #     [False, False, False],
+    #     [True, False, False, True, False, False, False, False, False],
+    #     [False, True, True, False, True, False, False, False],
+    #     [False],
+    #     [True, True, False, False, True, True],
+    #     [True, True, True],
+    # ]
+    # mp_out, map_out = run_em(data)
+    # _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v1.mp4")
+    # data = [
+    #     [False, False, False, False, False],
+    #     [False, False, False, False],
+    #     [False, False, False, False, False, False, False],
+    #     [False, False],
+    # ]
+    # mp_out, map_out = run_em(data)
+    # _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v2.mp4")
     data = [
         [True, True, True, True, True],
         [True, True, True, True, True, True, True],
