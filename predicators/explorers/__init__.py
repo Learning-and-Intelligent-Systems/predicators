@@ -1,6 +1,6 @@
 """Handle creation of explorers."""
 
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from gym.spaces import Box
 
@@ -33,6 +33,9 @@ def create_explorer(
     state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
     max_steps_before_termination: Optional[int] = None,
     ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
+    ground_op_competence_data: Optional[Dict[_GroundSTRIPSOperator,
+                                             Tuple[List[float],
+                                                   List[float]]]] = None,
     nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
     seen_train_task_idxs: Optional[Set[int]] = None,
 ) -> BaseExplorer:
@@ -79,13 +82,14 @@ def create_explorer(
             # Active sampler explorer uses ground_op_hist and no option model.
             elif name == "active_sampler":
                 assert ground_op_hist is not None
+                assert ground_op_competence_data is not None
                 assert nsrt_to_explorer_sampler is not None
                 assert seen_train_task_idxs is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
                                max_steps_before_termination, nsrts,
-                               ground_op_hist, nsrt_to_explorer_sampler,
-                               seen_train_task_idxs)
+                               ground_op_hist, ground_op_competence_data,
+                               nsrt_to_explorer_sampler, seen_train_task_idxs)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
