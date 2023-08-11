@@ -29,6 +29,7 @@ from typing import TypeVar, Union, cast
 
 import imageio
 import matplotlib
+from scipy.special import logsumexp
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
@@ -3418,3 +3419,23 @@ def ground_op_history_to_planning_costs(
         cost = -np.log(theta)
         costs[op] = cost
     return costs
+
+def _get_quant_centers(start: float = 0.0, end: float = 1.0, num_quants: int = 100):
+    """Helper for quantize1d() and quantile_to_value()"""
+    lefts = np.linspace(start, end, num_quants, endpoint=False)
+    delta = lefts[1] - lefts[0]
+    return (lefts + delta / 2).squeeze()
+
+
+def quantize1d(fn: Callable[[float], float], start: float = 0.0, end: float = 1.0, num_quants: int = 100):
+    """Quantize a continuous 1D function."""
+    centers = _get_quant_centers(start, end, num_quants)
+    unnormed = np.vectorize(fn)(centers)
+    z = logsumexp(unnormed)
+    return unnormed - z
+
+
+def quantile_to_value(quantile: int, start: float = 0.0, end: float = 1.0, num_quants: int = 100):
+    """Get the value for a 1d quantile, consistent with quantize1d().."""
+    centers = _get_quant_centers(start, end, num_quants)
+    return centers[quantile]

@@ -538,6 +538,7 @@ class GlobalSettings:
     active_sampler_learning_num_ensemble_members = 10
     active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
     active_sampler_learning_exploration_epsilon = 0.05
+    active_sampler_learning_competence_num_quants = 100
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator

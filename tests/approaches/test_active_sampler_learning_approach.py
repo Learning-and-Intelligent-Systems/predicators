@@ -3,7 +3,7 @@ import pytest
 
 from predicators import utils
 from predicators.approaches.active_sampler_learning_approach import \
-    ActiveSamplerLearningApproach
+    ActiveSamplerLearningApproach, PowerPGMCompetenceModel
 from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs.cover import BumpyCoverEnv
@@ -91,3 +91,20 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
         # an action.
         action = policy(task.init)
         assert env.action_space.contains(action.arr)
+
+
+def test_competence_model() -> None:
+    """Tests for competence models."""
+
+    # Test with an impossible skill, i.e., all outcomes are False.
+    competence_model = PowerPGMCompetenceModel("test")
+    assert competence_model.name == "test"
+    assert competence_model.num_cycles == 1
+    initial_competence = competence_model.estimate_current_competence()
+    for _ in range(3):
+        competence_model.observe(False)
+    updated_competence = competence_model.estimate_current_competence()
+    assert updated_competence < initial_competence
+    
+
+    import ipdb; ipdb.set_trace()

@@ -11,12 +11,15 @@ See scripts/configs/active_sampler_learning.yaml for examples.
 from __future__ import annotations
 
 import abc
+from functools import partial
 import logging
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import dill as pkl
 import numpy as np
+from scipy.stats import bernoulli, norm
 from gym.spaces import Box
+from pgmax import fgraph, fgroup, infer, vgroup
 
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
@@ -33,6 +36,10 @@ from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
 _OptionSamplerDataset = List[Tuple[State, _Option, State, Any]]
 _SamplerDataset = Dict[ParameterizedOption, _OptionSamplerDataset]
 _ScoreFn = Callable[[State, Sequence[Object], List[Array]], List[float]]
+
+###############################################################################
+#                                Main approach                                #
+###############################################################################
 
 
 class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
@@ -252,6 +259,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
+
+
+###############################################################################
+#                             Sampler learning                                #
+###############################################################################
 
 
 class _WrappedSamplerLearner(abc.ABC):
@@ -542,7 +554,11 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         return regressor
 
 
-# Helper functions.
+###############################################################################
+#                              Sampler Helpers                                #
+###############################################################################
+
+
 def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
                   strategy: str) -> NSRTSampler:
     """Create a wrapped sampler that uses a score function to select among
@@ -608,3 +624,222 @@ def _classifier_ensemble_to_score_fn(classifier: BinaryClassifierEnsemble,
 def _regressor_to_score_fn(regressor: MLPRegressor, nsrt: NSRT) -> _ScoreFn:
     fn = lambda v: regressor.predict(v)[0]
     return _vector_score_fn_to_score_fn(fn, nsrt)
+
+
+###############################################################################
+#                          Competence Estimation                              #
+###############################################################################
+
+
+class CompetenceModel(abc.ABC):
+    """A model for estimating and predicting future competence for a skill."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        # List of outcomes per cycle.
+        self._cycle_observations: List[List[bool]] = [[]]
+
+    @property
+    def num_cycles(self) -> int:
+        """The number of cycles so far, including the current one."""
+        return len(self._cycle_observations)
+    
+    @property
+    def total_num_data(self) -> int:
+        """The total number of observations seen so far."""
+        return sum(len(o) for o in self._cycle_observations)
+    
+    def _get_num_data_before_cycle(self, cycle: int) -> int:
+        """Get the cumulative number of outcomes up until the cycle."""
+        if cycle == 0:
+            return 0
+        return sum(self._cycle_observations[:cycle])
+
+    def observe(self, outcome: bool) -> None:
+        """Log an outcome for the current cycle."""
+        self._cycle_observations[-1].append(outcome)
+
+    def advance_cycle(self) -> None:
+        """Should be called after learning."""
+        self._cycle_observations.append([])
+
+    @abc.abstractmethod
+    def estimate_current_competence(self) -> float:
+        """Run inference to determine current competence."""
+
+    @abc.abstractmethod
+    def predict_future_competence(self, num_additional_data: int) -> float:
+        """Predict how competence will change if we collect the given
+        num_additional_data and then re-run learning."""
+
+
+class SequenceLatentVariableCompetenceModel(CompetenceModel):
+    """A model where competence variables are latent and EM is used."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        # Initialize model parameters.
+        self._model_params = self._get_initial_model_parameters()
+        self._model_variance = self._get_initial_model_variance()
+
+    def advance_cycle(self) -> int:
+        super().advance_cycle()
+        # Run expectation-maximization to re-learn model.
+        for it in range(CFG.active_sampler_learning_competence_em_iters):
+            map_competences = self._get_map_competences()
+            assert len(map_competences) == self.num_cycles
+            loss = self._fit_model(map_competences)
+            logging.info(f"[Competence] EM iter {it} loss = {loss}")
+    
+    @abc.abstractmethod
+    def _get_initial_model_parameters(self) -> Array:
+        """Called once at initialization."""
+
+    @abc.abstractmethod
+    def _get_initial_model_variance(self) -> Array:
+        """Called once at initialization."""
+
+    @abc.abstractmethod
+    def _get_map_competences(self) -> List[float]:
+        """Run inference (E step)."""
+
+    @abc.abstractmethod
+    def _fit_model(self, map_competences: List[float]) -> float:
+        """Run learning (M step). Updates self._model_params and self._model_variance. Returns loss."""
+
+
+class PowerPGMCompetenceModel(SequenceLatentVariableCompetenceModel):
+    """Uses a power law for competence model and quantized BP for inference."""
+
+    @property
+    def _num_quantiles(self) -> int:
+        return CFG.active_sampler_learning_competence_num_quants
+    
+    def estimate_current_competence(self) -> float:
+        # TODO cache?
+        return self._get_map_competences()[-1]
+    
+    def predict_future_competence(self, num_additional_data: int) -> float:
+        import ipdb; ipdb.set_trace()
+
+    def _model_predict(self, num_data: int) -> float:
+        """Predict competence from number of data."""
+        # Based on POW3 model: https://arxiv.org/pdf/2103.10948.pdf
+        a, b, c, d = self._model_params
+        mu = a * (num_data + d) ** (-b) + c
+        return 1.0 - np.exp(-mu)
+
+    def _get_initial_model_parameters(self) -> Array:
+        a = 1
+        b = 0.1
+        c = 0
+        d = 10
+        return np.array([a, b, c, d], dtype=np.float32)
+    
+    def _get_initial_model_variance(self) -> float:
+        return 0.1
+    
+    def _get_map_competences(self) -> List[float]:
+
+        # Create binary variables for observed outcomes.
+        obs_variable_groups = []
+        for cycle_outcomes in self._cycle_observations:
+            num_outcomes = len(cycle_outcomes)
+            # If no outcomes for this cycle, no variable to make.
+            if num_outcomes == 0:
+                continue
+            obs_cycle_group = vgroup.NDVarArray(num_states=2, shape=(num_outcomes, ))
+            obs_variable_groups.append(obs_cycle_group)
+
+        # Create variables for competences, one per cycle.
+        competence_variable_group = vgroup.NDVarArray(num_states=self._num_quantiles,
+                                                        shape=(self.num_cycles, ))
+        variable_groups = obs_variable_groups + [competence_variable_group]
+
+        # Initialize factor graph.
+        fg = fgraph.FactorGraph(variable_groups=variable_groups)
+
+        # Create factors.
+        factors = []
+
+        # Create unary factors for observed values.
+        for cycle, cycle_outcomes in enumerate(self._cycle_observations):
+            num_outcomes = len(cycle_outcomes)
+            # If no outcomes for this cycle, no factor to make.
+            if num_outcomes == 0:
+                continue
+            visible_log_potentials = np.full((num_outcomes, 2), -np.inf)
+            for i, out in enumerate(cycle_outcomes):
+                visible_log_potentials[i, int(out)] = 0
+            cycle_visible_factor = fgroup.EnumFactorGroup(
+                variables_for_factors=[[obs_variable_groups[cycle][i]]
+                                    for i in range(num_outcomes)],
+                factor_configs=np.arange(2)[:, None],
+                log_potentials=visible_log_potentials,
+            )
+            factors.append(cycle_visible_factor)
+        
+        # Create observation model factors.
+        quantized_observation_log_potentials = np.array([
+            utils.quantize1d(partial(bernoulli.logpmf, False), num_quants=self._num_quantiles),
+            utils.quantize1d(partial(bernoulli.logpmf, True), num_quants=self._num_quantiles),
+        ])
+
+        for cycle, cycle_outcomes in enumerate(self._cycle_observations):
+            num_outcomes = len(cycle_outcomes)
+            # If no outcomes for this cycle, no factor to make.
+            if num_outcomes == 0:
+                continue
+            cycle_observation_factor = fgroup.PairwiseFactorGroup(
+                variables_for_factors=[[
+                    obs_variable_groups[cycle][i], competence_variable_group[cycle]
+                ] for i in range(num_outcomes)],
+                log_potential_matrix=quantized_observation_log_potentials,
+            )
+            factors.append(cycle_observation_factor)
+
+        # Create competence progress factors.
+        # NOTE: this is where the learned model parameters are used.
+        def create_competence_progress_log_potential(current_cycle: int) -> Callable[[float], float]:
+            num_data = self._get_num_data_before_cycle(current_cycle)
+            x = np.array([[num_data]], dtype=np.float32)
+            mean_competence = self._model_predict(x)
+
+            # NOTE: the Gaussian loss is sketchy here, probably want to change.
+            def competence_progress_log_potential(current_competence):
+                return norm.logpdf(current_competence, loc=mean_competence, scale=self._model_variance)
+
+            return competence_progress_log_potential
+        
+        for cycle in range(self.num_cycles):
+            current_competence_var = competence_variable_group[cycle]
+            potential = create_competence_progress_log_potential(cycle)
+            quantized_competence_progress_log_potential = utils.quantize1d(
+                potential, num_quants=self._num_quantiles)
+            cycle_competence_factor = fgroup.EnumFactorGroup(
+                variables_for_factors=[[current_competence_var]],
+                factor_configs=np.arange(self._num_quantiles)[:, None],
+                log_potentials=quantized_competence_progress_log_potential,
+            )
+            factors.append(cycle_competence_factor)
+
+        # Finalize factor graph.
+        fg.add_factors(factors)
+
+        # Run MAP inference.
+        bp = infer.build_inferer(fg.bp_state, backend="bp")
+        bp_arrays = bp.run(bp.init(), num_iters=100, damping=0.5, temperature=0.0)
+        beliefs = bp.get_beliefs(bp_arrays)
+        map_states = infer.decode_map_states(beliefs)
+        map_competences: List[float] = []
+        for i in range(self.num_cycles):
+            quantile = map_states[competence_variable_group][i]
+            value = utils.quantile_to_value(quantile, num_quants=self._num_quantiles)
+            map_competences.append(value)
+        return map_competences
+    
+    def _fit_model(self, map_competences: List[float]) -> float:
+        import ipdb; ipdb.set_trace()
+
+    
+
