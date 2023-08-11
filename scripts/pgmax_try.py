@@ -49,7 +49,7 @@ def _quantize2d(fn, start=0.0, end=1.0, num_quants=NUM_QUANTS):
     return unnormed - z
 
 
-def run_inference(outcomes, model_params, model_sigma):
+def run_inference(outcomes, model_params, model_sigma, debug=False):
 
     num_cycles = len(outcomes)
     all_num_outcomes = [len(o) for o in outcomes]
@@ -128,6 +128,9 @@ def run_inference(outcomes, model_params, model_sigma):
             quantized_competence_progress_log_potential += _quantize(
                 initial_competence_log_potential)
 
+        # if debug:
+        #     import ipdb; ipdb.set_trace()
+
         cycle_competence_factor = fgroup.EnumFactorGroup(
             variables_for_factors=[[current_competence_var]],
             factor_configs=np.arange(NUM_QUANTS)[:, None],
@@ -184,6 +187,8 @@ def run_learning(cum_num_outcomes, map_competences, maxfev=1000000, num_restarts
         err = (y - yhat)
         err_mean = err.mean()
         sigma = (err-err_mean).T @ (err-err_mean) / err.shape[0]
+        # Avoid numerical issues.
+        sigma = max(sigma, 1e-8)
         print(f"[Learning] Restart {i} sigma: {sigma}")
         if sigma < best_sigma:
             best_sigma = sigma
@@ -212,7 +217,7 @@ def run_em(outcomes, num_iters=10):
             print(f"[Inference] Competence {cycle}: {map_competences[cycle]}")
         model_params, model_sigma = run_learning(cum_num_outcomes, map_competences)
         all_model_params.append((model_params.copy(), model_sigma))
-    map_competences = run_inference(outcomes, model_params, model_sigma)
+    map_competences = run_inference(outcomes, model_params, model_sigma, debug=True)
     all_map_competences.append(map_competences)
     return all_model_params, all_map_competences
 
@@ -265,24 +270,24 @@ def _make_plots(outcomes, all_model_params, all_map_competences, outfile = "pgma
 
 
 if __name__ == "__main__":
-    # data = [
-    #     [False, False, False],
-    #     [True, False, False, True, False, False, False, False, False],
-    #     [False, True, True, False, True, False, False, False],
-    #     [False],
-    #     [True, True, False, False, True, True],
-    #     [True, True, True],
-    # ]
-    # mp_out, map_out = run_em(data)
-    # _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v1.mp4")
-    # data = [
-    #     [False, False, False, False, False],
-    #     [False, False, False, False],
-    #     [False, False, False, False, False, False, False],
-    #     [False, False],
-    # ]
-    # mp_out, map_out = run_em(data)
-    # _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v2.mp4")
+    data = [
+        [False, False, False],
+        [True, False, False, True, False, False, False, False, False],
+        [False, True, True, False, True, False, False, False],
+        [False],
+        [True, True, False, False, True, True],
+        [True, True, True],
+    ]
+    mp_out, map_out = run_em(data)
+    _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v1.mp4")
+    data = [
+        [False, False, False, False, False],
+        [False, False, False, False],
+        [False, False, False, False, False, False, False],
+        [False, False],
+    ]
+    mp_out, map_out = run_em(data)
+    _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v2.mp4")
     data = [
         [True, True, True, True, True],
         [True, True, True, True, True, True, True],
