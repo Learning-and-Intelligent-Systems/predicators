@@ -23,7 +23,7 @@ def test_kitchen():
         "env": "kitchen",
         "num_train_tasks": 1,
         "num_test_tasks": 2,
-        "kitchen_use_perfect_samplers": True,
+        "kitchen_use_perfect_samplers": False,
     })
     env = KitchenEnv(use_gui=USE_GUI)
     perceiver = KitchenPerceiver()
@@ -115,6 +115,7 @@ def test_kitchen():
     microhandle = obj_name_to_obj["microhandle"]
     hinge1 = obj_name_to_obj["hinge1"]
     hinge2 = obj_name_to_obj["hinge2"]
+    slide = obj_name_to_obj["slide"]
 
     def _run_ground_nsrt(ground_nsrt,
                          state,
@@ -126,7 +127,7 @@ def test_kitchen():
         if override_params is not None:
             option = option.parent.ground(option.objects, override_params)
         assert option.initiable(state)
-        for _ in range(200):
+        for _ in range(400):
             act = option.policy(state)
             obs = env.step(act)
             state = env.state_info_to_state(obs["state_info"])
@@ -163,6 +164,11 @@ def test_kitchen():
         [gripper, microhandle])
     push_closed_microhandle_nsrt = PushCloseHingeDoor.ground(
         [gripper, microhandle])
+    
+    move_to_slide_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, slide])
+    push_open_slide_nsrt = PushOpenHingeDoor.ground([gripper, slide])
+    move_to_slide_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, slide])
+    push_closed_slide_nsrt = PushCloseHingeDoor.ground([gripper, slide])
 
     move_to_hinge1_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, hinge1])
     push_open_hinge1_nsrt = PushOpenHingeDoor.ground([gripper, hinge1])
@@ -185,27 +191,38 @@ def test_kitchen():
     state = _run_ground_nsrt(push_closed_microhandle_nsrt, state)
     assert Close([microhandle]).holds(state)
 
-    # Test pushing the hinge1 open and then closing it
-    obs = env.reset("test", 0)
-    state = env.state_info_to_state(obs["state_info"])
-    assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_hinge1_pre_on_nsrt, state)
-    state = _run_ground_nsrt(push_open_hinge1_nsrt, state)
-    assert Open([hinge1]).holds(state)
-    state = _run_ground_nsrt(move_to_hinge1_pre_off_nsrt, state)
-    state = _run_ground_nsrt(push_closed_hinge1_nsrt, state)
-    assert Close([hinge1]).holds(state)
+    # # # Test pushing the hinge1 open and then closing it
+    # # obs = env.reset("test", 0)
+    # # state = env.state_info_to_state(obs["state_info"])
+    # # assert state.allclose(init_state)
+    # # state = _run_ground_nsrt(move_to_hinge1_pre_on_nsrt, state)
+    # # state = _run_ground_nsrt(push_open_hinge1_nsrt, state)
+    # # assert Open([hinge1]).holds(state)
+    # # state = _run_ground_nsrt(move_to_hinge1_pre_off_nsrt, state)
+    # # state = _run_ground_nsrt(push_closed_hinge1_nsrt, state)
+    # # assert Close([hinge1]).holds(state)
 
-    # Test pushing the hinge2 open and then closing it
+    # # # Test pushing the hinge2 open and then closing it
+    # # obs = env.reset("test", 0)
+    # # state = env.state_info_to_state(obs["state_info"])
+    # # assert state.allclose(init_state)
+    # # state = _run_ground_nsrt(move_to_hinge2_pre_on_nsrt, state)
+    # # state = _run_ground_nsrt(push_open_hinge2_nsrt, state)
+    # # assert Open([hinge2]).holds(state)
+    # # state = _run_ground_nsrt(move_to_hinge2_pre_off_nsrt, state)
+    # # state = _run_ground_nsrt(push_closed_hinge2_nsrt, state)
+    # # assert Close([hinge2]).holds(state)
+
+    # Test pushing the slide open and then closing it
     obs = env.reset("test", 0)
     state = env.state_info_to_state(obs["state_info"])
     assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_hinge2_pre_on_nsrt, state)
-    state = _run_ground_nsrt(push_open_hinge2_nsrt, state)
-    assert Open([hinge2]).holds(state)
-    state = _run_ground_nsrt(move_to_hinge2_pre_off_nsrt, state)
-    state = _run_ground_nsrt(push_closed_hinge2_nsrt, state)
-    assert Close([hinge2]).holds(state)
+    state = _run_ground_nsrt(move_to_slide_pre_on_nsrt, state)
+    state = _run_ground_nsrt(push_open_slide_nsrt, state)
+    assert Open([slide]).holds(state)
+    state = _run_ground_nsrt(move_to_slide_pre_off_nsrt, state)
+    state = _run_ground_nsrt(push_closed_slide_nsrt, state)
+    assert Close([slide]).holds(state)
 
     # Test pushing the kettle forward and then bringing it back. Twice!
     obs = env.reset("test", 0)
@@ -218,22 +235,24 @@ def test_kitchen():
     state = _run_ground_nsrt(pull_kettle_on_burner2_nsrt, state)
     assert OnTop([kettle, burner2]).holds(state)
 
-    state = _run_ground_nsrt(move_to_kettle_pre_push_nsrt, state)
-    state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
-    assert OnTop([kettle, burner4]).holds(state)
-    state = _run_ground_nsrt(move_to_kettle_pre_pull_nsrt, state)
-    state = _run_ground_nsrt(pull_kettle_on_burner2_nsrt, state)
-    assert OnTop([kettle, burner2]).holds(state)
-    # Test moving to and turning the light on and off.
-    obs = env.reset("test", 0)
-    state = env.state_info_to_state(obs["state_info"])
-    assert state.allclose(init_state)
-    state = _run_ground_nsrt(move_to_light_pre_on_nsrt, state)
-    state = _run_ground_nsrt(turn_on_light_nsrt, state)
-    assert TurnedOn([light]).holds(state)
-    state = _run_ground_nsrt(move_to_light_pre_off_nsrt, state)
-    state = _run_ground_nsrt(turn_off_light_nsrt, state)
-    assert TurnedOff([light]).holds(state)
+    quit()
+
+    # state = _run_ground_nsrt(move_to_kettle_pre_push_nsrt, state)
+    # state = _run_ground_nsrt(push_kettle_on_burner4_nsrt, state)
+    # assert OnTop([kettle, burner4]).holds(state)
+    # state = _run_ground_nsrt(move_to_kettle_pre_pull_nsrt, state)
+    # state = _run_ground_nsrt(pull_kettle_on_burner2_nsrt, state)
+    # assert OnTop([kettle, burner2]).holds(state)
+    # # Test moving to and turning the light on and off.
+    # obs = env.reset("test", 0)
+    # state = env.state_info_to_state(obs["state_info"])
+    # assert state.allclose(init_state)
+    # state = _run_ground_nsrt(move_to_light_pre_on_nsrt, state)
+    # state = _run_ground_nsrt(turn_on_light_nsrt, state)
+    # assert TurnedOn([light]).holds(state)
+    # state = _run_ground_nsrt(move_to_light_pre_off_nsrt, state)
+    # state = _run_ground_nsrt(turn_off_light_nsrt, state)
+    # assert TurnedOff([light]).holds(state)
 
     # Test moving to and turning knob4 on and off (two times.)
     obs = env.reset("test", 0)

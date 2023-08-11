@@ -348,7 +348,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             del state, goal, objs  # unused
             # Sample a direction to push w.r.t. the y-z plane.
             if CFG.kitchen_use_perfect_samplers:
-                push_angle = 0.0
+                push_angle = - np.pi / 16
             else:
                 push_angle = rng.uniform(-np.pi / 3, np.pi / 3)
             return np.array([push_angle], dtype=np.float32)
@@ -375,13 +375,22 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def push_open_hinge_door_sampler(state: State, goal: Set[GroundAtom],
                                          rng: np.random.Generator,
                                          objs: Sequence[Object]) -> Array:
-            del state, goal, objs  # unused
+            del state, goal  # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
                 # Push slightly inward.
-                push_angle = 9 * np.pi / 8
+                if objs[1].name == "slide":
+                    push_angle = 1 * np.pi / 8
+                elif objs[1].name == "microhandle":
+                    push_angle = 9 * np.pi / 8
+                else:
+                    push_angle = - np.pi / 2
             else:
-                push_angle = rng.uniform(np.pi, 4 * np.pi / 3)
+                if objs[1].name == "slide":
+                    push_angle = rng.uniform(0, np.pi / 6)
+                else:
+                    push_angle = rng.uniform(np.pi, 5 * np.pi / 4)
+                
             return np.array([push_angle], dtype=np.float32)
 
         push_open_hinge_door_nsrt = NSRT("PushOpenHingeDoor", parameters,
@@ -408,13 +417,20 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def push_close_hinge_door_sampler(state: State, goal: Set[GroundAtom],
                                           rng: np.random.Generator,
                                           objs: Sequence[Object]) -> Array:
-            del state, goal, objs  # unused
+            del state, goal # unused
             # Sample a direction to push w.r.t. the x axis.
             if CFG.kitchen_use_perfect_samplers:
                 # Push slightly inward.
-                push_angle = np.pi / 2
+                if objs[1].name == "slide":
+                    push_angle = np.pi
+                else:
+                    push_angle = np.pi / 2
             else:
-                push_angle = rng.uniform(np.pi / 3, 2 * np.pi / 3)
+                if objs[1].name == "slide":
+                    push_angle = rng.uniform(2 * np.pi / 3, 4 * np.pi / 3)
+                else:
+                    push_angle = rng.uniform(np.pi / 3, 2 * np.pi / 3)
+                
             return np.array([push_angle], dtype=np.float32)
 
         push_close_hinge_door_nsrt = NSRT("PushCloseHingeDoor", parameters,
