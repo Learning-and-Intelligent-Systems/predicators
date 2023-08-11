@@ -160,17 +160,24 @@ def run_inference(outcomes, model_params, model_sigma, debug=False):
 def parameterized_model_predict(x, a, b, c, d):
     # https://arxiv.org/pdf/2103.10948.pdf
     # POW3 model
-    # mu = a * (x - d) ** (-b) + c
-    # return 1.0 - np.exp(-mu)
+    mu = a * (x - d) ** (-b) + c
+    return 1.0 - np.exp(-mu)
 
     # Logistic function
-    return a / (1 + np.exp(-b * (x - d))) + c
+    # return a / (1 + np.exp(-b * (x - d))) + c
 
 def get_init_model_params():
+    # Logistic init
+    # a = 1
+    # b = 0.1
+    # c = 0
+    # d = 10
+
     a = 1
-    b = 1
+    b = 0.1
     c = 0
-    d = 10
+    d = 0
+
     sigma = 1
     return (np.array([a, b, c, d]), sigma)
 
@@ -247,9 +254,9 @@ def _make_plots(outcomes, all_model_params, all_map_competences, outfile = "pgma
         timesteps = np.arange(len(observations))
         plt.scatter(timesteps, observations, marker="o", color="red", label="Outcomes")
         # Plot competence progress model.
-        inputs = np.linspace(0, num_trials, 1000)
+        inputs = np.linspace(0, num_trials, 100)
         outputs = parameterized_model_predict(inputs, *model_params)
-        plt.plot(inputs, outputs, color="blue", label="CP Model")
+        plt.plot(inputs, outputs, color="blue", marker="+", label="CP Model")
         lb = outputs - model_sigma
         plt.plot(inputs, lb, color="blue", linestyle="--")
         ub = outputs + model_sigma
@@ -298,3 +305,18 @@ if __name__ == "__main__":
     ]
     mp_out, map_out = run_em(data)
     _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v3.mp4")
+    data = [
+        [False, False, False],
+        [True, False, False, True, False, False, False, False, False],
+        [False, True, True, False, True, False, False, False],
+        [False],
+        [True, True, False, False, True, True],
+        [True, True, False, False, True, True],
+        [True, False, False, True, True, True, False, True, False],
+        [False, True, True, True, False, True, True, True],
+        [True, True, True, False, True],
+        [True, True, True, True, False, True, True, False],
+        [True, True, True, True, True, True, True, False, True],
+    ]
+    mp_out, map_out = run_em(data)
+    _make_plots(data, mp_out, map_out, outfile = "pgmax_script_out_v4.mp4")
