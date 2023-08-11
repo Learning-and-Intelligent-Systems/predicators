@@ -8,6 +8,7 @@ from pgmax import fgraph, fgroup, infer, vgroup
 from scipy.special import logsumexp
 from scipy.stats import bernoulli, beta, norm
 from scipy.optimize import curve_fit
+from predicators import utils
     
 
 
@@ -194,9 +195,36 @@ def run_em(outcomes, num_iters=10):
         map_competences = run_inference(outcomes, model_params, model_sigma)
         for cycle in range(len(outcomes)):
             print(f"[Inference] Competence {cycle}: {map_competences[cycle]}")
-        model_params, model_sigma = run_learning(cum_num_outcomes, map_competences, model_params)
+        model_params, model_sigma = run_learning(cum_num_outcomes, map_competences)
         all_model_params.append((model_params.copy(), model_sigma))
     return all_model_params
+
+###############################################################################
+#                                  Analysis                                   #
+###############################################################################
+
+def _make_plots(outcomes, all_model_params):
+    imgs = []
+    all_num_outcomes = [len(o) for o in outcomes]
+    num_trials = sum(all_num_outcomes)
+    cum_num_outcomes = np.cumsum(all_num_outcomes)
+    for em_iter, model_params in enumerate(all_model_params):
+        fig = plt.figure()
+        plt.title(f"EM Iter {em_iter}")
+        plt.xlabel("Skill Trial")
+        plt.ylabel("Competence / Outcome")
+        plt.xlim((-1, num_trials+1))
+        plt.ylim((-0.25, 1.25))
+        plt.yticks(np.linspace(0.0, 1.0, 5, endpoint=True))
+        # Mark learning cycles.
+        for i, x in enumerate(cum_num_outcomes):
+            label = "Learning Cycle" if i == 0 else None
+            plt.plot((x, x), (-1.1, 2.1), linestyle="--", color="gray", label=label)
+        plt.legend()
+        img = utils.fig2data(fig, dpi=300)
+        imgs.append(img)
+    outfile = "pgmax_script_out.mp4"
+    utils.save_video(outfile, imgs)
 
 
 if __name__ == "__main__":
@@ -208,4 +236,4 @@ if __name__ == "__main__":
         [True, True, False, False, True, True],
         [True, True, True],
     ]
-    all_model_params = run_em(data)
+    _make_plots(data, run_em(data))
