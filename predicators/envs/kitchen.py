@@ -31,7 +31,10 @@ _TRACKED_SITE_TO_JOINT = {
     "knob1_site": "knob_Joint_1",
     "knob2_site": "knob_Joint_2",
     "knob3_site": "knob_Joint_3",
-    "knob4_site": "knob_Joint_4"
+    "knob4_site": "knob_Joint_4",
+    "slide_site": "slide_cabinet",
+    "hinge_site1": "right_hinge_cabinet",
+    "hinge_site2": "left_hinge_cabinet",
 }
 
 _TRACKED_BODIES = ["Burner 1", "Burner 2", "Burner 3", "Burner 4"]
@@ -68,28 +71,32 @@ class KitchenEnv(BaseEnv):
         "burner4": surface_type,
     }
 
-    at_pre_turn_atol = 0.05  # tolerance for AtPreTurnOn/Off
+    at_pre_turn_atol = 0.1  # tolerance for AtPreTurnOn/Off
     ontop_atol = 0.15  # tolerance for OnTop
     on_angle_thresh = -0.4  # dial is On if less than this threshold
     light_on_thresh = -0.39  # light is On if less than this threshold
-    microhandle_open_thresh = -0.68
+    microhandle_open_thresh = -0.65
+    hinge_open_thresh = 0.084
+    cabinet_open_thresh = 0.02
     at_pre_pushontop_yz_atol = 0.1  # tolerance for AtPrePushOnTop
     at_pre_pullontop_yz_atol = 0.04  # tolerance for AtPrePullOnTop
     at_pre_pushontop_x_atol = 1.0  # other tolerance for AtPrePushOnTop
 
     obj_name_to_pre_push_dpos = {
         ("kettle", "on"): (-0.05, -0.3, -0.12),
-        ("kettle", "off"): (0.0, -0.05, 0.06),
+        ("kettle", "off"): (0.0, 0.0, 0.08),
         ("knob4", "on"): (-0.1, -0.15, 0.05),
         ("knob4", "off"): (0.05, -0.12, -0.05),
         ("light", "on"): (0.1, -0.05, -0.05),
         ("light", "off"): (-0.1, -0.05, -0.05),
-        ("microhandle", "on"): (0.12, 0.03, 0.17),
+        ("microhandle", "on"): (0.0, -0.1, 0.13),
         ("microhandle", "off"): (0.0, -0.1, 0.2),
-        ("hinge1", "on"): (0.1, -0.1, 0.0),
-        ("hinge1", "off"): (-0.3, 0.1, 0.0),
+        ("hinge1", "on"): (0.08, -0.02, 0.05),
+        ("hinge1", "off"): (-0.3, 0.0, 0.0),
         ("hinge2", "on"): (0.1, -0.15, 0.0),
         ("hinge2", "off"): (-0.1, -0.1, 0.0),
+        ("slide", "on"): (-0.2, -0.12, 0.0),
+        ("slide", "off"): (0.15, -0.1, 0.0),
     }
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -467,8 +474,12 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         """Made public for use in ground-truth options."""
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            return state.get(obj,
-                             "x") < cls.microhandle_open_thresh - thresh_pad
+            if obj.name in ("hinge1", "hinge2"):
+                return state.get(obj, "angle") > cls.hinge_open_thresh
+            if obj.name == "microhandle":
+                return state.get(
+                    obj, "x") < cls.microhandle_open_thresh - thresh_pad
+            return state.get(obj, "x") > cls.cabinet_open_thresh + thresh_pad
         return False
 
     @classmethod
@@ -480,8 +491,12 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
         # Can't do not Open_holds() because of thresh_pad logic.
         obj = objects[0]
         if obj.is_instance(cls.hinge_door_type):
-            return state.get(obj,
-                             "x") >= cls.microhandle_open_thresh + thresh_pad
+            if obj.name in ("hinge1", "hinge2"):
+                return state.get(obj, "angle") <= cls.hinge_open_thresh
+            if obj.name == "microhandle":
+                return state.get(
+                    obj, "x") >= cls.microhandle_open_thresh + thresh_pad
+            return state.get(obj, "x") <= cls.cabinet_open_thresh - thresh_pad
         return False
 
     def _copy_observation(self, obs: Observation) -> Observation:

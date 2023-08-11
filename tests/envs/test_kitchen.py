@@ -39,13 +39,13 @@ def test_kitchen():
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 10
 
-    AtPrePullKettle, AtPrePushOnTop, AtPreTurnOff, AtPreTurnOn, Close, \
+    AtPrePullKettle, AtPrePushOnTop, AtPreTurnOff, AtPreTurnOn, Closed, \
         NotOnTop, OnTop, Open, TurnedOff, TurnedOn = sorted(env.predicates)
     assert AtPrePullKettle.name == "AtPrePullKettle"
     assert AtPrePushOnTop.name == "AtPrePushOnTop"
     assert AtPreTurnOff.name == "AtPreTurnOff"
     assert AtPreTurnOn.name == "AtPreTurnOn"
-    assert Close.name == "Close"
+    assert Closed.name == "Closed"
     assert NotOnTop.name == "NotOnTop"
     assert OnTop.name == "OnTop"
     assert Open.name == "Open"
@@ -115,6 +115,7 @@ def test_kitchen():
     microhandle = obj_name_to_obj["microhandle"]
     hinge1 = obj_name_to_obj["hinge1"]
     hinge2 = obj_name_to_obj["hinge2"]
+    slide = obj_name_to_obj["slide"]
 
     def _run_ground_nsrt(ground_nsrt,
                          state,
@@ -126,7 +127,7 @@ def test_kitchen():
         if override_params is not None:
             option = option.parent.ground(option.objects, override_params)
         assert option.initiable(state)
-        for _ in range(200):
+        for _ in range(400):
             act = option.policy(state)
             obs = env.step(act)
             state = env.state_info_to_state(obs["state_info"])
@@ -164,6 +165,11 @@ def test_kitchen():
     push_closed_microhandle_nsrt = PushCloseHingeDoor.ground(
         [gripper, microhandle])
 
+    move_to_slide_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, slide])
+    push_open_slide_nsrt = PushOpenHingeDoor.ground([gripper, slide])
+    move_to_slide_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, slide])
+    push_closed_slide_nsrt = PushCloseHingeDoor.ground([gripper, slide])
+
     move_to_hinge1_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, hinge1])
     push_open_hinge1_nsrt = PushOpenHingeDoor.ground([gripper, hinge1])
     move_to_hinge1_pre_off_nsrt = MoveToPreTurnOff.ground([gripper, hinge1])
@@ -183,7 +189,7 @@ def test_kitchen():
     assert Open([microhandle]).holds(state)
     state = _run_ground_nsrt(move_to_microhandle_pre_off_nsrt, state)
     state = _run_ground_nsrt(push_closed_microhandle_nsrt, state)
-    assert Close([microhandle]).holds(state)
+    assert Closed([microhandle]).holds(state)
 
     # Test pushing the hinge1 open and then closing it
     obs = env.reset("test", 0)
@@ -194,7 +200,7 @@ def test_kitchen():
     assert Open([hinge1]).holds(state)
     state = _run_ground_nsrt(move_to_hinge1_pre_off_nsrt, state)
     state = _run_ground_nsrt(push_closed_hinge1_nsrt, state)
-    assert Close([hinge1]).holds(state)
+    assert Closed([hinge1]).holds(state)
 
     # Test pushing the hinge2 open and then closing it
     obs = env.reset("test", 0)
@@ -205,7 +211,18 @@ def test_kitchen():
     assert Open([hinge2]).holds(state)
     state = _run_ground_nsrt(move_to_hinge2_pre_off_nsrt, state)
     state = _run_ground_nsrt(push_closed_hinge2_nsrt, state)
-    assert Close([hinge2]).holds(state)
+    assert Closed([hinge2]).holds(state)
+
+    # Test pushing the slide open and then closing it
+    obs = env.reset("test", 0)
+    state = env.state_info_to_state(obs["state_info"])
+    assert state.allclose(init_state)
+    state = _run_ground_nsrt(move_to_slide_pre_on_nsrt, state)
+    state = _run_ground_nsrt(push_open_slide_nsrt, state)
+    assert Open([slide]).holds(state)
+    state = _run_ground_nsrt(move_to_slide_pre_off_nsrt, state)
+    state = _run_ground_nsrt(push_closed_slide_nsrt, state)
+    assert Closed([slide]).holds(state)
 
     # Test pushing the kettle forward and then bringing it back. Twice!
     obs = env.reset("test", 0)
