@@ -49,7 +49,7 @@ def _quantize2d(fn, start=0.0, end=1.0, num_quants=NUM_QUANTS):
     return unnormed - z
 
 
-def run_inference(outcomes, model_params, model_sigma, debug=False):
+def OLD_run_inference(outcomes, model_params, model_sigma):
 
     num_cycles = len(outcomes)
     all_num_outcomes = [len(o) for o in outcomes]
@@ -153,6 +153,26 @@ def run_inference(outcomes, model_params, model_sigma, debug=False):
     return map_competences
 
 
+def run_inference(outcomes, model_params, _):
+    all_num_outcomes = [len(o) for o in outcomes]
+    cum_num_outcomes = np.cumsum(all_num_outcomes)
+    map_competences = []
+    for cycle_outcomes, cum_num in zip(outcomes, cum_num_outcomes):
+        beta_mu = parameterized_model_predict(cum_num, *model_params)
+        beta_var_scale = 1  # TODO
+        # beta_a / (beta_a + beta_b) = beta_mu
+        # beta_a = beta_mu * beta_a + beta_mu * beta_b
+        # (1 - beta_mu) * beta_a = beta_mu * beta_b
+        # beta_b = (1 - beta_mu) / (beta_mu) * beta_a
+
+        beta_a = beta_var_scale
+        beta_b = (1 - beta_mu) / (beta_mu) * beta_a
+
+        map_comp = utils.beta_bernoulli_posterior(cycle_outcomes, alpha=beta_a, beta=beta_b)
+        map_competences.append(map_comp)
+    return map_competences
+
+
 ###############################################################################
 #                                 Learning                                    #
 ###############################################################################
@@ -224,7 +244,7 @@ def run_em(outcomes, num_iters=10):
             print(f"[Inference] Competence {cycle}: {map_competences[cycle]}")
         model_params, model_sigma = run_learning(cum_num_outcomes, map_competences)
         all_model_params.append((model_params.copy(), model_sigma))
-    map_competences = run_inference(outcomes, model_params, model_sigma, debug=True)
+    map_competences = run_inference(outcomes, model_params, model_sigma)
     all_map_competences.append(map_competences)
     return all_model_params, all_map_competences
 
