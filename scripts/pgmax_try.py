@@ -208,7 +208,7 @@ def _make_plots(outcomes, all_model_params):
     all_num_outcomes = [len(o) for o in outcomes]
     num_trials = sum(all_num_outcomes)
     cum_num_outcomes = np.cumsum(all_num_outcomes)
-    for em_iter, model_params in enumerate(all_model_params):
+    for em_iter, (model_params, model_sigma) in enumerate(all_model_params):
         fig = plt.figure()
         plt.title(f"EM Iter {em_iter}")
         plt.xlabel("Skill Trial")
@@ -220,7 +220,20 @@ def _make_plots(outcomes, all_model_params):
         for i, x in enumerate(cum_num_outcomes):
             label = "Learning Cycle" if i == 0 else None
             plt.plot((x, x), (-1.1, 2.1), linestyle="--", color="gray", label=label)
-        plt.legend()
+        # Plot observation data.
+        observations = [o for co in outcomes for o in co]
+        timesteps = np.arange(len(observations))
+        plt.scatter(timesteps, observations, marker="o", color="red", label="Outcomes")
+        # Plot competence progress model.
+        inputs = np.linspace(0, num_trials, 1000)
+        outputs = parameterized_model_predict(inputs, *model_params)
+        plt.plot(inputs, outputs, color="blue", label="CP Model")
+        lb = outputs - model_sigma
+        plt.plot(inputs, lb, color="blue", linestyle="--")
+        ub = outputs + model_sigma
+        plt.plot(inputs, ub, color="blue", linestyle="--")
+        # Finish figure.
+        plt.legend(loc="lower right", framealpha=1.0)
         img = utils.fig2data(fig, dpi=300)
         imgs.append(img)
     outfile = "pgmax_script_out.mp4"
