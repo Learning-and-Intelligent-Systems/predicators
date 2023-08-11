@@ -9,9 +9,9 @@ import logging
 from collections import OrderedDict
 from numbers import Number
 
-from gym.spaces import Box, Discrete, Tuple
 import numpy as np
 import torch
+from gym.spaces import Box, Discrete, Tuple
 
 
 def elem_or_tuple_to_numpy(elem_or_tuple):

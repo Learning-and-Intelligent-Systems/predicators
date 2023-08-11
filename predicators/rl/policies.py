@@ -9,7 +9,8 @@ import abc
 import torch
 
 from predicators.ml_models import FancyMLP
-from predicators.rl.distribution_generators import DistributionGenerator, Distribution
+from predicators.rl.distribution_generators import Distribution, \
+    DistributionGenerator
 from predicators.rl.distributions import ConcatDistribution, Delta, \
     HierarchicalDistribution, Softmax, TanhNormal
 from predicators.rl.rl_utils import from_numpy, to_numpy
