@@ -98,22 +98,47 @@ def test_competence_model() -> None:
     # TODO convert to longrun? Or make faster...
     utils.reset_config()
 
-    # Test with an impossible skill, i.e., all outcomes are False.
-    competence_model = PowerPGMCompetenceModel("test")
-    assert competence_model.name == "test"
+    # # Test with an impossible skill, i.e., all outcomes are False.
+    # competence_model = PowerPGMCompetenceModel("test-impossible")
+    # assert competence_model.name == "test-impossible"
+    # assert competence_model.num_cycles == 1
+    # initial_competence = competence_model.estimate_current_competence()
+    # assert 0.4 < initial_competence < 0.6
+    # gain = competence_model.predict_competence_gain(1)
+    # assert gain > 0
+    # competence_model.observe(False)
+    # updated_competence = competence_model.estimate_current_competence()
+    # assert updated_competence < initial_competence
+    # for _ in range(10):
+    #     competence_model.observe(False)
+    # competence_model.advance_cycle()
+    # for _ in range(20):
+    #     competence_model.observe(False)
+    # competence_model.advance_cycle()
+    # final_competence = competence_model.estimate_current_competence()
+    # assert final_competence < 0.01
+    # more_gain = competence_model.predict_competence_gain(1)
+    # assert more_gain < initial_competence
+
+    # Test with a perfect skill, i.e., all outcomes are True.
+    competence_model = PowerPGMCompetenceModel("test-perfect")
+    assert competence_model.name == "test-perfect"
     assert competence_model.num_cycles == 1
     initial_competence = competence_model.estimate_current_competence()
     assert 0.4 < initial_competence < 0.6
     gain = competence_model.predict_competence_gain(1)
     assert gain > 0
-    competence_model.observe(False)
+    competence_model.observe(True)
     updated_competence = competence_model.estimate_current_competence()
-    assert updated_competence < initial_competence
+    assert updated_competence > initial_competence
     for _ in range(10):
-        competence_model.observe(False)
+        competence_model.observe(True)
     competence_model.advance_cycle()
     for _ in range(20):
-        competence_model.observe(False)
+        competence_model.observe(True)
     competence_model.advance_cycle()
     final_competence = competence_model.estimate_current_competence()
-    assert final_competence < 1e-2
+    import ipdb; ipdb.set_trace()
+    assert final_competence > 0.99
+    more_gain = competence_model.predict_competence_gain(1)
+    assert more_gain < initial_competence
