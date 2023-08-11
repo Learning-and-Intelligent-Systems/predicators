@@ -79,6 +79,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
 
         Used to construct the dataset for the learner.
         """
+        pass
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Update the dataset with the offline data.
@@ -210,21 +211,23 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 policy_action = eval_policy.get_action(state_vec)[0]
                 curr_option = self._convert_policy_action_to_env_action(policy_action)
     
-            if not curr_option.initiable(state):
-                num_cur_option_steps = 0
-                raise OptionExecutionFailure(
-                    "Unsound option policy.",
-                    info={"last_failed_option": curr_option})
+            # if not curr_option.initiable(state):
+            #     num_cur_option_steps = 0
+            #     raise utils.OptionExecutionFailure(
+            #         "Unsound option policy.",
+            #         info={"last_failed_option": curr_option})
                 
     
-            if CFG.max_num_steps_option_rollout is not None and \
-                num_cur_option_steps >= CFG.max_num_steps_option_rollout:
-                raise OptionTimeoutFailure(
-                    "Exceeded max option steps.",
-                    info={"last_failed_option": curr_option})
+            # if CFG.max_num_steps_option_rollout is not None and \
+            #     num_cur_option_steps >= CFG.max_num_steps_option_rollout:
+            #     raise utils.OptionTimeoutFailure(
+            #         "Exceeded max option steps.",
+            #         info={"last_failed_option": curr_option})
 
             if curr_option.terminal(state):
                 curr_option = None
+
+            return curr_option.policy(state)
 
                 
 
