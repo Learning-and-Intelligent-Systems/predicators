@@ -24,7 +24,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     moveto_tol: ClassVar[float] = 0.01  # for terminating moving
     max_delta_mag: ClassVar[float] = 1.0  # don't move more than this per step
-    max_push_mag: ClassVar[float] = 0.1  # for pushing forward
+    max_push_mag: ClassVar[float] = 0.05  # for pushing forward
     # A reasonable home position for the end effector.
     home_pos: ClassVar[Pose3D] = (0.0, 0.37, 2.1)
     # Keep pushing a bit even if the On classifier holds.
@@ -78,12 +78,19 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             dx, dy, dz = params
             target_pose = (ox + dx, oy + dy, oz + dz)
             # Turn the knobs by pushing from a "forward" position.
+            init_quat = angled_quat
             if obj.is_instance(knob_type):
                 target_quat = fwd_quat
+            elif obj.is_instance(hinge_door_type):
+                if obj.name != "hinge1":
+                    target_quat = fwd_quat
+                elif obj.is_instance(hinge_door_type):
+                    target_quat = angled_quat
             else:
+                init_quat = down_quat
                 target_quat = down_quat
             memory["waypoints"] = [
-                (cls.home_pos, angled_quat),
+                (cls.home_pos, init_quat),
                 (target_pose, target_quat),
             ]
             # Moves away from handle to prevent collision.
@@ -91,6 +98,9 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 memory["waypoints"] = [
                     ((gx - 0.15, gy - 0.15, gz + 0.2), down_quat)
                 ] + memory["waypoints"]
+            if obj.name == "slide":
+                memory["waypoints"] = [(
+                    (gx, gy - 0.15, gz), down_quat)] + memory["waypoints"]
             return True
 
         def _MoveTo_policy(state: State, memory: Dict,
@@ -199,7 +209,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             memory["waypoints"] = [
                 (cls.home_pos, angled_quat),
                 (entry_pose, fwd_quat),
-                (target_pose, fwd_quat),
+                (target_pose, angled_quat),
                 (target_pose, target_quat),
             ]
             return True
@@ -381,7 +391,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 return True
             # Use a more stringent threshold to avoid numerical issues.
             return KitchenEnv.On_holds(state, [obj],
-                                       thresh_pad=cls.push_lr_thresh_pad)
+                                       thresh_pad=cls.turn_knob_tol)
 
         TurnOnKnob = ParameterizedOption(
             "TurnOnKnob",
@@ -418,7 +428,7 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
                 return True
             # Use a more stringent threshold to avoid numerical issues.
             return KitchenEnv.Off_holds(state, [obj],
-                                        thresh_pad=cls.push_lr_thresh_pad)
+                                        thresh_pad=cls.turn_knob_tol)
 
         TurnOffKnob = ParameterizedOption(
             "TurnOffKnob",
@@ -438,9 +448,10 @@ class KitchenGroundTruthOptionFactory(GroundTruthOptionFactory):
             # The parameter is a push direction angle with respect to x.
             push_angle = params[0]
             unit_x, unit_y = np.cos(push_angle), np.sin(push_angle)
-            dx = unit_x * cls.max_push_mag
-            dy = unit_y * cls.max_push_mag
-            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            dx = unit_x * cls.max_push_mag / 2.0
+            dy = unit_y * cls.max_push_mag / 2.0
+            arr = np.array([dx, dy, 0.0, 0.0, 0.0, 0.0, -1.0],
+                           dtype=np.float32)
             return Action(arr)
 
         def _PushOpen_terminal(state: State, memory: Dict,
