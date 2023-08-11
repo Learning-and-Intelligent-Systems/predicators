@@ -56,6 +56,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # successfully reached their effects or not). Updated in-place by the
         # explorer when CFG.explorer is active_sampler_explorer.
         self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
+        # The two lists here track (number of training data, competence)
+        # for each skill after each online learning cycle.
         self._ground_op_competence_data: Dict[_GroundSTRIPSOperator,
                                               Tuple[List[float],
                                                     List[float]]] = {}
