@@ -213,7 +213,7 @@ Install from https://github.com/SiddarGu/Gymnasium-Robotics.git"
             Predicate("TurnedOn", [cls.on_off_type], cls.On_holds),
             Predicate("TurnedOff", [cls.on_off_type], cls.Off_holds),
             Predicate("Open", [cls.on_off_type], cls.Open_holds),
-            Predicate("Close", [cls.on_off_type], cls.Closed_holds),
+            Predicate("Closed", [cls.on_off_type], cls.Closed_holds),
         }
         return {p.name: p for p in preds}
 

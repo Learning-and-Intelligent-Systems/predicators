@@ -60,7 +60,7 @@ class KitchenGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         AtPreTurnOff = predicates["AtPreTurnOff"]
         AtPrePushOnTop = predicates["AtPrePushOnTop"]
         AtPrePullKettle = predicates["AtPrePullKettle"]
-        Close = predicates["Close"]
+        Close = predicates["Closed"]
         TurnedOn = predicates["TurnedOn"]
         TurnedOff = predicates["TurnedOff"]
         OnTop = predicates["OnTop"]

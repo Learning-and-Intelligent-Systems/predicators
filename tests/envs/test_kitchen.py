@@ -39,13 +39,13 @@ def test_kitchen():
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 10
 
-    AtPrePullKettle, AtPrePushOnTop, AtPreTurnOff, AtPreTurnOn, Close, \
+    AtPrePullKettle, AtPrePushOnTop, AtPreTurnOff, AtPreTurnOn, Closed, \
         NotOnTop, OnTop, Open, TurnedOff, TurnedOn = sorted(env.predicates)
     assert AtPrePullKettle.name == "AtPrePullKettle"
     assert AtPrePushOnTop.name == "AtPrePushOnTop"
     assert AtPreTurnOff.name == "AtPreTurnOff"
     assert AtPreTurnOn.name == "AtPreTurnOn"
-    assert Close.name == "Close"
+    assert Closed.name == "Closed"
     assert NotOnTop.name == "NotOnTop"
     assert OnTop.name == "OnTop"
     assert Open.name == "Open"
@@ -189,7 +189,7 @@ def test_kitchen():
     assert Open([microhandle]).holds(state)
     state = _run_ground_nsrt(move_to_microhandle_pre_off_nsrt, state)
     state = _run_ground_nsrt(push_closed_microhandle_nsrt, state)
-    assert Close([microhandle]).holds(state)
+    assert Closed([microhandle]).holds(state)
 
     # Test pushing the hinge1 open and then closing it
     obs = env.reset("test", 0)
@@ -200,7 +200,7 @@ def test_kitchen():
     assert Open([hinge1]).holds(state)
     state = _run_ground_nsrt(move_to_hinge1_pre_off_nsrt, state)
     state = _run_ground_nsrt(push_closed_hinge1_nsrt, state)
-    assert Close([hinge1]).holds(state)
+    assert Closed([hinge1]).holds(state)
 
     # Test pushing the hinge2 open and then closing it
     obs = env.reset("test", 0)
@@ -211,7 +211,7 @@ def test_kitchen():
     assert Open([hinge2]).holds(state)
     state = _run_ground_nsrt(move_to_hinge2_pre_off_nsrt, state)
     state = _run_ground_nsrt(push_closed_hinge2_nsrt, state)
-    assert Close([hinge2]).holds(state)
+    assert Closed([hinge2]).holds(state)
 
     # Test pushing the slide open and then closing it
     obs = env.reset("test", 0)
@@ -222,7 +222,7 @@ def test_kitchen():
     assert Open([slide]).holds(state)
     state = _run_ground_nsrt(move_to_slide_pre_off_nsrt, state)
     state = _run_ground_nsrt(push_closed_slide_nsrt, state)
-    assert Close([slide]).holds(state)
+    assert Closed([slide]).holds(state)
 
     # Test pushing the kettle forward and then bringing it back. Twice!
     obs = env.reset("test", 0)
