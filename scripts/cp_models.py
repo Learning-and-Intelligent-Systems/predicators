@@ -37,15 +37,6 @@ def _run_inference(history: List[List[bool]],
     return map_competences
 
 
-def _get_predict_variances(yhat: NDArray[np.float32], y: NDArray[np.float32]) -> NDArray[np.float32]:
-    # variances = np.subtract(yhat, y)**2
-    # max_variances = yhat * (1 - yhat) - 1e-3
-    # return np.minimum(variances, max_variances)
-    # TODO figure this out!!
-    return np.ones_like(yhat) * 1e-6
-
-
-
 class CompetenceModel(PyTorchRegressor):
 
     def __init__(self,
@@ -100,25 +91,6 @@ class CompetenceModel(PyTorchRegressor):
         return nn.MSELoss()
 
 
-# class BetaLoss(nn.Module):
-#     """Beta distribution loss.
-    
-#     Log likelihood is unstable, so just use MSE on means.
-#     """
-
-#     def __init__(self):
-#         super(BetaLoss, self).__init__()
-
-#     def forward(self, beta_params, targets):
-#         # Clip targets to avoid numerical issues.
-#         targets = torch.clip(targets, 1e-3, 1.0 - 1e-3)
-#         alpha, beta = beta_params
-#         dist = TorchBeta(alpha, beta, validate_args=True)
-#         loss = ((dist.mean - targets)**2).mean()
-#         return loss
-
-
-
 def _run_learning(
         num_data_before_cycle: NDArray[np.float32],
         map_competences: List[float]) -> CompetenceModel:
@@ -126,58 +98,6 @@ def _run_learning(
     model.fit(np.reshape(num_data_before_cycle, (-1, 1)), np.reshape(map_competences, (-1, 1)))
     model.interpret()
     return model
-
-
-def _validate_model_params(theta: NDArray[np.float32]) -> None:
-    theta0, theta1, theta2 = theta
-    assert 0 <= theta0 <= 1
-    assert theta0 <= theta1 <= 1
-    assert theta2 >= 0
-
-
-# def _transform_model_params_to_unconstrain(
-#         theta: NDArray[np.float32]) -> NDArray[np.float32]:
-#     _validate_model_params(theta)
-#     theta0, theta1, theta2 = theta
-#     utheta0 = np.log(theta0) - np.log(1 - theta0)  # logit
-#     utheta1 = np.log(theta1) - np.log(1 - theta1)  # logit / clip
-#     utheta2 = theta2  # will clip
-#     return np.array([utheta0, utheta1, utheta2], dtype=np.float32)
-
-
-# def _invert_transform_model_params(
-#         transformed_theta: NDArray[np.float32]) -> NDArray[np.float32]:
-#     utheta0, utheta1, utheta2 = transformed_theta
-#     theta0 = 1 / (1 + np.exp(-utheta0))  # sigmoid, inverse of logit
-#     theta1 = max(1 / (1 + np.exp(-utheta1)), theta0)  # sigmoid + clip
-#     theta2 = max(0, utheta2)  # clip
-#     theta = np.array([theta0, theta1, theta2], dtype=np.float32)
-#     _validate_model_params(theta)
-#     return theta
-
-
-# def _loss(cp_inputs: NDArray[np.float32], map_competences: List[float],
-#           transformed_model_params: NDArray[np.float32]) -> float:
-#     means = _model_predict_mean(cp_inputs, transformed_model_params)
-#     variances = _get_predict_variances(means, np.array(map_competences))
-#     betas = [_beta_from_mean_and_variance(m, v) for m, v in zip(means, variances)]
-#     nlls = [
-#         -beta_distribution.logpdf(c, a, b).item()
-#         for c, (a, b) in zip(map_competences, betas)
-#     ]
-#     return sum(nlls)
-
-
-# def _model_predict_mean(
-#         x: NDArray[np.float32],
-#         transformed_params: NDArray[np.float32]) -> NDArray[np.float32]:
-#     params = _invert_transform_model_params(transformed_params)
-#     _validate_model_params(params)
-#     theta0, theta1, theta2 = params
-#     out = theta0 + (theta1 - theta0) * (1 - np.exp(-theta2 * x))
-#     assert np.all(out >= 0) and np.all(out <= 1)
-#     out = np.clip(out, 1e-3, 1.0 - 1e-3)
-#     return out
 
 
 def _beta_mean(a: float, b: float) -> float:
@@ -208,34 +128,32 @@ def _get_cp_model_inputs(history: List[List[bool]]) -> NDArray[np.float32]:
 def _run_em(
     history: List[List[bool]],
     num_em_iters: int = 10
-) -> Tuple[List[NDArray[np.float32]], List[Tuple[float, float]], List[float]]:
+) -> Tuple[List[CompetenceModel], List[Tuple[float, float]], List[float]]:
     num_cycles = len(history)
     cp_inputs = _get_cp_model_inputs(history)
     # Initialize betas with uniform distribution.
     betas = [(1.0, 1.0) for _ in range(num_cycles)]
     all_map_competences = []
-    all_model_params = []
+    all_models = []
     all_betas = []
     for it in range(num_em_iters):
         print(f"Starting EM cycle {it}")
         # Run inference.
         map_competences = _run_inference(history, betas)
-        print("TODO TEMP OVERRIDE")
-        map_competences = [1e-3 for _ in map_competences]
         print("MAP competences:", map_competences)
         all_map_competences.append(map_competences)
         # Run learning.
-        model_params, variances = _run_learning(cp_inputs, map_competences)
-        print("Model params:", model_params)
-        print("Model variances:", variances)
-        all_model_params.append(model_params)
+        model = _run_learning(cp_inputs, map_competences)
+        model.interpret()
+        all_models.append(model)
         # Update betas by evaluating the model.
-        means = _model_predict_mean(cp_inputs, _transform_model_params_to_unconstrain(model_params))
-        betas = [_beta_from_mean_and_variance(m, v) for m, v in zip(means, variances)]
+        means = [model.predict(np.array([x]))[0] for x in cp_inputs]
+        variance = 0.1  # TODO
+        betas = [_beta_from_mean_and_variance(m, variance) for m in means]
         print("Betas:", betas)
         print("Beta means:", [a / (a + b) for a, b in betas])
         all_betas.append(betas)
-    return all_model_params, all_betas, all_map_competences
+    return all_models, all_betas, all_map_competences
 
 
 def _make_plots(history: List[List[bool]], all_betas: List[Tuple[float,
@@ -327,30 +245,6 @@ def _test_inference() -> None:
     assert map_competences[0] > map_competences[1]
     
 
-
-# def _test_loss() -> None:
-
-#     cp_inputs = np.array([0, 3, 10, 12])
-#     map_competences = [1e-3, 1e-3, 1e-3, 1e-3]
-#     good_model_params = np.array([1e-3, 1e-2, 1.0])
-#     worse_model_params = np.array([1e-3, 0.99, 1.0])
-#     u_good = _transform_model_params_to_unconstrain(good_model_params)
-#     u_worse = _transform_model_params_to_unconstrain(worse_model_params)
-#     good_loss = _loss(cp_inputs, map_competences, u_good)
-#     worse_loss = _loss(cp_inputs, map_competences, u_worse)
-#     assert good_loss < worse_loss
-
-#     cp_inputs = np.array([0, 3, 10, 12])
-#     map_competences = [0.999, 0.999, 0.999, 0.999]
-#     good_model_params = np.array([0.99, 0.999, 1.0])
-#     worse_model_params = np.array([1e-3, 0.99, 1.0])
-#     u_good = _transform_model_params_to_unconstrain(good_model_params)
-#     u_worse = _transform_model_params_to_unconstrain(worse_model_params)
-#     good_loss = _loss(cp_inputs, map_competences, u_good)
-#     worse_loss = _loss(cp_inputs, map_competences, u_worse)
-#     assert good_loss < worse_loss
-
-
 def _test_run_learning():
 
     cp_inputs = np.array([0, 3, 10, 12], dtype=np.float32)
@@ -375,21 +269,20 @@ def _test_run_learning():
 def _main():
 
     # _test_inference()
-    # _test_loss()
-    _test_run_learning()
+    # _test_run_learning()
 
 
-    # history = [
-    #     [False, False, False, False, False],
-    #     [False, False, False, False],
-    #     [False, False, False, False, False, False, False],
-    #     [False, False],
-    # ]
-    # _, all_betas, all_map_competences = _run_em(history)
-    # _make_plots(history,
-    #             all_betas,
-    #             all_map_competences,
-    #             outfile=Path("cp_model_all_false.mp4"))
+    history = [
+        [False, False, False, False, False],
+        [False, False, False, False],
+        [False, False, False, False, False, False, False],
+        [False, False],
+    ]
+    _, all_betas, all_map_competences = _run_em(history)
+    _make_plots(history,
+                all_betas,
+                all_map_competences,
+                outfile=Path("cp_model_all_false.mp4"))
 
     # history = [
     #     [True, True, True, True, True],
