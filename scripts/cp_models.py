@@ -153,7 +153,8 @@ def _run_em(
         variance = 0.1  # TODO
         betas = [_beta_from_mean_and_variance(m, variance) for m in means]
         print("Betas:", betas)
-        print("Beta means:", [a / (a + b) for a, b in betas])
+        print("Beta means:", [_beta_mean(a, b) for a, b in betas])
+        print("Beta variances:", [_beta_variance(a, b) for a, b in betas])
         all_betas.append(betas)
     return all_models, all_betas, all_map_competences
 
