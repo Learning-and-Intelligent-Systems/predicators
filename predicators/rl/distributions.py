@@ -20,6 +20,7 @@ import predicators.rl.rl_utils as rtu
 
 
 class Distribution(TorchDistribution):
+
     def sample_and_logprob(self):
         s = self.sample()
         log_p = self.log_prob(s)
@@ -38,6 +39,7 @@ class Distribution(TorchDistribution):
 
 
 class TorchDistributionWrapper(Distribution):
+
     def __init__(self, distribution: TorchDistribution):
         self.distribution = distribution
 
@@ -99,6 +101,7 @@ class TorchDistributionWrapper(Distribution):
 
 class Delta(Distribution):
     """A deterministic distribution."""
+
     def __init__(self, value):
         self.value = value
 
@@ -122,35 +125,42 @@ class Delta(Distribution):
 
 
 class Bernoulli(Distribution, TorchBernoulli):
+
     def get_diagnostics(self):
         stats = OrderedDict()
-        stats.update(create_stats_ordered_dict(
-            'probability',
-            rtu.to_numpy(self.probs),
-        ))
+        stats.update(
+            create_stats_ordered_dict(
+                'probability',
+                rtu.to_numpy(self.probs),
+            ))
         return stats
 
 
 class Independent(Distribution, TorchIndependent):
+
     def get_diagnostics(self):
         return self.base_dist.get_diagnostics()
 
 
 class Beta(Distribution, TorchBeta):
+
     def get_diagnostics(self):
         stats = OrderedDict()
-        stats.update(create_stats_ordered_dict(
-            'alpha',
-            rtu.to_numpy(self.concentration0),
-        ))
-        stats.update(create_stats_ordered_dict(
-            'beta',
-            rtu.to_numpy(self.concentration1),
-        ))
-        stats.update(create_stats_ordered_dict(
-            'entropy',
-            rtu.to_numpy(self.entropy()),
-        ))
+        stats.update(
+            create_stats_ordered_dict(
+                'alpha',
+                rtu.to_numpy(self.concentration0),
+            ))
+        stats.update(
+            create_stats_ordered_dict(
+                'beta',
+                rtu.to_numpy(self.concentration1),
+            ))
+        stats.update(
+            create_stats_ordered_dict(
+                'entropy',
+                rtu.to_numpy(self.entropy()),
+            ))
         return stats
 
 
@@ -165,15 +175,17 @@ class MultivariateDiagonalNormal(TorchDistributionWrapper):
 
     def get_diagnostics(self):
         stats = OrderedDict()
-        stats.update(create_stats_ordered_dict(
-            'mean',
-            rtu.to_numpy(self.mean),
-            # exclude_max_min=True,
-        ))
-        stats.update(create_stats_ordered_dict(
-            'std',
-            rtu.to_numpy(self.distribution.stddev),
-        ))
+        stats.update(
+            create_stats_ordered_dict(
+                'mean',
+                rtu.to_numpy(self.mean),
+                # exclude_max_min=True,
+            ))
+        stats.update(
+            create_stats_ordered_dict(
+                'std',
+                rtu.to_numpy(self.distribution.stddev),
+            ))
         return stats
 
     def __repr__(self):
@@ -185,7 +197,9 @@ class MultivariateDiagonalNormal(TorchDistributionWrapper):
 def _kl_mv_diag_normal_mv_diag_normal(p, q):
     return kl_divergence(p.distribution, q.distribution)
 
+
 # Independent RV KL handling - https://github.com/pytorch/pytorch/issues/13545
+
 
 @torch.distributions.kl.register_kl(TorchIndependent, TorchIndependent)
 def _kl_independent_independent(p, q):
@@ -194,18 +208,29 @@ def _kl_independent_independent(p, q):
     result = kl_divergence(p.base_dist, q.base_dist)
     return _sum_rightmost(result, p.reinterpreted_batch_ndims)
 
+
 class GaussianMixture(Distribution):
+
     def __init__(self, normal_means, normal_stds, weights):
         self.num_gaussians = weights.shape[1]
         self.normal_means = normal_means
         self.normal_stds = normal_stds
         self.normal = MultivariateDiagonalNormal(normal_means, normal_stds)
-        self.normals = [MultivariateDiagonalNormal(normal_means[:, :, i], normal_stds[:, :, i]) for i in range(self.num_gaussians)]
+        self.normals = [
+            MultivariateDiagonalNormal(normal_means[:, :, i], normal_stds[:, :,
+                                                                          i])
+            for i in range(self.num_gaussians)
+        ]
         self.weights = weights
         self.categorical = OneHotCategorical(self.weights[:, :, 0])
 
-    def log_prob(self, value, ):
-        log_p = [self.normals[i].log_prob(value) for i in range(self.num_gaussians)]
+    def log_prob(
+        self,
+        value,
+    ):
+        log_p = [
+            self.normals[i].log_prob(value) for i in range(self.num_gaussians)
+        ]
         log_p = torch.stack(log_p, -1)
         log_p = log_p.sum(dim=1)
         log_weights = torch.log(self.weights[:, :, 0])
@@ -221,14 +246,9 @@ class GaussianMixture(Distribution):
         return torch.squeeze(s, 2)
 
     def rsample(self):
-        z = (
-                self.normal_means +
-                self.normal_stds *
-                MultivariateDiagonalNormal(
-                    rtu.zeros(self.normal_means.size()),
-                    rtu.ones(self.normal_stds.size())
-                ).sample()
-        )
+        z = (self.normal_means + self.normal_stds * MultivariateDiagonalNormal(
+            rtu.zeros(self.normal_means.size()),
+            rtu.ones(self.normal_stds.size())).sample())
         z.requires_grad_()
         c = self.categorical.sample()[:, :, None]
         s = torch.matmul(z, c)
@@ -241,7 +261,7 @@ class GaussianMixture(Distribution):
         always.
         """
         c = rtu.zeros(self.weights.shape[:2])
-        ind = torch.argmax(self.weights, dim=1) # [:, 0]
+        ind = torch.argmax(self.weights, dim=1)  # [:, 0]
         c.scatter_(1, ind, 1)
         s = torch.matmul(self.normal_means, c[:, :, None])
         return torch.squeeze(s, 2)
@@ -255,23 +275,35 @@ epsilon = 0.001
 
 
 class GaussianMixtureFull(Distribution):
+
     def __init__(self, normal_means, normal_stds, weights):
         self.num_gaussians = weights.shape[-1]
         self.normal_means = normal_means
         self.normal_stds = normal_stds
         self.normal = MultivariateDiagonalNormal(normal_means, normal_stds)
-        self.normals = [MultivariateDiagonalNormal(normal_means[:, :, i], normal_stds[:, :, i]) for i in range(self.num_gaussians)]
+        self.normals = [
+            MultivariateDiagonalNormal(normal_means[:, :, i], normal_stds[:, :,
+                                                                          i])
+            for i in range(self.num_gaussians)
+        ]
         self.weights = (weights + epsilon) / (1 + epsilon * self.num_gaussians)
         assert (self.weights > 0).all()
         self.categorical = Categorical(self.weights)
 
-    def log_prob(self, value, ):
-        log_p = [self.normals[i].log_prob(value) for i in range(self.num_gaussians)]
+    def log_prob(
+        self,
+        value,
+    ):
+        log_p = [
+            self.normals[i].log_prob(value) for i in range(self.num_gaussians)
+        ]
         log_p = torch.stack(log_p, -1)
         log_weights = torch.log(self.weights)
         lp = log_weights + log_p
-        m = lp.max(dim=2, keepdim=True)[0]  # log-sum-exp numerical stability trick
-        log_p_mixture = m + torch.log(torch.exp(lp - m).sum(dim=2, keepdim=True))
+        m = lp.max(dim=2,
+                   keepdim=True)[0]  # log-sum-exp numerical stability trick
+        log_p_mixture = m + torch.log(
+            torch.exp(lp - m).sum(dim=2, keepdim=True))
         raise NotImplementedError("from Vitchyr: idk what the point is of "
                                   "this class, so I didn't bother updating "
                                   "this, but log_prob should return something "
@@ -288,14 +320,9 @@ class GaussianMixtureFull(Distribution):
         return s[:, :, 0]
 
     def rsample(self):
-        z = (
-                self.normal_means +
-                self.normal_stds *
-                MultivariateDiagonalNormal(
-                    rtu.zeros(self.normal_means.size()),
-                    rtu.ones(self.normal_stds.size())
-                ).sample()
-        )
+        z = (self.normal_means + self.normal_stds * MultivariateDiagonalNormal(
+            rtu.zeros(self.normal_means.size()),
+            rtu.ones(self.normal_stds.size())).sample())
         z.requires_grad_()
         c = self.categorical.sample()[:, :, None]
         s = torch.gather(z, dim=2, index=c)
@@ -321,6 +348,7 @@ class TanhNormal(Distribution):
 
     Note: this is not very numerically stable.
     """
+
     def __init__(self, normal_mean, normal_std, epsilon=1e-6, prefix=''):
         """
         :param normal_mean: Mean of the normal distribution
@@ -363,29 +391,23 @@ class TanhNormal(Distribution):
         :return:
         """
         log_prob = self.normal.log_prob(pre_tanh_value)
-        correction = - 2. * (
-            rtu.from_numpy(np.log([2.]))
-            - pre_tanh_value
-            - torch.nn.functional.softplus(-2. * pre_tanh_value)
-        ).sum(dim=-1)
+        correction = -2. * (
+            rtu.from_numpy(np.log([2.])) - pre_tanh_value -
+            torch.nn.functional.softplus(-2. * pre_tanh_value)).sum(dim=-1)
         return log_prob + correction
 
     def log_prob(self, value, pre_tanh_value=None):
         if pre_tanh_value is None:
             # errors or instability at values near 1
             value = torch.clamp(value, -0.999999, 0.999999)
-            pre_tanh_value = torch.log(1+value) / 2 - torch.log(1-value) / 2
+            pre_tanh_value = torch.log(1 + value) / 2 - torch.log(1 -
+                                                                  value) / 2
         return self._log_prob_from_pre_tanh(pre_tanh_value)
 
     def rsample_with_pretanh(self):
-        z = (
-                self.normal_mean +
-                self.normal_std *
-                MultivariateDiagonalNormal(
-                    rtu.zeros(self.normal_mean.size()),
-                    rtu.ones(self.normal_std.size())
-                ).sample()
-        )
+        z = (self.normal_mean + self.normal_std * MultivariateDiagonalNormal(
+            rtu.zeros(self.normal_mean.size()), rtu.ones(
+                self.normal_std.size())).sample())
         return torch.tanh(z), z
 
     def sample(self):
@@ -417,34 +439,33 @@ class TanhNormal(Distribution):
     def mean(self):
         return torch.tanh(self.normal_mean)
 
-    def get_diagnostics(self):
-        stats = OrderedDict()
-        stats.update(create_stats_ordered_dict(
-            'normal{}/mean'.format(self.prefix),
-            rtu.to_numpy(self.mean),
-        ))
-        stats.update(create_stats_ordered_dict(
-            'normal{}/std'.format(self.prefix),
-            rtu.to_numpy(self.normal_std),
-            exclude_max_min=False,
-        ))
-        stats.update(create_stats_ordered_dict(
-            'normal{}/log_std'.format(self.prefix),
-            rtu.to_numpy(torch.log(self.normal_std)),
-        ))
-        return stats
+    # def get_diagnostics(self):
+    #     stats = OrderedDict()
+    #     stats.update(create_stats_ordered_dict(
+    #         'normal{}/mean'.format(self.prefix),
+    #         rtu.to_numpy(self.mean),
+    #     ))
+    #     stats.update(create_stats_ordered_dict(
+    #         'normal{}/std'.format(self.prefix),
+    #         rtu.to_numpy(self.normal_std),
+    #         exclude_max_min=False,
+    #     ))
+    #     stats.update(create_stats_ordered_dict(
+    #         'normal{}/log_std'.format(self.prefix),
+    #         rtu.to_numpy(torch.log(self.normal_std)),
+    #     ))
+    #     return stats
 
     def get_actions_and_logprobs(self):
         value, log_p = self.rsample_and_logprob()
         bs, action_dim = value.shape[0], value.shape[-1]
         expansion_factor = 1
-        return (
-            expansion_factor,
-            value.reshape((bs, -1, action_dim)),
-            log_p.reshape((bs, -1))
-        )
+        return (expansion_factor, value.reshape(
+            (bs, -1, action_dim)), log_p.reshape((bs, -1)))
+
 
 class Softmax(Distribution):
+
     def __init__(self, logits, one_hot=False, prefix=''):
         self.logits = logits
         self.check_logits()
@@ -452,8 +473,7 @@ class Softmax(Distribution):
         self.one_hot = one_hot
         if one_hot:
             self.distr = torch.distributions.one_hot_categorical.OneHotCategorical(
-                logits=self.logits,
-            )
+                logits=self.logits, )
         else:
             self.distr = torch.distributions.relaxed_categorical.RelaxedOneHotCategorical(
                 temperature=rtu.ones(1),
@@ -533,35 +553,36 @@ class Softmax(Distribution):
     def mean(self):
         assert self.logits.dim() == 2
         max_idx = torch.argmax(self.logits, dim=1)
-        one_hot = torch.nn.functional.one_hot(max_idx, num_classes=self.logits.shape[1])
+        one_hot = torch.nn.functional.one_hot(max_idx,
+                                              num_classes=self.logits.shape[1])
         return one_hot
 
-    def get_diagnostics(self):
-        stats = OrderedDict()
-        logits_np = rtu.to_numpy(self.logits)
-        stats.update(create_stats_ordered_dict(
-            'softmax{}/logit'.format(self.prefix),
-            logits_np,
-            exclude_max_min=False,
-        ))
-        stats.update(create_stats_ordered_dict(
-            'softmax{}/logit_std'.format(self.prefix),
-            np.std(logits_np, axis=1),
-        ))
-        stats.update(create_stats_ordered_dict(
-            'softmax{}/logit_range'.format(self.prefix),
-            np.max(logits_np, axis=1) - np.min(logits_np, axis=1),
-        ))
+    # def get_diagnostics(self):
+    #     stats = OrderedDict()
+    #     logits_np = rtu.to_numpy(self.logits)
+    #     stats.update(create_stats_ordered_dict(
+    #         'softmax{}/logit'.format(self.prefix),
+    #         logits_np,
+    #         exclude_max_min=False,
+    #     ))
+    #     stats.update(create_stats_ordered_dict(
+    #         'softmax{}/logit_std'.format(self.prefix),
+    #         np.std(logits_np, axis=1),
+    #     ))
+    #     stats.update(create_stats_ordered_dict(
+    #         'softmax{}/logit_range'.format(self.prefix),
+    #         np.max(logits_np, axis=1) - np.min(logits_np, axis=1),
+    #     ))
 
-        logits_sorted_np = np.sort(logits_np, axis=1)
-        logits_sorted_np -= np.min(logits_np, axis=1).reshape((-1, 1))
-        for i in range(logits_sorted_np.shape[1]):
-            stats.update(create_stats_ordered_dict(
-                'softmax{}/logit_{}'.format(self.prefix, i),
-                logits_sorted_np[:,i],
-            ))
+    #     logits_sorted_np = np.sort(logits_np, axis=1)
+    #     logits_sorted_np -= np.min(logits_np, axis=1).reshape((-1, 1))
+    #     for i in range(logits_sorted_np.shape[1]):
+    #         stats.update(create_stats_ordered_dict(
+    #             'softmax{}/logit_{}'.format(self.prefix, i),
+    #             logits_sorted_np[:,i],
+    #         ))
 
-        return stats
+    #     return stats
 
     def get_actions_and_logprobs(self):
         if self.one_hot:
@@ -579,13 +600,12 @@ class Softmax(Distribution):
             bs, action_dim = value.shape[0], value.shape[-1]
             expansion_factor = 1
 
-        return (
-            expansion_factor,
-            value.reshape((bs, -1, action_dim)),
-            log_p.reshape((bs, -1))
-        )
+        return (expansion_factor, value.reshape(
+            (bs, -1, action_dim)), log_p.reshape((bs, -1)))
+
 
 class HybridDistribution(Distribution):
+
     def __init__(self, rev_order):
         super().__init__()
 
@@ -601,11 +621,7 @@ class HybridDistribution(Distribution):
         for i in range(len(tensor_list)):
             tensor = tensor_list[i]
             if interleave:
-                tensor = torch.repeat_interleave(
-                    tensor,
-                    expand_factor,
-                    dim=1
-                )
+                tensor = torch.repeat_interleave(tensor, expand_factor, dim=1)
             else:
                 repeat_dims = [1] * tensor.dim()
                 repeat_dims[1] = expand_factor
@@ -613,7 +629,9 @@ class HybridDistribution(Distribution):
             tensor_list[i] = tensor
         return tensor_list
 
+
 class ConcatDistribution(HybridDistribution):
+
     def __init__(self, distr1, distr2, rev_order=False):
         super().__init__(rev_order=rev_order)
 
@@ -647,18 +665,32 @@ class ConcatDistribution(HybridDistribution):
         value2, *log_p2 = self.distr2.sample_and_logprob()
         value = self.concat_values(value1, value2)
         if self.rev_order:
-            return value, *log_p2, *log_p1
-        else:
-            return value, *log_p1, *log_p2
+            return (
+                value,
+                *log_p2,
+                *log_p1,
+            )
+        return (
+            value,
+            *log_p1,
+            *log_p2,
+        )
 
     def rsample_and_logprob(self):
         value1, *log_p1 = self.distr1.rsample_and_logprob()
         value2, *log_p2 = self.distr2.rsample_and_logprob()
         value = self.concat_values(value1, value2)
         if self.rev_order:
-            return value, *log_p2, *log_p1
-        else:
-            return value, *log_p1, *log_p2
+            return (
+                value,
+                *log_p2,
+                *log_p1,
+            )
+        return (
+            value,
+            *log_p1,
+            *log_p2,
+        )
 
     @property
     def mean(self):
@@ -674,12 +706,12 @@ class ConcatDistribution(HybridDistribution):
         ef1, value1, *log_p1 = self.distr1.get_actions_and_logprobs()
         ef2, value2, *log_p2 = self.distr2.get_actions_and_logprobs()
 
-        value1, *log_p1 =  self.expand_tensors(
+        value1, *log_p1 = self.expand_tensors(
             tensor_list=[value1, *log_p1],
             expand_factor=ef2,
             interleave=(not self.rev_order),
         )
-        value2, *log_p2 =  self.expand_tensors(
+        value2, *log_p2 = self.expand_tensors(
             tensor_list=[value2, *log_p2],
             expand_factor=ef1,
             interleave=self.rev_order,
@@ -688,18 +720,31 @@ class ConcatDistribution(HybridDistribution):
         value = self.concat_values(value1, value2)
         ef = ef1 * ef2
         if self.rev_order:
-            return ef, value, *log_p2, *log_p1
-        else:
-            return ef, value, *log_p1, *log_p2
+            return (
+                ef,
+                value,
+                *log_p2,
+                *log_p1,
+            )
+        return (
+            ef,
+            value,
+            *log_p1,
+            *log_p2,
+        )
+
 
 class DistributionList(Distribution):
+
     def __init__(self, distr1, distr2, rev_order=False):
         super().__init__(rev_order=rev_order)
 
         self.distr1 = distr1
         self.distr2 = distr2
 
+
 class HierarchicalDistribution(HybridDistribution):
+
     def __init__(self, distr1, distr2_cond_fn, rev_order=False):
         super().__init__(rev_order=rev_order)
 
@@ -740,9 +785,16 @@ class HierarchicalDistribution(HybridDistribution):
         value2, *log_p2 = distr2.sample_and_logprob()
         value = self.concat_values(value1, value2)
         if self.rev_order:
-            return value, *log_p2, *log_p1
-        else:
-            return value, *log_p1, *log_p2
+            return (
+                value,
+                *log_p2,
+                *log_p1,
+            )
+        return (
+            value,
+            *log_p1,
+            *log_p2,
+        )
 
     def rsample_and_logprob(self):
         value1, *log_p1 = self.distr1.rsample_and_logprob()
@@ -751,9 +803,16 @@ class HierarchicalDistribution(HybridDistribution):
         value2, *log_p2 = distr2.rsample_and_logprob()
         value = self.concat_values(value1, value2)
         if self.rev_order:
-            return value, *log_p2, *log_p1
-        else:
-            return value, *log_p1, *log_p2
+            return (
+                value,
+                *log_p2,
+                *log_p1,
+            )
+        return (
+            value,
+            *log_p1,
+            *log_p2,
+        )
 
     @property
     def mean(self):
@@ -775,12 +834,12 @@ class HierarchicalDistribution(HybridDistribution):
         distr2 = self.distr2_cond_fn(value1)
         ef2, value2, *log_p2 = distr2.get_actions_and_logprobs()
 
-        value1, *log_p1 =  self.expand_tensors(
+        value1, *log_p1 = self.expand_tensors(
             tensor_list=[value1, *log_p1],
             expand_factor=ef2,
             interleave=True,
         )
-        value2, *log_p2 =  self.expand_tensors(
+        value2, *log_p2 = self.expand_tensors(
             tensor_list=[value2, *log_p2],
             expand_factor=1,
             interleave=False,
@@ -788,12 +847,22 @@ class HierarchicalDistribution(HybridDistribution):
         value = self.concat_values(value1, value2)
         ef = ef1 * ef2
         if self.rev_order:
-            return ef, value, *log_p2, *log_p1
-        else:
-            return ef, value, *log_p1, *log_p2
+            return (
+                ef,
+                value,
+                *log_p2,
+                *log_p1,
+            )
+        return (
+            ef,
+            value,
+            *log_p1,
+            *log_p2,
+        )
 
 
 class DistributionConcatValue(HybridDistribution):
+
     def __init__(self, value_fixed, distr, rev_order=False):
         super().__init__(rev_order=rev_order)
 
@@ -823,12 +892,18 @@ class DistributionConcatValue(HybridDistribution):
     def sample_and_logprob(self):
         value_distr, *log_p = self.distr.sample_and_logprob()
         value = self.concat_values(self.value_fixed, value_distr)
-        return value, *log_p
+        return (
+            value,
+            *log_p,
+        )
 
     def rsample_and_logprob(self):
         value_distr, *log_p = self.distr.rsample_and_logprob()
         value = self.concat_values(self.value_fixed, value_distr)
-        return value, *log_p
+        return (
+            value,
+            *log_p,
+        )
 
     @property
     def mean(self):
@@ -852,4 +927,8 @@ class DistributionConcatValue(HybridDistribution):
         )[0]
 
         value = self.concat_values(value_fixed, value_distr)
-        return ef, value, *log_p
+        return (
+            ef,
+            value,
+            *log_p,
+        )

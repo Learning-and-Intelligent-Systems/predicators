@@ -21,10 +21,12 @@ LOG_SIG_MIN = -20
 
 
 class TorchStochasticPolicy():
+
     def get_action(self, obs_np, return_dist=False):
         info = {}
         if return_dist:
-            actions, dist = self.get_actions(obs_np[None], return_dist=return_dist)
+            actions, dist = self.get_actions(obs_np[None],
+                                             return_dist=return_dist)
             info['dist'] = dist
         else:
             actions = self.get_actions(obs_np[None], return_dist=return_dist)
@@ -45,9 +47,10 @@ class TorchStochasticPolicy():
 
 
 class MakeDeterministic(TorchStochasticPolicy):
+
     def __init__(
-            self,
-            action_distribution_generator: DistributionGenerator,
+        self,
+        action_distribution_generator: DistributionGenerator,
     ):
         super().__init__()
         self._action_distribution_generator = action_distribution_generator
@@ -58,13 +61,14 @@ class MakeDeterministic(TorchStochasticPolicy):
 
 
 class PAMDPPolicy(torch.nn.Module, TorchStochasticPolicy):
+
     def __init__(
-            self,
-            hidden_sizes,
-            obs_dim,
-            action_dim_s,
-            action_dim_p,
-            one_hot_s,
+        self,
+        hidden_sizes,
+        obs_dim,
+        action_dim_s,
+        action_dim_p,
+        one_hot_s,
     ):
         super().__init__()
 
@@ -84,10 +88,9 @@ class PAMDPPolicy(torch.nn.Module, TorchStochasticPolicy):
             prefix_c='param',
         )
 
-        self.policy = HierarchicalPolicy(
-            task_policy, param_policy,
-            policy1_obs_dim=obs_dim
-        )
+        self.policy = HierarchicalPolicy(task_policy,
+                                         param_policy,
+                                         policy1_obs_dim=obs_dim)
 
         self.obs_dim = obs_dim
         self.action_dim_s = action_dim_s
@@ -98,13 +101,10 @@ class PAMDPPolicy(torch.nn.Module, TorchStochasticPolicy):
     def forward(self, obs):
         return self.policy(obs)
 
+
 class ConcatPolicy(torch.nn.Module, TorchStochasticPolicy):
-    def __init__(
-            self,
-            policy1,
-            policy2,
-            policy1_obs_dim
-    ):
+
+    def __init__(self, policy1, policy2, policy1_obs_dim):
         super().__init__()
 
         self.policy1 = policy1
@@ -114,11 +114,13 @@ class ConcatPolicy(torch.nn.Module, TorchStochasticPolicy):
 
     def forward(self, obs):
         return ConcatDistribution(
-            distr1=self.policy1(obs[:,-self.policy1_obs_dim:]),
+            distr1=self.policy1(obs[:, -self.policy1_obs_dim:]),
             distr2=self.policy2(obs),
         )
 
+
 class HierarchicalPolicy(torch.nn.Module, TorchStochasticPolicy):
+
     def __init__(self, policy1, policy2, policy1_obs_dim):
         super().__init__()
 
@@ -142,28 +144,26 @@ class HierarchicalPolicy(torch.nn.Module, TorchStochasticPolicy):
                 return self.policy2(torch.cat([obs_for_p, inputs], dim=-1))
 
         return HierarchicalDistribution(
-            distr1=self.policy1(obs[:,-self.policy1_obs_dim:]),
+            distr1=self.policy1(obs[:, -self.policy1_obs_dim:]),
             distr2_cond_fn=distr2_cond_fn,
         )
 
+
 class CategoricalPolicy(FancyMLP, TorchStochasticPolicy):
-    def __init__(
-            self,
-            hidden_sizes,
-            obs_dim,
-            action_dim,
-            prefix='',
-            init_w=1e-3,
-            one_hot=False,
-            **kwargs
-    ):
-        super().__init__(
-            hidden_sizes,
-            input_size=obs_dim,
-            output_size=action_dim,
-            init_w=init_w,
-            **kwargs
-        )
+
+    def __init__(self,
+                 hidden_sizes,
+                 obs_dim,
+                 action_dim,
+                 prefix='',
+                 init_w=1e-3,
+                 one_hot=False,
+                 **kwargs):
+        super().__init__(hidden_sizes,
+                         input_size=obs_dim,
+                         output_size=action_dim,
+                         init_w=init_w,
+                         **kwargs)
 
         self.prefix = prefix
         self.one_hot = one_hot
@@ -186,13 +186,13 @@ class ParallelHybridPolicy(torch.nn.Module, TorchStochasticPolicy):
     """
 
     def __init__(
-            self,
-            hidden_sizes,
-            obs_dim,
-            num_networks,
-            action_dim_c,
-            prefix_c='',
-            init_w=1e-3,
+        self,
+        hidden_sizes,
+        obs_dim,
+        num_networks,
+        action_dim_c,
+        prefix_c='',
+        init_w=1e-3,
     ):
         super().__init__()
 
@@ -200,7 +200,7 @@ class ParallelHybridPolicy(torch.nn.Module, TorchStochasticPolicy):
         self.num_networks = num_networks
 
         mlp_list = []
-        output_size = 2*action_dim_c
+        output_size = 2 * action_dim_c
         for i in range(num_networks):
             mlp = FancyMLP(
                 hidden_sizes,

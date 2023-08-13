@@ -22,6 +22,7 @@ from predicators.rl.distributions import Independent, \
 
 
 class MultiInputSequential(nn.Sequential):
+
     def forward(self, *input):
         for module in self._modules.values():
             if isinstance(input, tuple):
@@ -32,25 +33,26 @@ class MultiInputSequential(nn.Sequential):
 
 
 class DistributionGenerator(nn.Module, metaclass=abc.ABCMeta):
+
     def forward(self, *input, **kwarg) -> Distribution:
         raise NotImplementedError
 
 
-class ModuleToDistributionGenerator(
-    MultiInputSequential,
-    DistributionGenerator,
-    metaclass=abc.ABCMeta
-):
+class ModuleToDistributionGenerator(MultiInputSequential,
+                                    DistributionGenerator,
+                                    metaclass=abc.ABCMeta):
     pass
 
 
 class Beta(ModuleToDistributionGenerator):
+
     def forward(self, *input):
         alpha, beta = super().forward(*input)
         return Beta(alpha, beta)
 
 
 class Gaussian(ModuleToDistributionGenerator):
+
     def __init__(self, module, std=None, reinterpreted_batch_ndims=1):
         super().__init__(module)
         self.std = std
@@ -64,16 +66,20 @@ class Gaussian(ModuleToDistributionGenerator):
             mean, log_std = super().forward(*input)
             std = log_std.exp()
         return MultivariateDiagonalNormal(
-            mean, std, reinterpreted_batch_ndims=self.reinterpreted_batch_ndims)
+            mean,
+            std,
+            reinterpreted_batch_ndims=self.reinterpreted_batch_ndims)
 
 
 class BernoulliGenerator(ModuleToDistributionGenerator):
+
     def forward(self, *input):
         probs = super().forward(*input)
         return Bernoulli(probs)
 
 
 class IndependentGenerator(ModuleToDistributionGenerator):
+
     def __init__(self, *args, reinterpreted_batch_ndims=1):
         super().__init__(*args)
         self.reinterpreted_batch_ndims = reinterpreted_batch_ndims
@@ -87,18 +93,23 @@ class IndependentGenerator(ModuleToDistributionGenerator):
 
 
 class GaussianMixture(ModuleToDistributionGenerator):
+
     def forward(self, *input):
         mixture_means, mixture_stds, weights = super().forward(*input)
-        return GaussianMixtureDistribution(mixture_means, mixture_stds, weights)
+        return GaussianMixtureDistribution(mixture_means, mixture_stds,
+                                           weights)
 
 
 class GaussianMixtureFull(ModuleToDistributionGenerator):
+
     def forward(self, *input):
         mixture_means, mixture_stds, weights = super().forward(*input)
-        return GaussianMixtureFullDistribution(mixture_means, mixture_stds, weights)
+        return GaussianMixtureFullDistribution(mixture_means, mixture_stds,
+                                               weights)
 
 
 class TanhGaussian(ModuleToDistributionGenerator):
+
     def forward(self, *input):
         mean, log_std = super().forward(*input)
         std = log_std.exp()

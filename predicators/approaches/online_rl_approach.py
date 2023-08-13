@@ -31,6 +31,7 @@ from predicators.structs import NSRT, Action, Array, Dataset, GroundAtom, \
 class OnlineRLApproach(OnlineNSRTLearningApproach):
     """Performs online reinforcement learning to learn both how to plan and how
     to sample."""
+
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
@@ -47,7 +48,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # Construct all information necessary to setup, train and eval
         # RL models.
         curr_env = get_or_create_env(CFG.env)
-        # NOTE: we assume for this simple approach that the number of objects doesn't 
+        # NOTE: we assume for this simple approach that the number of objects doesn't
         # change when we change the task (i.e, all train tasks and test tasks have the
         # same objects).
         # TODO: This currently only works if the observation is secretly a State. We probably
@@ -61,7 +62,8 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # action spaces. This can't happen until the first round of NSRT learning is called.
         # Thus, for now, we will set these to be None.
         self._discrete_actions_size = None
-        self._continuous_actions_size = max(opt.params_space.shape[0] for opt in self._initial_options)
+        self._continuous_actions_size = max(opt.params_space.shape[0]
+                                            for opt in self._initial_options)
         self._learned_policy = None
         self._qf1 = None
         self._qf2 = None
@@ -75,26 +77,23 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
 
         # Seed torch.
         torch.manual_seed(self._seed)
-        
 
     @classmethod
     def get_name(cls) -> str:
         return "online_rl"
-    
 
     def get_reward(self, segment: Segment) -> float:
         """Given transition data, returns the corresponding reward value.
 
         Used to construct the dataset for the learner.
         """
-        # For now, just check if the goal atoms are a subset of 
+        # For now, just check if the goal atoms are a subset of
         # the segment's final atoms.
         # TODO: we'll likely need a more dense and fine-grained reward
         # function.
         if self._goal_atoms.issubset(segment.final_atoms):
             return 1.0
         return 0.0
-
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Update the dataset with the offline data.
@@ -119,35 +118,52 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             # Additionally, we can now setup the precise ground NSRTs list,
             # the learned policy, the q-function networks, the model trainer,
             # and the replay buffer.
-            self._sorted_ground_nsrts = ground_nsrts    
+            self._sorted_ground_nsrts = ground_nsrts
             # TODO: not really sure what the 'one_hot_s' setting is about...
             # Also, not really sure about setting all the additional policy_kwargs
             # that the robosuite_launcher script in the original codebase sets.
-            self._learned_policy = PAMDPPolicy(obs_dim=self._observation_size, action_dim_s=self._discrete_actions_size, action_dim_p=self._continuous_actions_size, one_hot_s=True, hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,)
+            self._learned_policy = PAMDPPolicy(
+                obs_dim=self._observation_size,
+                action_dim_s=self._discrete_actions_size,
+                action_dim_p=self._continuous_actions_size,
+                one_hot_s=True,
+                hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,
+            )
             self._qf1 = ConcatMLP(
-                input_size=self._observation_size + self._discrete_actions_size + self._continuous_actions_size,
+                input_size=self._observation_size +
+                self._discrete_actions_size + self._continuous_actions_size,
                 output_size=1,
                 hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,
             )
             self._qf2 = ConcatMLP(
-                input_size=self._observation_size + self._discrete_actions_size + self._continuous_actions_size,
+                input_size=self._observation_size +
+                self._discrete_actions_size + self._continuous_actions_size,
                 output_size=1,
                 hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,
             )
             self._target_qf1 = ConcatMLP(
-                input_size=self._observation_size + self._discrete_actions_size + self._continuous_actions_size,
+                input_size=self._observation_size +
+                self._discrete_actions_size + self._continuous_actions_size,
                 output_size=1,
                 hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,
             )
             self._target_qf2 = ConcatMLP(
-                input_size=self._observation_size + self._discrete_actions_size + self._continuous_actions_size,
+                input_size=self._observation_size +
+                self._discrete_actions_size + self._continuous_actions_size,
                 output_size=1,
                 hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,
             )
-            self._trainer_function = SACHybridTrainer(env_action_space=curr_env.action_space, policy=self._learned_policy, qf1=self._qf1, qf2=self._qf2, target_qf1=self._target_qf1, target_qf2=self._target_qf2)
-            self._replay_buffer = EnvReplayBuffer(CFG.online_rl_max_replay_buffer_size, self._observation_size, self._discrete_actions_size + self._continuous_actions_size)
+            self._trainer_function = SACHybridTrainer(
+                env_action_space=curr_env.action_space,
+                policy=self._learned_policy,
+                qf1=self._qf1,
+                qf2=self._qf2,
+                target_qf1=self._target_qf1,
+                target_qf2=self._target_qf2)
+            self._replay_buffer = EnvReplayBuffer(
+                CFG.online_rl_max_replay_buffer_size, self._observation_size,
+                self._discrete_actions_size + self._continuous_actions_size)
 
-    
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         # Add the new data to the cumulative dataset.
@@ -159,8 +175,8 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         if self._dataset.has_annotations:
             annotations = self._dataset.annotations  # pragma: no cover
         super()._learn_nsrts(self._dataset.trajectories,
-                          self._online_learning_cycle,
-                          annotations=annotations)
+                             self._online_learning_cycle,
+                             annotations=annotations)
         # Check the assumption that operators and options are 1:1.
         # This is just an implementation convenience.
         assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
@@ -182,15 +198,19 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 discrete_action = np.zeros(self._discrete_actions_size)
                 discrete_action[self._ground_nsrt_to_idx[ground_nsrt]] = 1.0
                 continuous_action = np.zeros(self._continuous_actions_size)
-                continuous_action[:len(segment.get_option().params)] = np.array(segment.get_option().params)
-                maple_action = np.concatenate((discrete_action, continuous_action), axis=0)
+                continuous_action[:len(segment.get_option(
+                ).params)] = np.array(segment.get_option().params)
+                maple_action = np.concatenate(
+                    (discrete_action, continuous_action), axis=0)
                 reward = self.get_reward(segment)
                 terminal = 0.0
                 # TODO: this current implementation of the terminal function is bad and a HACK that won't work
                 # if we change the reward function.
                 if reward == 1.0:
                     terminal = 1.0
-                self._replay_buffer.add_sample(init_maple_state, maple_action, reward, terminal, final_maple_state)
+                self._replay_buffer.add_sample(init_maple_state, maple_action,
+                                               reward, terminal,
+                                               final_maple_state)
 
         # Call training on data from the updated replay buffer.
         self._train()
@@ -198,7 +218,6 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # Advance the online learning cycle.
         self._online_learning_cycle += 1
 
-    
     def _create_explorer(self) -> BaseExplorer:
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
@@ -214,22 +233,27 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             self._get_current_nsrts(),
             self._option_model,
             max_steps_before_termination=max_steps,
-            ground_nsrts = self._sorted_ground_nsrts,
-            exploration_policy = MakeDeterministic(self._learned_policy),
-            observations_size = self._observation_size,
-            discrete_actions_size = self._discrete_actions_size,
-            continuous_actions_size = self._continuous_actions_size)
+            ground_nsrts=self._sorted_ground_nsrts,
+            exploration_policy=MakeDeterministic(self._learned_policy),
+            observations_size=self._observation_size,
+            discrete_actions_size=self._discrete_actions_size,
+            continuous_actions_size=self._continuous_actions_size)
         return explorer
-
 
     def _train(self) -> None:
         for i in range(CFG.online_rl_num_trains_per_train_loop):
-            np_batch = self._replay_buffer.random_batch(2) # CFG.online_rl_batch_size
+            np_batch = self._replay_buffer.random_batch(
+                2)  # CFG.online_rl_batch_size
             torch_batch = np_to_pytorch_batch(np_batch)
             self._trainer_function.train_from_torch(torch_batch)
-            logging.info(f"Training iter: {i}/{CFG.online_rl_num_trains_per_train_loop}")
-
+            logging.info(
+                f"Training iter: {i}/{CFG.online_rl_num_trains_per_train_loop}"
+            )
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         eval_policy = MakeDeterministic(self._learned_policy)
-        return make_executable_maple_policy(eval_policy, self._sorted_ground_nsrts, self._observation_size, self._discrete_actions_size, self._continuous_actions_size)
+        return make_executable_maple_policy(eval_policy,
+                                            self._sorted_ground_nsrts,
+                                            self._observation_size,
+                                            self._discrete_actions_size,
+                                            self._continuous_actions_size)

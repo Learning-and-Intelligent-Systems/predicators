@@ -47,9 +47,8 @@ def activation_from_string(string):
 
 def soft_update_from_to(source, target, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
-        target_param.data.copy_(
-            target_param.data * (1.0 - tau) + param.data * tau
-        )
+        target_param.data.copy_(target_param.data * (1.0 - tau) +
+                                param.data * tau)
 
 
 def copy_model_params_from_to(source, target):
@@ -75,31 +74,29 @@ def kronecker_product(t1, t2):
 
     # TODO(vitchyr): see if you can use expand instead of repeat
     tiled_t2 = t2.repeat(t1_height, t1_width)
-    expanded_t1 = (
-        t1.unsqueeze(2)
-            .unsqueeze(3)
-            .repeat(1, t2_height, t2_width, 1)
-            .view(out_height, out_width)
-    )
+    expanded_t1 = (t1.unsqueeze(2).unsqueeze(3).repeat(
+        1, t2_height, t2_width, 1).view(out_height, out_width))
 
     return expanded_t1 * tiled_t2
 
 
 def alpha_dropout(
-        x,
-        p=0.05,
-        alpha=-1.7580993408473766,
-        fixedPointMean=0,
-        fixedPointVar=1,
-        training=False,
+    x,
+    p=0.05,
+    alpha=-1.7580993408473766,
+    fixedPointMean=0,
+    fixedPointVar=1,
+    training=False,
 ):
     keep_prob = 1 - p
     if keep_prob == 1 or not training:
         return x
-    a = np.sqrt(fixedPointVar / (keep_prob * (
-            (1 - keep_prob) * pow(alpha - fixedPointMean, 2) + fixedPointVar)))
-    b = fixedPointMean - a * (
-            keep_prob * fixedPointMean + (1 - keep_prob) * alpha)
+    a = np.sqrt(
+        fixedPointVar /
+        (keep_prob *
+         ((1 - keep_prob) * pow(alpha - fixedPointMean, 2) + fixedPointVar)))
+    b = fixedPointMean - a * (keep_prob * fixedPointMean +
+                              (1 - keep_prob) * alpha)
     keep_prob = 1 - p
 
     random_tensor = keep_prob + torch.rand(x.size())
@@ -135,10 +132,8 @@ def double_moments(x, y):
     x = x.unsqueeze(2)
     y = y.unsqueeze(1)
 
-    outer_prod = (
-            x.expand(batch_size, x_dim, y_dim) * y.expand(batch_size, x_dim,
-                                                          y_dim)
-    )
+    outer_prod = (x.expand(batch_size, x_dim, y_dim) *
+                  y.expand(batch_size, x_dim, y_dim))
     return outer_prod.view(batch_size, -1)
 
 
@@ -218,12 +213,18 @@ def compute_conv_layer_sizes(h_in, w_in, kernel_sizes, strides, paddings=None):
             print('Output Size:', (h_in, w_in))
     else:
         for kernel, stride, padding in zip(kernel_sizes, strides, paddings):
-            h_in, w_in = compute_conv_output_size(h_in, w_in, kernel, stride,
+            h_in, w_in = compute_conv_output_size(h_in,
+                                                  w_in,
+                                                  kernel,
+                                                  stride,
                                                   padding=padding)
             print('Output Size:', (h_in, w_in))
 
 
-def compute_deconv_layer_sizes(h_in, w_in, kernel_sizes, strides,
+def compute_deconv_layer_sizes(h_in,
+                               w_in,
+                               kernel_sizes,
+                               strides,
                                paddings=None):
     if paddings == None:
         for kernel, stride in zip(kernel_sizes, strides):
@@ -231,7 +232,10 @@ def compute_deconv_layer_sizes(h_in, w_in, kernel_sizes, strides,
             print('Output Size:', (h_in, w_in))
     else:
         for kernel, stride, padding in zip(kernel_sizes, strides, paddings):
-            h_in, w_in = compute_deconv_output_size(h_in, w_in, kernel, stride,
+            h_in, w_in = compute_deconv_output_size(h_in,
+                                                    w_in,
+                                                    kernel,
+                                                    stride,
                                                     padding=padding)
             print('Output Size:', (h_in, w_in))
 
@@ -372,23 +376,17 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
 
         :param path: Dict like one outputted by maple.samplers.util.rollout
         """
-        for i, (
-                obs,
-                action,
-                reward,
-                next_obs,
-                terminal,
-                agent_info,
-                env_info
-        ) in enumerate(zip(
-            path["observations"],
-            path["actions"],
-            path["rewards"],
-            path["next_observations"],
-            path["terminals"],
-            path["agent_infos"],
-            path["env_infos"],
-        )):
+        for i, (obs, action, reward, next_obs, terminal, agent_info,
+                env_info) in enumerate(
+                    zip(
+                        path["observations"],
+                        path["actions"],
+                        path["rewards"],
+                        path["next_observations"],
+                        path["terminals"],
+                        path["agent_infos"],
+                        path["env_infos"],
+                    )):
             self.add_sample(
                 observation=obs,
                 action=action,
@@ -431,12 +429,13 @@ class SimpleReplayBuffer(ReplayBuffer):
         observation_dim,
         action_dim,
         env_info_sizes,
-        replace = True,
+        replace=True,
     ):
         self._observation_dim = observation_dim
         self._action_dim = action_dim
         self._max_replay_buffer_size = max_replay_buffer_size
-        self._observations = np.zeros((max_replay_buffer_size, observation_dim))
+        self._observations = np.zeros(
+            (max_replay_buffer_size, observation_dim))
         # It's a bit memory inefficient to save the observations twice,
         # but it makes the code *much* easier since you no longer have to
         # worry about termination conditions.
@@ -480,9 +479,14 @@ class SimpleReplayBuffer(ReplayBuffer):
             self._size += 1
 
     def random_batch(self, batch_size):
-        indices = np.random.choice(self._size, size=batch_size, replace=self._replace or self._size < batch_size)
+        indices = np.random.choice(self._size,
+                                   size=batch_size,
+                                   replace=self._replace
+                                   or self._size < batch_size)
         if not self._replace and self._size < batch_size:
-            logging.warning('Replace was set to false, but is temporarily set to true because batch size is larger than current size of replay.')
+            logging.warning(
+                'Replace was set to false, but is temporarily set to true because batch size is larger than current size of replay.'
+            )
         batch = dict(
             observations=self._observations[indices],
             actions=self._actions[indices],
@@ -496,10 +500,7 @@ class SimpleReplayBuffer(ReplayBuffer):
         return batch
 
     def rebuild_env_info_dict(self, idx):
-        return {
-            key: self._env_infos[key][idx]
-            for key in self._env_info_keys
-        }
+        return {key: self._env_infos[key][idx] for key in self._env_info_keys}
 
     def batch_env_info_dict(self, indices):
         return {
@@ -511,49 +512,42 @@ class SimpleReplayBuffer(ReplayBuffer):
         return self._size
 
     def get_diagnostics(self):
-        return OrderedDict([
-            ('size', self._size)
-        ])
+        return OrderedDict([('size', self._size)])
 
 
 class EnvReplayBuffer(SimpleReplayBuffer):
-    def __init__(
-            self,
-            max_replay_buffer_size,
-            ob_space_size,
-            action_space_size,
-            env_info_sizes=dict()
-    ):
+
+    def __init__(self,
+                 max_replay_buffer_size,
+                 ob_space_size,
+                 action_space_size,
+                 env_info_sizes=dict()):
         """
         :param max_replay_buffer_size:
         :param env:
         """
-        super().__init__(
-            max_replay_buffer_size=max_replay_buffer_size,
-            observation_dim=ob_space_size,
-            action_dim=action_space_size,
-            env_info_sizes=env_info_sizes
-        )
+        super().__init__(max_replay_buffer_size=max_replay_buffer_size,
+                         observation_dim=ob_space_size,
+                         action_dim=action_space_size,
+                         env_info_sizes=env_info_sizes)
 
     def add_sample(self, observation, action, reward, terminal,
                    next_observation, **kwargs):
-        return super().add_sample(
-            observation=observation,
-            action=action,
-            reward=reward,
-            next_observation=next_observation,
-            terminal=terminal,
-            env_info={},
-            **kwargs
-        )
+        return super().add_sample(observation=observation,
+                                  action=action,
+                                  reward=reward,
+                                  next_observation=next_observation,
+                                  terminal=terminal,
+                                  env_info={},
+                                  **kwargs)
 
 
 def create_stats_ordered_dict(
-        name,
-        data,
-        stat_prefix=None,
-        always_show_all_stats=True,
-        exclude_max_min=True,
+    name,
+    data,
+    stat_prefix=None,
+    always_show_all_stats=True,
+    exclude_max_min=True,
 ):
     if stat_prefix is not None:
         name = "{}{}".format(stat_prefix, name)
@@ -595,7 +589,9 @@ def create_stats_ordered_dict(
     return stats
 
 
-def convert_policy_action_to_ground_option(policy_action: Array, ground_nsrts: List[_GroundNSRT], discrete_actions_size: int, continuous_actions_size: int) -> _Option:
+def convert_policy_action_to_ground_option(
+        policy_action: Array, ground_nsrts: List[_GroundNSRT],
+        discrete_actions_size: int, continuous_actions_size: int) -> _Option:
     """Converts an action (in the form of a vector) output by a HybridSACAgent
     into an _Option that can be executed in the actual environment.
 
@@ -603,19 +599,27 @@ def convert_policy_action_to_ground_option(policy_action: Array, ground_nsrts: L
     so that indexing it with the output from policy_action will work
     correctly.
     """
-    assert policy_action.shape[0] == discrete_actions_size + continuous_actions_size
+    assert policy_action.shape[
+        0] == discrete_actions_size + continuous_actions_size
     # Discrete actions output should be 0 everywhere except for one place.
     discrete_actions_output = policy_action[:discrete_actions_size]
     discrete_action_idx = np.argmax(discrete_actions_output)
     assert discrete_actions_output[discrete_action_idx] == 1.0
     ground_nsrt = ground_nsrts[discrete_action_idx]
     continuous_params_output = policy_action[-continuous_actions_size:]
-    continuous_params_for_option = continuous_params_output[:ground_nsrt.option.params_space.shape[0]]
+    continuous_params_for_option = continuous_params_output[:ground_nsrt.option
+                                                            .params_space.
+                                                            shape[0]]
     # Clip these continuous params to ensure they're within the bounds of the
     # parameter space.
-    continuous_params_for_option = np.clip(continuous_params_for_option, ground_nsrt.option.params_space.low, ground_nsrt.option.params_space.high)
-    logging.debug(f"[RL] Running {ground_nsrt} with clipped params {continuous_params_for_option}")
-    output_ground_option = ground_nsrt.option.ground(ground_nsrt.option_objs, continuous_params_for_option)
+    continuous_params_for_option = np.clip(
+        continuous_params_for_option, ground_nsrt.option.params_space.low,
+        ground_nsrt.option.params_space.high)
+    logging.debug(
+        f"[RL] Running {ground_nsrt} with clipped params {continuous_params_for_option}"
+    )
+    output_ground_option = ground_nsrt.option.ground(
+        ground_nsrt.option_objs, continuous_params_for_option)
     return output_ground_option
 
 
@@ -642,7 +646,10 @@ def env_state_to_maple_input(state: State) -> Array:
     return state.vec(sorted(list(state)))
 
 
-def make_executable_maple_policy(policy, ground_nsrts: List[_GroundNSRT], observation_size: int, discrete_actions_size: int, continuous_actions_size: int) -> Callable[[State], Action]:
+def make_executable_maple_policy(
+        policy, ground_nsrts: List[_GroundNSRT], observation_size: int,
+        discrete_actions_size: int,
+        continuous_actions_size: int) -> Callable[[State], Action]:
     curr_option = None
     num_curr_option_steps = 0
 
@@ -657,14 +664,16 @@ def make_executable_maple_policy(policy, ground_nsrts: List[_GroundNSRT], observ
             assert state_vec.shape[0] == observation_size
             num_curr_option_steps = 0
             policy_action = policy.get_action(state_vec)[0]
-            curr_option = convert_policy_action_to_ground_option(policy_action, ground_nsrts, discrete_actions_size, continuous_actions_size)
+            curr_option = convert_policy_action_to_ground_option(
+                policy_action, ground_nsrts, discrete_actions_size,
+                continuous_actions_size)
 
         if not curr_option.initiable(state):
             num_curr_option_steps = 0
             raise utils.OptionExecutionFailure(
                 "Unsound option policy.",
                 info={"last_failed_option": curr_option})
-            
+
         if CFG.max_num_steps_option_rollout is not None and \
             num_curr_option_steps >= CFG.max_num_steps_option_rollout:
             raise utils.OptionTimeoutFailure(

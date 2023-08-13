@@ -23,31 +23,29 @@ SACLosses = namedtuple(
     'policy_loss qf1_loss qf2_loss alpha_loss',
 )
 
+
 class SACTrainer:
+
     def __init__(
-            self,
-            env_action_space,
-            policy,
-            qf1,
-            qf2,
-            target_qf1,
-            target_qf2,
-
-            discount=0.99,
-            reward_scale=1.0,
-
-            policy_lr=1e-3,
-            qf_lr=1e-3,
-            optimizer_class=optim.Adam,
-
-            soft_target_tau=1e-2,
-            target_update_period=1,
-            plotter=None,
-            render_eval_paths=False,
-
-            use_automatic_entropy_tuning=True,
-            target_entropy=None,
-            target_entropy_config=None,
+        self,
+        env_action_space,
+        policy,
+        qf1,
+        qf2,
+        target_qf1,
+        target_qf2,
+        discount=0.99,
+        reward_scale=1.0,
+        policy_lr=1e-3,
+        qf_lr=1e-3,
+        optimizer_class=optim.Adam,
+        soft_target_tau=1e-2,
+        target_update_period=1,
+        plotter=None,
+        render_eval_paths=False,
+        use_automatic_entropy_tuning=True,
+        target_entropy=None,
+        target_entropy_config=None,
     ):
         super().__init__()
         self.env_action_space = env_action_space
@@ -74,8 +72,7 @@ class SACTrainer:
                 self.target_entropy = target_entropy
 
             self.target_entropy_config.update(dict(
-                later=self.target_entropy,
-            ))
+                later=self.target_entropy, ))
 
             self.log_alpha = rtu.zeros(1, requires_grad=True)
             self.alpha_optimizer = optimizer_class(
@@ -148,12 +145,10 @@ class SACTrainer:
             self.update_target_networks()
 
     def update_target_networks(self):
-        rtu.soft_update_from_to(
-            self.qf1, self.target_qf1, self.soft_target_tau
-        )
-        rtu.soft_update_from_to(
-            self.qf2, self.target_qf2, self.soft_target_tau
-        )
+        rtu.soft_update_from_to(self.qf1, self.target_qf1,
+                                self.soft_target_tau)
+        rtu.soft_update_from_to(self.qf2, self.target_qf2,
+                                self.soft_target_tau)
 
     def compute_loss(
         self,
@@ -165,7 +160,6 @@ class SACTrainer:
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
-
         """
         Policy and Alpha Loss
         """
@@ -173,7 +167,8 @@ class SACTrainer:
         new_obs_actions, log_pi = dist.rsample_and_logprob()
         log_pi = log_pi.unsqueeze(-1)
         if self.use_automatic_entropy_tuning:
-            alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
+            alpha_loss = -(self.log_alpha *
+                           (log_pi + self.target_entropy).detach()).mean()
             alpha = self.log_alpha.exp()
         else:
             alpha_loss = 0
@@ -183,8 +178,7 @@ class SACTrainer:
             self.qf1(obs, new_obs_actions),
             self.qf2(obs, new_obs_actions),
         )
-        policy_loss = (alpha*log_pi - q_new_actions).mean()
-
+        policy_loss = (alpha * log_pi - q_new_actions).mean()
         """
         QF Loss
         """
@@ -198,10 +192,10 @@ class SACTrainer:
             self.target_qf2(next_obs, new_next_actions),
         ) - alpha * new_log_pi
 
-        q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
+        q_target = self.reward_scale * rewards + (
+            1. - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
-
         """
         Save some statistics for eval
         """
@@ -209,26 +203,29 @@ class SACTrainer:
         if not skip_statistics:
             eval_statistics['QF1 Loss'] = np.mean(rtu.to_numpy(qf1_loss))
             eval_statistics['QF2 Loss'] = np.mean(rtu.to_numpy(qf2_loss))
-            eval_statistics['Policy Loss'] = np.mean(rtu.to_numpy(
-                policy_loss
-            ))
-            eval_statistics.update(rtu.rtu.create_stats_ordered_dict(
-                'Q1 Predictions',
-                rtu.to_numpy(q1_pred),
-            ))
-            eval_statistics.update(rtu.rtu.create_stats_ordered_dict(
-                'Q2 Predictions',
-                rtu.to_numpy(q2_pred),
-            ))
-            eval_statistics.update(rtu.rtu.create_stats_ordered_dict(
-                'Q Targets',
-                rtu.to_numpy(q_target),
-            ))
-            eval_statistics.update(rtu.rtu.create_stats_ordered_dict(
-                'Log Pis',
-                rtu.to_numpy(log_pi),
-            ))
-            policy_statistics = rtu.add_prefix(dist.get_diagnostics(), "policy/")
+            eval_statistics['Policy Loss'] = np.mean(rtu.to_numpy(policy_loss))
+            eval_statistics.update(
+                rtu.rtu.create_stats_ordered_dict(
+                    'Q1 Predictions',
+                    rtu.to_numpy(q1_pred),
+                ))
+            eval_statistics.update(
+                rtu.rtu.create_stats_ordered_dict(
+                    'Q2 Predictions',
+                    rtu.to_numpy(q2_pred),
+                ))
+            eval_statistics.update(
+                rtu.rtu.create_stats_ordered_dict(
+                    'Q Targets',
+                    rtu.to_numpy(q_target),
+                ))
+            eval_statistics.update(
+                rtu.rtu.create_stats_ordered_dict(
+                    'Log Pis',
+                    rtu.to_numpy(log_pi),
+                ))
+            policy_statistics = rtu.add_prefix(dist.get_diagnostics(),
+                                               "policy/")
             eval_statistics.update(policy_statistics)
             if self.use_automatic_entropy_tuning:
                 eval_statistics['Alpha'] = alpha.item()
@@ -297,44 +294,66 @@ SACHybridLosses = namedtuple(
     'policy_loss qf1_loss qf2_loss alpha_s_loss alpha_p_loss',
 )
 
+
 class SACHybridTrainer(SACTrainer):
+
     def __init__(
-            self,
-            env_action_space,
-            policy,
-            qf1,
-            qf2,
-            target_qf1,
-            target_qf2,
-            discount=0.99,
-            reward_scale=1.0,
-            policy_lr=1e-3,
-            qf_lr=1e-3,
-            optimizer_class=optim.Adam,
-            soft_target_tau=1e-2,
-            target_update_period=1,
-            plotter=None,
-            render_eval_paths=False,
-            use_automatic_entropy_tuning=True,
-            target_entropy=None,
-            target_entropy_s=None,
-            target_entropy_p=None,
-            target_entropy_config=None,
+        self,
+        env_action_space,
+        policy,
+        qf1,
+        qf2,
+        target_qf1,
+        target_qf2,
+        discount=0.99,
+        reward_scale=1.0,
+        policy_lr=1e-3,
+        qf_lr=1e-3,
+        optimizer_class=optim.Adam,
+        soft_target_tau=1e-2,
+        target_update_period=1,
+        plotter=None,
+        render_eval_paths=False,
+        use_automatic_entropy_tuning=True,
+        target_entropy=None,
+        target_entropy_s=None,
+        target_entropy_p=None,
+        target_entropy_config=None,
     ):
-        super().__init__(env_action_space=env_action_space, policy=policy, qf1=qf1, qf2=qf2, target_qf1=target_qf1, target_qf2=target_qf2, discount=discount, reward_scale=reward_scale, policy_lr=policy_lr, qf_lr=qf_lr, optimizer_class=optimizer_class, soft_target_tau=soft_target_tau, target_update_period=target_update_period, plotter=plotter, render_eval_paths=render_eval_paths, use_automatic_entropy_tuning=use_automatic_entropy_tuning, target_entropy=target_entropy, target_entropy_config=target_entropy_config)
+        super().__init__(
+            env_action_space=env_action_space,
+            policy=policy,
+            qf1=qf1,
+            qf2=qf2,
+            target_qf1=target_qf1,
+            target_qf2=target_qf2,
+            discount=discount,
+            reward_scale=reward_scale,
+            policy_lr=policy_lr,
+            qf_lr=qf_lr,
+            optimizer_class=optimizer_class,
+            soft_target_tau=soft_target_tau,
+            target_update_period=target_update_period,
+            plotter=plotter,
+            render_eval_paths=render_eval_paths,
+            use_automatic_entropy_tuning=use_automatic_entropy_tuning,
+            target_entropy=target_entropy,
+            target_entropy_config=target_entropy_config)
         if target_entropy_config is None:
             self.target_entropy_config = {}
         else:
             self.target_entropy_config = target_entropy_config
 
         if self.use_automatic_entropy_tuning:
-            one_hot_factor = self.target_entropy_config.get('one_hot_factor', 0.75)
+            one_hot_factor = self.target_entropy_config.get(
+                'one_hot_factor', 0.75)
 
             if target_entropy_s is not None:
                 self.target_entropy_s = target_entropy_s
             else:
                 if self.one_hot_s:
-                    self.target_entropy_s = np.log(self.policy.action_dim_s) * one_hot_factor
+                    self.target_entropy_s = np.log(
+                        self.policy.action_dim_s) * one_hot_factor
                 else:
                     self.target_entropy_s = -self.policy.action_dim_s
 
@@ -343,10 +362,11 @@ class SACHybridTrainer(SACTrainer):
             else:
                 self.target_entropy_p = -self.policy.action_dim_p
 
-            self.target_entropy_config.update(dict(
-                later_s=self.target_entropy_s,
-                later_p=self.target_entropy_p,
-            ))
+            self.target_entropy_config.update(
+                dict(
+                    later_s=self.target_entropy_s,
+                    later_p=self.target_entropy_p,
+                ))
 
             self.log_alpha_s = rtu.zeros(1, requires_grad=True)
             self.log_alpha_p = rtu.zeros(1, requires_grad=True)
@@ -458,7 +478,6 @@ class SACHybridTrainer(SACTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
-
         """
         Policy and Alpha Loss
         """
@@ -469,16 +488,14 @@ class SACHybridTrainer(SACTrainer):
         if self.use_automatic_entropy_tuning:
             if log_pi_s is not None:
                 alpha_s_loss = -self.log_alpha_s * self.reduce_tensor(
-                    log_pi_s + self.target_entropy_s, dd
-                ).detach()
+                    log_pi_s + self.target_entropy_s, dd).detach()
                 alpha_s = self.log_alpha_s.exp()
             else:
                 alpha_s_loss = None
                 alpha_s = None
 
             alpha_p_loss = -self.log_alpha_p * self.reduce_tensor(
-                log_pi_p + self.target_entropy_p, dd
-            ).detach()
+                log_pi_p + self.target_entropy_p, dd).detach()
             alpha_p = self.log_alpha_p.exp()
         else:
             if log_pi_s is not None:
@@ -501,7 +518,6 @@ class SACHybridTrainer(SACTrainer):
 
         policy_loss = alpha_log_pi - q_new_actions
         policy_loss = self.reduce_tensor(policy_loss, dd)
-
         """
         QF Loss
         """
@@ -519,10 +535,10 @@ class SACHybridTrainer(SACTrainer):
         if new_log_pi_s is not None:
             target_q_values -= (alpha_s * new_log_pi_s)
 
-        q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
+        q_target = self.reward_scale * rewards + (
+            1. - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
-
         """
         Save some statistics for eval
         """
@@ -532,31 +548,34 @@ class SACHybridTrainer(SACTrainer):
 
             eval_statistics['QF1 Loss'] = np.mean(rtu.to_numpy(qf1_loss))
             eval_statistics['QF2 Loss'] = np.mean(rtu.to_numpy(qf2_loss))
-            eval_statistics['Policy Loss'] = np.mean(rtu.to_numpy(
-                policy_loss
-            ))
-            eval_statistics.update(rtu.create_stats_ordered_dict(
-                'Q1 Predictions',
-                rtu.to_numpy(q1_pred),
-            ))
-            eval_statistics.update(rtu.create_stats_ordered_dict(
-                'Q2 Predictions',
-                rtu.to_numpy(q2_pred),
-            ))
-            eval_statistics.update(rtu.create_stats_ordered_dict(
-                'Q Targets',
-                rtu.to_numpy(q_target),
-            ))
+            eval_statistics['Policy Loss'] = np.mean(rtu.to_numpy(policy_loss))
+            eval_statistics.update(
+                rtu.create_stats_ordered_dict(
+                    'Q1 Predictions',
+                    rtu.to_numpy(q1_pred),
+                ))
+            eval_statistics.update(
+                rtu.create_stats_ordered_dict(
+                    'Q2 Predictions',
+                    rtu.to_numpy(q2_pred),
+                ))
+            eval_statistics.update(
+                rtu.create_stats_ordered_dict(
+                    'Q Targets',
+                    rtu.to_numpy(q_target),
+                ))
 
             if 'log_pi_s' in dd:
-                eval_statistics.update(rtu.create_stats_ordered_dict(
-                    'Log Pis S',
-                    rtu.to_numpy(dd['log_pi_s']),
+                eval_statistics.update(
+                    rtu.create_stats_ordered_dict(
+                        'Log Pis S',
+                        rtu.to_numpy(dd['log_pi_s']),
+                    ))
+            eval_statistics.update(
+                rtu.create_stats_ordered_dict(
+                    'Log Pis P',
+                    rtu.to_numpy(dd['log_pi_p']),
                 ))
-            eval_statistics.update(rtu.create_stats_ordered_dict(
-                'Log Pis P',
-                rtu.to_numpy(dd['log_pi_p']),
-            ))
 
             # policy_statistics = rtu.add_prefix(dd['dist'].get_diagnostics(), "policy/")
             # eval_statistics.update(policy_statistics)
@@ -597,8 +616,11 @@ class SACHybridTrainer(SACTrainer):
         config = self.target_entropy_config
         for k in config:
             assert k in [
-                'init_epochs', 'init_s', 'init_p',
-                'later_s', 'later_p',
+                'init_epochs',
+                'init_s',
+                'init_p',
+                'later_s',
+                'later_p',
                 'one_hot_factor',
             ]
         init_epochs = config.get('init_epochs', 100)

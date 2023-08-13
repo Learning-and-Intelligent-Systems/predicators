@@ -22,27 +22,28 @@ utils.import_submodules(__path__, __name__)
 
 
 def create_explorer(
-    name: str,
-    initial_predicates: Set[Predicate],
-    initial_options: Set[ParameterizedOption],
-    types: Set[Type],
-    action_space: Box,
-    train_tasks: List[Task],
-    nsrts: Optional[Set[NSRT]] = None,
-    option_model: Optional[_OptionModelBase] = None,
-    babble_predicates: Optional[Set[Predicate]] = None,
-    atom_score_fn: Optional[Callable[[Set[GroundAtom]], float]] = None,
-    state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
-    max_steps_before_termination: Optional[int] = None,
-    ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
-    nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
-    seen_train_task_idxs: Optional[Set[int]] = None,
-    ground_nsrts: Optional[List[_GroundNSRT]] = None,
-    exploration_policy: Optional[TorchStochasticPolicy] = None,
-    observations_size: Optional[int] = None,
-    discrete_actions_size: Optional[int] = None,
-    continuous_actions_size: Optional[int] = None
-) -> BaseExplorer:
+        name: str,
+        initial_predicates: Set[Predicate],
+        initial_options: Set[ParameterizedOption],
+        types: Set[Type],
+        action_space: Box,
+        train_tasks: List[Task],
+        nsrts: Optional[Set[NSRT]] = None,
+        option_model: Optional[_OptionModelBase] = None,
+        babble_predicates: Optional[Set[Predicate]] = None,
+        atom_score_fn: Optional[Callable[[Set[GroundAtom]], float]] = None,
+        state_score_fn: Optional[Callable[[Set[GroundAtom], State],
+                                          float]] = None,
+        max_steps_before_termination: Optional[int] = None,
+        ground_op_hist: Optional[Dict[_GroundSTRIPSOperator,
+                                      List[bool]]] = None,
+        nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
+        seen_train_task_idxs: Optional[Set[int]] = None,
+        ground_nsrts: Optional[List[_GroundNSRT]] = None,
+        exploration_policy: Optional[TorchStochasticPolicy] = None,
+        observations_size: Optional[int] = None,
+        discrete_actions_size: Optional[int] = None,
+        continuous_actions_size: Optional[int] = None) -> BaseExplorer:
     """Create an explorer given its name."""
     if max_steps_before_termination is None:
         max_steps_before_termination = CFG.max_num_steps_interaction_request
@@ -102,7 +103,9 @@ def create_explorer(
                 assert continuous_actions_size is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
-                               max_steps_before_termination, ground_nsrts, exploration_policy, observations_size, discrete_actions_size, continuous_actions_size)
+                               max_steps_before_termination, ground_nsrts,
+                               exploration_policy, observations_size,
+                               discrete_actions_size, continuous_actions_size)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
