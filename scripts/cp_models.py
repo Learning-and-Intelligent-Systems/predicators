@@ -28,16 +28,39 @@ def _run_inference(history: List[List[bool]], betas: List[Tuple[float, float]]) 
 def _run_learning(num_data_before_cycle: NDArray[np.float32], map_competences: List[float]) -> Tuple[NDArray[np.float32], float]:
     """Return parameters for mean prediction and constant variance."""
     fn = partial(_loss, num_data_before_cycle, map_competences)
+    # Transform into unconstrained space.
     theta_0 = np.array([0.25, 0.75, 1.0])
-    constraints = {
-        "type": "ineq", "fun": lambda theta: theta[0],  # t0 >= 0
-        "type": "ineq", "fun": lambda theta: (1 - theta[0]),  # t0 <= 1
-        "type": "ineq", "fun": lambda theta: theta[1],  # t1 >= 0
-        "type": "ineq", "fun": lambda theta: (theta[1] - theta[0]),  # t1 >= t0
-        "type": "ineq", "fun": lambda theta: theta[2],  # t2 >= 0
-    }
-    res = minimize(fn, theta_0, method="SLSQP", constraints=constraints, options=dict(maxiter=1000000, ftol=1e-1, eps=1e-3, verbose=True))
+    unconstrained_theta_0 = _transform_model_params_to_unconstrain(theta_0)
+    res = minimize(fn, theta_0, method="L-BFGS-B", options=dict(maxiter=1000000, ftol=1e-1, eps=1e-3, verbose=True))
+    unconstrained_theta_final = res.x
+    theta_final = _invert_transform_model_params(unconstrained_theta_final)
     import ipdb; ipdb.set_trace()
+
+
+def _validate_model_params(theta: NDArray[np.float32]) -> None:
+    theta0, theta1, theta2 = theta
+    assert 0 <= theta0 <= 1
+    assert theta0 <= theta1 <= 1
+    assert theta2 > 0
+
+
+def _transform_model_params_to_unconstrain(theta: NDArray[np.float32]) -> NDArray[np.float32]:
+    _validate_model_params(theta)
+    theta0, theta1, theta2 = theta
+    unconstrained_theta0 = np.log(theta0) - np.log(1 - theta0)  # logit
+    unconstrained_theta1 = np.log(theta1) - np.log(1 - theta1)  # logit, will clip
+    unconstrained_theta2 = theta2  # will clip
+    return np.array([unconstrained_theta0, unconstrained_theta1, unconstrained_theta2])
+
+
+def _invert_transform_model_params(transformed_theta: NDArray[np.float32]) -> NDArray[np.float32]:
+    utheta0, utheta1, utheta2 = transformed_theta
+    theta0 = 1 / (1 + np.exp(-utheta0))  # sigmoid, inverse of logit
+    theta1 = max(1 / (1 + np.exp(-utheta1)), theta0)  # sigmoid + clip
+    theta2 = max(0, utheta2)  # clip
+    theta = np.array([theta0, theta1, theta2], dtype=np.float32)
+    _validate_model_params(theta)
+    return theta
 
 
 def _loss(num_data_before_cycle: NDArray[np.float32], map_competences: List[float], model_params: NDArray[np.float32]) -> float:
@@ -48,14 +71,13 @@ def _loss(num_data_before_cycle: NDArray[np.float32], map_competences: List[floa
     return sum(nlls)
 
 
-def _model_predict(x: NDArray[np.float32], params: NDArray[np.float32]) -> NDArray[np.float32]:
+def _model_predict(x: NDArray[np.float32], transformed_params: NDArray[np.float32]) -> NDArray[np.float32]:
+    params = _invert_transform_model_params(transformed_params)
+    _validate_model_params(params)
     theta0, theta1, theta2 = params
-    print(params)
-    # assert 0 <= theta0 <= 1
-    # assert theta0 <= theta1 <= 1
-    # assert theta2 > 0
+    print(theta0, theta1, theta2)
     out = theta0 + (theta1 - theta0) * (1 - np.exp(-theta2 * x))
-    # assert np.all(out > 0) and np.all(out < 1)
+    assert np.all(out > 0) and np.all(out < 1)
     return out
 
 
