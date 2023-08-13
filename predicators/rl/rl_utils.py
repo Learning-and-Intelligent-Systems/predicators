@@ -8,7 +8,7 @@ import abc
 import logging
 from collections import OrderedDict
 from numbers import Number
-from typing import Callable, List
+from typing import Callable, Dict, List
 
 import numpy as np
 import torch
@@ -537,17 +537,13 @@ class EnvReplayBuffer(SimpleReplayBuffer):
 
     def add_sample(self, observation, action, reward, terminal,
                    next_observation, **kwargs):
-        if isinstance(self._action_space, Discrete):
-            new_action = np.zeros(self._action_dim)
-            new_action[action] = 1
-        else:
-            new_action = action
         return super().add_sample(
             observation=observation,
-            action=new_action,
+            action=action,
             reward=reward,
             next_observation=next_observation,
             terminal=terminal,
+            env_info={},
             **kwargs
         )
 
@@ -623,6 +619,29 @@ def convert_policy_action_to_ground_option(policy_action: Array, ground_nsrts: L
     return output_ground_option
 
 
+def _filter_batch(np_batch):
+    for k, v in np_batch.items():
+        if v.dtype == np.bool_:
+            yield k, v.astype(int)
+        else:
+            yield k, v
+
+
+def np_to_pytorch_batch(np_batch: Dict[str, Array]):
+    """Provided a dict representing a numpy batch, convert to a dict
+    representing a pytorch batch."""
+    return {
+        k: torch.from_numpy(x).float().to(device)
+        for k, x in _filter_batch(np_batch)
+        if x.dtype != np.dtype('O')  # ignore object (e.g. dictionaries)
+    }
+
+
+def env_state_to_maple_input(state: State) -> Array:
+    """Convert an input state into a vector that can be input into MAPLE."""
+    return state.vec(sorted(list(state)))
+
+
 def make_executable_maple_policy(policy, ground_nsrts: List[_GroundNSRT], observation_size: int, discrete_actions_size: int, continuous_actions_size: int) -> Callable[[State], Action]:
     curr_option = None
     num_curr_option_steps = 0
@@ -632,7 +651,7 @@ def make_executable_maple_policy(policy, ground_nsrts: List[_GroundNSRT], observ
         timeout (i.e, we exceed the max steps for the option) and then get a
         new output from the model."""
         nonlocal policy, curr_option, num_curr_option_steps, observation_size, discrete_actions_size, continuous_actions_size
-        state_vec = state.vec(sorted(list(state)))
+        state_vec = env_state_to_maple_input(state)
         if curr_option is None:
             # We need to produce a new ground option from the network.
             assert state_vec.shape[0] == observation_size

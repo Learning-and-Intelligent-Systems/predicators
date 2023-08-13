@@ -521,6 +521,8 @@ class GlobalSettings:
     # online rl parameters
     online_rl_max_replay_buffer_size = int(1e6)
     online_rl_qnetwork_hidden_sizes = [256, 256]
+    online_rl_num_trains_per_train_loop = 1000
+    online_rl_batch_size = 64
 
     # active sampler learning parameters
     active_sampler_learning_model = "myopic_classifier_mlp"

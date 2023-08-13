@@ -558,8 +558,8 @@ class SACHybridTrainer(SACTrainer):
                 rtu.to_numpy(dd['log_pi_p']),
             ))
 
-            policy_statistics = rtu.add_prefix(dd['dist'].get_diagnostics(), "policy/")
-            eval_statistics.update(policy_statistics)
+            # policy_statistics = rtu.add_prefix(dd['dist'].get_diagnostics(), "policy/")
+            # eval_statistics.update(policy_statistics)
             if self.use_automatic_entropy_tuning:
                 if 'log_pi_s' in dd:
                     eval_statistics['Alpha S'] = alpha_s.item()

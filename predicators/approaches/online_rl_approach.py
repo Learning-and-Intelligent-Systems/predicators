@@ -18,7 +18,8 @@ from predicators.explorers import BaseExplorer, create_explorer
 from predicators.ml_models import ConcatMLP
 from predicators.rl.policies import MakeDeterministic, PAMDPPolicy
 from predicators.rl.rl_utils import EnvReplayBuffer, \
-    make_executable_maple_policy
+    env_state_to_maple_input, make_executable_maple_policy, \
+    np_to_pytorch_batch
 from predicators.rl.training_functions import SACHybridTrainer
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Array, Dataset, GroundAtom, \
@@ -52,7 +53,10 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # TODO: This currently only works if the observation is secretly a State. We probably
         # want to call the perceiver or something to actually get the state.
         init_obs = curr_env.reset('train', 0)
-        self._observation_size = init_obs.vec(sorted(list(init_obs))).shape[0]
+        self._observation_size = env_state_to_maple_input(init_obs).shape[0]
+        # TODO: Also, this only works if every single train and test task has the same objects
+        # and goal, though the initial state can vary.
+        self._goal_atoms = curr_env.get_task("train", 0).goal
         # We need to know the NSRTs in order to get the size of the discrete and continuous
         # action spaces. This can't happen until the first round of NSRT learning is called.
         # Thus, for now, we will set these to be None.
@@ -66,6 +70,9 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         self._trainer_function = None
         self._replay_buffer = None
         self._sorted_ground_nsrts: Optional[List[_GroundNSRT]] = None
+        self._param_opt_to_nsrt: Dict[ParameterizedOption, _GroundNSRT] = {}
+        self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
+
         # Seed torch.
         torch.manual_seed(self._seed)
         
@@ -74,14 +81,20 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
     def get_name(cls) -> str:
         return "online_rl"
     
-    # TODO: add the necessary inputs and then actually finish implementing
-    # this.
-    def get_reward(self) -> float:
+
+    def get_reward(self, segment: Segment) -> float:
         """Given transition data, returns the corresponding reward value.
 
         Used to construct the dataset for the learner.
         """
-        pass
+        # For now, just check if the goal atoms are a subset of 
+        # the segment's final atoms.
+        # TODO: we'll likely need a more dense and fine-grained reward
+        # function.
+        if self._goal_atoms.issubset(segment.final_atoms):
+            return 1.0
+        return 0.0
+
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Update the dataset with the offline data.
@@ -97,13 +110,16 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             objects = sorted(list(curr_env.reset('train', 0)))
             ground_nsrts = []
             for nsrt in sorted(self._nsrts):
+                self._param_opt_to_nsrt[nsrt.option] = nsrt
                 for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
                     ground_nsrts.append(ground_nsrt)
+            for i, ground_nsrt in enumerate(ground_nsrts):
+                self._ground_nsrt_to_idx[ground_nsrt] = i
             self._discrete_actions_size = len(ground_nsrts)
             # Additionally, we can now setup the precise ground NSRTs list,
             # the learned policy, the q-function networks, the model trainer,
             # and the replay buffer.
-            self._sorted_ground_nsrts = ground_nsrts
+            self._sorted_ground_nsrts = ground_nsrts    
             # TODO: not really sure what the 'one_hot_s' setting is about...
             # Also, not really sure about setting all the additional policy_kwargs
             # that the robosuite_launcher script in the original codebase sets.
@@ -156,13 +172,29 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         new_trajs = self._segmented_trajs[start_idx:]
         for seg_traj in new_trajs:
             for segment in seg_traj:
-                # TODO: extract the segment initial and final low-level states,
-                # convert them to vectors by making a function. Somehow get the reward,
-                # then get the index of this action to construct the action vector.
-                # Add this to the replay buffer.
-        import ipdb; ipdb.set_trace()
-        # TODO: add this new data to the replay buffer, then call
-        # a model update.
+                init_ll_state = segment.trajectory.states[0]
+                final_ll_state = segment.trajectory.states[-1]
+                init_maple_state = env_state_to_maple_input(init_ll_state)
+                final_maple_state = env_state_to_maple_input(final_ll_state)
+                assert segment.has_option()
+                nsrt = self._param_opt_to_nsrt[segment.get_option().parent]
+                ground_nsrt = nsrt.ground(tuple(segment.get_option().objects))
+                discrete_action = np.zeros(self._discrete_actions_size)
+                discrete_action[self._ground_nsrt_to_idx[ground_nsrt]] = 1.0
+                continuous_action = np.zeros(self._continuous_actions_size)
+                continuous_action[:len(segment.get_option().params)] = np.array(segment.get_option().params)
+                maple_action = np.concatenate((discrete_action, continuous_action), axis=0)
+                reward = self.get_reward(segment)
+                terminal = 0.0
+                # TODO: this current implementation of the terminal function is bad and a HACK that won't work
+                # if we change the reward function.
+                if reward == 1.0:
+                    terminal = 1.0
+                self._replay_buffer.add_sample(init_maple_state, maple_action, reward, terminal, final_maple_state)
+
+        # Call training on data from the updated replay buffer.
+        self._train()
+
         # Advance the online learning cycle.
         self._online_learning_cycle += 1
 
@@ -189,15 +221,13 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             continuous_actions_size = self._continuous_actions_size)
         return explorer
 
-    
-    def _update_replay_buffer() -> None:
-        # TODO: implement after exploration.
-        pass
 
-
-    # TODO: figure out how to call training.
-    def _train(self, batch) -> None:
-        pass
+    def _train(self) -> None:
+        for i in range(CFG.online_rl_num_trains_per_train_loop):
+            np_batch = self._replay_buffer.random_batch(2) # CFG.online_rl_batch_size
+            torch_batch = np_to_pytorch_batch(np_batch)
+            self._trainer_function.train_from_torch(torch_batch)
+            logging.info(f"Training iter: {i}/{CFG.online_rl_num_trains_per_train_loop}")
 
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
