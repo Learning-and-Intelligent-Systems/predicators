@@ -31,17 +31,19 @@ def _run_learning(num_data_before_cycle: NDArray[np.float32], map_competences: L
     # Transform into unconstrained space.
     theta_0 = np.array([0.25, 0.75, 1.0])
     unconstrained_theta_0 = _transform_model_params_to_unconstrain(theta_0)
-    res = minimize(fn, theta_0, method="L-BFGS-B", options=dict(maxiter=1000000, ftol=1e-1, eps=1e-3, verbose=True))
+    res = minimize(fn, unconstrained_theta_0, method="L-BFGS-B", options=dict(maxiter=1000000, ftol=1e-1, eps=1e-3))
     unconstrained_theta_final = res.x
     theta_final = _invert_transform_model_params(unconstrained_theta_final)
-    import ipdb; ipdb.set_trace()
+    means_final = _model_predict(num_data_before_cycle, theta_final)
+    variance_final = np.var(map_competences - means_final)
+    return theta_final, variance_final
 
 
 def _validate_model_params(theta: NDArray[np.float32]) -> None:
     theta0, theta1, theta2 = theta
     assert 0 <= theta0 <= 1
     assert theta0 <= theta1 <= 1
-    assert theta2 > 0
+    assert theta2 >= 0
 
 
 def _transform_model_params_to_unconstrain(theta: NDArray[np.float32]) -> NDArray[np.float32]:
@@ -75,9 +77,8 @@ def _model_predict(x: NDArray[np.float32], transformed_params: NDArray[np.float3
     params = _invert_transform_model_params(transformed_params)
     _validate_model_params(params)
     theta0, theta1, theta2 = params
-    print(theta0, theta1, theta2)
     out = theta0 + (theta1 - theta0) * (1 - np.exp(-theta2 * x))
-    assert np.all(out > 0) and np.all(out < 1)
+    assert np.all(out >= 0) and np.all(out <= 1)
     return out
 
 
@@ -96,16 +97,21 @@ def _run_em(history: List[List[bool]], num_em_iters: int=10) -> Tuple[List[NDArr
     all_map_competences = []
     all_model_params = []
     all_betas = []
-    for _ in range(num_em_iters):
+    for it in range(num_em_iters):
+        print(f"Starting EM cycle {it}")
         # Run inference.
         map_competences = _run_inference(history, betas)
+        print("MAP competences:", map_competences)
         all_map_competences.append(map_competences)
         # Run learning.
         model_params, variance = _run_learning(num_data_before_cycle, map_competences)
-        all_model_params.append(model_params)
+        print("Model params:", model_params)
+        print("Model variance:", variance)
+        all_model_params.append(variance)
         # Update betas by evaluating the model.
-        mean = _model_predict(num_data_before_cycle, model_params)
-        betas = _beta_from_mean_and_variance(mean, variance)
+        means = _model_predict(num_data_before_cycle, model_params)
+        betas = [_beta_from_mean_and_variance(m, variance) for m in means]
+        print("Betas:", betas)
         all_betas.append(betas)
     return all_model_params, all_betas, all_map_competences
 
@@ -120,6 +126,7 @@ def _main():
         [True, True, True],
     ]
     all_model_params, all_betas, all_map_competences = _run_em(history)
+    import ipdb; ipdb.set_trace()
     # _make_plots(history, all_model_params, all_map_competences, outfile = "pgmax_script_out_v1.mp4")
 
 if __name__ == "__main__":
