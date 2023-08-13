@@ -110,6 +110,8 @@ def _beta_variance(a: float, b: float) -> float:
 
 def _beta_from_mean_and_variance(mean: float,
                                  variance: float) -> Tuple[float, float]:
+    # Clip variance.
+    variance = max(min(variance, mean * (1 - mean) - 1e-3), 1e-6)
     alpha = ((1 - mean) / variance - 1 / mean) * (mean**2)
     beta = alpha * (1 / mean - 1)
     assert alpha > 0
@@ -284,32 +286,32 @@ def _main():
                 all_map_competences,
                 outfile=Path("cp_model_all_false.mp4"))
 
-    # history = [
-    #     [True, True, True, True, True],
-    #     [True, True, True, True, True, True, True],
-    #     [True, True, True, True, True],
-    #     [True, True, True, True, True, True, True, True, True],
-    #     [True, True, True, True, True],
-    # ]
-    # _, all_betas, all_map_competences = _run_em(history)
-    # _make_plots(history,
-    #             all_betas,
-    #             all_map_competences,
-    #             outfile=Path("cp_model_all_true.mp4"))
+    history = [
+        [True, True, True, True, True],
+        [True, True, True, True, True, True, True],
+        [True, True, True, True, True],
+        [True, True, True, True, True, True, True, True, True],
+        [True, True, True, True, True],
+    ]
+    _, all_betas, all_map_competences = _run_em(history)
+    _make_plots(history,
+                all_betas,
+                all_map_competences,
+                outfile=Path("cp_model_all_true.mp4"))
 
-    # history = [
-    #     [False, False, False],
-    #     [True, False, False, True, False, False, False, False, False],
-    #     [False, True, True, False, True, False, False, False],
-    #     [False],
-    #     [True, True, False, False, True, True],
-    #     [True, True, True],
-    # ]
-    # _, all_betas, all_map_competences = _run_em(history)
-    # _make_plots(history,
-    #             all_betas,
-    #             all_map_competences,
-    #             outfile=Path("cp_model_small_improve.mp4"))
+    history = [
+        [False, False, False],
+        [True, False, False, True, False, False, False, False, False],
+        [False, True, True, False, True, False, False, False],
+        [False],
+        [True, True, False, False, True, True],
+        [True, True, True],
+    ]
+    _, all_betas, all_map_competences = _run_em(history)
+    _make_plots(history,
+                all_betas,
+                all_map_competences,
+                outfile=Path("cp_model_small_improve.mp4"))
 
 
 if __name__ == "__main__":
