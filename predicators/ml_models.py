@@ -78,15 +78,16 @@ class _NormalizingRegressor(Regressor):
     Also infers the dimensionality of the inputs and outputs from fit().
     """
 
-    def __init__(self, seed: int) -> None:
+    def __init__(self, seed: int, do_normalize: bool = True) -> None:
         super().__init__(seed)
         # Set in fit().
         self._x_dims: Tuple[int, ...] = tuple()
         self._y_dim = -1
+        self._do_normalize = do_normalize
         self._input_shift = np.zeros(1, dtype=np.float32)
-        self._input_scale = np.zeros(1, dtype=np.float32)
+        self._input_scale = np.ones(1, dtype=np.float32)
         self._output_shift = np.zeros(1, dtype=np.float32)
-        self._output_scale = np.zeros(1, dtype=np.float32)
+        self._output_scale = np.ones(1, dtype=np.float32)
 
     def fit(self, X: Array, Y: Array) -> None:
         num_data = X.shape[0]
@@ -95,8 +96,9 @@ class _NormalizingRegressor(Regressor):
         assert Y.shape[0] == num_data
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
-        X, self._input_shift, self._input_scale = _normalize_data(X)
-        Y, self._output_shift, self._output_scale = _normalize_data(Y)
+        if self._do_normalize:
+            X, self._input_shift, self._input_scale = _normalize_data(X)
+            Y, self._output_shift, self._output_scale = _normalize_data(Y)
         self._fit(X, Y)
 
     def predict(self, x: Array) -> Array:
@@ -134,9 +136,10 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                  weight_decay: float = 0,
                  n_iter_no_change: int = 10000000,
                  use_torch_gpu: bool = False,
-                 train_print_every: int = 1000) -> None:
+                 train_print_every: int = 1000,
+                 do_normalize: bool = True) -> None:
         torch.manual_seed(seed)
-        _NormalizingRegressor.__init__(self, seed)
+        _NormalizingRegressor.__init__(self, seed, do_normalize)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
         self._clip_gradients = clip_gradients

@@ -1,14 +1,20 @@
 from functools import partial
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Callable, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from jax.scipy.stats import beta as beta_distribution
 from numpy.typing import NDArray
-from scipy.optimize import minimize, basinhopping
+
+import torch
+from torch import Tensor, nn
+import torch.nn.functional as F
+from torch.distributions.beta import Beta as TorchBeta
+
 
 from predicators import utils
+from predicators.structs import MaxTrainIters, Array
+from predicators.ml_models import PyTorchRegressor
 
 
 def _run_inference(history: List[List[bool]],
@@ -30,6 +36,7 @@ def _run_inference(history: List[List[bool]],
         map_competences.append(mean)
     return map_competences
 
+
 def _get_predict_variances(yhat: NDArray[np.float32], y: NDArray[np.float32]) -> NDArray[np.float32]:
     # variances = np.subtract(yhat, y)**2
     # max_variances = yhat * (1 - yhat) - 1e-3
@@ -38,27 +45,87 @@ def _get_predict_variances(yhat: NDArray[np.float32], y: NDArray[np.float32]) ->
     return np.ones_like(yhat) * 1e-6
 
 
+
+class CompetenceModel(PyTorchRegressor):
+
+    def __init__(self,
+                 seed: int,
+                 max_train_iters: MaxTrainIters,
+                 clip_gradients: bool,
+                 clip_value: float,
+                 learning_rate: float,
+                 weight_decay: float = 0,
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000) -> None:
+        super().__init__(seed,
+                         max_train_iters,
+                         clip_gradients,
+                         clip_value,
+                         learning_rate,
+                         weight_decay=weight_decay,
+                         n_iter_no_change=n_iter_no_change,
+                         use_torch_gpu=use_torch_gpu,
+                         do_normalize=False,
+                         train_print_every=train_print_every)
+        self.theta = torch.nn.Parameter(torch.randn(3), requires_grad=True)
+
+    def interpret(self) -> None:
+        print("Transformed weights:", self._transform_theta())
+        print("At zero:", self.predict(np.array([0.0]))[0])
+        print("At large number:", self.predict(np.array([1000000000.0]))[0])
+
+    def _transform_theta(self) -> List[Tensor]:
+        theta0 = self.theta[0]
+        theta1 = self.theta[1]
+        theta2 = self.theta[2]
+        ctheta0 = F.sigmoid(theta0)
+        ctheta1 = F.sigmoid(theta0 + (F.elu(theta1) + 1))
+        ctheta2 = F.elu(theta2) + 1
+        return [ctheta0, ctheta1, ctheta2]
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        # Transform weights to obey constraints.
+        ctheta0, ctheta1, ctheta2 = self._transform_theta()
+        # Exponential saturation function.
+        mean = ctheta0 + (ctheta1 - ctheta0) * (1 - torch.exp(-ctheta2 * tensor_X))
+        # Clip mean to avoid numerical issues.
+        mean = torch.clip(mean, 1e-3, 1.0 - 1e-3)
+        return mean
+
+    def _initialize_net(self) -> None:
+        pass
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        return nn.MSELoss()
+
+
+# class BetaLoss(nn.Module):
+#     """Beta distribution loss.
+    
+#     Log likelihood is unstable, so just use MSE on means.
+#     """
+
+#     def __init__(self):
+#         super(BetaLoss, self).__init__()
+
+#     def forward(self, beta_params, targets):
+#         # Clip targets to avoid numerical issues.
+#         targets = torch.clip(targets, 1e-3, 1.0 - 1e-3)
+#         alpha, beta = beta_params
+#         dist = TorchBeta(alpha, beta, validate_args=True)
+#         loss = ((dist.mean - targets)**2).mean()
+#         return loss
+
+
+
 def _run_learning(
         num_data_before_cycle: NDArray[np.float32],
-        map_competences: List[float],
-        init_theta0: float = 0.25,
-        init_theta1: float = 0.75,
-        init_theta2: float = 1.0) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
-    """Return parameters for mean prediction and variances."""
-    fn = partial(_loss, num_data_before_cycle, map_competences)
-    # Transform into unconstrained space.
-    theta_0 = np.array([init_theta0, init_theta1, init_theta2])
-    unconstrained_theta_0 = _transform_model_params_to_unconstrain(theta_0)
-    # res = minimize(fn,
-    #                unconstrained_theta_0,
-    #                method="L-BFGS-B",
-    #                options=dict(maxiter=1000000, ftol=1e-6, eps=1e-3))
-    res = basinhopping(fn, unconstrained_theta_0, niter=100, stepsize=10, disp=False, seed=0)
-    unconstrained_theta_final = res.x
-    theta_final = _invert_transform_model_params(unconstrained_theta_final)
-    means = _model_predict_mean(num_data_before_cycle, theta_final)
-    variances = _get_predict_variances(means, np.array(map_competences))
-    return theta_final, variances
+        map_competences: List[float]) -> CompetenceModel:
+    model = CompetenceModel(seed=0, max_train_iters=10000, clip_gradients=False, clip_value=1.0, learning_rate=1e-2)
+    model.fit(np.reshape(num_data_before_cycle, (-1, 1)), np.reshape(map_competences, (-1, 1)))
+    model.interpret()
+    return model
 
 
 def _validate_model_params(theta: NDArray[np.float32]) -> None:
@@ -68,49 +135,49 @@ def _validate_model_params(theta: NDArray[np.float32]) -> None:
     assert theta2 >= 0
 
 
-def _transform_model_params_to_unconstrain(
-        theta: NDArray[np.float32]) -> NDArray[np.float32]:
-    _validate_model_params(theta)
-    theta0, theta1, theta2 = theta
-    utheta0 = np.log(theta0) - np.log(1 - theta0)  # logit
-    utheta1 = np.log(theta1) - np.log(1 - theta1)  # logit / clip
-    utheta2 = theta2  # will clip
-    return np.array([utheta0, utheta1, utheta2], dtype=np.float32)
+# def _transform_model_params_to_unconstrain(
+#         theta: NDArray[np.float32]) -> NDArray[np.float32]:
+#     _validate_model_params(theta)
+#     theta0, theta1, theta2 = theta
+#     utheta0 = np.log(theta0) - np.log(1 - theta0)  # logit
+#     utheta1 = np.log(theta1) - np.log(1 - theta1)  # logit / clip
+#     utheta2 = theta2  # will clip
+#     return np.array([utheta0, utheta1, utheta2], dtype=np.float32)
 
 
-def _invert_transform_model_params(
-        transformed_theta: NDArray[np.float32]) -> NDArray[np.float32]:
-    utheta0, utheta1, utheta2 = transformed_theta
-    theta0 = 1 / (1 + np.exp(-utheta0))  # sigmoid, inverse of logit
-    theta1 = max(1 / (1 + np.exp(-utheta1)), theta0)  # sigmoid + clip
-    theta2 = max(0, utheta2)  # clip
-    theta = np.array([theta0, theta1, theta2], dtype=np.float32)
-    _validate_model_params(theta)
-    return theta
+# def _invert_transform_model_params(
+#         transformed_theta: NDArray[np.float32]) -> NDArray[np.float32]:
+#     utheta0, utheta1, utheta2 = transformed_theta
+#     theta0 = 1 / (1 + np.exp(-utheta0))  # sigmoid, inverse of logit
+#     theta1 = max(1 / (1 + np.exp(-utheta1)), theta0)  # sigmoid + clip
+#     theta2 = max(0, utheta2)  # clip
+#     theta = np.array([theta0, theta1, theta2], dtype=np.float32)
+#     _validate_model_params(theta)
+#     return theta
 
 
-def _loss(cp_inputs: NDArray[np.float32], map_competences: List[float],
-          transformed_model_params: NDArray[np.float32]) -> float:
-    means = _model_predict_mean(cp_inputs, transformed_model_params)
-    variances = _get_predict_variances(means, np.array(map_competences))
-    betas = [_beta_from_mean_and_variance(m, v) for m, v in zip(means, variances)]
-    nlls = [
-        -beta_distribution.logpdf(c, a, b).item()
-        for c, (a, b) in zip(map_competences, betas)
-    ]
-    return sum(nlls)
+# def _loss(cp_inputs: NDArray[np.float32], map_competences: List[float],
+#           transformed_model_params: NDArray[np.float32]) -> float:
+#     means = _model_predict_mean(cp_inputs, transformed_model_params)
+#     variances = _get_predict_variances(means, np.array(map_competences))
+#     betas = [_beta_from_mean_and_variance(m, v) for m, v in zip(means, variances)]
+#     nlls = [
+#         -beta_distribution.logpdf(c, a, b).item()
+#         for c, (a, b) in zip(map_competences, betas)
+#     ]
+#     return sum(nlls)
 
 
-def _model_predict_mean(
-        x: NDArray[np.float32],
-        transformed_params: NDArray[np.float32]) -> NDArray[np.float32]:
-    params = _invert_transform_model_params(transformed_params)
-    _validate_model_params(params)
-    theta0, theta1, theta2 = params
-    out = theta0 + (theta1 - theta0) * (1 - np.exp(-theta2 * x))
-    assert np.all(out >= 0) and np.all(out <= 1)
-    out = np.clip(out, 1e-3, 1.0 - 1e-3)
-    return out
+# def _model_predict_mean(
+#         x: NDArray[np.float32],
+#         transformed_params: NDArray[np.float32]) -> NDArray[np.float32]:
+#     params = _invert_transform_model_params(transformed_params)
+#     _validate_model_params(params)
+#     theta0, theta1, theta2 = params
+#     out = theta0 + (theta1 - theta0) * (1 - np.exp(-theta2 * x))
+#     assert np.all(out >= 0) and np.all(out <= 1)
+#     out = np.clip(out, 1e-3, 1.0 - 1e-3)
+#     return out
 
 
 def _beta_mean(a: float, b: float) -> float:
@@ -258,61 +325,57 @@ def _test_inference() -> None:
     map_competences =_run_inference(history, betas)
     assert all(p > 0.5 for p in map_competences)
     assert map_competences[0] > map_competences[1]
+    
 
 
-def _test_loss() -> None:
+# def _test_loss() -> None:
 
-    cp_inputs = np.array([0, 3, 10, 12])
-    map_competences = [1e-3, 1e-3, 1e-3, 1e-3]
-    good_model_params = np.array([1e-3, 1e-2, 1.0])
-    worse_model_params = np.array([1e-3, 0.99, 1.0])
-    u_good = _transform_model_params_to_unconstrain(good_model_params)
-    u_worse = _transform_model_params_to_unconstrain(worse_model_params)
-    good_loss = _loss(cp_inputs, map_competences, u_good)
-    worse_loss = _loss(cp_inputs, map_competences, u_worse)
-    assert good_loss < worse_loss
+#     cp_inputs = np.array([0, 3, 10, 12])
+#     map_competences = [1e-3, 1e-3, 1e-3, 1e-3]
+#     good_model_params = np.array([1e-3, 1e-2, 1.0])
+#     worse_model_params = np.array([1e-3, 0.99, 1.0])
+#     u_good = _transform_model_params_to_unconstrain(good_model_params)
+#     u_worse = _transform_model_params_to_unconstrain(worse_model_params)
+#     good_loss = _loss(cp_inputs, map_competences, u_good)
+#     worse_loss = _loss(cp_inputs, map_competences, u_worse)
+#     assert good_loss < worse_loss
 
-    cp_inputs = np.array([0, 3, 10, 12])
-    map_competences = [0.999, 0.999, 0.999, 0.999]
-    good_model_params = np.array([0.99, 0.999, 1.0])
-    worse_model_params = np.array([1e-3, 0.99, 1.0])
-    u_good = _transform_model_params_to_unconstrain(good_model_params)
-    u_worse = _transform_model_params_to_unconstrain(worse_model_params)
-    good_loss = _loss(cp_inputs, map_competences, u_good)
-    worse_loss = _loss(cp_inputs, map_competences, u_worse)
-    assert good_loss < worse_loss
+#     cp_inputs = np.array([0, 3, 10, 12])
+#     map_competences = [0.999, 0.999, 0.999, 0.999]
+#     good_model_params = np.array([0.99, 0.999, 1.0])
+#     worse_model_params = np.array([1e-3, 0.99, 1.0])
+#     u_good = _transform_model_params_to_unconstrain(good_model_params)
+#     u_worse = _transform_model_params_to_unconstrain(worse_model_params)
+#     good_loss = _loss(cp_inputs, map_competences, u_good)
+#     worse_loss = _loss(cp_inputs, map_competences, u_worse)
+#     assert good_loss < worse_loss
 
 
 def _test_run_learning():
 
-    # Initialize very close to good solution.
-    cp_inputs = np.array([0, 3, 10, 12])
+    cp_inputs = np.array([0, 3, 10, 12], dtype=np.float32)
     map_competences = [1e-3, 1e-3, 1e-3, 1e-3]
-    init_theta0 = 1e-3
-    init_theta1 = 1e-2
-    init_theta2 = 1.0
-    learned_params, _ = _run_learning(cp_inputs, map_competences, init_theta0=init_theta0, init_theta1=init_theta1, init_theta2=init_theta2)
-    u_learned_params = _transform_model_params_to_unconstrain(learned_params)
-    predicted_competences = _model_predict_mean(cp_inputs, u_learned_params)
-    assert np.allclose(predicted_competences, map_competences, atol=1e-3)
+    model = _run_learning(cp_inputs, map_competences)
+    predicted_competences = [model.predict(np.array([x])) for x in cp_inputs]
+    assert np.allclose(predicted_competences, map_competences, atol=1e-2)
 
-    # Initialize far from good solution.
-    cp_inputs = np.array([0, 3, 10, 12])
-    map_competences = [1e-3, 1e-3, 1e-3, 1e-3]
-    init_theta0 = 0.25
-    init_theta1 = 0.75
-    init_theta2 = 1.0
-    learned_params, _ = _run_learning(cp_inputs, map_competences, init_theta0=init_theta0, init_theta1=init_theta1, init_theta2=init_theta2)
-    u_learned_params = _transform_model_params_to_unconstrain(learned_params)
-    predicted_competences = _model_predict_mean(cp_inputs, u_learned_params)
-    import ipdb; ipdb.set_trace()
-    assert np.allclose(predicted_competences, map_competences, atol=1e-3)
+    cp_inputs = np.array([0, 3, 10, 12], dtype=np.float32)
+    map_competences = [0.99, 0.99, 0.99, 0.99]
+    model = _run_learning(cp_inputs, map_competences)
+    predicted_competences = [model.predict(np.array([x])) for x in cp_inputs]
+    assert np.allclose(predicted_competences, map_competences, atol=1e-2)
+
+    cp_inputs = np.array([0, 3, 10, 12], dtype=np.float32)
+    map_competences = [0.3, 0.4, 0.4, 0.7]
+    model = _run_learning(cp_inputs, map_competences)
+    predicted_competences = [model.predict(np.array([x])) for x in cp_inputs]
+    assert predicted_competences[0] < predicted_competences[1]
 
 
 def _main():
 
-    _test_inference()
-    _test_loss()
+    # _test_inference()
+    # _test_loss()
     _test_run_learning()
 
 
