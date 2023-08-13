@@ -58,12 +58,10 @@ def _transform_model_params_to_unconstrain(
         theta: NDArray[np.float32]) -> NDArray[np.float32]:
     _validate_model_params(theta)
     theta0, theta1, theta2 = theta
-    unconstrained_theta0 = np.log(theta0) - np.log(1 - theta0)  # logit
-    unconstrained_theta1 = np.log(theta1) - np.log(
-        1 - theta1)  # logit, will clip
-    unconstrained_theta2 = theta2  # will clip
-    return np.array(
-        [unconstrained_theta0, unconstrained_theta1, unconstrained_theta2])
+    utheta0 = np.log(theta0) - np.log(1 - theta0)  # logit
+    utheta1 = np.log(theta1) - np.log(1 - theta1)  # logit / clip
+    utheta2 = theta2  # will clip
+    return np.array([utheta0, utheta1, utheta2], dtype=np.float32)
 
 
 def _invert_transform_model_params(
@@ -220,7 +218,7 @@ def _main():
                 all_map_competences,
                 outfile=Path("cp_model_all_false.mp4"))
 
-    data = [
+    history = [
         [True, True, True, True, True],
         [True, True, True, True, True, True, True],
         [True, True, True, True, True],
