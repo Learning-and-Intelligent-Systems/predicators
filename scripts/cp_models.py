@@ -271,8 +271,8 @@ def _test_run_learning():
 
 def _main():
 
-    # _test_inference()
-    # _test_run_learning()
+    _test_inference()
+    _test_run_learning()
 
 
     history = [
@@ -313,6 +313,19 @@ def _main():
                 all_betas,
                 all_map_competences,
                 outfile=Path("cp_model_small_improve.mp4"))
+    
+    history = [
+        [False, False, False, True, True, True],
+        [False, False, True, True],
+        [False, False, False, True, True, True],
+        [False, False, False, True, True, True],
+        [False, False, True, True],
+    ]
+    _, all_betas, all_map_competences = _run_em(history)
+    _make_plots(history,
+                all_betas,
+                all_map_competences,
+                outfile=Path("cp_model_noisy_constant.mp4"))
 
 
 if __name__ == "__main__":
