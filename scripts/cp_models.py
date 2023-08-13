@@ -209,6 +209,31 @@ def _make_plots(history: List[List[bool]], all_betas: List[Tuple[float,
 
 def _main():
     history = [
+        [False, False, False, False, False],
+        [False, False, False, False],
+        [False, False, False, False, False, False, False],
+        [False, False],
+    ]
+    _, all_betas, all_map_competences = _run_em(history)
+    _make_plots(history,
+                all_betas,
+                all_map_competences,
+                outfile=Path("cp_model_all_false.mp4"))
+
+    data = [
+        [True, True, True, True, True],
+        [True, True, True, True, True, True, True],
+        [True, True, True, True, True],
+        [True, True, True, True, True, True, True, True, True],
+        [True, True, True, True, True],
+    ]
+    _, all_betas, all_map_competences = _run_em(history)
+    _make_plots(history,
+                all_betas,
+                all_map_competences,
+                outfile=Path("cp_model_all_true.mp4"))
+
+    history = [
         [False, False, False],
         [True, False, False, True, False, False, False, False, False],
         [False, True, True, False, True, False, False, False],
@@ -216,11 +241,11 @@ def _main():
         [True, True, False, False, True, True],
         [True, True, True],
     ]
-    all_model_params, all_betas, all_map_competences = _run_em(history)
+    _, all_betas, all_map_competences = _run_em(history)
     _make_plots(history,
                 all_betas,
                 all_map_competences,
-                outfile=Path("cp_model_v1.mp4"))
+                outfile=Path("cp_model_small_improve.mp4"))
 
 
 if __name__ == "__main__":
