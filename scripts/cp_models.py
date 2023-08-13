@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from jax.scipy.stats import beta as beta_distribution
 from numpy.typing import NDArray
-from scipy.optimize import minimize
+from scipy.optimize import minimize, basinhopping
 
 from predicators import utils
 
@@ -23,28 +23,37 @@ def _run_inference(history: List[List[bool]],
         alpha_n = a + s
         beta_n = n - s + b
         mean = alpha_n / (alpha_n + beta_n)
-        assert 0 < mean < 1
+        assert 0 <= mean <= 1
         map_competences.append(mean)
     return map_competences
+
+def _get_predict_variances(yhat: NDArray[np.float32], y: NDArray[np.float32]) -> NDArray[np.float32]:
+    # variances = np.subtract(yhat, y)**2
+    # max_variances = yhat * (1 - yhat) - 1e-3
+    # return np.minimum(variances, max_variances)
+    # TODO figure this out!!
+    return np.ones_like(yhat) * 1e-8
 
 
 def _run_learning(
         num_data_before_cycle: NDArray[np.float32],
-        map_competences: List[float]) -> Tuple[NDArray[np.float32], float]:
-    """Return parameters for mean prediction and constant variance."""
+        map_competences: List[float]) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+    """Return parameters for mean prediction and variances."""
     fn = partial(_loss, num_data_before_cycle, map_competences)
     # Transform into unconstrained space.
     theta_0 = np.array([0.25, 0.75, 1.0])
     unconstrained_theta_0 = _transform_model_params_to_unconstrain(theta_0)
-    res = minimize(fn,
-                   unconstrained_theta_0,
-                   method="L-BFGS-B",
-                   options=dict(maxiter=1000000, ftol=1e-1, eps=1e-3))
+    # res = minimize(fn,
+    #                unconstrained_theta_0,
+    #                method="L-BFGS-B",
+    #                options=dict(maxiter=1000000, ftol=1e-6, eps=1e-3))
+    res = basinhopping(fn, unconstrained_theta_0, niter=100, stepsize=10, disp=False)
     unconstrained_theta_final = res.x
+    print(res)
     theta_final = _invert_transform_model_params(unconstrained_theta_final)
-    means_final = _model_predict(num_data_before_cycle, theta_final)
-    variance_final = np.var(map_competences - means_final)
-    return theta_final, variance_final
+    means = _model_predict_mean(num_data_before_cycle, theta_final)
+    variances = _get_predict_variances(means, np.array(map_competences))
+    return theta_final, variances
 
 
 def _validate_model_params(theta: NDArray[np.float32]) -> None:
@@ -77,17 +86,17 @@ def _invert_transform_model_params(
 
 def _loss(cp_inputs: NDArray[np.float32], map_competences: List[float],
           model_params: NDArray[np.float32]) -> float:
-    means = _model_predict(cp_inputs, model_params)
-    variance = np.var(map_competences - means)
-    betas = [_beta_from_mean_and_variance(m, variance) for m in means]
+    means = _model_predict_mean(cp_inputs, model_params)
+    variances = _get_predict_variances(means, np.array(map_competences))
+    betas = [_beta_from_mean_and_variance(m, v) for m, v in zip(means, variances)]
     nlls = [
-        -beta_distribution.logpdf(c, a, b)
+        -beta_distribution.logpdf(c, a, b).item()
         for c, (a, b) in zip(map_competences, betas)
     ]
     return sum(nlls)
 
 
-def _model_predict(
+def _model_predict_mean(
         x: NDArray[np.float32],
         transformed_params: NDArray[np.float32]) -> NDArray[np.float32]:
     params = _invert_transform_model_params(transformed_params)
@@ -100,8 +109,15 @@ def _model_predict(
 
 def _beta_from_mean_and_variance(mean: float,
                                  variance: float) -> Tuple[float, float]:
+    mean = np.clip(mean, 1e-6, 1 - 1e-6)
     alpha = ((1 - mean) / variance - 1 / mean) * (mean**2)
     beta = alpha * (1 / mean - 1)
+    try:
+        assert alpha > 0
+        assert beta > 0
+    except:
+        import ipdb; ipdb.set_trace()
+    assert abs(alpha / (alpha + beta) - mean) < 1e-6
     return (alpha, beta)
 
 
@@ -127,17 +143,20 @@ def _run_em(
         print(f"Starting EM cycle {it}")
         # Run inference.
         map_competences = _run_inference(history, betas)
+        print("TODO TEMP OVERRIDE")
+        map_competences = [1e-3 for _ in map_competences]
         print("MAP competences:", map_competences)
         all_map_competences.append(map_competences)
         # Run learning.
-        model_params, variance = _run_learning(cp_inputs, map_competences)
+        model_params, variances = _run_learning(cp_inputs, map_competences)
         print("Model params:", model_params)
-        print("Model variance:", variance)
-        all_model_params.append(variance)
+        print("Model variances:", variances)
+        all_model_params.append(model_params)
         # Update betas by evaluating the model.
-        means = _model_predict(cp_inputs, model_params)
-        betas = [_beta_from_mean_and_variance(m, variance) for m in means]
+        means = _model_predict_mean(cp_inputs, _transform_model_params_to_unconstrain(model_params))
+        betas = [_beta_from_mean_and_variance(m, v) for m, v in zip(means, variances)]
         print("Betas:", betas)
+        print("Beta means:", [a / (a + b) for a, b in betas])
         all_betas.append(betas)
     return all_model_params, all_betas, all_map_competences
 
@@ -218,32 +237,32 @@ def _main():
                 all_map_competences,
                 outfile=Path("cp_model_all_false.mp4"))
 
-    history = [
-        [True, True, True, True, True],
-        [True, True, True, True, True, True, True],
-        [True, True, True, True, True],
-        [True, True, True, True, True, True, True, True, True],
-        [True, True, True, True, True],
-    ]
-    _, all_betas, all_map_competences = _run_em(history)
-    _make_plots(history,
-                all_betas,
-                all_map_competences,
-                outfile=Path("cp_model_all_true.mp4"))
+    # history = [
+    #     [True, True, True, True, True],
+    #     [True, True, True, True, True, True, True],
+    #     [True, True, True, True, True],
+    #     [True, True, True, True, True, True, True, True, True],
+    #     [True, True, True, True, True],
+    # ]
+    # _, all_betas, all_map_competences = _run_em(history)
+    # _make_plots(history,
+    #             all_betas,
+    #             all_map_competences,
+    #             outfile=Path("cp_model_all_true.mp4"))
 
-    history = [
-        [False, False, False],
-        [True, False, False, True, False, False, False, False, False],
-        [False, True, True, False, True, False, False, False],
-        [False],
-        [True, True, False, False, True, True],
-        [True, True, True],
-    ]
-    _, all_betas, all_map_competences = _run_em(history)
-    _make_plots(history,
-                all_betas,
-                all_map_competences,
-                outfile=Path("cp_model_small_improve.mp4"))
+    # history = [
+    #     [False, False, False],
+    #     [True, False, False, True, False, False, False, False, False],
+    #     [False, True, True, False, True, False, False, False],
+    #     [False],
+    #     [True, True, False, False, True, True],
+    #     [True, True, True],
+    # ]
+    # _, all_betas, all_map_competences = _run_em(history)
+    # _make_plots(history,
+    #             all_betas,
+    #             all_map_competences,
+    #             outfile=Path("cp_model_small_improve.mp4"))
 
 
 if __name__ == "__main__":
