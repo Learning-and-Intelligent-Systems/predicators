@@ -331,7 +331,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             self, ground_op: _GroundSTRIPSOperator) -> float:
         # Predict the competence if we had one more data point.
         model = self._competence_models[ground_op]
-        c_hat = -np.log(model.predict_competence(1))
+        extrap = model.predict_competence(1)
+        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
+        c_hat = -np.log(extrap)
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
         ground_op_costs = {
