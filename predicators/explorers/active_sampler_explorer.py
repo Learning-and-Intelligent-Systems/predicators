@@ -7,7 +7,8 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.competence_models import SkillCompetenceModel
+from predicators.competence_models import LegacySkillCompetenceModel, \
+    SkillCompetenceModel
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once
@@ -266,6 +267,10 @@ class ActiveSamplerExplorer(BaseExplorer):
             self._ground_op_hist[last_executed_op] = []
         self._ground_op_hist[last_executed_op].append(success)
         # Update the competence model too.
+        if last_executed_op not in self._competence_models:
+            name = f"{last_executed_op.name}{last_executed_op.objects}"
+            model = LegacySkillCompetenceModel(name)
+            self._competence_models[last_executed_op] = model
         self._competence_models[last_executed_op].observe(success)
 
     def _get_option_policy_for_task(self,
