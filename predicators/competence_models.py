@@ -6,7 +6,7 @@ from typing import Type as TypingType
 from scipy.stats import beta as BetaRV
 
 from predicators import utils
-from predicators.ml_models import BetaRegressor
+from predicators.ml_models import MonotonicBetaRegressor
 
 
 class SkillCompetenceModel(abc.ABC):
@@ -73,14 +73,14 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         # Update competence estimate after every observation.
         self._posterior_competence = BetaRV(1.0, 1.0)
         # Model that maps number of data to competence.
-        self._competence_regressor: Optional[BetaRegressor] = None
+        self._competence_regressor: Optional[MonotonicBetaRegressor] = None
 
     @classmethod
     def get_name(cls) -> str:
         return "latent_variable"
 
     def get_current_competence(self) -> float:
-        return self._posterior_competence.mean
+        return self._posterior_competence.mean()
 
     def predict_competence(self, num_additional_data: int) -> float:
         # If we haven't yet learned a regressor, default to an optimistic
@@ -93,7 +93,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         current_num_data = self._get_current_num_data()
         future_num_data = current_num_data + num_additional_data
         rv = self._competence_regressor.predict_beta(future_num_data)
-        return rv.mean
+        return rv.mean()
 
     def observe(self, skill_outcome: bool) -> None:
         # Update the posterior competence after every observation.
@@ -107,7 +107,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             alpha0, beta0 = rv.alpha, rv.alpha
         current_cycle_outcomes = self._cycle_observations[-1]
         self._posterior_competence = utils.beta_bernoulli_posterior(
-            current_cycle_outcomes, prior_alpha=alpha0, prior_beta=beta0)
+            current_cycle_outcomes, alpha=alpha0, beta=beta0)
 
     def advance_cycle(self) -> None:
         super().advance_cycle()

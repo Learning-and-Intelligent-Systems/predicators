@@ -1007,6 +1007,15 @@ class KNeighborsRegressor(_ScikitLearnRegressor):
 
     def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
         return _SKLearnKNeighborsRegressor(**kwargs)
+    
+
+class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
+    """A model that learns conditional beta distributions with the requirement
+    that the mean of the distribution increases with the (assumed 1d) input.
+
+    This regressor is used primarily for competence modeling.
+    """
+    
 
 
 ################################ Classifiers ##################################
