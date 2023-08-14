@@ -104,7 +104,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         else:
             current_num_data = self._get_current_num_data()
             rv = self._competence_regressor.predict_beta(current_num_data)
-            alpha0, beta0 = rv.alpha, rv.alpha
+            alpha0, beta0 = rv.a, rv.a
         current_cycle_outcomes = self._cycle_observations[-1]
         self._posterior_competence = utils.beta_bernoulli_posterior(
             current_cycle_outcomes, alpha=alpha0, beta=beta0)
@@ -126,6 +126,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             map_comp = self._run_map_inference(betas)
             logging.info(f"{self._log_prefix}   Competences: {map_comp}")
             # Run learning.
+            self._competence_regressor = MonotonicBetaRegressor()
             self._competence_regressor.fit(inputs, map_comp)
             # Update betas by evaluating the model.
             betas = [
@@ -154,7 +155,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         """Compute the MAP competences given the input beta priors."""
         assert len(betas) == len(self._cycle_observations)
         rvs = [
-            utils.beta_bernoulli_posterior(o, alpha=rv.alpha, beta=rv.beta)
+            utils.beta_bernoulli_posterior(o, alpha=rv.a, beta=rv.b)
             for o, rv in zip(self._cycle_observations, betas)
         ]
         return [rv.mean() for rv in rvs]
