@@ -539,6 +539,9 @@ class GlobalSettings:
     active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
     active_sampler_learning_exploration_epsilon = 0.05
 
+    # skill competence model parameters
+    skill_competence_model = "legacy"
+
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
     refinement_estimation_num_skeletons_generated = 8
