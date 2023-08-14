@@ -23,6 +23,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
+from predicators.competence_models import SkillCompetenceModel
 from predicators.explorers import BaseExplorer, create_explorer
 from predicators.ml_models import BinaryClassifier, BinaryClassifierEnsemble, \
     KNeighborsClassifier, MLPBinaryClassifier, MLPRegressor
@@ -56,11 +57,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # successfully reached their effects or not). Updated in-place by the
         # explorer when CFG.explorer is active_sampler_explorer.
         self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
-        # The two lists here track (number of training data, competence)
-        # for each skill after each online learning cycle.
-        self._ground_op_competence_data: Dict[_GroundSTRIPSOperator,
-                                              Tuple[List[float],
-                                                    List[float]]] = {}
+        self._competence_models: Dict[_GroundSTRIPSOperator,
+                                      SkillCompetenceModel] = {}
         self._last_seen_segment_traj_idx = -1
 
         # For certain methods, we may want the NSRTs used for exploration to
@@ -109,7 +107,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             self._get_current_nsrts(),
             self._option_model,
             ground_op_hist=self._ground_op_hist,
-            ground_op_competence_data=self._ground_op_competence_data,
+            competence_models=self._competence_models,
             max_steps_before_termination=max_steps,
             nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler,
             seen_train_task_idxs=self._seen_train_task_idxs)
@@ -122,8 +120,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             save_dict = pkl.load(f)
         self._sampler_data = save_dict["sampler_data"]
         self._ground_op_hist = save_dict["ground_op_hist"]
-        self._ground_op_competence_data = save_dict[
-            "ground_op_competence_data"]
+        self._competence_models = save_dict["competence_models"]
         self._last_seen_segment_traj_idx = save_dict[
             "last_seen_segment_traj_idx"]
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
@@ -144,6 +141,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._update_sampler_data()
         # Re-learn samplers. Updates the NSRTs.
         self._learn_wrapped_samplers(online_learning_cycle)
+        # Advance the competence models.
+        for competence_model in self._competence_models.values():
+            competence_model.advance_cycle()
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
         save_path = utils.get_approach_save_path_str()
@@ -152,8 +152,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 {
                     "sampler_data": self._sampler_data,
                     "ground_op_hist": self._ground_op_hist,
-                    "ground_op_competence_data":
-                    self._ground_op_competence_data,
+                    "competence_models": self._competence_models,
                     "last_seen_segment_traj_idx":
                     self._last_seen_segment_traj_idx,
                     "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
@@ -210,25 +209,16 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 self._sampler_data[o.parent].append((s, o, ns, label))
                 ground_nsrt = utils.option_to_ground_nsrt(o, self._nsrts)
                 ground_op_to_num_data[ground_nsrt.op] += 1
-        # Update _ground_op_competence_data.
-        for ground_op, num_new_data in ground_op_to_num_data.items():
-            hist = self._ground_op_hist.get(ground_op, [])
-            current_competence = utils.beta_bernoulli_posterior(hist)
-            if ground_op not in self._ground_op_competence_data:
-                self._ground_op_competence_data[ground_op] = ([], [])
-            X, y = self._ground_op_competence_data[ground_op]
-            last_num_data = 0 if not X else X[-1]
-            X.append(last_num_data + num_new_data)
-            y.append(current_competence)
-            # Save the _ground_op_competence_data() for external analysis.
+        # Save competence models.
+        for ground_op, model in self._competence_models.items():
             approach_save_path = utils.get_approach_save_path_str()
             save_path = "_".join([
                 approach_save_path, f"{ground_op.name}{ground_op.objects}",
                 f"{self._online_learning_cycle}.competence"
             ])
             with open(save_path, "wb") as f:
-                pkl.dump((X, y), f)
-            logging.info(f"Saved competence data to {save_path}.")
+                pkl.dump(model, f)
+            logging.info(f"Saved competence model to {save_path}.")
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
@@ -643,50 +633,3 @@ def _classifier_ensemble_to_score_fn(classifier: BinaryClassifierEnsemble,
 def _regressor_to_score_fn(regressor: MLPRegressor, nsrt: NSRT) -> _ScoreFn:
     fn = lambda v: regressor.predict(v)[0]
     return _vector_score_fn_to_score_fn(fn, nsrt)
-
-
-class _SkillCompetenceModel(abc.ABC):
-    """A model that tracks and predicts competence for a single skill based on
-    the history of outcomes and re-learning cycles."""
-
-    def __init__(self, skill: _GroundSTRIPSOperator) -> None:
-        self._skill = skill  # just for reference
-        # Each list contains outcome for one cycle.
-        self._cycle_observations: List[List[bool]] = [[]]
-
-    @property
-    def _current_cycle(self) -> int:
-        """The current cycle."""
-        return len(self._cycle_observations) - 1
-
-    def observe(self, skill_outcome: bool) -> None:
-        """Record a success or failure from running the skill."""
-        self._cycle_observations[-1].append(skill_outcome)
-
-    def advance_cycle(self) -> None:
-        """Called after re-learning is performed."""
-        self._cycle_observations.append([])
-
-    @abc.abstractmethod
-    def get_current_competence(self) -> float:
-        """An estimate of the current competence."""
-
-    @abc.abstractmethod
-    def predict_competence(self, num_additional_data: int) -> float:
-        """Predict what the competence for the next cycle would be if we were
-        to collect num_additional_data outcomes during this cycle."""
-
-
-class _LegacySkillCompetenceModel(_SkillCompetenceModel):
-    """Our first un-principled implementation of competence modeling."""
-
-    def get_current_competence(self) -> float:
-        # Highly naive: group together all outcomes.
-        all_outcomes = [o for co in self._cycle_observations for o in co]
-        return utils.beta_bernoulli_posterior(all_outcomes)
-
-    def predict_competence(self, num_additional_data: int) -> float:
-        # Highly naive: predict a constant improvement in competence.
-        del num_additional_data  # unused
-        current_competence = self.get_current_competence()
-        return min(1.0, current_competence + 1e-2)
