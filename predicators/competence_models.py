@@ -4,11 +4,13 @@ import logging
 from typing import List, Optional
 from typing import Type as TypingType
 
+import numpy as np
 from scipy.stats import beta as BetaRV
 
 from predicators import utils
 from predicators.ml_models import MonotonicBetaRegressor
 from predicators.settings import CFG
+from predicators.structs import Array
 
 
 class SkillCompetenceModel(abc.ABC):
@@ -115,7 +117,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
     def _run_expectation_maximization(self) -> None:
         # Re-learn the competence regressor using EM.
         num_cycles = len(self._cycle_observations)
-        cp_inputs = self._get_regressor_inputs(self._cycle_observations)
+        inputs = self._get_regressor_inputs()
         # Initialize betas with uniform distribution.
         betas = [BetaRV(1.0, 1.0) for _ in range(num_cycles)]
         for it in range(CFG.skill_competence_model_num_em_iters):
@@ -124,10 +126,10 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             map_comp = self._run_map_inference(betas)
             logging.info(f"{self._log_prefix}   Competences: {map_comp}")
             # Run learning.
-            self._fit_competence_regressor(cp_inputs, map_comp)
+            self._competence_regressor.fit(inputs, map_comp)
             # Update betas by evaluating the model.
             betas = [
-                self._competence_regressor.predict_beta(x) for x in cp_inputs
+                self._competence_regressor.predict_beta(x) for x in inputs
             ]
             means = [b.mean() for b in betas]
             variances = [b.variance() for b in betas]
@@ -141,6 +143,13 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
     def _get_current_num_data(self) -> int:
         return sum(len(o) for o in self._cycle_observations)
 
+    def _get_regressor_inputs(self) -> Array:
+        history = self._cycle_observations
+        num_data_after_cycle = list(np.cumsum([len(h) for h in history]))
+        num_data_before_cycle = np.array([0] + num_data_after_cycle[:-1],
+                                         dtype=np.float32)
+        return num_data_before_cycle
+
     def _run_map_inference(self, betas: List[BetaRV]) -> List[float]:
         """Compute the MAP competences given the input beta priors."""
         assert len(betas) == len(self._cycle_observations)
@@ -148,7 +157,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             utils.beta_bernoulli_posterior(o, alpha=rv.alpha, beta=rv.beta)
             for o, rv in zip(self._cycle_observations, betas)
         ]
-        return [rv.mode() for rv in rvs]
+        return [rv.mean() for rv in rvs]
 
 
 def _get_competence_model_cls_from_name(
