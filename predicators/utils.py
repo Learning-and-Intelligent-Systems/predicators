@@ -3404,3 +3404,23 @@ def beta_bernoulli_posterior(success_history: List[bool],
     alpha_n = alpha + s
     beta_n = n - s + beta
     return BetaRV(alpha_n, beta_n)
+
+
+def beta_from_mean_and_variance(mean: float,
+                                variance: float,
+                                variance_lower_pad: float = 1e-6,
+                                variance_upper_pad: float = 1e-3) -> BetaRV:
+    """Recover a beta distribution given a mean and a variance.
+
+    See https://stats.stackexchange.com/questions/12232/ for derivation.
+    """
+    # Clip variance.
+    variance = max(min(variance,
+                       mean * (1 - mean) - variance_upper_pad),
+                   variance_lower_pad)
+    alpha = ((1 - mean) / variance - 1 / mean) * (mean**2)
+    beta = alpha * (1 / mean - 1)
+    assert alpha > 0
+    assert beta > 0
+    assert abs((alpha + beta) / alpha - mean) < 1e-6
+    return BetaRV(alpha, beta)
