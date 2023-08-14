@@ -242,8 +242,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
 
     def _train(self) -> None:
         for i in range(CFG.online_rl_num_trains_per_train_loop):
-            np_batch = self._replay_buffer.random_batch(
-                2)  # CFG.online_rl_batch_size
+            np_batch = self._replay_buffer.random_batch(CFG.online_rl_batch_size)
             torch_batch = np_to_pytorch_batch(np_batch)
             self._trainer_function.train_from_torch(torch_batch)
             logging.info(
