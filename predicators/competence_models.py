@@ -104,7 +104,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         else:
             current_num_data = self._get_current_num_data()
             rv = self._competence_regressor.predict_beta(current_num_data)
-            alpha0, beta0 = rv.a, rv.a
+            alpha0, beta0 = rv.args
         current_cycle_outcomes = self._cycle_observations[-1]
         self._posterior_competence = utils.beta_bernoulli_posterior(
             current_cycle_outcomes, alpha=alpha0, beta=beta0)
@@ -133,6 +133,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
                 clip_value=CFG.mlp_regressor_gradient_clip_value,
                 learning_rate=CFG.skill_competence_model_learning_rate)
             targets = np.array(map_comp, dtype=np.float32)
+            targets = np.reshape(targets, (-1, 1))
             self._competence_regressor.fit(inputs, targets)
             # Update betas by evaluating the model.
             betas = [
@@ -156,16 +157,18 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         num_data_after_cycle = list(np.cumsum([len(h) for h in history]))
         num_data_before_cycle = np.array([0] + num_data_after_cycle[:-1],
                                          dtype=np.float32)
-        return num_data_before_cycle
+        inputs = np.reshape(num_data_before_cycle, (-1, 1))
+        return inputs
 
     def _run_map_inference(self, betas: List[BetaRV]) -> List[float]:
         """Compute the MAP competences given the input beta priors."""
         assert len(betas) == len(self._cycle_observations)
-        rvs = [
-            utils.beta_bernoulli_posterior(o, alpha=rv.a, beta=rv.b)
-            for o, rv in zip(self._cycle_observations, betas)
-        ]
-        return [rv.mean() for rv in rvs]
+        map_competences: List[float] = []
+        for o, rv in zip(self._cycle_observations, betas):
+            alpha, beta = rv.args
+            prv = utils.beta_bernoulli_posterior(o, alpha=alpha, beta=beta)
+            map_competences.append(prv.mean())
+        return map_competences
 
 
 def _get_competence_model_cls_from_name(
