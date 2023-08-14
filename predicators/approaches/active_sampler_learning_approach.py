@@ -23,6 +23,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
+from predicators.competence_models import SkillCompetenceModel
 from predicators.explorers import BaseExplorer, create_explorer
 from predicators.ml_models import BinaryClassifier, BinaryClassifierEnsemble, \
     KNeighborsClassifier, MLPBinaryClassifier, MLPRegressor
@@ -56,11 +57,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # successfully reached their effects or not). Updated in-place by the
         # explorer when CFG.explorer is active_sampler_explorer.
         self._ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]] = {}
-        # The two lists here track (number of training data, competence)
-        # for each skill after each online learning cycle.
-        self._ground_op_competence_data: Dict[_GroundSTRIPSOperator,
-                                              Tuple[List[float],
-                                                    List[float]]] = {}
+        self._competence_models: Dict[_GroundSTRIPSOperator,
+                                      SkillCompetenceModel] = {}
         self._last_seen_segment_traj_idx = -1
 
         # For certain methods, we may want the NSRTs used for exploration to
@@ -83,8 +81,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         timeout: float, seed: int, **kwargs: Any
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
         # Add ground operator competence for competence-aware planning.
-        ground_op_costs = utils.ground_op_history_to_planning_costs(
-            self._ground_op_hist)
+        ground_op_costs = {
+            o: -np.log(m.get_current_competence())
+            for o, m in self._competence_models.items()
+        }
         return super()._run_task_plan(task,
                                       nsrts,
                                       preds,
@@ -109,7 +109,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             self._get_current_nsrts(),
             self._option_model,
             ground_op_hist=self._ground_op_hist,
-            ground_op_competence_data=self._ground_op_competence_data,
+            competence_models=self._competence_models,
             max_steps_before_termination=max_steps,
             nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler,
             seen_train_task_idxs=self._seen_train_task_idxs)
@@ -122,8 +122,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             save_dict = pkl.load(f)
         self._sampler_data = save_dict["sampler_data"]
         self._ground_op_hist = save_dict["ground_op_hist"]
-        self._ground_op_competence_data = save_dict[
-            "ground_op_competence_data"]
+        self._competence_models = save_dict["competence_models"]
         self._last_seen_segment_traj_idx = save_dict[
             "last_seen_segment_traj_idx"]
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
@@ -144,6 +143,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._update_sampler_data()
         # Re-learn samplers. Updates the NSRTs.
         self._learn_wrapped_samplers(online_learning_cycle)
+        # Advance the competence models.
+        for competence_model in self._competence_models.values():
+            competence_model.advance_cycle()
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
         save_path = utils.get_approach_save_path_str()
@@ -152,8 +154,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 {
                     "sampler_data": self._sampler_data,
                     "ground_op_hist": self._ground_op_hist,
-                    "ground_op_competence_data":
-                    self._ground_op_competence_data,
+                    "competence_models": self._competence_models,
                     "last_seen_segment_traj_idx":
                     self._last_seen_segment_traj_idx,
                     "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
@@ -210,25 +211,16 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 self._sampler_data[o.parent].append((s, o, ns, label))
                 ground_nsrt = utils.option_to_ground_nsrt(o, self._nsrts)
                 ground_op_to_num_data[ground_nsrt.op] += 1
-        # Update _ground_op_competence_data.
-        for ground_op, num_new_data in ground_op_to_num_data.items():
-            hist = self._ground_op_hist.get(ground_op, [])
-            current_competence = utils.beta_bernoulli_posterior(hist)
-            if ground_op not in self._ground_op_competence_data:
-                self._ground_op_competence_data[ground_op] = ([], [])
-            X, y = self._ground_op_competence_data[ground_op]
-            last_num_data = 0 if not X else X[-1]
-            X.append(last_num_data + num_new_data)
-            y.append(current_competence)
-            # Save the _ground_op_competence_data() for external analysis.
+        # Save competence models.
+        for ground_op, model in self._competence_models.items():
             approach_save_path = utils.get_approach_save_path_str()
             save_path = "_".join([
                 approach_save_path, f"{ground_op.name}{ground_op.objects}",
                 f"{self._online_learning_cycle}.competence"
             ])
             with open(save_path, "wb") as f:
-                pkl.dump((X, y), f)
-            logging.info(f"Saved competence data to {save_path}.")
+                pkl.dump(model, f)
+            logging.info(f"Saved competence model to {save_path}.")
 
     def _check_option_success(self, option: _Option, segment: Segment) -> bool:
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
@@ -518,7 +510,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
         # Special case: we haven't seen any data for the parent NSRT, so we
         # haven't learned a score function for it.
-        if ground_nsrt.parent not in self._nsrt_score_fns:
+        if ground_nsrt.parent not in self._nsrt_score_fns:  # pragma: no cover
             return 0.0
         score_fn = self._nsrt_score_fns[ground_nsrt.parent]
         return score_fn(state, ground_nsrt.objects, [option.params])[0]

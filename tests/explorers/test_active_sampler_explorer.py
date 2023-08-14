@@ -30,7 +30,7 @@ def test_active_sampler_explorer():
     option_model = _OracleOptionModel(env)
     train_tasks = [t.task for t in env.get_train_tasks()]
     ground_op_hist = {}
-    ground_op_competence_data = {}
+    competence_models = {}
     nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
     for nsrt in nsrts:
         nsrt_to_explorer_sampler[nsrt] = nsrt.sampler
@@ -45,7 +45,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         max_steps_before_termination=2,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
@@ -77,7 +77,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist={},
-        ground_op_competence_data={},
+        competence_models={},
         max_steps_before_termination=2,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
@@ -89,7 +89,7 @@ def test_active_sampler_explorer():
 
     # Cover case where the max option horizon is exceeded.
     ground_op_hist = {}
-    ground_op_competence_data = {}
+    competence_models = {}
     utils.reset_config({
         "explorer": "active_sampler",
         "env": "regional_bumpy_cover",
@@ -108,7 +108,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         max_steps_before_termination=2,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
@@ -138,7 +138,7 @@ def test_active_sampler_explorer():
     option_model = _OracleOptionModel(env)
     train_tasks = [t.task for t in env.get_train_tasks()]
     ground_op_hist = {}
-    ground_op_competence_data = {}
+    competence_models = {}
     nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
     for nsrt in nsrts:
         nsrt_to_explorer_sampler[nsrt] = nsrt.sampler
@@ -152,7 +152,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
     task_idx = 0
@@ -189,7 +189,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
@@ -228,7 +228,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
@@ -259,7 +259,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
@@ -298,7 +298,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
@@ -342,7 +342,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         nsrt_to_explorer_sampler=new_nsrt_to_greedy_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
@@ -386,7 +386,7 @@ def test_active_sampler_explorer():
         nsrts,
         option_model,
         ground_op_hist=ground_op_hist,
-        ground_op_competence_data=ground_op_competence_data,
+        competence_models=competence_models,
         nsrt_to_explorer_sampler=new_nsrt_to_greedy_explorer_sampler,
         seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)

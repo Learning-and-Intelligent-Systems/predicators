@@ -2,13 +2,15 @@
 
 import os
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import dill as pkl
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
 from predicators import utils
+from predicators.competence_models import SkillCompetenceModel
 from predicators.structs import Array
 
 
@@ -26,7 +28,8 @@ def _main() -> None:
     operator_str_results: Dict[str, Dict[int, Tuple[Array, Array]]] = {}
     for load_path in Path(".").glob(load_path_pattern):
         with open(load_path, "rb") as f:
-            x, y = pkl.load(f)
+            competence_model = pkl.load(f)
+        x, y = _competence_model_to_regression_data(competence_model)
         _, operator_str, tail = load_path.name.rsplit("_", maxsplit=2)
         if operator_str not in operator_str_results:
             operator_str_results[operator_str] = {}
@@ -40,6 +43,28 @@ def _main() -> None:
         last = max(operator_results)
         x, y = operator_results[last]
         _make_plot(x, y, operator_str, last)
+
+
+def _competence_model_to_regression_data(
+        competence_model: SkillCompetenceModel) -> Tuple[Array, Array]:
+    # Replay the data in the competence model and create dataset where inputs
+    # are number of data seen so far and outputs are estimated competence.
+    new_model = competence_model.__class__("replay")
+    all_observations = competence_model._cycle_observations  # pylint: disable=protected-access
+    del competence_model
+    x_lst: List[float] = []
+    y_lst: List[float] = []
+    num_data = 0
+    for observations in all_observations:
+        for obs in observations:
+            new_model.observe(obs)
+            num_data += 1
+        x_lst.append(num_data)
+        y_lst.append(new_model.get_current_competence())
+        new_model.advance_cycle()
+    x_arr = np.array(x_lst, dtype=np.float32)
+    y_arr = np.array(y_lst, dtype=np.float32)
+    return (x_arr, y_arr)
 
 
 def _make_plot(x: Array, y: Array, operator_str: str,

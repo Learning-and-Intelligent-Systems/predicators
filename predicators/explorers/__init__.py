@@ -1,10 +1,11 @@
 """Handle creation of explorers."""
 
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set
 
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.competence_models import SkillCompetenceModel
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
@@ -33,9 +34,8 @@ def create_explorer(
     state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
     max_steps_before_termination: Optional[int] = None,
     ground_op_hist: Optional[Dict[_GroundSTRIPSOperator, List[bool]]] = None,
-    ground_op_competence_data: Optional[Dict[_GroundSTRIPSOperator,
-                                             Tuple[List[float],
-                                                   List[float]]]] = None,
+    competence_models: Optional[Dict[_GroundSTRIPSOperator,
+                                     SkillCompetenceModel]] = None,
     nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
     seen_train_task_idxs: Optional[Set[int]] = None,
 ) -> BaseExplorer:
@@ -82,13 +82,13 @@ def create_explorer(
             # Active sampler explorer uses ground_op_hist and no option model.
             elif name == "active_sampler":
                 assert ground_op_hist is not None
-                assert ground_op_competence_data is not None
+                assert competence_models is not None
                 assert nsrt_to_explorer_sampler is not None
                 assert seen_train_task_idxs is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
                                max_steps_before_termination, nsrts,
-                               ground_op_hist, ground_op_competence_data,
+                               ground_op_hist, competence_models,
                                nsrt_to_explorer_sampler, seen_train_task_idxs)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
