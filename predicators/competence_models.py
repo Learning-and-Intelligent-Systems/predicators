@@ -140,7 +140,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
                 self._competence_regressor.predict_beta(x) for x in inputs
             ]
             means = [b.mean() for b in betas]
-            variances = [b.variance() for b in betas]
+            variances = [b.var() for b in betas]
             logging.info(f"{self._log_prefix}   Beta means: {means}")
             logging.info(f"{self._log_prefix}   Beta variances: {variances}")
         # Update the posterior after learning for the new cycle (for which
