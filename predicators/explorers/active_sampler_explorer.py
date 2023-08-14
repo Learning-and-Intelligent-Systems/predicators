@@ -1,7 +1,7 @@
 """An explorer for active sampler learning."""
 
 import logging
-from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Set
 
 import numpy as np
 from gym.spaces import Box
