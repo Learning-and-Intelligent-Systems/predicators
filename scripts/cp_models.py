@@ -37,6 +37,10 @@ def _run_inference(history: List[List[bool]],
     return map_competences
 
 
+def _split_prediction(preds: Tensor) -> Tuple[Tensor, Tensor]:
+    return torch.split(preds, preds.shape[-1] // 2, dim=-1)  # type: ignore
+
+
 class CompetenceModel(PyTorchRegressor):
 
     def __init__(self,
@@ -60,11 +64,13 @@ class CompetenceModel(PyTorchRegressor):
                          do_normalize=False,
                          train_print_every=train_print_every)
         self.theta = torch.nn.Parameter(torch.randn(3), requires_grad=True)
+        self.variance = torch.nn.Parameter(torch.tensor(0.1), requires_grad=True)
 
     def interpret(self) -> None:
         print("Transformed weights:", self._transform_theta())
-        print("At zero:", self.predict(np.array([0.0]))[0])
-        print("At large number:", self.predict(np.array([1000000000.0]))[0])
+        print("At zero:", self.predict_betas(np.array([[0.0]]))[0])
+        print("At large number:", self.predict_betas(np.array([[1000000000.0]]))[0])
+        print("Variance:", self.variance)
 
     def _transform_theta(self) -> List[Tensor]:
         theta0 = self.theta[0]
@@ -74,8 +80,8 @@ class CompetenceModel(PyTorchRegressor):
         ctheta1 = F.sigmoid(theta0 + (F.elu(theta1) + 1))
         ctheta2 = F.elu(theta2) + 1
         return [ctheta0, ctheta1, ctheta2]
-
-    def forward(self, tensor_X: Tensor) -> Tensor:
+    
+    def _predict_mean(self, tensor_X: Tensor) -> Tensor:
         # Transform weights to obey constraints.
         ctheta0, ctheta1, ctheta2 = self._transform_theta()
         # Exponential saturation function.
@@ -83,12 +89,47 @@ class CompetenceModel(PyTorchRegressor):
         # Clip mean to avoid numerical issues.
         mean = torch.clip(mean, 1e-3, 1.0 - 1e-3)
         return mean
+    
+    def predict_betas(self, X: Array) -> Array:
+        alpha_betas = [self._predict(x) for x in X]
+        return np.array([[a, b] for a, b in alpha_betas], dtype=np.float32)
+    
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        mean = self._predict_mean(tensor_X)
+        # Constant variance.
+        variance = self.variance * torch.ones_like(mean)
+        # Beta distribution variance bound plus padding for stability.
+        variance = torch.clamp_max(variance, mean * (1 - mean) - 1e-3)
+        # Variance non-negative plus padding for stability.
+        variance = torch.clamp_min(variance, 1e-6)
+        # Convert to alpha, beta.
+        alpha, beta = _beta_from_mean_and_variance(mean, variance)
+        return torch.cat([alpha, beta], dim=-1)
 
     def _initialize_net(self) -> None:
         pass
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
-        return nn.MSELoss()
+        return BetaLoss()
+    
+
+class BetaLoss(nn.Module):
+    
+    variance_regularization_weight: float = 1.0
+    
+    def __init__(self) -> None:
+        super(BetaLoss, self).__init__()
+
+    def forward(self, preds: Tensor, targets: Tensor) -> Tensor:
+        alpha, beta = _split_prediction(preds)
+        dist = TorchBeta(alpha, beta)
+        nll = -dist.log_prob(targets)
+        loss = nll.mean()
+        
+        # Encourage high variance to promote stability.
+        reg_loss = 1.0 - dist.variance.mean()
+
+        return loss + self.variance_regularization_weight * reg_loss
 
 
 def _run_learning(
@@ -110,13 +151,13 @@ def _beta_variance(a: float, b: float) -> float:
 
 def _beta_from_mean_and_variance(mean: float,
                                  variance: float) -> Tuple[float, float]:
-    # Clip variance.
-    variance = max(min(variance, mean * (1 - mean) - 1e-3), 1e-6)
+    # # Clip variance.
+    # variance = max(min(variance, mean * (1 - mean) - 1e-3), 1e-6)
     alpha = ((1 - mean) / variance - 1 / mean) * (mean**2)
     beta = alpha * (1 / mean - 1)
-    assert alpha > 0
-    assert beta > 0
-    assert abs(_beta_mean(alpha, beta) - mean) < 1e-6
+    # assert alpha > 0
+    # assert beta > 0
+    # assert abs(_beta_mean(alpha, beta) - mean) < 1e-6
     return (alpha, beta)
 
 
@@ -149,9 +190,7 @@ def _run_em(
         model.interpret()
         all_models.append(model)
         # Update betas by evaluating the model.
-        means = [model.predict(np.array([x]))[0] for x in cp_inputs]
-        variance = 0.1  # TODO
-        betas = [_beta_from_mean_and_variance(m, variance) for m in means]
+        betas = model.predict_betas(cp_inputs)
         print("Betas:", betas)
         print("Beta means:", [_beta_mean(a, b) for a, b in betas])
         print("Beta variances:", [_beta_variance(a, b) for a, b in betas])
@@ -253,19 +292,19 @@ def _test_run_learning():
     cp_inputs = np.array([0, 3, 10, 12], dtype=np.float32)
     map_competences = [1e-3, 1e-3, 1e-3, 1e-3]
     model = _run_learning(cp_inputs, map_competences)
-    predicted_competences = [model.predict(np.array([x])) for x in cp_inputs]
+    predicted_competences = [_beta_mean(a, b) for a, b in model.predict_betas(cp_inputs)]
     assert np.allclose(predicted_competences, map_competences, atol=1e-2)
 
     cp_inputs = np.array([0, 3, 10, 12], dtype=np.float32)
     map_competences = [0.99, 0.99, 0.99, 0.99]
     model = _run_learning(cp_inputs, map_competences)
-    predicted_competences = [model.predict(np.array([x])) for x in cp_inputs]
+    predicted_competences = [_beta_mean(a, b) for a, b in model.predict_betas(cp_inputs)]
     assert np.allclose(predicted_competences, map_competences, atol=1e-2)
 
     cp_inputs = np.array([0, 3, 10, 12], dtype=np.float32)
     map_competences = [0.3, 0.4, 0.4, 0.7]
     model = _run_learning(cp_inputs, map_competences)
-    predicted_competences = [model.predict(np.array([x])) for x in cp_inputs]
+    predicted_competences = [_beta_mean(a, b) for a, b in model.predict_betas(cp_inputs)]
     assert predicted_competences[0] < predicted_competences[1]
 
 
