@@ -508,7 +508,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
         # Special case: we haven't seen any data for the parent NSRT, so we
         # haven't learned a score function for it.
-        if ground_nsrt.parent not in self._nsrt_score_fns:
+        if ground_nsrt.parent not in self._nsrt_score_fns:  # pragma: no cover
             return 0.0
         score_fn = self._nsrt_score_fns[ground_nsrt.parent]
         return score_fn(state, ground_nsrt.objects, [option.params])[0]
