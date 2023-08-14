@@ -1,12 +1,14 @@
 """An explorer for active sampler learning."""
 
 import logging
-from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Set
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.competence_models import LegacySkillCompetenceModel, \
+    SkillCompetenceModel
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once
@@ -33,9 +35,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                  action_space: Box, train_tasks: List[Task],
                  max_steps_before_termination: int, nsrts: Set[NSRT],
                  ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
-                 ground_op_competence_data: Dict[_GroundSTRIPSOperator,
-                                                 Tuple[List[float],
-                                                       List[float]]],
+                 competence_models: Dict[_GroundSTRIPSOperator,
+                                         SkillCompetenceModel],
                  nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler],
                  seen_train_task_idxs: Set[int]) -> None:
 
@@ -48,7 +49,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                          max_steps_before_termination)
         self._nsrts = nsrts
         self._ground_op_hist = ground_op_hist
-        self._ground_op_competence_data = ground_op_competence_data
+        self._competence_models = competence_models
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
@@ -265,14 +266,22 @@ class ActiveSamplerExplorer(BaseExplorer):
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
         self._ground_op_hist[last_executed_op].append(success)
+        # Update the competence model too.
+        if last_executed_op not in self._competence_models:
+            name = f"{last_executed_op.name}{last_executed_op.objects}"
+            model = LegacySkillCompetenceModel(name)
+            self._competence_models[last_executed_op] = model
+        self._competence_models[last_executed_op].observe(success)
 
     def _get_option_policy_for_task(self,
                                     task: Task) -> Callable[[State], _Option]:
         # Run task planning and then greedily execute.
         timeout = CFG.timeout
         task_planning_heuristic = CFG.sesame_task_planning_heuristic
-        ground_op_costs = utils.ground_op_history_to_planning_costs(
-            self._ground_op_hist)
+        ground_op_costs = {
+            o: -np.log(m.get_current_competence())
+            for o, m in self._competence_models.items()
+        }
         plan, atoms_seq, _ = run_task_plan_once(
             task,
             self._nsrts,
@@ -289,10 +298,11 @@ class ActiveSamplerExplorer(BaseExplorer):
     def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
         # Score NSRTs according to their success rate and a bonus for ones
         # that haven't been tried very much.
+        model = self._competence_models[ground_op]
         history = self._ground_op_hist[ground_op]
         num_tries = len(history)
         success_rate = sum(history) / num_tries
-        competence = utils.beta_bernoulli_posterior(history)
+        competence = model.get_current_competence()
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
         logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
@@ -319,12 +329,14 @@ class ActiveSamplerExplorer(BaseExplorer):
     def _score_ground_op_planning_progress(
             self, ground_op: _GroundSTRIPSOperator) -> float:
         # Predict the competence if we had one more data point.
-        num_attempts = len(self._ground_op_hist[ground_op])
-        c_hat = self._extrapolate_competence_cost(ground_op, num_attempts + 1)
+        model = self._competence_models[ground_op]
+        c_hat = -np.log(model.predict_competence(1))
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
-        ground_op_costs = utils.ground_op_history_to_planning_costs(
-            self._ground_op_hist)
+        ground_op_costs = {
+            o: -np.log(m.get_current_competence())
+            for o, m in self._competence_models.items()
+        }
         ground_op_costs[ground_op] = c_hat  # override
         # Make plans on some of the training tasks we've seen so far and record
         # the total plan costs.
@@ -344,18 +356,6 @@ class ActiveSamplerExplorer(BaseExplorer):
                 task_plan_costs.append(op_cost)
             plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # higher scores are better
-
-    def _extrapolate_competence_cost(self, ground_op: _GroundSTRIPSOperator,
-                                     num_attempts: int) -> float:
-        # This is a placeholder for a more sophisticated thing coming soon!
-        # For now, we make the highly simplified assumption that practicing
-        # anything will improve the thing by a small constant amount.
-        del num_attempts  # not used yet
-        outcomes = self._ground_op_hist[ground_op]
-        competence = utils.beta_bernoulli_posterior(outcomes)
-        extrap = min(1.0, competence + 1e-2)
-        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
-        return -np.log(extrap)
 
     def _get_task_plan_for_training_task(
         self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
