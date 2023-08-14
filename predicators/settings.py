@@ -542,6 +542,8 @@ class GlobalSettings:
     # skill competence model parameters
     skill_competence_model = "latent_variable"
     skill_competence_model_num_em_iters = 5
+    skill_competence_model_max_train_iters = 10000
+    skill_competence_model_learning_rate = 1e-2
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator

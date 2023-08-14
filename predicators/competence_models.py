@@ -126,8 +126,14 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             map_comp = self._run_map_inference(betas)
             logging.info(f"{self._log_prefix}   Competences: {map_comp}")
             # Run learning.
-            self._competence_regressor = MonotonicBetaRegressor()
-            self._competence_regressor.fit(inputs, map_comp)
+            self._competence_regressor = MonotonicBetaRegressor(
+                seed=CFG.seed,
+                max_train_iters=CFG.skill_competence_model_max_train_iters,
+                clip_gradients=CFG.mlp_regressor_max_itr,
+                clip_value=CFG.mlp_regressor_gradient_clip_value,
+                learning_rate=CFG.skill_competence_model_learning_rate)
+            targets = np.array(map_comp, dtype=np.float32)
+            self._competence_regressor.fit(inputs, targets)
             # Update betas by evaluating the model.
             betas = [
                 self._competence_regressor.predict_beta(x) for x in inputs
@@ -138,6 +144,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             logging.info(f"{self._log_prefix}   Beta variances: {variances}")
         # Update the posterior after learning for the new cycle (for which
         # we have no data).
+        assert self._competence_regressor is not None
         n = self._get_current_num_data()
         self._posterior_competence = self._competence_regressor.predict_beta(n)
 

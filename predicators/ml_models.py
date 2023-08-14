@@ -1067,10 +1067,9 @@ class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
 
     def forward(self, tensor_X: Tensor) -> Tensor:
         # Transform weights to obey constraints.
-        ctheta0, ctheta1, ctheta2 = self._transform_theta()
+        c0, c1, c2 = self._transform_theta()
         # Exponential saturation function.
-        mean = ctheta0 + (ctheta1 - ctheta0) * (1 -
-                                                torch.exp(-ctheta2 * tensor_X))
+        mean = c0 + (c1 - c0) * (1 - torch.exp(-c2 * tensor_X))  # type: ignore
         # Clip mean to avoid numerical issues.
         mean = torch.clip(mean, 1e-3, 1.0 - 1e-3)
         return mean
@@ -1085,8 +1084,13 @@ class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
 
     def predict_beta(self, x: float) -> BetaRV:
         """Predict a beta distribution given the input."""
-        mean = self._predict(np.array([x]))[0]
+        mean = self._predict(np.array([x], dtype=np.float32))[0]
         return utils.beta_from_mean_and_variance(mean, self.variance)
+
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        assert len(x) == 1
+        rv = self.predict_beta(x[0])
+        return rv.rvs(random_state=rng)
 
 
 ################################ Classifiers ##################################
