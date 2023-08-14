@@ -279,8 +279,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Run task planning and then greedily execute.
         timeout = CFG.timeout
         task_planning_heuristic = CFG.sesame_task_planning_heuristic
-        ground_op_costs = utils.ground_op_history_to_planning_costs(
-            self._ground_op_hist)
+        ground_op_costs = {
+            o: -np.log(m.get_current_competence())
+            for o, m in self._competence_models.items()
+        }
         plan, atoms_seq, _ = run_task_plan_once(
             task,
             self._nsrts,
@@ -332,8 +334,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         c_hat = -np.log(model.predict_competence(1))
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
-        ground_op_costs = utils.ground_op_history_to_planning_costs(
-            self._ground_op_hist)
+        ground_op_costs = {
+            o: -np.log(m.get_current_competence())
+            for o, m in self._competence_models.items()
+        }
         ground_op_costs[ground_op] = c_hat  # override
         # Make plans on some of the training tasks we've seen so far and record
         # the total plan costs.

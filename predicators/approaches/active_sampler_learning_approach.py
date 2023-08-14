@@ -81,8 +81,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         timeout: float, seed: int, **kwargs: Any
     ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
         # Add ground operator competence for competence-aware planning.
-        ground_op_costs = utils.ground_op_history_to_planning_costs(
-            self._ground_op_hist)
+        ground_op_costs = {
+            o: -np.log(m.get_current_competence())
+            for o, m in self._competence_models.items()
+        }
         return super()._run_task_plan(task,
                                       nsrts,
                                       preds,
@@ -508,7 +510,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
         # Special case: we haven't seen any data for the parent NSRT, so we
         # haven't learned a score function for it.
-        if ground_nsrt.parent not in self._nsrt_score_fns:
+        if ground_nsrt.parent not in self._nsrt_score_fns:  # pragma: no cover
             return 0.0
         score_fn = self._nsrt_score_fns[ground_nsrt.parent]
         return score_fn(state, ground_nsrt.objects, [option.params])[0]

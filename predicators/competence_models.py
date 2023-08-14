@@ -23,11 +23,6 @@ class SkillCompetenceModel(abc.ABC):
     def get_name(cls) -> str:
         """Get the unique name of this skill competence model."""
 
-    @property
-    def _current_cycle(self) -> int:
-        """The current cycle."""
-        return len(self._cycle_observations) - 1
-
     def observe(self, skill_outcome: bool) -> None:
         """Record a success or failure from running the skill."""
         self._cycle_observations[-1].append(skill_outcome)
