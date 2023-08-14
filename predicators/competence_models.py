@@ -1,5 +1,6 @@
 """Models for estimating and predicting skill competence."""
 import abc
+import logging
 from typing import List, Optional
 from typing import Type as TypingType
 
@@ -7,6 +8,7 @@ from scipy.stats import beta as BetaRV
 
 from predicators import utils
 from predicators.ml_models import MonotonicBetaRegressor
+from predicators.settings import CFG
 
 
 class SkillCompetenceModel(abc.ABC):
@@ -65,6 +67,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
 
     def __init__(self, skill_name: str) -> None:
         super().__init__(skill_name)
+        self._log_prefix = f"[Competence] [{self._skill_name}]"
         # Update competence estimate after every observation.
         self._posterior_competence = BetaRV(1.0, 1.0)
         # Model that maps number of data to competence.
@@ -105,16 +108,47 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             current_cycle_outcomes, alpha=alpha0, beta=beta0)
 
     def advance_cycle(self) -> None:
+        # Re-learn before advancing the cycle.
+        self._run_expectation_maximization()
         super().advance_cycle()
-        self._fit_competence_regressor()
 
-    def _fit_competence_regressor(self) -> None:
+    def _run_expectation_maximization(self) -> None:
         # Re-learn the competence regressor using EM.
-        import ipdb
-        ipdb.set_trace()
+        num_cycles = len(self._cycle_observations)
+        cp_inputs = self._get_regressor_inputs(self._cycle_observations)
+        # Initialize betas with uniform distribution.
+        betas = [BetaRV(1.0, 1.0) for _ in range(num_cycles)]
+        for it in range(CFG.skill_competence_model_num_em_iters):
+            logging.info(f"{self._log_prefix} EM iter {it}")
+            # Run inference.
+            map_comp = self._run_map_inference(betas)
+            logging.info(f"{self._log_prefix}   Competences: {map_comp}")
+            # Run learning.
+            self._fit_competence_regressor(cp_inputs, map_comp)
+            # Update betas by evaluating the model.
+            betas = [
+                self._competence_regressor.predict_beta(x) for x in cp_inputs
+            ]
+            means = [b.mean() for b in betas]
+            variances = [b.variance() for b in betas]
+            logging.info(f"{self._log_prefix}   Beta means: {means}")
+            logging.info(f"{self._log_prefix}   Beta variances: {variances}")
+        # Update the posterior after learning for the new cycle (for which
+        # we have no data).
+        n = self._get_current_num_data()
+        self._posterior_competence = self._competence_regressor.predict_beta(n)
 
     def _get_current_num_data(self) -> int:
         return sum(len(o) for o in self._cycle_observations)
+
+    def _run_map_inference(self, betas: List[BetaRV]) -> List[float]:
+        """Compute the MAP competences given the input beta priors."""
+        assert len(betas) == len(self._cycle_observations)
+        rvs = [
+            utils.beta_bernoulli_posterior(o, alpha=rv.alpha, beta=rv.beta)
+            for o, rv in zip(self._cycle_observations, betas)
+        ]
+        return [rv.mode() for rv in rvs]
 
 
 def _get_competence_model_cls_from_name(
