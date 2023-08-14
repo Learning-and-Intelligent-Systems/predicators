@@ -7,8 +7,8 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.competence_models import create_competence_model, \
-    SkillCompetenceModel
+from predicators.competence_models import SkillCompetenceModel, \
+    create_competence_model
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once
@@ -55,7 +55,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._seen_train_task_idxs = seen_train_task_idxs
         self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
         self._task_plan_calls_since_replan: Dict[int, int] = {}
-        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
+        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]).mean)
         self._sorted_options = sorted(options, key=lambda o: o.name)
 
     @classmethod

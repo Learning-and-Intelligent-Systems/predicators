@@ -37,6 +37,7 @@ from matplotlib import patches
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
+from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
 from predicators.pybullet_helpers.joint import JointPositions
@@ -3395,16 +3396,14 @@ def get_task_seed(train_or_test: str, task_idx: int) -> int:
 
 
 def beta_bernoulli_posterior(success_history: List[bool],
-                             alpha: float = 0.5,
-                             beta: float = 0.5) -> float:
+                             prior_alpha: float = 1.0,
+                             prior_beta: float = 1.0) -> BetaRV:
     """See https://gregorygundersen.com/blog/2020/08/19/bernoulli-beta/"""
     n = len(success_history)
     s = sum(success_history)
-    alpha_n = alpha + s
-    beta_n = n - s + beta
-    expectation = alpha_n / (alpha_n + beta_n)
-    assert 0 < expectation < 1
-    return expectation
+    alpha_n = prior_alpha + s
+    beta_n = n - s + prior_beta
+    return BetaRV(alpha_n, beta_n)
 
 
 def ground_op_history_to_planning_costs(

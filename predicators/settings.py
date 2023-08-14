@@ -540,7 +540,7 @@ class GlobalSettings:
     active_sampler_learning_exploration_epsilon = 0.05
 
     # skill competence model parameters
-    skill_competence_model = "legacy"
+    skill_competence_model = "latent_variable"
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
