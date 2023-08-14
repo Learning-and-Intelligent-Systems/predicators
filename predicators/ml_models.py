@@ -1092,6 +1092,10 @@ class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
         rv = self.predict_beta(x[0])
         return rv.rvs(random_state=rng)
 
+    def get_transformed_params(self) -> List[float]:
+        """For interpretability."""
+        return [v.item() for v in self._transform_theta()]
+
 
 ################################ Classifiers ##################################
 

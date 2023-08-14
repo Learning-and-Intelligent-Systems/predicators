@@ -141,6 +141,8 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             ]
             means = [b.mean() for b in betas]
             variances = [b.var() for b in betas]
+            ctheta = self._competence_regressor.get_transformed_params()
+            logging.info(f"{self._log_prefix}   Params: {ctheta}")
             logging.info(f"{self._log_prefix}   Beta means: {means}")
             logging.info(f"{self._log_prefix}   Beta variances: {variances}")
         # Update the posterior after learning for the new cycle (for which
