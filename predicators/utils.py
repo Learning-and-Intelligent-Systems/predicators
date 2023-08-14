@@ -3405,16 +3405,3 @@ def beta_bernoulli_posterior(success_history: List[bool],
     expectation = alpha_n / (alpha_n + beta_n)
     assert 0 < expectation < 1
     return expectation
-
-
-def ground_op_history_to_planning_costs(
-        ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
-        alpha: float = 0.5,
-        beta: float = 0.5) -> Dict[_GroundSTRIPSOperator, float]:
-    """Helper for active sampler learning approach and explorer."""
-    costs: Dict[_GroundSTRIPSOperator, float] = {}
-    for op, hist in ground_op_hist.items():
-        theta = beta_bernoulli_posterior(hist, alpha=alpha, beta=beta)
-        cost = -np.log(theta)
-        costs[op] = cost
-    return costs
