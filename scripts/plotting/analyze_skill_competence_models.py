@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import dill as pkl
 import numpy as np
