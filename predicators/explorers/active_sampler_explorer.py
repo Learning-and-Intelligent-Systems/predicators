@@ -331,7 +331,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             self, ground_op: _GroundSTRIPSOperator) -> float:
         # Predict the competence if we had one more data point.
         model = self._competence_models[ground_op]
-        extrap = model.predict_competence(1)
+        extrap = model.predict_competence(CFG.skill_competence_model_lookahead)
         logging.info(f"[Explorer]   extrapolated competence: {extrap}")
         c_hat = -np.log(extrap)
         assert c_hat >= 0

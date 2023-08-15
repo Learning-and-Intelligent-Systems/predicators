@@ -1,13 +1,14 @@
 """Tests for competence_models.py."""
 
-from predicators.competence_models import create_competence_model, LegacySkillCompetenceModel, LatentVariableSkillCompetenceModel
-from predicators import utils
-
 import numpy as np
 import pytest
 
-longrun = pytest.mark.skipif("not config.getoption('longrun')")
+from predicators.settings import CFG
+from predicators import utils
+from predicators.competence_models import LatentVariableSkillCompetenceModel, \
+    LegacySkillCompetenceModel, create_competence_model
 
+longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 
 def test_legacy_skill_competence_model():
@@ -31,39 +32,38 @@ def test_legacy_skill_competence_model():
 def test_latent_variable_skill_competence_model_long():
     """Long tests for LatentVariableSkillCompetenceModel()."""
     utils.reset_config()
+    h = CFG.skill_competence_model_lookahead
     model = create_competence_model("latent_variable", "test")
     assert isinstance(model, LatentVariableSkillCompetenceModel)
     assert np.isclose(model.get_current_competence(), 0.5)
-    assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
-    
+    assert np.isclose(model.predict_competence(h), 0.5 + 1e-2)
+
     # Test impossible skill.
     model = create_competence_model("latent_variable", "impossible-skill")
     model.observe(False)
     assert model.get_current_competence() < 0.5
     model.advance_cycle()
     assert model.get_current_competence() < 0.5
-    assert model.get_current_competence() < model.predict_competence(1)
+    assert model.get_current_competence() < model.predict_competence(h)
     model.advance_cycle()
     assert model.get_current_competence() < 0.5
-    assert model.get_current_competence() < model.predict_competence(1)
+    assert model.get_current_competence() < model.predict_competence(h)
     model.observe(False)
     model.observe(False)
     model.observe(False)
-    assert model.get_current_competence() < 0.5
-    assert model.get_current_competence() < model.predict_competence(1)
-    
+    assert model.get_current_competence() < 0.01
+
     # Test perfect skill.
     model = create_competence_model("latent_variable", "perfect-skill")
     model.observe(True)
     assert model.get_current_competence() > 0.5
     model.advance_cycle()
     assert model.get_current_competence() > 0.5
-    assert model.get_current_competence() < model.predict_competence(1)
+    assert model.get_current_competence() < model.predict_competence(h)
     model.advance_cycle()
     assert model.get_current_competence() > 0.5
-    assert model.get_current_competence() < model.predict_competence(1)
+    assert model.get_current_competence() < model.predict_competence(h)
     model.observe(True)
     model.observe(True)
     model.observe(True)
-    assert model.get_current_competence() > 0.5
-    assert model.get_current_competence() < model.predict_competence(1)
+    assert model.get_current_competence() > 0.99
