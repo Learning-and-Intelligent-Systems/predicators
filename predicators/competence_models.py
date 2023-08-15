@@ -90,7 +90,7 @@ class SimpleSkillCompetenceModel(SkillCompetenceModel):
         # we'll repeat that change.
         nonempty_cycle_obs = self._get_nonempty_cycle_observations()
         current_competence = self.get_current_competence()
-        if not nonempty_cycle_obs:
+        if len(nonempty_cycle_obs) < 2:
             return min(1.0, current_competence + 1e-2)  # default
         inference_window = min(len(nonempty_cycle_obs),
                                CFG.skill_competence_model_simple_window_size)
