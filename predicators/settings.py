@@ -540,7 +540,7 @@ class GlobalSettings:
     active_sampler_learning_exploration_epsilon = 0.05
 
     # skill competence model parameters
-    skill_competence_model = "latent_variable"
+    skill_competence_model = "legacy"
     skill_competence_model_num_em_iters = 3
     skill_competence_model_max_train_iters = 1000
     skill_competence_model_learning_rate = 1e-2
