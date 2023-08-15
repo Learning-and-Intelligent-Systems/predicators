@@ -28,6 +28,25 @@ def test_legacy_skill_competence_model():
     assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
 
 
+def test_latent_variable_skill_competence_model_short():
+    """Quick tests for LatentVariableSkillCompetenceModel()."""
+    utils.reset_config({
+        "skill_competence_model_num_em_iters": 1,
+        "skill_competence_model_max_train_iters": 10,
+    })
+    model = create_competence_model("legacy", "test")
+    assert isinstance(model, LegacySkillCompetenceModel)
+    assert np.isclose(model.get_current_competence(), 0.5)
+    assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
+    model.observe(True)
+    assert model.get_current_competence() > 0.5
+    assert model.predict_competence(1) > model.get_current_competence()
+    model.observe(False)
+    assert np.isclose(model.get_current_competence(), 0.5)
+    model.advance_cycle()
+    assert model.predict_competence(1) > model.get_current_competence()
+
+
 @longrun
 def test_latent_variable_skill_competence_model_long():
     """Long tests for LatentVariableSkillCompetenceModel()."""

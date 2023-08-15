@@ -1,5 +1,6 @@
 """Models for estimating and predicting skill competence."""
 import abc
+
 import logging
 from typing import List, Optional
 from typing import Type as TypingType
@@ -11,6 +12,7 @@ from predicators import utils
 from predicators.ml_models import MonotonicBetaRegressor
 from predicators.settings import CFG
 from predicators.structs import Array
+
 
 
 class SkillCompetenceModel(abc.ABC):
