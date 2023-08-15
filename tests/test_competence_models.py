@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-from predicators.settings import CFG
 from predicators import utils
 from predicators.competence_models import LatentVariableSkillCompetenceModel, \
     LegacySkillCompetenceModel, create_competence_model
+from predicators.settings import CFG
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
@@ -67,3 +67,42 @@ def test_latent_variable_skill_competence_model_long():
     model.observe(True)
     model.observe(True)
     assert model.get_current_competence() > 0.99
+
+    # Test noisy skill with gradual improvements.
+    model = create_competence_model("latent_variable", "gradual-improve")
+    model.observe(False)
+    model.observe(True)
+    model.advance_cycle()
+    assert model.predict_competence(h) > 0.5  # should be optimistic
+    model.observe(False)
+    model.observe(True)
+    model.observe(True)
+    model.advance_cycle()
+    assert model.get_current_competence() > 0.5
+    assert model.get_current_competence() < model.predict_competence(h)
+    model.observe(True)
+    model.observe(False)
+    model.observe(True)
+    model.observe(True)
+    model.observe(True)
+    model.advance_cycle()
+    assert model.get_current_competence() > 0.8
+    model.observe(True)
+    model.observe(True)
+    model.observe(True)
+    model.observe(True)
+    model.observe(True)
+    model.advance_cycle()
+    assert model.get_current_competence() > 0.9
+
+    # Test noisy skill with no improvements.
+    model = create_competence_model("latent_variable", "noisy-no-improve")
+    model.observe(False)
+    model.observe(True)
+    model.advance_cycle()
+    model.observe(True)
+    model.observe(False)
+    model.observe(True)
+    model.observe(False)
+    model.advance_cycle()
+    assert 0.4 < model.get_current_competence() < 0.6

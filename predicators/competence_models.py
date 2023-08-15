@@ -95,8 +95,9 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         rv = self._competence_regressor.predict_beta(future_num_data)
         alpha, beta = rv.args
         current_cycle_outcomes = self._cycle_observations[-1]
-        return utils.beta_bernoulli_posterior(
-            current_cycle_outcomes, alpha=alpha, beta=beta).mean()
+        return utils.beta_bernoulli_posterior(current_cycle_outcomes,
+                                              alpha=alpha,
+                                              beta=beta).mean()
 
     def observe(self, skill_outcome: bool) -> None:
         # Update the posterior competence after every observation.
