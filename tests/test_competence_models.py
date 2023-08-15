@@ -57,6 +57,8 @@ def test_latent_variable_skill_competence_model_short():
     assert np.isclose(model.get_current_competence(), 0.5)
     model.advance_cycle()
     assert model.predict_competence(1) > model.get_current_competence()
+    model.observe(True)
+    assert model.get_current_competence() > 0.5
 
 
 @longrun
