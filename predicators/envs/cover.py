@@ -22,6 +22,7 @@ class CoverEnv(BaseEnv):
     """Toy cover domain."""
 
     _allow_free_space_placing: ClassVar[bool] = False
+    _check_collisions: ClassVar[bool] = True
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
     workspace_x: ClassVar[float] = 1.35
@@ -90,11 +91,12 @@ class CoverEnv(BaseEnv):
         if held_block is not None and above_block is None:
             new_pose = pose - state.get(held_block, "grasp")
             # Prevent collisions with other blocks.
-            if self._any_intersection(new_pose,
-                                      state.get(held_block, "width"),
-                                      state.data,
-                                      block_only=True,
-                                      excluded_object=held_block):
+            if self._check_collisions and self._any_intersection(
+                    new_pose,
+                    state.get(held_block, "width"),
+                    state.data,
+                    block_only=True,
+                    excluded_object=held_block):
                 return next_state
             # Only place if free space placing is allowed, or if we're
             # placing onto some target.
@@ -1138,6 +1140,7 @@ class RegionalBumpyCoverEnv(BumpyCoverEnv):
     """
 
     _allow_free_space_placing: ClassVar[bool] = True
+    _check_collisions: ClassVar[bool] = False
     _bumps_regional: ClassVar[bool] = True
 
     def __init__(self, use_gui: bool = True) -> None:
