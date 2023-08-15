@@ -95,7 +95,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         future_num_data = current_num_data + num_additional_data
         future_rv = self._competence_regressor.predict_beta(future_num_data)
         gain = future_rv.mean() - current_rv.mean()
-        assert gain >= 0
+        assert gain >= -1e-6
         return np.clip(self.get_current_competence() + gain, 0.0, 1.0)
 
     def observe(self, skill_outcome: bool) -> None:

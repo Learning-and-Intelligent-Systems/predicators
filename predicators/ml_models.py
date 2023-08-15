@@ -1034,7 +1034,8 @@ class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000,
                  n_iter_no_change: int = 10000000,
-                 constant_variance: float = 0.1) -> None:
+                 constant_variance: float = 1e-2,
+                 optimistic_regularization_weight: float = 1e-2) -> None:
 
         super().__init__(seed,
                          max_train_iters,
@@ -1046,6 +1047,8 @@ class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
                          use_torch_gpu=use_torch_gpu,
                          disable_normalization=True,
                          train_print_every=train_print_every)
+
+        self._optimistic_reg_weight = optimistic_regularization_weight
 
         # This model has three learnable parameters.
         self.theta = torch.nn.Parameter(torch.randn(3), requires_grad=True)
@@ -1080,7 +1083,13 @@ class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         # Just regress the mean for stability.
-        return nn.MSELoss()
+        mse_loss = nn.MSELoss()
+
+        def _loss(x: Tensor, y: Tensor) -> Tensor:
+            reg_loss = (1.0 - self.get_transformed_params()[1])
+            return mse_loss(x, y) + self._optimistic_reg_weight * reg_loss
+
+        return _loss
 
     def predict_beta(self, x: float) -> BetaRV:
         """Predict a beta distribution given the input."""
