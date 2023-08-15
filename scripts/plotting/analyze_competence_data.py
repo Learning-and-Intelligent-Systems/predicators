@@ -7,11 +7,9 @@ from typing import Dict, List
 import dill as pkl
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.ticker import MaxNLocator
 
 from predicators import utils
 from predicators.competence_models import LatentVariableSkillCompetenceModel
-from predicators.structs import Array
 
 
 def _main() -> None:
@@ -50,18 +48,20 @@ def _main() -> None:
 def _make_plot(model: LatentVariableSkillCompetenceModel,
                online_learning_cycle: int) -> None:
 
+    # pylint: disable=protected-access
     cp_inputs = model._get_regressor_inputs()
     regressor = model._competence_regressor
     skill_name = model._skill_name
-    title = skill_name
-    model_outputs = None
-    if regressor is not None:
-        params = model._competence_regressor.get_transformed_params()
-        title += f" [{params[0]:.3f} {params[1]:.3f} {params[2]:.3f}]"
-        model_outputs = [regressor.predict_beta(n).mean() for n in cp_inputs]
     history = model._cycle_observations
     posterior_competences = model._posterior_competences
     num_data = model._get_current_num_data()
+
+    title = skill_name
+    model_outputs = None
+    if regressor is not None:
+        params = regressor.get_transformed_params()
+        title += f" [{params[0]:.3f} {params[1]:.3f} {params[2]:.3f}]"
+        model_outputs = [regressor.predict_beta(n).mean() for n in cp_inputs]
     success_rate = [np.nan if not o else np.mean(o) for o in history]
 
     plt.figure()
