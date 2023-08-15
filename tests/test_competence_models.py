@@ -37,6 +37,8 @@ def test_legacy_skill_competence_model():
     model.advance_cycle()
     assert np.isclose(model.get_current_competence(), 0.5)
     assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
+    model.observe(True)
+    assert model.get_current_competence() > 0.5
 
 
 def test_latent_variable_skill_competence_model_short():
