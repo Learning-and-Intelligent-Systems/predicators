@@ -11,6 +11,17 @@ from predicators.settings import CFG
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 
+def test_create_competence_model():
+    """Tests for create_competence_model()."""
+    model = create_competence_model("legacy", "test")
+    assert isinstance(model, LegacySkillCompetenceModel)
+    model = create_competence_model("latent_variable", "test")
+    assert isinstance(model, LatentVariableSkillCompetenceModel)
+    with pytest.raises(NotImplementedError) as e:
+        create_competence_model("not a real competence model", "test")
+    assert "Unknown competence model" in str(e)
+
+
 def test_legacy_skill_competence_model():
     """Tests for LegacySkillCompetenceModel()."""
     model = create_competence_model("legacy", "test")
@@ -34,8 +45,7 @@ def test_latent_variable_skill_competence_model_short():
         "skill_competence_model_num_em_iters": 1,
         "skill_competence_model_max_train_iters": 10,
     })
-    model = create_competence_model("legacy", "test")
-    assert isinstance(model, LegacySkillCompetenceModel)
+    model = create_competence_model("latent_variable", "test")
     assert np.isclose(model.get_current_competence(), 0.5)
     assert np.isclose(model.predict_competence(1), 0.5 + 1e-2)
     model.observe(True)
@@ -52,8 +62,8 @@ def test_latent_variable_skill_competence_model_long():
     """Long tests for LatentVariableSkillCompetenceModel()."""
     utils.reset_config()
     h = CFG.skill_competence_model_lookahead
+
     model = create_competence_model("latent_variable", "test")
-    assert isinstance(model, LatentVariableSkillCompetenceModel)
     assert np.isclose(model.get_current_competence(), 0.5)
     assert np.isclose(model.predict_competence(h), 0.5 + 1e-2)
 
@@ -125,3 +135,12 @@ def test_latent_variable_skill_competence_model_long():
     model.observe(False)
     model.advance_cycle()
     assert 0.4 < model.get_current_competence() < 0.6
+
+    # Custom tests based on PickFromBumpy in PickPlace1D.
+    model = create_competence_model("latent_variable", "pickplace1d-custom1")
+    model.observe(False)
+    model.observe(True)
+    model.advance_cycle()
+    model.observe(False)
+    model.observe(False)
+    assert model.get_current_competence() < model.predict_competence(h)
