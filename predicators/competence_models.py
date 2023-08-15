@@ -55,7 +55,7 @@ class LegacySkillCompetenceModel(SkillCompetenceModel):
     def get_current_competence(self) -> float:
         # Highly naive: group together all outcomes.
         all_outcomes = [o for co in self._cycle_observations for o in co]
-        return utils.beta_bernoulli_posterior(all_outcomes)
+        return utils.beta_bernoulli_posterior(all_outcomes).mean()
 
     def predict_competence(self, num_additional_data: int) -> float:
         # Highly naive: predict a constant improvement in competence.
@@ -71,7 +71,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         super().__init__(skill_name)
         self._log_prefix = f"[Competence] [{self._skill_name}]"
         # Update competence estimate after every observation.
-        self._posterior_competence = BetaRV(1.0, 1.0)
+        self._posterior_competences = [BetaRV(1.0, 1.0)]
         # Model that maps number of data to competence.
         self._competence_regressor: Optional[MonotonicBetaRegressor] = None
 
@@ -80,7 +80,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         return "latent_variable"
 
     def get_current_competence(self) -> float:
-        return self._posterior_competence.mean()
+        return self._posterior_competences[-1].mean()
 
     def predict_competence(self, num_additional_data: int) -> float:
         # If we haven't yet learned a regressor, default to an optimistic
@@ -106,7 +106,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             rv = self._competence_regressor.predict_beta(current_num_data)
             alpha0, beta0 = rv.args
         current_cycle_outcomes = self._cycle_observations[-1]
-        self._posterior_competence = utils.beta_bernoulli_posterior(
+        self._posterior_competences[-1] = utils.beta_bernoulli_posterior(
             current_cycle_outcomes, alpha=alpha0, beta=beta0)
 
     def advance_cycle(self) -> None:
@@ -116,14 +116,12 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
 
     def _run_expectation_maximization(self) -> None:
         # Re-learn the competence regressor using EM.
-        num_cycles = len(self._cycle_observations)
         inputs = self._get_regressor_inputs()
-        # Initialize betas with uniform distribution.
-        betas = [BetaRV(1.0, 1.0) for _ in range(num_cycles)]
+        # Warm-start from last inference cycle.
         for it in range(CFG.skill_competence_model_num_em_iters):
             logging.info(f"{self._log_prefix} EM iter {it}")
             # Run inference.
-            map_comp = self._run_map_inference(betas)
+            map_comp = self._run_map_inference(self._posterior_competences)
             logging.info(f"{self._log_prefix}   Competences: {map_comp}")
             # Run learning.
             self._competence_regressor = MonotonicBetaRegressor(
@@ -135,12 +133,12 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
             targets = np.array(map_comp, dtype=np.float32)
             targets = np.reshape(targets, (-1, 1))
             self._competence_regressor.fit(inputs, targets)
-            # Update betas by evaluating the model.
-            betas = [
+            # Update posteriors by evaluating the model.
+            self._posterior_competences = [
                 self._competence_regressor.predict_beta(x) for x in inputs
             ]
-            means = [b.mean() for b in betas]
-            variances = [b.var() for b in betas]
+            means = [b.mean() for b in self._posterior_competences]
+            variances = [b.var() for b in self._posterior_competences]
             ctheta = self._competence_regressor.get_transformed_params()
             logging.info(f"{self._log_prefix}   Params: {ctheta}")
             logging.info(f"{self._log_prefix}   Beta means: {means}")
@@ -149,7 +147,9 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         # we have no data).
         assert self._competence_regressor is not None
         n = self._get_current_num_data()
-        self._posterior_competence = self._competence_regressor.predict_beta(n)
+        # Add new posterior competence for next cycle.
+        self._posterior_competences.append(
+            self._competence_regressor.predict_beta(n))
 
     def _get_current_num_data(self) -> int:
         return sum(len(o) for o in self._cycle_observations)
