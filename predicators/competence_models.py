@@ -98,7 +98,7 @@ class SimpleSkillCompetenceModel(SkillCompetenceModel):
         for i in range(len(nonempty_cycle_obs) - window + 1):
             sub_history = nonempty_cycle_obs[i:i + window]
             sub_outcomes = [o for co in sub_history for o in co]
-            competence = np.mean(sub_outcomes)
+            competence = float(np.mean(sub_outcomes))
             competences.append(competence)
         best_change = max(competences) - min(competences)
         gain = best_change * num_additional_data
