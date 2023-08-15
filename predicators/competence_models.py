@@ -71,7 +71,7 @@ class SimpleSkillCompetenceModel(SkillCompetenceModel):
     def get_name(cls) -> str:
         return "simple"
 
-    def _get_nonempty_cycle_observations(self) -> List[bool]:
+    def _get_nonempty_cycle_observations(self) -> List[List[bool]]:
         return [co for co in self._cycle_observations if co]
 
     def get_current_competence(self) -> float:
