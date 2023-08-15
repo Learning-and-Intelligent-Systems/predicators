@@ -8,15 +8,9 @@ from gym.spaces import Box
 
 from predicators import utils
 
-<<<<<<< HEAD
 from predicators.competence_models import SkillCompetenceModel, \
     create_competence_model
 
-=======
-from predicators.competence_models import LegacySkillCompetenceModel, \
-    SkillCompetenceModel
-
->>>>>>> 7fd1fcac396864bb5b2a7202ecc11518757c0a38
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once
@@ -276,14 +270,9 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._ground_op_hist[last_executed_op].append(success)
         # Update the competence model too.
         if last_executed_op not in self._competence_models:
-<<<<<<< HEAD
             model_name = CFG.skill_competence_model
             skill_name = f"{last_executed_op.name}{last_executed_op.objects}"
             model = create_competence_model(model_name, skill_name)
-=======
-            name = f"{last_executed_op.name}{last_executed_op.objects}"
-            model = LegacySkillCompetenceModel(name)
->>>>>>> 7fd1fcac396864bb5b2a7202ecc11518757c0a38
             self._competence_models[last_executed_op] = model
         self._competence_models[last_executed_op].observe(success)
 
