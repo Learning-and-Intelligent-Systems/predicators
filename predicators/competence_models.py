@@ -79,7 +79,8 @@ class SimpleSkillCompetenceModel(SkillCompetenceModel):
         nonempty_cycle_obs = self._get_nonempty_cycle_observations()
         if not nonempty_cycle_obs:
             return utils.beta_bernoulli_posterior([]).mean()  # default
-        window = min(len(nonempty_cycle_obs), CFG.skill_competence_model_simple_window_size)
+        window = min(len(nonempty_cycle_obs),
+                     CFG.skill_competence_model_simple_window_size)
         recent_cycle_obs = nonempty_cycle_obs[-window:]
         all_outcomes = [o for co in recent_cycle_obs for o in co]
         return utils.beta_bernoulli_posterior(all_outcomes).mean()
@@ -91,11 +92,13 @@ class SimpleSkillCompetenceModel(SkillCompetenceModel):
         current_competence = self.get_current_competence()
         if not nonempty_cycle_obs:
             return min(1.0, current_competence + 1e-2)  # default
-        window = min(len(nonempty_cycle_obs), CFG.skill_competence_model_simple_window_size)
+        window = min(len(nonempty_cycle_obs),
+                     CFG.skill_competence_model_simple_window_size)
         competences: List[float] = []
-        for i in range(len(nonempty_cycle_obs) - window):
+        for i in range(len(nonempty_cycle_obs) - window + 1):
             sub_history = nonempty_cycle_obs[i:i + window]
-            competence = np.mean(sub_history)
+            sub_outcomes = [o for co in sub_history for o in co]
+            competence = np.mean(sub_outcomes)
             competences.append(competence)
         best_change = max(competences) - min(competences)
         gain = best_change * num_additional_data

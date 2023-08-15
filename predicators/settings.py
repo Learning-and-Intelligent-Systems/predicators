@@ -545,7 +545,7 @@ class GlobalSettings:
     skill_competence_model_max_train_iters = 1000
     skill_competence_model_learning_rate = 1e-2
     skill_competence_model_lookahead = 1
-    skill_competence_model_simple_window_size = 3
+    skill_competence_model_simple_window_size = 1
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
