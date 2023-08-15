@@ -92,11 +92,14 @@ class SimpleSkillCompetenceModel(SkillCompetenceModel):
         current_competence = self.get_current_competence()
         if not nonempty_cycle_obs:
             return min(1.0, current_competence + 1e-2)  # default
-        window = min(len(nonempty_cycle_obs),
-                     CFG.skill_competence_model_simple_window_size)
+        inference_window = min(len(nonempty_cycle_obs),
+                               CFG.skill_competence_model_simple_window_size)
+        recency_size = CFG.skill_competence_model_simple_recency_size
         competences: List[float] = []
-        for i in range(len(nonempty_cycle_obs) - window + 1):
-            sub_history = nonempty_cycle_obs[i:i + window]
+        start = max(0, len(nonempty_cycle_obs) - recency_size)
+        end = len(nonempty_cycle_obs) - inference_window + 1
+        for i in range(start, end):
+            sub_history = nonempty_cycle_obs[i:i + inference_window]
             sub_outcomes = [o for co in sub_history for o in co]
             competence = float(np.mean(sub_outcomes))
             competences.append(competence)
