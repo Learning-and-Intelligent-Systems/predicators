@@ -7,10 +7,8 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-
 from predicators.competence_models import SkillCompetenceModel, \
     create_competence_model
-
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once

@@ -11,7 +11,7 @@ from predicators import utils
 from predicators.ml_models import BinaryClassifierEnsemble, CNNRegressor, \
     DegenerateMLPDistributionRegressor, ImplicitMLPRegressor, \
     KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
-    MLPRegressor, NeuralGaussianRegressor
+    MLPRegressor, MonotonicBetaRegressor, NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -177,6 +177,29 @@ def test_degenerate_mlp_distribution_regressor():
     assert sample.shape == expected_y.shape
     assert np.allclose(sample, expected_y, atol=1e-2)
     assert np.allclose(sample, mean, atol=1e-6)
+
+
+def test_monotonic_beta_regressor():
+    """Tests for MonotonicBetaRegressor."""
+    utils.reset_config()
+    num_samples = 5
+    model = MonotonicBetaRegressor(seed=123,
+                                   max_train_iters=1000,
+                                   clip_gradients=False,
+                                   clip_value=1,
+                                   learning_rate=1e-2)
+    X = np.arange(num_samples).reshape((-1, 1))
+    Y = 0.5 * np.ones((num_samples, 1))
+    model.fit(X, Y)
+    x = np.array([num_samples - 1])
+    mean = model.predict(x)
+    expected_y = np.array([0.5])
+    assert mean.shape == expected_y.shape
+    assert np.allclose(mean, expected_y, atol=1e-2)
+    rng = np.random.default_rng(123)
+    sample = model.predict_sample(x, rng)
+    assert sample.shape == expected_y.shape
+    assert 0 < sample[0] < 1
 
 
 def test_mlp_classifier():

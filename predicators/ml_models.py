@@ -1090,7 +1090,7 @@ class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
     def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
         assert len(x) == 1
         rv = self.predict_beta(x[0])
-        return rv.rvs(random_state=rng)
+        return rv.rvs(random_state=rng).reshape(x.shape)
 
     def get_transformed_params(self) -> List[float]:
         """For interpretability."""
