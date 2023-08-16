@@ -126,8 +126,7 @@ def _segment_with_option_changes(
 
 def _segment_with_spot_changes(
         ll_traj: LowLevelTrajectory, predicates: Set[Predicate],
-        atom_seq: Optional[List[GroundAtom]]
-) -> List[Segment]:  # pragma: no cover
+        atom_seq: List[Set[GroundAtom]]) -> List[Segment]:  # pragma: no cover
 
     def _switch_fn(t: int) -> bool:
         # Actions without options are "special". We include them in the options
