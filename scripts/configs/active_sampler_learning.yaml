@@ -31,8 +31,8 @@ ENVS:
     FLAGS:
       regional_bumpy_cover_include_impossible_nsrt: "True"
       bumpy_cover_num_bumps: 3
-      bumpy_cover_spaces_per_bump: 3
-      bumpy_cover_init_bumpy_prob: 1.0
+      bumpy_cover_spaces_per_bump: 5
+      bumpy_cover_init_bumpy_prob: 0.25
       cover_num_blocks: 10
       cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
       cover_num_targets: 10
