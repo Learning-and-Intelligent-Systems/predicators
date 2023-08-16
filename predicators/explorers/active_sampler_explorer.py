@@ -344,11 +344,12 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Make plans on some of the training tasks we've seen so far and record
         # the total plan costs.
         plan_costs: List[float] = []
-        # Select a random subset for a cheap approximation.
+        # Select an arbitrary but constant subset of the training tasks.
+        # Don't randomize: would lead to noisy estimates that artificially
+        # favor some operators over others.
         train_task_idxs = sorted(self._seen_train_task_idxs)
         max_num_tasks = CFG.active_sampler_explorer_planning_progress_max_tasks
         num_tasks = min(max_num_tasks, len(train_task_idxs))
-        self._rng.shuffle(train_task_idxs)
         train_task_idxs = train_task_idxs[:num_tasks]
         for train_task_idx in train_task_idxs:
             plan = self._get_task_plan_for_training_task(
