@@ -18,7 +18,7 @@ def test_create_competence_model():
     assert isinstance(model, LegacySkillCompetenceModel)
     model = create_competence_model("latent_variable", "test")
     assert isinstance(model, LatentVariableSkillCompetenceModel)
-    model = create_competence_model("simple", "test")
+    model = create_competence_model("optimistic", "test")
     assert isinstance(model, OptimisticSkillCompetenceModel)
     with pytest.raises(NotImplementedError) as e:
         create_competence_model("not a real competence model", "test")
