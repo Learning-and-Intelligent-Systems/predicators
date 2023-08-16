@@ -6,8 +6,8 @@ from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
-    Predicate, Segment, State, GroundAtomTrajectory
+from predicators.structs import Action, GroundAtom, GroundAtomTrajectory, \
+    LowLevelTrajectory, Predicate, Segment, State
 
 
 def segment_trajectory(
@@ -15,7 +15,8 @@ def segment_trajectory(
         predicates: Set[Predicate],
         atom_seq: Optional[List[Set[GroundAtom]]] = None) -> List[Segment]:
     """Segment a ground atom trajectory."""
-    ground_atom_trajectory = utils.create_ground_atom_dataset([ll_traj], predicates)[0]
+    ground_atom_trajectory = utils.create_ground_atom_dataset([ll_traj],
+                                                              predicates)[0]
     # Start with the segmenters that don't need atom_seq. Still pass it in
     # because if it was provided, it can be used to avoid calling abstract.
     if CFG.segmenter == "option_changes":
