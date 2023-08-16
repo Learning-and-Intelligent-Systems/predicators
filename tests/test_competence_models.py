@@ -5,7 +5,7 @@ import pytest
 
 from predicators import utils
 from predicators.competence_models import LatentVariableSkillCompetenceModel, \
-    LegacySkillCompetenceModel, SimpleSkillCompetenceModel, \
+    LegacySkillCompetenceModel, OptimisticSkillCompetenceModel, \
     create_competence_model
 from predicators.settings import CFG
 
@@ -19,7 +19,7 @@ def test_create_competence_model():
     model = create_competence_model("latent_variable", "test")
     assert isinstance(model, LatentVariableSkillCompetenceModel)
     model = create_competence_model("simple", "test")
-    assert isinstance(model, SimpleSkillCompetenceModel)
+    assert isinstance(model, OptimisticSkillCompetenceModel)
     with pytest.raises(NotImplementedError) as e:
         create_competence_model("not a real competence model", "test")
     assert "Unknown competence model" in str(e)
@@ -64,17 +64,17 @@ def test_latent_variable_skill_competence_model_short():
     assert model.get_current_competence() > 0.5
 
 
-def test_simple_skill_competence_model():
-    """Tests for SimpleSkillCompetenceModel()."""
+def test_optimistic_skill_competence_model():
+    """Tests for OptimisticSkillCompetenceModel()."""
     utils.reset_config()
     h = CFG.skill_competence_model_lookahead
 
-    model = create_competence_model("simple", "test")
+    model = create_competence_model("optimistic", "test")
     assert np.isclose(model.get_current_competence(), 0.5)
     assert np.isclose(model.predict_competence(h), 0.5 + 1e-2)
 
     # Test impossible skill.
-    model = create_competence_model("simple", "impossible-skill")
+    model = create_competence_model("optimistic", "impossible-skill")
     model.observe(False)
     assert model.get_current_competence() < 0.5
     model.advance_cycle()
@@ -88,7 +88,7 @@ def test_simple_skill_competence_model():
     assert model.get_current_competence() <= 0.01
 
     # Test perfect skill.
-    model = create_competence_model("simple", "perfect-skill")
+    model = create_competence_model("optimistic", "perfect-skill")
     model.observe(True)
     assert model.get_current_competence() > 0.5
     model.advance_cycle()
@@ -102,7 +102,7 @@ def test_simple_skill_competence_model():
     assert model.get_current_competence() > 0.99
 
     # Test noisy skill with gradual improvements.
-    model = create_competence_model("simple", "gradual-improve")
+    model = create_competence_model("optimistic", "gradual-improve")
     model.observe(False)
     model.observe(True)
     model.advance_cycle()
@@ -122,7 +122,7 @@ def test_simple_skill_competence_model():
     assert model.get_current_competence() > 0.8
 
     # Test noisy skill with no improvements.
-    model = create_competence_model("simple", "noisy-no-improve")
+    model = create_competence_model("optimistic", "noisy-no-improve")
     model.observe(False)
     model.observe(True)
     model.advance_cycle()
@@ -134,7 +134,7 @@ def test_simple_skill_competence_model():
     assert 0.4 < model.get_current_competence() < 0.6
 
     # Custom tests based on PickFromBumpy in PickPlace1D.
-    model = create_competence_model("simple", "pickplace1d-custom1")
+    model = create_competence_model("optimistic", "pickplace1d-custom1")
     model.observe(False)
     model.observe(True)
     model.advance_cycle()

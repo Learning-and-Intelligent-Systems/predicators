@@ -64,12 +64,12 @@ class LegacySkillCompetenceModel(SkillCompetenceModel):
         return min(1.0, current_competence + 1e-2)
 
 
-class SimpleSkillCompetenceModel(SkillCompetenceModel):
+class OptimisticSkillCompetenceModel(SkillCompetenceModel):
     """A simple and fast competence model."""
 
     @classmethod
     def get_name(cls) -> str:
-        return "simple"
+        return "optimistic"
 
     def _get_nonempty_cycle_observations(self) -> List[List[bool]]:
         return [co for co in self._cycle_observations if co]
@@ -80,7 +80,7 @@ class SimpleSkillCompetenceModel(SkillCompetenceModel):
         if not nonempty_cycle_obs:
             return utils.beta_bernoulli_posterior([]).mean()  # default
         window = min(len(nonempty_cycle_obs),
-                     CFG.skill_competence_model_simple_window_size)
+                     CFG.skill_competence_model_optimistic_window_size)
         recent_cycle_obs = nonempty_cycle_obs[-window:]
         all_outcomes = [o for co in recent_cycle_obs for o in co]
         return utils.beta_bernoulli_posterior(all_outcomes).mean()
@@ -92,9 +92,10 @@ class SimpleSkillCompetenceModel(SkillCompetenceModel):
         current_competence = self.get_current_competence()
         if len(nonempty_cycle_obs) < 2:
             return min(1.0, current_competence + 1e-2)  # default
-        inference_window = min(len(nonempty_cycle_obs),
-                               CFG.skill_competence_model_simple_window_size)
-        recency_size = CFG.skill_competence_model_simple_recency_size
+        inference_window = min(
+            len(nonempty_cycle_obs),
+            CFG.skill_competence_model_optimistic_window_size)
+        recency_size = CFG.skill_competence_model_optimistic_recency_size
         competences: List[float] = []
         start = max(0, len(nonempty_cycle_obs) - recency_size)
         end = len(nonempty_cycle_obs) - inference_window + 1
