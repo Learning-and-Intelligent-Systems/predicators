@@ -1,15 +1,15 @@
-"""Create plots analyzing competence data from active sampler learning."""
+"""Create plots analyzing skill competence models."""
 
 import os
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import dill as pkl
 import numpy as np
 from matplotlib import pyplot as plt
 
 from predicators import utils
-from predicators.competence_models import LatentVariableSkillCompetenceModel
+from predicators.competence_models import SkillCompetenceModel
 
 
 def _main() -> None:
@@ -23,9 +23,7 @@ def _main() -> None:
         "*",  # operator[arguments]
         "*.competence"  # online learning cycle
     ])
-    operator_str_results: Dict[str,
-                               Dict[int,
-                                    LatentVariableSkillCompetenceModel]] = {}
+    operator_str_results: Dict[str, Dict[int, SkillCompetenceModel]] = {}
     for load_path in Path(".").glob(load_path_pattern):
         with open(load_path, "rb") as f:
             competence_model = pkl.load(f)
@@ -45,24 +43,30 @@ def _main() -> None:
         _make_plot(competence_model, last)
 
 
-def _make_plot(model: LatentVariableSkillCompetenceModel,
+def _make_plot(model: SkillCompetenceModel,
                online_learning_cycle: int) -> None:
 
     # pylint: disable=protected-access
-    cp_inputs = model._get_regressor_inputs()
-    regressor = model._competence_regressor
     skill_name = model._skill_name
     history = model._cycle_observations
-    posterior_competences = model._posterior_competences
-    num_data = model._get_current_num_data()
 
     title = skill_name
-    model_outputs = None
-    if regressor is not None:
-        params = regressor.get_transformed_params()
-        title += f" [{params[0]:.3f} {params[1]:.3f} {params[2]:.3f}]"
-        model_outputs = [regressor.predict_beta(n).mean() for n in cp_inputs]
-    success_rate = [np.nan if not o else np.mean(o) for o in history]
+    cycle_lengths = [len(h) for h in history]
+    num_data = sum(cycle_lengths)
+    num_data_before_cycle = [0] + list(np.cumsum(cycle_lengths))
+    success_rates = [np.nan if not o else np.mean(o) for o in history]
+
+    # Reconstruct competences and predictions.
+    lookahead = 1
+    replay_model = model.__class__("replay")
+    map_competences = [replay_model.get_current_competence()]
+    predictions = [replay_model.predict_competence(lookahead)]
+    for cycle_obs in history:
+        for obs in cycle_obs:
+            replay_model.observe(obs)
+        replay_model.advance_cycle()
+        map_competences.append(replay_model.get_current_competence())
+        predictions.append(replay_model.predict_competence(lookahead))
 
     plt.figure()
     plt.title(title)
@@ -72,7 +76,7 @@ def _make_plot(model: LatentVariableSkillCompetenceModel,
     plt.ylim((-0.25, 1.25))
     plt.yticks(np.linspace(0.0, 1.0, 5, endpoint=True))
     # Mark learning cycles.
-    for i, x in enumerate(cp_inputs):
+    for i, x in enumerate(num_data_before_cycle):
         label = "Learning Cycle" if i == 0 else None
         plt.plot((x, x), (-1.1, 2.1),
                  linestyle="--",
@@ -86,43 +90,25 @@ def _make_plot(model: LatentVariableSkillCompetenceModel,
                 marker="o",
                 color="red",
                 label="Outcomes")
-    # Plot competence progress model outputs (betas).
-    means: List[float] = []
-    stds: List[float] = []
-    if model_outputs:
-        for rv in model_outputs:
-            mean = rv.mean()
-            std = rv.std()
-            means.append(mean)
-            stds.append(std)
-        plt.plot(cp_inputs, means, color="blue", marker="+", label="CP Model")
-        lb = np.subtract(means, stds)
-        plt.plot(cp_inputs, lb, color="blue", linestyle="--")
-        ub = np.add(means, stds)
-        plt.plot(cp_inputs, ub, color="blue", linestyle="--")
-    # Plot MAP competences.
-    for cycle, rv in enumerate(posterior_competences):
+    # Plot MAP competences, success rates, and predictions.
+    for cycle, (comp, rate, pred) in enumerate(
+            zip(map_competences, success_rates, predictions)):
         label = "MAP Competence" if cycle == 0 else None
-        x_start = cp_inputs[cycle]
-        if cycle == len(posterior_competences) - 1:
-            x_end = x_start  # just a point
-        else:
-            x_end = cp_inputs[cycle + 1]
-        y = rv.mean()
-        plt.plot((x_start, x_end), (y, y),
+        x_start = num_data_before_cycle[cycle]
+        x_end = num_data_before_cycle[cycle + 1]
+        plt.plot((x_start, x_end), (comp, comp),
                  color="green",
                  marker="*",
                  label=label)
-    # Plot success rates within cycles.
-    for cycle, rate in enumerate(success_rate):
-        label = "Cycle Success Rate" if cycle == 0 else None
-        x_start = cp_inputs[cycle]
-        if cycle == len(posterior_competences) - 1:
-            x_end = x_start  # just a point
-        else:
-            x_end = cp_inputs[cycle + 1]
-        y = rate
-        plt.plot((x_start, x_end), (y, y), color="orange", label=label)
+        label = "Success Rate" if cycle == 0 else None
+        plt.plot((x_start, x_end), (rate, rate), color="orange", label=label)
+        label = "Predictions" if cycle == 0 else None
+        # + 10 just for improved visibility
+        plt.plot((x_end, x_end + 10), (comp, pred),
+                 color="blue",
+                 linestyle="--",
+                 label=label)
+
     # Finish figure.
     plt.legend(loc="center right", framealpha=1.0)
     outdir = Path(__file__).parent / "results" / "competence_analysis"

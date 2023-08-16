@@ -64,6 +64,51 @@ class LegacySkillCompetenceModel(SkillCompetenceModel):
         return min(1.0, current_competence + 1e-2)
 
 
+class OptimisticSkillCompetenceModel(SkillCompetenceModel):
+    """A simple and fast competence model."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "optimistic"
+
+    def _get_nonempty_cycle_observations(self) -> List[List[bool]]:
+        return [co for co in self._cycle_observations if co]
+
+    def get_current_competence(self) -> float:
+        # Use sliding window to estimate competence.
+        nonempty_cycle_obs = self._get_nonempty_cycle_observations()
+        if not nonempty_cycle_obs:
+            return utils.beta_bernoulli_posterior([]).mean()  # default
+        window = min(len(nonempty_cycle_obs),
+                     CFG.skill_competence_model_optimistic_window_size)
+        recent_cycle_obs = nonempty_cycle_obs[-window:]
+        all_outcomes = [o for co in recent_cycle_obs for o in co]
+        return utils.beta_bernoulli_posterior(all_outcomes).mean()
+
+    def predict_competence(self, num_additional_data: int) -> float:
+        # Look for maximum change in competence and optimistically assume that
+        # we'll repeat that change.
+        nonempty_cycle_obs = self._get_nonempty_cycle_observations()
+        current_competence = self.get_current_competence()
+        if len(nonempty_cycle_obs) < 2:
+            return min(1.0, current_competence + 1e-2)  # default
+        inference_window = min(
+            len(nonempty_cycle_obs),
+            CFG.skill_competence_model_optimistic_window_size)
+        recency_size = CFG.skill_competence_model_optimistic_recency_size
+        competences: List[float] = []
+        start = max(0, len(nonempty_cycle_obs) - recency_size)
+        end = len(nonempty_cycle_obs) - inference_window + 1
+        for i in range(start, end):
+            sub_history = nonempty_cycle_obs[i:i + inference_window]
+            sub_outcomes = [o for co in sub_history for o in co]
+            competence = float(np.mean(sub_outcomes))
+            competences.append(competence)
+        best_change = max(competences) - min(competences)
+        gain = best_change * num_additional_data
+        return np.clip(current_competence + gain, 1e-6, 1.0)
+
+
 class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
     """Uses expectation-maximization for learning."""
 

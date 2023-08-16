@@ -31,8 +31,8 @@ ENVS:
     FLAGS:
       regional_bumpy_cover_include_impossible_nsrt: "True"
       bumpy_cover_num_bumps: 3
-      bumpy_cover_spaces_per_bump: 3
-      bumpy_cover_init_bumpy_prob: 1.0
+      bumpy_cover_spaces_per_bump: 5
+      bumpy_cover_init_bumpy_prob: 0.25
       cover_num_blocks: 10
       cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
       cover_num_targets: 10
@@ -58,7 +58,7 @@ FLAGS:
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 5
   num_online_learning_cycles: 10
-  active_sampler_learning_explore_length_base: 10000  # effectively disable
+  active_sampler_learning_explore_length_base: 2
   sesame_task_planner: "fdopt-costs"
 START_SEED: 456
 NUM_SEEDS: 10
