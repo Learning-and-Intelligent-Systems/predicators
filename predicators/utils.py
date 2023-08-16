@@ -37,6 +37,7 @@ from matplotlib import patches
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
+from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
 from predicators.pybullet_helpers.joint import JointPositions
@@ -3395,13 +3396,32 @@ def get_task_seed(train_or_test: str, task_idx: int) -> int:
 
 
 def beta_bernoulli_posterior(success_history: List[bool],
-                             alpha: float = 0.5,
-                             beta: float = 0.5) -> float:
+                             alpha: float = 1.0,
+                             beta: float = 1.0) -> BetaRV:
     """See https://gregorygundersen.com/blog/2020/08/19/bernoulli-beta/"""
     n = len(success_history)
     s = sum(success_history)
     alpha_n = alpha + s
     beta_n = n - s + beta
-    expectation = alpha_n / (alpha_n + beta_n)
-    assert 0 < expectation < 1
-    return expectation
+    return BetaRV(alpha_n, beta_n)
+
+
+def beta_from_mean_and_variance(mean: float,
+                                variance: float,
+                                variance_lower_pad: float = 1e-6,
+                                variance_upper_pad: float = 1e-3) -> BetaRV:
+    """Recover a beta distribution given a mean and a variance.
+
+    See https://stats.stackexchange.com/questions/12232/ for derivation.
+    """
+    # Clip variance.
+    variance = max(min(variance,
+                       mean * (1 - mean) - variance_upper_pad),
+                   variance_lower_pad)
+    alpha = ((1 - mean) / variance - 1 / mean) * (mean**2)
+    beta = alpha * (1 / mean - 1)
+    assert alpha > 0
+    assert beta > 0
+    rv = BetaRV(alpha, beta)
+    assert abs(rv.mean() - mean) < 1e-6
+    return rv

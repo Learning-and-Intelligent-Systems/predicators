@@ -7,8 +7,8 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.competence_models import LegacySkillCompetenceModel, \
-    SkillCompetenceModel
+from predicators.competence_models import SkillCompetenceModel, \
+    create_competence_model
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once
@@ -55,7 +55,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._seen_train_task_idxs = seen_train_task_idxs
         self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
         self._task_plan_calls_since_replan: Dict[int, int] = {}
-        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]))
+        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]).mean())
         self._sorted_options = sorted(options, key=lambda o: o.name)
 
     @classmethod
@@ -268,8 +268,9 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._ground_op_hist[last_executed_op].append(success)
         # Update the competence model too.
         if last_executed_op not in self._competence_models:
-            name = f"{last_executed_op.name}{last_executed_op.objects}"
-            model = LegacySkillCompetenceModel(name)
+            model_name = CFG.skill_competence_model
+            skill_name = f"{last_executed_op.name}{last_executed_op.objects}"
+            model = create_competence_model(model_name, skill_name)
             self._competence_models[last_executed_op] = model
         self._competence_models[last_executed_op].observe(success)
 
@@ -330,7 +331,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             self, ground_op: _GroundSTRIPSOperator) -> float:
         # Predict the competence if we had one more data point.
         model = self._competence_models[ground_op]
-        c_hat = -np.log(model.predict_competence(1))
+        extrap = model.predict_competence(CFG.skill_competence_model_lookahead)
+        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
+        c_hat = -np.log(extrap)
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
         ground_op_costs = {
