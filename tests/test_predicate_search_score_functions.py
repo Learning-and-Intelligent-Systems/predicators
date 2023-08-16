@@ -245,11 +245,12 @@ def test_relaxation_energy_score_function():
 
         def evaluate(self,
                      candidate_predicates: FrozenSet[Predicate]) -> float:
+            preds = candidate_predicates | self._initial_predicates
             pruned_atom_data = utils.prune_ground_atom_dataset(
-                self._atom_dataset,
-                candidate_predicates | self._initial_predicates)
+                self._atom_dataset, preds)
             segmented_trajs = [
-                segment_trajectory(traj) for traj in pruned_atom_data
+                segment_trajectory(ll_traj, set(preds), atom_seq)
+                for ll_traj, atom_seq in pruned_atom_data
             ]
             low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
             # This is the part that we are overriding, to force no successors.
@@ -277,11 +278,12 @@ def test_relaxation_energy_score_function():
 
         def evaluate(self,
                      candidate_predicates: FrozenSet[Predicate]) -> float:
+            preds = candidate_predicates | self._initial_predicates
             pruned_atom_data = utils.prune_ground_atom_dataset(
-                self._atom_dataset,
-                candidate_predicates | self._initial_predicates)
+                self._atom_dataset, preds)
             segmented_trajs = [
-                segment_trajectory(traj) for traj in pruned_atom_data
+                segment_trajectory(ll_traj, set(preds), atom_seq)
+                for ll_traj, atom_seq in pruned_atom_data
             ]
             low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
             # This is the part that we are overriding, to force no successors.

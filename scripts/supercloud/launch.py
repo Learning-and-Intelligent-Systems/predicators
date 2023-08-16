@@ -63,7 +63,7 @@ def _launch_experiments(config_file: str) -> None:
             entry_point = "main.py"
         submit_supercloud_job(entry_point, cfg.experiment_id, log_dir,
                               log_prefix, cmd_flags, cfg.start_seed,
-                              cfg.num_seeds, cfg.use_gpu)
+                              cfg.num_seeds, cfg.use_gpu, cfg.use_mujoco)
 
 
 if __name__ == "__main__":

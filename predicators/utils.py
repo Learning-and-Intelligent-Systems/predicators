@@ -45,6 +45,7 @@ from matplotlib import patches
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
+from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
 from predicators.pybullet_helpers.joint import JointPositions
@@ -1142,6 +1143,10 @@ class OptionExecutionFailure(ExceptionWithInfo):
     """An exception raised by an option policy in the course of execution."""
 
 
+class OptionTimeoutFailure(OptionExecutionFailure):
+    """A special kind of option execution failure due to an exceeded budget."""
+
+
 class RequestActPolicyFailure(ExceptionWithInfo):
     """An exception raised by an acting policy in a request when it fails to
     produce an action, which terminates the interaction."""
@@ -1186,13 +1191,13 @@ def option_policy_to_policy(
 
         if max_option_steps is not None and \
             num_cur_option_steps >= max_option_steps:
-            raise OptionExecutionFailure(
+            raise OptionTimeoutFailure(
                 "Exceeded max option steps.",
                 info={"last_failed_option": last_option})
 
         if last_state is not None and \
             raise_error_on_repeated_state and state.allclose(last_state):
-            raise OptionExecutionFailure(
+            raise OptionTimeoutFailure(
                 "Encountered repeated state.",
                 info={"last_failed_option": last_option})
         last_state = state
@@ -1290,6 +1295,22 @@ def nsrt_plan_to_greedy_policy(
     return option_policy_to_policy(option_policy)
 
 
+def sample_applicable_option(param_options: List[ParameterizedOption],
+                             state: State,
+                             rng: np.random.Generator) -> Optional[_Option]:
+    """Sample an applicable option."""
+    for _ in range(CFG.random_options_max_tries):
+        param_opt = param_options[rng.choice(len(param_options))]
+        objs = get_random_object_combination(list(state), param_opt.types, rng)
+        if objs is None:
+            continue
+        params = param_opt.params_space.sample()
+        opt = param_opt.ground(objs, params)
+        if opt.initiable(state):
+            return opt
+    return None
+
+
 def create_random_option_policy(
         options: Collection[ParameterizedOption], rng: np.random.Generator,
         fallback_policy: Callable[[State],
@@ -1305,17 +1326,9 @@ def create_random_option_policy(
         nonlocal cur_option
         if cur_option is DummyOption or cur_option.terminal(state):
             cur_option = DummyOption
-            for _ in range(CFG.random_options_max_tries):
-                param_opt = sorted_options[rng.choice(len(sorted_options))]
-                objs = get_random_object_combination(list(state),
-                                                     param_opt.types, rng)
-                if objs is None:
-                    continue
-                params = param_opt.params_space.sample()
-                opt = param_opt.ground(objs, params)
-                if opt.initiable(state):
-                    cur_option = opt
-                    break
+            sample = sample_applicable_option(sorted_options, state, rng)
+            if sample is not None:
+                cur_option = sample
             else:
                 return fallback_policy(state)
         act = cur_option.policy(state)
@@ -3397,3 +3410,35 @@ def get_task_seed(train_or_test: str, task_idx: int) -> int:
     # Need to cast to int because generate_state() returns a numpy int.
     task_seed = int(seed_sequence.generate_state(task_idx + 1)[-1])
     return task_seed
+
+
+def beta_bernoulli_posterior(success_history: List[bool],
+                             alpha: float = 1.0,
+                             beta: float = 1.0) -> BetaRV:
+    """See https://gregorygundersen.com/blog/2020/08/19/bernoulli-beta/"""
+    n = len(success_history)
+    s = sum(success_history)
+    alpha_n = alpha + s
+    beta_n = n - s + beta
+    return BetaRV(alpha_n, beta_n)
+
+
+def beta_from_mean_and_variance(mean: float,
+                                variance: float,
+                                variance_lower_pad: float = 1e-6,
+                                variance_upper_pad: float = 1e-3) -> BetaRV:
+    """Recover a beta distribution given a mean and a variance.
+
+    See https://stats.stackexchange.com/questions/12232/ for derivation.
+    """
+    # Clip variance.
+    variance = max(min(variance,
+                       mean * (1 - mean) - variance_upper_pad),
+                   variance_lower_pad)
+    alpha = ((1 - mean) / variance - 1 / mean) * (mean**2)
+    beta = alpha * (1 / mean - 1)
+    assert alpha > 0
+    assert beta > 0
+    rv = BetaRV(alpha, beta)
+    assert abs(rv.mean() - mean) < 1e-6
+    return rv

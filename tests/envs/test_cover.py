@@ -5,6 +5,7 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
     CoverMultistepOptions
@@ -733,3 +734,32 @@ def test_regional_bumpy_cover_env():
     rng = np.random.default_rng(123)
     option = ground_nsrt.sample_option(held_state, set(), rng)
     assert option.params[0] > 0.5
+
+    # Test that when the impossible NSRT is included, the planner tries to use
+    # it, but then fails with an option execution error.
+    utils.reset_config({
+        "env": env_name,
+        "regional_bumpy_cover_include_impossible_nsrt": True,
+        "approach": "oracle",
+        "bilevel_plan_without_sim": True,
+        "num_train_tasks": 0,
+        "num_test_tasks": 5,
+    })
+    env = create_new_env(env_name)
+    options = get_gt_options(env.get_name())
+    assert len(options) == 6
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    assert len(nsrts) == 6
+    test_tasks = [t.task for t in env.get_test_tasks()]
+    approach = OracleApproach(env.predicates,
+                              options,
+                              env.types,
+                              env.action_space,
+                              train_tasks=[])
+    for task in test_tasks:
+        policy = approach.solve(task, 500)
+        # Expected no-op.
+        state = task.init.copy()
+        act = policy(state)
+        next_state = env.simulate(state, act)
+        assert state.allclose(next_state)

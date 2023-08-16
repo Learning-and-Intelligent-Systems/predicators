@@ -26,10 +26,8 @@ def test_oracle_strips_learner():
     env = create_new_env("blocks")
     train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
-    ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset.trajectories, env.predicates)
     segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_dataset
+        segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
     pnads = learn_strips_operators(dataset.trajectories,
                                    train_tasks,
@@ -74,10 +72,8 @@ def test_oracle_strips_learner():
     env = create_new_env("blocks")
     train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_dataset(env, train_tasks, set())
-    ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset.trajectories, env.predicates)
     segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_dataset
+        segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
     pnads = learn_strips_operators(dataset.trajectories,
                                    train_tasks,
@@ -126,10 +122,8 @@ def test_oracle_strips_learner():
     assert not action.get_option().terminal(next_state)
     truncated_traj = LowLevelTrajectory([state, next_state], [action])
     dataset = Dataset([truncated_traj])
-    ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset.trajectories, env.predicates)
     segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_dataset
+        segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
     assert len(segmented_trajs[0]) == 0
     pnads = learn_strips_operators(dataset.trajectories,
@@ -149,6 +143,6 @@ def test_oracle_strips_learner():
         "max_num_steps_option_rollout": 1,
     })
     segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_dataset
+        segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
     assert len(segmented_trajs[0]) == 1  # was 0 before

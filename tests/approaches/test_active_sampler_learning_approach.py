@@ -8,7 +8,7 @@ from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs.cover import BumpyCoverEnv
 from predicators.execution_monitoring import create_execution_monitor
-from predicators.ground_truth_models import get_gt_options
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.main import _generate_interaction_results
 from predicators.perception import create_perceiver
 from predicators.settings import CFG
@@ -45,17 +45,18 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
         "num_train_tasks": 3,
         "max_initial_demos": num_demo,
         "num_test_tasks": 1,
-        "explorer": "random_nsrts",
+        "explorer": "active_sampler",
         "active_sampler_learning_num_samples": 5,
         "active_sampler_learning_fitted_q_iters": 2,
         "active_sampler_learning_num_next_option_samples": 2,
         "bumpy_cover_right_targets": right_targets,
         "active_sampler_learning_num_ensemble_members": 2,
+        "bilevel_plan_without_sim": True,
     })
     env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
-    approach = ActiveSamplerLearningApproach(env.predicates,
-                                             get_gt_options(env.get_name()),
+    options = get_gt_options(env.get_name())
+    approach = ActiveSamplerLearningApproach(env.predicates, options,
                                              env.types, env.action_space,
                                              train_tasks)
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
@@ -76,6 +77,12 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
     approach.load(online_learning_cycle=0)
     with pytest.raises(FileNotFoundError):
         approach.load(online_learning_cycle=1)
+    # Add some nontrivial ground operator history.
+    nsrts = sorted(get_gt_nsrts(env.get_name(), env.predicates, options))
+    objs = set(env.get_test_tasks()[0].task.init)
+    ground_nsrts = utils.all_ground_nsrts(nsrts[0], objs)
+    ground_op_hist = {n.op: [True, False, False] for n in ground_nsrts}
+    approach._ground_op_hist = ground_op_hist  # pylint: disable=protected-access
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=CFG.timeout)
         # We won't fully check the policy here because we don't want
