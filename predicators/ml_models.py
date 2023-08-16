@@ -14,6 +14,7 @@ from typing import Type as TypingType
 import numpy as np
 import torch
 import torch.nn.functional as F
+from scipy.stats import beta as BetaRV
 from sklearn.base import BaseEstimator
 from sklearn.neighbors import \
     KNeighborsClassifier as _SKLearnKNeighborsClassifier
@@ -22,6 +23,7 @@ from sklearn.neighbors import \
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
+from predicators import utils
 from predicators.structs import Array, MaxTrainIters, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
@@ -78,11 +80,12 @@ class _NormalizingRegressor(Regressor):
     Also infers the dimensionality of the inputs and outputs from fit().
     """
 
-    def __init__(self, seed: int) -> None:
+    def __init__(self, seed: int, disable_normalization: bool = False) -> None:
         super().__init__(seed)
         # Set in fit().
         self._x_dims: Tuple[int, ...] = tuple()
         self._y_dim = -1
+        self._disable_normalization = disable_normalization
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
         self._output_shift = np.zeros(1, dtype=np.float32)
@@ -95,20 +98,23 @@ class _NormalizingRegressor(Regressor):
         assert Y.shape[0] == num_data
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
-        X, self._input_shift, self._input_scale = _normalize_data(X)
-        Y, self._output_shift, self._output_scale = _normalize_data(Y)
+        if not self._disable_normalization:
+            X, self._input_shift, self._input_scale = _normalize_data(X)
+            Y, self._output_shift, self._output_scale = _normalize_data(Y)
         self._fit(X, Y)
 
     def predict(self, x: Array) -> Array:
         assert len(self._x_dims), "Fit must be called before predict."
         assert x.shape == self._x_dims
         # Normalize.
-        x = (x - self._input_shift) / self._input_scale
+        if not self._disable_normalization:
+            x = (x - self._input_shift) / self._input_scale
         # Make prediction.
         y = self._predict(x)
         assert y.shape == (self._y_dim, )
         # Denormalize.
-        y = (y * self._output_scale) + self._output_shift
+        if not self._disable_normalization:
+            y = (y * self._output_scale) + self._output_shift
         return y
 
     @abc.abstractmethod
@@ -134,9 +140,11 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                  weight_decay: float = 0,
                  n_iter_no_change: int = 10000000,
                  use_torch_gpu: bool = False,
-                 train_print_every: int = 1000) -> None:
+                 train_print_every: int = 1000,
+                 disable_normalization: bool = False) -> None:
         torch.manual_seed(seed)
-        _NormalizingRegressor.__init__(self, seed)
+        _NormalizingRegressor.__init__(
+            self, seed, disable_normalization=disable_normalization)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
         self._clip_gradients = clip_gradients
@@ -1007,6 +1015,86 @@ class KNeighborsRegressor(_ScikitLearnRegressor):
 
     def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
         return _SKLearnKNeighborsRegressor(**kwargs)
+
+
+class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
+    """A model that learns conditional beta distributions with the requirement
+    that the mean of the distribution increases with the (assumed 1d) input.
+
+    This regressor is used primarily for competence modeling.
+    """
+
+    def __init__(self,
+                 seed: int,
+                 max_train_iters: MaxTrainIters,
+                 clip_gradients: bool,
+                 clip_value: float,
+                 learning_rate: float,
+                 weight_decay: float = 0,
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000,
+                 constant_variance: float = 1e-2) -> None:
+
+        super().__init__(seed,
+                         max_train_iters,
+                         clip_gradients,
+                         clip_value,
+                         learning_rate,
+                         weight_decay=weight_decay,
+                         n_iter_no_change=n_iter_no_change,
+                         use_torch_gpu=use_torch_gpu,
+                         disable_normalization=True,
+                         train_print_every=train_print_every)
+
+        # This model has three learnable parameters.
+        self.theta = torch.nn.Parameter(torch.randn(3), requires_grad=True)
+        # We use a constant variance.
+        assert 0 < constant_variance < 0.25
+        self.variance = constant_variance
+
+    def _transform_theta(self) -> List[Tensor]:
+        # Map unbounded parameters to constrained parameters with the following
+        # guarantees: (1) 0 <= theta0 <= 1; (2) theta0 <= theta1 <= 1; and
+        # (3) theta2 >= 0.
+        theta0 = self.theta[0]
+        theta1 = self.theta[1]
+        theta2 = self.theta[2]
+        ctheta0 = F.sigmoid(theta0)
+        ctheta1 = F.sigmoid(theta0 + (F.elu(theta1) + 1))
+        ctheta2 = F.elu(theta2) + 1
+        return [ctheta0, ctheta1, ctheta2]
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        # Transform weights to obey constraints.
+        c0, c1, c2 = self._transform_theta()
+        # Exponential saturation function.
+        mean = c0 + (c1 - c0) * (1 - torch.exp(-c2 * tensor_X))  # type: ignore
+        # Clip mean to avoid numerical issues.
+        mean = torch.clip(mean, 1e-3, 1.0 - 1e-3)
+        return mean
+
+    def _initialize_net(self) -> None:
+        # Reset the learnable parameters.
+        self.theta = torch.nn.Parameter(torch.randn(3), requires_grad=True)
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        # Just regress the mean for stability.
+        return nn.MSELoss()
+
+    def predict_beta(self, x: float) -> BetaRV:
+        """Predict a beta distribution given the input."""
+        mean = self._predict(np.array([x], dtype=np.float32))[0]
+        return utils.beta_from_mean_and_variance(mean, self.variance)
+
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        assert len(x) == 1
+        rv = self.predict_beta(x[0])
+        return rv.rvs(random_state=rng).reshape(x.shape)
+
+    def get_transformed_params(self) -> List[float]:
+        """For interpretability."""
+        return [v.item() for v in self._transform_theta()]
 
 
 ################################ Classifiers ##################################
