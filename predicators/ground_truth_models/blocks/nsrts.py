@@ -15,7 +15,7 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"blocks", "pybullet_blocks", "blocks_clear"}
+        return {"blocks", "pybullet_blocks", "blocks_clear", "slippery_blocks"}
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],
@@ -33,9 +33,15 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Clear = predicates["Clear"]
 
         # Options
-        Pick = options["Pick"]
         Stack = options["Stack"]
         PutOnTable = options["PutOnTable"]
+
+        if env_name == "slippery_blocks":
+            PickFromTable = options["PickFromTable"]
+            Unstack = options["Unstack"]
+        else:
+            PickFromTable = options["Pick"]
+            Unstack = options["Pick"]
 
         nsrts = set()
 
@@ -44,7 +50,7 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         parameters = [block, robot]
         option_vars = [robot, block]
-        option = Pick
+        option = PickFromTable
         preconditions = {
             LiftedAtom(OnTable, [block]),
             LiftedAtom(Clear, [block]),
@@ -57,9 +63,19 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(GripperOpen, [robot])
         }
 
+        if env_name == "slippery_blocks":
+
+            def pick_sampler(state: State, goal: Set[GroundAtom],
+                             rng: np.random.Generator,
+                             objs: Sequence[Object]) -> Array:
+                del state, goal, objs  # unused
+                return np.array([rng.uniform(0.0, 0.5)], dtype=np.float32)
+        else:
+            pick_sampler = null_sampler
+
         pickfromtable_nsrt = NSRT("PickFromTable", parameters,
                                   preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, null_sampler)
+                                  set(), option, option_vars, pick_sampler)
         nsrts.add(pickfromtable_nsrt)
 
         # Unstack
@@ -67,8 +83,11 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         otherblock = Variable("?otherblock", block_type)
         robot = Variable("?robot", robot_type)
         parameters = [block, otherblock, robot]
-        option_vars = [robot, block]
-        option = Pick
+        if env_name == "slippery_blocks":
+            option_vars = [robot, block, otherblock]
+        else:
+            option_vars = [robot, block]
+        option = Unstack
         preconditions = {
             LiftedAtom(On, [block, otherblock]),
             LiftedAtom(Clear, [block]),
@@ -85,7 +104,7 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         unstack_nsrt = NSRT("Unstack", parameters, preconditions, add_effects,
                             delete_effects, set(), option, option_vars,
-                            null_sampler)
+                            pick_sampler)
         nsrts.add(unstack_nsrt)
 
         # Stack

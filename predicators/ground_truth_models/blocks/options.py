@@ -59,18 +59,25 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {Pick, Stack, PutOnTable}
 
     @classmethod
-    def _create_pick_policy(cls, action_space: Box) -> ParameterizedPolicy:
+    def _create_pick_policy(
+            cls,
+            action_space: Box,
+            finger_parameterized: bool = False) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
-            del memory, params  # unused
-            _, block = objects
+            del memory  # unused
+            block = objects[1]
             block_pose = np.array([
                 state.get(block, "pose_x"),
                 state.get(block, "pose_y"),
                 state.get(block, "pose_z")
             ])
-            arr = np.r_[block_pose, 0.0].astype(np.float32)
+            if finger_parameterized:
+                fingers = params[0]
+            else:
+                fingers = 0.0
+            arr = np.r_[block_pose, fingers].astype(np.float32)
             arr = np.clip(arr, action_space.low, action_space.high)
             return Action(arr)
 
@@ -117,6 +124,52 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(arr)
 
         return policy
+
+
+class SlipperyBlocksGroundTruthOptionFactory(BlocksGroundTruthOptionFactory):
+    """Ground-truth options for the slippery blocks environment.
+
+    Main differences from parent class:
+    1. Options and NSRTs are 1:1, so PickFromTable and Unstack are separate.
+    2. PickFromTable and Unstack are parameterized.
+    """
+
+    @classmethod
+    def get_env_names(cls) -> Set[str]:
+        return {"slippery_blocks"}
+
+    @classmethod
+    def get_options(cls, env_name: str, types: Dict[str, Type],
+                    predicates: Dict[str, Predicate],
+                    action_space: Box) -> Set[ParameterizedOption]:
+
+        # Stack and PutOnTable are same as parent class.
+        opts = super().get_options(env_name, types, predicates, action_space)
+        name_to_opt = {o.name: o for o in opts}
+        Stack = name_to_opt["Stack"]
+        PutOnTable = name_to_opt["PutOnTable"]
+
+        # PickFromTable and Unstack are different.
+        robot_type = types["robot"]
+        block_type = types["block"]
+
+        PickFromTable = utils.SingletonParameterizedOption(
+            # variables: [robot, object to pick]
+            # params: [fingers]
+            "PickFromTable",
+            cls._create_pick_policy(action_space, finger_parameterized=True),
+            types=[robot_type, block_type],
+            params_space=Box(0, 1, (1, )))
+
+        Unstack = utils.SingletonParameterizedOption(
+            # variables: [robot, object to pick, object underneath]
+            # params: [fingers]
+            "Unstack",
+            cls._create_pick_policy(action_space, finger_parameterized=True),
+            types=[robot_type, block_type, block_type],
+            params_space=Box(0, 1, (1, )))
+
+        return {PickFromTable, Unstack, Stack, PutOnTable}
 
 
 class PyBulletBlocksGroundTruthOptionFactory(GroundTruthOptionFactory):

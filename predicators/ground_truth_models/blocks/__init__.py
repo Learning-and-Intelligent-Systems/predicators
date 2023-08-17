@@ -2,9 +2,11 @@
 
 from .nsrts import BlocksGroundTruthNSRTFactory
 from .options import BlocksGroundTruthOptionFactory, \
-    PyBulletBlocksGroundTruthOptionFactory
+    PyBulletBlocksGroundTruthOptionFactory, \
+    SlipperyBlocksGroundTruthOptionFactory
 
 __all__ = [
     "BlocksGroundTruthNSRTFactory", "BlocksGroundTruthOptionFactory",
-    "PyBulletBlocksGroundTruthOptionFactory"
+    "PyBulletBlocksGroundTruthOptionFactory",
+    "SlipperyBlocksGroundTruthOptionFactory"
 ]

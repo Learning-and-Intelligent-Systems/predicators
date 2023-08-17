@@ -333,6 +333,12 @@ class BlocksEnv(BaseEnv):
                 # Block is clear iff it is at the top of a pile
                 clear = pile_j == len(piles[pile_i]) - 1
                 data[block] = np.array([x, y, z, 0.0, r, g, b, clear])
+            elif "slippery" in self._block_type.feature_names:
+                # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,
+                # slippery]
+                # One block is always slippery.
+                slippery = float(block == sorted(block_to_pile_idx)[0])
+                data[block] = np.array([x, y, z, 0.0, r, g, b, slippery])
             else:
                 # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
                 data[block] = np.array([x, y, z, 0.0, r, g, b])
@@ -576,3 +582,53 @@ class BlocksEnvClear(BlocksEnv):
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return state.get(block, "clear") == 1
+
+
+class SlipperyBlocks(BlocksEnv):
+    """A blocks environment where one of the blocks is 'slippery', which makes
+    it harder to pick and unstack."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Add attribute.
+        self._block_type = Type("block", [
+            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
+            "color_b", "slippery"
+        ])
+        # Override predicates and options that use the block type
+        self._On = Predicate("On", [self._block_type, self._block_type],
+                             self._On_holds)
+        self._OnTable = Predicate("OnTable", [self._block_type],
+                                  self._OnTable_holds)
+        self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
+                                      self._GripperOpen_holds)
+        self._Holding = Predicate("Holding", [self._block_type],
+                                  self._Holding_holds)
+        self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "slippery_blocks"
+
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        # Simulate the action as usual.
+        next_state = super().simulate(state, action)
+        # Check if we just picked up a slippery block.
+        before_block = self._get_held_block(state)
+        after_block = self._get_held_block(next_state)
+        if before_block is not None or after_block is None or \
+            state.get(after_block, "slippery") < 0.5:
+            return next_state
+        import ipdb; ipdb.set_trace()
+        # We just attempted to pick a slippery block. Apply extra checks.
+        _, y, _, fingers = action.arr
+        mid_y = (self.y_lb + self.y_ub) / 2
+        target_fingers = 0.1 if y < mid_y else 0.4
+        # TODO
+        slipped = False #abs(fingers - target_fingers) > 0.05
+        if slipped:
+            return state.copy()
+        import ipdb; ipdb.set_trace()
+        return next_state
