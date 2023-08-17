@@ -337,7 +337,7 @@ class BlocksEnv(BaseEnv):
                 # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,
                 # slippery]
                 # One block is always slippery.
-                slippery = float(block == sorted(block_to_pile_idx)[0])
+                slippery = float(block.name == "block3")
                 data[block] = np.array([x, y, z, 0.0, r, g, b, slippery])
             else:
                 # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
@@ -621,14 +621,11 @@ class SlipperyBlocks(BlocksEnv):
         if before_block is not None or after_block is None or \
             state.get(after_block, "slippery") < 0.5:
             return next_state
-        import ipdb; ipdb.set_trace()
         # We just attempted to pick a slippery block. Apply extra checks.
         _, y, _, fingers = action.arr
         mid_y = (self.y_lb + self.y_ub) / 2
         target_fingers = 0.1 if y < mid_y else 0.4
-        # TODO
-        slipped = False #abs(fingers - target_fingers) > 0.05
+        slipped = abs(fingers - target_fingers) > 0.05
         if slipped:
             return state.copy()
-        import ipdb; ipdb.set_trace()
         return next_state

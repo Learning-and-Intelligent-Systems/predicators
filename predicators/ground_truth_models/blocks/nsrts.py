@@ -49,7 +49,10 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         block = Variable("?block", block_type)
         robot = Variable("?robot", robot_type)
         parameters = [block, robot]
-        option_vars = [robot, block]
+        if env_name == "slippery_blocks":
+            option_vars = parameters
+        else:
+            option_vars = [robot, block]
         option = PickFromTable
         preconditions = {
             LiftedAtom(OnTable, [block]),
@@ -84,7 +87,7 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         robot = Variable("?robot", robot_type)
         parameters = [block, otherblock, robot]
         if env_name == "slippery_blocks":
-            option_vars = [robot, block, otherblock]
+            option_vars = parameters
         else:
             option_vars = [robot, block]
         option = Unstack
@@ -112,7 +115,10 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         otherblock = Variable("?otherblock", block_type)
         robot = Variable("?robot", robot_type)
         parameters = [block, otherblock, robot]
-        option_vars = [robot, otherblock]
+        if env_name == "slippery_blocks":
+            option_vars = parameters
+        else:
+            option_vars = [robot, otherblock]
         option = Stack
         preconditions = {
             LiftedAtom(Holding, [block]),
@@ -137,7 +143,10 @@ class BlocksGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         block = Variable("?block", block_type)
         robot = Variable("?robot", robot_type)
         parameters = [block, robot]
-        option_vars = [robot]
+        if env_name == "slippery_blocks":
+            option_vars = parameters
+        else:
+            option_vars = [robot]
         option = PutOnTable
         preconditions = {LiftedAtom(Holding, [block])}
         add_effects = {

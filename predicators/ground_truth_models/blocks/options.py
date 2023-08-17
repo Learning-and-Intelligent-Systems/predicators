@@ -59,15 +59,15 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {Pick, Stack, PutOnTable}
 
     @classmethod
-    def _create_pick_policy(
-            cls,
-            action_space: Box,
-            finger_parameterized: bool = False) -> ParameterizedPolicy:
+    def _create_pick_policy(cls,
+                            action_space: Box,
+                            finger_parameterized: bool = False,
+                            block_idx: int = 1) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory  # unused
-            block = objects[1]
+            block = objects[block_idx]
             block_pose = np.array([
                 state.get(block, "pose_x"),
                 state.get(block, "pose_y"),
@@ -84,13 +84,15 @@ class BlocksGroundTruthOptionFactory(GroundTruthOptionFactory):
         return policy
 
     @classmethod
-    def _create_stack_policy(cls, action_space: Box,
-                             block_size: float) -> ParameterizedPolicy:
+    def _create_stack_policy(cls,
+                             action_space: Box,
+                             block_size: float,
+                             block_idx: int = 1) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
             del memory, params  # unused
-            _, block = objects
+            block = objects[block_idx]
             block_pose = np.array([
                 state.get(block, "pose_x"),
                 state.get(block, "pose_y"),
@@ -131,7 +133,8 @@ class SlipperyBlocksGroundTruthOptionFactory(BlocksGroundTruthOptionFactory):
 
     Main differences from parent class:
     1. Options and NSRTs are 1:1, so PickFromTable and Unstack are separate.
-    2. PickFromTable and Unstack are parameterized.
+    2. Stack and PutOnTable have an extra argument for the same reason.
+    3. PickFromTable and Unstack are parameterized.
     """
 
     @classmethod
@@ -143,31 +146,44 @@ class SlipperyBlocksGroundTruthOptionFactory(BlocksGroundTruthOptionFactory):
                     predicates: Dict[str, Predicate],
                     action_space: Box) -> Set[ParameterizedOption]:
 
-        # Stack and PutOnTable are same as parent class.
-        opts = super().get_options(env_name, types, predicates, action_space)
-        name_to_opt = {o.name: o for o in opts}
-        Stack = name_to_opt["Stack"]
-        PutOnTable = name_to_opt["PutOnTable"]
-
-        # PickFromTable and Unstack are different.
         robot_type = types["robot"]
         block_type = types["block"]
+        block_size = CFG.blocks_block_size
 
         PickFromTable = utils.SingletonParameterizedOption(
-            # variables: [robot, object to pick]
+            # variables: [object to pick, robot]
             # params: [fingers]
             "PickFromTable",
-            cls._create_pick_policy(action_space, finger_parameterized=True),
-            types=[robot_type, block_type],
+            cls._create_pick_policy(action_space,
+                                    finger_parameterized=True,
+                                    block_idx=0),
+            types=[block_type, robot_type],
             params_space=Box(0, 1, (1, )))
 
         Unstack = utils.SingletonParameterizedOption(
-            # variables: [robot, object to pick, object underneath]
+            # variables: [object to pick, object underneath, robot]
             # params: [fingers]
             "Unstack",
-            cls._create_pick_policy(action_space, finger_parameterized=True),
-            types=[robot_type, block_type, block_type],
+            cls._create_pick_policy(action_space,
+                                    finger_parameterized=True,
+                                    block_idx=0),
+            types=[block_type, block_type, robot_type],
             params_space=Box(0, 1, (1, )))
+
+        Stack = utils.SingletonParameterizedOption(
+            # variables: [held block, object to put on, robot]
+            # params: []
+            "Stack",
+            cls._create_stack_policy(action_space, block_size, block_idx=1),
+            types=[block_type, block_type, robot_type])
+
+        PutOnTable = utils.SingletonParameterizedOption(
+            # variables: [held block, robot]
+            # params: [x, y] (normalized coordinates on the table surface)
+            "PutOnTable",
+            cls._create_putontable_policy(action_space, block_size),
+            types=[block_type, robot_type],
+            params_space=Box(0, 1, (2, )))
 
         return {PickFromTable, Unstack, Stack, PutOnTable}
 
