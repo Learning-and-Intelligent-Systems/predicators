@@ -1,6 +1,6 @@
 """Ground-truth options for the cover environment."""
 
-from typing import ClassVar, Dict, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -101,40 +101,70 @@ class RegionalBumpyCoverGroundTruthOptionFactory(GroundTruthOptionFactory):
         block_type = types["block"]
         target_type = types["target"]
 
+        options: Set[ParameterizedOption] = set()
+
         PickFromSmooth = utils.SingletonParameterizedOption("PickFromSmooth",
                                                             _policy,
                                                             types=[block_type],
                                                             params_space=Box(
                                                                 0, 1, (1, )))
+        options.add(PickFromSmooth)
 
         PickFromBumpy = utils.SingletonParameterizedOption("PickFromBumpy",
                                                            _policy,
                                                            types=[block_type],
                                                            params_space=Box(
                                                                0, 1, (1, )))
+        options.add(PickFromBumpy)
 
         PickFromTarget = utils.SingletonParameterizedOption(
             "PickFromTarget",
             _policy,
             types=[block_type, target_type],
             params_space=Box(0, 1, (1, )))
+        options.add(PickFromTarget)
 
         PlaceOnTarget = utils.SingletonParameterizedOption(
             "PlaceOnTarget",
             _policy,
             types=[block_type, target_type],
             params_space=Box(0, 1, (1, )))
+        options.add(PlaceOnTarget)
 
         PlaceOnBumpy = utils.SingletonParameterizedOption("PlaceOnBumpy",
                                                           _policy,
                                                           types=[block_type],
                                                           params_space=Box(
                                                               0, 1, (1, )))
+        options.add(PlaceOnBumpy)
 
-        return {
-            PickFromSmooth, PickFromBumpy, PickFromTarget, PlaceOnTarget,
-            PlaceOnBumpy
-        }
+        if CFG.regional_bumpy_cover_include_impossible_nsrt:
+
+            def _impossible_policy(state: State, memory: Dict,
+                                   objects: Sequence[Object],
+                                   params: Array) -> Action:
+                del memory, objects, params  # unused
+                # Find a place to click that is effectively a no-op.
+                obj_regions: List[Tuple[float, float]] = []
+                objs = state.get_objects(block_type) + \
+                    state.get_objects(target_type)
+                for obj in objs:
+                    pose = state.get(obj, "pose")
+                    width = state.get(obj, "width")
+                    obj_regions.append((pose - width, pose + width))
+                for x in np.linspace(0, 1, 100):
+                    if not any(lb <= x <= ub for lb, ub in obj_regions):
+                        return Action(np.array([x], dtype=np.float32))
+                raise utils.OptionExecutionFailure(
+                    "No noop possible.")  # pragma: no cover
+
+            ImpossiblePickPlace = utils.SingletonParameterizedOption(
+                "ImpossiblePickPlace",
+                _impossible_policy,
+                types=[block_type, target_type])
+            options.add(ImpossiblePickPlace)
+
+        return options
 
 
 class CoverTypedOptionsGroundTruthOptionFactory(GroundTruthOptionFactory):

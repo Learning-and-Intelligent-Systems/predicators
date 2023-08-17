@@ -249,10 +249,12 @@ def _generate_interaction_results(
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
-        monitor: Optional[TeacherInteractionMonitorWithVideo] = None
+        monitor: Optional[utils.VideoMonitor] = None
         if teacher is not None:
             monitor = TeacherInteractionMonitorWithVideo(
                 env.render, request, teacher)
+        elif CFG.make_interaction_videos:
+            monitor = utils.VideoMonitor(env.render)
         cogman.set_override_policy(request.act_policy)
         cogman.set_termination_function(request.termination_function)
         env_task = env.get_train_tasks()[request.train_task_idx]
@@ -276,7 +278,7 @@ def _generate_interaction_results(
         request_responses: List[Optional[Response]] = [
             None for _ in traj.states
         ]
-        if monitor is not None:
+        if isinstance(monitor, TeacherInteractionMonitorWithVideo):
             request_responses = monitor.get_responses()
             query_cost += monitor.get_query_cost()
         assert len(traj.states) == len(observed_traj[0])
@@ -506,7 +508,7 @@ def _run_episode(
                 observations.append(obs)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
+                   any(issubclass(type(e), c) for c in exceptions_to_break_on):
                     if monitor_observed:
                         exception_raised_in_step = True
                     break

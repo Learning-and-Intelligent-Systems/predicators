@@ -272,7 +272,7 @@ class BridgePolicyApproach(OracleApproach):
             traj = response.teacher_traj
             assert traj is not None
             atom_traj = [utils.abstract(s, preds) for s in traj.states]
-            segmented_traj = segment_trajectory((traj, atom_traj))
+            segmented_traj = segment_trajectory(traj, preds, atom_traj)
             if not segmented_traj:
                 assert len(atom_traj) == 1
                 states = [traj.states[0]]

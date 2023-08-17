@@ -63,6 +63,9 @@ class GlobalSettings:
     bumpy_cover_bumpy_region_start = 0.8
     bumpy_cover_init_bumpy_prob = 0.25
 
+    # regional bumpy cover env parameters
+    regional_bumpy_cover_include_impossible_nsrt = False
+
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
@@ -333,6 +336,12 @@ class GlobalSettings:
     kitchen_camera_size = 512
     kitchen_goals = "all"
 
+    # sticky table env parameters
+    sticky_table_num_tables = 5
+    sticky_table_place_smooth_fall_prob = 0.95
+    sticky_table_place_sticky_fall_prob = 0.05
+    sticky_table_pick_success_prob = 0.9
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -542,6 +551,17 @@ class GlobalSettings:
     active_sampler_learning_num_next_option_samples = 5
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
+    active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
+    active_sampler_learning_exploration_epsilon = 0.05
+
+    # skill competence model parameters
+    skill_competence_model = "optimistic"
+    skill_competence_model_num_em_iters = 3
+    skill_competence_model_max_train_iters = 1000
+    skill_competence_model_learning_rate = 1e-2
+    skill_competence_model_lookahead = 1
+    skill_competence_model_optimistic_window_size = 1
+    skill_competence_model_optimistic_recency_size = 5
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -575,6 +595,9 @@ class GlobalSettings:
 
     # active sampler explorer parameters
     active_sampler_explore_bonus = 1e-1
+    active_sampler_explore_task_strategy = "planning_progress"
+    active_sampler_explorer_replan_frequency = 100
+    active_sampler_explorer_planning_progress_max_tasks = 10
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -631,6 +654,7 @@ class GlobalSettings:
                     "pybullet_blocks": 1000,
                     "doors": 1000,
                     "coffee": 1000,
+                    "kitchen": 1000,
                     # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,

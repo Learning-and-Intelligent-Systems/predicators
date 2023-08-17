@@ -1,0 +1,42 @@
+# Run active learning experiments in the kitchen environment.
+---
+APPROACHES:
+  active_sampler_learning:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+ENVS:
+  kitchen-knob-only:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "knob_only"
+  kitchen-light-only:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "light_only"
+  kitchen-kettle-only:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "kettle_only"
+  kitchen-all:
+    NAME: "kitchen"
+    FLAGS:
+      kitchen_goals: "all"
+ARGS: []
+FLAGS:  # general flags
+  bilevel_plan_without_sim: True
+  num_train_tasks: 100
+  num_test_tasks: 10
+  max_initial_demos: 0
+  max_num_steps_interaction_request: 500
+  max_num_steps_option_rollout: 250
+  online_nsrt_learning_requests_per_cycle: 5
+  num_online_learning_cycles: 5
+  sampler_mlp_classifier_max_itr: 100000
+  mlp_classifier_balance_data: False
+  active_sampler_learning_use_teacher: False
+  strips_learner: "oracle"
+  sampler_learner: "oracle"
+  active_sampler_learning_explore_length_base: 10000  # effectively disable
+START_SEED: 456
+NUM_SEEDS: 10

@@ -42,13 +42,11 @@ def test_known_options_option_learner():
     train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_demo_replay_data(env, train_tasks,
                                       get_gt_options(env.get_name()))
-    ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset.trajectories, env.predicates)
-    for traj, _ in ground_atom_dataset:
+    for traj in dataset.trajectories:
         for act in traj.actions:
             assert act.has_option()
     segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_dataset
+        segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
     pnads = learn_strips_operators(dataset.trajectories,
                                    train_tasks,
@@ -87,13 +85,11 @@ def test_oracle_option_learner_cover():
     env = create_new_env("cover")
     train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_demo_replay_data(env, train_tasks, known_options=set())
-    ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset.trajectories, env.predicates)
-    for traj, _ in ground_atom_dataset:
+    for traj in dataset.trajectories:
         for act in traj.actions:
             assert not act.has_option()
     segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_dataset
+        segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
     pnads = learn_strips_operators(dataset.trajectories,
                                    train_tasks,
@@ -137,13 +133,11 @@ def test_oracle_option_learner_blocks():
     env = create_new_env("blocks")
     train_tasks = [t.task for t in env.get_train_tasks()]
     dataset = create_demo_replay_data(env, train_tasks, known_options=set())
-    ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset.trajectories, env.predicates)
-    for traj, _ in ground_atom_dataset:
+    for traj in dataset.trajectories:
         for act in traj.actions:
             assert not act.has_option()
     segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_dataset
+        segment_trajectory(t, env.predicates) for t in dataset.trajectories
     ]
     pnads = learn_strips_operators(dataset.trajectories,
                                    train_tasks,

@@ -2,8 +2,8 @@
 
 from predicators.envs.kitchen import KitchenEnv
 from predicators.perception.base_perceiver import BasePerceiver
-from predicators.structs import EnvironmentTask, GroundAtom, Object, \
-    Observation, State, Task
+from predicators.structs import EnvironmentTask, GroundAtom, Observation, \
+    State, Task
 
 
 class KitchenPerceiver(BasePerceiver):
@@ -15,22 +15,30 @@ class KitchenPerceiver(BasePerceiver):
 
     def reset(self, env_task: EnvironmentTask) -> Task:
         state = self._observation_to_state(env_task.init_obs)
-        OnTop = KitchenEnv.get_goal_at_predicates(KitchenEnv)[1]
-        TurnedOn = KitchenEnv.get_goal_at_predicates(KitchenEnv)[2]
-        kettle = Object("kettle", KitchenEnv.object_type)
-        knob = Object("knob3", KitchenEnv.object_type)
-        burner = Object("burner2", KitchenEnv.object_type)
+        pred_name_to_pred = KitchenEnv.create_predicates()
+        OnTop = pred_name_to_pred["OnTop"]
+        TurnedOn = pred_name_to_pred["TurnedOn"]
+        kettle = KitchenEnv.object_name_to_object("kettle")
+        knob4 = KitchenEnv.object_name_to_object("knob4")
+        burner4 = KitchenEnv.object_name_to_object("burner4")
+        light = KitchenEnv.object_name_to_object("light")
         goal_desc = env_task.goal_description
-        if goal_desc == "Move the kettle to the back burner and turn it on":
+        if goal_desc == ("Move the kettle to the back burner and turn it on; "
+                         "also turn on the light"):
             goal = {
-                GroundAtom(TurnedOn, [knob]),
-                GroundAtom(OnTop, [kettle, burner])
+                GroundAtom(TurnedOn, [knob4]),
+                GroundAtom(OnTop, [kettle, burner4]),
+                GroundAtom(TurnedOn, [light]),
             }
         elif goal_desc == "Move the kettle to the back burner":
-            goal = {GroundAtom(OnTop, [kettle, burner])}
+            goal = {GroundAtom(OnTop, [kettle, burner4])}
         elif goal_desc == "Turn on the back burner":
             goal = {
-                GroundAtom(TurnedOn, [knob]),
+                GroundAtom(TurnedOn, [knob4]),
+            }
+        elif goal_desc == "Turn on the light":
+            goal = {
+                GroundAtom(TurnedOn, [light]),
             }
         else:
             raise NotImplementedError(f"Unrecognized goal: {goal_desc}")
