@@ -37,6 +37,7 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         MoveRobot = options["MoveRobot"]
         TurnOnLight = options["TurnOnLight"]
         TurnOffLight = options["TurnOffLight"]
+        TurnOnLightFromAnywhere = options["TurnOnLightFromAnywhere"]
 
         nsrts = set()
 
@@ -117,5 +118,26 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    add_effects, delete_effects, ignore_effects,
                                    option, option_vars, light_sampler)
         nsrts.add(turn_light_off_nsrt)
+
+        # TurnOnLightFromAnywhere (Impossible)
+        light = Variable("?light", light_type)
+        parameters = [light]
+        option_vars = parameters
+        option = TurnOnLightFromAnywhere
+        preconditions = {
+            LiftedAtom(LightOff, [light]),
+        }
+        add_effects = {
+            LiftedAtom(LightOn, [light]),
+        }
+        delete_effects = {
+            LiftedAtom(LightOff, [light]),
+        }
+        ignore_effects = {}
+        impossible_nsrt = NSRT("TurnOnLightFromAnywhere", parameters, preconditions,
+                                  add_effects, delete_effects, ignore_effects,
+                                  option, option_vars, light_sampler)
+        nsrts.add(impossible_nsrt)
+
 
         return nsrts

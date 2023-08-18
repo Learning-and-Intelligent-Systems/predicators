@@ -582,6 +582,7 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
             for _ in range(CFG.active_sampler_learning_num_samples)
         ]
         scores = score_fn(state, objects, samples)
+
         if strategy in ["greedy", "epsilon_greedy"]:
             idx = int(np.argmax(scores))
             if strategy == "epsilon_greedy" and rng.uniform(

@@ -122,7 +122,7 @@ class GridRowEnv(BaseEnv):
         # There is only one goal in this environment: to be in the last cell
         # and to have the light turned on.
         goal = {
-            GroundAtom(self._RobotInCell, [self._robot, self._cells[-1]]),
+            # GroundAtom(self._RobotInCell, [self._robot, self._cells[-1]]),
             GroundAtom(self._LightOn, [self._light]),
         }
         # There is also only one initial state: the robot is in the first cell
@@ -154,7 +154,7 @@ class GridRowEnv(BaseEnv):
     def _LightOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
         light, = objects
         level = state.get(light, "level")
-        return level > 0.9
+        return 0.5 < level < 0.8
 
     def _LightOff_holds(self, state: State, objects: Sequence[Object]) -> bool:
         return not self._LightOn_holds(state, objects)

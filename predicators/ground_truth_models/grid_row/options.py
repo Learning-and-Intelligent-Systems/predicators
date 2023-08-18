@@ -58,6 +58,7 @@ class GridRowGroundTruthOptionFactory(GroundTruthOptionFactory):
             params_space=Box(-1.0, 1.0, (1, )),
         )
 
+        # TurnOffLight
         TurnOffLight = utils.SingletonParameterizedOption(
             "TurnOffLight",
             types=[robot_type, cell_type, light_type],
@@ -65,4 +66,17 @@ class GridRowGroundTruthOptionFactory(GroundTruthOptionFactory):
             params_space=Box(-1.0, 1.0, (1, )),
         )
 
-        return {MoveRobot, TurnOnLight, TurnOffLight}
+        # Impossible
+        def _null_policy(state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
+            del state, memory, objects, params  # unused
+            return Action(np.array([0.0, 0.0], dtype=np.float32))
+
+        TurnOnLightFromAnywhere = utils.SingletonParameterizedOption(
+            "TurnOnLightFromAnywhere",
+            types=[light_type],
+            policy=_null_policy,
+            params_space=Box(-1.0, 1.0, (1, )),
+        )
+
+        return {MoveRobot, TurnOnLight, TurnOffLight, TurnOnLightFromAnywhere}
