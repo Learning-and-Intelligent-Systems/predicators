@@ -380,7 +380,7 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
             base_sampler,
             score_fn,
             strategy=CFG.active_sampler_learning_exploration_sample_strategy,
-                                             nsrt=nsrt)
+            nsrt=nsrt)
         return (wrapped_sampler_test, wrapped_sampler_exploration)
 
 
@@ -444,7 +444,7 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
             base_sampler,
             explore_score_fn,
             strategy=CFG.active_sampler_learning_exploration_sample_strategy,
-                                             nsrt=nsrt)
+            nsrt=nsrt)
 
         return (wrapped_sampler_test, wrapped_sampler_exploration)
 
@@ -506,7 +506,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
             base_sampler,
             score_fn,
             strategy=CFG.active_sampler_learning_exploration_sample_strategy,
-                                             nsrt=nsrt)
+            nsrt=nsrt)
         return (wrapped_sampler_test, wrapped_sampler_exploration)
 
     def _predict(self, state: State, option: _Option) -> float:
@@ -576,8 +576,8 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
 
 
 # Helper functions.
-def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
-                  strategy: str, nsrt: NSRT) -> NSRTSampler:
+def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn, strategy: str,
+                  nsrt: NSRT) -> NSRTSampler:
     """Create a wrapped sampler that uses a score function to select among
     candidates from a base sampler."""
 
@@ -601,7 +601,7 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
         else:
             raise NotImplementedError('Exploration strategy ' +
                                       f'{strategy} ' + 'is not implemented.')
-        
+
         # if nsrt.name == "TurnLightOn":
         #     _, _, light = objects
         #     current = state.get(light, "level")

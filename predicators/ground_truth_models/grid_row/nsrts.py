@@ -134,10 +134,10 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(LightOff, [light]),
         }
         ignore_effects = {}
-        impossible_nsrt = NSRT("TurnOnLightFromAnywhere", parameters, preconditions,
-                                  add_effects, delete_effects, ignore_effects,
-                                  option, option_vars, light_sampler)
+        impossible_nsrt = NSRT("TurnOnLightFromAnywhere", parameters,
+                               preconditions, add_effects, delete_effects,
+                               ignore_effects, option, option_vars,
+                               light_sampler)
         nsrts.add(impossible_nsrt)
-
 
         return nsrts

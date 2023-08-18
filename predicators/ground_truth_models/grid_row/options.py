@@ -67,8 +67,8 @@ class GridRowGroundTruthOptionFactory(GroundTruthOptionFactory):
         )
 
         # Impossible
-        def _null_policy(state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
+        def _null_policy(state: State, memory: Dict, objects: Sequence[Object],
+                         params: Array) -> Action:
             del state, memory, objects, params  # unused
             return Action(np.array([0.0, 0.0], dtype=np.float32))
 
