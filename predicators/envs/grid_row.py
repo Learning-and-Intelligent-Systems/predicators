@@ -29,7 +29,7 @@ class GridRowEnv(BaseEnv):
         # Types
         self._robot_type = Type("robot", ["x"])
         self._cell_type = Type("cell", ["x"])
-        self._light_type = Type("light", ["level", "x"])
+        self._light_type = Type("light", ["level", "target", "x"])
 
         # Predicates
         self._RobotInCell = Predicate("RobotInCell",
@@ -125,8 +125,7 @@ class GridRowEnv(BaseEnv):
             # GroundAtom(self._RobotInCell, [self._robot, self._cells[-1]]),
             GroundAtom(self._LightOn, [self._light]),
         }
-        # There is also only one initial state: the robot is in the first cell
-        # and the light is off.
+        # The only variation in the initial state is the light target level.
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             state_dict = {
@@ -136,6 +135,7 @@ class GridRowEnv(BaseEnv):
                 self._light: {
                     "x": len(self._cells) - 0.5,
                     "level": 0.0,
+                    "target": rng.uniform(0.5, 1.0),
                 },
             }
             for i, cell in enumerate(self._cells):
@@ -154,7 +154,8 @@ class GridRowEnv(BaseEnv):
     def _LightOn_holds(self, state: State, objects: Sequence[Object]) -> bool:
         light, = objects
         level = state.get(light, "level")
-        return 0.5 < level < 0.8
+        target = state.get(light, "target")
+        return abs(level - target) < 0.1
 
     def _LightOff_holds(self, state: State, objects: Sequence[Object]) -> bool:
         return not self._LightOn_holds(state, objects)
