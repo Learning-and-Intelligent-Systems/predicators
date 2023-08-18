@@ -329,7 +329,7 @@ class GlobalSettings:
     sticky_table_pick_success_prob = 0.9
 
     # grid row env parameters
-    grid_row_num_cells = 25
+    grid_row_num_cells = 50
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -548,7 +548,7 @@ class GlobalSettings:
     skill_competence_model_max_train_iters = 1000
     skill_competence_model_learning_rate = 1e-2
     skill_competence_model_lookahead = 1
-    skill_competence_model_optimistic_window_size = 5
+    skill_competence_model_optimistic_window_size = 10
     skill_competence_model_optimistic_recency_size = 5
 
     # refinement cost estimation parameters
