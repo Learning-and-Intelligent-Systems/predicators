@@ -134,7 +134,7 @@ class GridRowEnv(BaseEnv):
                     "x": 0.5,
                 },
                 self._light: {
-                    "x": 0.5,
+                    "x": len(self._cells) - 0.5,
                     "level": 0.0,
                 },
             }

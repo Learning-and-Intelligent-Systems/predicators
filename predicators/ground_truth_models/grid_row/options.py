@@ -55,14 +55,14 @@ class GridRowGroundTruthOptionFactory(GroundTruthOptionFactory):
             "TurnOnLight",
             types=[robot_type, cell_type, light_type],
             policy=_toggle_light_policy,
-            params_space=Box(0.0, 1.0, (1, )),
+            params_space=Box(-1.0, 1.0, (1, )),
         )
 
         TurnOffLight = utils.SingletonParameterizedOption(
             "TurnOffLight",
             types=[robot_type, cell_type, light_type],
             policy=_toggle_light_policy,
-            params_space=Box(0.0, 1.0, (1, )),
+            params_space=Box(-1.0, 1.0, (1, )),
         )
 
         return {MoveRobot, TurnOnLight, TurnOffLight}
