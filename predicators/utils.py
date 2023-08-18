@@ -3396,7 +3396,7 @@ def get_task_seed(train_or_test: str, task_idx: int) -> int:
 
 
 def beta_bernoulli_posterior(success_history: List[bool],
-                             alpha: float = 5.0,
+                             alpha: float = 10.0,
                              beta: float = 1.0) -> BetaRV:
     """See https://gregorygundersen.com/blog/2020/08/19/bernoulli-beta/"""
     n = len(success_history)
