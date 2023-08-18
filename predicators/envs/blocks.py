@@ -624,8 +624,11 @@ class SlipperyBlocks(BlocksEnv):
         # We just attempted to pick a slippery block. Apply extra checks.
         _, y, _, fingers = action.arr
         mid_y = (self.y_lb + self.y_ub) / 2
-        target_fingers = 0.1 if y < mid_y else 0.4
-        slipped = abs(fingers - target_fingers) > 0.05
+        # target_fingers = 0.1 if y < mid_y else 0.4
+        target_fingers = 0.3
+        dist_to_target = abs(fingers - target_fingers)
+        print("fingers, target, dist:", fingers, target_fingers, dist_to_target)
+        slipped = dist_to_target > 0.1
         if slipped:
             return state.copy()
         return next_state

@@ -1010,7 +1010,6 @@ def _update_sas_file_with_costs(
     # Make sure that 'metric' is turned on.
     metric_off_str = "begin_metric\n0\nend_metric"
     metric_on_str = "begin_metric\n1\nend_metric"
-    assert metric_off_str in sas_str
     sas_str = sas_str.replace(metric_off_str, metric_on_str)
     # Convert ground op names to SAS format.
     remaining_sas_ground_op_costs = {
@@ -1036,8 +1035,9 @@ def _update_sas_file_with_costs(
             int_cost = int((10**cost_precision) * cost)
             sas_lines[cost_idx] = str(int_cost)
     if remaining_sas_ground_op_costs:
+        # The SAS file might exclude useless operators.
         unmatched_ops = sorted(remaining_sas_ground_op_costs)
-        raise ValueError(f"No SAS file matches found for ops: {unmatched_ops}")
+        logging.warning(f"No SAS file matches found for ops: {unmatched_ops}")
     new_sas_str = "\n".join(sas_lines)
     with open(sas_file, "w", encoding="utf-8") as f:
         f.write(new_sas_str)
