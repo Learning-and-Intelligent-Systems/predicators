@@ -315,10 +315,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         success_rate = sum(history) / num_tries
         competence = model.get_current_competence()
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
-        logging.info(f"[Explorer]   success rate: {success_rate}")
-        logging.info(f"[Explorer]   posterior competence: {competence}")
-        logging.info(f"[Explorer]   num attempts: {num_tries}")
+        # logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        # logging.info(f"[Explorer]   success rate: {success_rate}")
+        # logging.info(f"[Explorer]   posterior competence: {competence}")
+        # logging.info(f"[Explorer]   num attempts: {num_tries}")
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
@@ -334,7 +334,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             raise NotImplementedError(
                 "Unrecognized explore task strategy: "
                 f"{CFG.active_sampler_explore_task_strategy}")
-        logging.info(f"[Explorer]   total score: {score}")
+        # logging.info(f"[Explorer]   total score: {score}")
         return score
 
     def _score_ground_op_planning_progress(
@@ -342,7 +342,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Predict the competence if we had one more data point.
         model = self._competence_models[ground_op]
         extrap = model.predict_competence(CFG.skill_competence_model_lookahead)
-        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
+        # logging.info(f"[Explorer]   extrapolated competence: {extrap}")
         c_hat = -np.log(extrap)
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
