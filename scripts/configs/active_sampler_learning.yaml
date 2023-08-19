@@ -61,7 +61,7 @@ FLAGS:
   online_nsrt_learning_requests_per_cycle: 1
   max_num_steps_interaction_request: 1000
   num_online_learning_cycles: 10
-  active_sampler_learning_explore_length_base: 4
+  active_sampler_learning_explore_length_base: 100000  # effectively disable
   sesame_task_planner: "fdopt-costs"
 START_SEED: 456
 NUM_SEEDS: 10
