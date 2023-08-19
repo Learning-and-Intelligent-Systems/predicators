@@ -37,7 +37,7 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         MoveRobot = options["MoveRobot"]
         TurnOnLight = options["TurnOnLight"]
         TurnOffLight = options["TurnOffLight"]
-        TurnOnLightFromAnywhere = options["TurnOnLightFromAnywhere"]
+        JumpToLight = options["JumpToLight"]
 
         nsrts = set()
 
@@ -119,25 +119,32 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    option, option_vars, light_sampler)
         nsrts.add(turn_light_off_nsrt)
 
-        # TurnOnLightFromAnywhere (Impossible)
+        # JumpToLight (Impossible)
+        robot = Variable("?robot", robot_type)
+        cell1 = Variable("?cell1", cell_type)
+        cell2 = Variable("?cell2", cell_type)
+        cell3 = Variable("?cell3", cell_type)
         light = Variable("?light", light_type)
-        parameters = [light]
+        parameters = [robot, cell1, cell2, cell3, light]
         option_vars = parameters
-        option = TurnOnLightFromAnywhere
+        option = JumpToLight
         preconditions = {
-            LiftedAtom(LightOff, [light]),
+            LiftedAtom(RobotInCell, [robot, cell1]),
+            LiftedAtom(Adjacent, [cell1, cell2]),
+            LiftedAtom(Adjacent, [cell2, cell3]),
+            LiftedAtom(LightInCell, [light, cell3]),
         }
         add_effects = {
-            LiftedAtom(LightOn, [light]),
+            LiftedAtom(RobotInCell, [robot, cell3]),
         }
         delete_effects = {
-            LiftedAtom(LightOff, [light]),
+            LiftedAtom(RobotInCell, [robot, cell1]),
         }
         ignore_effects = {}
-        impossible_nsrt = NSRT("TurnOnLightFromAnywhere", parameters,
-                               preconditions, add_effects, delete_effects,
-                               ignore_effects, option, option_vars,
-                               light_sampler)
+        impossible_nsrt = NSRT("JumpToLight", parameters, preconditions,
+                                  add_effects, delete_effects, ignore_effects,
+                                  option, option_vars, light_sampler)
         nsrts.add(impossible_nsrt)
+
 
         return nsrts
