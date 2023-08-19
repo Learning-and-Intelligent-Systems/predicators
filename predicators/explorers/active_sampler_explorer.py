@@ -342,7 +342,15 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Predict the competence if we had one more data point.
         model = self._competence_models[ground_op]
         extrap = model.predict_competence(CFG.skill_competence_model_lookahead)
-        # logging.info(f"[Explorer]   extrapolated competence: {extrap}")
+        # Optimization: skip any ground op that is worse or equal.
+        current_competence = model.get_current_competence()
+        if current_competence <= extrap:
+            return -np.inf
+        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        logging.info(f"[Explorer]   success rate: {success_rate}")
+        logging.info(f"[Explorer]   posterior competence: {competence}")
+        logging.info(f"[Explorer]   num attempts: {num_tries}")
+        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
         c_hat = -np.log(extrap)
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
