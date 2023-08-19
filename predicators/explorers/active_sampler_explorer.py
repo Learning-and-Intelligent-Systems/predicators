@@ -350,7 +350,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         num_tries = len(history)
         success_rate = sum(history) / num_tries
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        if success_rate < 0:
+        if success_rate < 1:
             logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
             logging.info(f"[Explorer]   success rate: {success_rate}")
             logging.info(f"[Explorer]   posterior competence: {competence}")
