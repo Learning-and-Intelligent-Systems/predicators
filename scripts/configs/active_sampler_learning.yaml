@@ -45,7 +45,6 @@ ENVS:
   #   FLAGS:
   #     num_train_tasks: 100
   #     num_test_tasks: 10
-  #     max_num_steps_interaction_request: 500
   #     max_num_steps_option_rollout: 250
 ARGS:
   - "debug"
@@ -59,9 +58,10 @@ FLAGS:
   pytorch_train_print_every: 10000
   active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
-  online_nsrt_learning_requests_per_cycle: 5
+  online_nsrt_learning_requests_per_cycle: 1
+  max_num_steps_interaction_request: 1000
   num_online_learning_cycles: 10
-  active_sampler_learning_explore_length_base: 2
+  active_sampler_learning_explore_length_base: 4
   sesame_task_planner: "fdopt-costs"
 START_SEED: 456
 NUM_SEEDS: 10
