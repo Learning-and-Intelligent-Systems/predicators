@@ -349,13 +349,15 @@ class ActiveSamplerExplorer(BaseExplorer):
         history = self._ground_op_hist[ground_op]
         num_tries = len(history)
         success_rate = sum(history) / num_tries
+        # Optimization: skip any ground op with perfect success.
+        if success_rate == 1.0:
+            return -np.inf
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        if success_rate < 1:
-            logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
-            logging.info(f"[Explorer]   success rate: {success_rate}")
-            logging.info(f"[Explorer]   posterior competence: {competence}")
-            logging.info(f"[Explorer]   num attempts: {num_tries}")
-            logging.info(f"[Explorer]   extrapolated competence: {extrap}")
+        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        logging.info(f"[Explorer]   success rate: {success_rate}")
+        logging.info(f"[Explorer]   posterior competence: {competence}")
+        logging.info(f"[Explorer]   num attempts: {num_tries}")
+        logging.info(f"[Explorer]   extrapolated competence: {extrap}")
         c_hat = -np.log(extrap)
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
