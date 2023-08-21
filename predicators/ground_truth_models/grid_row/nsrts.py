@@ -71,7 +71,7 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                option, option_vars, null_sampler)
         nsrts.add(move_robot_nsrt)
 
-        # TurnLightOn
+        # TurnOnLight
         robot = Variable("?robot", robot_type)
         current_cell = Variable("?current_cell", cell_type)
         light = Variable("?light", light_type)
@@ -90,12 +90,12 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(LightOff, [light]),
         }
         ignore_effects = set()
-        turn_light_on_nsrt = NSRT("TurnLightOn", parameters, preconditions,
+        turn_light_on_nsrt = NSRT("TurnOnLight", parameters, preconditions,
                                   add_effects, delete_effects, ignore_effects,
                                   option, option_vars, light_sampler)
         nsrts.add(turn_light_on_nsrt)
 
-        # TurnLightOff
+        # TurnOffLight
         robot = Variable("?robot", robot_type)
         current_cell = Variable("?current_cell", cell_type)
         light = Variable("?light", light_type)
@@ -114,7 +114,7 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(LightOn, [light]),
         }
         ignore_effects = set()
-        turn_light_off_nsrt = NSRT("TurnLightOff", parameters, preconditions,
+        turn_light_off_nsrt = NSRT("TurnOffLight", parameters, preconditions,
                                    add_effects, delete_effects, ignore_effects,
                                    option, option_vars, light_sampler)
         nsrts.add(turn_light_off_nsrt)

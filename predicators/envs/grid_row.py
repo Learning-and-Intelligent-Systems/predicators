@@ -96,7 +96,7 @@ class GridRowEnv(BaseEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._RobotInCell, self._LightOn}
+        return {self._LightOn}
 
     @property
     def types(self) -> Set[Type]:
@@ -117,12 +117,8 @@ class GridRowEnv(BaseEnv):
 
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[EnvironmentTask]:
-        # There is only one goal in this environment: to be in the last cell
-        # and to have the light turned on.
-        goal = {
-            # GroundAtom(self._RobotInCell, [self._robot, self._cells[-1]]),
-            GroundAtom(self._LightOn, [self._light]),
-        }
+        # There is only one goal in this environment: to turn the light on.
+        goal = {GroundAtom(self._LightOn, [self._light])}
         # The only variation in the initial state is the light target level.
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
