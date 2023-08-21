@@ -158,7 +158,7 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         super().observe(skill_outcome)
         # Get the prior from the competence regressor.
         if self._competence_regressor is None:
-            alpha0, beta0 = 1.0, 1.0
+            alpha0, beta0 = self._default_alpha, self._default_beta
         else:
             current_num_data = self._get_current_num_data()
             rv = self._competence_regressor.predict_beta(current_num_data)
