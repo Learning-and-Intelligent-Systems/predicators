@@ -59,7 +59,7 @@ PLOT_GROUPS = {
     #         lambda v: "kitchen-task_repeat_explore" in v)),
     #     ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
     #         lambda v: "kitchen-success_rate_explore" in v)),
-    #     ("Random Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+    #     ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
     #         lambda v: "kitchen-random_score_explore" in v)),
     #     ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
     #         lambda v: "kitchen-random_nsrts_explore" in v)),
@@ -71,8 +71,8 @@ PLOT_GROUPS = {
             lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-success_rate_explore" in v)),
-        ("Random Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "regional_bumpy_cover-random_score_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
     ],
@@ -83,8 +83,8 @@ PLOT_GROUPS = {
             lambda v: "grid_row-task_repeat_explore" in v)),
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-success_rate_explore" in v)),
-        ("Random Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "grid_row-random_score_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-random_nsrts_explore" in v)),
     ],
