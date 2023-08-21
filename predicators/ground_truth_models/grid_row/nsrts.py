@@ -140,7 +140,7 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {
             LiftedAtom(RobotInCell, [robot, cell1]),
         }
-        ignore_effects = {}
+        ignore_effects = set()
         impossible_nsrt = NSRT("JumpToLight", parameters, preconditions,
                                add_effects, delete_effects, ignore_effects,
                                option, option_vars, light_sampler)

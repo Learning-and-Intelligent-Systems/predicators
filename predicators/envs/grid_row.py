@@ -1,10 +1,8 @@
 """Toy environment for testing active sampler learning."""
 
-import logging
-from typing import Callable, ClassVar, List, Optional, Sequence, Set
+from typing import List, Optional, Sequence, Set
 
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 
