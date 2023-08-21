@@ -142,9 +142,8 @@ class GridRowGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         ignore_effects = {}
         impossible_nsrt = NSRT("JumpToLight", parameters, preconditions,
-                                  add_effects, delete_effects, ignore_effects,
-                                  option, option_vars, light_sampler)
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, light_sampler)
         nsrts.add(impossible_nsrt)
-
 
         return nsrts
