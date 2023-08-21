@@ -70,7 +70,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Record what train tasks have been seen during exploration so far.
         self._seen_train_task_idxs: Set[int] = set()
 
-        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]).mean())
+        # Set the default cost for skills.
+        alpha, beta = CFG.skill_competence_default_alpha_beta
+        c = utils.beta_bernoulli_posterior([], alpha=alpha, beta=beta).mean()
+        self._default_cost = -np.log(c)
 
     @classmethod
     def get_name(cls) -> str:

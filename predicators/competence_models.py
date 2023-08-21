@@ -21,6 +21,9 @@ class SkillCompetenceModel(abc.ABC):
         self._skill_name = skill_name  # just for reference
         # Each list contains outcome for one cycle.
         self._cycle_observations: List[List[bool]] = [[]]
+        # For competence prior.
+        self._default_alpha, self._default_beta = \
+            CFG.skill_competence_default_alpha_beta
 
     @classmethod
     @abc.abstractmethod
@@ -55,7 +58,9 @@ class LegacySkillCompetenceModel(SkillCompetenceModel):
     def get_current_competence(self) -> float:
         # Highly naive: group together all outcomes.
         all_outcomes = [o for co in self._cycle_observations for o in co]
-        return utils.beta_bernoulli_posterior(all_outcomes).mean()
+        return utils.beta_bernoulli_posterior(all_outcomes,
+                                              alpha=self._default_alpha,
+                                              beta=self._default_beta).mean()
 
     def predict_competence(self, num_additional_data: int) -> float:
         # Highly naive: predict a constant improvement in competence.
@@ -78,12 +83,16 @@ class OptimisticSkillCompetenceModel(SkillCompetenceModel):
         # Use sliding window to estimate competence.
         nonempty_cycle_obs = self._get_nonempty_cycle_observations()
         if not nonempty_cycle_obs:
-            return utils.beta_bernoulli_posterior([]).mean()  # default
+            return utils.beta_bernoulli_posterior(
+                [], alpha=self._default_alpha,
+                beta=self._default_beta).mean()  # default
         window = min(len(nonempty_cycle_obs),
                      CFG.skill_competence_model_optimistic_window_size)
         recent_cycle_obs = nonempty_cycle_obs[-window:]
         all_outcomes = [o for co in recent_cycle_obs for o in co]
-        return utils.beta_bernoulli_posterior(all_outcomes).mean()
+        return utils.beta_bernoulli_posterior(all_outcomes,
+                                              alpha=self._default_alpha,
+                                              beta=self._default_beta).mean()
 
     def predict_competence(self, num_additional_data: int) -> float:
         # Look for maximum change in competence and optimistically assume that
@@ -115,7 +124,9 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         super().__init__(skill_name)
         self._log_prefix = f"[Competence] [{self._skill_name}]"
         # Update competence estimate after every observation.
-        self._posterior_competences = [BetaRV(1.0, 1.0)]
+        self._posterior_competences = [
+            BetaRV(self._default_alpha, self._default_beta)
+        ]
         # Model that maps number of data to competence.
         self._competence_regressor: Optional[MonotonicBetaRegressor] = None
 

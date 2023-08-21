@@ -27,6 +27,9 @@ def test_create_competence_model():
 
 def test_legacy_skill_competence_model():
     """Tests for LegacySkillCompetenceModel()."""
+    utils.reset_config({
+        "skill_competence_default_alpha_beta": (1.0, 1.0),
+    })
     model = create_competence_model("legacy", "test")
     assert isinstance(model, LegacySkillCompetenceModel)
     assert np.isclose(model.get_current_competence(), 0.5)
@@ -49,6 +52,7 @@ def test_latent_variable_skill_competence_model_short():
     utils.reset_config({
         "skill_competence_model_num_em_iters": 1,
         "skill_competence_model_max_train_iters": 10,
+        "skill_competence_default_alpha_beta": (1.0, 1.0),
     })
     model = create_competence_model("latent_variable", "test")
     assert np.isclose(model.get_current_competence(), 0.5)
@@ -66,7 +70,9 @@ def test_latent_variable_skill_competence_model_short():
 
 def test_optimistic_skill_competence_model():
     """Tests for OptimisticSkillCompetenceModel()."""
-    utils.reset_config()
+    utils.reset_config({
+        "skill_competence_default_alpha_beta": (1.0, 1.0),
+    })
     h = CFG.skill_competence_model_lookahead
 
     model = create_competence_model("optimistic", "test")
@@ -146,7 +152,9 @@ def test_optimistic_skill_competence_model():
 @longrun
 def test_latent_variable_skill_competence_model_long():
     """Long tests for LatentVariableSkillCompetenceModel()."""
-    utils.reset_config()
+    utils.reset_config({
+        "skill_competence_default_alpha_beta": (1.0, 1.0),
+    })
     h = CFG.skill_competence_model_lookahead
 
     model = create_competence_model("latent_variable", "test")
