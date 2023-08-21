@@ -65,41 +65,6 @@ def test_active_sampler_explorer():
     assert len(ground_op_hist) == 2
     assert all(v == [True] for v in ground_op_hist.values())
 
-    # Cover case where the task isn't solved within the horizon.
-    utils.reset_config({
-        "explorer": "active_sampler",
-        "env": "regional_bumpy_cover",
-        "bumpy_cover_init_bumpy_prob": 0.0,
-        "strips_learner": "oracle",
-        "sampler_learner": "oracle",
-        "horizon": 1,  # too-short horizon
-    })
-    explorer = create_explorer(
-        "active_sampler",
-        env.predicates,
-        get_gt_options(env.get_name()),
-        env.types,
-        env.action_space,
-        train_tasks,
-        nsrts,
-        option_model,
-        ground_op_hist=ground_op_hist,
-        competence_models=competence_models,
-        max_steps_before_termination=2,
-        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
-    task_idx = 0
-    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
-    task = train_tasks[0]
-    assert len(task.goal) == 1
-    state = task.init.copy()
-    assert not term_fn(state)
-    state = env.simulate(state, policy(state))
-    assert not term_fn(state)
-    state = env.simulate(state, policy(state))
-    # Not solved.
-    assert not task.goal_holds(state)
-
     # Cover case where we are practicing with an empty ground_op_hist.
     # Should switch to random options.
     explorer = create_explorer(
@@ -121,6 +86,41 @@ def test_active_sampler_explorer():
     act = policy(state)
     next_state = env.simulate(state, act)
     _ = policy(next_state)
+
+    # Cover case where the task isn't solved within the horizon.
+    utils.reset_config({
+        "explorer": "active_sampler",
+        "env": "regional_bumpy_cover",
+        "bumpy_cover_init_bumpy_prob": 0.0,
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+        "horizon": 1,  # too-short horizon
+    })
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist={},
+        competence_models={},
+        max_steps_before_termination=2,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
+    task_idx = 0
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    task = train_tasks[0]
+    assert len(task.goal) == 1
+    state = task.init.copy()
+    assert not term_fn(state)
+    state = env.simulate(state, policy(state))
+    assert not term_fn(state)
+    state = env.simulate(state, policy(state))
+    # Not solved.
+    assert not task.goal_holds(state)
 
     # Cover case where the max option horizon is exceeded.
     ground_op_hist = {}
