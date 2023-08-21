@@ -83,8 +83,7 @@ class OptimisticSkillCompetenceModel(SkillCompetenceModel):
                      CFG.skill_competence_model_optimistic_window_size)
         recent_cycle_obs = nonempty_cycle_obs[-window:]
         all_outcomes = [o for co in recent_cycle_obs for o in co]
-        current_comp = utils.beta_bernoulli_posterior(all_outcomes).mean()
-        return current_comp
+        return utils.beta_bernoulli_posterior(all_outcomes).mean()
 
     def predict_competence(self, num_additional_data: int) -> float:
         # Look for maximum change in competence and optimistically assume that
@@ -93,6 +92,7 @@ class OptimisticSkillCompetenceModel(SkillCompetenceModel):
         current_competence = self.get_current_competence()
         if len(nonempty_cycle_obs) < 2:
             return min(1.0, current_competence + 1e-2)  # default
+        # Look at changes between individual cycles.
         inference_window = 1
         recency_size = CFG.skill_competence_model_optimistic_recency_size
         competences: List[float] = []

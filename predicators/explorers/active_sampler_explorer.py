@@ -307,21 +307,13 @@ class ActiveSamplerExplorer(BaseExplorer):
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
     def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
-        # Score NSRTs according to their success rate and a bonus for ones
-        # that haven't been tried very much.
-        model = self._competence_models[ground_op]
-        history = self._ground_op_hist[ground_op]
-        num_tries = len(history)
-        success_rate = sum(history) / num_tries
-        competence = model.get_current_competence()
-        total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        # logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
-        # logging.info(f"[Explorer]   success rate: {success_rate}")
-        # logging.info(f"[Explorer]   posterior competence: {competence}")
-        # logging.info(f"[Explorer]   num attempts: {num_tries}")
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
+            history = self._ground_op_hist[ground_op]
+            num_tries = len(history)
+            success_rate = sum(history) / num_tries
+            total_trials = sum(len(h) for h in self._ground_op_hist.values())
             # Try less successful operators more often.
             # UCB-like bonus.
             c = CFG.active_sampler_explore_bonus
@@ -334,7 +326,6 @@ class ActiveSamplerExplorer(BaseExplorer):
             raise NotImplementedError(
                 "Unrecognized explore task strategy: "
                 f"{CFG.active_sampler_explore_task_strategy}")
-        # logging.info(f"[Explorer]   total score: {score}")
         return score
 
     def _score_ground_op_planning_progress(
@@ -342,17 +333,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Predict the competence if we had one more data point.
         model = self._competence_models[ground_op]
         extrap = model.predict_competence(CFG.skill_competence_model_lookahead)
-        # Optimization: skip any ground op that is worse or equal.
         competence = model.get_current_competence()
-        if competence >= extrap:
-            return -np.inf
         history = self._ground_op_hist[ground_op]
         num_tries = len(history)
         success_rate = sum(history) / num_tries
         # Optimization: skip any ground op with perfect success.
         if success_rate == 1.0:
             return -np.inf
-        total_trials = sum(len(h) for h in self._ground_op_hist.values())
         logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
         logging.info(f"[Explorer]   posterior competence: {competence}")
