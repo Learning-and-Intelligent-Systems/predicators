@@ -374,13 +374,11 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         score_fn = _classifier_to_score_fn(classifier, nsrt)
         wrapped_sampler_test = _wrap_sampler(base_sampler,
                                              score_fn,
-                                             strategy="greedy",
-                                             nsrt=nsrt)
+                                             strategy="greedy")
         wrapped_sampler_exploration = _wrap_sampler(
             base_sampler,
             score_fn,
-            strategy=CFG.active_sampler_learning_exploration_sample_strategy,
-            nsrt=nsrt)
+            strategy=CFG.active_sampler_learning_exploration_sample_strategy)
         return (wrapped_sampler_test, wrapped_sampler_exploration)
 
 
@@ -435,16 +433,14 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
                                                          test_time=True)
         wrapped_sampler_test = _wrap_sampler(base_sampler,
                                              test_score_fn,
-                                             strategy="greedy",
-                                             nsrt=nsrt)
+                                             strategy="greedy")
         explore_score_fn = _classifier_ensemble_to_score_fn(classifier,
                                                             nsrt,
                                                             test_time=False)
         wrapped_sampler_exploration = _wrap_sampler(
             base_sampler,
             explore_score_fn,
-            strategy=CFG.active_sampler_learning_exploration_sample_strategy,
-            nsrt=nsrt)
+            strategy=CFG.active_sampler_learning_exploration_sample_strategy)
 
         return (wrapped_sampler_test, wrapped_sampler_exploration)
 
@@ -500,13 +496,11 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         self._next_nsrt_score_fns[nsrt] = score_fn
         wrapped_sampler_test = _wrap_sampler(base_sampler,
                                              score_fn,
-                                             strategy="greedy",
-                                             nsrt=nsrt)
+                                             strategy="greedy")
         wrapped_sampler_exploration = _wrap_sampler(
             base_sampler,
             score_fn,
-            strategy=CFG.active_sampler_learning_exploration_sample_strategy,
-            nsrt=nsrt)
+            strategy=CFG.active_sampler_learning_exploration_sample_strategy)
         return (wrapped_sampler_test, wrapped_sampler_exploration)
 
     def _predict(self, state: State, option: _Option) -> float:
@@ -576,8 +570,8 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
 
 
 # Helper functions.
-def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn, strategy: str,
-                  nsrt: NSRT) -> NSRTSampler:
+def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
+                  strategy: str) -> NSRTSampler:
     """Create a wrapped sampler that uses a score function to select among
     candidates from a base sampler."""
 
@@ -588,29 +582,16 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn, strategy: str,
             for _ in range(CFG.active_sampler_learning_num_samples)
         ]
         scores = score_fn(state, objects, samples)
-        epsilon_happened = False
-
         if strategy in ["greedy", "epsilon_greedy"]:
             idx = int(np.argmax(scores))
             if strategy == "epsilon_greedy" and rng.uniform(
             ) <= CFG.active_sampler_learning_exploration_epsilon:
                 # Randomly select a sample to pick, following the epsilon
                 # greedy strategy!
-                epsilon_happened = True
                 idx = rng.integers(0, len(scores))
         else:
             raise NotImplementedError('Exploration strategy ' +
                                       f'{strategy} ' + 'is not implemented.')
-
-        # if nsrt.name == "TurnLightOn":
-        #     _, _, light = objects
-        #     current = state.get(light, "level")
-        #     target = state.get(light, "target")
-        #     print("**** TURN ON LIGHT SAMPLE: ", samples[idx][0])
-        #     print("**** IDEAL SAMPLE: ", target - current)
-        #     print("**** Epsilon?", epsilon_happened)
-        #     import ipdb; ipdb.set_trace()
-
         return samples[idx]
 
     return _sample
