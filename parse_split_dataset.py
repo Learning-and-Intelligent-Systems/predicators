@@ -54,36 +54,36 @@ push = []
 # torch.save(pick, 'data_boxtray/data/PickBox_full_obs_50ktasks.pt', pickle_protocol=4)
 # torch.save(place, 'data_boxtray/data/PlaceBoxOnTray_full_obs_50ktasks.pt', pickle_protocol=4)
 
-for i in range(20):
-    # nav.append(torch.load(f'data_sampler_viz/5ksplit/{i:02}_singlestep_NavigateTo_full_obs_5ktasks.pt'))
-    # nav.append(torch.load(f'data_sampler_viz/5ksplit/{i:02}_NavigateTo_full_obs_5ktasks.pt'))
-    tmp = torch.load(f'data_sampler_viz/5ksplit/{i:02}_NavigateTo_full_obs_5ktasks.pt')
-    tmp = {k: np.array(v) for k, v in tmp.items()}
-    mask = tmp['actions'][:, 1] < 0
-    tmp2 = {k: v[mask] for k, v in tmp.items() if k != 'state_dicts'}
-    tmp2['state_dicts'] = [tmp['state_dicts'][i] for i in range(len(tmp['state_dicts'])) if tmp['actions'][i, 1] < 0]
-    nav.append(tmp2)
-    pick.append(torch.load(f'data_sampler_viz/5ksplit/{i:02}_PickShelf_full_obs_5ktasks.pt'))
-    push.append(torch.load(f'data_sampler_viz/5ksplit/{i:02}_PushShelf_full_obs_5ktasks.pt'))
+# for i in range(20):
+#     # nav.append(torch.load(f'data_sampler_viz/5ksplit/{i:02}_singlestep_NavigateTo_full_obs_5ktasks.pt'))
+#     # nav.append(torch.load(f'data_sampler_viz/5ksplit/{i:02}_NavigateTo_full_obs_5ktasks.pt'))
+#     tmp = torch.load(f'data_sampler_viz/5ksplit/{i:02}_NavigateTo_full_obs_5ktasks.pt')
+#     tmp = {k: np.array(v) for k, v in tmp.items()}
+#     mask = tmp['actions'][:, 1] < 0
+#     tmp2 = {k: v[mask] for k, v in tmp.items() if k != 'state_dicts'}
+#     tmp2['state_dicts'] = [tmp['state_dicts'][i] for i in range(len(tmp['state_dicts'])) if tmp['actions'][i, 1] < 0]
+#     nav.append(tmp2)
+#     pick.append(torch.load(f'data_sampler_viz/5ksplit/{i:02}_PickShelf_full_obs_5ktasks.pt'))
+#     push.append(torch.load(f'data_sampler_viz/5ksplit/{i:02}_PushShelf_full_obs_5ktasks.pt'))
 
-nav_tmp = {k: np.concatenate([d[k] for d in nav]) for k in nav[0] if k != 'next_states' and k!= 'state_dicts'}
-pick_tmp = {k: np.concatenate([d[k] for d in pick]) for k in pick[0] if k != 'next_states' and k!= 'state_dicts'}
-push_tmp = {k: np.concatenate([d[k] for d in push]) for k in push[0] if k != 'next_states' and k!= 'state_dicts'}
+# nav_tmp = {k: np.concatenate([d[k] for d in nav]) for k in nav[0] if k != 'next_states' and k!= 'state_dicts'}
+# pick_tmp = {k: np.concatenate([d[k] for d in pick]) for k in pick[0] if k != 'next_states' and k!= 'state_dicts'}
+# push_tmp = {k: np.concatenate([d[k] for d in push]) for k in push[0] if k != 'next_states' and k!= 'state_dicts'}
 
-nav_tmp['state_dicts'] = []
-for split in nav:
-    nav_tmp['state_dicts'] += split['state_dicts']
-pick_tmp['state_dicts'] = []
-for split in pick:
-    pick_tmp['state_dicts'] += split['state_dicts']
-push_tmp['state_dicts'] = []
-for split in push:
-    push_tmp['state_dicts'] += split['state_dicts']
+# nav_tmp['state_dicts'] = []
+# for split in nav:
+#     nav_tmp['state_dicts'] += split['state_dicts']
+# pick_tmp['state_dicts'] = []
+# for split in pick:
+#     pick_tmp['state_dicts'] += split['state_dicts']
+# push_tmp['state_dicts'] = []
+# for split in push:
+#     push_tmp['state_dicts'] += split['state_dicts']
 
-# torch.save(nav_tmp, 'data_sampler_viz/singlestep_NavigateTo_full_obs_5ktasks.pt', pickle_protocol=4)
-torch.save(nav_tmp, 'data_sampler_viz/NavigateTo_full_obs_5ktasks.pt', pickle_protocol=4)
-torch.save(pick_tmp, 'data_sampler_viz/PickShelf_full_obs_5ktasks.pt', pickle_protocol=4)
-torch.save(push_tmp, 'data_sampler_viz/PushShelf_full_obs_5ktasks.pt', pickle_protocol=4)
+# # torch.save(nav_tmp, 'data_sampler_viz/singlestep_NavigateTo_full_obs_5ktasks.pt', pickle_protocol=4)
+# torch.save(nav_tmp, 'data_sampler_viz/NavigateTo_full_obs_5ktasks.pt', pickle_protocol=4)
+# torch.save(pick_tmp, 'data_sampler_viz/PickShelf_full_obs_5ktasks.pt', pickle_protocol=4)
+# torch.save(push_tmp, 'data_sampler_viz/PushShelf_full_obs_5ktasks.pt', pickle_protocol=4)
 
 # place = []
 # for i in range(20):
@@ -143,3 +143,15 @@ torch.save(push_tmp, 'data_sampler_viz/PushShelf_full_obs_5ktasks.pt', pickle_pr
 # # torch.save(pick, 'data_obs/PickBook_full_obs_50ktasks_random.pt', pickle_protocol=4)
 # # place = {k: np.concatenate([d[k] for d in place_datasets]) for k in place_datasets[0] if k != 'next_states'}
 # # torch.save(place, 'data_obs/PlaceBookOnShelf_full_obs_50ktasks_random.pt', pickle_protocol=4)
+
+# env = 'bookshelf'
+# for env in ['ballbin', 'boxtray', 'cupboard', 'stickbasket']:
+for env in ['boxtray']:
+    trajectories = []
+    task_idx = []
+    for i in range(50):
+        print(i)
+        tmp_d = torch.load(f'data_{env}/data/50ksplit/{i:02}_50ktasks_trajectories.pt')
+        trajectories += tmp_d['trajectories']
+        task_idx += tmp_d['train_task_idx']
+    torch.save({'trajectories': trajectories, 'train_task_idx': np.array(task_idx)}, f'data_{env}/data/50ktasks_trajectories.pt')

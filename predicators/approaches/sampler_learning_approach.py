@@ -134,7 +134,7 @@ class SamplerLearningApproach(BilevelPlanningApproach):
                         seed=CFG.seed,
                         hid_sizes=CFG.mlp_classifier_hid_sizes,
                         max_train_iters=CFG.sampler_mlp_classifier_max_itr,
-                        timesteps=100,
+                        timesteps=CFG.num_diffusion_steps,#100,
                         learning_rate=CFG.learning_rate
                     )
                 else:
@@ -283,136 +283,136 @@ class SamplerLearningApproach(BilevelPlanningApproach):
         cnt_featurized = 0
         total_samples = sum(len(traj.actions) for traj in trajectories)
 
-        for ebm, nsrt, replay in zip(self._ebms, self._nsrts, self._replay):
-            states = []
-            actions = []
-            rewards = []
-            next_states = []
-            next_ground_nsrts = []
-            terminals = []
-            train_task_idxs = []
-            state_dicts = []
-
-            for traj, annotations, skeleton, train_task_idx in zip(trajectories, annotations_list, skeletons, self._request_task_idx):
-                for t, (state, action, annotation, ground_nsrt, next_state, next_ground_nsrt) in enumerate(zip(traj.states[:-1], traj.actions, annotations, skeleton, traj.states[1:], (skeleton[1:] + [None]))):
-                    # Assume there's a single sampler per option
-                    option = action.get_option()
-                    if nsrt.option.name == option.name:
-                        cnt_featurized += 1
-                        x = _featurize_state(([nsrt.name for nsrt in self._nsrts], [nsrt.parameters for nsrt in self._nsrts], self._horizon, state, ground_nsrt.objects, [s.name for s in skeleton[t + 1:]], [s.objects for s in skeleton[t + 1:]]))
-                        a = option.params
-                        if next_ground_nsrt is not None:
-                            next_x = _featurize_state(([nsrt.name for nsrt in self._nsrts], [nsrt.parameters for nsrt in self._nsrts], self._horizon, next_state, next_ground_nsrt.objects, [s.name for s in skeleton[t + 2:]], [s.objects for s in skeleton[t + 2:]]))
-                        else:
-                            next_x = np.empty(0)
-                        
-                        state_dicts.append(state)
-                        states.append(x)
-                        actions.append(a)
-                        rewards.append(annotations[t] * self._reward_scale)
-                        next_states.append(next_x)
-                        next_ground_nsrts.append(next_ground_nsrt)
-                        terminals.append(next_ground_nsrt is None or not annotations[t])
-                        train_task_idxs.append(train_task_idx)
-                        if cnt_featurized % 100 == 0:
-                            logging.info(f"{cnt_featurized} / {total_samples}")
-
-            states_replay, actions_replay, rewards_replay, next_states_replay, next_ground_nsrts_replay, terminals_replay, train_task_idxs_replay = replay
-            states_replay += states
-            actions_replay += actions
-            rewards_replay += rewards
-            next_states_replay += next_states
-            next_ground_nsrts_replay += next_ground_nsrts
-            terminals_replay += terminals
-            train_task_idxs_replay += train_task_idxs
-
-            if len(states_replay) > 0:
-                ebm_target = ebm    # TODO: this should be a copy and done iteratively, but for now it'll do
-                states_arr = np.array(states_replay)
-                actions_arr = np.array(actions_replay)
-                rewards_arr = np.array(rewards_replay, dtype=np.float32)
-                next_states_arr = np.array(next_states_replay)
-                terminals_arr = np.array(terminals_replay)
-                train_task_idxs_arr = np.array(train_task_idxs_replay)
-                print(states_arr.shape)
-                torch.save({
-                    'states': states_arr,
-                    'state_dicts': state_dicts,
-                    'actions': actions_arr,
-                    'rewards': rewards_arr,
-                    'next_states': next_states_arr,
-                    'terminals': terminals_arr,
-                    'train_task_idxs': train_task_idxs_arr
-                    # }, f'data_img/data_obs/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
-                    # }, f'data_sampler_viz/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_singlestep_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
-                    # }, f'data_sampler_viz/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
-                    }, f'data_sampler_viz2/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_singlestep_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
-                    # }, f'data_sampler_viz2/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
-                continue
-
-        # ##### Changing for data load from file #####
         # for ebm, nsrt, replay in zip(self._ebms, self._nsrts, self._replay):
-        #         if self._ebm_class == 'ebm':
-        #             data_random = torch.load(f'data_obs/{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks_random_trimmed.pt')#.pt')#
-        #             data_planner = torch.load(f'data_obs/{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt')
-        #             # del data_planner['next_states']
-        #             # del data_random['next_states']
-        #             data = {k: np.concatenate((data_random[k], data_planner[k]), axis=0) for k in data_planner.keys()}
-        #             # For fairness of comparison to random-only and planner-only data, sample half of the data
-        #             # mask = np.random.choice(data['states'].shape[0], size=data['states'].shape[0] // 2, replace=False)
-        #             # data = data_random
-        #             states_arr = data['states']#[mask]
-        #             actions_arr = data['actions']#[mask]
-        #             rewards_arr = data['rewards']#[mask]
-        #             # next_states_arr = data['next_states'][mask]
-        #             terminals_arr = data['terminals']#[mask]
-        #             train_task_idxs_arr = data['train_task_idxs']#[mask]
-        #         else:
-        #             # for i in range(1):
-        #             #     logging.info(f'Loading {i}th file')
-        #             #     tmp_d = torch.load(f'data_img/data_obs/5ksplit/{i:02}_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt') 
-        #             #     del tmp_d['next_states']
-        #             #     if i == 0:
-        #             #         data = {k: np.empty((tmp_d[k].shape[0] * 21, *tmp_d[k].shape[1:]), dtype=np.float32) for k in tmp_d}
-        #             #         cnt = {k: 0 for k in tmp_d}
-        #             #     for k in tmp_d:
-        #             #         data[k][cnt[k] : cnt[k] + tmp_d[k].shape[0]] = tmp_d[k]
-        #             #         cnt[k] += tmp_d[k].shape[0]
-        #             #     del tmp_d
-        #             # for k in data:
-        #             #     data[k] = data[k][:cnt[k]]
-        #             # data = torch.load(f'data_grid/data/{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt')
-        #             print(f'data_{CFG.env}/data/{nsrt.name}_full_obs_50ktasks.pt')
-        #             data = torch.load(f'data_{CFG.env}/data/{nsrt.name}_full_obs_50ktasks.pt')
-        #             states_arr = data['states']
-        #             actions_arr = data['actions']
-        #             rewards_arr = data['rewards']
-        #             # next_states_arr = data['next_states']
-        #             terminals_arr = data['terminals']
-        #             train_task_idxs_arr = data['train_task_idxs']
-                    
-        #             # Hack to make sure we get exactly num_train_tasks tasks
-        #             if CFG.num_train_tasks < 50000:
-        #                 mask = train_task_idxs_arr < 2 * CFG.num_train_tasks    # take twice as many takss
-        #                 train_task_idxs_arr_tmp = train_task_idxs_arr[mask]
-        #                 max_task_idx = np.unique(train_task_idxs_arr_tmp)[CFG.num_train_tasks - 1]  # take the (num_train_task)-th unique task idx
-        #             else:
-        #                 max_task_idx = 50000
-        #             mask = train_task_idxs_arr < max_task_idx
+        #     states = []
+        #     actions = []
+        #     rewards = []
+        #     next_states = []
+        #     next_ground_nsrts = []
+        #     terminals = []
+        #     train_task_idxs = []
+        #     state_dicts = []
 
-        #             states_arr = states_arr[mask]
-        #             actions_arr = actions_arr[mask]
-        #             rewards_arr = rewards_arr[mask]
-        #             terminals_arr = terminals_arr[mask]
-        #             train_task_idxs_arr = train_task_idxs_arr[mask]
-        #         # if not CFG.use_full_state:
-        #         #     # states_arr = states_arr[:, 150*150*3:]
-        #         #     states_arr = states_arr[:, 20*20*3:]
-        #         #     # next_states_arr = next_states_arr[:, 20*20*3:]
+        #     for traj, annotations, skeleton, train_task_idx in zip(trajectories, annotations_list, skeletons, self._request_task_idx):
+        #         for t, (state, action, annotation, ground_nsrt, next_state, next_ground_nsrt) in enumerate(zip(traj.states[:-1], traj.actions, annotations, skeleton, traj.states[1:], (skeleton[1:] + [None]))):
+        #             # Assume there's a single sampler per option
+        #             option = action.get_option()
+        #             if nsrt.option.name == option.name:
+        #                 cnt_featurized += 1
+        #                 x = _featurize_state(([nsrt.name for nsrt in self._nsrts], [nsrt.parameters for nsrt in self._nsrts], self._horizon, state, ground_nsrt.objects, [s.name for s in skeleton[t + 1:]], [s.objects for s in skeleton[t + 1:]]))
+        #                 a = option.params
+        #                 if next_ground_nsrt is not None:
+        #                     next_x = _featurize_state(([nsrt.name for nsrt in self._nsrts], [nsrt.parameters for nsrt in self._nsrts], self._horizon, next_state, next_ground_nsrt.objects, [s.name for s in skeleton[t + 2:]], [s.objects for s in skeleton[t + 2:]]))
+        #                 else:
+        #                     next_x = np.empty(0)
+                        
+        #                 state_dicts.append(state)
+        #                 states.append(x)
+        #                 actions.append(a)
+        #                 rewards.append(annotations[t] * self._reward_scale)
+        #                 next_states.append(next_x)
+        #                 next_ground_nsrts.append(next_ground_nsrt)
+        #                 terminals.append(next_ground_nsrt is None or not annotations[t])
+        #                 train_task_idxs.append(train_task_idx)
+        #                 if cnt_featurized % 100 == 0:
+        #                     logging.info(f"{cnt_featurized} / {total_samples}")
+
+        #     states_replay, actions_replay, rewards_replay, next_states_replay, next_ground_nsrts_replay, terminals_replay, train_task_idxs_replay = replay
+        #     states_replay += states
+        #     actions_replay += actions
+        #     rewards_replay += rewards
+        #     next_states_replay += next_states
+        #     next_ground_nsrts_replay += next_ground_nsrts
+        #     terminals_replay += terminals
+        #     train_task_idxs_replay += train_task_idxs
+
+        #     if len(states_replay) > 0:
+        #         ebm_target = ebm    # TODO: this should be a copy and done iteratively, but for now it'll do
+        #         states_arr = np.array(states_replay)
+        #         actions_arr = np.array(actions_replay)
+        #         rewards_arr = np.array(rewards_replay, dtype=np.float32)
+        #         next_states_arr = np.array(next_states_replay)
+        #         terminals_arr = np.array(terminals_replay)
+        #         train_task_idxs_arr = np.array(train_task_idxs_replay)
         #         print(states_arr.shape)
-        #         if len(rewards_arr) > 0:
-        #             logging.info(f"\n{nsrt.name} success rate: {rewards_arr.mean()/self._reward_scale}")
-        # ###########################################
+        #         torch.save({
+        #             'states': states_arr,
+        #             'state_dicts': state_dicts,
+        #             'actions': actions_arr,
+        #             'rewards': rewards_arr,
+        #             'next_states': next_states_arr,
+        #             'terminals': terminals_arr,
+        #             'train_task_idxs': train_task_idxs_arr
+        #             # }, f'data_img/data_obs/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
+        #             # }, f'data_sampler_viz/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_singlestep_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
+        #             # }, f'data_sampler_viz/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
+        #             }, f'data_sampler_viz2/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_singlestep_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
+        #             # }, f'data_sampler_viz2/{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}split/{CFG.data_collection_process_idx:02}_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks{"_random" if CFG.collect_failures else ""}.pt')
+        #         continue
+
+        ##### Changing for data load from file #####
+        for ebm, nsrt, replay in zip(self._ebms, self._nsrts, self._replay):
+                if self._ebm_class == 'ebm':
+                    data_random = torch.load(f'data_obs/{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks_random_trimmed.pt')#.pt')#
+                    data_planner = torch.load(f'data_obs/{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt')
+                    # del data_planner['next_states']
+                    # del data_random['next_states']
+                    data = {k: np.concatenate((data_random[k], data_planner[k]), axis=0) for k in data_planner.keys()}
+                    # For fairness of comparison to random-only and planner-only data, sample half of the data
+                    # mask = np.random.choice(data['states'].shape[0], size=data['states'].shape[0] // 2, replace=False)
+                    # data = data_random
+                    states_arr = data['states']#[mask]
+                    actions_arr = data['actions']#[mask]
+                    rewards_arr = data['rewards']#[mask]
+                    # next_states_arr = data['next_states'][mask]
+                    terminals_arr = data['terminals']#[mask]
+                    train_task_idxs_arr = data['train_task_idxs']#[mask]
+                else:
+                    # for i in range(1):
+                    #     logging.info(f'Loading {i}th file')
+                    #     tmp_d = torch.load(f'data_img/data_obs/5ksplit/{i:02}_{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt') 
+                    #     del tmp_d['next_states']
+                    #     if i == 0:
+                    #         data = {k: np.empty((tmp_d[k].shape[0] * 21, *tmp_d[k].shape[1:]), dtype=np.float32) for k in tmp_d}
+                    #         cnt = {k: 0 for k in tmp_d}
+                    #     for k in tmp_d:
+                    #         data[k][cnt[k] : cnt[k] + tmp_d[k].shape[0]] = tmp_d[k]
+                    #         cnt[k] += tmp_d[k].shape[0]
+                    #     del tmp_d
+                    # for k in data:
+                    #     data[k] = data[k][:cnt[k]]
+                    # data = torch.load(f'data_grid/data/{nsrt.name}_full_obs_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt')
+                    print(f'data_{CFG.env}/data/{nsrt.name}_full_obs_50ktasks.pt')
+                    data = torch.load(f'data_{CFG.env}/data/{nsrt.name}_full_obs_50ktasks.pt')
+                    states_arr = data['states']
+                    actions_arr = data['actions']
+                    rewards_arr = data['rewards']
+                    # next_states_arr = data['next_states']
+                    terminals_arr = data['terminals']
+                    train_task_idxs_arr = data['train_task_idxs']
+                    
+                    # Hack to make sure we get exactly num_train_tasks tasks
+                    if CFG.num_train_tasks < 50000:
+                        mask = train_task_idxs_arr < 2 * CFG.num_train_tasks    # take twice as many takss
+                        train_task_idxs_arr_tmp = train_task_idxs_arr[mask]
+                        max_task_idx = np.unique(train_task_idxs_arr_tmp)[CFG.num_train_tasks - 1]  # take the (num_train_task)-th unique task idx
+                    else:
+                        max_task_idx = 50000
+                    mask = train_task_idxs_arr < max_task_idx
+
+                    states_arr = states_arr[mask]
+                    actions_arr = actions_arr[mask]
+                    rewards_arr = rewards_arr[mask]
+                    terminals_arr = terminals_arr[mask]
+                    train_task_idxs_arr = train_task_idxs_arr[mask]
+                # if not CFG.use_full_state:
+                #     # states_arr = states_arr[:, 150*150*3:]
+                #     states_arr = states_arr[:, 20*20*3:]
+                #     # next_states_arr = next_states_arr[:, 20*20*3:]
+                print(states_arr.shape)
+                if len(rewards_arr) > 0:
+                    logging.info(f"\n{nsrt.name} success rate: {rewards_arr.mean()/self._reward_scale}")
+        ###########################################
                 # if len(rewards) > 0:
                 #     logging.info(f"\n{nsrt.name} success rate: {sum(rewards)/len(rewards)/self._reward_scale}")
                     # if ebm._x_dim != -1:
@@ -666,69 +666,120 @@ class SamplerLearningApproach(BilevelPlanningApproach):
                 if aux_labels is not None:
                     aux_labels_val = aux_labels[~train_data_mask]
                 if True:#((target_train > 0).any() and (target_train == 0).any()):#nsrt.name == 'NavigateTo':#
-                    # logging.info(f"Train samples: {x_train.shape[0]}, validation samples: {x_val.shape[0]}")
-                    # if os.path.exists(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}{"cf" if CFG.classifier_free_guidance else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt'):
-                    #     continue
+                    logging.info(f"Train samples: {x_train.shape[0]}, validation samples: {x_val.shape[0]}")
+                    if CFG.distill_steps:
+                        teacher_state = torch.load(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}_{CFG.num_diffusion_steps}steps{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt', map_location='cpu' if not CFG.use_cuda else None)
+                        ebm._x_dim = teacher_state['x_dim']
+                        x_cond_dim = sum(len(p.type.feature_names) for p in nsrt.parameters)
+                        if CFG.use_full_state:
+                            x_cond_dim += 32
+                        ebm._t_dim = (x_cond_dim // 2) * 2
+                        ebm._y_dim = nsrt.option.params_space.shape[0] - 1 
+                        ebm._x_cond_dim = x_cond_dim
+                        # ebm._t_dim = teacher_state['t_dim']
+                        # ebm._y_dim = teacher_state['y_dim']
+                        ebm._input_scale = teacher_state['input_scale']
+                        ebm._input_shift = teacher_state['input_shift']
+                        ebm._output_scale = teacher_state['output_scale']
+                        ebm._output_shift = teacher_state['output_shift']
+                        ebm._y_aux_dim = teacher_state['y_aux_dim']
+                        ebm._output_aux_scale = teacher_state['output_aux_scale']
+                        ebm._output_aux_shift = teacher_state['output_aux_shift']
+                        ebm._y_out_dim = 1
+                        ebm.is_trained = True
+                        ebm._initialize_net()
+                        ebm.to(ebm._device)
+                        ebm.load_state_dict(teacher_state['state_dict'])
+
+                        ebm.train()
+                        y_train = x_train[target_train > 0, -actions_arr.shape[1]:]
+                        x_train = x_train[target_train > 0, :-actions_arr.shape[1]]
+                        if aux_labels is not None:
+                            aux_labels_train = aux_labels_train[target_train > 0]
+                        else:
+                            aux_labels_train = None
+                        distilled_models = ebm.distill_half_steps(x_train, y_train, aux_labels_train)
+                        ebm.eval()
+                        for num_steps, student_ebm in distilled_models.items():
+                            torch.save({
+                                'state_dict': student_ebm.state_dict(),
+                                'x_dim': student_ebm._x_dim,
+                                'y_dim': student_ebm._y_dim if hasattr(student_ebm, 'y_dim') else None,
+                                't_dim': student_ebm._t_dim if hasattr(student_ebm, 't_dim') else None,
+                                'input_scale': student_ebm._input_scale,
+                                'input_shift': student_ebm._input_shift, 
+                                'output_scale': student_ebm._output_scale if hasattr(student_ebm, '_output_scale') else None,
+                                'output_shift': student_ebm._output_shift if hasattr(student_ebm, '_output_shift') else None,
+                                'y_aux_dim': student_ebm._y_aux_dim if hasattr(student_ebm, '_y_aux_dim') else None,
+                                'output_aux_scale': student_ebm._output_aux_scale if hasattr(student_ebm, '_output_aux_scale') else None,
+                                'output_aux_shift': student_ebm._output_aux_shift if hasattr(student_ebm, '_output_aux_shift') else None,
+                               },
+                               f'models_{CFG.env}/{nsrt.name}{self._ebm_class}_{num_steps}steps_distilled{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}{"cf" if CFG.classifier_free_guidance else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt'
+                            )
+
+                    else:
+                        if os.path.exists(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}_{CFG.num_diffusion_steps}steps{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}{"cf" if CFG.classifier_free_guidance else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt'):
+                            continue
+                        ebm.train()
+                        if self._ebm_class == 'diff':
+                            y_train = x_train[target_train > 0, -actions_arr.shape[1]:]
+                            x_train = x_train[target_train > 0, :-actions_arr.shape[1]]
+                            if aux_labels is not None:
+                                aux_labels_train = aux_labels_train[target_train > 0]
+                            else:
+                                aux_labels_train = None
+                            ebm.fit(x_train, y_train, aux_labels_train)
+                            # ebm.fit(x_train[target_train > 0, :-actions_arr.shape[1]], x_train[target_train > 0, -actions_arr.shape[1]:], x_train[target_train == 0, :-actions_arr.shape[1]], x_train[target_train == 0, -actions_arr.shape[1]:])
+                        else:
+                            ebm.fit(x_train, target_train, x_val, target_val)
+
+                        # print(ebm._x_dim, ebm._input_scale.shape, ebm._input_shift.shape, ebm._output_scale.shape, ebm._output_shift.shape)
+                        ebm.eval()
+                        if aux_labels is not None:
+                            train_aux = ebm.predict_aux(x_train, y_train)
+
+                            y_val = x_val[target_val > 0, -actions_arr.shape[1]:]
+                            x_val = x_val[target_val > 0, :-actions_arr.shape[1]]
+                            aux_labels_val = aux_labels_val[target_val > 0]
+                            val_aux = ebm.predict_aux(x_val, y_val)
+                            l2_train = np.linalg.norm(train_aux - aux_labels_train, axis=1)
+                            l2_val = np.linalg.norm(val_aux - aux_labels_val, axis=1)
+                            print(f'Aux loss\n\t mean -- train: {l2_train.mean()}, val: {l2_val.mean()}')
+                            print(f'\t max -- train: {l2_train.max()}, val: {l2_val.max()}')
+                            print(f'\t min -- train: {l2_train.min()}, val: {l2_val.min()}')
+                        torch.save({
+                                    'state_dict': ebm.state_dict(),
+                                    'x_dim': ebm._x_dim,
+                                    'y_dim': ebm._y_dim if hasattr(ebm, 'y_dim') else None,
+                                    't_dim': ebm._t_dim if hasattr(ebm, 't_dim') else None,
+                                    'input_scale': ebm._input_scale,
+                                    'input_shift': ebm._input_shift, 
+                                    'output_scale': ebm._output_scale if hasattr(ebm, '_output_scale') else None,
+                                    'output_shift': ebm._output_shift if hasattr(ebm, '_output_shift') else None,
+                                    'y_aux_dim': ebm._y_aux_dim if hasattr(ebm, '_y_aux_dim') else None,
+                                    'output_aux_scale': ebm._output_aux_scale if hasattr(ebm, '_output_aux_scale') else None,
+                                    'output_aux_shift': ebm._output_aux_shift if hasattr(ebm, '_output_aux_shift') else None,
+                                   },
+                                   f'models_{CFG.env}/{nsrt.name}{self._ebm_class}_{CFG.num_diffusion_steps}steps{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}{"cf" if CFG.classifier_free_guidance else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt')
+                    if not CFG.bookshelf_specialized_nsrts:
+                        exit()
+                    # ##### Changing for model load from file #####
                     # ebm.train()
-                    # if self._ebm_class == 'diff':
-                    #     y_train = x_train[target_train > 0, -actions_arr.shape[1]:]
-                    #     x_train = x_train[target_train > 0, :-actions_arr.shape[1]]
-                    #     if aux_labels is not None:
-                    #         aux_labels_train = aux_labels_train[target_train > 0]
-                    #     else:
-                    #         aux_labels_train = None
-                    #     ebm.fit(x_train, y_train, aux_labels_train)
-                    #     # ebm.fit(x_train[target_train > 0, :-actions_arr.shape[1]], x_train[target_train > 0, -actions_arr.shape[1]:], x_train[target_train == 0, :-actions_arr.shape[1]], x_train[target_train == 0, -actions_arr.shape[1]:])
-                    # else:
-                    #     ebm.fit(x_train, target_train, x_val, target_val)
-
-                    # # print(ebm._x_dim, ebm._input_scale.shape, ebm._input_shift.shape, ebm._output_scale.shape, ebm._output_shift.shape)
+                    # idx_positive = target_train > 0
+                    # idx_negative = target_train == 0
+                    # x_dummy = np.r_[x_train[idx_positive][:1], x_train[idx_negative][:1]]
+                    # target_dummy = np.r_[target_train[idx_positive][:1], target_train[idx_negative][:1]]
+                    # # ebm.fit(x_dummy, target_dummy)
+                    # ebm.fit(x_dummy[target_dummy > 0, :-actions_arr.shape[1]], x_dummy[target_dummy > 0, -actions_arr.shape[1]:])
                     # ebm.eval()
-                    # if aux_labels is not None:
-                    #     train_aux = ebm.predict_aux(x_train, y_train)
-
-                    #     y_val = x_val[target_val > 0, -actions_arr.shape[1]:]
-                    #     x_val = x_val[target_val > 0, :-actions_arr.shape[1]]
-                    #     aux_labels_val = aux_labels_val[target_val > 0]
-                    #     val_aux = ebm.predict_aux(x_val, y_val)
-                    #     l2_train = np.linalg.norm(train_aux - aux_labels_train, axis=1)
-                    #     l2_val = np.linalg.norm(val_aux - aux_labels_val, axis=1)
-                    #     print(f'Aux loss\n\t mean -- train: {l2_train.mean()}, val: {l2_val.mean()}')
-                    #     print(f'\t max -- train: {l2_train.max()}, val: {l2_val.max()}')
-                    #     print(f'\t min -- train: {l2_train.min()}, val: {l2_val.min()}')
-                    # torch.save({
-                    #             'state_dict': ebm.state_dict(),
-                    #             'x_dim': ebm._x_dim,
-                    #             'y_dim': ebm._y_dim if hasattr(ebm, 'y_dim') else None,
-                    #             't_dim': ebm._t_dim if hasattr(ebm, 't_dim') else None,
-                    #             'input_scale': ebm._input_scale,
-                    #             'input_shift': ebm._input_shift, 
-                    #             'output_scale': ebm._output_scale if hasattr(ebm, '_output_scale') else None,
-                    #             'output_shift': ebm._output_shift if hasattr(ebm, '_output_shift') else None,
-                    #             'y_aux_dim': ebm._y_aux_dim if hasattr(ebm, '_y_aux_dim') else None,
-                    #             'output_aux_scale': ebm._output_aux_scale if hasattr(ebm, '_output_aux_scale') else None,
-                    #             'output_aux_shift': ebm._output_aux_shift if hasattr(ebm, '_output_aux_shift') else None,
-                    #            },
-                    #            f'models_{CFG.env}/{nsrt.name}{self._ebm_class}{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}{"cf" if CFG.classifier_free_guidance else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt')
-                    # if not CFG.bookshelf_specialized_nsrts:
-                    #     exit()
-                    ##### Changing for model load from file #####
-                    ebm.train()
-                    idx_positive = target_train > 0
-                    idx_negative = target_train == 0
-                    x_dummy = np.r_[x_train[idx_positive][:1], x_train[idx_negative][:1]]
-                    target_dummy = np.r_[target_train[idx_positive][:1], target_train[idx_negative][:1]]
-                    # ebm.fit(x_dummy, target_dummy)
-                    ebm.fit(x_dummy[target_dummy > 0, :-actions_arr.shape[1]], x_dummy[target_dummy > 0, -actions_arr.shape[1]:])
-                    ebm.eval()
-                    model_state = torch.load(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}{"cf" if CFG.classifier_free_guidance else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt', map_location='cpu' if not CFG.use_cuda else None)
-                    ebm.load_state_dict(model_state['state_dict'])
-                    ebm._x_dim = model_state['x_dim']
-                    ebm._input_scale = model_state['input_scale']
-                    ebm._input_shift = model_state['input_shift']
-                    ebm._output_scale = model_state['output_scale']
-                    ebm._output_shift = model_state['output_shift']
-                    #############################################
+                    # model_state = torch.load(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}{"cf" if CFG.classifier_free_guidance else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt', map_location='cpu' if not CFG.use_cuda else None)
+                    # ebm.load_state_dict(model_state['state_dict'])
+                    # ebm._x_dim = model_state['x_dim']
+                    # ebm._input_scale = model_state['input_scale']
+                    # ebm._input_shift = model_state['input_shift']
+                    # ebm._output_scale = model_state['output_scale']
+                    # ebm._output_shift = model_state['output_shift']
+                    # #############################################
                         
                 # params = x[:, -2:]
                 # for i in range(10):

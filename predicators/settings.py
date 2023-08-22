@@ -402,7 +402,7 @@ class GlobalSettings:
     # neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_hid_sizes = [256, 256]
     neural_gaus_regressor_max_itr = 1000
-    mlp_classifier_n_iter_no_change = 5000
+    mlp_classifier_n_iter_no_change = 500#5000
     implicit_mlp_regressor_max_itr = 10000
     implicit_mlp_regressor_num_negative_data_per_input = 5
     implicit_mlp_regressor_num_samples_per_inference = 100
@@ -490,6 +490,8 @@ class GlobalSettings:
 
     # EBM model
     ebm_class = 'diff' # ebm or diff(usion)
+    num_diffusion_steps = 100
+    distill_steps = False
     use_full_state = False
     use_skeleton_state = False
     sampler_horizon = 1
@@ -500,8 +502,10 @@ class GlobalSettings:
     lifelong_method = "retrain" # "retrain", "distill", "2-distill"
     lifelong_burnin_period = None
     lifelong_start_from_checkpoint = False
+    #oracle_samplers = False
+    lifelong_eval_no_learning = False
     torch_num_threads = 1
-
+    learn_or_eval = "learn"
 
     # bookshelf env parameters
     bookshelf_num_books_train = [4, 5]#[3, 4]#[2, 3]#[8, 9]#
@@ -514,6 +518,7 @@ class GlobalSettings:
     bookshelf_singlestep_goal = False
     bookshelf_add_sampler_idx_to_params = False
     bookshelf_no_obstacles = False
+    bookshelf_large_env = False
     # ebm_train_reconstruction = False
     ebm_aux_training = None     # None, 'reconstruct', 'geometry', 'geometry+'
     ebm_aux_n_samples = 1       # How many samples to draw and check for each sampler
@@ -565,6 +570,8 @@ class GlobalSettings:
     sampler_viz_num_obstacles_train = [0]
     sampler_viz_num_obstacles_test = [0]
     sampler_viz_singlestep_goal = False
+
+    return_learned_sampler = False
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

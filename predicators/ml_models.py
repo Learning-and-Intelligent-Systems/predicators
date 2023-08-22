@@ -1344,6 +1344,7 @@ class DiffusionRegressor(nn.Module):
         super().__init__()
         torch.set_num_threads(CFG.torch_num_threads)    # reset here to get the cmd line arg
         self._linears = nn.ModuleList()
+        self._seed = seed
         self._hid_sizes = hid_sizes
         self._max_train_iters = max_train_iters
         self._timesteps = timesteps
@@ -1369,7 +1370,7 @@ class DiffusionRegressor(nn.Module):
         # calculations for posterior q(x_{t-1} | x_t, x_0)
         self._posterior_variance = self._betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
 
-        self._cache_num_samples = CFG.sesame_max_samples_per_step #* CFG.ebm_aux_n_samples
+        self._cache_num_samples = 10# CFG.sesame_max_samples_per_step #* CFG.ebm_aux_n_samples
         self._cache = {}
 
     def forward(self, X_cond, Y_out, t, return_aux=False):
@@ -1464,6 +1465,102 @@ class DiffusionRegressor(nn.Module):
         self.eval()
         logging.info(f"Trained model with loss: {cum_loss:.5f}")
         return cum_loss
+
+
+    def distill_half_steps(self, X_cond: Array, Y_out: Array, Y_aux: Optional[Array] = None) -> None:
+        '''
+        This method starts from the trained model and trains student models of half the #steps, iteratively
+        '''
+        assert self.is_trained
+
+        num_data, _ = Y_out.shape
+        X_cond = ((X_cond - self._input_shift) / self._input_scale) * 2 - 1
+        Y_out = ((Y_out - self._output_shift) / self._output_scale) * 2 - 1
+        if Y_aux is not None:
+            Y_aux = ((Y_aux - self._output_aux_shift) / self._output_aux_scale) * 2 - 1       
+
+
+        tensor_X_cond = torch.from_numpy(np.array(X_cond, dtype=np.float32)).to(self._device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
+        tensor_Y_out = torch.from_numpy(np.array(Y_out, dtype=np.float32)).to(self._device)
+        # tensor_X_neg = torch.from_numpy(np.array(X_neg, dtype=np.float32)).to(self._device)
+        # tensor_Y_neg = torch.from_numpy(np.array(Y_neg, dtype=np.float32)).to(self._device)
+        if Y_aux is not None:
+            tensor_Y_aux = torch.from_numpy(np.array(Y_aux, dtype=np.float32)).to(self._device)
+            data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out, tensor_Y_aux)
+        else:
+            data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
+        dataloader = torch.utils.data.DataLoader(data, batch_size=512, shuffle=True)
+        
+
+
+        teacher = self
+        num_steps = self._timesteps // 2
+        all_students = {}
+        while num_steps > 0:
+            student = DiffusionRegressor(seed=teacher._seed, hid_sizes=teacher._hid_sizes,
+                                         max_train_iters=teacher._max_train_iters,
+                                         timesteps=num_steps,
+                                         learning_rate=teacher._learning_rate)
+            student.is_trained = True
+            student._x_cond_dim = teacher._x_cond_dim
+            student._t_dim = teacher._t_dim
+            student._y_dim = teacher._y_dim
+            student._x_dim = teacher._x_dim
+
+            student._input_shift = teacher._input_shift
+            student._input_scale = teacher._input_scale
+            student._input_scale = teacher._input_scale
+
+            student._output_shift = teacher._output_shift
+            student._output_scale = teacher._output_scale
+            student._output_scale = teacher._output_scale
+
+            if Y_aux is not None:
+                student._y_aux_dim = teacher._y_aux_dim
+                student._output_aux_shift = teacher._output_aux_shift
+                student._output_aux_scale = teacher._output_aux_scale
+                student._output_aux_scale = teacher._output_aux_scale
+
+            logging.info(f"Training {student.__class__.__name__} on {num_data} "
+                         f"datapoints for {student._timesteps} diffusion steps")
+
+            student._initialize_net()
+            # Key! Initialize student to teacher's params
+            student.load_state_dict(teacher.state_dict())
+            student.to(student._device) 
+            optimizer = student._create_optimizer()
+
+            assert isinstance(student._max_train_iters, int)
+            student.train()
+            for itr in range(student._max_train_iters):
+                cum_loss = 0
+                n = 0
+                for tensors in dataloader:
+                    if len(tensors) == 3:
+                        tensor_X, tensor_Y, tensor_Y_aux = tensors
+                    else:
+                        tensor_X, tensor_Y = tensors
+                        tensor_Y_aux = None
+                    t = torch.randint(0, student._timesteps, (tensor_X.shape[0],), device=student._device)
+                    loss = student._distill_half_losses(teacher, tensor_X, tensor_Y, t, tensor_Y_aux)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    cum_loss += loss.item() * tensor_X.shape[0]
+                    n += tensor_X.shape[0]
+                cum_loss /= n
+                if itr % 100 == 0:
+                    logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{student._max_train_iters}")
+
+            student.eval()
+            logging.info(f"Trained model with loss: {cum_loss:.5f}")
+
+
+            all_students[num_steps] = student
+            num_steps = (num_steps // 2)
+            teacher = student
+        return all_students
 
     def distill(self, model_data_1, model_data_2) -> None:
         assert self.is_trained 
@@ -1764,6 +1861,25 @@ class DiffusionRegressor(nn.Module):
             Y_aux_hat = self(X_cond, Y_start, torch.zeros_like(t), return_aux=True)
             loss += F.smooth_l1_loss(Y_aux, Y_aux_hat)
 
+        return loss
+
+    def _distill_half_losses(self, teacher, X_cond, Y_start, t, Y_aux):
+        # The implementation is a bit weird bc the distillation loop takes the first teacher as "self", but the
+        # loss computation always takes the current student as "self"
+
+        assert teacher._timesteps // 2 == self._timesteps
+
+        noise = torch.randn_like(Y_start)
+        # TODO: this is a possible debug point. I'm assuming that the implementation considers the timesteps
+        # in order to make the max noise the same regardless of self._timesteps. I'm not 100% sure (more like
+        # 40%) this is true.
+        Y_noisy = self._q_sample(Y_start, t, noise)
+        predicted_noise = self(X_cond, Y_noisy, t)
+        teacher_predicted_noise = teacher(X_cond, Y_noisy, t * 2)
+        loss = F.smooth_l1_loss(teacher_predicted_noise, predicted_noise)
+        if Y_aux is not None:
+            Y_aux_hat = self(X_cond, Y_start, torch.zeros_like(t), return_aux=True)
+            loss += F.smooth_l1_loss(Y_aux, Y_aux_hat)
         return loss
 
     def _distill_losses(self, model_1, X_cond_1, Y_start_1, t_1, Y_aux_1, model_2, X_cond_2, Y_start_2, t_2, Y_aux_2):

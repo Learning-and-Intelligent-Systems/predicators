@@ -1225,7 +1225,7 @@ class PNAD:
                 part_param_option, part_option_args = self.option_spec
                 assert option.parent == part_param_option
                 option_args = [var_obj_sub[v] for v in part_option_args]
-                assert option.objects == option_args
+                assert option.objects == option_args, f"{option.objects}, {option_args}"
         # Add to datastore.
         self.datastore.append(member)
 

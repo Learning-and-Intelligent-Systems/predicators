@@ -19,8 +19,8 @@ class BookshelfEnv(BaseEnv):
 
     env_x_lb: ClassVar[float] = 0
     env_y_lb: ClassVar[float] = 0
-    env_x_ub: ClassVar[float] = 20#12#
-    env_y_ub: ClassVar[float] = 20#12#
+    env_x_ub: ClassVar[float] = 20 if not CFG.bookshelf_large_env else 40#12# 
+    env_y_ub: ClassVar[float] = 20 if not CFG.bookshelf_large_env else 40#12# 
     robot_radius: ClassVar[float] = 2
     gripper_length: ClassVar[float] = 2
     shelf_w_lb: ClassVar[float] = 5

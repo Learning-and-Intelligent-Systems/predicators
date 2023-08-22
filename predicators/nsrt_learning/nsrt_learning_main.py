@@ -206,5 +206,13 @@ def _learn_pnad_samplers(pnads: List[PNAD], sampler_learner: str) -> None:
                               sampler_learner)
     assert len(samplers) == len(strips_ops)
     # Replace the samplers in the PNADs.
+    if CFG.return_learned_sampler:
+        sampler_objs = []
+    else:
+        sampler_objs = None
     for pnad, sampler in zip(pnads, samplers):
+        if CFG.return_learned_sampler:
+            pnad.sampler = sampler[0]
+            sampler_objs.append(sampler[1])
         pnad.sampler = sampler
+    return sampler_objs

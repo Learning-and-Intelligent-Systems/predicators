@@ -263,6 +263,9 @@ class LifelongSamplerLearningApproach(BilevelPlanningApproach):
     
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
+        if CFG.lifelong_eval_no_learning: #CFG.oracle_samplers: NOTE: I replaced oracle samplers with this so it also "works" for going from checkpoint w/o training
+            self._online_learning_cycle += 1
+            return
         traj_list: List[LowLevelTrajectory] = []
         annotations_list: List[Any] = []
         skeleton_list: List[Any] = []

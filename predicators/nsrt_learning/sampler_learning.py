@@ -213,8 +213,11 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
     # Construct and return sampler
-    return _LearnedSampler(classifier, regressor, variables,
-                           param_option).sampler
+    sampler_obj = _LearnedSampler(classifier, regressor, variables,
+                           param_option)
+    if CFG.return_learned_sampler:
+        return sampler_obj.sampler, sampler_obj
+    return sampler_obj.sampler
 
 
 def _create_sampler_data(
@@ -310,7 +313,8 @@ class _LearnedSampler:
     _param_option: ParameterizedOption
 
     def sampler(self, state: State, goal: Set[GroundAtom],
-                rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+                rng: np.random.Generator, objects: Sequence[Object],
+                skeleton: List[Any]) -> Array:
         """The sampler corresponding to the given models.
 
         May be used as the _sampler field in an NSRT.

@@ -85,7 +85,7 @@ class SamplerLearningApproachMix(BilevelPlanningApproach):
                     seed=CFG.seed,
                     hid_sizes=CFG.mlp_classifier_hid_sizes,
                     max_train_iters=CFG.sampler_mlp_classifier_max_itr,
-                    timesteps=100,
+                    timesteps=CFG.num_diffusion_steps,#100,
                     learning_rate=CFG.learning_rate
                 )
             else:
@@ -288,7 +288,11 @@ class SamplerLearningApproachMix(BilevelPlanningApproach):
             ##### Changing for model load from file #####
             ebm.eval()
             logging.info(f'Loading {nsrt.name} model from file; this approach assumes pretrained nets')
-            model_state = torch.load(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt', map_location='cpu' if not CFG.use_cuda else None)
+            if CFG.num_diffusion_steps == 100:
+                model_state = torch.load(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt', map_location='cpu' if not CFG.use_cuda else None)
+            else:
+                # model_state = torch.load(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}_{CFG.num_diffusion_steps}steps{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt', map_location='cpu' if not CFG.use_cuda else None)
+                model_state = torch.load(f'models_{CFG.env}/{nsrt.name}{self._ebm_class}_{CFG.num_diffusion_steps}steps{f"_distilled" if CFG.distill_steps else ""}{f"_{CFG.ebm_aux_training}" if CFG.ebm_aux_training else ""}_obs_{CFG.use_full_state}_myopic_True_dropout_False_{CFG.num_train_tasks if CFG.num_train_tasks < 1000 else (str(CFG.num_train_tasks//1000) +"k")}tasks.pt', map_location='cpu' if not CFG.use_cuda else None)
             ebm._x_dim = model_state['x_dim']
             x_cond_dim = sum(len(p.type.feature_names) for p in nsrt.parameters)
             if CFG.use_full_state:
