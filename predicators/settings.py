@@ -328,6 +328,9 @@ class GlobalSettings:
     sticky_table_place_sticky_fall_prob = 0.05
     sticky_table_pick_success_prob = 0.9
 
+    # grid row env parameters
+    grid_row_num_cells = 250
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -617,8 +620,8 @@ class GlobalSettings:
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
-    @staticmethod
-    def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
+    @classmethod
+    def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
 
@@ -643,6 +646,8 @@ class GlobalSettings:
                     # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
+                    # Ditto for the simple grid row environment.
+                    "grid_row": cls.grid_row_num_cells + 5,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
