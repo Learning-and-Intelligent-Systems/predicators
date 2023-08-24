@@ -26,6 +26,8 @@ APPROACHES:
     FLAGS:
       explorer: "random_nsrts"
 ENVS:
+  grid_row:
+    NAME: "grid_row"
   regional_bumpy_cover:
     NAME: "regional_bumpy_cover"
     FLAGS:
