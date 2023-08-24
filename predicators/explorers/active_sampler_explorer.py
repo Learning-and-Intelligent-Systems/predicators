@@ -55,8 +55,12 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._seen_train_task_idxs = seen_train_task_idxs
         self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
         self._task_plan_calls_since_replan: Dict[int, int] = {}
-        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]).mean())
         self._sorted_options = sorted(options, key=lambda o: o.name)
+
+        # Set the default cost for skills.
+        alpha, beta = CFG.skill_competence_default_alpha_beta
+        c = utils.beta_bernoulli_posterior([], alpha=alpha, beta=beta).mean()
+        self._default_cost = -np.log(c)
 
     @classmethod
     def get_name(cls) -> str:
@@ -81,15 +85,16 @@ class ActiveSamplerExplorer(BaseExplorer):
                                   timeout: int) -> ExplorationStrategy:
 
         assigned_task = self._train_tasks[train_task_idx]
-        assigned_task_goal_reached = False
+        assigned_task_finished = False
+        assigned_task_horizon = CFG.horizon
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None
         using_random = False
 
         def _option_policy(state: State) -> _Option:
             logging.info("[Explorer] Option policy called.")
-            nonlocal assigned_task_goal_reached, current_policy, \
-                next_practice_nsrt, using_random
+            nonlocal assigned_task_finished, current_policy, \
+                next_practice_nsrt, using_random, assigned_task_horizon
 
             # Need to wait for policy to get called to "see" the train task.
             self._seen_train_task_idxs.add(train_task_idx)
@@ -101,12 +106,21 @@ class ActiveSamplerExplorer(BaseExplorer):
                 return self._get_random_option(state)
 
             # Record if we've reached the assigned goal; can now practice.
-            if not assigned_task_goal_reached and \
+            if not assigned_task_finished and \
                 assigned_task.goal_holds(state):
                 logging.info(
                     f"[Explorer] Reached assigned goal: {assigned_task.goal}")
-                assigned_task_goal_reached = True
+                assigned_task_finished = True
                 current_policy = None
+
+            # Record if we've exhausted the time limit for the assigned task.
+            elif not assigned_task_finished and assigned_task_horizon <= 0:
+                logging.info("[Explorer] Exhausted horizon for assigned task.")
+                assigned_task_finished = True
+                current_policy = None
+
+            else:
+                assigned_task_horizon -= 1
 
             # If we've just reached the preconditions for next_practice_nsrt,
             # then immediately execute it.
@@ -128,7 +142,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Check if it's time to select a new goal and re-plan.
             if current_policy is None:
                 # If the assigned goal hasn't yet been reached, try for it.
-                if not assigned_task_goal_reached:
+                if not assigned_task_finished:
                     logging.info("[Explorer] Pursuing assigned task goal")
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
@@ -297,21 +311,13 @@ class ActiveSamplerExplorer(BaseExplorer):
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
     def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
-        # Score NSRTs according to their success rate and a bonus for ones
-        # that haven't been tried very much.
-        model = self._competence_models[ground_op]
-        history = self._ground_op_hist[ground_op]
-        num_tries = len(history)
-        success_rate = sum(history) / num_tries
-        competence = model.get_current_competence()
-        total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
-        logging.info(f"[Explorer]   success rate: {success_rate}")
-        logging.info(f"[Explorer]   posterior competence: {competence}")
-        logging.info(f"[Explorer]   num attempts: {num_tries}")
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
+            history = self._ground_op_hist[ground_op]
+            num_tries = len(history)
+            success_rate = sum(history) / num_tries
+            total_trials = sum(len(h) for h in self._ground_op_hist.values())
             # Try less successful operators more often.
             # UCB-like bonus.
             c = CFG.active_sampler_explore_bonus
@@ -324,7 +330,6 @@ class ActiveSamplerExplorer(BaseExplorer):
             raise NotImplementedError(
                 "Unrecognized explore task strategy: "
                 f"{CFG.active_sampler_explore_task_strategy}")
-        logging.info(f"[Explorer]   total score: {score}")
         return score
 
     def _score_ground_op_planning_progress(
@@ -332,6 +337,17 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Predict the competence if we had one more data point.
         model = self._competence_models[ground_op]
         extrap = model.predict_competence(CFG.skill_competence_model_lookahead)
+        competence = model.get_current_competence()
+        history = self._ground_op_hist[ground_op]
+        num_tries = len(history)
+        success_rate = sum(history) / num_tries
+        # Optimization: skip any ground op with perfect success.
+        if success_rate == 1.0:
+            return -np.inf
+        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        logging.info(f"[Explorer]   success rate: {success_rate}")
+        logging.info(f"[Explorer]   posterior competence: {competence}")
+        logging.info(f"[Explorer]   num attempts: {num_tries}")
         logging.info(f"[Explorer]   extrapolated competence: {extrap}")
         c_hat = -np.log(extrap)
         assert c_hat >= 0
