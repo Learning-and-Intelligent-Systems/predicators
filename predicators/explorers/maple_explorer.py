@@ -80,11 +80,11 @@ class MAPLEExplorer(BaseExplorer):
                     curr_ground_option = maple_ground_nsrt.option.ground(
                         maple_ground_nsrt.option_objs, maple_continuous_params)
                     logging.debug(
-                            f"[RL] Explorer running {maple_ground_nsrt} with clipped params {maple_continuous_params}"
+                            f"[RL] Explorer running {maple_ground_nsrt.name}({maple_ground_nsrt.objects}) with clipped params {maple_continuous_params}"
                         )
                 else:
                     logging.debug(
-                            f"[RL] Explorer running {maple_ground_nsrt} with base sampler params."
+                            f"[RL] Explorer running {maple_ground_nsrt.name}({maple_ground_nsrt.objects}) with base sampler params."
                         )
 
                 if not curr_ground_option.initiable(state):

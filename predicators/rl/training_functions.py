@@ -384,7 +384,7 @@ class SACHybridTrainer(SACTrainer):
         gt.blank_stamp()
         losses, stats = self.compute_loss(
             batch,
-            skip_statistics=not self._need_to_update_eval_statistics,
+            skip_statistics=False#not self._need_to_update_eval_statistics,
         )
         """
         Update networks
@@ -419,6 +419,7 @@ class SACHybridTrainer(SACTrainer):
             # Compute statistics using only one batch per epoch
             self._need_to_update_eval_statistics = False
         gt.stamp('sac training', unique=False)
+        return stats
 
     @property
     def one_hot_s(self):

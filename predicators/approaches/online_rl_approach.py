@@ -208,8 +208,6 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 # if we change the reward function.
                 if reward == 1.0:
                     terminal = 1.0
-                    import ipdb
-                    ipdb.set_trace()
                 self._replay_buffer.add_sample(init_maple_state, maple_action,
                                                reward, terminal,
                                                final_maple_state)
@@ -238,7 +236,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             self._option_model,
             max_steps_before_termination=max_steps,
             ground_nsrts=self._sorted_ground_nsrts,
-            exploration_policy=MakeDeterministic(self._learned_policy),
+            exploration_policy=self._learned_policy,
             observations_size=self._observation_size,
             discrete_actions_size=self._discrete_actions_size,
             continuous_actions_size=self._continuous_actions_size)
@@ -249,10 +247,12 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             np_batch = self._replay_buffer.random_batch(
                 CFG.online_rl_batch_size)
             torch_batch = np_to_pytorch_batch(np_batch)
-            self._trainer_function.train_from_torch(torch_batch)
+            train_stats = self._trainer_function.train_from_torch(torch_batch)
             logging.info(
                 f"Training iter: {i}/{CFG.online_rl_num_trains_per_train_loop}"
             )
+            if i % 25 == 0:
+                logging.info(train_stats)
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         eval_policy = MakeDeterministic(self._learned_policy)
