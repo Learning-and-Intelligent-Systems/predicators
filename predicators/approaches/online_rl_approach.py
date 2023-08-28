@@ -208,6 +208,8 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 # if we change the reward function.
                 if reward == 1.0:
                     terminal = 1.0
+                    import ipdb
+                    ipdb.set_trace()
                 self._replay_buffer.add_sample(init_maple_state, maple_action,
                                                reward, terminal,
                                                final_maple_state)
@@ -219,12 +221,14 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         self._online_learning_cycle += 1
 
     def _create_explorer(self) -> BaseExplorer:
+        assert CFG.explorer == "maple_explorer"
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
-        max_steps = b**(1 + self._online_learning_cycle)
+        max_steps = b * 5 * (1 + self._online_learning_cycle
+                             )  #b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
         explorer = create_explorer(
-            "maple_explorer",
+            CFG.explorer,
             preds,
             self._initial_options,
             self._types,
@@ -242,7 +246,8 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
 
     def _train(self) -> None:
         for i in range(CFG.online_rl_num_trains_per_train_loop):
-            np_batch = self._replay_buffer.random_batch(CFG.online_rl_batch_size)
+            np_batch = self._replay_buffer.random_batch(
+                CFG.online_rl_batch_size)
             torch_batch = np_to_pytorch_batch(np_batch)
             self._trainer_function.train_from_torch(torch_batch)
             logging.info(

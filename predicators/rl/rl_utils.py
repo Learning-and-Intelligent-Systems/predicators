@@ -599,22 +599,9 @@ def convert_policy_action_to_ground_option(
     so that indexing it with the output from policy_action will work
     correctly.
     """
-    assert policy_action.shape[
-        0] == discrete_actions_size + continuous_actions_size
-    # Discrete actions output should be 0 everywhere except for one place.
-    discrete_actions_output = policy_action[:discrete_actions_size]
-    discrete_action_idx = np.argmax(discrete_actions_output)
-    assert discrete_actions_output[discrete_action_idx] == 1.0
-    ground_nsrt = ground_nsrts[discrete_action_idx]
-    continuous_params_output = policy_action[-continuous_actions_size:]
-    continuous_params_for_option = continuous_params_output[:ground_nsrt.option
-                                                            .params_space.
-                                                            shape[0]]
-    # Clip these continuous params to ensure they're within the bounds of the
-    # parameter space.
-    continuous_params_for_option = np.clip(
-        continuous_params_for_option, ground_nsrt.option.params_space.low,
-        ground_nsrt.option.params_space.high)
+    ground_nsrt, continuous_params_for_option = get_ground_nsrt_and_params_from_maple(
+        policy_action, ground_nsrts, discrete_actions_size,
+        continuous_actions_size)
     logging.debug(
         f"[RL] Running {ground_nsrt} with clipped params {continuous_params_for_option}"
     )
@@ -646,6 +633,30 @@ def env_state_to_maple_input(state: State) -> Array:
     return state.vec(sorted(list(state)))
 
 
+def get_ground_nsrt_and_params_from_maple(
+        policy_action, ground_nsrts, discrete_actions_size,
+        continuous_actions_size):  #-> Tuple[_GroundNSRT, Array]:
+    """Gets the ground NSRT as well as the continuous params output by MAPLE
+    separately so we can choose to override either."""
+    assert policy_action.shape[
+        0] == discrete_actions_size + continuous_actions_size
+    # Discrete actions output should be 0 everywhere except for one place.
+    discrete_actions_output = policy_action[:discrete_actions_size]
+    discrete_action_idx = np.argmax(discrete_actions_output)
+    assert discrete_actions_output[discrete_action_idx] == 1.0
+    ground_nsrt = ground_nsrts[discrete_action_idx]
+    continuous_params_output = policy_action[-continuous_actions_size:]
+    continuous_params_for_option = continuous_params_output[:ground_nsrt.option
+                                                            .params_space.
+                                                            shape[0]]
+    # Clip these continuous params to ensure they're within the bounds of the
+    # parameter space.
+    continuous_params_for_option = np.clip(
+        continuous_params_for_option, ground_nsrt.option.params_space.low,
+        ground_nsrt.option.params_space.high)
+    return (ground_nsrt, continuous_params_for_option)
+
+
 def make_executable_maple_policy(
         policy, ground_nsrts: List[_GroundNSRT], observation_size: int,
         discrete_actions_size: int,
@@ -659,7 +670,8 @@ def make_executable_maple_policy(
         new output from the model."""
         nonlocal policy, curr_option, num_curr_option_steps, observation_size, discrete_actions_size, continuous_actions_size
         state_vec = env_state_to_maple_input(state)
-        if curr_option is None:
+        if curr_option is None or (curr_option is not None
+                                   and curr_option.terminal(state)):
             # We need to produce a new ground option from the network.
             assert state_vec.shape[0] == observation_size
             num_curr_option_steps = 0
@@ -668,20 +680,17 @@ def make_executable_maple_policy(
                 policy_action, ground_nsrts, discrete_actions_size,
                 continuous_actions_size)
 
-        if not curr_option.initiable(state):
-            num_curr_option_steps = 0
-            raise utils.OptionExecutionFailure(
-                "Unsound option policy.",
-                info={"last_failed_option": curr_option})
+            if not curr_option.initiable(state):
+                num_curr_option_steps = 0
+                raise utils.OptionExecutionFailure(
+                    "Unsound option policy.",
+                    info={"last_failed_option": curr_option})
 
         if CFG.max_num_steps_option_rollout is not None and \
             num_curr_option_steps >= CFG.max_num_steps_option_rollout:
             raise utils.OptionTimeoutFailure(
                 "Exceeded max option steps.",
                 info={"last_failed_option": curr_option})
-
-        if curr_option.terminal(state):
-            curr_option = None
 
         num_curr_option_steps += 1
 
