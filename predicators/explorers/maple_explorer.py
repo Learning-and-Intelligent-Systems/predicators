@@ -75,10 +75,12 @@ class MAPLEExplorer(BaseExplorer):
                 rand_val = self._rng.random()
 
                 if rand_val < CFG.active_sampler_learning_exploration_epsilon:
-                    # option obtained using the particular continuous param
-                    # vals output by MAPLE.
-                    curr_ground_option = maple_ground_nsrt.option.ground(
-                        maple_ground_nsrt.option_objs, maple_continuous_params)
+                    # We select a random ground nsrt, and obtain a sample using the
+                    # base samplers.
+                    ground_nsrt = self._rng.choice(self._ground_nsrts)
+                    # curr_ground_option = ground_nsrt.option.ground(
+                    #     ground_nsrt.option_objs, maple_continuous_params)
+                    curr_ground_option = ground_nsrt.sample_option(state, curr_goal, self._rng)
                     logging.debug(
                         f"[RL] Explorer running {maple_ground_nsrt.name}({maple_ground_nsrt.objects}) with clipped params {maple_continuous_params}"
                     )

@@ -550,7 +550,7 @@ def _save_test_results(results: Metrics,
         del results[k]
     logging.info(f"Test results: {results}")
     logging.info(f"Wrote out test results to {outfile}")
-
+    import ipdb; ipdb.set_trace()
 
 if __name__ == "__main__":  # pragma: no cover
     # Write out the exception to the log file.
