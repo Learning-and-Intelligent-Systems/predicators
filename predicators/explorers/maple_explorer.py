@@ -1,8 +1,8 @@
 """An explorer that takes uses a trained RL agent that predicts both ground
 NSRTs and corresponding continuous parameters."""
 
-from typing import List, Set
 import logging
+from typing import List, Set
 
 import numpy as np
 from gym.spaces import Box
@@ -80,12 +80,12 @@ class MAPLEExplorer(BaseExplorer):
                     curr_ground_option = maple_ground_nsrt.option.ground(
                         maple_ground_nsrt.option_objs, maple_continuous_params)
                     logging.debug(
-                            f"[RL] Explorer running {maple_ground_nsrt.name}({maple_ground_nsrt.objects}) with clipped params {maple_continuous_params}"
-                        )
+                        f"[RL] Explorer running {maple_ground_nsrt.name}({maple_ground_nsrt.objects}) with clipped params {maple_continuous_params}"
+                    )
                 else:
                     logging.debug(
-                            f"[RL] Explorer running {maple_ground_nsrt.name}({maple_ground_nsrt.objects}) with base sampler params."
-                        )
+                        f"[RL] Explorer running {maple_ground_nsrt.name}({maple_ground_nsrt.objects}) with base sampler params."
+                    )
 
                 if not curr_ground_option.initiable(state):
                     num_curr_option_steps = 0

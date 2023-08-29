@@ -384,7 +384,7 @@ class SACHybridTrainer(SACTrainer):
         gt.blank_stamp()
         losses, stats = self.compute_loss(
             batch,
-            skip_statistics=False#not self._need_to_update_eval_statistics,
+            skip_statistics=False  #not self._need_to_update_eval_statistics,
         )
         """
         Update networks

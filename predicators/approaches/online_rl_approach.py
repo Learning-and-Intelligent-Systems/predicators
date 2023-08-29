@@ -91,7 +91,9 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # the segment's final atoms.
         # TODO: we'll likely need a more dense and fine-grained reward
         # function.
-        if self._goal_atoms.issubset(segment.final_atoms):
+        if self._goal_atoms.issubset(
+                segment.final_atoms) and not self._goal_atoms.issubset(
+                    segment.init_atoms):
             return 1.0
         return 0.0
 
@@ -186,7 +188,9 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # corresponding transitions to the replay buffer.
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
+        num_positive_trajs = 0
         for seg_traj in new_trajs:
+            self._last_seen_segment_traj_idx += 1
             for segment in seg_traj:
                 init_ll_state = segment.trajectory.states[0]
                 final_ll_state = segment.trajectory.states[-1]
@@ -208,9 +212,17 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 # if we change the reward function.
                 if reward == 1.0:
                     terminal = 1.0
+                    num_positive_trajs += 1
+                    # import ipdb; ipdb.set_trace()
                 self._replay_buffer.add_sample(init_maple_state, maple_action,
                                                reward, terminal,
                                                final_maple_state)
+                if terminal == 1.0:
+                    break
+        logging.info(
+            f"{num_positive_trajs} goal-achieving trajectories out of {len(new_trajs)}"
+        )
+        import ipdb; ipdb.set_trace()
 
         # Call training on data from the updated replay buffer.
         self._train()
@@ -222,8 +234,8 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         assert CFG.explorer == "maple_explorer"
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
-        max_steps = b * 5 * (1 + self._online_learning_cycle
-                             )  #b**(1 + self._online_learning_cycle)
+        # b * 5 * (1 + self._online_learning_cycle
+        max_steps = 2  #b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
         explorer = create_explorer(
             CFG.explorer,
@@ -251,8 +263,8 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             logging.info(
                 f"Training iter: {i}/{CFG.online_rl_num_trains_per_train_loop}"
             )
-            if i % 25 == 0:
-                logging.info(train_stats)
+            # if i % 25 == 0:
+            #     logging.info(train_stats)
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         eval_policy = MakeDeterministic(self._learned_policy)

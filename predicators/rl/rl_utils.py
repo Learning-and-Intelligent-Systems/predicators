@@ -603,7 +603,7 @@ def convert_policy_action_to_ground_option(
         policy_action, ground_nsrts, discrete_actions_size,
         continuous_actions_size)
     logging.debug(
-        f"[RL] Running {ground_nsrt} with clipped params {continuous_params_for_option}"
+        f"[RL] Running {ground_nsrt.name}({ground_nsrt.objects}) with clipped params {continuous_params_for_option}"
     )
     output_ground_option = ground_nsrt.option.ground(
         ground_nsrt.option_objs, continuous_params_for_option)
@@ -668,7 +668,8 @@ def make_executable_maple_policy(
         """Execute the option policy until we get an option termination or
         timeout (i.e, we exceed the max steps for the option) and then get a
         new output from the model."""
-        nonlocal policy, curr_option, num_curr_option_steps, observation_size, discrete_actions_size, continuous_actions_size
+        nonlocal policy, curr_option, num_curr_option_steps, observation_size,\
+            discrete_actions_size, continuous_actions_size
         state_vec = env_state_to_maple_input(state)
         if curr_option is None or (curr_option is not None
                                    and curr_option.terminal(state)):
