@@ -222,7 +222,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         logging.info(
             f"{num_positive_trajs} goal-achieving trajectories out of {len(new_trajs)}"
         )
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
 
         # Call training on data from the updated replay buffer.
         self._train()
@@ -235,7 +235,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
         # b * 5 * (1 + self._online_learning_cycle
-        max_steps = 2  #b**(1 + self._online_learning_cycle)
+        max_steps = 5 #b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
         explorer = create_explorer(
             CFG.explorer,

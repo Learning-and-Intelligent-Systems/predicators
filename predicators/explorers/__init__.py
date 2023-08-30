@@ -103,7 +103,7 @@ def create_explorer(
                 assert continuous_actions_size is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
-                               max_steps_before_termination, ground_nsrts,
+                               max_steps_before_termination, ground_nsrts, nsrts,
                                exploration_policy, observations_size,
                                discrete_actions_size, continuous_actions_size)
             else:

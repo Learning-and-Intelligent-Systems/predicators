@@ -1245,7 +1245,7 @@ def nsrt_plan_to_greedy_option_policy(
 
     def _option_policy(state: State) -> _Option:
         nonlocal cur_nsrt
-        if not nsrt_queue:
+        if not nsrt_queue or not necessary_atoms_queue:
             raise OptionExecutionFailure("NSRT plan exhausted.")
         expected_atoms = necessary_atoms_queue.pop(0)
         if not all(a.holds(state) for a in expected_atoms):
