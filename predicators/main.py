@@ -181,30 +181,35 @@ def _run_pipeline(env: BaseEnv,
             if i < CFG.skip_until_cycle:
                 continue
             logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
-            logging.info("Getting interaction requests...")
-            if num_online_transitions >= CFG.online_learning_max_transitions:
-                logging.info("Reached online_learning_max_transitions, "
-                             "terminating")
-                break
-            interaction_requests = cogman.get_interaction_requests()
-            if not interaction_requests:
-                logging.info("Did not receive any interaction requests, "
-                             "terminating")
-                break  # agent doesn't want to learn anything more; terminate
-            interaction_results, query_cost = _generate_interaction_results(
-                cogman, env, teacher, interaction_requests, i)
-            num_online_transitions += sum(
-                len(result.actions) for result in interaction_results)
-            total_query_cost += query_cost
-            logging.info(f"Query cost incurred this cycle: {query_cost}")
-            if CFG.load_approach:
-                cogman.load(online_learning_cycle=i)
-                learning_time += 0.0  # ignore loading time
+
+            if CFG.intertwine_interaction_and_learning:
+                logging.info("Combined interaction request/result and learning")
+                cogman.interact_and_learn()
             else:
-                learning_start = time.perf_counter()
-                logging.info("Learning from interaction results...")
-                cogman.learn_from_interaction_results(interaction_results)
-                learning_time += time.perf_counter() - learning_start
+                logging.info("Getting interaction requests...")
+                if num_online_transitions >= CFG.online_learning_max_transitions:
+                    logging.info("Reached online_learning_max_transitions, "
+                                 "terminating")
+                    break
+                interaction_requests = cogman.get_interaction_requests()
+                if not interaction_requests:
+                    logging.info("Did not receive any interaction requests, "
+                                 "terminating")
+                    break  # agent doesn't want to learn anything more; terminate
+                interaction_results, query_cost = _generate_interaction_results(
+                    cogman, env, teacher, interaction_requests, i)
+                num_online_transitions += sum(
+                    len(result.actions) for result in interaction_results)
+                total_query_cost += query_cost
+                logging.info(f"Query cost incurred this cycle: {query_cost}")
+                if CFG.load_approach:
+                    cogman.load(online_learning_cycle=i)
+                    learning_time += 0.0  # ignore loading time
+                else:
+                    learning_start = time.perf_counter()
+                    logging.info("Learning from interaction results...")
+                    cogman.learn_from_interaction_results(interaction_results)
+                    learning_time += time.perf_counter() - learning_start
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, cogman)
             results["num_offline_transitions"] = num_offline_transitions

@@ -111,6 +111,9 @@ class CogMan:
         """See BaseApproach docstring."""
         return self._approach.learn_from_interaction_results(results)
 
+    def interact_and_learn(self) -> None:
+        return self._approach.interact_and_learn()
+
     @property
     def metrics(self) -> Metrics:
         """See BaseApproach docstring."""

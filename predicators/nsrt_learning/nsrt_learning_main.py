@@ -198,14 +198,11 @@ def learn_new_nsrts_from_data(
                 plausible_ground_nsrts = _find_plausible_ground_nsrts(known_nsrts, segment)
                 if len(plausible_ground_nsrts) == 0:
                     # This is an unknown NSRT
-                    print('got to an unknown nsrt, with option:', segment.get_option())
-                    add_effects =  segment.final_atoms - segment.init_atoms
-                    print('naive add effects:', add_effects)
-                    necessary_add_effects = add_effects.intersection(necessary_atoms)
-                    print('necessary add effects:', necessary_add_effects)
-                    delete_effects = segment.init_atoms - segment.final_atoms
-                    print('delete_effects:', delete_effects)
-                    preconditions = segment.init_atoms
+                    new_nsrt_add_effects = segment.final_atoms - segment.init_atoms
+                    new_nsrt_necessary_add_effects = new_nsrt_add_effects.intersection(necessary_atoms)
+                    new_nsrt_delete_effects = segment.init_atoms - segment.final_atoms
+                    new_nsrt_preconditions = segment.init_atoms
+                    new_nsrt_option = segment.get_option()
                     break       # exit backward loop and start forward loop
                 else:
                     # The two operations below yield the largest set of necessary atoms
@@ -217,34 +214,52 @@ def learn_new_nsrts_from_data(
                     plausible_ground_nsrts = _find_plausible_ground_nsrts(known_nsrts, segment)
 
             t_new_nsrt = t
+            atoms_explained_by_future = necessary_atoms - new_nsrt_necessary_add_effects
+            atoms_explained_by_past = set()
             intended_added_effects = set()
+            added_effects = set()
             for t, segment in enumerate(segment_traj[:t_new_nsrt]):
                 plausible_ground_nsrts = _find_plausible_ground_nsrts(known_nsrts, segment)
                 if len(plausible_ground_nsrts) == 0:
-                    raise ValueError("We assume only one unknown NSRT, but this one isn't unknown")
+                    raise ValueError("We assume only one unknown NSRT, but this one isn't known")
                 else:
                     # The two operations below yield the largest set of intended added effects
                     # We need to consider all plausible add effects equally because we don't know which one it was
-                    new_added_effects = set().union(*(nsrt.add_effects for nsrt in plausible_ground_nsrts))
+                    new_intended_added_effects = set().union(*(nsrt.add_effects for nsrt in plausible_ground_nsrts))
+                    if len(plausible_ground_nsrts) > 1:
+                        assert all(len(nsrt.ignore_effects) == 0 for nsrt in plausible_ground_nsrts), 'I dont know how to implement this case yet'
+                    else:
+                        intended_added_effects = {a for a in intended_added_effects if a.predicate not in plausible_ground_nsrts[0].ignore_effects}
                     # We need to consider only the delete effects that would occur for any nsrt  
-                    deleted_effects = plausible_ground_nsrts[0].delete_effects.intersection(*(nsrt.delete_effects for nsrt in plausible_ground_nsrts[1:]))
-                    intended_added_effects = (intended_added_effects - deleted_effects) | new_added_effects
+                    intended_deleted_effects = plausible_ground_nsrts[0].delete_effects.intersection(*(nsrt.delete_effects for nsrt in plausible_ground_nsrts[1:]))
+                    intended_added_effects = (intended_added_effects - intended_deleted_effects) | new_intended_added_effects
 
-            added_effects = segment_traj[t_new_nsrt].init_atoms - segment_traj[0].init_atoms
-            print(intended_added_effects)
-            print(added_effects)
-            assert intended_added_effects.issubset(added_effects)
+                    new_added_effects = segment_traj[t].final_atoms - segment_traj[t].init_atoms
+                    deleted_effects = segment_traj[t].init_atoms - segment_traj[t].final_atoms
+                    added_effects = (added_effects - deleted_effects) | new_added_effects
+                if t >= 1:
+                    next_preconditions = set().union(*(nsrt.preconditions for nsrt in plausible_ground_nsrts))
+                    atoms_explained_by_past = (atoms_explained_by_past - deleted_effects) | next_preconditions
 
-        exit()
+            explained_atoms = atoms_explained_by_past.union(atoms_explained_by_future)
+
+        states = [trajectories[0].states[t_new_nsrt], trajectories[0].states[t_new_nsrt + 1]]
+        actions = [trajectories[0].actions[t_new_nsrt]]
+        pseudo_trajectories = [LowLevelTrajectory(states, actions)]
+        pseudo_segmented_trajs = [[Segment(pseudo_trajectories[0],
+                                    new_nsrt_preconditions,
+                                    (new_nsrt_preconditions | new_nsrt_necessary_add_effects) - new_nsrt_delete_effects,
+                                    new_nsrt_option)]]
+
         # STEP 2: Learn STRIPS operators from the data, and use them to
         #         produce PNAD objects. Each PNAD
         #         contains a STRIPSOperator, Datastore, and OptionSpec. The
         #         samplers will be filled in on a later step.
         pnads = learn_strips_operators(
-            trajectories,
+            pseudo_trajectories,
             train_tasks,
             predicates,
-            segmented_trajs,
+            pseudo_segmented_trajs,
             verify_harmlessness=True,
             verbose=(CFG.option_learner != "no_learning"),
             annotations=annotations)
@@ -293,10 +308,11 @@ def learn_new_nsrts_from_data(
         logging.info(nsrt)
     logging.info("")
 
-    return set(nsrts), segmented_trajs, seg_to_nsrt
-
-
-
+    return set(nsrts), {'intended_added_effects': intended_added_effects,
+                        'added_effects': added_effects,
+                        'explained_atoms': explained_atoms,
+                        'pre_image': new_nsrt_preconditions,
+                        'local_objects': nsrts[0].parameters}
 
 def _learn_pnad_options(pnads: List[PNAD],
                         known_options: Set[ParameterizedOption],
