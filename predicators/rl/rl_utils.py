@@ -649,11 +649,19 @@ def get_ground_nsrt_and_params_from_maple(
     continuous_params_for_option = continuous_params_output[:ground_nsrt.option
                                                             .params_space.
                                                             shape[0]]
+
+    # if not ground_nsrt.option.params_space.contains(continuous_params_for_option.astype(np.float32)):
+    #     import ipdb; ipdb.set_trace()
+
     # Clip these continuous params to ensure they're within the bounds of the
     # parameter space.
     continuous_params_for_option = np.clip(
         continuous_params_for_option, ground_nsrt.option.params_space.low,
         ground_nsrt.option.params_space.high)
+    
+    # if all(continuous_params_for_option != unclipped_params):
+    #     import ipdb; ipdb.set_trace()
+
     return (ground_nsrt, continuous_params_for_option)
 
 

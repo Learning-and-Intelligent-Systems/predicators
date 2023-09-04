@@ -184,6 +184,9 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
         for nsrt in self._nsrts:
             assert nsrt.option_vars == nsrt.parameters
+
+        num_place_on_bumpy_actions = 1.0
+
         # Now, loop thru newly-collected trajectories and add their
         # corresponding transitions to the replay buffer.
         start_idx = self._last_seen_segment_traj_idx + 1
@@ -213,16 +216,26 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 if reward == 1.0:
                     terminal = 1.0
                     num_positive_trajs += 1
-                    # import ipdb; ipdb.set_trace()
+
+                if discrete_action[-2] == 1.0:
+                    num_place_on_bumpy_actions += 1
+                    import ipdb; ipdb.set_trace()
+
                 self._replay_buffer.add_sample(init_maple_state, maple_action,
                                                reward, terminal,
                                                final_maple_state)
+
+                # if np.allclose(init_maple_state, np.array([1.0, 0.0, 0.01, 0.90651945, -1.0, 1.0, 0.5, 1.35, 0.65, 0.0, 1.0, 0.008, 0.66038981]), rtol=0.1):
+                # if not ground_nsrt.option.params_space.contains(continuous_action.astype(np.float32)):
+                #     import ipdb; ipdb.set_trace()
+
                 if terminal == 1.0:
                     break
         logging.info(
             f"{num_positive_trajs} goal-achieving trajectories out of {len(new_trajs)}"
         )
-        # import ipdb; ipdb.set_trace()
+        logging.info(f"{num_place_on_bumpy_actions} place onto bumpy actions")
+        import ipdb; ipdb.set_trace()
 
         # Call training on data from the updated replay buffer.
         self._train()
@@ -264,7 +277,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 f"Training iter: {i}/{CFG.online_rl_num_trains_per_train_loop}"
             )
             # if i % 25 == 0:
-            #     logging.info(train_stats)
+            logging.info(train_stats)
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         eval_policy = MakeDeterministic(self._learned_policy)

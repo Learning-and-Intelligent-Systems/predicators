@@ -12,17 +12,21 @@ from predicators.explorers.base_explorer import BaseExplorer
 from predicators.rl.policies import TorchStochasticPolicy
 from predicators.rl.rl_utils import env_state_to_maple_input, \
     get_ground_nsrt_and_params_from_maple
-from predicators.planning import run_task_plan_once
+from predicators.planning import run_task_plan_once, sesame_plan
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DummyOption, \
     ExplorationStrategy, ParameterizedOption, Predicate, State, Task, Type, \
     _GroundNSRT, _Option, GroundAtom
+from predicators.option_model import _OracleOptionModel
+from predicators.envs import get_or_create_env
 
 
 class MAPLEExplorer(BaseExplorer):
     """RLExplorer implementation.
 
-    We assume that the RL agent here will output both
+    We assume that the RL agent here will output both discrete (in the form
+    of a ground NSRT), and continuous parameters (needed to ground the option
+    associated with said NSRT).
     """
 
     def __init__(self, predicates: Set[Predicate],
@@ -44,12 +48,13 @@ class MAPLEExplorer(BaseExplorer):
         self._discrete_actions_size = discrete_actions_size
         self._continuous_actions_size = continuous_actions_size
         self._rng = np.random.default_rng(self._seed)
+        self._option_model = _OracleOptionModel(get_or_create_env(CFG.env))
 
     @classmethod
     def get_name(cls) -> str:
         return "maple_explorer"
     
-    def _get_option_policy_using_planner(self,
+    def _get_option_policy_using_task_planner(self,
                                          task: Task) -> Callable[[State], _Option]:
         # Run task planning and then greedily execute.
         timeout = CFG.timeout
@@ -64,6 +69,23 @@ class MAPLEExplorer(BaseExplorer):
             task_planning_heuristic=task_planning_heuristic)
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
+
+    def _get_action_policy_using_bilevel_planner(self, task: Task):
+        plan, _, _ = sesame_plan(
+                task,
+                self._option_model,
+                self._nsrts,
+                self._predicates,
+                self._types,
+                CFG.timeout,
+                CFG.seed,
+                CFG.sesame_task_planning_heuristic,
+                CFG.sesame_max_skeletons_optimized,
+                max_horizon=CFG.horizon,
+                allow_noops=CFG.sesame_allow_noops,
+                use_visited_state_set=CFG.sesame_use_visited_state_set)
+        policy = utils.option_plan_to_policy(plan)
+        return policy
 
     def _get_option_from_maple(self, state: State, curr_goal: Set[GroundAtom]) -> _Option:
         # Get the ground NSRT and continuous params predicted
@@ -104,45 +126,62 @@ class MAPLEExplorer(BaseExplorer):
         curr_ground_option = None
         num_curr_option_steps = 0
         curr_option_policy = None
+        curr_action_policy = None
+        rand_val = self._rng.random()
 
         def _policy(state: State) -> Action:
-            nonlocal self, curr_ground_option, train_task_idx, num_curr_option_steps, curr_option_policy
+            nonlocal self, curr_ground_option, train_task_idx, num_curr_option_steps, curr_option_policy, curr_action_policy, rand_val
             # Get the current task goal.
             curr_goal = self._train_tasks[train_task_idx].goal
-            if curr_option_policy is None:
-                curr_option_policy = self._get_option_policy_using_planner(Task(state, curr_goal))
-            assert curr_option_policy is not None
-
-            if curr_ground_option is None or (
-                    curr_ground_option is not None
-                    and curr_ground_option.terminal(state)):
-                # Generate a random number and use it to decide if we're going to use
-                # the planner or the policy.
-                rand_val = self._rng.random()
-                if rand_val < 1.0:
-                    try:
-                        curr_ground_option = curr_option_policy(state)
-                    except utils.OptionExecutionFailure:
-                        curr_ground_option = self._get_option_from_maple(state, curr_goal)
-                else:
-                    curr_ground_option = self._get_option_from_maple(state, curr_goal)
-
-                if not curr_ground_option.initiable(state):
-                    num_curr_option_steps = 0
+            # Use the random value to determine whether we're using MAPLE or
+            # the planner to generate actions.
+            if rand_val < 0.75:            
+                if curr_action_policy is None:
+                    curr_action_policy = self._get_action_policy_using_bilevel_planner(Task(state, curr_goal))
+                return curr_action_policy(state)
+            curr_ground_option = self._get_option_from_maple(state, curr_goal)
+            if not curr_ground_option.initiable(state):
                     raise utils.OptionExecutionFailure(
                         "Unsound option policy.",
                         info={"last_failed_option": curr_ground_option})
-                num_curr_option_steps = 0
-
-            if CFG.max_num_steps_option_rollout is not None and \
-                num_curr_option_steps >= CFG.max_num_steps_option_rollout:
-                raise utils.OptionTimeoutFailure(
-                    "Exceeded max option steps.",
-                    info={"last_failed_option": curr_ground_option})
-
-            num_curr_option_steps += 1
-
             return curr_ground_option.policy(state)
+            
+            # if curr_option_policy is None:
+            #     curr_option_policy = self._get_option_policy_using_task_planner(Task(state, curr_goal))
+            # assert curr_option_policy is not None
+
+            # if curr_ground_option is None or (
+            #         curr_ground_option is not None
+            #         and curr_ground_option.terminal(state)):
+            #     # Generate a random number and use it to decide if we're going to use
+            #     # the planner or the policy.
+            #     rand_val = self._rng.random()
+            #     if rand_val < 1.0:
+            #         try:
+            #             curr_ground_option = curr_option_policy(state)
+            #         except utils.OptionExecutionFailure:
+            #             curr_option_policy = self._get_option_policy_using_planner(Task(state, curr_goal))
+            #             curr_ground_option = curr_option_policy(state)
+            #             # curr_ground_option = self._get_option_from_maple(state, curr_goal)
+            #     else:
+            #         curr_ground_option = self._get_option_from_maple(state, curr_goal)
+
+            #     if not curr_ground_option.initiable(state):
+            #         num_curr_option_steps = 0
+            #         raise utils.OptionExecutionFailure(
+            #             "Unsound option policy.",
+            #             info={"last_failed_option": curr_ground_option})
+            #     num_curr_option_steps = 0
+
+            # if CFG.max_num_steps_option_rollout is not None and \
+            #     num_curr_option_steps >= CFG.max_num_steps_option_rollout:
+            #     raise utils.OptionTimeoutFailure(
+            #         "Exceeded max option steps.",
+            #         info={"last_failed_option": curr_ground_option})
+
+            # num_curr_option_steps += 1
+
+            # return curr_ground_option.policy(state)
 
         # Never terminate (until the interaction budget is exceeded).
         termination_function = lambda _: False
