@@ -173,12 +173,18 @@ class StickyTableEnv(BaseEnv):
         alpha = 0.75
         cube, = state.get_objects(self._cube_type)
         tables = state.get_objects(self._table_type)
+        surface_mode = self.sticky_surface_mode
         for table in tables:
             is_sticky = self._table_is_sticky(table, state)
             circ = self._object_to_geom(table, state)
             color = sticky_table_color if is_sticky else normal_table_color
-            circ.plot(ax, facecolor=color, edgecolor="black", alpha=alpha)
-            if is_sticky and self.sticky_surface_mode == "half":
+            hatch = "OO" if is_sticky and surface_mode == "whole" else None
+            circ.plot(ax,
+                      facecolor=color,
+                      edgecolor="black",
+                      alpha=alpha,
+                      hatch=hatch)
+            if is_sticky and surface_mode == "half":
                 x = state.get(table, "x")
                 y = state.get(table, "y")
                 radius = state.get(table, "radius")
