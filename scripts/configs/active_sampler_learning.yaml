@@ -21,10 +21,10 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "random"
-  random_nsrts_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "random_nsrts"
+  # random_nsrts_explore:
+  #   NAME: "active_sampler_learning"
+  #   FLAGS:
+  #     explorer: "random_nsrts"
 ENVS:
   grid_row:
     NAME: "grid_row"
