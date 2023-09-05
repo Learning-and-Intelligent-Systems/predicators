@@ -650,7 +650,7 @@ class GlobalSettings:
                     "touch_point": 15,
                     # The simple grid row environment needs at least as many
                     # steps as there are cells; add generous padding.
-                    "grid_row": 4 * cls.grid_row_num_cells,
+                    "grid_row": 2 * cls.grid_row_num_cells,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
