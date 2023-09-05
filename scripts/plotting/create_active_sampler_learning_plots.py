@@ -35,6 +35,14 @@ COLUMN_NAMES_AND_KEYS = [
 
 DERIVED_KEYS = [
     ("perc_solved", lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
+    ("policy_call_time", lambda r: np.mean([
+        v for k, v in r.items()
+        if k.startswith("PER_TASK") and k.endswith("_exec_time")
+    ])),
+    ("num_options_executed", lambda r: np.mean([
+        v for k, v in r.items()
+        if k.startswith("PER_TASK") and k.endswith("_options_executed")
+    ]))
 ]
 
 # The first element is the name of the metric that will be plotted on the
@@ -56,18 +64,18 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    # "Kitchen (All Goals)": [
-    #     ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-planning_progress_explore" in v)),
-    #     ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-task_repeat_explore" in v)),
-    #     ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-success_rate_explore" in v)),
-    #     ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-random_score_explore" in v)),
-    #     ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-random_nsrts_explore" in v)),
-    # ],
+    "Kitchen (All Goals)": [
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-planning_progress_explore" in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-task_repeat_explore" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-success_rate_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-random_score_explore" in v)),
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-random_nsrts_explore" in v)),
+    ],
     "Regional Bumpy Cover": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
@@ -140,8 +148,12 @@ NUM_INTERP_POINTS = 10
 def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
                            plot_group: Sequence[Tuple[str, str, Callable]],
                            x_key: str, y_key: str) -> None:
+    plot_has_data = False
     for label, color, selector in plot_group:
         entry_df = get_df_for_entry(x_key, df, selector)
+        if entry_df.size == 0:
+            print(f"No results found for {label}, skipping")
+            continue
         # Draw one line per seed.
         for seed in entry_df["SEED"].unique():
             seed_df = entry_df[entry_df["SEED"] == seed]
@@ -154,13 +166,19 @@ def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     plt.legend(by_label.values(), by_label.keys())
+    return plot_has_data
 
 
 def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
                              plot_group: Sequence[Tuple[str, str, Callable]],
                              x_key: str, y_key: str) -> None:
+    plot_has_data = False
     for label, color, selector in plot_group:
         entry_df = get_df_for_entry(x_key, df, selector)
+        if entry_df.size == 0:
+            print(f"No results found for {label}, skipping")
+            continue
+        plot_has_data = True
         # Draw one line total. To make sure the x ticks are aligned, we will
         # interpolate.
         all_xs, all_ys = [], []
@@ -198,6 +216,7 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
                         alpha=FILL_BETWEEN_ALPHA)
     # Add a legend.
     plt.legend()
+    return plot_has_data
 
 
 def _main() -> None:
@@ -210,12 +229,16 @@ def _main() -> None:
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
+                has_res = False
                 if PLOT_TYPE == "seed_lines":
-                    _create_seed_line_plot(ax, df, d, x_key, y_key)
+                    has_res = _create_seed_line_plot(ax, df, d, x_key, y_key)
                 elif PLOT_TYPE == "single_lines":
-                    _create_single_line_plot(ax, df, d, x_key, y_key)
+                    has_res = _create_single_line_plot(ax, df, d, x_key, y_key)
                 else:
                     raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
+                if not has_res:
+                    print("No results found for whole plot, skipping")
+                    continue
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
                 if y_key.startswith("PERC"):
