@@ -326,6 +326,7 @@ class StickyTableTrickyFloorEnv(StickyTableEnv):
             return True
         # Specifically, only succeed if grasp is in upper-right quadrant with
         # respect to the cube's center.
-        cube_x = state.get(cube, "x")
-        cube_y = state.get(cube, "y")
+        size = state.get(cube, "size")
+        cube_x = state.get(cube, "x") + size / 2
+        cube_y = state.get(cube, "y") + size / 2
         return act_x > cube_x and act_y > cube_y
