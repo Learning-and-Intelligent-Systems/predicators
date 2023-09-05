@@ -29,6 +29,8 @@ COLUMN_NAMES_AND_KEYS = [
     ("PERC_SOLVED", "perc_solved"),
     ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
     ("NUM_ONLINE_TRANSITIONS", "num_online_transitions"),
+    ("POLICY_CALL_TIME", "policy_call_time"),
+    ("NUM_OPTIONS_EXECUTED", "num_options_executed"),
 ]
 
 DERIVED_KEYS = [
@@ -45,6 +47,8 @@ X_KEY_AND_LABEL = [
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
+    ("POLICY_CALL_TIME", "Policy Call Time (s)"),
+    ("NUM_OPTIONS_EXECUTED", "# Skills Executed"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
@@ -87,6 +91,31 @@ PLOT_GROUPS = {
             lambda v: "grid_row-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-random_nsrts_explore" in v)),
+    ],
+    "Sticky Table": [
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-planning_progress_explore" in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-task_repeat_explore" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-success_rate_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-random_score_explore" in v)),
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-random_nsrts_explore" in v)),
+    ],
+    "Sticky Table Tricky Floor": [
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].
+         apply(lambda v: "sticky_table_tricky_floor-planning_progress_explore"
+               in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-task_repeat_explore" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-success_rate_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-random_score_explore" in v)),
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-random_nsrts_explore" in v)),
     ],
 }
 
