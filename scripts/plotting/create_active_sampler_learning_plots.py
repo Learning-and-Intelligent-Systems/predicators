@@ -147,7 +147,7 @@ NUM_INTERP_POINTS = 10
 
 def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
                            plot_group: Sequence[Tuple[str, str, Callable]],
-                           x_key: str, y_key: str) -> None:
+                           x_key: str, y_key: str) -> bool:
     plot_has_data = False
     for label, color, selector in plot_group:
         entry_df = get_df_for_entry(x_key, df, selector)
@@ -171,7 +171,7 @@ def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
 
 def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
                              plot_group: Sequence[Tuple[str, str, Callable]],
-                             x_key: str, y_key: str) -> None:
+                             x_key: str, y_key: str) -> bool:
     plot_has_data = False
     for label, color, selector in plot_group:
         entry_df = get_df_for_entry(x_key, df, selector)
