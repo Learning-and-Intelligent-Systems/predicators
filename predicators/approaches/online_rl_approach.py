@@ -185,7 +185,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         for nsrt in self._nsrts:
             assert nsrt.option_vars == nsrt.parameters
 
-        num_place_on_bumpy_actions = 1.0
+        num_place_on_bumpy_actions = 0.0
 
         # Now, loop thru newly-collected trajectories and add their
         # corresponding transitions to the replay buffer.
@@ -194,7 +194,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         num_positive_trajs = 0
         for seg_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
-            for segment in seg_traj:
+            for i, segment in enumerate(seg_traj):
                 init_ll_state = segment.trajectory.states[0]
                 final_ll_state = segment.trajectory.states[-1]
                 init_maple_state = env_state_to_maple_input(init_ll_state)
@@ -210,16 +210,13 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 maple_action = np.concatenate(
                     (discrete_action, continuous_action), axis=0)
                 reward = self.get_reward(segment)
-                terminal = 0.0
-                # TODO: this current implementation of the terminal function is bad and a HACK that won't work
-                # if we change the reward function.
+                terminal = False
+
                 if reward == 1.0:
-                    terminal = 1.0
                     num_positive_trajs += 1
 
-                if discrete_action[-2] == 1.0:
-                    num_place_on_bumpy_actions += 1
-                    import ipdb; ipdb.set_trace()
+                if i == len(seg_traj) - 1:
+                    terminal = True
 
                 self._replay_buffer.add_sample(init_maple_state, maple_action,
                                                reward, terminal,

@@ -133,17 +133,29 @@ class MAPLEExplorer(BaseExplorer):
             nonlocal self, curr_ground_option, train_task_idx, num_curr_option_steps, curr_option_policy, curr_action_policy, rand_val
             # Get the current task goal.
             curr_goal = self._train_tasks[train_task_idx].goal
-            # Use the random value to determine whether we're using MAPLE or
-            # the planner to generate actions.
-            if rand_val < 0.75:            
+            # Use the random value to determine whether we're using 
+            # the planner to generate actions, or just taking random actions.
+            if rand_val < 1.01:            
                 if curr_action_policy is None:
                     curr_action_policy = self._get_action_policy_using_bilevel_planner(Task(state, curr_goal))
                 return curr_action_policy(state)
-            curr_ground_option = self._get_option_from_maple(state, curr_goal)
+
+            # curr_ground_option = self._get_option_from_maple(state, curr_goal)
+            # if not curr_ground_option.initiable(state):
+            #         raise utils.OptionExecutionFailure(
+            #             "Unsound option policy.",
+            #             info={"last_failed_option": curr_ground_option})
+
+            # We select a random ground nsrt, and obtain a random sample.
+            ground_nsrt = self._rng.choice(self._ground_nsrts)
+            option_continuous_params = ground_nsrt.option.params_space.sample()
+            curr_ground_option = ground_nsrt.option.ground(ground_nsrt.option_objs, option_continuous_params)
             if not curr_ground_option.initiable(state):
-                    raise utils.OptionExecutionFailure(
-                        "Unsound option policy.",
-                        info={"last_failed_option": curr_ground_option})
+                num_curr_option_steps = 0
+                raise utils.OptionExecutionFailure(
+                    "Unsound option policy.",
+                    info={"last_failed_option": curr_ground_option})
+
             return curr_ground_option.policy(state)
             
             # if curr_option_policy is None:
