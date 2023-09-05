@@ -195,7 +195,7 @@ def test_sticky_table():
 
     # Test picking from the floor.
     assert OnFloor([cube]).holds(state)
-    # Picks that should fail.
+    # Picks should fail.
     cube_size = state.get(cube, "size")
     cube_x = state.get(cube, "x") + cube_size / 2
     cube_y = state.get(cube, "y") + cube_size / 2
@@ -205,8 +205,15 @@ def test_sticky_table():
     next_state = env.simulate(
         state, Action(np.array([cube_x, cube_y - 1e-5], dtype=np.float32)))
     assert OnFloor([cube]).holds(next_state)
-    # Pick that should succeed.
+    # Pick should succeed.
     next_state = env.simulate(
         state,
         Action(np.array([cube_x + 1e-5, cube_y + 1e-5], dtype=np.float32)))
     assert not OnFloor([cube]).holds(next_state)
+
+    # Picking too far away should fail.
+    assert OnFloor([cube]).holds(state)
+    act_arr = np.array([cube_x + 1000, cube_y], dtype=np.float32)
+    act_arr = np.clip(act_arr, env.action_space.low, env.action_space.high)
+    next_state = env.simulate(state, Action(act_arr))
+    assert OnFloor([cube]).holds(next_state)
