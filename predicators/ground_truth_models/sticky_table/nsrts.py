@@ -8,7 +8,6 @@ from predicators.envs.sticky_table import StickyTableEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
-from predicators.utils import null_sampler
 
 
 class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
@@ -16,7 +15,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"sticky_table"}
+        return {"sticky_table", "sticky_table_tricky_floor"}
 
     @staticmethod
     def get_nsrts(env_name: str, types: Dict[str, Type],
@@ -57,9 +56,24 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, []),
         }
 
+        def pick_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object]) -> Array:
+            # Sample within ball around center of the object.
+            del goal  # unused
+            cube = objs[0]
+            cube_x = state.get(cube, "x")
+            cube_y = state.get(cube, "y")
+            cube_size = state.get(cube, "size")
+            dist = rng.uniform(0, cube_size / 4)
+            theta = rng.uniform(0, 2 * np.pi)
+            x = cube_x + dist * np.cos(theta)
+            y = cube_y + dist * np.sin(theta)
+            return np.array([x, y], dtype=np.float32)
+
         pickfromtable_nsrt = NSRT("PickFromTable", parameters,
                                   preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, null_sampler)
+                                  set(), option, option_vars, pick_sampler)
         nsrts.add(pickfromtable_nsrt)
 
         # PickFromFloor
@@ -78,7 +92,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         pickfromfloor_nsrt = NSRT("PickFromFloor", parameters,
                                   preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, null_sampler)
+                                  set(), option, option_vars, pick_sampler)
         nsrts.add(pickfromfloor_nsrt)
 
         # PlaceOnTable

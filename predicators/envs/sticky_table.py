@@ -85,8 +85,7 @@ class StickyTableEnv(BaseEnv):
         if hand_empty:
             # Fail sometimes.
             if self._noise_rng.uniform() < self._pick_success_prob:
-                rect = self._object_to_geom(cube, state)
-                if rect.contains_point(act_x, act_y):
+                if self._action_grasps_object(act_x, act_y, cube, state):
                     next_state.set(cube, "held", 1.0)
         # Placing logic.
         else:
@@ -120,6 +119,11 @@ class StickyTableEnv(BaseEnv):
                     next_state.set(cube, "x", act_x)
                     next_state.set(cube, "y", act_y)
         return next_state
+
+    def _action_grasps_object(self, act_x: float, act_y: float, cube: Object,
+                              state: State) -> bool:
+        rect = self._object_to_geom(cube, state)
+        return rect.contains_point(act_x, act_y)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
@@ -294,3 +298,34 @@ class StickyTableEnv(BaseEnv):
         dist = radius + rng.uniform(radius / 10, radius / 4)
         theta = rng.uniform(0, 2 * np.pi)
         return (x + dist * np.cos(theta), y + dist * np.sin(theta))
+
+
+class StickyTableTrickyFloorEnv(StickyTableEnv):
+    """Variation where picking from the floor is the only thing that can be
+    improved through sampler learning.
+
+    Placing on the table is still noisy, but inherently so.
+    """
+
+    sticky_surface_mode = "whole"  # the 'sticky' table is sticky everywhere
+
+    @property
+    def _place_sticky_fall_prob(self) -> float:
+        return CFG.sticky_table_tricky_floor_place_sticky_fall_prob
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "sticky_table_tricky_floor"
+
+    def _action_grasps_object(self, act_x: float, act_y: float, cube: Object,
+                              state: State) -> bool:
+        if not super()._action_grasps_object(act_x, act_y, cube, state):
+            return False
+        # If the cube is on the floor, make it harder to grasp.
+        if not self._OnFloor_holds(state, [cube]):
+            return True
+        # Specifically, only succeed if grasp is in upper-right quadrant with
+        # respect to the cube's center.
+        cube_x = state.get(cube, "x")
+        cube_y = state.get(cube, "y")
+        return act_x > cube_x and act_y > cube_y
