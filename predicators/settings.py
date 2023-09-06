@@ -330,7 +330,7 @@ class GlobalSettings:
     sticky_table_tricky_floor_place_sticky_fall_prob = 0.5
 
     # grid row env parameters
-    grid_row_num_cells = 250
+    grid_row_num_cells = 100
 
     # parameters for random options approach
     random_options_max_tries = 100

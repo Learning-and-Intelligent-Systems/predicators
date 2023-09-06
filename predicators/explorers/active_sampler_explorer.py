@@ -123,8 +123,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             # If we've just reached the preconditions for next_practice_nsrt,
             # then immediately execute it.
             if next_practice_nsrt is not None and all(
-                a.holds(state) for a in next_practice_nsrt.preconditions
-            ):
+                    a.holds(state) for a in next_practice_nsrt.preconditions):
                 g: Set[GroundAtom] = set()  # goal assumed unused
                 logging.info(
                     f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
