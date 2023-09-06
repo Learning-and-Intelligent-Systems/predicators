@@ -30,8 +30,6 @@ ENVS:
     NAME: "grid_row"
   sticky_table:
     NAME: "sticky_table"
-  sticky_table_tricky_floor:
-    NAME: "sticky_table_tricky_floor"
   # regional_bumpy_cover:
   #   NAME: "regional_bumpy_cover"
   #   FLAGS:
