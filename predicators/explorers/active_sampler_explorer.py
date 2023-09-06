@@ -99,8 +99,6 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Need to wait for policy to get called to "see" the train task.
             self._seen_train_task_idxs.add(train_task_idx)
 
-            atoms = utils.abstract(state, self._predicates)
-
             if using_random:
                 logging.info("[Explorer] Using random option policy.")
                 return self._get_random_option(state)
@@ -124,8 +122,9 @@ class ActiveSamplerExplorer(BaseExplorer):
 
             # If we've just reached the preconditions for next_practice_nsrt,
             # then immediately execute it.
-            if next_practice_nsrt is not None and \
-                next_practice_nsrt.preconditions.issubset(atoms):
+            if next_practice_nsrt is not None and all(
+                a.holds(state) for a in next_practice_nsrt.preconditions
+            ):
                 g: Set[GroundAtom] = set()  # goal assumed unused
                 logging.info(
                     f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
@@ -266,16 +265,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         nsrt = self._last_executed_nsrt
         if nsrt is None:
             return
-        atoms = utils.abstract(state, self._predicates)
         # NOTE: checking just the add effects doesn't work in general, but
         # is probably fine for now. The right thing to do here is check
         # the necessary atoms, which we will compute with a utility function
         # and then use in a forthcoming PR.
-        success = nsrt.add_effects.issubset(atoms)
+        success = all(a.holds(state) for a in nsrt.add_effects)
         logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
         logging.info(f"[Explorer]   outcome: {success}")
-        if not success:
-            logging.info(f"[Explorer]   missing: {nsrt.add_effects - atoms}")
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
