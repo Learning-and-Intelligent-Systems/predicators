@@ -19,8 +19,8 @@ from predicators.ml_models import ConcatMLP
 from predicators.rl.policies import MakeDeterministic, PAMDPPolicy
 from predicators.rl.rl_utils import EnvReplayBuffer, \
     env_state_to_maple_input, make_executable_maple_policy, \
-    np_to_pytorch_batch
-from predicators.rl.training_functions import SACHybridTrainer
+    make_executable_qfunc_only_policy, np_to_pytorch_batch
+from predicators.rl.training_functions import SACHybridOnlyQTrainer
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Array, Dataset, GroundAtom, \
     InteractionResult, LowLevelTrajectory, Metrics, NSRTSampler, Object, \
@@ -155,7 +155,10 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 output_size=1,
                 hidden_sizes=CFG.online_rl_qnetwork_hidden_sizes,
             )
-            self._trainer_function = SACHybridTrainer(
+            # NOTE: Even though we pass in a policy here, it's not actually trained
+            # or used.
+            # TODO: in future, get rid of this policy entirely...
+            self._trainer_function = SACHybridOnlyQTrainer(
                 env_action_space=curr_env.action_space,
                 policy=self._learned_policy,
                 qf1=self._qf1,
@@ -184,8 +187,6 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
         for nsrt in self._nsrts:
             assert nsrt.option_vars == nsrt.parameters
-
-        num_place_on_bumpy_actions = 0.0
 
         # Now, loop thru newly-collected trajectories and add their
         # corresponding transitions to the replay buffer.
@@ -231,8 +232,6 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         logging.info(
             f"{num_positive_trajs} goal-achieving trajectories out of {len(new_trajs)}"
         )
-        logging.info(f"{num_place_on_bumpy_actions} place onto bumpy actions")
-        import ipdb; ipdb.set_trace()
 
         # Call training on data from the updated replay buffer.
         self._train()
@@ -245,7 +244,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         # Geometrically increase the length of exploration.
         b = CFG.active_sampler_learning_explore_length_base
         # b * 5 * (1 + self._online_learning_cycle
-        max_steps = 5 #b**(1 + self._online_learning_cycle)
+        max_steps = 5  #b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
         explorer = create_explorer(
             CFG.explorer,
@@ -277,9 +276,15 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             logging.info(train_stats)
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        eval_policy = MakeDeterministic(self._learned_policy)
-        return make_executable_maple_policy(eval_policy,
-                                            self._sorted_ground_nsrts,
-                                            self._observation_size,
-                                            self._discrete_actions_size,
-                                            self._continuous_actions_size)
+        # eval_policy = MakeDeterministic(self._learned_policy)
+        # return make_executable_maple_policy(eval_policy,
+        #                                     self._sorted_ground_nsrts,
+        #                                     self._observation_size,
+        #                                     self._discrete_actions_size,
+        #                                     self._continuous_actions_size)
+
+        return make_executable_qfunc_only_policy(
+            self._qf1, self._qf2, self._sorted_ground_nsrts,
+            self._ground_nsrt_to_idx, self._observation_size,
+            self._discrete_actions_size, self._continuous_actions_size,
+            self._get_current_predicates(), task.goal, self._rng)

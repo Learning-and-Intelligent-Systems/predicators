@@ -631,3 +631,210 @@ class SACHybridTrainer(SACTrainer):
         else:
             self.target_entropy_s = config['later_s']
             self.target_entropy_p = config['later_p']
+
+
+class SACHybridOnlyQTrainer(SACHybridTrainer):
+
+    def __init__(
+        self,
+        env_action_space,
+        policy,
+        qf1,
+        qf2,
+        target_qf1,
+        target_qf2,
+        discount=0.99,
+        reward_scale=1.0,
+        policy_lr=1e-3,
+        qf_lr=1e-3,
+        optimizer_class=optim.Adam,
+        soft_target_tau=1e-2,
+        target_update_period=1,
+        plotter=None,
+        render_eval_paths=False,
+        use_automatic_entropy_tuning=True,
+        target_entropy=None,
+        target_entropy_s=None,
+        target_entropy_p=None,
+        target_entropy_config=None,
+    ):
+        super().__init__(
+            env_action_space=env_action_space,
+            policy=policy,
+            qf1=qf1,
+            qf2=qf2,
+            target_qf1=target_qf1,
+            target_qf2=target_qf2,
+            discount=discount,
+            reward_scale=reward_scale,
+            policy_lr=policy_lr,
+            qf_lr=qf_lr,
+            optimizer_class=optimizer_class,
+            soft_target_tau=soft_target_tau,
+            target_update_period=target_update_period,
+            plotter=plotter,
+            render_eval_paths=render_eval_paths,
+            use_automatic_entropy_tuning=use_automatic_entropy_tuning,
+            target_entropy=target_entropy,
+            target_entropy_config=target_entropy_config,
+            target_entropy_p=target_entropy_p,
+            target_entropy_s=target_entropy_s)
+
+    def train_from_torch(self, batch):
+        gt.blank_stamp()
+        losses, stats = self.compute_loss(
+            batch,
+            skip_statistics=False  #not self._need_to_update_eval_statistics,
+        )
+        """
+        Update networks
+        """
+        if self.use_automatic_entropy_tuning:
+            if losses.alpha_s_loss is not None:
+                self.alpha_s_optimizer.zero_grad()
+                losses.alpha_s_loss.backward()
+                self.alpha_s_optimizer.step()
+
+            self.alpha_p_optimizer.zero_grad()
+            losses.alpha_p_loss.backward()
+            self.alpha_p_optimizer.step()
+
+        # Only optimize the Q-functions, not the
+        # policy!
+
+        self.qf1_optimizer.zero_grad()
+        losses.qf1_loss.backward()
+        self.qf1_optimizer.step()
+
+        self.qf2_optimizer.zero_grad()
+        losses.qf2_loss.backward()
+        self.qf2_optimizer.step()
+
+        self._n_train_steps_total += 1
+
+        self.try_update_target_networks()
+        if self._need_to_update_eval_statistics:
+            self.eval_statistics = stats
+            # Compute statistics using only one batch per epoch
+            self._need_to_update_eval_statistics = False
+        gt.stamp('sac training', unique=False)
+        return stats
+
+    def compute_loss(
+        self,
+        batch,
+        skip_statistics=False,
+    ) -> Tuple[SACHybridLosses, OrderedDict]:
+        rewards = batch['rewards']
+        terminals = batch['terminals']
+        obs = batch['observations']
+        actions = batch['actions']
+        next_obs = batch['next_observations']
+        """
+        Alpha Loss only!
+        """
+        dd = self.get_dist_dict(obs, one_hot=self.one_hot)
+        log_pi_s = dd.get('log_pi_s', None)
+        log_pi_p = dd['log_pi_p']
+
+        if self.use_automatic_entropy_tuning:
+            if log_pi_s is not None:
+                alpha_s_loss = -self.log_alpha_s * self.reduce_tensor(
+                    log_pi_s + self.target_entropy_s, dd).detach()
+                alpha_s = self.log_alpha_s.exp()
+            else:
+                alpha_s_loss = None
+                alpha_s = None
+
+            alpha_p_loss = -self.log_alpha_p * self.reduce_tensor(
+                log_pi_p + self.target_entropy_p, dd).detach()
+            alpha_p = self.log_alpha_p.exp()
+        else:
+            if log_pi_s is not None:
+                alpha_s_loss = 0
+                alpha_s = 1
+            else:
+                alpha_s_loss = None
+                alpha_s = None
+
+            alpha_p_loss = 0
+            alpha_p = 1
+
+        alpha_log_pi = alpha_p * log_pi_p
+        if log_pi_s is not None:
+            alpha_log_pi += (alpha_s * log_pi_s)
+        """
+        QF Loss
+        """
+        q1_pred = self.qf1(obs, actions)
+        q2_pred = self.qf2(obs, actions)
+        next_dist_dict = self.get_dist_dict(next_obs)
+        new_next_actions = next_dist_dict['actions']
+        new_log_pi_s = next_dist_dict.get('log_pi_s', None)
+        new_log_pi_p = next_dist_dict['log_pi_p']
+        target_q_values = torch.min(
+            self.target_qf1(next_obs, new_next_actions),
+            self.target_qf2(next_obs, new_next_actions),
+        )
+        target_q_values = target_q_values - (alpha_p * new_log_pi_p)
+        if new_log_pi_s is not None:
+            target_q_values -= (alpha_s * new_log_pi_s)
+
+        q_target = self.reward_scale * rewards + (
+            1. - terminals) * self.discount * target_q_values
+        qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
+        qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
+        """
+        Save some statistics for eval
+        """
+        eval_statistics = OrderedDict()
+        if not skip_statistics:
+            dd = self.get_dist_dict(obs)
+
+            eval_statistics['QF1 Loss'] = np.mean(rtu.to_numpy(qf1_loss))
+            eval_statistics['QF2 Loss'] = np.mean(rtu.to_numpy(qf2_loss))
+            eval_statistics.update(
+                rtu.create_stats_ordered_dict(
+                    'Q1 Predictions',
+                    rtu.to_numpy(q1_pred),
+                ))
+            eval_statistics.update(
+                rtu.create_stats_ordered_dict(
+                    'Q2 Predictions',
+                    rtu.to_numpy(q2_pred),
+                ))
+            eval_statistics.update(
+                rtu.create_stats_ordered_dict(
+                    'Q Targets',
+                    rtu.to_numpy(q_target),
+                ))
+
+            if 'log_pi_s' in dd:
+                eval_statistics.update(
+                    rtu.create_stats_ordered_dict(
+                        'Log Pis S',
+                        rtu.to_numpy(dd['log_pi_s']),
+                    ))
+            eval_statistics.update(
+                rtu.create_stats_ordered_dict(
+                    'Log Pis P',
+                    rtu.to_numpy(dd['log_pi_p']),
+                ))
+
+            if self.use_automatic_entropy_tuning:
+                if 'log_pi_s' in dd:
+                    eval_statistics['Alpha S'] = alpha_s.item()
+                    eval_statistics['Alpha S Loss'] = alpha_s_loss.item()
+
+                eval_statistics['Alpha P'] = alpha_p.item()
+                eval_statistics['Alpha P Loss'] = alpha_p_loss.item()
+
+        loss = SACHybridLosses(
+            policy_loss=None,
+            qf1_loss=qf1_loss,
+            qf2_loss=qf2_loss,
+            alpha_s_loss=alpha_s_loss,
+            alpha_p_loss=alpha_p_loss,
+        )
+
+        return loss, eval_statistics

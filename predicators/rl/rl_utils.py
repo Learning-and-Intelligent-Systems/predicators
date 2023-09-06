@@ -8,7 +8,7 @@ import abc
 import logging
 from collections import OrderedDict
 from numbers import Number
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Set
 
 import numpy as np
 import torch
@@ -16,7 +16,8 @@ from gym.spaces import Box, Discrete, Tuple
 
 from predicators import utils
 from predicators.settings import CFG
-from predicators.structs import Action, Array, State, _GroundNSRT, _Option
+from predicators.structs import Action, Array, GroundAtom, Predicate, State, \
+    _GroundNSRT, _Option
 
 
 def add_prefix(log_dict: OrderedDict, prefix: str, divider=''):
@@ -658,7 +659,7 @@ def get_ground_nsrt_and_params_from_maple(
     continuous_params_for_option = np.clip(
         continuous_params_for_option, ground_nsrt.option.params_space.low,
         ground_nsrt.option.params_space.high)
-    
+
     # if all(continuous_params_for_option != unclipped_params):
     #     import ipdb; ipdb.set_trace()
 
@@ -706,3 +707,83 @@ def make_executable_maple_policy(
         return curr_option.policy(state)
 
     return _rollout_rl_policy
+
+
+def make_executable_qfunc_only_policy(qf1, qf2,
+                                      ground_nsrts: List[_GroundNSRT],
+                                      ground_nsrt_to_idx: Dict[_GroundNSRT,
+                                                               int],
+                                      observation_size: int,
+                                      discrete_actions_size: int,
+                                      continuous_actions_size: int,
+                                      predicates: Set[Predicate],
+                                      goal: Set[GroundAtom],
+                                      rng) -> Callable[[State], Action]:
+
+    curr_option = None
+    num_curr_option_steps = 0
+
+    def _rollout_policy_based_on_qfunc(state: State) -> Action:
+        """This function comes up with an action by:
+        1. Abstracting state
+        2. Finding the set of ground nsrts whose preconditions hold in this state
+        3. For each of these ground NSRTs, taking a fixed number of samples from the base sampler
+        4. Scoring all of these according to the learned q-function
+        5. Picking the ground NSRT and sample with the greatest q-value. This is turned into an
+        option.
+
+        If the current option is not None, we just continue taking actions from that option.
+        """
+        nonlocal qf1, qf2, curr_option, num_curr_option_steps, observation_size,\
+            discrete_actions_size, continuous_actions_size, predicates, goal, rng
+
+        max_q_val = -float('inf')
+        max_q_val_option = None
+
+        if curr_option is None or (curr_option is not None
+                                   and curr_option.terminal(state)):
+            curr_atoms = utils.abstract(state, predicates)
+            all_applicable_ground_nsrts = sorted(
+                list(utils.get_applicable_operators(ground_nsrts, curr_atoms)))
+            state_vec = torch.from_numpy(env_state_to_maple_input(state)).type(torch.float32)
+            for ground_nsrt in all_applicable_ground_nsrts:
+                samples = [
+                    ground_nsrt._sampler(state, goal, rng, ground_nsrt.objects)
+                    for _ in range(CFG.active_sampler_learning_num_samples)
+                ]
+                for sample in samples:
+                    discrete_action = np.zeros(discrete_actions_size)
+                    discrete_action[ground_nsrt_to_idx[ground_nsrt]] = 1.0
+                    continuous_action = np.zeros(continuous_actions_size)
+                    continuous_action[:ground_nsrt.option.params_space.
+                                      shape[0]] = np.array(sample)
+                    maple_action = np.concatenate(
+                        (discrete_action, continuous_action), axis=0)
+                    q_val = torch.min(
+                        qf1(state_vec.unsqueeze(0), torch.from_numpy(maple_action).unsqueeze(0).type(torch.float32)),
+                        qf2(state_vec.unsqueeze(0), torch.from_numpy(maple_action).unsqueeze(0).type(torch.float32)),
+                    ).item()
+                    if q_val > max_q_val:
+                        max_q_val = q_val
+                        max_q_val_option = ground_nsrt.option.ground(
+                            ground_nsrt.option_objs, sample)
+            curr_option = max_q_val_option
+            logging.info(f"Running option {curr_option}")
+
+            if not curr_option.initiable(state):
+                num_curr_option_steps = 0
+                raise utils.OptionExecutionFailure(
+                    "Unsound option policy.",
+                    info={"last_failed_option": curr_option})
+
+        if CFG.max_num_steps_option_rollout is not None and \
+            num_curr_option_steps >= CFG.max_num_steps_option_rollout:
+            raise utils.OptionTimeoutFailure(
+                "Exceeded max option steps.",
+                info={"last_failed_option": curr_option})
+
+        num_curr_option_steps += 1
+
+        return curr_option.policy(state)
+
+    return _rollout_policy_based_on_qfunc
