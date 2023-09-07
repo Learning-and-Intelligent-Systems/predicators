@@ -1,0 +1,29 @@
+# Sanity test for online RL approach.
+---
+APPROACHES:
+  online_rl_basic:
+    NAME: "online_rl"
+    FLAGS:
+      explorer: "maple_explorer"
+ENVS:
+  regional_bumpy_cover:
+    NAME: "regional_bumpy_cover"
+    FLAGS:
+      regional_bumpy_cover_include_impossible_nsrt: "True"
+      bumpy_cover_num_bumps: 3
+      bumpy_cover_spaces_per_bump: 3
+      bumpy_cover_init_bumpy_prob: 0.0
+      cover_num_blocks: 1
+      cover_block_widths: '[0.01]'
+      cover_num_targets: 1
+      cover_target_widths: '[0.008]'
+ARGS:
+  - "debug"
+FLAGS:
+  strips_learner: "oracle"
+  sampler_learner: "oracle"
+  bilevel_plan_without_sim: "True"
+  online_nsrt_learning_requests_per_cycle: 200
+  num_online_learning_cycles: 20
+START_SEED: 456
+NUM_SEEDS: 5
