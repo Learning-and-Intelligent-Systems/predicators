@@ -193,6 +193,7 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
         num_positive_trajs = 0
+        num_impossible_pick_place_trajs = 0
         for seg_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             for i, segment in enumerate(seg_traj):
@@ -216,6 +217,14 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 if reward == 1.0:
                     num_positive_trajs += 1
 
+                # if 'ImpossiblePickPlace' in nsrt.name:
+                #     num_impossible_pick_place_trajs += 1
+
+                #     for seg in seg_traj:
+                #         print(seg.get_option().name)
+                #         print(self.get_reward(seg))
+                #     import ipdb; ipdb.set_trace()
+
                 if i == len(seg_traj) - 1:
                     terminal = True
 
@@ -223,15 +232,16 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                                                reward, terminal,
                                                final_maple_state)
 
-                # if np.allclose(init_maple_state, np.array([1.0, 0.0, 0.01, 0.90651945, -1.0, 1.0, 0.5, 1.35, 0.65, 0.0, 1.0, 0.008, 0.66038981]), rtol=0.1):
-                # if not ground_nsrt.option.params_space.contains(continuous_action.astype(np.float32)):
-                #     import ipdb; ipdb.set_trace()
+                
 
-                if terminal == 1.0:
-                    break
         logging.info(
             f"{num_positive_trajs} goal-achieving trajectories out of {len(new_trajs)}"
         )
+        # logging.info(
+        #     f"{num_impossible_pick_place_trajs} instances of impossible pick-place {len(new_trajs)}"
+        # )
+
+        import ipdb; ipdb.set_trace()
 
         # Call training on data from the updated replay buffer.
         self._train()
@@ -257,7 +267,9 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             self._option_model,
             max_steps_before_termination=max_steps,
             ground_nsrts=self._sorted_ground_nsrts,
-            exploration_policy=self._learned_policy,
+            qf1=self._qf1,
+            qf2=self._qf2,
+            ground_nsrt_to_idx=self._ground_nsrt_to_idx,
             observations_size=self._observation_size,
             discrete_actions_size=self._discrete_actions_size,
             continuous_actions_size=self._continuous_actions_size)
@@ -276,15 +288,10 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
             logging.info(train_stats)
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        # eval_policy = MakeDeterministic(self._learned_policy)
-        # return make_executable_maple_policy(eval_policy,
-        #                                     self._sorted_ground_nsrts,
-        #                                     self._observation_size,
-        #                                     self._discrete_actions_size,
-        #                                     self._continuous_actions_size)
-
+        # We return an executable policy that only uses the learned Q-functions
+        # and sets epsilon for exploration to 0.0.
         return make_executable_qfunc_only_policy(
             self._qf1, self._qf2, self._sorted_ground_nsrts,
             self._ground_nsrt_to_idx, self._observation_size,
             self._discrete_actions_size, self._continuous_actions_size,
-            self._get_current_predicates(), task.goal, self._rng)
+            self._get_current_predicates(), task.goal, self._rng, 0.0)

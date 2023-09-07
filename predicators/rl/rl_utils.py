@@ -718,7 +718,8 @@ def make_executable_qfunc_only_policy(qf1, qf2,
                                       continuous_actions_size: int,
                                       predicates: Set[Predicate],
                                       goal: Set[GroundAtom],
-                                      rng) -> Callable[[State], Action]:
+                                      rng: np.random.Generator,
+                                      epsilon: float) -> Callable[[State], Action]:
 
     curr_option = None
     num_curr_option_steps = 0
@@ -733,6 +734,8 @@ def make_executable_qfunc_only_policy(qf1, qf2,
         option.
 
         If the current option is not None, we just continue taking actions from that option.
+
+        Note that with probability epsilon, we sample a random option instead of the best one.
         """
         nonlocal qf1, qf2, curr_option, num_curr_option_steps, observation_size,\
             discrete_actions_size, continuous_actions_size, predicates, goal, rng
@@ -746,12 +749,15 @@ def make_executable_qfunc_only_policy(qf1, qf2,
             all_applicable_ground_nsrts = sorted(
                 list(utils.get_applicable_operators(ground_nsrts, curr_atoms)))
             state_vec = torch.from_numpy(env_state_to_maple_input(state)).type(torch.float32)
+            randomly_chosen_nsrt = rng.choice(all_applicable_ground_nsrts)
+            randomly_chosen_sample_idx = rng.choice(CFG.active_sampler_learning_num_samples)
+            randomly_chosen_option = None
             for ground_nsrt in all_applicable_ground_nsrts:
                 samples = [
                     ground_nsrt._sampler(state, goal, rng, ground_nsrt.objects)
                     for _ in range(CFG.active_sampler_learning_num_samples)
                 ]
-                for sample in samples:
+                for i, sample in enumerate(samples):
                     discrete_action = np.zeros(discrete_actions_size)
                     discrete_action[ground_nsrt_to_idx[ground_nsrt]] = 1.0
                     continuous_action = np.zeros(continuous_actions_size)
@@ -763,12 +769,25 @@ def make_executable_qfunc_only_policy(qf1, qf2,
                         qf1(state_vec.unsqueeze(0), torch.from_numpy(maple_action).unsqueeze(0).type(torch.float32)),
                         qf2(state_vec.unsqueeze(0), torch.from_numpy(maple_action).unsqueeze(0).type(torch.float32)),
                     ).item()
+
                     if q_val > max_q_val:
                         max_q_val = q_val
                         max_q_val_option = ground_nsrt.option.ground(
                             ground_nsrt.option_objs, sample)
+                        
+                    if ground_nsrt == randomly_chosen_nsrt and i == randomly_chosen_sample_idx:
+                        randomly_chosen_option = ground_nsrt.option.ground(ground_nsrt.option_objs, sample)
+
+                    # Debugging
+                    # print(f"Option: {ground_nsrt.option.ground(ground_nsrt.option_objs, sample)}, with q-val {q_val}")
+
             curr_option = max_q_val_option
+
+            if rng.random() < epsilon:
+                curr_option = randomly_chosen_option
+
             logging.info(f"Running option {curr_option}")
+            # import ipdb; ipdb.set_trace()
 
             if not curr_option.initiable(state):
                 num_curr_option_steps = 0

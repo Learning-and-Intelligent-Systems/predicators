@@ -40,7 +40,7 @@ def create_explorer(
         nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
         seen_train_task_idxs: Optional[Set[int]] = None,
         ground_nsrts: Optional[List[_GroundNSRT]] = None,
-        exploration_policy: Optional[TorchStochasticPolicy] = None,
+        qf1 = None, qf2 = None, ground_nsrt_to_idx: Optional[Dict[_GroundNSRT, int]] = None,
         observations_size: Optional[int] = None,
         discrete_actions_size: Optional[int] = None,
         continuous_actions_size: Optional[int] = None) -> BaseExplorer:
@@ -101,10 +101,13 @@ def create_explorer(
                 assert observations_size is not None
                 assert discrete_actions_size is not None
                 assert continuous_actions_size is not None
+                assert qf1 is not None
+                assert qf2 is not None
+                assert ground_nsrt_to_idx is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks,
                                max_steps_before_termination, ground_nsrts,
-                               nsrts, exploration_policy, observations_size,
+                               nsrts, qf1, qf2, ground_nsrt_to_idx, observations_size,
                                discrete_actions_size, continuous_actions_size)
             else:
                 explorer = cls(initial_predicates, initial_options, types,
