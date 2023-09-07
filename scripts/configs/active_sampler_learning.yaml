@@ -55,6 +55,7 @@ FLAGS:
   strips_learner: "oracle"
   sampler_learner: "oracle"
   bilevel_plan_without_sim: "True"
+  execution_monitor: "expected_atoms"
   max_initial_demos: 0
   sampler_mlp_classifier_max_itr: 100000
   mlp_classifier_balance_data: False
