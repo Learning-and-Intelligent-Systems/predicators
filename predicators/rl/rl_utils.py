@@ -742,47 +742,56 @@ def make_executable_qfunc_only_policy(qf1, qf2,
 
         max_q_val = -float('inf')
         max_q_val_option = None
+        batch_size = CFG.active_sampler_learning_num_samples
 
         if curr_option is None or (curr_option is not None
                                    and curr_option.terminal(state)):
             curr_atoms = utils.abstract(state, predicates)
             all_applicable_ground_nsrts = sorted(
                 list(utils.get_applicable_operators(ground_nsrts, curr_atoms)))
-            state_vec = torch.from_numpy(env_state_to_maple_input(state)).type(torch.float32)
+            states_vec = np.tile(env_state_to_maple_input(state), (batch_size, 1))
+            torch_states_vec = torch.from_numpy(states_vec).type(torch.float32)
             randomly_chosen_nsrt = rng.choice(all_applicable_ground_nsrts)
-            randomly_chosen_sample_idx = rng.choice(CFG.active_sampler_learning_num_samples)
+            randomly_chosen_sample_idx = rng.choice(batch_size)
             randomly_chosen_option = None
+            # NOTE: currently, we for loop through all ground nsrts, but this might
+            # get very inefficient if there are a lot of ground nsrts to consider.
+            # We could vectorize this and completely get rid of the for loop
+            # if necessary.
             for ground_nsrt in all_applicable_ground_nsrts:
-                samples = [
+                discrete_actions = np.zeros((batch_size, discrete_actions_size))
+                discrete_actions[:, ground_nsrt_to_idx[ground_nsrt]] = 1.0
+                continuous_actions = np.zeros((batch_size, continuous_actions_size))
+                samples = np.array([
                     ground_nsrt._sampler(state, goal, rng, ground_nsrt.objects)
-                    for _ in range(CFG.active_sampler_learning_num_samples)
-                ]
-                for i, sample in enumerate(samples):
-                    discrete_action = np.zeros(discrete_actions_size)
-                    discrete_action[ground_nsrt_to_idx[ground_nsrt]] = 1.0
-                    continuous_action = np.zeros(continuous_actions_size)
-                    continuous_action[:ground_nsrt.option.params_space.
-                                      shape[0]] = np.array(sample)
-                    maple_action = np.concatenate(
-                        (discrete_action, continuous_action), axis=0)
-                    q_val = torch.min(
-                        qf1(state_vec.unsqueeze(0), torch.from_numpy(maple_action).unsqueeze(0).type(torch.float32)),
-                        qf2(state_vec.unsqueeze(0), torch.from_numpy(maple_action).unsqueeze(0).type(torch.float32)),
-                    ).item()
+                    for _ in range(batch_size)
+                ])
+                continuous_actions[:, :ground_nsrt.option.params_space.
+                                      shape[0]] = samples
+                maple_actions = np.concatenate((discrete_actions, continuous_actions), axis=1)
+                torch_maple_actions = torch.from_numpy(maple_actions).type(torch.float32)
+                qf1_outputs = qf1(torch_states_vec, torch_maple_actions)
+                qf2_outputs = qf2(torch_states_vec, torch_maple_actions)
+                # We take the pairwise minimum of each prediction from qf1
+                # and qf2. We then take the maximum of all these predicitons. 
+                min_pred_q_vals = torch.minimum(qf1_outputs, qf2_outputs)
+                curr_nsrt_max_q_val, curr_nsrt_max_q_idx = torch.max(min_pred_q_vals, dim=0)
+                # We now check whether the max q value is greater than our running
+                # maximum, and if so, we update the running maximum, as well as
+                # the corresponding ground nsrt.
+                if curr_nsrt_max_q_val.item() > max_q_val:
+                    max_q_val = curr_nsrt_max_q_val.item()
+                    max_q_val_continuous_params = samples[curr_nsrt_max_q_idx.item(), :]
+                    max_q_val_option = ground_nsrt.option.ground(
+                            ground_nsrt.option_objs, max_q_val_continuous_params)
+                # If the current ground nsrt is the randomly chosen one, then
+                # make the randomly_chosen_option accordingly.
+                if ground_nsrt == randomly_chosen_nsrt:
+                    randomly_chosen_option = ground_nsrt.option.ground(ground_nsrt.option_objs, samples[randomly_chosen_sample_idx, :])
 
-                    if q_val > max_q_val:
-                        max_q_val = q_val
-                        max_q_val_option = ground_nsrt.option.ground(
-                            ground_nsrt.option_objs, sample)
-                        
-                    if ground_nsrt == randomly_chosen_nsrt and i == randomly_chosen_sample_idx:
-                        randomly_chosen_option = ground_nsrt.option.ground(ground_nsrt.option_objs, sample)
-
-                    # Debugging
-                    # print(f"Option: {ground_nsrt.option.ground(ground_nsrt.option_objs, sample)}, with q-val {q_val}")
-
+            # We now decide if we're taking the maximum q-value option, or
+            # a randomly chosen one following epsilon-greedy exploration.
             curr_option = max_q_val_option
-
             if rng.random() < epsilon:
                 curr_option = randomly_chosen_option
 
@@ -797,6 +806,8 @@ def make_executable_qfunc_only_policy(qf1, qf2,
 
         if CFG.max_num_steps_option_rollout is not None and \
             num_curr_option_steps >= CFG.max_num_steps_option_rollout:
+            curr_option = None
+            randomly_chosen_option = None
             raise utils.OptionTimeoutFailure(
                 "Exceeded max option steps.",
                 info={"last_failed_option": curr_option})

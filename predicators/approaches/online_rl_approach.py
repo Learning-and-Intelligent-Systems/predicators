@@ -193,7 +193,6 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
         num_positive_trajs = 0
-        num_impossible_pick_place_trajs = 0
         for seg_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             for i, segment in enumerate(seg_traj):
@@ -217,31 +216,22 @@ class OnlineRLApproach(OnlineNSRTLearningApproach):
                 if reward == 1.0:
                     num_positive_trajs += 1
 
-                # if 'ImpossiblePickPlace' in nsrt.name:
-                #     num_impossible_pick_place_trajs += 1
-
-                #     for seg in seg_traj:
-                #         print(seg.get_option().name)
-                #         print(self.get_reward(seg))
-                #     import ipdb; ipdb.set_trace()
-
-                if i == len(seg_traj) - 1:
+                if i == len(seg_traj) - 1 or reward == 1.0:
                     terminal = True
 
                 self._replay_buffer.add_sample(init_maple_state, maple_action,
                                                reward, terminal,
                                                final_maple_state)
-
+                
+                if terminal:
+                    break
                 
 
         logging.info(
             f"{num_positive_trajs} goal-achieving trajectories out of {len(new_trajs)}"
         )
-        # logging.info(
-        #     f"{num_impossible_pick_place_trajs} instances of impossible pick-place {len(new_trajs)}"
-        # )
 
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
 
         # Call training on data from the updated replay buffer.
         self._train()
