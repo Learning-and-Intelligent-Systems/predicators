@@ -62,6 +62,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         c = utils.beta_bernoulli_posterior([], alpha=alpha, beta=beta).mean()
         self._default_cost = -np.log(c)
 
+        # Tasks created through re-planning are added to self._train_tasks.
+        # Their indices are tracked here.
+        self._replan_task_idxs: List[int] = []
+
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler"
@@ -192,6 +196,12 @@ class ActiveSamplerExplorer(BaseExplorer):
                 for goal in generate_goals():
                     task = Task(state, goal)
                     logging.info(f"[Explorer] Replanning to {task.goal}")
+
+                    # Add this task to the re-planning task queue.
+                    new_task_idx = len(self._train_tasks)
+                    self._train_tasks.append(task)
+                    self._replan_task_idxs.append(new_task_idx)
+
                     try:
                         current_policy = self._get_option_policy_for_task(task)
                     # Not covering this case because the intention of this
@@ -362,7 +372,14 @@ class ActiveSamplerExplorer(BaseExplorer):
         max_num_tasks = CFG.active_sampler_explorer_planning_progress_max_tasks
         num_tasks = min(max_num_tasks, len(train_task_idxs))
         train_task_idxs = train_task_idxs[:num_tasks]
-        for train_task_idx in train_task_idxs:
+        # Add up to a certain number of fictitious training tasks that were
+        # created through re-planning. Use the most recent tasks to deal with
+        # the non-stationary distribution.
+        replan_task_idxs = sorted(self._replan_task_idxs)
+        n = CFG.active_sampler_explorer_planning_progress_max_replan_tasks
+        num_replan_tasks = min(n, len(replan_task_idxs))
+        replan_task_idxs = replan_task_idxs[-num_replan_tasks:]
+        for train_task_idx in train_task_idxs + replan_task_idxs:
             plan = self._get_task_plan_for_training_task(
                 train_task_idx, ground_op_costs)
             task_plan_costs = []
