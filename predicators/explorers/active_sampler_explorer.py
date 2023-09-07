@@ -1,6 +1,7 @@
 """An explorer for active sampler learning."""
 
 import logging
+from collections import deque
 from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
@@ -66,7 +67,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._default_cost = -np.log(c)
 
         # Tasks created through re-planning.
-        self._replanning_tasks: List[Task] = []
+        n = CFG.active_sampler_explorer_planning_progress_max_replan_tasks
+        self._replanning_tasks: deque[Task] = deque([], maxlen=n)
 
     @classmethod
     def get_name(cls) -> str:
@@ -375,11 +377,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Add up to a certain number of fictitious training tasks that were
         # created through re-planning. Use the most recent tasks to deal with
         # the non-stationary distribution.
-        replan_task_idxs = list(range(len(self._replanning_tasks)))
-        n = CFG.active_sampler_explorer_planning_progress_max_replan_tasks
-        num_replan_tasks = min(n, len(self._replanning_tasks))
-        replan_task_ids = [("replan", i)
-                           for i in replan_task_idxs[-num_replan_tasks:]]
+        num_replan_tasks = list(range(len(self._replanning_tasks)))
+        replan_task_ids = [("replan", i) for i in range(len(num_replan_tasks))]
         for task_id in train_task_ids + replan_task_ids:
             plan = self._get_task_plan_for_task(task_id, ground_op_costs)
             task_plan_costs = []
