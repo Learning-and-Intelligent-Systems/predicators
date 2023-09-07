@@ -1,7 +1,8 @@
 """Create plots for active sampler learning."""
 
 import os
-from typing import Callable, Sequence, Tuple
+from functools import partial
+from typing import Callable, Dict, Sequence, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -33,16 +34,32 @@ COLUMN_NAMES_AND_KEYS = [
     ("NUM_OPTIONS_EXECUTED", "num_options_executed"),
 ]
 
-DERIVED_KEYS = [
+
+def _derive_per_task_average(metric: str,
+                             row: Dict[str, float],
+                             unsolved_task_penalty: float = 100) -> float:
+    """Add a large constant penalty for unsolved tasks."""
+    total_tasks = int(row["num_test_tasks"])
+    total_options_executed = 0.0
+    for test_task_idx in range(1, total_tasks + 1):
+        key = f"PER_TASK_task{test_task_idx}_{metric}"
+        # Add penalty for tasks that raised an approach failure.
+        if key not in row:
+            total_options_executed += unsolved_task_penalty
+        else:
+            total_options_executed += row[key]
+    # Add penalty for unsolved tasks.
+    num_unsolved_tasks = total_tasks - row["num_solved"]
+    total_options_executed += unsolved_task_penalty * num_unsolved_tasks
+    # Get average.
+    return total_options_executed / total_tasks
+
+
+DERIVED_KEYS: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]] = [
     ("perc_solved", lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
-    ("policy_call_time", lambda r: np.mean([
-        v for k, v in r.items()
-        if k.startswith("PER_TASK") and k.endswith("_exec_time")
-    ])),
-    ("num_options_executed", lambda r: np.mean([
-        v for k, v in r.items()
-        if k.startswith("PER_TASK") and k.endswith("_options_executed")
-    ]))
+    ("policy_call_time", partial(_derive_per_task_average, "exec_time")),
+    ("num_options_executed",
+     partial(_derive_per_task_average, "options_executed")),
 ]
 
 # The first element is the name of the metric that will be plotted on the
