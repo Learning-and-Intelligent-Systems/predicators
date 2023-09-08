@@ -1398,7 +1398,7 @@ class QFunction(MLPRegressor):
 
         # Train once. TODO: maybe train multiple times in a loop, like fitted Q?
         regressor_inputs: List[Array] = []
-        regressor_outputs: List[Array] = []
+        regressor_outputs: List[float] = []
 
         for i in range(len(data)):
             # Get inputs.
