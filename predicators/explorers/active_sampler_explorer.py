@@ -1,7 +1,8 @@
 """An explorer for active sampler learning."""
 
 import logging
-from typing import Callable, Dict, Iterator, List, Optional, Set
+from collections import deque
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -16,6 +17,9 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Action, ExplorationStrategy, \
     GroundAtom, NSRTSampler, ParameterizedOption, Predicate, State, Task, \
     Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
+
+# Helper type to distinguish training tasks from replanning tasks.
+_TaskID = Tuple[str, int]
 
 
 class ActiveSamplerExplorer(BaseExplorer):
@@ -53,14 +57,18 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
-        self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
-        self._task_plan_calls_since_replan: Dict[int, int] = {}
+        self._task_plan_cache: Dict[_TaskID, List[_GroundSTRIPSOperator]] = {}
+        self._task_plan_calls_since_replan: Dict[_TaskID, int] = {}
         self._sorted_options = sorted(options, key=lambda o: o.name)
 
         # Set the default cost for skills.
         alpha, beta = CFG.skill_competence_default_alpha_beta
         c = utils.beta_bernoulli_posterior([], alpha=alpha, beta=beta).mean()
         self._default_cost = -np.log(c)
+
+        # Tasks created through re-planning.
+        n = CFG.active_sampler_explorer_planning_progress_max_replan_tasks
+        self._replanning_tasks: deque[Task] = deque([], maxlen=n)
 
     @classmethod
     def get_name(cls) -> str:
@@ -192,6 +200,10 @@ class ActiveSamplerExplorer(BaseExplorer):
                 for goal in generate_goals():
                     task = Task(state, goal)
                     logging.info(f"[Explorer] Replanning to {task.goal}")
+
+                    # Add this task to the re-planning task queue.
+                    self._replanning_tasks.append(task)
+
                     try:
                         current_policy = self._get_option_policy_for_task(task)
                     # Not covering this case because the intention of this
@@ -361,10 +373,14 @@ class ActiveSamplerExplorer(BaseExplorer):
         train_task_idxs = sorted(self._seen_train_task_idxs)
         max_num_tasks = CFG.active_sampler_explorer_planning_progress_max_tasks
         num_tasks = min(max_num_tasks, len(train_task_idxs))
-        train_task_idxs = train_task_idxs[:num_tasks]
-        for train_task_idx in train_task_idxs:
-            plan = self._get_task_plan_for_training_task(
-                train_task_idx, ground_op_costs)
+        train_task_ids = [("train", i) for i in train_task_idxs[:num_tasks]]
+        # Add up to a certain number of fictitious training tasks that were
+        # created through re-planning. Use the most recent tasks to deal with
+        # the non-stationary distribution.
+        num_replan_tasks = list(range(len(self._replanning_tasks)))
+        replan_task_ids = [("replan", i) for i in range(len(num_replan_tasks))]
+        for task_id in train_task_ids + replan_task_ids:
+            plan = self._get_task_plan_for_task(task_id, ground_op_costs)
             task_plan_costs = []
             for op in plan:
                 op_cost = ground_op_costs.get(op, self._default_cost)
@@ -372,18 +388,22 @@ class ActiveSamplerExplorer(BaseExplorer):
             plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # higher scores are better
 
-    def _get_task_plan_for_training_task(
-        self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
-                                                         float]
+    def _get_task_plan_for_task(
+        self, task_id: _TaskID, ground_op_costs: Dict[_GroundSTRIPSOperator,
+                                                      float]
     ) -> List[_GroundSTRIPSOperator]:
         # Optimization: only re-plan at a certain frequency.
         replan_freq = CFG.active_sampler_explorer_replan_frequency
-        if train_task_idx not in self._task_plan_calls_since_replan or \
-            self._task_plan_calls_since_replan[train_task_idx] >= replan_freq:
-            self._task_plan_calls_since_replan[train_task_idx] = 0
+        if task_id not in self._task_plan_calls_since_replan or \
+            self._task_plan_calls_since_replan[task_id] >= replan_freq:
+            self._task_plan_calls_since_replan[task_id] = 0
             timeout = CFG.timeout
             task_planning_heuristic = CFG.sesame_task_planning_heuristic
-            task = self._train_tasks[train_task_idx]
+            task_type, task_idx = task_id
+            task = {
+                "train": self._train_tasks,
+                "replan": self._replanning_tasks,
+            }[task_type][task_idx]
             plan, _, _ = run_task_plan_once(
                 task,
                 self._nsrts,
@@ -394,10 +414,10 @@ class ActiveSamplerExplorer(BaseExplorer):
                 task_planning_heuristic=task_planning_heuristic,
                 ground_op_costs=ground_op_costs,
                 default_cost=self._default_cost)
-            self._task_plan_cache[train_task_idx] = [n.op for n in plan]
+            self._task_plan_cache[task_id] = [n.op for n in plan]
 
-        self._task_plan_calls_since_replan[train_task_idx] += 1
-        return self._task_plan_cache[train_task_idx]
+        self._task_plan_calls_since_replan[task_id] += 1
+        return self._task_plan_cache[task_id]
 
     def _get_random_option(self, state: State) -> _Option:
         option = utils.sample_applicable_option(self._sorted_options, state,
