@@ -50,6 +50,7 @@ FLAGS:
   num_online_learning_cycles: 20
   num_train_tasks: 1000
   num_test_tasks: 10
+  max_num_steps_interaction_request: 5
   horizon: 2  # NOTE, otherwise too easy
 START_SEED: 456
 NUM_SEEDS: 5
