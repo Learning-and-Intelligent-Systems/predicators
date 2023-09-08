@@ -83,7 +83,8 @@ class MapleQ(OnlineNSRTLearningApproach):
                 scores.append(score)
             # Select the best-scoring candidate.
             idx = np.argmax(scores)
-            return candidates[idx]
+            selected_option = candidates[idx]
+            return selected_option
 
         return utils.option_policy_to_policy(_option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout)
