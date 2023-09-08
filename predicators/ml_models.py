@@ -24,7 +24,7 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
 from predicators import utils
-from predicators.structs import Array, MaxTrainIters, Object, State
+from predicators.structs import Array, MaxTrainIters, Object, State, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1299,3 +1299,29 @@ def _train_pytorch_model(model: nn.Module,
     model.eval()
     logging.info(f"Loaded best model with loss: {best_loss:.5f}")
     return best_loss
+
+
+# TODO add goal
+QFunctionData = List[Tuple[State, _Option, State, float, bool]]
+
+
+class QFunction:
+    """TODO rename, document, probably move."""
+
+    def __init__(self, default_value: float = 0.0):
+        self._model: Optional[MLPRegressor] = None
+        self._default_value = default_value
+
+    def train(self, data: QFunctionData) -> None:
+        """Fit the model."""
+        if not data:
+            return
+        import ipdb; ipdb.set_trace()
+
+    def predict(self, state: State, option: _Option) -> float:
+        """Predict the Q value."""
+        # If not yet trained, return default value.
+        if not self._model:
+            return self._default_value
+
+        import ipdb; ipdb.set_trace()
