@@ -1440,7 +1440,7 @@ class QFunction(MLPRegressor):
         continuous_vec = np.zeros(self._max_num_params)
         continuous_vec[:len(option.params)] = option.params
         # Concatenate.
-        vec = np.concatenate([discrete_vec, continuous_vec], dtype=np.float32)
+        vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
         return vec
 
     def predict_q_value(self, state: State, option: _Option) -> float:

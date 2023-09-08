@@ -470,7 +470,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
                             nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
         # Build targets.
         gamma = CFG.active_sampler_learning_score_gamma
-        num_a_samp = CFG.active_sampler_learning_num_next_option_samples
+        num_a_samp = CFG.q_function_num_lookahead_samples
         targets: List[float] = []
         for _, _, ns, r in nsrt_data:
             # Sample actions to estimate Q in infinite action space.
