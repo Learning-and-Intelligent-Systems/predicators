@@ -51,6 +51,15 @@ class GridRowEnv(BaseEnv):
             Object(f"cell{i}", self._cell_type)
             for i in range(CFG.grid_row_num_cells)
         ]
+        self._cell_to_neighbors = {
+            self._cells[0]: {self._cells[1]},
+            self._cells[-1]: {self._cells[-2]},
+            **{
+                self._cells[t]: {self._cells[t - 1], self._cells[t + 1]}
+                for t in range(1,
+                               len(self._cells) - 1)
+            }
+        }
 
     @classmethod
     def get_name(cls) -> str:
@@ -155,9 +164,13 @@ class GridRowEnv(BaseEnv):
         return not self._LightOn_holds(state, objects)
 
     def _Adjacent_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        # This is a better definition, but since Adjacent is a bottleneck
+        # for speed, we use a hackier and faster definition.
         obj1, obj2 = objects
-        x1 = state.get(obj1, "x")
-        x2 = state.get(obj2, "x")
-        dist = abs(x1 - x2)
-        # Threshold not important because dx is always discrete.
-        return abs(dist - 1.0) < 1e-3
+        # x1 = state.get(obj1, "x")
+        # x2 = state.get(obj2, "x")
+        # dist = abs(x1 - x2)
+        # # Threshold not important because dx is always discrete.
+        # return abs(dist - 1.0) < 1e-3
+        del state  # not used
+        return obj1 in self._cell_to_neighbors[obj2]

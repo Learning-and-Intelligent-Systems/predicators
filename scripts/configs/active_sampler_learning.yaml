@@ -28,6 +28,10 @@ APPROACHES:
 ENVS:
   grid_row:
     NAME: "grid_row"
+  sticky_table:
+    NAME: "sticky_table"
+  sticky_table_tricky_floor:
+    NAME: "sticky_table_tricky_floor"
   regional_bumpy_cover:
     NAME: "regional_bumpy_cover"
     FLAGS:
@@ -39,18 +43,19 @@ ENVS:
       cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
       cover_num_targets: 10
       cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
-  # kitchen:
-  #   NAME: "kitchen"
-  #   FLAGS:
-  #     num_train_tasks: 100
-  #     num_test_tasks: 10
-  #     max_num_steps_option_rollout: 250
+  kitchen:
+    NAME: "kitchen"
+    FLAGS:
+      num_train_tasks: 100
+      max_num_steps_option_rollout: 250
 ARGS:
   - "debug"
 FLAGS:
+  num_test_tasks: 10
   strips_learner: "oracle"
   sampler_learner: "oracle"
   bilevel_plan_without_sim: "True"
+  execution_monitor: "expected_atoms"
   max_initial_demos: 0
   sampler_mlp_classifier_max_itr: 100000
   mlp_classifier_balance_data: False
@@ -58,7 +63,7 @@ FLAGS:
   active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 1000
+  max_num_steps_interaction_request: 500
   num_online_learning_cycles: 10
   active_sampler_learning_explore_length_base: 100000  # effectively disable
   sesame_task_planner: "fdopt-costs"
