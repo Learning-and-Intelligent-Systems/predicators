@@ -1343,6 +1343,21 @@ class QFunction(MLPRegressor):
         self._ordered_ground_nsrts = sorted(ground_nsrts)
         self._ground_nsrt_to_idx = {n: i for i, n in enumerate(self._ordered_ground_nsrts)}
 
+    def get_option(self, state: State, num_samples_per_ground_nsrt: int, epsilon: float = 0.0) -> _Option:
+        """Get the best option under Q, epsilon-greedy."""
+        # Return a random option.
+        if self._rng.uniform() < epsilon:
+            options = self._sample_applicable_options_from_state(state, num=1)
+            return options[0]
+        # Return the best option (approx argmax.)
+        num_samples = num_samples_per_ground_nsrt * self._num_ground_nsrts
+        options = self._sample_applicable_options_from_state(state, num=num_samples)
+        scores = [self.predict_q_value(state, option) for option in options]
+        idx = np.argmax(scores)
+        selected_option = options[idx]
+        print("EXECUTING:", selected_option)
+        return selected_option
+
     def train_from_q_data(self, data: QFunctionData) -> None:
         """Fit the model."""
         if not data:
@@ -1366,7 +1381,7 @@ class QFunction(MLPRegressor):
             # Sample next possible options.
             next_option_vecs: List[Array] = []
             if not terminal:
-                for option in self._sample_options_from_state(next_state, num=5):  # TODO make hyperparameter
+                for option in self._sample_applicable_options_from_state(next_state, num=5):  # TODO make hyperparameter
                     next_option_vecs.append(self._vectorize_option(option))
             vectorized_next_option_lists.append(next_option_vecs)
 
@@ -1423,7 +1438,7 @@ class QFunction(MLPRegressor):
         y = self.predict(x)[0]
         return y
 
-    def _sample_options_from_state(self,
+    def _sample_applicable_options_from_state(self,
                                    state: State,
                                    num: int = 1) -> List[_Option]:
         """Use NSRTs to sample options in the current state.
@@ -1431,15 +1446,12 @@ class QFunction(MLPRegressor):
         TODO refactor from fitted Q.
         """
         # Create all applicable ground NSRTs.
-        predicates = {a.predicate for n in self._ordered_ground_nsrts for a in n.preconditions}
-        atoms = utils.abstract(state, predicates)
-        applicable_nsrts = list(utils.get_applicable_operators(self._ordered_ground_nsrts,
-                                                          atoms))
+        applicable_nsrts = [o for o in self._ordered_ground_nsrts if all(a.holds(state) for a in o.preconditions)]
         sampled_options: List[_Option] = []
         for _ in range(num):
             # Sample an applicable NSRT.
-            ground_nsrt = applicable_nsrts[self._rng.choice(len(applicable_nsrts))]
-
+            idx = self._rng.choice(len(applicable_nsrts))
+            ground_nsrt = applicable_nsrts[idx]
             # Sample an option.
             option = ground_nsrt.sample_option(
                 state,
@@ -1447,5 +1459,4 @@ class QFunction(MLPRegressor):
                 rng=self._rng)
             assert option.initiable(state)
             sampled_options.append(option)
-
         return sampled_options

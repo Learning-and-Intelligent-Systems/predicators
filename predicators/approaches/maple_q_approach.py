@@ -59,32 +59,9 @@ class MapleQ(OnlineNSRTLearningApproach):
     
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
-        # TODO remove copied code (from explorer)
-        goal = task.goal
-        objects = set(task.init)
-        all_ground_nsrts: List[_GroundNSRT] = []
-        for nsrt in self._nsrts:
-            all_ground_nsrts.extend(utils.all_ground_nsrts(nsrt, objects))
-
         def _option_policy(state: State) -> _Option:
-            candidates: List[_Option] = []
-            # Find all applicable ground NSRTs.
-            atoms = utils.abstract(state, self._get_current_predicates())
-            applicable_ground_nsrts = utils.get_applicable_operators(all_ground_nsrts, atoms)
-            # Sample candidate options.
-            for ground_nsrt in applicable_ground_nsrts:
-                for _ in range(CFG.active_sampler_learning_num_samples):
-                    option = ground_nsrt.sample_option(state, goal, self._rng)
-                    candidates.append(option)
-            # Score the candidates using the BEST Q function (exploit only).
-            scores: List[float] = []
-            for option in candidates:
-                score = self._q_function.predict_q_value(state, option)
-                scores.append(score)
-            # Select the best-scoring candidate.
-            idx = np.argmax(scores)
-            selected_option = candidates[idx]
-            return selected_option
+            return self._q_function.get_option(state,
+                                               num_samples_per_ground_nsrt=CFG.active_sampler_learning_num_samples)
 
         return utils.option_policy_to_policy(_option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout)

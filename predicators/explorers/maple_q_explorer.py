@@ -45,37 +45,13 @@ class MapleQExplorer(BaseExplorer):
     def _get_exploration_strategy(self, train_task_idx: int,
                                   timeout: int) -> ExplorationStrategy:
         
-        task = self._train_tasks[train_task_idx]
-        goal = task.goal
-        objects = set(task.init)
-        all_ground_nsrts: List[_GroundNSRT] = []
-        for nsrt in self._nsrts:
-            all_ground_nsrts.extend(utils.all_ground_nsrts(nsrt, objects))
-
+        epsilon = CFG.active_sampler_learning_exploration_epsilon
+        num_samples = CFG.active_sampler_learning_num_samples
+    
         def _option_policy(state: State) -> _Option:
-            candidates: List[_Option] = []
-            # Find all applicable ground NSRTs.
-            atoms = utils.abstract(state, self._predicates)
-            applicable_ground_nsrts = utils.get_applicable_operators(all_ground_nsrts, atoms)
-            # Sample candidate options.
-            for ground_nsrt in applicable_ground_nsrts:
-                for _ in range(CFG.active_sampler_learning_num_samples):
-                    option = ground_nsrt.sample_option(state, goal, self._rng)
-                    candidates.append(option)
-            # Choose a random candidate with epsilon probability.
-            epsilon = CFG.active_sampler_learning_exploration_epsilon
-            if self._rng.uniform() < epsilon:
-                idx = self._rng.choice(len(candidates))
-                return candidates[idx]
-            # Score the candidates using the Q function.
-            scores: List[float] = []
-            for option in candidates:
-                score = self._q_function.predict_q_value(state, option)
-                scores.append(score)
-            # Select the best-scoring candidate.
-            idx = np.argmax(scores)
-            return candidates[idx]
-        
+            return self._q_function.get_option(state,
+                                    num_samples, epsilon)
+
         policy = utils.option_policy_to_policy(_option_policy,
             max_option_steps=CFG.max_num_steps_option_rollout)
         
