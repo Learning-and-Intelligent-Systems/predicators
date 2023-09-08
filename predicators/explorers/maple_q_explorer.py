@@ -1,26 +1,19 @@
-"""TODO describe"""
+"""TODO describe."""
 
-import logging
-from collections import deque
-from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import List, Set
 
-import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
-from predicators.planning import PlanningFailure, PlanningTimeout, \
-    run_task_plan_once
 from predicators.ml_models import QFunction
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, ExplorationStrategy, \
-    GroundAtom, NSRTSampler, ParameterizedOption, Predicate, State, Task, \
-    Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
+from predicators.structs import NSRT, ExplorationStrategy, \
+    ParameterizedOption, Predicate, State, Task, Type, _Option
 
 
 class MapleQExplorer(BaseExplorer):
-    """TODO describe
-    """
+    """TODO describe."""
 
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
@@ -44,17 +37,16 @@ class MapleQExplorer(BaseExplorer):
 
     def _get_exploration_strategy(self, train_task_idx: int,
                                   timeout: int) -> ExplorationStrategy:
-        
+
         epsilon = CFG.active_sampler_learning_exploration_epsilon
         num_samples = CFG.active_sampler_learning_num_samples
-    
-        def _option_policy(state: State) -> _Option:
-            return self._q_function.get_option(state,
-                                    num_samples, epsilon)
 
-        policy = utils.option_policy_to_policy(_option_policy,
-            max_option_steps=CFG.max_num_steps_option_rollout)
-        
+        def _option_policy(state: State) -> _Option:
+            return self._q_function.get_option(state, num_samples, epsilon)
+
+        policy = utils.option_policy_to_policy(
+            _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
+
         # Never terminate.
         terminal = lambda s: False
 

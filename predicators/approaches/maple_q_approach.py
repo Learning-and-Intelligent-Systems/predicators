@@ -1,15 +1,12 @@
-"""Maple Q approach. TODO describe."""
+"""Maple Q approach.
+
+TODO describe.
+"""
 
 from __future__ import annotations
 
-import abc
-import logging
-from collections import defaultdict
-from typing import Any, Callable, DefaultDict, Dict, List, Optional, \
-    Sequence, Set, Tuple
+from typing import Any, Callable, List, Optional, Set
 
-import dill as pkl
-import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
@@ -18,9 +15,8 @@ from predicators.approaches.online_nsrt_learning_approach import \
 from predicators.explorers import BaseExplorer, create_explorer
 from predicators.ml_models import QFunction, QFunctionData
 from predicators.settings import CFG
-from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
-    Metrics, NSRTSampler, Object, ParameterizedOption, Predicate, Segment, \
-    State, Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option, Action
+from predicators.structs import Action, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
 class MapleQ(OnlineNSRTLearningApproach):
@@ -42,7 +38,8 @@ class MapleQ(OnlineNSRTLearningApproach):
         self._last_seen_segment_traj_idx = -1
 
         # Store the Q function.
-        self._q_function = QFunction(seed=CFG.seed,
+        self._q_function = QFunction(
+            seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
             max_train_iters=CFG.mlp_regressor_max_itr,
             clip_gradients=CFG.mlp_regressor_clip_gradients,
@@ -56,16 +53,18 @@ class MapleQ(OnlineNSRTLearningApproach):
     @classmethod
     def get_name(cls) -> str:
         return "maple_q"
-    
+
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
         def _option_policy(state: State) -> _Option:
-            return self._q_function.get_option(state,
-                                               num_samples_per_ground_nsrt=CFG.active_sampler_learning_num_samples)
+            return self._q_function.get_option(
+                state,
+                num_samples_per_ground_nsrt=CFG.
+                active_sampler_learning_num_samples)
 
-        return utils.option_policy_to_policy(_option_policy,
-            max_option_steps=CFG.max_num_steps_option_rollout)
-    
+        return utils.option_policy_to_policy(
+            _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
+
     def _create_explorer(self) -> BaseExplorer:
         """Create a new explorer at the beginning of each interaction cycle."""
         # Note that greedy lookahead is not yet supported.
@@ -81,7 +80,7 @@ class MapleQ(OnlineNSRTLearningApproach):
                                    self._option_model,
                                    maple_q_function=self._q_function)
         return explorer
-    
+
     def load(self, online_learning_cycle: Optional[int]) -> None:
         super().load(online_learning_cycle)
         # TODO

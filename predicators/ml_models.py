@@ -8,7 +8,8 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Collection, Dict, Iterator, List, Optional, Sequence, Tuple, Set
+from typing import Any, Callable, Collection, Dict, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
@@ -24,7 +25,8 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
 from predicators import utils
-from predicators.structs import Array, MaxTrainIters, Object, State, _Option, _GroundNSRT
+from predicators.structs import Array, MaxTrainIters, Object, State, \
+    _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1320,9 +1322,9 @@ class QFunction(MLPRegressor):
                  train_print_every: int = 1000,
                  n_iter_no_change: int = 10000000,
                  discount: float = 0.99) -> None:
-        super().__init__(seed, hid_sizes, max_train_iters, clip_gradients, clip_value,
-                       learning_rate, weight_decay, use_torch_gpu, train_print_every,
-                       n_iter_no_change)
+        super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
+                         clip_value, learning_rate, weight_decay,
+                         use_torch_gpu, train_print_every, n_iter_no_change)
         self._rng = np.random.default_rng(seed)
         self._discount = discount
 
@@ -1333,7 +1335,8 @@ class QFunction(MLPRegressor):
         self._max_num_params = 0
         self._num_ground_nsrts = 0
 
-    def set_grounding(self, objects: Set[Object], ground_nsrts: Collection[_GroundNSRT]) -> None:
+    def set_grounding(self, objects: Set[Object],
+                      ground_nsrts: Collection[_GroundNSRT]) -> None:
         """After initialization because NSRTs not learned at first."""
         for ground_nsrt in ground_nsrts:
             num_params = ground_nsrt.option.params_space.shape[0]
@@ -1341,9 +1344,15 @@ class QFunction(MLPRegressor):
         self._ordered_objects = sorted(objects)
         self._num_ground_nsrts = len(ground_nsrts)
         self._ordered_ground_nsrts = sorted(ground_nsrts)
-        self._ground_nsrt_to_idx = {n: i for i, n in enumerate(self._ordered_ground_nsrts)}
+        self._ground_nsrt_to_idx = {
+            n: i
+            for i, n in enumerate(self._ordered_ground_nsrts)
+        }
 
-    def get_option(self, state: State, num_samples_per_ground_nsrt: int, epsilon: float = 0.0) -> _Option:
+    def get_option(self,
+                   state: State,
+                   num_samples_per_ground_nsrt: int,
+                   epsilon: float = 0.0) -> _Option:
         """Get the best option under Q, epsilon-greedy."""
         # Return a random option.
         if self._rng.uniform() < epsilon:
@@ -1351,7 +1360,8 @@ class QFunction(MLPRegressor):
             return options[0]
         # Return the best option (approx argmax.)
         num_samples = num_samples_per_ground_nsrt * self._num_ground_nsrts
-        options = self._sample_applicable_options_from_state(state, num=num_samples)
+        options = self._sample_applicable_options_from_state(state,
+                                                             num=num_samples)
         scores = [self.predict_q_value(state, option) for option in options]
         idx = np.argmax(scores)
         selected_option = options[idx]
@@ -1362,7 +1372,7 @@ class QFunction(MLPRegressor):
         """Fit the model."""
         if not data:
             return
-        
+
         # Start by vectorizing everything.
         vectorized_states: List[Array] = []
         vectorized_options: List[Array] = []
@@ -1381,7 +1391,8 @@ class QFunction(MLPRegressor):
             # Sample next possible options.
             next_option_vecs: List[Array] = []
             if not terminal:
-                for option in self._sample_applicable_options_from_state(next_state, num=5):  # TODO make hyperparameter
+                for option in self._sample_applicable_options_from_state(
+                        next_state, num=5):  # TODO make hyperparameter
                     next_option_vecs.append(self._vectorize_option(option))
             vectorized_next_option_lists.append(next_option_vecs)
 
@@ -1414,10 +1425,13 @@ class QFunction(MLPRegressor):
     def _vectorize_state(self, state: State) -> Array:
         # TODO will crash with change object set.
         return state.vec(self._ordered_objects)
-    
+
     def _vectorize_option(self, option: _Option) -> Array:
-        matches = [i for (n, i) in self._ground_nsrt_to_idx.items()
-                   if n.option == option.parent and tuple(n.objects) == tuple(option.objects)]
+        matches = [
+            i for (n, i) in self._ground_nsrt_to_idx.items()
+            if n.option == option.parent
+            and tuple(n.objects) == tuple(option.objects)
+        ]
         assert len(matches) == 1
         # Create discrete part.
         discrete_vec = np.zeros(self._num_ground_nsrts)
@@ -1434,19 +1448,24 @@ class QFunction(MLPRegressor):
         # Default value if not yet fit.
         if self._y_dim == -1:
             return 0.0
-        x = np.concatenate([self._vectorize_state(state), self._vectorize_option(option)])
+        x = np.concatenate(
+            [self._vectorize_state(state),
+             self._vectorize_option(option)])
         y = self.predict(x)[0]
         return y
 
     def _sample_applicable_options_from_state(self,
-                                   state: State,
-                                   num: int = 1) -> List[_Option]:
+                                              state: State,
+                                              num: int = 1) -> List[_Option]:
         """Use NSRTs to sample options in the current state.
-        
+
         TODO refactor from fitted Q.
         """
         # Create all applicable ground NSRTs.
-        applicable_nsrts = [o for o in self._ordered_ground_nsrts if all(a.holds(state) for a in o.preconditions)]
+        applicable_nsrts = [
+            o for o in self._ordered_ground_nsrts if all(
+                a.holds(state) for a in o.preconditions)
+        ]
         sampled_options: List[_Option] = []
         for _ in range(num):
             # Sample an applicable NSRT.

@@ -1,8 +1,8 @@
 """Base class for an explorer."""
 
 import abc
-import logging
 import itertools
+import logging
 from typing import List, Set
 
 import numpy as np
@@ -11,7 +11,6 @@ from gym.spaces import Box
 from predicators.settings import CFG
 from predicators.structs import ExplorationStrategy, ParameterizedOption, \
     Predicate, State, Task, Type
-
 
 _RNG_COUNT = itertools.count()  # make sure RNG changes per instantiation
 

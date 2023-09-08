@@ -7,9 +7,9 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.competence_models import SkillCompetenceModel
 from predicators.explorers.base_explorer import BaseExplorer
-from predicators.ml_models import QFunction
 from predicators.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
+from predicators.ml_models import QFunction
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import NSRT, GroundAtom, NSRTSampler, \
