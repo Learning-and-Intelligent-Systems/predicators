@@ -57,7 +57,7 @@ from predicators.ground_truth_models import get_gt_options, \
 from predicators.perception import create_perceiver
 from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Observation, Response, Task, Video
+    InteractionResult, Metrics, Observation, Response, Task, Video, _Option
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -363,6 +363,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 test_task_idx,
                 max_num_steps=CFG.horizon,
                 monitor=monitor)
+            num_opt = execution_metrics["num_options_executed"]
+            metrics[f"PER_TASK_task{test_task_idx}_options_executed"] = num_opt
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
             if CFG.refinement_data_include_execution_cost:
@@ -481,8 +483,10 @@ def _run_episode(
     obs = env.get_observation()
     observations = [obs]
     actions: List[Action] = []
+    curr_option: Optional[_Option] = None
     metrics: Metrics = defaultdict(float)
     metrics["policy_call_time"] = 0.0
+    metrics["num_options_executed"] = 0.0
     exception_raised_in_step = False
     if not (terminate_on_goal_reached and env.goal_reached()):
         for _ in range(max_num_steps):
@@ -494,6 +498,9 @@ def _run_episode(
                 metrics["policy_call_time"] += time.perf_counter() - start_time
                 if act is None:
                     break
+                if act.has_option() and act.get_option() != curr_option:
+                    curr_option = act.get_option()
+                    metrics["num_options_executed"] += 1
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env
