@@ -470,7 +470,7 @@ class RegionalBumpyCoverGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             block, target = objs
             target_center = state.get(target, "pose")
             grasp = state.get(block, "grasp")
-            place_pose = target_center + grasp
+            place_pose = np.clip(target_center + grasp, 0.0, 1.0)
             return np.array([place_pose], dtype=np.float32)
 
         place_on_target_nsrt = NSRT("PlaceOnTarget", parameters,
