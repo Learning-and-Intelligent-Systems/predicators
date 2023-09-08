@@ -35,6 +35,7 @@ class StickyTableEnv(BaseEnv):
     y_lb: ClassVar[float] = 0.0
     y_ub: ClassVar[float] = 1.0
     cube_scale: ClassVar[float] = 0.25  # as a function of table radius
+    sticky_surface_mode: ClassVar[str] = "half"  # half or whole
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -60,6 +61,18 @@ class StickyTableEnv(BaseEnv):
     def get_name(cls) -> str:
         return "sticky_table"
 
+    @property
+    def _pick_success_prob(self) -> float:
+        return CFG.sticky_table_pick_success_prob
+
+    @property
+    def _place_sticky_fall_prob(self) -> float:
+        return CFG.sticky_table_place_sticky_fall_prob
+
+    @property
+    def _place_smooth_fall_prob(self) -> float:
+        return CFG.sticky_table_place_smooth_fall_prob
+
     def simulate(self, state: State, action: Action) -> State:
         # NOTE: noise is added here. Two calls to simulate with the same
         # inputs may produce different outputs!
@@ -71,9 +84,8 @@ class StickyTableEnv(BaseEnv):
         # Picking logic.
         if hand_empty:
             # Fail sometimes.
-            if self._noise_rng.uniform() < CFG.sticky_table_pick_success_prob:
-                rect = self._object_to_geom(cube, state)
-                if rect.contains_point(act_x, act_y):
+            if self._noise_rng.uniform() < self._pick_success_prob:
+                if self._action_grasps_object(act_x, act_y, cube, state):
                     next_state.set(cube, "held", 1.0)
         # Placing logic.
         else:
@@ -91,12 +103,12 @@ class StickyTableEnv(BaseEnv):
                 next_state.set(cube, "y", act_y)
             else:
                 # Possibly put on the table, or have it fall somewhere near.
-                fall_prob = CFG.sticky_table_place_sticky_fall_prob
+                fall_prob = self._place_sticky_fall_prob
                 if self._table_is_sticky(table, state):
                     # Check if placing on the smooth side of the sticky table.
                     table_y = state.get(table, "y")
-                    if act_y < table_y:
-                        fall_prob = CFG.sticky_table_place_smooth_fall_prob
+                    if self.sticky_surface_mode == "half" and act_y < table_y:
+                        fall_prob = self._place_smooth_fall_prob
                 if self._noise_rng.uniform() < fall_prob:
                     fall_x, fall_y = self._sample_floor_point_around_table(
                         table, state, self._noise_rng)
@@ -107,6 +119,11 @@ class StickyTableEnv(BaseEnv):
                     next_state.set(cube, "x", act_x)
                     next_state.set(cube, "y", act_y)
         return next_state
+
+    def _action_grasps_object(self, act_x: float, act_y: float, cube: Object,
+                              state: State) -> bool:
+        rect = self._object_to_geom(cube, state)
+        return rect.contains_point(act_x, act_y)
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
@@ -156,12 +173,18 @@ class StickyTableEnv(BaseEnv):
         alpha = 0.75
         cube, = state.get_objects(self._cube_type)
         tables = state.get_objects(self._table_type)
+        surface_mode = self.sticky_surface_mode
         for table in tables:
             is_sticky = self._table_is_sticky(table, state)
             circ = self._object_to_geom(table, state)
             color = sticky_table_color if is_sticky else normal_table_color
-            circ.plot(ax, facecolor=color, edgecolor="black", alpha=alpha)
-            if is_sticky:
+            hatch = "OO" if is_sticky and surface_mode == "whole" else None
+            circ.plot(ax,
+                      facecolor=color,
+                      edgecolor="black",
+                      alpha=alpha,
+                      hatch=hatch)
+            if is_sticky and surface_mode == "half":
                 x = state.get(table, "x")
                 y = state.get(table, "y")
                 radius = state.get(table, "radius")
@@ -281,3 +304,35 @@ class StickyTableEnv(BaseEnv):
         dist = radius + rng.uniform(radius / 10, radius / 4)
         theta = rng.uniform(0, 2 * np.pi)
         return (x + dist * np.cos(theta), y + dist * np.sin(theta))
+
+
+class StickyTableTrickyFloorEnv(StickyTableEnv):
+    """Variation where picking from the floor is the only thing that can be
+    improved through sampler learning.
+
+    Placing on the table is still noisy, but inherently so.
+    """
+
+    sticky_surface_mode = "whole"  # the 'sticky' table is sticky everywhere
+
+    @property
+    def _place_sticky_fall_prob(self) -> float:
+        return CFG.sticky_table_tricky_floor_place_sticky_fall_prob
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "sticky_table_tricky_floor"
+
+    def _action_grasps_object(self, act_x: float, act_y: float, cube: Object,
+                              state: State) -> bool:
+        if not super()._action_grasps_object(act_x, act_y, cube, state):
+            return False
+        # If the cube is on the floor, make it harder to grasp.
+        if not self._OnFloor_holds(state, [cube]):
+            return True
+        # Specifically, only succeed if grasp is in upper-right quadrant with
+        # respect to the cube's center.
+        size = state.get(cube, "size")
+        cube_x = state.get(cube, "x") + size / 2
+        cube_y = state.get(cube, "y") + size / 2
+        return act_x > cube_x and act_y > cube_y
