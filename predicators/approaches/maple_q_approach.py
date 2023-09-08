@@ -20,7 +20,7 @@ from predicators.ml_models import QFunction, QFunctionData
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
     Metrics, NSRTSampler, Object, ParameterizedOption, Predicate, Segment, \
-    State, Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    State, Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option, Action
 
 
 class MapleQ(OnlineNSRTLearningApproach):
@@ -42,11 +42,51 @@ class MapleQ(OnlineNSRTLearningApproach):
         self._last_seen_segment_traj_idx = -1
 
         # Store the Q function.
-        self._q_function = QFunction()
+        self._q_function = QFunction(seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate,
+            weight_decay=CFG.weight_decay,
+            use_torch_gpu=CFG.use_torch_gpu,
+            train_print_every=CFG.pytorch_train_print_every,
+            n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change)
 
     @classmethod
     def get_name(cls) -> str:
         return "maple_q"
+    
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
+        # TODO remove copied code (from explorer)
+        goal = task.goal
+        objects = set(task.init)
+        all_ground_nsrts: List[_GroundNSRT] = []
+        for nsrt in self._nsrts:
+            all_ground_nsrts.extend(utils.all_ground_nsrts(nsrt, objects))
+
+        def _option_policy(state: State) -> _Option:
+            candidates: List[_Option] = []
+            # Find all applicable ground NSRTs.
+            atoms = utils.abstract(state, self._get_current_predicates())
+            applicable_ground_nsrts = utils.get_applicable_operators(all_ground_nsrts, atoms)
+            # Sample candidate options.
+            for ground_nsrt in applicable_ground_nsrts:
+                for _ in range(CFG.active_sampler_learning_num_samples):
+                    option = ground_nsrt.sample_option(state, goal, self._rng)
+                    candidates.append(option)
+            # Score the candidates using the BEST Q function (exploit only).
+            scores: List[float] = []
+            for option in candidates:
+                score = self._q_function.predict_q_value(state, option)
+                scores.append(score)
+            # Select the best-scoring candidate.
+            idx = np.argmax(scores)
+            return candidates[idx]
+
+        return utils.option_policy_to_policy(_option_policy,
+            max_option_steps=CFG.max_num_steps_option_rollout)
     
     def _create_explorer(self) -> BaseExplorer:
         """Create a new explorer at the beginning of each interaction cycle."""
@@ -79,9 +119,15 @@ class MapleQ(OnlineNSRTLearningApproach):
         for nsrt in self._nsrts:
             assert nsrt.option_vars == nsrt.parameters
         # Update the data using the updated self._segmented_trajs.
+        if not online_learning_cycle:
+            all_ground_nsrts: Set[_GroundNSRT] = set()
+            objects = {o for t in self._train_tasks for o in t.init}
+            for nsrt in self._nsrts:
+                all_ground_nsrts.update(utils.all_ground_nsrts(nsrt, objects))
+            self._q_function.set_grounding(objects, all_ground_nsrts)
         self._update_maple_data()
         # Re-learn Q function.
-        self._q_function.train(self._maple_data)
+        self._q_function.train_from_q_data(self._maple_data)
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
         # TODO
@@ -89,14 +135,17 @@ class MapleQ(OnlineNSRTLearningApproach):
     def _update_maple_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
+
+        # TODO!!!
+        goal = self._train_tasks[0].goal
+        assert all(task.goal == goal for task in self._train_tasks)
+
         for segmented_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
-            for segment in segmented_traj:
+            for i, segment in enumerate(segmented_traj):
                 s = segment.states[0]
                 o = segment.get_option()
                 ns = segment.states[-1]
-                import ipdb; ipdb.set_trace()
-                reward = ...
-                terminal = ...
+                reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
+                terminal = reward > 0 or i == len(segmented_traj) - 1
                 self._maple_data.append((s, o, ns, reward, terminal))
-    

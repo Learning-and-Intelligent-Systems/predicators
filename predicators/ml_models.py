@@ -8,7 +8,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Collection, Dict, Iterator, List, Optional, Sequence, Tuple, Set
 from typing import Type as TypingType
 
 import numpy as np
@@ -24,7 +24,7 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
 from predicators import utils
-from predicators.structs import Array, MaxTrainIters, Object, State, _Option
+from predicators.structs import Array, MaxTrainIters, Object, State, _Option, _GroundNSRT
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1305,23 +1305,147 @@ def _train_pytorch_model(model: nn.Module,
 QFunctionData = List[Tuple[State, _Option, State, float, bool]]
 
 
-class QFunction:
+class QFunction(MLPRegressor):
     """TODO rename, document, probably move."""
 
-    def __init__(self, default_value: float = 0.0):
-        self._model: Optional[MLPRegressor] = None
-        self._default_value = default_value
+    def __init__(self,
+                 seed: int,
+                 hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters,
+                 clip_gradients: bool,
+                 clip_value: float,
+                 learning_rate: float,
+                 weight_decay: float = 0,
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000,
+                 discount: float = 0.99) -> None:
+        super().__init__(seed, hid_sizes, max_train_iters, clip_gradients, clip_value,
+                       learning_rate, weight_decay, use_torch_gpu, train_print_every,
+                       n_iter_no_change)
+        self._rng = np.random.default_rng(seed)
+        self._discount = discount
 
-    def train(self, data: QFunctionData) -> None:
+        # Updated once, after the first round of learning.
+        self._ordered_objects: List[Object] = []
+        self._ordered_ground_nsrts: List[_GroundNSRT] = []
+        self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
+        self._max_num_params = 0
+        self._num_ground_nsrts = 0
+
+    def set_grounding(self, objects: Set[Object], ground_nsrts: Collection[_GroundNSRT]) -> None:
+        """After initialization because NSRTs not learned at first."""
+        for ground_nsrt in ground_nsrts:
+            num_params = ground_nsrt.option.params_space.shape[0]
+            self._max_num_params = max(self._max_num_params, num_params)
+        self._ordered_objects = sorted(objects)
+        self._num_ground_nsrts = len(ground_nsrts)
+        self._ordered_ground_nsrts = sorted(ground_nsrts)
+        self._ground_nsrt_to_idx = {n: i for i, n in enumerate(self._ordered_ground_nsrts)}
+
+    def train_from_q_data(self, data: QFunctionData) -> None:
         """Fit the model."""
         if not data:
             return
-        import ipdb; ipdb.set_trace()
+        
+        # Start by vectorizing everything.
+        vectorized_states: List[Array] = []
+        vectorized_options: List[Array] = []
+        vectorized_next_states: List[Array] = []
+        vectorized_next_option_lists: List[List[Array]] = []
+        rewards: List[float] = []
+        terminals: List[bool] = []
 
-    def predict(self, state: State, option: _Option) -> float:
+        for state, option, next_state, reward, terminal in data:
+            vectorized_states.append(self._vectorize_state(state))
+            vectorized_options.append(self._vectorize_option(option))
+            vectorized_next_states.append(self._vectorize_state(next_state))
+            rewards.append(reward)
+            terminals.append(terminal)
+
+            # Sample next possible options.
+            next_option_vecs: List[Array] = []
+            if not terminal:
+                for option in self._sample_options_from_state(next_state, num=5):  # TODO make hyperparameter
+                    next_option_vecs.append(self._vectorize_option(option))
+            vectorized_next_option_lists.append(next_option_vecs)
+
+        # Train once. TODO: maybe train multiple times in a loop, like fitted Q?
+        regressor_inputs: List[Array] = []
+        regressor_outputs: List[Array] = []
+
+        for i in range(len(data)):
+            # Get inputs.
+            x = np.concatenate([vectorized_states[i], vectorized_options[i]])
+            # Get targets.
+            if terminals[i] or self._y_dim == -1:  # second case is not yet fit
+                best_next_value = 0.0
+            else:
+                best_next_value = -np.inf
+                next_state_vec = vectorized_next_states[i]
+                next_option_vecs = vectorized_next_option_lists[i]
+                for option_vec in next_option_vecs:
+                    x_hat = np.concatenate([next_state_vec, option_vec])
+                    q_x_hat = self.predict(x_hat)[0]
+                    best_next_value = max(best_next_value, q_x_hat)
+            y = rewards[i] + self._discount * best_next_value
+            regressor_inputs.append(x)
+            regressor_outputs.append(y)
+
+        X_arr = np.array(regressor_inputs, dtype=np.float32)
+        Y_arr = np.array(regressor_outputs, dtype=np.float32).reshape((-1, 1))
+        self.fit(X_arr, Y_arr)
+
+    def _vectorize_state(self, state: State) -> Array:
+        # TODO will crash with change object set.
+        return state.vec(self._ordered_objects)
+    
+    def _vectorize_option(self, option: _Option) -> Array:
+        matches = [i for (n, i) in self._ground_nsrt_to_idx.items()
+                   if n.option == option.parent and tuple(n.objects) == tuple(option.objects)]
+        assert len(matches) == 1
+        # Create discrete part.
+        discrete_vec = np.zeros(self._num_ground_nsrts)
+        discrete_vec[matches[0]] = 1.0
+        # Create continuous part.
+        continuous_vec = np.zeros(self._max_num_params)
+        continuous_vec[:len(option.params)] = option.params
+        # Concatenate.
+        vec = np.concatenate([discrete_vec, continuous_vec], dtype=np.float32)
+        return vec
+
+    def predict_q_value(self, state: State, option: _Option) -> float:
         """Predict the Q value."""
-        # If not yet trained, return default value.
-        if not self._model:
-            return self._default_value
+        # Default value if not yet fit.
+        if self._y_dim == -1:
+            return 0.0
+        x = np.concatenate([self._vectorize_state(state), self._vectorize_option(option)])
+        y = self.predict(x)[0]
+        return y
 
-        import ipdb; ipdb.set_trace()
+    def _sample_options_from_state(self,
+                                   state: State,
+                                   num: int = 1) -> List[_Option]:
+        """Use NSRTs to sample options in the current state.
+        
+        TODO refactor from fitted Q.
+        """
+        # Create all applicable ground NSRTs.
+        predicates = {a.predicate for n in self._ordered_ground_nsrts for a in n.preconditions}
+        atoms = utils.abstract(state, predicates)
+        applicable_nsrts = list(utils.get_applicable_operators(self._ordered_ground_nsrts,
+                                                          atoms))
+        sampled_options: List[_Option] = []
+        for _ in range(num):
+            # Sample an applicable NSRT.
+            ground_nsrt = applicable_nsrts[self._rng.choice(len(applicable_nsrts))]
+
+            # Sample an option.
+            option = ground_nsrt.sample_option(
+                state,
+                goal=set(),  # goal not used
+                rng=self._rng)
+            assert option.initiable(state)
+            sampled_options.append(option)
+
+        return sampled_options

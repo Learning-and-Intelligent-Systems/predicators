@@ -70,7 +70,7 @@ class MapleQExplorer(BaseExplorer):
             # Score the candidates using the Q function.
             scores: List[float] = []
             for option in candidates:
-                score = self._q_function.predict(state, option)
+                score = self._q_function.predict_q_value(state, option)
                 scores.append(score)
             # Select the best-scoring candidate.
             idx = np.argmax(scores)
