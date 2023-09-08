@@ -23,6 +23,7 @@ FLAGS:
   strips_learner: "oracle"
   sampler_learner: "oracle"
   bilevel_plan_without_sim: "True"
+  max_initial_demos: 0
   online_nsrt_learning_requests_per_cycle: 200
   num_online_learning_cycles: 20
 START_SEED: 456
