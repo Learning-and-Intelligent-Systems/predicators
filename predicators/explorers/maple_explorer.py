@@ -3,6 +3,7 @@ NSRTs and corresponding continuous parameters."""
 
 from typing import Callable, List, Set
 
+import itertools
 import numpy as np
 from gym.spaces import Box
 from typing import Dict
@@ -17,6 +18,9 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DummyOption, \
     ExplorationStrategy, GroundAtom, ParameterizedOption, Predicate, State, \
     Task, Type, _GroundNSRT, _Option
+
+
+_RNG_COUNTER = itertools.count()  # ensure unique but reproducible rngs
 
 
 class MAPLEExplorer(BaseExplorer):
@@ -46,7 +50,7 @@ class MAPLEExplorer(BaseExplorer):
         self._observations_size = observations_size
         self._discrete_actions_size = discrete_actions_size
         self._continuous_actions_size = continuous_actions_size
-        self._rng = np.random.default_rng(self._seed)
+        self._rng = np.random.default_rng(self._seed + next(_RNG_COUNTER))
         self._option_model = _OracleOptionModel(get_or_create_env(CFG.env))
 
     @classmethod
