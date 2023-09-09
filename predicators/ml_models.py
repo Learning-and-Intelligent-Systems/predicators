@@ -1437,8 +1437,16 @@ class MapleQFunction(MLPRegressor):
         self.fit(X_arr, Y_arr)
 
     def _vectorize_state(self, state: State) -> Array:
-        # TODO will crash with change object set.
-        return state.vec(self._ordered_objects)
+        # Cannot just call state.vec() directly because some objects may not
+        # appear in this state.
+        vecs: List[Array] = []
+        for o in self._ordered_objects:
+            try:
+                vec = state[o]
+            except KeyError:
+                vec = np.zeros(o.type.dim, dtype=np.float32)
+            vecs.append(vec)
+        return np.concatenate(vecs)
 
     def _vectorize_goal(self, goal: Set[GroundAtom]) -> Array:
         frozen_goal = frozenset(goal)
