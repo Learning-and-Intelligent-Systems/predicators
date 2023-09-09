@@ -10,7 +10,7 @@ from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
 from predicators.perception import create_perceiver
 from predicators.settings import CFG
-from predicators.structs import Dataset
+from predicators.structs import Dataset, State, Task
 from predicators.teacher import Teacher
 
 
@@ -71,4 +71,20 @@ def test_maple_q_approach(cover_num_blocks, cover_num_targets):
         # be slow. But we will test that the policy at least produces
         # an action.
         action = policy(task.init)
+        assert env.action_space.contains(action.arr)
+
+    # Test case where a task is presented with only a subset of objects.
+    if cover_num_blocks == 2:
+        state = train_tasks[0].init
+        goal = train_tasks[0].goal
+        assert len(goal) == 1
+        _, robot_type, _ = sorted(env.types)
+        assert len(goal) == 1
+        b, t = next(iter(goal)).objects
+        r, = state.get_objects(robot_type)
+        init_state = State({b: state[b], t: state[t], r: state[r]})
+        new_task = Task(init_state, goal)
+        # Policy should not crash.
+        policy = approach.solve(new_task, timeout=CFG.timeout)
+        action = policy(new_task.init)
         assert env.action_space.contains(action.arr)

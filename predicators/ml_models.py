@@ -1491,8 +1491,10 @@ class MapleQFunction(MLPRegressor):
                                               num: int = 1) -> List[_Option]:
         """Use NSRTs to sample options in the current state."""
         # Create all applicable ground NSRTs.
+        state_objs = set(state)
         applicable_nsrts = [
-            o for o in self._ordered_ground_nsrts if all(
+            o for o in self._ordered_ground_nsrts if \
+                set(o.objects).issubset(state_objs) and all(
                 a.holds(state) for a in o.preconditions)
         ]
         sampled_options: List[_Option] = []
