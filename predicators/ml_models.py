@@ -1369,12 +1369,12 @@ class MapleQFunction(MLPRegressor):
         """Get the best option under Q, epsilon-greedy."""
         # Return a random option.
         if self._rng.uniform() < epsilon:
-            options = self._sample_applicable_options_from_state(state, num=1)
+            options = self._sample_applicable_options_from_state(
+                state, num_samples_per_applicable_nsrt=1)
             return options[0]
         # Return the best option (approx argmax.)
-        num_samples = num_samples_per_ground_nsrt * self._num_ground_nsrts
-        options = self._sample_applicable_options_from_state(state,
-                                                             num=num_samples)
+        options = self._sample_applicable_options_from_state(
+            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
         scores = [
             self.predict_q_value(state, goal, option) for option in options
         ]
@@ -1406,8 +1406,17 @@ class MapleQFunction(MLPRegressor):
             # Sample next possible options.
             next_option_vecs: List[Array] = []
             if not terminal:
-                for option in self._sample_applicable_options_from_state(
-                        next_state, num=self._num_lookahead_samples):
+                # We want to pick a total of num_lookahead_samples
+                # samples, so we will draw this many samples
+                # per applicable nsrt, and then randomly choose
+                # a num_lookahead_samples size subset from this
+                # list.
+                for option in self._rng.choice(
+                        self._sample_applicable_options_from_state(
+                            next_state,
+                            num_samples_per_applicable_nsrt=self.
+                            _num_lookahead_samples),
+                        self._num_lookahead_samples):
                     next_option_vecs.append(self._vectorize_option(option))
             vectorized_next_option_lists.append(next_option_vecs)
 
@@ -1489,9 +1498,10 @@ class MapleQFunction(MLPRegressor):
         y = self.predict(x)[0]
         return y
 
-    def _sample_applicable_options_from_state(self,
-                                              state: State,
-                                              num: int = 1) -> List[_Option]:
+    def _sample_applicable_options_from_state(
+            self,
+            state: State,
+            num_samples_per_applicable_nsrt: int = 1) -> List[_Option]:
         """Use NSRTs to sample options in the current state."""
         # Create all applicable ground NSRTs.
         state_objs = set(state)
@@ -1501,15 +1511,13 @@ class MapleQFunction(MLPRegressor):
                 a.holds(state) for a in o.preconditions)
         ]
         sampled_options: List[_Option] = []
-        for _ in range(num):
-            # Sample an applicable NSRT.
-            idx = self._rng.choice(len(applicable_nsrts))
-            ground_nsrt = applicable_nsrts[idx]
-            # Sample an option.
-            option = ground_nsrt.sample_option(
-                state,
-                goal=set(),  # goal not used
-                rng=self._rng)
-            assert option.initiable(state)
-            sampled_options.append(option)
+        for app_nsrt in applicable_nsrts:
+            for _ in range(num_samples_per_applicable_nsrt):
+                # Sample an option.
+                option = app_nsrt.sample_option(
+                    state,
+                    goal=set(),  # goal not used
+                    rng=self._rng)
+                assert option.initiable(state)
+                sampled_options.append(option)
         return sampled_options
