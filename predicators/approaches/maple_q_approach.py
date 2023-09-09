@@ -21,7 +21,7 @@ from predicators.structs import Action, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
-class MapleQ(OnlineNSRTLearningApproach):
+class MapleQApproach(OnlineNSRTLearningApproach):
     """A parameterized action RL approach inspired by MAPLE."""
 
     def __init__(self, initial_predicates: Set[Predicate],
@@ -105,13 +105,15 @@ class MapleQ(OnlineNSRTLearningApproach):
         assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
         for nsrt in self._nsrts:
             assert nsrt.option_vars == nsrt.parameters
-        # Update the data using the updated self._segmented_trajs.
+        # On the first cycle, we need to register the ground NSRTs and objects
+        # in the Maple Q function so that it can define its states and actions.
         if not online_learning_cycle:
             all_ground_nsrts: Set[_GroundNSRT] = set()
             objects = {o for t in self._train_tasks for o in t.init}
             for nsrt in self._nsrts:
                 all_ground_nsrts.update(utils.all_ground_nsrts(nsrt, objects))
             self._q_function.set_grounding(objects, all_ground_nsrts)
+        # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.
         self._q_function.train_from_q_data(self._maple_data)
@@ -131,7 +133,7 @@ class MapleQ(OnlineNSRTLearningApproach):
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
 
-        # TODO!!!
+        # TODO remove assumption
         goal = self._train_tasks[0].goal
         assert all(task.goal == goal for task in self._train_tasks)
 
