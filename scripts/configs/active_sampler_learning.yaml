@@ -29,6 +29,7 @@ APPROACHES:
     NAME: "maple_q"
     FLAGS:
       explorer: "maple_q"
+      mlp_regressor_max_itr: 100000
 ENVS:
   grid_row:
     NAME: "grid_row"
