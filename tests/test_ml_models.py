@@ -433,3 +433,10 @@ def test_k_neighbors_classifier():
     assert isinstance(predicted_y, bool)
     assert predicted_y == expected_y
     assert model.predict_proba(x) == expected_y
+    # Test with no negative examples.
+    Y = np.ones_like(Y)
+    model = KNeighborsClassifier(seed=123, n_neighbors=1)
+    model.fit(X, Y)
+    x = X[0]
+    assert model.classify(x) == 1
+    assert model.predict_proba(x) == 1
