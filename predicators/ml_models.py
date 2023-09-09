@@ -8,8 +8,8 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Collection, Dict, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import Any, Callable, Collection, Dict, FrozenSet, Iterator, \
+    List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
@@ -25,8 +25,8 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
 from predicators import utils
-from predicators.structs import Array, MaxTrainIters, Object, State, \
-    _GroundNSRT, _Option
+from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
+    State, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1303,8 +1303,7 @@ def _train_pytorch_model(model: nn.Module,
     return best_loss
 
 
-# TODO add goal
-MapleQFunctionData = List[Tuple[State, _Option, State, float, bool]]
+MapleQData = List[Tuple[State, Set[GroundAtom], _Option, State, float, bool]]
 
 
 class MapleQFunction(MLPRegressor):
@@ -1337,18 +1336,21 @@ class MapleQFunction(MLPRegressor):
 
         # Updated once, after the first round of learning.
         self._ordered_objects: List[Object] = []
+        self._ordered_frozen_goals: List[FrozenSet[GroundAtom]] = []
         self._ordered_ground_nsrts: List[_GroundNSRT] = []
         self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
         self._max_num_params = 0
         self._num_ground_nsrts = 0
 
     def set_grounding(self, objects: Set[Object],
+                      goals: Collection[Set[GroundAtom]],
                       ground_nsrts: Collection[_GroundNSRT]) -> None:
         """After initialization because NSRTs not learned at first."""
         for ground_nsrt in ground_nsrts:
             num_params = ground_nsrt.option.params_space.shape[0]
             self._max_num_params = max(self._max_num_params, num_params)
         self._ordered_objects = sorted(objects)
+        self._ordered_frozen_goals = sorted({frozenset(g) for g in goals})
         self._num_ground_nsrts = len(ground_nsrts)
         self._ordered_ground_nsrts = sorted(ground_nsrts)
         self._ground_nsrt_to_idx = {
@@ -1358,6 +1360,7 @@ class MapleQFunction(MLPRegressor):
 
     def get_option(self,
                    state: State,
+                   goal: Set[GroundAtom],
                    num_samples_per_ground_nsrt: int,
                    epsilon: float = 0.0) -> _Option:
         """Get the best option under Q, epsilon-greedy."""
@@ -1369,25 +1372,29 @@ class MapleQFunction(MLPRegressor):
         num_samples = num_samples_per_ground_nsrt * self._num_ground_nsrts
         options = self._sample_applicable_options_from_state(state,
                                                              num=num_samples)
-        scores = [self.predict_q_value(state, option) for option in options]
+        scores = [
+            self.predict_q_value(state, goal, option) for option in options
+        ]
         idx = np.argmax(scores)
         return options[idx]
 
-    def train_from_q_data(self, data: MapleQFunctionData) -> None:
+    def train_from_q_data(self, data: MapleQData) -> None:
         """Fit the model."""
         if not data:
             return
 
         # Start by vectorizing everything.
         vectorized_states: List[Array] = []
+        vectorized_goals: List[Array] = []
         vectorized_options: List[Array] = []
         vectorized_next_states: List[Array] = []
         vectorized_next_option_lists: List[List[Array]] = []
         rewards: List[float] = []
         terminals: List[bool] = []
 
-        for state, option, next_state, reward, terminal in data:
+        for state, goal, option, next_state, reward, terminal in data:
             vectorized_states.append(self._vectorize_state(state))
+            vectorized_goals.append(self._vectorize_goal(goal))
             vectorized_options.append(self._vectorize_option(option))
             vectorized_next_states.append(self._vectorize_state(next_state))
             rewards.append(reward)
@@ -1407,7 +1414,9 @@ class MapleQFunction(MLPRegressor):
 
         for i in range(len(data)):
             # Get inputs.
-            x = np.concatenate([vectorized_states[i], vectorized_options[i]])
+            g = vectorized_goals[i]
+            x = np.concatenate(
+                [vectorized_states[i], g, vectorized_options[i]])
             # Get targets.
             if terminals[i] or self._y_dim == -1:  # second case is not yet fit
                 best_next_value = 0.0
@@ -1416,7 +1425,7 @@ class MapleQFunction(MLPRegressor):
                 next_state_vec = vectorized_next_states[i]
                 next_option_vecs = vectorized_next_option_lists[i]
                 for option_vec in next_option_vecs:
-                    x_hat = np.concatenate([next_state_vec, option_vec])
+                    x_hat = np.concatenate([next_state_vec, g, option_vec])
                     q_x_hat = self.predict(x_hat)[0]
                     best_next_value = max(best_next_value, q_x_hat)
             y = rewards[i] + self._discount * best_next_value
@@ -1430,6 +1439,13 @@ class MapleQFunction(MLPRegressor):
     def _vectorize_state(self, state: State) -> Array:
         # TODO will crash with change object set.
         return state.vec(self._ordered_objects)
+
+    def _vectorize_goal(self, goal: Set[GroundAtom]) -> Array:
+        frozen_goal = frozenset(goal)
+        idx = self._ordered_frozen_goals.index(frozen_goal)
+        vec = np.zeros(len(self._ordered_frozen_goals), dtype=np.float32)
+        vec[idx] = 1.0
+        return vec
 
     def _vectorize_option(self, option: _Option) -> Array:
         matches = [
@@ -1448,14 +1464,17 @@ class MapleQFunction(MLPRegressor):
         vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
         return vec
 
-    def predict_q_value(self, state: State, option: _Option) -> float:
+    def predict_q_value(self, state: State, goal: Set[GroundAtom],
+                        option: _Option) -> float:
         """Predict the Q value."""
         # Default value if not yet fit.
         if self._y_dim == -1:
             return 0.0
-        x = np.concatenate(
-            [self._vectorize_state(state),
-             self._vectorize_option(option)])
+        x = np.concatenate([
+            self._vectorize_state(state),
+            self._vectorize_goal(goal),
+            self._vectorize_option(option)
+        ])
         y = self.predict(x)[0]
         return y
 

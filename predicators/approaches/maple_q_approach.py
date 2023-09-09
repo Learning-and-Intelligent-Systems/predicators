@@ -15,10 +15,11 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ml_models import MapleQFunction, MapleQFunctionData
+from predicators.ml_models import MapleQData, MapleQFunction
 from predicators.settings import CFG
-from predicators.structs import Action, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
+from predicators.structs import Action, GroundAtom, InteractionRequest, \
+    LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type, \
+    _GroundNSRT, _Option
 
 
 class MapleQApproach(OnlineNSRTLearningApproach):
@@ -36,7 +37,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         assert CFG.sampler_learner == "oracle"
 
         # Log all transition data.
-        self._maple_data: MapleQFunctionData = []
+        self._interaction_goals: List[Set[GroundAtom]] = []
+        self._maple_data: MapleQData = []
         self._last_seen_segment_traj_idx = -1
 
         # Store the Q function.
@@ -62,6 +64,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         def _option_policy(state: State) -> _Option:
             return self._q_function.get_option(
                 state,
+                task.goal,
                 num_samples_per_ground_nsrt=CFG.
                 active_sampler_learning_num_samples)
 
@@ -93,6 +96,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         self._maple_data = save_dict["maple_data"]
         self._last_seen_segment_traj_idx = save_dict[
             "last_seen_segment_traj_idx"]
+        self._interaction_goals = save_dict["interaction_goals"]
         self._online_learning_cycle = CFG.skip_until_cycle + 1
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
@@ -105,14 +109,15 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
         for nsrt in self._nsrts:
             assert nsrt.option_vars == nsrt.parameters
-        # On the first cycle, we need to register the ground NSRTs and objects
-        # in the Maple Q function so that it can define its states and actions.
+        # On the first cycle, we need to register the ground NSRTs, goals, and
+        # objects in the Q function so that it can define its inputs.
         if not online_learning_cycle:
             all_ground_nsrts: Set[_GroundNSRT] = set()
             objects = {o for t in self._train_tasks for o in t.init}
             for nsrt in self._nsrts:
                 all_ground_nsrts.update(utils.all_ground_nsrts(nsrt, objects))
-            self._q_function.set_grounding(objects, all_ground_nsrts)
+            goals = [t.goal for t in self._train_tasks]
+            self._q_function.set_grounding(objects, goals, all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.
@@ -127,22 +132,32 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                     "maple_data": self._maple_data,
                     "last_seen_segment_traj_idx":
                     self._last_seen_segment_traj_idx,
+                    "interaction_goals": self._interaction_goals,
                 }, f)
 
     def _update_maple_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
         new_trajs = self._segmented_trajs[start_idx:]
 
-        # TODO remove assumption
-        goal = self._train_tasks[0].goal
-        assert all(task.goal == goal for task in self._train_tasks)
+        assert len(self._segmented_trajs) == CFG.max_initial_demos + \
+            len(self._interaction_goals)
 
         for segmented_traj in new_trajs:
             self._last_seen_segment_traj_idx += 1
             for i, segment in enumerate(segmented_traj):
                 s = segment.states[0]
+                goal = self._interaction_goals[CFG.max_initial_demos + i]
                 o = segment.get_option()
                 ns = segment.states[-1]
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
                 terminal = reward > 0 or i == len(segmented_traj) - 1
-                self._maple_data.append((s, o, ns, reward, terminal))
+                self._maple_data.append((s, goal, o, ns, reward, terminal))
+
+    def get_interaction_requests(self) -> List[InteractionRequest]:
+        # Save the goals for each interaction request so we can later associate
+        # states, actions, and goals.
+        requests = super().get_interaction_requests()
+        for request in requests:
+            goal = self._train_tasks[request.train_task_idx].goal
+            self._interaction_goals.append(goal)
+        return requests
