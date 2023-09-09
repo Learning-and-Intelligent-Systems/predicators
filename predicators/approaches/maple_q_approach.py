@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, List, Optional, Set
 
+import dill as pkl
 from gym.spaces import Box
 
 from predicators import utils
@@ -85,7 +86,14 @@ class MapleQ(OnlineNSRTLearningApproach):
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         super().load(online_learning_cycle)
-        # TODO
+        save_path = utils.get_approach_load_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
+            save_dict = pkl.load(f)
+        self._q_function = save_dict["q_function"]
+        self._maple_data = save_dict["maple_data"]
+        self._last_seen_segment_traj_idx = save_dict[
+            "last_seen_segment_traj_idx"]
+        self._online_learning_cycle = CFG.skip_until_cycle + 1
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
@@ -109,7 +117,15 @@ class MapleQ(OnlineNSRTLearningApproach):
         self._q_function.train_from_q_data(self._maple_data)
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
-        # TODO
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
+            pkl.dump(
+                {
+                    "q_function": self._q_function,
+                    "maple_data": self._maple_data,
+                    "last_seen_segment_traj_idx":
+                    self._last_seen_segment_traj_idx,
+                }, f)
 
     def _update_maple_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
