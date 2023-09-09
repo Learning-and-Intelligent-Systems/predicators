@@ -234,7 +234,7 @@ def test_active_sampler_explorer():
         state = env.simulate(state, policy(state))
     assert len(ground_op_hist) > 0
 
-    # Test planning progrss scoring (but keep it short).
+    # Test planning progress scoring (but keep it short).
     utils.reset_config({
         "explorer":
         "active_sampler",
@@ -273,7 +273,7 @@ def test_active_sampler_explorer():
         state = env.simulate(state, policy(state))
     assert len(ground_op_hist) > 0
 
-    # Test task repeating (but keep it short).
+    # Test task repeating.
     utils.reset_config({
         "explorer": "active_sampler",
         "env": "regional_bumpy_cover",
@@ -299,7 +299,7 @@ def test_active_sampler_explorer():
         seen_train_task_idxs=seen_train_task_idxs)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
-    for _ in range(5):
+    for _ in range(25):
         assert not term_fn(state)
         state = env.simulate(state, policy(state))
     assert len(ground_op_hist) > 0
