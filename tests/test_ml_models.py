@@ -482,8 +482,12 @@ def test_maple_q_function():
     sampled_option = model.get_option(task.init, task.goal, 1, epsilon=0.0)
     assert sampled_option.initiable(task.init)
     # Test learning.
-    data = [(task.init, task.goal, option, task.init, 1.0, True)]
+    data = [(task.init, task.goal, option, task.init, 1.0, False)]
     model.train_from_q_data(data)
     # Should be different now.
+    value = model.predict_q_value(task.init, task.goal, option)
+    assert value != 0.0
+    # Train a second iteration.
+    model.train_from_q_data(data)
     value = model.predict_q_value(task.init, task.goal, option)
     assert value != 0.0
