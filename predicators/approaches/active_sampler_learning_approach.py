@@ -196,7 +196,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             elif success:
                                 just_made_incorrect_pick = False
                         if o.name == "Place" and just_made_incorrect_pick:
-                            continue
+                            continue   # pragma: no cover
 
                 if CFG.active_sampler_learning_model in [
                         "myopic_classifier_mlp", "myopic_classifier_ensemble",
