@@ -1,7 +1,8 @@
 """A parameterized action reinforcement learning approach inspired by MAPLE,
-but where only a Q function is learned.
+(https://ut-austin-rpl.github.io/maple/) but where only a Q-function is
+learned.
 
-Generic samplers and applicable actions are used to perform the argmax.
+Base samplers and applicable actions are used to perform the argmax.
 """
 
 from __future__ import annotations
@@ -113,11 +114,33 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # objects in the Q function so that it can define its inputs.
         if not online_learning_cycle:
             all_ground_nsrts: Set[_GroundNSRT] = set()
-            objects = {o for t in self._train_tasks for o in t.init}
-            for nsrt in self._nsrts:
-                all_ground_nsrts.update(utils.all_ground_nsrts(nsrt, objects))
-            goals = [t.goal for t in self._train_tasks]
-            self._q_function.set_grounding(objects, goals, all_ground_nsrts)
+            if CFG.sesame_grounder == "naive":
+                for nsrt in self._nsrts:
+                    all_objects = {
+                        o
+                        for t in self._train_tasks for o in t.init
+                    }
+                    all_ground_nsrts.update(
+                        utils.all_ground_nsrts(nsrt, all_objects))
+            elif CFG.sesame_grounder == "fd_translator":
+                all_objects = set()
+                for t in self._train_tasks:
+                    curr_task_objects = {o for o in t.init}
+                    curr_task_types = {o.type for o in t.init}
+                    curr_init_atoms = utils.abstract(
+                        t.init, self._get_current_predicates())
+                    all_ground_nsrts.update(
+                        utils.all_ground_nsrts_fd_translator(
+                            self._nsrts, curr_task_objects,
+                            self._get_current_predicates(), curr_task_types,
+                            curr_init_atoms, t.goal))
+                    all_objects.update(curr_task_objects)
+            else:
+                raise ValueError(
+                    f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+
+        goals = [t.goal for t in self._train_tasks]
+        self._q_function.set_grounding(all_objects, goals, all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.

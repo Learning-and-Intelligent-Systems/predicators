@@ -1303,11 +1303,14 @@ def _train_pytorch_model(model: nn.Module,
     return best_loss
 
 
+# Low-level state, current high-level (predicate) state, option taken,
+# next low-level state, reward, done.
 MapleQData = List[Tuple[State, Set[GroundAtom], _Option, State, float, bool]]
 
 
 class MapleQFunction(MLPRegressor):
-    """A Q function inspired by MAPLE that has access to ground NSRTs.
+    """A Q function inspired by MAPLE (https://ut-austin-rpl.github.io/maple/)
+    that has access to ground NSRTs.
 
     The ground NSRTs are used to approximately argmax the learned Q.
 
