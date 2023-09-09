@@ -1,6 +1,7 @@
-"""Maple Q approach.
+"""A parameterized action reinforcement learning approach inspired by MAPLE,
+but where only a Q function is learned.
 
-TODO describe.
+Generic samplers and applicable actions are used to perform the argmax.
 """
 
 from __future__ import annotations
@@ -13,14 +14,14 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ml_models import QFunction, QFunctionData
+from predicators.ml_models import MapleQFunction, MapleQFunctionData
 from predicators.settings import CFG
 from predicators.structs import Action, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
 class MapleQ(OnlineNSRTLearningApproach):
-    """TODO document."""
+    """A parameterized action RL approach inspired by MAPLE."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -34,11 +35,11 @@ class MapleQ(OnlineNSRTLearningApproach):
         assert CFG.sampler_learner == "oracle"
 
         # Log all transition data.
-        self._maple_data: QFunctionData = []
+        self._maple_data: MapleQFunctionData = []
         self._last_seen_segment_traj_idx = -1
 
         # Store the Q function.
-        self._q_function = QFunction(
+        self._q_function = MapleQFunction(
             seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
             max_train_iters=CFG.mlp_regressor_max_itr,
@@ -48,7 +49,8 @@ class MapleQ(OnlineNSRTLearningApproach):
             weight_decay=CFG.weight_decay,
             use_torch_gpu=CFG.use_torch_gpu,
             train_print_every=CFG.pytorch_train_print_every,
-            n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change)
+            n_iter_no_change=CFG.q_function_n_iter_no_change,
+            num_lookahead_samples=CFG.q_function_num_lookahead_samples)
 
     @classmethod
     def get_name(cls) -> str:

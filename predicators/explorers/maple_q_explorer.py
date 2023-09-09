@@ -1,4 +1,4 @@
-"""TODO describe."""
+"""Uses MAPLE Q function for epsilon-greedy exploration."""
 
 from typing import List, Set
 
@@ -6,20 +6,20 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
-from predicators.ml_models import QFunction
+from predicators.ml_models import MapleQFunction
 from predicators.settings import CFG
 from predicators.structs import NSRT, ExplorationStrategy, \
     ParameterizedOption, Predicate, State, Task, Type, _Option
 
 
 class MapleQExplorer(BaseExplorer):
-    """TODO describe."""
+    """Uses MAPLE Q function for epsilon-greedy exploration."""
 
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task],
                  max_steps_before_termination: int, nsrts: Set[NSRT],
-                 q_function: QFunction) -> None:
+                 q_function: MapleQFunction) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"

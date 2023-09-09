@@ -9,7 +9,7 @@ from predicators.competence_models import SkillCompetenceModel
 from predicators.explorers.base_explorer import BaseExplorer
 from predicators.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
-from predicators.ml_models import QFunction
+from predicators.ml_models import MapleQFunction
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import NSRT, GroundAtom, NSRTSampler, \
@@ -39,7 +39,7 @@ def create_explorer(
                                      SkillCompetenceModel]] = None,
     nsrt_to_explorer_sampler: Optional[Dict[NSRT, NSRTSampler]] = None,
     seen_train_task_idxs: Optional[Set[int]] = None,
-    maple_q_function: Optional[QFunction] = None,
+    maple_q_function: Optional[MapleQFunction] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
     if max_steps_before_termination is None:

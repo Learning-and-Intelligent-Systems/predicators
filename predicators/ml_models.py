@@ -1304,11 +1304,16 @@ def _train_pytorch_model(model: nn.Module,
 
 
 # TODO add goal
-QFunctionData = List[Tuple[State, _Option, State, float, bool]]
+MapleQFunctionData = List[Tuple[State, _Option, State, float, bool]]
 
 
-class QFunction(MLPRegressor):
-    """TODO rename, document, probably move."""
+class MapleQFunction(MLPRegressor):
+    """A Q function inspired by MAPLE that has access to ground NSRTs.
+
+    The ground NSRTs are used to approximately argmax the learned Q.
+
+    Assumes a fixed set of objects and ground NSRTs.
+    """
 
     def __init__(self,
                  seed: int,
@@ -1321,12 +1326,14 @@ class QFunction(MLPRegressor):
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000,
                  n_iter_no_change: int = 10000000,
-                 discount: float = 0.99) -> None:
+                 discount: float = 0.99,
+                 num_lookahead_samples: int = 5) -> None:
         super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
                          clip_value, learning_rate, weight_decay,
                          use_torch_gpu, train_print_every, n_iter_no_change)
         self._rng = np.random.default_rng(seed)
         self._discount = discount
+        self._num_lookahead_samples = num_lookahead_samples
 
         # Updated once, after the first round of learning.
         self._ordered_objects: List[Object] = []
@@ -1364,11 +1371,9 @@ class QFunction(MLPRegressor):
                                                              num=num_samples)
         scores = [self.predict_q_value(state, option) for option in options]
         idx = np.argmax(scores)
-        selected_option = options[idx]
-        print("EXECUTING:", selected_option)
-        return selected_option
+        return options[idx]
 
-    def train_from_q_data(self, data: QFunctionData) -> None:
+    def train_from_q_data(self, data: MapleQFunctionData) -> None:
         """Fit the model."""
         if not data:
             return
@@ -1392,11 +1397,11 @@ class QFunction(MLPRegressor):
             next_option_vecs: List[Array] = []
             if not terminal:
                 for option in self._sample_applicable_options_from_state(
-                        next_state, num=5):  # TODO make hyperparameter
+                        next_state, num=self._num_lookahead_samples):
                     next_option_vecs.append(self._vectorize_option(option))
             vectorized_next_option_lists.append(next_option_vecs)
 
-        # Train once. TODO: maybe train multiple times in a loop, like fitted Q?
+        # Train with Bellman error.
         regressor_inputs: List[Array] = []
         regressor_outputs: List[float] = []
 
@@ -1457,10 +1462,7 @@ class QFunction(MLPRegressor):
     def _sample_applicable_options_from_state(self,
                                               state: State,
                                               num: int = 1) -> List[_Option]:
-        """Use NSRTs to sample options in the current state.
-
-        TODO refactor from fitted Q.
-        """
+        """Use NSRTs to sample options in the current state."""
         # Create all applicable ground NSRTs.
         applicable_nsrts = [
             o for o in self._ordered_ground_nsrts if all(
