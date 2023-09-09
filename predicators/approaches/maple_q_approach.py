@@ -125,7 +125,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             elif CFG.sesame_grounder == "fd_translator":
                 all_objects = set()
                 for t in self._train_tasks:
-                    curr_task_objects = {o for o in t.init}
+                    curr_task_objects = set(t.init)
                     curr_task_types = {o.type for o in t.init}
                     curr_init_atoms = utils.abstract(
                         t.init, self._get_current_predicates())
