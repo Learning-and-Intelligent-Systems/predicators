@@ -25,6 +25,10 @@ APPROACHES:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "random_nsrts"
+  maple_q:
+    NAME: "maple_q"
+    FLAGS:
+      explorer: "maple_q"
 ENVS:
   grid_row:
     NAME: "grid_row"
