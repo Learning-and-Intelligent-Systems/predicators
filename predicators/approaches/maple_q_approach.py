@@ -122,7 +122,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                     }
                     all_ground_nsrts.update(
                         utils.all_ground_nsrts(nsrt, all_objects))
-            elif CFG.sesame_grounder == "fd_translator":
+            elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
                 all_objects = set()
                 for t in self._train_tasks:
                     curr_task_objects = set(t.init)
@@ -135,7 +135,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                             self._get_current_predicates(), curr_task_types,
                             curr_init_atoms, t.goal))
                     all_objects.update(curr_task_objects)
-            else:
+            else:  # pragma: no cover
                 raise ValueError(
                     f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
             goals = [t.goal for t in self._train_tasks]

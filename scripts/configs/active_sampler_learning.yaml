@@ -1,30 +1,30 @@
 # Final active sampler learning experiments.
 ---
 APPROACHES:
-  # planning_progress_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "planning_progress"
-  # task_repeat_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "task_repeat"
-  # success_rate_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "success_rate"
-  # random_score_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "random"
-  # random_nsrts_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "random_nsrts"
+  planning_progress_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "planning_progress"
+  task_repeat_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "task_repeat"
+  success_rate_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "success_rate"
+  random_score_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "random"
+  random_nsrts_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "random_nsrts"
   maple_q:
     NAME: "maple_q"
     FLAGS:
@@ -37,26 +37,26 @@ ENVS:
       grid_row_num_cells: 3
   grid_row:
     NAME: "grid_row"
-  # sticky_table:
-  #   NAME: "sticky_table"
-  # sticky_table_tricky_floor:
-  #   NAME: "sticky_table_tricky_floor"
-  # regional_bumpy_cover:
-  #   NAME: "regional_bumpy_cover"
-  #   FLAGS:
-  #     regional_bumpy_cover_include_impossible_nsrt: "True"
-  #     bumpy_cover_num_bumps: 3
-  #     bumpy_cover_spaces_per_bump: 5
-  #     bumpy_cover_init_bumpy_prob: 0.25
-  #     cover_num_blocks: 10
-  #     cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
-  #     cover_num_targets: 10
-  #     cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
-  # kitchen:
-  #   NAME: "kitchen"
-  #   FLAGS:
-  #     num_train_tasks: 100
-  #     max_num_steps_option_rollout: 250
+  sticky_table:
+    NAME: "sticky_table"
+  sticky_table_tricky_floor:
+    NAME: "sticky_table_tricky_floor"
+  regional_bumpy_cover:
+    NAME: "regional_bumpy_cover"
+    FLAGS:
+      regional_bumpy_cover_include_impossible_nsrt: "True"
+      bumpy_cover_num_bumps: 3
+      bumpy_cover_spaces_per_bump: 5
+      bumpy_cover_init_bumpy_prob: 0.25
+      cover_num_blocks: 10
+      cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
+      cover_num_targets: 10
+      cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
+  kitchen:
+    NAME: "kitchen"
+    FLAGS:
+      num_train_tasks: 100
+      max_num_steps_option_rollout: 250
 ARGS:
   - "debug"
 FLAGS:
