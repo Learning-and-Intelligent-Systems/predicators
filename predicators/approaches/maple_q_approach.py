@@ -53,8 +53,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             weight_decay=CFG.weight_decay,
             use_torch_gpu=CFG.use_torch_gpu,
             train_print_every=CFG.pytorch_train_print_every,
-            n_iter_no_change=CFG.q_function_n_iter_no_change,
-            num_lookahead_samples=CFG.q_function_num_lookahead_samples)
+            n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
+            num_lookahead_samples=CFG.
+            active_sampler_learning_num_lookahead_samples)
 
     @classmethod
     def get_name(cls) -> str:

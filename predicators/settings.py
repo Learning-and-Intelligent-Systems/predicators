@@ -536,8 +536,8 @@ class GlobalSettings:
     active_sampler_learning_num_samples = 100
     active_sampler_learning_score_gamma = 0.5
     active_sampler_learning_fitted_q_iters = 5
-    q_function_n_iter_no_change = 5000  # shared with maple q function learning
-    q_function_num_lookahead_samples = 5
+    active_sampler_learning_n_iter_no_change = 5000  # shared with maple q function learning
+    active_sampler_learning_num_lookahead_samples = 5
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
     active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"

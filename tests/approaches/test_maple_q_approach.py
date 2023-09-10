@@ -43,7 +43,7 @@ def test_maple_q_approach(cover_num_blocks, cover_num_targets):
         "num_test_tasks": 1,
         "explorer": "maple_q",
         "active_sampler_learning_num_samples": 5,
-        "q_function_num_lookahead_samples": 2,
+        "active_sampler_learning_num_lookahead_samples": 2,
     })
     env = RegionalBumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
