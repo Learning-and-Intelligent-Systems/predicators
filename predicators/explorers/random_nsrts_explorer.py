@@ -6,6 +6,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
+from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DummyOption, \
     ExplorationStrategy, ParameterizedOption, Predicate, State, Task, Type, \
     _GroundNSRT
@@ -68,10 +69,19 @@ class RandomNSRTsExplorer(BaseExplorer):
 
             if cur_option is DummyOption or cur_option.terminal(state):
                 # Create all applicable ground NSRTs.
-                ground_nsrts: List[_GroundNSRT] = []
-                for nsrt in sorted(self._nsrts):
-                    ground_nsrts.extend(
-                        utils.all_ground_nsrts(nsrt, list(state)))
+                ground_nsrt_set: Set[_GroundNSRT] = set()
+                objects = set(state)
+                if CFG.sesame_grounder == "naive":
+                    for nsrt in self._nsrts:
+                        ground_nsrt_set.update(
+                            utils.all_ground_nsrts(nsrt, objects))
+                elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
+                    atoms = utils.abstract(state, self._predicates)
+                    ground_nsrt_set.update(
+                        utils.all_ground_nsrts_fd_translator(
+                            self._nsrts, objects, self._predicates,
+                            self._types, atoms, task.goal))
+                ground_nsrts = sorted(ground_nsrt_set)
 
                 # Sample an applicable NSRT.
                 ground_nsrt = utils.sample_applicable_ground_nsrt(
