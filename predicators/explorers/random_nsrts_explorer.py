@@ -59,6 +59,24 @@ class RandomNSRTsExplorer(BaseExplorer):
         cur_option = DummyOption
         task = self._train_tasks[train_task_idx]
 
+        # Create all applicable ground NSRTs.
+        ground_nsrt_set: Set[_GroundNSRT] = set()
+        objects = set(task.init)
+        if CFG.sesame_grounder == "naive":
+            for nsrt in self._nsrts:
+                ground_nsrt_set.update(
+                    utils.all_ground_nsrts(nsrt, objects))
+        elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
+            atoms = utils.abstract(task.init, self._predicates)
+            ground_nsrt_set.update(
+                utils.all_ground_nsrts_fd_translator(
+                    self._nsrts, objects, self._predicates,
+                    self._types, atoms, task.goal))
+        else:  # pragma: no cover
+            raise ValueError(
+                f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+        ground_nsrts = sorted(ground_nsrt_set)
+
         def fallback_policy(state: State) -> Action:
             del state  # unused
             raise utils.RequestActPolicyFailure(
@@ -68,24 +86,6 @@ class RandomNSRTsExplorer(BaseExplorer):
             nonlocal cur_option
 
             if cur_option is DummyOption or cur_option.terminal(state):
-                # Create all applicable ground NSRTs.
-                ground_nsrt_set: Set[_GroundNSRT] = set()
-                objects = set(state)
-                if CFG.sesame_grounder == "naive":
-                    for nsrt in self._nsrts:
-                        ground_nsrt_set.update(
-                            utils.all_ground_nsrts(nsrt, objects))
-                elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
-                    atoms = utils.abstract(state, self._predicates)
-                    ground_nsrt_set.update(
-                        utils.all_ground_nsrts_fd_translator(
-                            self._nsrts, objects, self._predicates,
-                            self._types, atoms, task.goal))
-                else:  # pragma: no cover
-                    raise ValueError(
-                        f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
-                ground_nsrts = sorted(ground_nsrt_set)
-
                 # Sample an applicable NSRT.
                 ground_nsrt = utils.sample_applicable_ground_nsrt(
                     state, ground_nsrts, self._predicates, self._rng)
