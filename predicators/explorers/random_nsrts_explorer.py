@@ -64,14 +64,14 @@ class RandomNSRTsExplorer(BaseExplorer):
         objects = set(task.init)
         if CFG.sesame_grounder == "naive":
             for nsrt in self._nsrts:
-                ground_nsrt_set.update(
-                    utils.all_ground_nsrts(nsrt, objects))
+                ground_nsrt_set.update(utils.all_ground_nsrts(nsrt, objects))
         elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
             atoms = utils.abstract(task.init, self._predicates)
             ground_nsrt_set.update(
-                utils.all_ground_nsrts_fd_translator(
-                    self._nsrts, objects, self._predicates,
-                    self._types, atoms, task.goal))
+                utils.all_ground_nsrts_fd_translator(self._nsrts, objects,
+                                                     self._predicates,
+                                                     self._types, atoms,
+                                                     task.goal))
         else:  # pragma: no cover
             raise ValueError(
                 f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
