@@ -81,6 +81,9 @@ class RandomNSRTsExplorer(BaseExplorer):
                         utils.all_ground_nsrts_fd_translator(
                             self._nsrts, objects, self._predicates,
                             self._types, atoms, task.goal))
+                else:  # pragma: no cover
+                    raise ValueError(
+                        f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
                 ground_nsrts = sorted(ground_nsrt_set)
 
                 # Sample an applicable NSRT.
