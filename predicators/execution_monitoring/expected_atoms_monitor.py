@@ -20,7 +20,7 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
     def step(self, state: State) -> bool:
         # This monitor only makes sense to use with an oracle
         # bilevel planning approach.
-        assert "oracle" in CFG.approach or "active_sampler" in CFG.approach
+        # assert "oracle" in CFG.approach or "active_sampler" in CFG.approach
         # If the approach info is empty, don't replan.
         if not self._approach_info:  # pragma: no cover
             return False
