@@ -138,9 +138,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             else:
                 raise ValueError(
                     f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
-
-        goals = [t.goal for t in self._train_tasks]
-        self._q_function.set_grounding(all_objects, goals, all_ground_nsrts)
+            goals = [t.goal for t in self._train_tasks]
+            self._q_function.set_grounding(all_objects, goals,
+                                           all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.

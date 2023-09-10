@@ -1406,18 +1406,12 @@ class MapleQFunction(MLPRegressor):
             # Sample next possible options.
             next_option_vecs: List[Array] = []
             if not terminal:
-                # We want to pick a total of num_lookahead_samples
-                # samples, so we will draw this many samples
-                # per applicable nsrt, and then randomly choose
-                # a num_lookahead_samples size subset from this
-                # list.
-                for option in self._rng.choice(
-                        self._sample_applicable_options_from_state(
-                            next_state,
-                            num_samples_per_applicable_nsrt=self.
-                            _num_lookahead_samples),
-                        self._num_lookahead_samples):
-                    next_option_vecs.append(self._vectorize_option(option))
+                # We want to pick a total of num_lookahead_samples samples.
+                while len(next_option_vecs) < self._num_lookahead_samples:
+                    # Sample 1 per NSRT until we reach the target number.
+                    for option in self._sample_applicable_options_from_state(
+                            next_state):
+                        next_option_vecs.append(self._vectorize_option(option))
             vectorized_next_option_lists.append(next_option_vecs)
 
         # Train with Bellman error.
