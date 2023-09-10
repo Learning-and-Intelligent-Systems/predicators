@@ -31,8 +31,12 @@ APPROACHES:
       explorer: "maple_q"
       mlp_regressor_max_itr: 100000
 ENVS:
-  grid_row:
+  tiny_grid_row:
     NAME: "grid_row"
+    FLAGS:
+      grid_row_num_cells: 3
+  # grid_row:
+  #   NAME: "grid_row"
   # sticky_table:
   #   NAME: "sticky_table"
   # sticky_table_tricky_floor:
