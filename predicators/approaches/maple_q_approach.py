@@ -145,7 +145,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.
-        self._q_function.train(
+        self._q_function.train_q_function(
             CFG.active_sampler_learning_per_cycle_training_iters)
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
@@ -177,7 +177,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 ns = segment.states[-1]
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
-                self._q_function.add_data_to_replay_buffer(
+                self._q_function.add_datum_to_replay_buffer(
                     (s, goal, o, ns, reward, terminal))
 
     def get_interaction_requests(self) -> List[InteractionRequest]:

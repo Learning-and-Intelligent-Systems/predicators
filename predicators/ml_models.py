@@ -1330,8 +1330,7 @@ class ReplayBuffer(Generic[_D]):
 
 class FixedSizeReplayBuffer(ReplayBuffer):
 
-    def __init__(self, max_buffer_size: int,
-                 sample_with_replacement: bool,
+    def __init__(self, max_buffer_size: int, sample_with_replacement: bool,
                  rng: np.random.Generator) -> None:
         super().__init__(rng)
         self._max_buffer_size = max_buffer_size
@@ -1420,9 +1419,9 @@ class MapleQFunction(MLPRegressor):
         self._num_ground_nsrts = 0
         self._replay_buffer: ReplayBuffer[MapleQData] = FixedSizeReplayBuffer(
             max_buffer_size=self._replay_buffer_max_size,
-            sample_with_replacement=self._replay_buffer_sample_with_replacement,
-            rng=rng
-        )
+            sample_with_replacement=self.
+            _replay_buffer_sample_with_replacement,
+            rng=rng)
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
@@ -1460,14 +1459,13 @@ class MapleQFunction(MLPRegressor):
         idx = np.argmax(scores)
         return options[idx]
 
-    def add_data_to_replay_buffer(self, data: MapleQData) -> None:
+    def add_datum_to_replay_buffer(self, datum: MapleQData) -> None:
         assert self._replay_buffer is not None, "Tried to add data to replay buffer without first calling set_grounding"
-        if not data:
+        if not datum:
             return
-        for datum in data:
-            self._replay_buffer.add_datum(datum)
+        self._replay_buffer.add_datum(datum)
 
-    def train(self, iters: int) -> None:
+    def train_q_function(self, iters: int) -> None:
         """Fit the model."""
         # First, precompute the size of the input and output from the
         # Q-network.
@@ -1485,39 +1483,36 @@ class MapleQFunction(MLPRegressor):
                 CFG.active_sampler_learning_batch_size)
             X_arr = np.zeros((CFG.active_sampler_learning_batch_size, X_size))
             Y_arr = np.zeros((CFG.active_sampler_learning_batch_size, Y_size))
-            try:
-                for i, (state, goal, option, next_state, reward,
-                        terminal) in enumerate(curr_batch):
-                    # Compute the input to the Q-function.
-                    vectorized_state = self._vectorize_state(state)
-                    vectorized_goal = self._vectorize_goal(goal)
-                    vectorized_action = self._vectorize_option(option)
-                    X_arr[i] = np.concatenate(
-                        [vectorized_state, vectorized_goal, vectorized_action])
-                    # Next, compute the target for Q-learning by sampling next actions.
-                    vectorized_next_state = self._vectorize_state(next_state)
-                    if not terminal and self._y_dim != -1:
-                        best_next_value = -np.inf
-                        next_option_vecs: List[Array] = []
-                        # We want to pick a total of num_lookahead_samples samples.
-                        while len(next_option_vecs) < self._num_lookahead_samples:
-                            # Sample 1 per NSRT until we reach the target number.
-                            for option in self._sample_applicable_options_from_state(
-                                    next_state):
-                                next_option_vecs.append(
-                                    self._vectorize_option(option))
-                        for next_action_vec in next_option_vecs:
-                            x_hat = np.concatenate([
-                                vectorized_next_state, vectorized_goal,
-                                next_action_vec
-                            ])
-                            q_x_hat = self.predict(x_hat)[0]
-                            best_next_value = max(best_next_value, q_x_hat)
-                    else:
-                        best_next_value = 0.0
-                    Y_arr[i] = reward + self._discount * best_next_value
-            except TypeError:
-                import ipdb; ipdb.set_trace()
+            for i, (state, goal, option, next_state, reward,
+                    terminal) in enumerate(curr_batch):
+                # Compute the input to the Q-function.
+                vectorized_state = self._vectorize_state(state)
+                vectorized_goal = self._vectorize_goal(goal)
+                vectorized_action = self._vectorize_option(option)
+                X_arr[i] = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+                # Next, compute the target for Q-learning by sampling next actions.
+                vectorized_next_state = self._vectorize_state(next_state)
+                if not terminal and self._y_dim != -1:
+                    best_next_value = -np.inf
+                    next_option_vecs: List[Array] = []
+                    # We want to pick a total of num_lookahead_samples samples.
+                    while len(next_option_vecs) < self._num_lookahead_samples:
+                        # Sample 1 per NSRT until we reach the target number.
+                        for option in self._sample_applicable_options_from_state(
+                                next_state):
+                            next_option_vecs.append(
+                                self._vectorize_option(option))
+                    for next_action_vec in next_option_vecs:
+                        x_hat = np.concatenate([
+                            vectorized_next_state, vectorized_goal,
+                            next_action_vec
+                        ])
+                        q_x_hat = self.predict(x_hat)[0]
+                        best_next_value = max(best_next_value, q_x_hat)
+                else:
+                    best_next_value = 0.0
+                Y_arr[i] = reward + self._discount * best_next_value
 
             # Finally, train on this batch of data.
             self.fit(X_arr, Y_arr)
