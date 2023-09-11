@@ -53,4 +53,4 @@ FLAGS:
   max_num_steps_interaction_request: 5
   horizon: 2  # NOTE, otherwise too easy
 START_SEED: 456
-NUM_SEEDS: 1 #5
+NUM_SEEDS: 5
