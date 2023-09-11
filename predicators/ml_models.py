@@ -1333,7 +1333,7 @@ class FixedSizeReplayBuffer(ReplayBuffer):
     def __init__(self, max_buffer_size: int,
                  sample_with_replacement: bool,
                  rng: np.random.Generator) -> None:
-        super.__init__(rng)
+        super().__init__(rng)
         self._max_buffer_size = max_buffer_size
         self._buffer: List[_D] = []
         self._sample_with_replacement = sample_with_replacement
