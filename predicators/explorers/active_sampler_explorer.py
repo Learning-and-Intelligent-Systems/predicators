@@ -118,10 +118,6 @@ class ActiveSamplerExplorer(BaseExplorer):
                 logging.info("[Explorer] Using random option policy.")
                 return self._get_random_option(state)
 
-            if using_random:
-                logging.info("[Explorer] Using random option policy.")
-                return self._get_random_option(state)
-
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_finished and \
                 assigned_task.goal_holds(state):
