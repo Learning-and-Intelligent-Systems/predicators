@@ -10,13 +10,14 @@ import tempfile
 from dataclasses import dataclass
 from typing import Any, Callable, Collection, Dict, FrozenSet, Iterator, \
     List, Optional, Sequence, Set, Tuple
+from typing import TypeVar
 from typing import Type as TypingType
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from scipy.stats import beta as BetaRV
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimatorTypeVar
 from sklearn.neighbors import \
     KNeighborsClassifier as _SKLearnKNeighborsClassifier
 from sklearn.neighbors import \
@@ -1302,6 +1303,8 @@ def _train_pytorch_model(model: nn.Module,
     logging.info(f"Loaded best model with loss: {best_loss:.5f}")
     return best_loss
 
+
+# TODO: Implement a replay buffer that takes in an Array type
 
 # Low-level state, current high-level (predicate) state, option taken,
 # next low-level state, reward, done.
