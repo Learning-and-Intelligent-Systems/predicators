@@ -1314,7 +1314,7 @@ class ReplayBuffer(Generic[_D]):
     This data will be used for model training.
     """
 
-    def __init__(self, datum_size: int, rng: np.random.Generator) -> None:
+    def __init__(self, rng: np.random.Generator) -> None:
         self._rng = rng
 
     @abc.abstractmethod
@@ -1331,8 +1331,9 @@ class ReplayBuffer(Generic[_D]):
 class FixedSizeReplayBuffer(ReplayBuffer):
 
     def __init__(self, max_buffer_size: int,
-                 sample_with_replacement: bool) -> None:
-        super.__init__()
+                 sample_with_replacement: bool,
+                 rng: np.random.Generator) -> None:
+        super.__init__(rng)
         self._max_buffer_size = max_buffer_size
         self._buffer: List[_D] = []
         self._sample_with_replacement = sample_with_replacement
@@ -1389,6 +1390,7 @@ class MapleQFunction(MLPRegressor):
                  clip_gradients: bool,
                  clip_value: float,
                  learning_rate: float,
+                 rng: np.random.Generator,
                  weight_decay: float = 0,
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000,
@@ -1415,7 +1417,8 @@ class MapleQFunction(MLPRegressor):
         self._num_ground_nsrts = 0
         self._replay_buffer: ReplayBuffer[MapleQData] = FixedSizeReplayBuffer(
             max_buffer_size=self._replay_buffer_max_size,
-            sample_with_replacement=self._replay_buffer_sample_with_replacement
+            sample_with_replacement=self._replay_buffer_sample_with_replacement,
+            rng=rng
         )
 
     def set_grounding(self, objects: Set[Object],
