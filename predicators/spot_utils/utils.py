@@ -1,10 +1,10 @@
 """Small utility functions for spot."""
 
-from bosdyn.client.sdk import Robot
+from typing import Tuple
+
 from bosdyn.api import estop_pb2
 from bosdyn.client.estop import EstopClient
-
-from typing import Tuple
+from bosdyn.client.sdk import Robot
 
 
 def verify_estop(robot: Robot) -> None:
