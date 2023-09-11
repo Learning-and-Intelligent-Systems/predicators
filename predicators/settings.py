@@ -178,6 +178,7 @@ class GlobalSettings:
     spot_visualize_vision_model_outputs = False
     spot_vision_detection_threshold = 0.3
     spot_perception_outdir = "spot_perception_outputs"
+    spot_graph_nav_map = "bike_env_floor4"
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
