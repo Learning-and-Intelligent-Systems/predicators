@@ -3412,15 +3412,34 @@ def get_task_seed(train_or_test: str, task_idx: int) -> int:
     return task_seed
 
 
-def beta_bernoulli_posterior(success_history: List[bool],
-                             alpha: float = 1.0,
-                             beta: float = 1.0) -> BetaRV:
+def _beta_bernoulli_posterior_alpha_beta(
+        success_history: List[bool],
+        alpha: float = 1.0,
+        beta: float = 1.0) -> Tuple[float, float]:
     """See https://gregorygundersen.com/blog/2020/08/19/bernoulli-beta/"""
     n = len(success_history)
     s = sum(success_history)
     alpha_n = alpha + s
     beta_n = n - s + beta
+    return (alpha_n, beta_n)
+
+
+def beta_bernoulli_posterior(success_history: List[bool],
+                             alpha: float = 1.0,
+                             beta: float = 1.0) -> BetaRV:
+    """Returns the RV."""
+    alpha_n, beta_n = _beta_bernoulli_posterior_alpha_beta(
+        success_history, alpha, beta)
     return BetaRV(alpha_n, beta_n)
+
+
+def beta_bernoulli_posterior_mean(success_history: List[bool],
+                                  alpha: float = 1.0,
+                                  beta: float = 1.0) -> float:
+    """Faster computation to avoid instantiating BetaRV when not needed."""
+    alpha_n, beta_n = _beta_bernoulli_posterior_alpha_beta(
+        success_history, alpha, beta)
+    return alpha_n / (alpha_n + beta_n)
 
 
 def beta_from_mean_and_variance(mean: float,

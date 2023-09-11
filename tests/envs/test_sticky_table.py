@@ -3,8 +3,10 @@
 import numpy as np
 
 from predicators import utils
-from predicators.envs.sticky_table import StickyTableEnv
+from predicators.envs.sticky_table import StickyTableEnv, \
+    StickyTableTrickyFloorEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
+from predicators.structs import Action
 
 
 def test_sticky_table():
@@ -157,3 +159,61 @@ def test_sticky_table():
         else:
             assert OnFloor([cube]).holds(next_state)
     assert 0 < num_on_table < 10
+
+    # Test the tricky floor variation.
+    utils.reset_config({
+        "env": "sticky_table_tricky_floor",
+        "num_train_tasks": 1,
+        "num_test_tasks": 2,
+        "sticky_table_place_smooth_fall_prob": 1.0,
+        "sticky_table_tricky_floor_place_sticky_fall_prob": 0.0,
+        "sticky_table_pick_success_prob": 1.0,
+    })
+
+    env = StickyTableTrickyFloorEnv()
+    assert env.get_name() == "sticky_table_tricky_floor"
+
+    # Test noise-free picking and placing on the tables, and place on floor.
+    table_order = [init_table] + [t for t in normal_tables if t != init_table]
+    ground_nsrt_plan = []
+    for table, next_table in zip(table_order[:-1], table_order[1:]):
+        ground_nsrt_plan.append(PickFromTable.ground([cube, table]))
+        ground_nsrt_plan.append(PlaceOnTable.ground([cube, next_table]))
+    ground_nsrt_plan.append(PickFromTable.ground([cube, table_order[-1]]))
+    ground_nsrt_plan.append(PlaceOnFloor.ground([cube]))
+    state = init_state.copy()
+    rng = np.random.default_rng(123)
+    for ground_nsrt in ground_nsrt_plan:
+        assert all(a.holds(state) for a in ground_nsrt.preconditions)
+        option = ground_nsrt.sample_option(state, set(), rng)
+        assert option.initiable(state)
+        action = option.policy(state)
+        state = env.simulate(state, action)
+        assert option.terminal(state)
+        assert all(a.holds(state) for a in ground_nsrt.add_effects)
+        assert not any(a.holds(state) for a in ground_nsrt.delete_effects)
+
+    # Test picking from the floor.
+    assert OnFloor([cube]).holds(state)
+    # Picks should fail.
+    cube_size = state.get(cube, "size")
+    cube_x = state.get(cube, "x") + cube_size / 2
+    cube_y = state.get(cube, "y") + cube_size / 2
+    next_state = env.simulate(
+        state, Action(np.array([cube_x - 1e-5, cube_y], dtype=np.float32)))
+    assert OnFloor([cube]).holds(next_state)
+    next_state = env.simulate(
+        state, Action(np.array([cube_x, cube_y - 1e-5], dtype=np.float32)))
+    assert OnFloor([cube]).holds(next_state)
+    # Pick should succeed.
+    next_state = env.simulate(
+        state,
+        Action(np.array([cube_x + 1e-5, cube_y + 1e-5], dtype=np.float32)))
+    assert not OnFloor([cube]).holds(next_state)
+
+    # Picking too far away should fail.
+    assert OnFloor([cube]).holds(state)
+    act_arr = np.array([cube_x + 1000, cube_y], dtype=np.float32)
+    act_arr = np.clip(act_arr, env.action_space.low, env.action_space.high)
+    next_state = env.simulate(state, Action(act_arr))
+    assert OnFloor([cube]).holds(next_state)

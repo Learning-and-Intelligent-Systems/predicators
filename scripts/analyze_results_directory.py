@@ -16,7 +16,7 @@ GROUPS = [
     # "EXCLUDED_PREDICATES",
     "EXPERIMENT_ID",
     # "NUM_TRAIN_TASKS",
-    # "CYCLE"
+    "CYCLE"
 ]
 
 COLUMN_NAMES_AND_KEYS = [

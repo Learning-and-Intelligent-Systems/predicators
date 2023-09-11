@@ -17,7 +17,7 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"sticky_table"}
+        return {"sticky_table", "sticky_table_tricky_floor"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
@@ -30,19 +30,27 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
         PickFromTable = utils.SingletonParameterizedOption(
             # variables: [cube, table]
             "PickFromTable",
-            cls._create_pick_policy(action_space),
+            cls._create_pass_through_policy(action_space),
+            # Parameters are absolute x, y actions.
+            params_space=Box(
+                np.array([StickyTableEnv.x_lb, StickyTableEnv.y_lb]),
+                np.array([StickyTableEnv.x_ub, StickyTableEnv.y_ub])),
             types=[cube_type, table_type])
 
         PickFromFloor = utils.SingletonParameterizedOption(
             # variables: [cube]
             "PickFromFloor",
-            cls._create_pick_policy(action_space),
+            cls._create_pass_through_policy(action_space),
+            # Parameters are absolute x, y actions.
+            params_space=Box(
+                np.array([StickyTableEnv.x_lb, StickyTableEnv.y_lb]),
+                np.array([StickyTableEnv.x_ub, StickyTableEnv.y_ub])),
             types=[cube_type])
 
         PlaceOnTable = utils.SingletonParameterizedOption(
             # variables: [cube, table]
             "PlaceOnTable",
-            cls._create_place_policy(action_space),
+            cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=Box(
                 np.array([StickyTableEnv.x_lb, StickyTableEnv.y_lb]),
@@ -52,7 +60,7 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
         PlaceOnFloor = utils.SingletonParameterizedOption(
             # variables: [cube]
             "PlaceOnFloor",
-            cls._create_place_policy(action_space),
+            cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=Box(
                 np.array([StickyTableEnv.x_lb, StickyTableEnv.y_lb]),
@@ -62,23 +70,8 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
         return {PickFromTable, PickFromFloor, PlaceOnTable, PlaceOnFloor}
 
     @classmethod
-    def _create_pick_policy(cls, action_space: Box) -> ParameterizedPolicy:
-
-        def policy(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> Action:
-            del memory, params  # unused
-            cube = objects[0]
-            x = state.get(cube, "x")
-            y = state.get(cube, "y")
-            size = state.get(cube, "size")
-            arr = np.array([x + size / 2, y + size / 2], dtype=np.float32)
-            arr = np.clip(arr, action_space.low, action_space.high)
-            return Action(arr)
-
-        return policy
-
-    @classmethod
-    def _create_place_policy(cls, action_space: Box) -> ParameterizedPolicy:
+    def _create_pass_through_policy(cls,
+                                    action_space: Box) -> ParameterizedPolicy:
 
         def policy(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> Action:
