@@ -1,7 +1,5 @@
 """Small utility functions for spot."""
 
-from typing import Tuple
-
 from bosdyn.api import estop_pb2
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.sdk import Robot

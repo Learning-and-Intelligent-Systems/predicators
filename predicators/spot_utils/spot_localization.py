@@ -25,8 +25,7 @@ from bosdyn.api.graph_nav import map_pb2, nav_pb2
 from bosdyn.client import ResponseError, TimedOutError, math_helpers
 from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.graph_nav import GraphNavClient
-from bosdyn.client.lease import Error as LeaseClient
-from bosdyn.client.lease import LeaseKeepAlive
+from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 
@@ -65,6 +64,7 @@ class SpotLocalizer:
 
     def _upload_graph_and_snapshots(self) -> None:
         """Upload the graph and snapshots to the robot."""
+        # pylint: disable=no-member
         logging.info("Loading the graph from disk into local storage...")
         # Load the graph from disk.
         with open(self._upload_path / "graph", "rb") as f:
@@ -107,7 +107,7 @@ class SpotLocalizer:
     def localize(self,
                  num_retries: int = 10,
                  retry_wait_time: float = 1.0) -> math_helpers.SE3Pose:
-        """Re-localize the robot.
+        """Re-localize the robot and return the current SE3Pose of the body.
 
         It's good practice to call this periodically to avoid drift
         issues. April tags need to be in view.
@@ -127,8 +127,9 @@ class SpotLocalizer:
         except (ResponseError, TimedOutError, LocalizationFailure) as e:
             # Retry or fail.
             if num_retries <= 0:
-                logging.warning(f"Localization failed permanently: {e}.")
-                raise LocalizationFailure("Localization failed permanently.")
+                msg = f"Localization failed permanently: {e}."
+                logging.warning(msg)
+                raise LocalizationFailure(msg)
             logging.warning("Localization failed once, retrying.")
             time.sleep(retry_wait_time)
             return self.localize(num_retries=num_retries - 1,
@@ -143,36 +144,40 @@ if __name__ == "__main__":
     # Make sure to pass in --spot_robot_ip.
 
     from bosdyn.client import create_standard_sdk
-    from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
     from bosdyn.client.util import authenticate
 
     from predicators import utils
     from predicators.settings import CFG
     from predicators.spot_utils.utils import verify_estop
 
-    args = utils.parse_args(env_required=False,
-                            seed_required=False,
-                            approach_required=False)
-    utils.update_config(args)
+    def _run_manual_test() -> None:
+        # Put inside a function to avoid variable scoping issues.
+        args = utils.parse_args(env_required=False,
+                                seed_required=False,
+                                approach_required=False)
+        utils.update_config(args)
 
-    # Get constants.
-    hostname = CFG.spot_robot_ip
-    path = Path(__file__).parent / "graph_nav_maps" / CFG.spot_graph_nav_map
+        # Get constants.
+        hostname = CFG.spot_robot_ip
+        upload_dir = Path(__file__).parent / "graph_nav_maps"
+        path = upload_dir / CFG.spot_graph_nav_map
 
-    sdk = create_standard_sdk('GraphNavTestClient')
-    robot = sdk.create_robot(hostname)
-    authenticate(robot)
-    verify_estop(robot)
-    lease_client = robot.ensure_client(LeaseClient.default_service_name)
-    lease_client.take()
-    lease_keepalive = LeaseKeepAlive(lease_client,
-                                     must_acquire=True,
-                                     return_at_exit=True)
-
-    assert path.exists()
-    localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
-    while True:
-        input("Move the robot to a new location, then press enter.")
+        sdk = create_standard_sdk('GraphNavTestClient')
+        robot = sdk.create_robot(hostname)
+        authenticate(robot)
+        verify_estop(robot)
+        lease_client = robot.ensure_client(LeaseClient.default_service_name)
         lease_client.take()
-        robot_pose = localizer.localize()
-        print("Robot pose:", robot_pose)
+        lease_keepalive = LeaseKeepAlive(lease_client,
+                                         must_acquire=True,
+                                         return_at_exit=True)
+
+        assert path.exists()
+        localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+        while True:
+            input("Move the robot to a new location, then press enter.")
+            lease_client.take()
+            robot_pose = localizer.localize()
+            print("Robot pose:", robot_pose)
+
+    _run_manual_test()
