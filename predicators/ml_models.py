@@ -1323,7 +1323,7 @@ class ReplayBuffer(Generic[_D]):
         raise NotImplementedError("Subclasses should override!")
 
     @abc.abstractmethod
-    def random_batch(self, batch_size: int) -> Array:
+    def sample_random_batch(self, batch_size: int) -> Array:
         """Return a batch of a specified size."""
         raise NotImplementedError("Subclasses should override!")
 
@@ -1474,7 +1474,7 @@ class MapleQFunction(MLPRegressor):
         Y_size = 1
         for t in range(iters):
             # Sample a random batch of data from the replay buffer.
-            curr_batch = self._replay_buffer.random_batch(
+            curr_batch = self._replay_buffer.sample_random_batch(
                 CFG.active_sampler_learning_batch_size)
             X_arr = np.zeros((CFG.active_sampler_learning_batch_size, X_size))
             Y_arr = np.zeros((CFG.active_sampler_learning_batch_size, Y_size))
