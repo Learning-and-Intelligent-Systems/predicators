@@ -25,7 +25,16 @@ APPROACHES:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "random_nsrts"
+  maple_q:
+    NAME: "maple_q"
+    FLAGS:
+      explorer: "maple_q"
+      mlp_regressor_max_itr: 100000
 ENVS:
+  tiny_grid_row:
+    NAME: "grid_row"
+    FLAGS:
+      grid_row_num_cells: 3
   grid_row:
     NAME: "grid_row"
   sticky_table:
