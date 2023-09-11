@@ -2,6 +2,9 @@
 
 import glob
 import logging
+import os
+import re
+import time
 from collections import deque
 from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
@@ -304,6 +307,39 @@ class ActiveSamplerExplorer(BaseExplorer):
             model = create_competence_model(model_name, skill_name)
             self._competence_models[last_executed_op] = model
         self._competence_models[last_executed_op].observe(success)
+        # Aggressively save data after every single option execution.
+        init_state = self._last_init_option_state
+        assert init_state is not None
+        option = self._last_executed_option
+        assert option is not None
+        objects = option.objects
+        params = option.params
+        sampler_input = utils.construct_active_sampler_input(
+            init_state, objects, params, option.parent)
+        sampler_output = int(success)
+        # Now, we need to get the file location and the max
+        # datapoint id saved at this location.
+        os.makedirs(CFG.data_dir, exist_ok=True)
+        objects_tuple_str = str(tuple(nsrt.objects))
+        objects_tuple_str = objects_tuple_str.strip('()')
+        prefix = f"{CFG.data_dir}/{CFG.env}_{nsrt.name}({objects_tuple_str})_"
+        filepath_template = f"{prefix}*.data"
+        datapoint_id = 0
+        all_saved_files = glob.glob(filepath_template)
+        if all_saved_files:
+            regex_prefix = re.escape(prefix)
+            regex = f"{regex_prefix}(\\d+).data"
+            for filename in all_saved_files:
+                regex_match = re.match(regex, filename)
+                assert regex_match is not None
+                d_id = int(regex_match.groups()[0])
+                datapoint_id = max(datapoint_id, d_id + 1)
+        data = {
+            "datapoint": (sampler_input, sampler_output),
+            "time": time.time()
+        }
+        with open(f"{prefix}{datapoint_id}.data", "wb") as f:
+            pkl.dump(data, f)
 
     def _get_option_policy_for_task(self,
                                     task: Task) -> Callable[[State], _Option]:
