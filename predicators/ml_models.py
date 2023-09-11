@@ -17,7 +17,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from scipy.stats import beta as BetaRV
-from sklearn.base import BaseEstimatorTypeVar
 from sklearn.neighbors import \
     KNeighborsClassifier as _SKLearnKNeighborsClassifier
 from sklearn.neighbors import \
