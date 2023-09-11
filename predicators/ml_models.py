@@ -1368,6 +1368,9 @@ class FixedSizeReplayBuffer(ReplayBuffer):
             or batch_size > len(self._buffer)).tolist()
         return random_batch
 
+    def __len__(self):
+        return len(self._buffer)
+
 
 # Low-level state, current high-level (predicate) state, option taken,
 # next low-level state, reward, done.
@@ -1472,7 +1475,11 @@ class MapleQFunction(MLPRegressor):
             self._ordered_frozen_goals
         ) + self._num_ground_nsrts + self._max_num_params
         Y_size = 1
-        for t in range(iters):
+
+        if len(self._replay_buffer) == 0:
+            return
+
+        for _ in range(iters):
             # Sample a random batch of data from the replay buffer.
             curr_batch = self._replay_buffer.sample_random_batch(
                 CFG.active_sampler_learning_batch_size)
