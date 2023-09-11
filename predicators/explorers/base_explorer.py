@@ -1,6 +1,7 @@
 """Base class for an explorer."""
 
 import abc
+import itertools
 import logging
 from typing import List, Set
 
@@ -10,6 +11,8 @@ from gym.spaces import Box
 from predicators.settings import CFG
 from predicators.structs import ExplorationStrategy, ParameterizedOption, \
     Predicate, State, Task, Type
+
+_RNG_COUNT = itertools.count()  # make sure RNG changes per instantiation
 
 
 class BaseExplorer(abc.ABC):
@@ -83,4 +86,4 @@ class BaseExplorer(abc.ABC):
     def _set_seed(self, seed: int) -> None:
         """Reset seed and rng."""
         self._seed = seed
-        self._rng = np.random.default_rng(self._seed)
+        self._rng = np.random.default_rng(self._seed + next(_RNG_COUNT))
