@@ -10,8 +10,8 @@ import tempfile
 from dataclasses import dataclass
 from typing import Any, Callable, Collection, Dict, FrozenSet, Iterator, \
     List, Optional, Sequence, Set, Tuple
-from typing import TypeVar
 from typing import Type as TypingType
+from typing import TypeVar
 
 import numpy as np
 import torch
@@ -1304,7 +1304,59 @@ def _train_pytorch_model(model: nn.Module,
     return best_loss
 
 
-# TODO: Implement a replay buffer that takes in an Array type
+class ReplayBuffer(abc.ABC):
+    """A structure that holds data collected via online exploration.
+
+    This data will be used for model training.
+    """
+
+    def __init__(self, datum_size: int, rng: np.random.Generator) -> None:
+        self._datum_size = datum_size
+        self._rng = rng
+
+    @abc.abstractmethod
+    def add_datum(self, datum: Array) -> None:
+        """Add a single datapoint to the replay buffer."""
+        raise NotImplementedError("Subclasses should override!")
+
+    @abc.abstractmethod
+    def random_batch(self, batch_size: int) -> Array:
+        """Return a batch of a specified size."""
+        raise NotImplementedError("Subclasses should override!")
+
+
+class FixedSizeReplayBuffer(ReplayBuffer):
+
+    def __init__(self, datum_size: int, max_buffer_size: int,
+                 sample_with_replacement: bool) -> None:
+        super.__init__(datum_size)
+        self._max_buffer_size = max_buffer_size
+        self._buffer = np.zeros((self._max_buffer_size, datum_size),
+                                dtype=np.float32)
+        self._curr_idx_ptr = 0
+        self._buff_end_ptr = 0
+        self._sample_with_replacement = sample_with_replacement
+
+    def add_datum(self, datum: Array) -> None:
+        self._buffer[self._curr_idx_ptr, :] = datum
+        self._curr_idx_ptr = self._curr_idx_ptr % self._max_buffer_size
+        if self._buff_end_ptr < self._max_buffer_size - 1:
+            self._buff_end_ptr += 1
+
+    def sample_random_batch(self, batch_size: int) -> Array:
+        indices = self._rng.choice(self._buff_end_ptr,
+                                   size=batch_size,
+                                   replace=self._sample_with_replacement
+                                   or batch_size > self._buff_end_ptr + 1)
+        if batch_size > self._buff_end_ptr + 1 and not \
+            self._sample_with_replacement:
+            logging.info("Warning: sampling with replacement was set to" +
+                         "False, but temporarily needed to be set to" +
+                         "True since batch size was greater than data in" +
+                         "replay buffer.")
+        random_batch = self._buffer[indices]
+        return random_batch
+
 
 # Low-level state, current high-level (predicate) state, option taken,
 # next low-level state, reward, done.
@@ -1332,13 +1384,17 @@ class MapleQFunction(MLPRegressor):
                  train_print_every: int = 1000,
                  n_iter_no_change: int = 10000000,
                  discount: float = 0.99,
-                 num_lookahead_samples: int = 5) -> None:
+                 num_lookahead_samples: int = 5,
+                 replay_buffer_max_size: int = 1000000,
+                 replay_buffer_sample_with_replacement: bool = True) -> None:
         super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
                          clip_value, learning_rate, weight_decay,
                          use_torch_gpu, train_print_every, n_iter_no_change)
         self._rng = np.random.default_rng(seed)
         self._discount = discount
         self._num_lookahead_samples = num_lookahead_samples
+        self._replay_buffer_max_size = replay_buffer_max_size
+        self._replay_buffer_sample_with_replacement = replay_buffer_sample_with_replacement
 
         # Updated once, after the first round of learning.
         self._ordered_objects: List[Object] = []
@@ -1347,6 +1403,7 @@ class MapleQFunction(MLPRegressor):
         self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
         self._max_num_params = 0
         self._num_ground_nsrts = 0
+        self._replay_buffer: Optional[ReplayBuffer] = None
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
@@ -1363,6 +1420,19 @@ class MapleQFunction(MLPRegressor):
             n: i
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
+        # Use these quantities to determine the size of the input to the
+        # q function so that we can instantiate a replay buffer of the correct
+        # size.
+        vectorized_state_size = sum(
+            o.type.dim for o in self._ordered_objects) + len(
+                self._ordered_frozen_goals
+            )
+        vectorized_action_size = self._num_ground_nsrts + self._max_num_params
+        self._replay_buffer = FixedSizeReplayBuffer(
+            datum_size=(vectorized_state_size * 2) + vectorized_action_size + 2, # We store: curr state, action, next state, reward and terminal.
+            max_buffer_size=self._replay_buffer_max_size,
+            sample_with_replacement=self._replay_buffer_sample_with_replacement
+        )
 
     def get_option(self,
                    state: State,
@@ -1384,10 +1454,15 @@ class MapleQFunction(MLPRegressor):
         idx = np.argmax(scores)
         return options[idx]
 
-    def train_from_q_data(self, data: MapleQData) -> None:
-        """Fit the model."""
+    def add_data_to_replay_buffer(self, data: MapleQData) -> None:
+        assert self._replay_buffer is not None, "Tried to add data to replay buffer without first calling set_grounding"
         if not data:
             return
+        
+        
+
+    def train_from_q_data(self, data: MapleQData) -> None:
+        """Fit the model."""
 
         # Start by vectorizing everything.
         vectorized_states: List[Array] = []

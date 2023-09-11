@@ -42,7 +42,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         self._maple_data: MapleQData = []
         self._last_seen_segment_traj_idx = -1
 
-        # Store the Q function.
+        # Store the Q function. Note that this implicitly
+        # contains a replay buffer.
         self._q_function = MapleQFunction(
             seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
