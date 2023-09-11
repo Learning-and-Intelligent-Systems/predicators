@@ -70,7 +70,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Record what train tasks have been seen during exploration so far.
         self._seen_train_task_idxs: Set[int] = set()
 
-        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]).mean())
+        # Set the default cost for skills.
+        alpha, beta = CFG.skill_competence_default_alpha_beta
+        c = utils.beta_bernoulli_posterior([], alpha=alpha, beta=beta).mean()
+        self._default_cost = -np.log(c)
 
     @classmethod
     def get_name(cls) -> str:
@@ -193,7 +196,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                             elif success:
                                 just_made_incorrect_pick = False
                         if o.name == "Place" and just_made_incorrect_pick:
-                            continue
+                            continue  # pragma: no cover
 
                 if CFG.active_sampler_learning_model in [
                         "myopic_classifier_mlp", "myopic_classifier_ensemble",
@@ -467,7 +470,7 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
                             nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
         # Build targets.
         gamma = CFG.active_sampler_learning_score_gamma
-        num_a_samp = CFG.active_sampler_learning_num_next_option_samples
+        num_a_samp = CFG.active_sampler_learning_num_lookahead_samples
         targets: List[float] = []
         for _, _, ns, r in nsrt_data:
             # Sample actions to estimate Q in infinite action space.

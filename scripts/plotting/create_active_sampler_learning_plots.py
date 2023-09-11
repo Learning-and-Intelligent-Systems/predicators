@@ -1,7 +1,8 @@
 """Create plots for active sampler learning."""
 
 import os
-from typing import Callable, Sequence, Tuple
+from functools import partial
+from typing import Callable, Dict, Sequence, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -29,10 +30,36 @@ COLUMN_NAMES_AND_KEYS = [
     ("PERC_SOLVED", "perc_solved"),
     ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
     ("NUM_ONLINE_TRANSITIONS", "num_online_transitions"),
+    ("POLICY_CALL_TIME", "policy_call_time"),
+    ("NUM_OPTIONS_EXECUTED", "num_options_executed"),
 ]
 
-DERIVED_KEYS = [
+
+def _derive_per_task_average(metric: str,
+                             row: Dict[str, float],
+                             unsolved_task_penalty: float = 100) -> float:
+    """Add a large constant penalty for unsolved tasks."""
+    total_tasks = int(row["num_test_tasks"])
+    total_options_executed = 0.0
+    for test_task_idx in range(1, total_tasks + 1):
+        key = f"PER_TASK_task{test_task_idx}_{metric}"
+        # Add penalty for tasks that raised an approach failure.
+        if key not in row:
+            total_options_executed += unsolved_task_penalty
+        else:
+            total_options_executed += row[key]
+    # Add penalty for unsolved tasks.
+    num_unsolved_tasks = total_tasks - row["num_solved"]
+    total_options_executed += unsolved_task_penalty * num_unsolved_tasks
+    # Get average.
+    return total_options_executed / total_tasks
+
+
+DERIVED_KEYS: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]] = [
     ("perc_solved", lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
+    ("policy_call_time", partial(_derive_per_task_average, "exec_time")),
+    ("num_options_executed",
+     partial(_derive_per_task_average, "options_executed")),
 ]
 
 # The first element is the name of the metric that will be plotted on the
@@ -45,6 +72,8 @@ X_KEY_AND_LABEL = [
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
+    ("POLICY_CALL_TIME", "Policy Call Time (s)"),
+    ("NUM_OPTIONS_EXECUTED", "# Skills Executed"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
@@ -52,18 +81,18 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    # "Kitchen (All Goals)": [
-    #     ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-planning_progress_explore" in v)),
-    #     ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-task_repeat_explore" in v)),
-    #     ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-success_rate_explore" in v)),
-    #     ("Ablate Improve", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-random_score_explore" in v)),
-    #     ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-    #         lambda v: "kitchen-random_nsrts_explore" in v)),
-    # ],
+    "Kitchen (All Goals)": [
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-planning_progress_explore" in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-task_repeat_explore" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-success_rate_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-random_score_explore" in v)),
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-random_nsrts_explore" in v)),
+    ],
     "Regional Bumpy Cover": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
@@ -71,10 +100,47 @@ PLOT_GROUPS = {
             lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-success_rate_explore" in v)),
-        ("Ablate Improve", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
+    ],
+    "Grid 1D Environment": [
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-planning_progress_explore" in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-task_repeat_explore" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-success_rate_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-random_score_explore" in v)),
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-random_nsrts_explore" in v)),
+    ],
+    "Sticky Table": [
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-planning_progress_explore" in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-task_repeat_explore" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-success_rate_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-random_score_explore" in v)),
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-random_nsrts_explore" in v)),
+    ],
+    "Sticky Table Tricky Floor": [
+        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].
+         apply(lambda v: "sticky_table_tricky_floor-planning_progress_explore"
+               in v)),
+        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-task_repeat_explore" in v)),
+        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-success_rate_explore" in v)),
+        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-random_score_explore" in v)),
+        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-random_nsrts_explore" in v)),
     ],
 }
 
@@ -98,9 +164,13 @@ NUM_INTERP_POINTS = 10
 
 def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
                            plot_group: Sequence[Tuple[str, str, Callable]],
-                           x_key: str, y_key: str) -> None:
+                           x_key: str, y_key: str) -> bool:
+    plot_has_data = False
     for label, color, selector in plot_group:
         entry_df = get_df_for_entry(x_key, df, selector)
+        if entry_df.size == 0:
+            print(f"No results found for {label}, skipping")
+            continue
         # Draw one line per seed.
         for seed in entry_df["SEED"].unique():
             seed_df = entry_df[entry_df["SEED"] == seed]
@@ -113,13 +183,19 @@ def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     plt.legend(by_label.values(), by_label.keys())
+    return plot_has_data
 
 
 def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
                              plot_group: Sequence[Tuple[str, str, Callable]],
-                             x_key: str, y_key: str) -> None:
+                             x_key: str, y_key: str) -> bool:
+    plot_has_data = False
     for label, color, selector in plot_group:
         entry_df = get_df_for_entry(x_key, df, selector)
+        if entry_df.size == 0:
+            print(f"No results found for {label}, skipping")
+            continue
+        plot_has_data = True
         # Draw one line total. To make sure the x ticks are aligned, we will
         # interpolate.
         all_xs, all_ys = [], []
@@ -157,6 +233,7 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
                         alpha=FILL_BETWEEN_ALPHA)
     # Add a legend.
     plt.legend()
+    return plot_has_data
 
 
 def _main() -> None:
@@ -169,12 +246,16 @@ def _main() -> None:
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
+                has_res = False
                 if PLOT_TYPE == "seed_lines":
-                    _create_seed_line_plot(ax, df, d, x_key, y_key)
+                    has_res = _create_seed_line_plot(ax, df, d, x_key, y_key)
                 elif PLOT_TYPE == "single_lines":
-                    _create_single_line_plot(ax, df, d, x_key, y_key)
+                    has_res = _create_single_line_plot(ax, df, d, x_key, y_key)
                 else:
                     raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
+                if not has_res:
+                    print("No results found for whole plot, skipping")
+                    continue
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
                 if y_key.startswith("PERC"):

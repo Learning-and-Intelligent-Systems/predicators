@@ -333,7 +333,6 @@ class GlobalSettings:
 
     # kitchen env parameters
     kitchen_use_perfect_samplers = False
-    kitchen_camera_size = 512
     kitchen_goals = "all"
 
     # sticky table env parameters
@@ -341,6 +340,10 @@ class GlobalSettings:
     sticky_table_place_smooth_fall_prob = 0.95
     sticky_table_place_sticky_fall_prob = 0.05
     sticky_table_pick_success_prob = 0.9
+    sticky_table_tricky_floor_place_sticky_fall_prob = 0.5
+
+    # grid row env parameters
+    grid_row_num_cells = 100
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -546,13 +549,14 @@ class GlobalSettings:
     active_sampler_learning_use_teacher = True
     active_sampler_learning_num_samples = 100
     active_sampler_learning_score_gamma = 0.5
-    active_sampler_learning_n_iter_no_change = 5000
     active_sampler_learning_fitted_q_iters = 5
-    active_sampler_learning_num_next_option_samples = 5
+    # shared with maple q function learning
+    active_sampler_learning_n_iter_no_change = 5000
+    active_sampler_learning_num_lookahead_samples = 5
     active_sampler_learning_explore_length_base = 2
     active_sampler_learning_num_ensemble_members = 10
     active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
-    active_sampler_learning_exploration_epsilon = 0.05
+    active_sampler_learning_exploration_epsilon = 0.5
 
     # skill competence model parameters
     skill_competence_model = "optimistic"
@@ -560,8 +564,9 @@ class GlobalSettings:
     skill_competence_model_max_train_iters = 1000
     skill_competence_model_learning_rate = 1e-2
     skill_competence_model_lookahead = 1
-    skill_competence_model_optimistic_window_size = 1
+    skill_competence_model_optimistic_window_size = 5
     skill_competence_model_optimistic_recency_size = 5
+    skill_competence_default_alpha_beta = (10.0, 1.0)
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -598,6 +603,7 @@ class GlobalSettings:
     active_sampler_explore_task_strategy = "planning_progress"
     active_sampler_explorer_replan_frequency = 100
     active_sampler_explorer_planning_progress_max_tasks = 10
+    active_sampler_explorer_planning_progress_max_replan_tasks = 5
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -632,8 +638,8 @@ class GlobalSettings:
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
-    @staticmethod
-    def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
+    @classmethod
+    def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
 
@@ -658,6 +664,8 @@ class GlobalSettings:
                     # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
+                    # Ditto for the simple grid row environment.
+                    "grid_row": cls.grid_row_num_cells + 5,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.

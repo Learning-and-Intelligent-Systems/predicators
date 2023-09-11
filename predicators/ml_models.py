@@ -8,7 +8,8 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Collection, Dict, FrozenSet, Iterator, \
+    List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
@@ -24,7 +25,8 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
 from predicators import utils
-from predicators.structs import Array, MaxTrainIters, Object, State
+from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
+    State, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1299,3 +1301,217 @@ def _train_pytorch_model(model: nn.Module,
     model.eval()
     logging.info(f"Loaded best model with loss: {best_loss:.5f}")
     return best_loss
+
+
+# Low-level state, current high-level (predicate) state, option taken,
+# next low-level state, reward, done.
+MapleQData = List[Tuple[State, Set[GroundAtom], _Option, State, float, bool]]
+
+
+class MapleQFunction(MLPRegressor):
+    """A Q function inspired by MAPLE (https://ut-austin-rpl.github.io/maple/)
+    that has access to ground NSRTs.
+
+    The ground NSRTs are used to approximately argmax the learned Q.
+
+    Assumes a fixed set of objects and ground NSRTs.
+    """
+
+    def __init__(self,
+                 seed: int,
+                 hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters,
+                 clip_gradients: bool,
+                 clip_value: float,
+                 learning_rate: float,
+                 weight_decay: float = 0,
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000,
+                 discount: float = 0.99,
+                 num_lookahead_samples: int = 5) -> None:
+        super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
+                         clip_value, learning_rate, weight_decay,
+                         use_torch_gpu, train_print_every, n_iter_no_change)
+        self._rng = np.random.default_rng(seed)
+        self._discount = discount
+        self._num_lookahead_samples = num_lookahead_samples
+
+        # Updated once, after the first round of learning.
+        self._ordered_objects: List[Object] = []
+        self._ordered_frozen_goals: List[FrozenSet[GroundAtom]] = []
+        self._ordered_ground_nsrts: List[_GroundNSRT] = []
+        self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
+        self._max_num_params = 0
+        self._num_ground_nsrts = 0
+
+    def set_grounding(self, objects: Set[Object],
+                      goals: Collection[Set[GroundAtom]],
+                      ground_nsrts: Collection[_GroundNSRT]) -> None:
+        """After initialization because NSRTs not learned at first."""
+        for ground_nsrt in ground_nsrts:
+            num_params = ground_nsrt.option.params_space.shape[0]
+            self._max_num_params = max(self._max_num_params, num_params)
+        self._ordered_objects = sorted(objects)
+        self._ordered_frozen_goals = sorted({frozenset(g) for g in goals})
+        self._num_ground_nsrts = len(ground_nsrts)
+        self._ordered_ground_nsrts = sorted(ground_nsrts)
+        self._ground_nsrt_to_idx = {
+            n: i
+            for i, n in enumerate(self._ordered_ground_nsrts)
+        }
+
+    def get_option(self,
+                   state: State,
+                   goal: Set[GroundAtom],
+                   num_samples_per_ground_nsrt: int,
+                   epsilon: float = 0.0) -> _Option:
+        """Get the best option under Q, epsilon-greedy."""
+        # Return a random option.
+        if self._rng.uniform() < epsilon:
+            options = self._sample_applicable_options_from_state(
+                state, num_samples_per_applicable_nsrt=1)
+            return options[0]
+        # Return the best option (approx argmax.)
+        options = self._sample_applicable_options_from_state(
+            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
+        scores = [
+            self.predict_q_value(state, goal, option) for option in options
+        ]
+        idx = np.argmax(scores)
+        return options[idx]
+
+    def train_from_q_data(self, data: MapleQData) -> None:
+        """Fit the model."""
+        if not data:
+            return
+
+        # Start by vectorizing everything.
+        vectorized_states: List[Array] = []
+        vectorized_goals: List[Array] = []
+        vectorized_options: List[Array] = []
+        vectorized_next_states: List[Array] = []
+        vectorized_next_option_lists: List[List[Array]] = []
+        rewards: List[float] = []
+        terminals: List[bool] = []
+
+        for state, goal, option, next_state, reward, terminal in data:
+            vectorized_states.append(self._vectorize_state(state))
+            vectorized_goals.append(self._vectorize_goal(goal))
+            vectorized_options.append(self._vectorize_option(option))
+            vectorized_next_states.append(self._vectorize_state(next_state))
+            rewards.append(reward)
+            terminals.append(terminal)
+
+            # Sample next possible options.
+            next_option_vecs: List[Array] = []
+            if not terminal:
+                # We want to pick a total of num_lookahead_samples samples.
+                while len(next_option_vecs) < self._num_lookahead_samples:
+                    # Sample 1 per NSRT until we reach the target number.
+                    for option in self._sample_applicable_options_from_state(
+                            next_state):
+                        next_option_vecs.append(self._vectorize_option(option))
+            vectorized_next_option_lists.append(next_option_vecs)
+
+        # Train with Bellman error.
+        regressor_inputs: List[Array] = []
+        regressor_outputs: List[float] = []
+
+        for i in range(len(data)):
+            # Get inputs.
+            g = vectorized_goals[i]
+            x = np.concatenate(
+                [vectorized_states[i], g, vectorized_options[i]])
+            # Get targets.
+            if terminals[i] or self._y_dim == -1:  # second case is not yet fit
+                best_next_value = 0.0
+            else:
+                best_next_value = -np.inf
+                next_state_vec = vectorized_next_states[i]
+                next_option_vecs = vectorized_next_option_lists[i]
+                for option_vec in next_option_vecs:
+                    x_hat = np.concatenate([next_state_vec, g, option_vec])
+                    q_x_hat = self.predict(x_hat)[0]
+                    best_next_value = max(best_next_value, q_x_hat)
+            y = rewards[i] + self._discount * best_next_value
+            regressor_inputs.append(x)
+            regressor_outputs.append(y)
+
+        X_arr = np.array(regressor_inputs, dtype=np.float32)
+        Y_arr = np.array(regressor_outputs, dtype=np.float32).reshape((-1, 1))
+        self.fit(X_arr, Y_arr)
+
+    def _vectorize_state(self, state: State) -> Array:
+        # Cannot just call state.vec() directly because some objects may not
+        # appear in this state.
+        vecs: List[Array] = []
+        for o in self._ordered_objects:
+            try:
+                vec = state[o]
+            except KeyError:
+                vec = np.zeros(o.type.dim, dtype=np.float32)
+            vecs.append(vec)
+        return np.concatenate(vecs)
+
+    def _vectorize_goal(self, goal: Set[GroundAtom]) -> Array:
+        frozen_goal = frozenset(goal)
+        idx = self._ordered_frozen_goals.index(frozen_goal)
+        vec = np.zeros(len(self._ordered_frozen_goals), dtype=np.float32)
+        vec[idx] = 1.0
+        return vec
+
+    def _vectorize_option(self, option: _Option) -> Array:
+        matches = [
+            i for (n, i) in self._ground_nsrt_to_idx.items()
+            if n.option == option.parent
+            and tuple(n.objects) == tuple(option.objects)
+        ]
+        assert len(matches) == 1
+        # Create discrete part.
+        discrete_vec = np.zeros(self._num_ground_nsrts)
+        discrete_vec[matches[0]] = 1.0
+        # Create continuous part.
+        continuous_vec = np.zeros(self._max_num_params)
+        continuous_vec[:len(option.params)] = option.params
+        # Concatenate.
+        vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
+        return vec
+
+    def predict_q_value(self, state: State, goal: Set[GroundAtom],
+                        option: _Option) -> float:
+        """Predict the Q value."""
+        # Default value if not yet fit.
+        if self._y_dim == -1:
+            return 0.0
+        x = np.concatenate([
+            self._vectorize_state(state),
+            self._vectorize_goal(goal),
+            self._vectorize_option(option)
+        ])
+        y = self.predict(x)[0]
+        return y
+
+    def _sample_applicable_options_from_state(
+            self,
+            state: State,
+            num_samples_per_applicable_nsrt: int = 1) -> List[_Option]:
+        """Use NSRTs to sample options in the current state."""
+        # Create all applicable ground NSRTs.
+        state_objs = set(state)
+        applicable_nsrts = [
+            o for o in self._ordered_ground_nsrts if \
+                set(o.objects).issubset(state_objs) and all(
+                a.holds(state) for a in o.preconditions)
+        ]
+        sampled_options: List[_Option] = []
+        for app_nsrt in applicable_nsrts:
+            for _ in range(num_samples_per_applicable_nsrt):
+                # Sample an option.
+                option = app_nsrt.sample_option(
+                    state,
+                    goal=set(),  # goal not used
+                    rng=self._rng)
+                assert option.initiable(state)
+                sampled_options.append(option)
+        return sampled_options

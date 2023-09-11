@@ -5,7 +5,8 @@ import logging
 import os
 import re
 import time
-from typing import Callable, Dict, Iterator, List, Optional, Set
+from collections import deque
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import dill as pkl
 import numpy as np
@@ -21,6 +22,9 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Action, ExplorationStrategy, \
     GroundAtom, NSRTSampler, ParameterizedOption, Predicate, State, Task, \
     Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
+
+# Helper type to distinguish training tasks from replanning tasks.
+_TaskID = Tuple[str, int]
 
 
 class ActiveSamplerExplorer(BaseExplorer):
@@ -60,10 +64,18 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._last_init_option_state: Optional[State] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
-        self._task_plan_cache: Dict[int, List[_GroundSTRIPSOperator]] = {}
-        self._task_plan_calls_since_replan: Dict[int, int] = {}
-        self._default_cost = -np.log(utils.beta_bernoulli_posterior([]).mean())
+        self._task_plan_cache: Dict[_TaskID, List[_GroundSTRIPSOperator]] = {}
+        self._task_plan_calls_since_replan: Dict[_TaskID, int] = {}
         self._sorted_options = sorted(options, key=lambda o: o.name)
+
+        # Set the default cost for skills.
+        alpha, beta = CFG.skill_competence_default_alpha_beta
+        c = utils.beta_bernoulli_posterior([], alpha=alpha, beta=beta).mean()
+        self._default_cost = -np.log(c)
+
+        # Tasks created through re-planning.
+        n = CFG.active_sampler_explorer_planning_progress_max_replan_tasks
+        self._replanning_tasks: deque[Task] = deque([], maxlen=n)
 
     @classmethod
     def get_name(cls) -> str:
@@ -88,37 +100,45 @@ class ActiveSamplerExplorer(BaseExplorer):
                                   timeout: int) -> ExplorationStrategy:
 
         assigned_task = self._train_tasks[train_task_idx]
-        assigned_task_goal_reached = False
+        assigned_task_finished = False
+        assigned_task_horizon = CFG.horizon
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None
         using_random = False
 
         def _option_policy(state: State) -> _Option:
             logging.info("[Explorer] Option policy called.")
-            nonlocal assigned_task_goal_reached, current_policy, \
-                next_practice_nsrt, using_random
+            nonlocal assigned_task_finished, current_policy, \
+                next_practice_nsrt, using_random, assigned_task_horizon
 
             # Need to wait for policy to get called to "see" the train task.
             self._seen_train_task_idxs.add(train_task_idx)
-
-            atoms = utils.abstract(state, self._predicates)
 
             if using_random:
                 logging.info("[Explorer] Using random option policy.")
                 return self._get_random_option(state)
 
             # Record if we've reached the assigned goal; can now practice.
-            if not assigned_task_goal_reached and \
+            if not assigned_task_finished and \
                 assigned_task.goal_holds(state):
                 logging.info(
                     f"[Explorer] Reached assigned goal: {assigned_task.goal}")
-                assigned_task_goal_reached = True
+                assigned_task_finished = True
                 current_policy = None
+
+            # Record if we've exhausted the time limit for the assigned task.
+            elif not assigned_task_finished and assigned_task_horizon <= 0:
+                logging.info("[Explorer] Exhausted horizon for assigned task.")
+                assigned_task_finished = True
+                current_policy = None
+
+            else:
+                assigned_task_horizon -= 1
 
             # If we've just reached the preconditions for next_practice_nsrt,
             # then immediately execute it.
-            if next_practice_nsrt is not None and \
-                next_practice_nsrt.preconditions.issubset(atoms):
+            if next_practice_nsrt is not None and all(
+                    a.holds(state) for a in next_practice_nsrt.preconditions):
                 g: Set[GroundAtom] = set()  # goal assumed unused
                 logging.info(
                     f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
@@ -135,7 +155,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Check if it's time to select a new goal and re-plan.
             if current_policy is None:
                 # If the assigned goal hasn't yet been reached, try for it.
-                if not assigned_task_goal_reached:
+                if not assigned_task_finished:
                     logging.info("[Explorer] Pursuing assigned task goal")
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
@@ -187,6 +207,10 @@ class ActiveSamplerExplorer(BaseExplorer):
                 for goal in generate_goals():
                     task = Task(state, goal)
                     logging.info(f"[Explorer] Replanning to {task.goal}")
+
+                    # Add this task to the re-planning task queue.
+                    self._replanning_tasks.append(task)
+
                     try:
                         current_policy = self._get_option_policy_for_task(task)
                     # Not covering this case because the intention of this
@@ -261,16 +285,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         nsrt = self._last_executed_nsrt
         if nsrt is None:
             return
-        atoms = utils.abstract(state, self._predicates)
         # NOTE: checking just the add effects doesn't work in general, but
         # is probably fine for now. The right thing to do here is check
         # the necessary atoms, which we will compute with a utility function
         # and then use in a forthcoming PR.
-        success = nsrt.add_effects.issubset(atoms)
+        success = all(a.holds(state) for a in nsrt.add_effects)
         logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
         logging.info(f"[Explorer]   outcome: {success}")
-        if not success:
-            logging.info(f"[Explorer]   missing: {nsrt.add_effects - atoms}")
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []
@@ -339,21 +360,13 @@ class ActiveSamplerExplorer(BaseExplorer):
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
     def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
-        # Score NSRTs according to their success rate and a bonus for ones
-        # that haven't been tried very much.
-        model = self._competence_models[ground_op]
-        history = self._ground_op_hist[ground_op]
-        num_tries = len(history)
-        success_rate = sum(history) / num_tries
-        competence = model.get_current_competence()
-        total_trials = sum(len(h) for h in self._ground_op_hist.values())
-        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
-        logging.info(f"[Explorer]   success rate: {success_rate}")
-        logging.info(f"[Explorer]   posterior competence: {competence}")
-        logging.info(f"[Explorer]   num attempts: {num_tries}")
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
+            history = self._ground_op_hist[ground_op]
+            num_tries = len(history)
+            success_rate = sum(history) / num_tries
+            total_trials = sum(len(h) for h in self._ground_op_hist.values())
             # Try less successful operators more often.
             # UCB-like bonus.
             c = CFG.active_sampler_explore_bonus
@@ -366,7 +379,6 @@ class ActiveSamplerExplorer(BaseExplorer):
             raise NotImplementedError(
                 "Unrecognized explore task strategy: "
                 f"{CFG.active_sampler_explore_task_strategy}")
-        logging.info(f"[Explorer]   total score: {score}")
         return score
 
     def _score_ground_op_planning_progress(
@@ -374,6 +386,17 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Predict the competence if we had one more data point.
         model = self._competence_models[ground_op]
         extrap = model.predict_competence(CFG.skill_competence_model_lookahead)
+        competence = model.get_current_competence()
+        history = self._ground_op_hist[ground_op]
+        num_tries = len(history)
+        success_rate = sum(history) / num_tries
+        # Optimization: skip any ground op with perfect success.
+        if success_rate == 1.0:
+            return -np.inf
+        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        logging.info(f"[Explorer]   success rate: {success_rate}")
+        logging.info(f"[Explorer]   posterior competence: {competence}")
+        logging.info(f"[Explorer]   num attempts: {num_tries}")
         logging.info(f"[Explorer]   extrapolated competence: {extrap}")
         c_hat = -np.log(extrap)
         assert c_hat >= 0
@@ -392,10 +415,14 @@ class ActiveSamplerExplorer(BaseExplorer):
         train_task_idxs = sorted(self._seen_train_task_idxs)
         max_num_tasks = CFG.active_sampler_explorer_planning_progress_max_tasks
         num_tasks = min(max_num_tasks, len(train_task_idxs))
-        train_task_idxs = train_task_idxs[:num_tasks]
-        for train_task_idx in train_task_idxs:
-            plan = self._get_task_plan_for_training_task(
-                train_task_idx, ground_op_costs)
+        train_task_ids = [("train", i) for i in train_task_idxs[:num_tasks]]
+        # Add up to a certain number of fictitious training tasks that were
+        # created through re-planning. Use the most recent tasks to deal with
+        # the non-stationary distribution.
+        num_replan_tasks = list(range(len(self._replanning_tasks)))
+        replan_task_ids = [("replan", i) for i in range(len(num_replan_tasks))]
+        for task_id in train_task_ids + replan_task_ids:
+            plan = self._get_task_plan_for_task(task_id, ground_op_costs)
             task_plan_costs = []
             for op in plan:
                 op_cost = ground_op_costs.get(op, self._default_cost)
@@ -403,18 +430,22 @@ class ActiveSamplerExplorer(BaseExplorer):
             plan_costs.append(sum(task_plan_costs))
         return -sum(plan_costs)  # higher scores are better
 
-    def _get_task_plan_for_training_task(
-        self, train_task_idx: int, ground_op_costs: Dict[_GroundSTRIPSOperator,
-                                                         float]
+    def _get_task_plan_for_task(
+        self, task_id: _TaskID, ground_op_costs: Dict[_GroundSTRIPSOperator,
+                                                      float]
     ) -> List[_GroundSTRIPSOperator]:
         # Optimization: only re-plan at a certain frequency.
         replan_freq = CFG.active_sampler_explorer_replan_frequency
-        if train_task_idx not in self._task_plan_calls_since_replan or \
-            self._task_plan_calls_since_replan[train_task_idx] >= replan_freq:
-            self._task_plan_calls_since_replan[train_task_idx] = 0
+        if task_id not in self._task_plan_calls_since_replan or \
+            self._task_plan_calls_since_replan[task_id] >= replan_freq:
+            self._task_plan_calls_since_replan[task_id] = 0
             timeout = CFG.timeout
             task_planning_heuristic = CFG.sesame_task_planning_heuristic
-            task = self._train_tasks[train_task_idx]
+            task_type, task_idx = task_id
+            task = {
+                "train": self._train_tasks,
+                "replan": self._replanning_tasks,
+            }[task_type][task_idx]
             plan, _, _ = run_task_plan_once(
                 task,
                 self._nsrts,
@@ -425,10 +456,10 @@ class ActiveSamplerExplorer(BaseExplorer):
                 task_planning_heuristic=task_planning_heuristic,
                 ground_op_costs=ground_op_costs,
                 default_cost=self._default_cost)
-            self._task_plan_cache[train_task_idx] = [n.op for n in plan]
+            self._task_plan_cache[task_id] = [n.op for n in plan]
 
-        self._task_plan_calls_since_replan[train_task_idx] += 1
-        return self._task_plan_cache[train_task_idx]
+        self._task_plan_calls_since_replan[task_id] += 1
+        return self._task_plan_cache[task_id]
 
     def _get_random_option(self, state: State) -> _Option:
         option = utils.sample_applicable_option(self._sorted_options, state,
