@@ -16,7 +16,7 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.ml_models import MapleQData, MapleQFunction
+from predicators.ml_models import MapleQFunction
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, InteractionRequest, \
     LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type, \
@@ -39,7 +39,6 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
         # Log all transition data.
         self._interaction_goals: List[Set[GroundAtom]] = []
-        self._maple_data: MapleQData = []
         self._last_seen_segment_traj_idx = -1
 
         # Store the Q function. Note that this implicitly
@@ -96,7 +95,6 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
             save_dict = pkl.load(f)
         self._q_function = save_dict["q_function"]
-        self._maple_data = save_dict["maple_data"]
         self._last_seen_segment_traj_idx = save_dict[
             "last_seen_segment_traj_idx"]
         self._interaction_goals = save_dict["interaction_goals"]
@@ -146,7 +144,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.
-        self._q_function.train_from_q_data(self._maple_data)
+        self._q_function.train(
+            CFG.active_sampler_learning_per_cycle_training_iters)
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
         save_path = utils.get_approach_save_path_str()
@@ -154,7 +153,6 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             pkl.dump(
                 {
                     "q_function": self._q_function,
-                    "maple_data": self._maple_data,
                     "last_seen_segment_traj_idx":
                     self._last_seen_segment_traj_idx,
                     "interaction_goals": self._interaction_goals,
@@ -178,7 +176,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                 ns = segment.states[-1]
                 reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
                 terminal = reward > 0 or seg_i == len(segmented_traj) - 1
-                self._maple_data.append((s, goal, o, ns, reward, terminal))
+                self._q_function.add_data_to_replay_buffer(
+                    (s, goal, o, ns, reward, terminal))
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         # Save the goals for each interaction request so we can later associate

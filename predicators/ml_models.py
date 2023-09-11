@@ -8,8 +8,8 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Collection, Dict, FrozenSet, Iterator, \
-    List, Optional, Sequence, Set, Tuple
+from typing import Any, Callable, Collection, Dict, FrozenSet, Generic, \
+    Iterator, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar
 
@@ -26,6 +26,7 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
 from predicators import utils
+from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
     State, _GroundNSRT, _Option
 
@@ -1304,14 +1305,16 @@ def _train_pytorch_model(model: nn.Module,
     return best_loss
 
 
-class ReplayBuffer(abc.ABC):
+_D = TypeVar("_D")  # Datatype that will be stored in ReplayBuffer.
+
+
+class ReplayBuffer(Generic[_D]):
     """A structure that holds data collected via online exploration.
 
     This data will be used for model training.
     """
 
     def __init__(self, datum_size: int, rng: np.random.Generator) -> None:
-        self._datum_size = datum_size
         self._rng = rng
 
     @abc.abstractmethod
@@ -1327,34 +1330,41 @@ class ReplayBuffer(abc.ABC):
 
 class FixedSizeReplayBuffer(ReplayBuffer):
 
-    def __init__(self, datum_size: int, max_buffer_size: int,
+    def __init__(self, max_buffer_size: int,
                  sample_with_replacement: bool) -> None:
-        super.__init__(datum_size)
+        super.__init__()
         self._max_buffer_size = max_buffer_size
-        self._buffer = np.zeros((self._max_buffer_size, datum_size),
-                                dtype=np.float32)
-        self._curr_idx_ptr = 0
-        self._buff_end_ptr = 0
+        self._buffer: List[_D] = []
         self._sample_with_replacement = sample_with_replacement
+        self._curr_ptr_idx = 0
 
     def add_datum(self, datum: Array) -> None:
-        self._buffer[self._curr_idx_ptr, :] = datum
-        self._curr_idx_ptr = self._curr_idx_ptr % self._max_buffer_size
-        if self._buff_end_ptr < self._max_buffer_size - 1:
-            self._buff_end_ptr += 1
+        assert len(self._buffer) <= self._max_buffer_size
+        # If the pointer is the same as the size of the buffer, then we
+        # know that we haven't yet filled the buffer, so we can
+        # simply append. Otherwise, we need to replace the current
+        # element.
+        if self._curr_ptr_idx == len(self._buffer):
+            self._buffer.append(datum)
+        else:
+            self._buffer[self._curr_ptr_idx] = datum
+        # Finally, we increment the pointer and handle wraparound
+        # correctly.
+        self._curr_ptr_idx += 1
+        self._curr_ptr_idx = self._curr_ptr_idx % self._max_buffer_size
 
-    def sample_random_batch(self, batch_size: int) -> Array:
-        indices = self._rng.choice(self._buff_end_ptr,
-                                   size=batch_size,
-                                   replace=self._sample_with_replacement
-                                   or batch_size > self._buff_end_ptr + 1)
-        if batch_size > self._buff_end_ptr + 1 and not \
+    def sample_random_batch(self, batch_size: int) -> List[_D]:
+        if batch_size > len(self._buffer) and not \
             self._sample_with_replacement:
             logging.info("Warning: sampling with replacement was set to" +
                          "False, but temporarily needed to be set to" +
                          "True since batch size was greater than data in" +
                          "replay buffer.")
-        random_batch = self._buffer[indices]
+        random_batch = self._rng.choice(
+            self._buffer,
+            size=batch_size,
+            replace=self._sample_with_replacement
+            or batch_size > len(self._buffer)).tolist()
         return random_batch
 
 
@@ -1403,7 +1413,10 @@ class MapleQFunction(MLPRegressor):
         self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
         self._max_num_params = 0
         self._num_ground_nsrts = 0
-        self._replay_buffer: Optional[ReplayBuffer] = None
+        self._replay_buffer: ReplayBuffer[MapleQData] = FixedSizeReplayBuffer(
+            max_buffer_size=self._replay_buffer_max_size,
+            sample_with_replacement=self._replay_buffer_sample_with_replacement
+        )
 
     def set_grounding(self, objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
@@ -1420,19 +1433,6 @@ class MapleQFunction(MLPRegressor):
             n: i
             for i, n in enumerate(self._ordered_ground_nsrts)
         }
-        # Use these quantities to determine the size of the input to the
-        # q function so that we can instantiate a replay buffer of the correct
-        # size.
-        vectorized_state_size = sum(
-            o.type.dim for o in self._ordered_objects) + len(
-                self._ordered_frozen_goals
-            )
-        vectorized_action_size = self._num_ground_nsrts + self._max_num_params
-        self._replay_buffer = FixedSizeReplayBuffer(
-            datum_size=(vectorized_state_size * 2) + vectorized_action_size + 2, # We store: curr state, action, next state, reward and terminal.
-            max_buffer_size=self._replay_buffer_max_size,
-            sample_with_replacement=self._replay_buffer_sample_with_replacement
-        )
 
     def get_option(self,
                    state: State,
@@ -1458,67 +1458,56 @@ class MapleQFunction(MLPRegressor):
         assert self._replay_buffer is not None, "Tried to add data to replay buffer without first calling set_grounding"
         if not data:
             return
-        
-        
+        for datum in data:
+            self._replay_buffer.add_datum(datum)
 
-    def train_from_q_data(self, data: MapleQData) -> None:
+    def train(self, iters: int) -> None:
         """Fit the model."""
+        # First, precompute the size of the input and output from the
+        # Q-network.
+        X_size = sum(o.type.dim for o in self._ordered_objects) + len(
+            self._ordered_frozen_goals
+        ) + self._num_ground_nsrts + self._max_num_params
+        Y_size = 1
+        for t in range(iters):
+            # Sample a random batch of data from the replay buffer.
+            curr_batch = self._replay_buffer.random_batch(
+                CFG.active_sampler_learning_batch_size)
+            X_arr = np.zeros((CFG.active_sampler_learning_batch_size, X_size))
+            Y_arr = np.zeros((CFG.active_sampler_learning_batch_size, Y_size))
+            for i, (state, goal, option, next_state, reward,
+                    terminal) in enumerate(curr_batch):
+                # Compute the input to the Q-function.
+                vectorized_state = self._vectorize_state(state)
+                vectorized_goal = self._vectorize_goal(goal)
+                vectorized_action = self._vectorize_option(option)
+                X_arr[i] = np.concatenate(
+                    [vectorized_state, vectorized_goal, vectorized_action])
+                # Next, compute the target for Q-learning by sampling next actions.
+                vectorized_next_state = self._vectorize_state(next_state)
+                if not terminal and self._y_dim != -1:
+                    best_next_value = -np.inf
+                    next_option_vecs: List[Array] = []
+                    # We want to pick a total of num_lookahead_samples samples.
+                    while len(next_option_vecs) < self._num_lookahead_samples:
+                        # Sample 1 per NSRT until we reach the target number.
+                        for option in self._sample_applicable_options_from_state(
+                                next_state):
+                            next_option_vecs.append(
+                                self._vectorize_option(option))
+                    for next_action_vec in next_option_vecs:
+                        x_hat = np.concatenate([
+                            vectorized_next_state, vectorized_goal,
+                            next_action_vec
+                        ])
+                        q_x_hat = self.predict(x_hat)[0]
+                        best_next_value = max(best_next_value, q_x_hat)
+                else:
+                    best_next_value = 0.0
+                Y_arr[i] = reward + self._discount * best_next_value
 
-        # Start by vectorizing everything.
-        vectorized_states: List[Array] = []
-        vectorized_goals: List[Array] = []
-        vectorized_options: List[Array] = []
-        vectorized_next_states: List[Array] = []
-        vectorized_next_option_lists: List[List[Array]] = []
-        rewards: List[float] = []
-        terminals: List[bool] = []
-
-        for state, goal, option, next_state, reward, terminal in data:
-            vectorized_states.append(self._vectorize_state(state))
-            vectorized_goals.append(self._vectorize_goal(goal))
-            vectorized_options.append(self._vectorize_option(option))
-            vectorized_next_states.append(self._vectorize_state(next_state))
-            rewards.append(reward)
-            terminals.append(terminal)
-
-            # Sample next possible options.
-            next_option_vecs: List[Array] = []
-            if not terminal:
-                # We want to pick a total of num_lookahead_samples samples.
-                while len(next_option_vecs) < self._num_lookahead_samples:
-                    # Sample 1 per NSRT until we reach the target number.
-                    for option in self._sample_applicable_options_from_state(
-                            next_state):
-                        next_option_vecs.append(self._vectorize_option(option))
-            vectorized_next_option_lists.append(next_option_vecs)
-
-        # Train with Bellman error.
-        regressor_inputs: List[Array] = []
-        regressor_outputs: List[float] = []
-
-        for i in range(len(data)):
-            # Get inputs.
-            g = vectorized_goals[i]
-            x = np.concatenate(
-                [vectorized_states[i], g, vectorized_options[i]])
-            # Get targets.
-            if terminals[i] or self._y_dim == -1:  # second case is not yet fit
-                best_next_value = 0.0
-            else:
-                best_next_value = -np.inf
-                next_state_vec = vectorized_next_states[i]
-                next_option_vecs = vectorized_next_option_lists[i]
-                for option_vec in next_option_vecs:
-                    x_hat = np.concatenate([next_state_vec, g, option_vec])
-                    q_x_hat = self.predict(x_hat)[0]
-                    best_next_value = max(best_next_value, q_x_hat)
-            y = rewards[i] + self._discount * best_next_value
-            regressor_inputs.append(x)
-            regressor_outputs.append(y)
-
-        X_arr = np.array(regressor_inputs, dtype=np.float32)
-        Y_arr = np.array(regressor_outputs, dtype=np.float32).reshape((-1, 1))
-        self.fit(X_arr, Y_arr)
+            # Finally, train on this batch of data.
+            self.fit(X_arr, Y_arr)
 
     def _vectorize_state(self, state: State) -> Array:
         # Cannot just call state.vec() directly because some objects may not
