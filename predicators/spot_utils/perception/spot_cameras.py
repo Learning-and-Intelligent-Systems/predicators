@@ -45,7 +45,7 @@ def get_image_response(
     if "hand" in camera_name or "depth" in camera_name:
         pixel_format = None
     else:
-        pixel_format = image_pb2.Image.PIXEL_FORMAT_RGB_U8
+        pixel_format = image_pb2.Image.PIXEL_FORMAT_RGB_U8  # pylint: disable=no-member
 
     img_req = build_image_request(camera_name,
                                   quality_percent=quality_percent,
