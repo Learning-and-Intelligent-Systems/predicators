@@ -14,8 +14,6 @@ Object detection returns SE3Poses in the world frame but only x, y, z positions
 are currently detected. Rotations should be ignored.
 """
 
-# TODO: refactor so that transform stuff happens externally to object detection
-
 import io
 import logging
 from dataclasses import dataclass
@@ -149,16 +147,48 @@ def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
     rgbds: List[RGBDImageWithContext],
     world_tform_body: math_helpers.SE3Pose,
-    max_server_retries: int = 5,
-    detection_threshold: float = CFG.spot_vision_detection_threshold,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect an object pose using a vision-language model."""
 
-    # TODO refactor!
+    # Save all artifacts.
+    object_id_to_img_detections = _query_detic_sam(object_ids, rgbds)
+    artifacts = object_id_to_img_detections
 
-    # Initialize detections and artifacts.
+    # Aggregate detections over images.
+    # Get the best-scoring image detections for each object ID.
+    object_id_to_best_img: Dict[ObjectDetectionID, RGBDImageWithContext] = {}
+    for obj_id, img_detections in object_id_to_img_detections.items():
+        if not img_detections:
+            continue
+        img_detections_lst = [
+            img_detections[rgbd.camera_name] for rgbd in rgbds
+        ]
+        best_score_idx = np.argmax([d.score for d in img_detections_lst])
+        object_id_to_best_img[obj_id] = rgbds[best_score_idx]
+
+    # Convert the image detections into pose detections.
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
-    artifacts: Dict[str, Any] = {}
+    for obj_id, rgbd in object_id_to_best_img.items():
+        seg_bb = object_id_to_img_detections[obj_id][rgbd.camera_name]
+        pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd,
+                                                     world_tform_body)
+        detections[obj_id] = pose
+
+    return detections, artifacts
+
+
+def _query_detic_sam(object_ids: Collection[LanguageObjectDetectionID],
+    rgbds: List[RGBDImageWithContext],
+    max_server_retries: int = 5,
+    detection_threshold: float = CFG.spot_vision_detection_threshold
+) -> Dict[ObjectDetectionID,  Dict[str, SegmentedBoundingBox]]:
+    """Returns object ID to image ID (camera) to segmented bounding box."""
+    
+    object_id_to_img_detections: Dict[ObjectDetectionID,
+                                        Dict[str, SegmentedBoundingBox]] = {
+                                            obj_id: {}
+                                            for obj_id in object_ids
+                                        }
 
     # Create buffer dictionary to send to server.
     buf_dict = {}
@@ -180,13 +210,13 @@ def detect_objects_from_language(
             continue
     else:
         logging.warning("DETIC-SAM FAILED, POSSIBLE SERVER/WIFI ISSUE")
-        return detections, artifacts
+        return object_id_to_img_detections
 
     # If the status code is not 200, then fail.
     if r.status_code != 200:
         logging.warning(f"DETIC-SAM FAILED! STATUS CODE: {r.status_code}")
-        return detections, artifacts
-
+        return object_id_to_img_detections
+    
     # Querying the server succeeded; unpack the contents.
     with io.BytesIO(r.content) as f:
         try:
@@ -194,15 +224,9 @@ def detect_objects_from_language(
         # Corrupted results.
         except pkl.UnpicklingError:
             logging.warning("DETIC-SAM FAILED DURING UNPICKLING!")
-            return detections, artifacts
+            return object_id_to_img_detections
 
         # Process the results and save all detections per object ID.
-        object_id_to_img_detections: Dict[ObjectDetectionID,
-                                          Dict[str, SegmentedBoundingBox]] = {
-                                              obj_id: {}
-                                              for obj_id in object_ids
-                                          }
-
         for rgbd in rgbds:
             rot_boxes = server_results[f"{rgbd.camera_name}_boxes"]
             ret_classes = server_results[f"{rgbd.camera_name}_classes"]
@@ -244,28 +268,7 @@ def detect_objects_from_language(
                                               scores[best_idx])
                 object_id_to_img_detections[obj_id][rgbd.camera_name] = seg_bb
 
-    # Save all artifacts.
-    artifacts = object_id_to_img_detections
-
-    # Get the best-scoring image detections for each object ID.
-    object_id_to_best_img: Dict[ObjectDetectionID, RGBDImageWithContext] = {}
-    for obj_id, img_detections in object_id_to_img_detections.items():
-        if not img_detections:
-            continue
-        img_detections_lst = [
-            img_detections[rgbd.camera_name] for rgbd in rgbds
-        ]
-        best_score_idx = np.argmax([d.score for d in img_detections_lst])
-        object_id_to_best_img[obj_id] = rgbds[best_score_idx]
-
-    # Convert the image detections into pose detections.
-    for obj_id, rgbd in object_id_to_best_img.items():
-        seg_bb = object_id_to_img_detections[obj_id][rgbd.camera_name]
-        pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd,
-                                                     world_tform_body)
-        detections[obj_id] = pose
-
-    return detections, artifacts
+    return object_id_to_img_detections
 
 
 def _image_to_bytes(img: PIL.Image.Image) -> io.BytesIO:
@@ -317,8 +320,6 @@ def _get_pose_from_segmented_bounding_box(
                                              rot=math_helpers.Quat())
 
     # Convert camera to world.
-    # TODO remove redundancies
-    # Apply transforms.
     body_frame_pose = rgbd.body_tform_camera * camera_frame_pose
     world_frame_pose = world_tform_body * body_frame_pose
 
