@@ -16,66 +16,29 @@ are currently detected. Rotations should be ignored.
 
 # TODO: refactor so that transform stuff happens externally to object detection
 
-from dataclasses import dataclass
 import io
-from typing import Any, Collection, Dict, List, Optional, Set, Tuple
-import requests
 import logging
-import dill as pkl
-
+from dataclasses import dataclass
+from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 
 import apriltag
 import cv2
+import dill as pkl
 import numpy as np
-import PIL
+import PIL.Image
+import requests
 from bosdyn.api import image_pb2
 from bosdyn.client import math_helpers
-from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
-    GRAV_ALIGNED_BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME, \
-    get_a_tform_b, get_se2_a_tform_b, get_vision_tform_body
 from numpy.typing import NDArray
 
 from predicators.settings import CFG
-
-
-@dataclass(frozen=True)
-class ObjectDetectionID:
-    """A unique identifier for an object that is to be detected."""
-
-
-@dataclass(frozen=True)
-class AprilTagObjectDetectionID(ObjectDetectionID):
-    """An ID for an object to be detected from an april tag.
-
-    The object center is defined to be the center of the april tag plus
-    offset.
-    """
-    april_tag_number: int
-    offset_transform: math_helpers.SE3Pose
-
-
-@dataclass(frozen=True)
-class LanguageObjectDetectionID(ObjectDetectionID):
-    """An ID for an object to be detected with a vision-language model."""
-    language_id: str
-
-
-@dataclass(frozen=True)
-class SegmentedBoundingBox:
-    """Intermediate return value from vision-language models."""
-    bounding_box: Tuple[float, float, float, float]
-    mask: NDArray[np.uint8]
-    score: float
+from predicators.spot_utils.perception.structs import ObjectDetectionID, LanguageObjectDetectionID, SegmentedBoundingBox, AprilTagObjectDetectionID, RGBDImageWithContext
 
 
 def detect_objects(
     object_ids: Collection[ObjectDetectionID],
-    rgb_images: List[NDArray[np.uint8]],
-    rgb_image_responses: List[image_pb2.ImageResponse],
-    depth_images: List[NDArray[np.uint16]],
-    depth_image_responses: List[image_pb2.ImageResponse],
+    rgbds: Collection[RGBDImageWithContext],
     world_tform_body: math_helpers.SE3Pose,
-    image_ids: Optional[List[str]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect object poses (in the world frame!) from RGBD.
 
@@ -85,11 +48,6 @@ def detect_objects(
     The second return value is a collection of artifacts that can be useful
     for debugging / analysis.
     """
-    assert len(rgb_images) == len(rgb_image_responses) == \
-        len(depth_images) == len(depth_image_responses)
-    if image_ids is None:
-        image_ids = [f"img{i}" for i in range(len(rgb_images))]
-    assert len(image_ids) == len(rgb_images)
 
     # Collect and dispatch.
     april_tag_object_ids: Set[AprilTagObjectDetectionID] = set()
@@ -102,28 +60,27 @@ def detect_objects(
             language_object_ids.add(object_id)
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
     artifacts: Dict[str, Any] = {}
-    
+
     # There is no batching over images for april tag detection.
-    for img, resp, img_id in zip(rgb_images, rgb_image_responses, image_ids):
+    for rgbd in rgbds:
         img_detections, img_artifacts = detect_objects_from_april_tags(
-            april_tag_object_ids, img, resp, img_id, world_tform_body)
+            april_tag_object_ids, rgbd, world_tform_body)
+        # Possibly overrides previous detections.
         detections.update(img_detections)
         artifacts.update(img_artifacts)
-    
+
     # There IS batching over images here for efficiency.
     language_detections, language_artifacts = detect_objects_from_language(
-        language_object_ids, rgb_images, rgb_image_responses, depth_images,
-        depth_image_responses, image_ids, world_tform_body)
+        language_object_ids, rgbds, world_tform_body)
     detections.update(language_detections)
     artifacts.update(language_artifacts)
+    
     return detections, artifacts
 
 
 def detect_objects_from_april_tags(
     object_ids: Collection[AprilTagObjectDetectionID],
-    rgb_image: NDArray[np.uint8],
-    rgb_image_response: image_pb2.ImageResponse,
-    image_id: str,
+    rgbd: RGBDImageWithContext,
     world_tform_body: math_helpers.SE3Pose,
     fiducial_size: float = CFG.spot_fiducial_size,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
@@ -133,16 +90,8 @@ def detect_objects_from_april_tags(
     """
     tag_num_to_object_id = {t.april_tag_number: t for t in object_ids}
 
-    # Camera body transform.
-    camera_tform_body = get_a_tform_b(
-        rgb_image_response.shot.transforms_snapshot,
-        rgb_image_response.shot.frame_name_image_sensor, BODY_FRAME_NAME)
-
-    # Camera intrinsics for the given source camera.
-    intrinsics = rgb_image_response.source.pinhole.intrinsics
-
-    # Convert the image to grayscale.
-    image_grey = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
+    # Convert the RGB image to grayscale.
+    image_grey = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2GRAY)
 
     # Create apriltag detector and get all apriltag locations.
     options = apriltag.DetectorOptions(families="tag36h11")
@@ -158,17 +107,17 @@ def detect_objects_from_april_tags(
         # Only include requested tags.
         if apriltag_detection.tag_id not in tag_num_to_object_id:
             continue
-        object_id = tag_num_to_object_id[apriltag_detection.tag_id]
+        obj_id = tag_num_to_object_id[apriltag_detection.tag_id]
 
         # Save the detection for external analysis.
-        artifact_id = f"apriltag_{image_id}_{object_id.april_tag_number}"
+        artifact_id = f"apriltag_{rgbd.camera_name}_{obj_id.april_tag_number}"
         artifacts[artifact_id] = apriltag_detection
 
         # Get the pose from the apriltag library.
         pose = detector.detection_pose(
             apriltag_detection,
-            (intrinsics.focal_length.x, intrinsics.focal_length.y,
-             intrinsics.principal_point.x, intrinsics.principal_point.y),
+            (rgbd.intrinsics.focal_length.x, rgbd.intrinsics.focal_length.y,
+             rgbd.intrinsics.principal_point.x, rgbd.intrinsics.principal_point.y),
             fiducial_size)[0]
         tx, ty, tz, tw = pose[:, -1]
         assert np.isclose(tw, 1.0)
@@ -182,13 +131,12 @@ def detect_objects_from_april_tags(
         )
 
         # Apply transforms.
-        body_tform_camera = camera_tform_body.inverse()
-        body_frame_pose = body_tform_camera * camera_frame_pose
+        body_frame_pose = rgbd.body_tform_camera * camera_frame_pose
         world_frame_pose = world_tform_body * body_frame_pose
-        world_frame_pose = object_id.offset_transform * world_frame_pose
+        world_frame_pose = obj_id.offset_transform * world_frame_pose
 
-        # Save in detections.
-        detections[object_id] = world_frame_pose
+        # Save in detections
+        detections[obj_id] = world_frame_pose
 
     return detections, artifacts
 
@@ -203,11 +151,7 @@ def image_to_bytes(img: PIL.Image.Image) -> io.BytesIO:
 
 def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
-    rgb_images: List[NDArray[np.uint8]],
-    rgb_image_responses: List[image_pb2.ImageResponse],
-    depth_images: List[NDArray[np.uint16]],
-    depth_image_responses: List[image_pb2.ImageResponse],
-    image_ids: List[str],
+    rgbds: List[RGBDImageWithContext],
     world_tform_body: math_helpers.SE3Pose,
     max_server_retries: int = 5,
     detection_threshold: float = CFG.spot_vision_detection_threshold,
@@ -222,9 +166,10 @@ def detect_objects_from_language(
 
     # Create buffer dictionary to send to server.
     buf_dict = {}
-    for img_id, rgb_img in zip(image_ids, rgb_images):
-        buf_dict[img_id] = image_to_bytes(PIL.Image.fromarray(rgb_img))
-    
+    for rgbd in rgbds:
+        pil_rotated_img = PIL.Image.fromarray(rgbd.rotated_rgb)
+        buf_dict[rgbd.camera_name] = image_to_bytes(pil_rotated_img)
+
     # Extract all the classes that we want to detect.
     language_ids = sorted(o.language_id for o in object_ids)
 
@@ -254,17 +199,19 @@ def detect_objects_from_language(
         except pkl.UnpicklingError:
             logging.warning("DETIC-SAM FAILED DURING UNPICKLING!")
             return detections, artifacts
-        
-    # Process the results and save all detections per object ID.
-    object_id_to_img_detections: Dict[ObjectDetectionID, Dict[str, SegmentedBoundingBox]] = {
-        obj_id: {} for obj_id in object_ids
-    }
 
-    for img_id in image_ids:
-        boxes = server_results[f"{img_id}_boxes"]
-        ret_language_ids = server_results[f"{img_id}_classes"]
-        masks = server_results[f"{img_id}_masks"]
-        scores = server_results[f"{img_id}_scores"]
+    # Process the results and save all detections per object ID.
+    object_id_to_img_detections: Dict[ObjectDetectionID,
+                                      Dict[str, SegmentedBoundingBox]] = {
+                                          obj_id: {}
+                                          for obj_id in object_ids
+                                      }
+
+    for rgbd in rgbds:
+        boxes = server_results[f"{rgbd.camera_name}_boxes"]
+        ret_language_ids = server_results[f"{rgbd.camera_name}_classes"]
+        masks = server_results[f"{rgbd.camera_name}_masks"]
+        scores = server_results[f"{rgbd.camera_name}_scores"]
 
         # Filter out detections by confidence. We threshold detections
         # at a set confidence level minimum, and if there are multiple,
@@ -280,11 +227,10 @@ def detect_objects_from_language(
             if scores['scores'][best_idx] < detection_threshold:
                 continue
             # Save the detection.
-            seg_bb = SegmentedBoundingBox(
-                boxes[best_idx], masks[best_idx], scores[best_idx]
-            )
-            object_id_to_img_detections[language_id][img_id] = seg_bb
-        
+            seg_bb = SegmentedBoundingBox(boxes[best_idx], masks[best_idx],
+                                          scores[best_idx])
+            object_id_to_img_detections[language_id][rgbd.camera_name] = seg_bb
+
     # Save all artifacts.
     artifacts = object_id_to_img_detections
 
@@ -293,16 +239,17 @@ def detect_objects_from_language(
     for obj_id, img_detections in object_id_to_img_detections.items():
         if not img_detections:
             continue
-        img_detections_lst = [img_detections[i] for i in image_ids]
+        img_detections_lst = [img_detections[rgbd.camera_name] for rgbd in rgbds]
         best_score_idx = np.argmax([d.score for d in img_detections_lst])
-        best_img_id = image_ids[best_score_idx]
+        best_img_id = rgbds[best_score_idx].camera_name
         object_id_to_best_img_id[obj_id] = best_img_id
 
     # Convert the image detections into pose detections.
-    import ipdb; ipdb.set_trace()
-
+    import ipdb
+    ipdb.set_trace()
 
     return detections, artifacts
+
 
 if __name__ == "__main__":
     # Run this file alone to test manually.
@@ -321,12 +268,9 @@ if __name__ == "__main__":
     from bosdyn.client.util import authenticate
 
     from predicators import utils
-    from predicators.spot_utils.perception.spot_cameras import \
-        RGB_TO_DEPTH_CAMERAS, get_image_response, image_response_to_image
+    from predicators.spot_utils.perception.spot_cameras import capture_image
     from predicators.spot_utils.spot_localization import SpotLocalizer
     from predicators.spot_utils.utils import verify_estop
-
-    # TODO add brush
 
     TEST_CAMERA = "hand_color_image"
     TEST_APRIL_TAG_ID = 408
@@ -365,22 +309,15 @@ if __name__ == "__main__":
         assert path.exists()
         localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
         world_tform_body = localizer.localize()
+        rgbd = capture_image(robot, TEST_CAMERA)
 
-        rgb_camera = TEST_CAMERA
-        rgb_response = get_image_response(robot, rgb_camera)
-        rgb_image = image_response_to_image(rgb_response)
-        depth_camera = RGB_TO_DEPTH_CAMERAS[rgb_camera]
-        depth_response = get_image_response(robot, depth_camera)
-        depth_image = image_response_to_image(depth_response)
-
-        # Detect the april tag.
-        # TODO add language to the same call.
+        # Detect the april tag and brush.
         april_tag_id = AprilTagObjectDetectionID(TEST_APRIL_TAG_ID,
                                                  TEST_APRIL_TAG_TRANSFORM)
-        detections, _ = detect_objects([april_tag_id], [rgb_image],
-                                       [rgb_response], [depth_image],
-                                       [depth_response], world_tform_body)
-        detection = detections[april_tag_id]
-        print(f"Detected tag {april_tag_id.april_tag_number} at {detection}")
+        language_id = LanguageObjectDetectionID(TEST_LANGUAGE_DESCRIPTION)
+        detections, _ = detect_objects([april_tag_id, language_id], [rgbd],
+                                       world_tform_body)
+        for obj_id, detection in detections.items():
+            print(f"Detected {obj_id} at {detection}")
 
     _run_manual_test()

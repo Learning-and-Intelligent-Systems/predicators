@@ -1,15 +1,20 @@
 """Utility functions for capturing images from Spot's cameras."""
+from dataclasses import dataclass
 from typing import Type
 
 import cv2
 import numpy as np
 from bosdyn.api import image_pb2
+from bosdyn.client import math_helpers
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME, get_a_tform_b
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
 from scipy import ndimage
 
-RGB_ROTATION_ANGLE = {
+from predicators.spot_utils.perception.structs import RGBDImageWithContext
+
+ROTATION_ANGLE = {
     'hand_color_image': 0,
     'back_fisheye_image': 0,
     'frontleft_fisheye_image': -78,
@@ -25,38 +30,55 @@ RGB_TO_DEPTH_CAMERAS = {
     "frontright_fisheye_image": "frontright_depth_in_visual_frame",
     "back_fisheye_image": "back_depth_in_visual_frame"
 }
-DEPTH_ROTATION_ANGLE = {
-    RGB_TO_DEPTH_CAMERAS[c]: a
-    for c, a in RGB_ROTATION_ANGLE.items()
-}
-ROTATION_ANGLE = {**RGB_ROTATION_ANGLE, **DEPTH_ROTATION_ANGLE}
-ALL_CAMERA_NAMES = sorted(ROTATION_ANGLE)
 
 
-def get_image_response(
+def capture_image(
     robot: Robot,
     camera_name: str,
     quality_percent: int = 100,
-) -> image_pb2.ImageResponse:
+) -> RGBDImageWithContext:
     """Build an image request and get the response."""
     image_client = robot.ensure_client(ImageClient.default_service_name)
 
-    # Hard-code the pixel format since we only need one per camera.
-    if "hand" in camera_name or "depth" in camera_name:
-        pixel_format = None
+    # Build RGB image request.
+    if "hand" in camera_name:
+        rgb_pixel_format = None
     else:
-        pixel_format = image_pb2.Image.PIXEL_FORMAT_RGB_U8  # pylint: disable=no-member
+        rgb_pixel_format = image_pb2.Image.PIXEL_FORMAT_RGB_U8  # pylint: disable=no-member
+    rgb_img_req = build_image_request(camera_name,
+                                      quality_percent=quality_percent,
+                                      pixel_format=rgb_pixel_format)
 
-    img_req = build_image_request(camera_name,
-                                  quality_percent=quality_percent,
-                                  pixel_format=pixel_format)
-    image_response = image_client.get_image([img_req])[0]
-    return image_response
+    # Build depth image request.
+    depth_camera_name = RGB_TO_DEPTH_CAMERAS[camera_name]
+    depth_img_req = build_image_request(depth_camera_name,
+                                        quality_percent=quality_percent,
+                                        pixel_format=None)
+
+    reqs = [rgb_img_req, depth_img_req]
+    rgb_img_resp, depth_img_resp = image_client.get_image(reqs)
+
+    # Build RGBDImageWithContext.
+    rgb_img = _image_response_to_image(rgb_img_resp)
+    depth_img = _image_response_to_image(depth_img_resp)
+    
+    # Create transform.
+    camera_tform_body = get_a_tform_b(
+        rgb_img_resp.shot.transforms_snapshot,
+        rgb_img_resp.shot.frame_name_image_sensor, BODY_FRAME_NAME)
+    body_tform_camera = camera_tform_body.inverse()
+    # Extract RGB camera intrinsics.
+    rot = ROTATION_ANGLE[camera_name]
+    intrinsics = rgb_img_resp.source.pinhole.intrinsics
+    # Finish RGBDImageWithContext.
+    rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
+                                body_tform_camera, intrinsics)
+
+    return rgbd
 
 
-def image_response_to_image(
+def _image_response_to_image(
     image_response: image_pb2.ImageResponse,
-    auto_rotate: bool = True,
 ) -> NDArray:
     """Extract an image from an image response.
 
@@ -84,10 +106,6 @@ def image_response_to_image(
             image_pb2.Image.PIXEL_FORMAT_RGBA_U8
     ]:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    # Rotate.
-    if auto_rotate:
-        img = ndimage.rotate(img, ROTATION_ANGLE[image_response.source.name])
 
     # Squeeze to remove last channel for depth and grayscale images.
     img = img.squeeze()
@@ -128,14 +146,14 @@ if __name__ == "__main__":
         robot.time_sync.wait_for_sync()
 
         # Take pictures out of all the cameras.
-        for camera in ALL_CAMERA_NAMES:
+        for camera in RGB_TO_DEPTH_CAMERAS:
             print(f"Capturing image from {camera}")
-            img_response = get_image_response(robot, camera)
-            img = image_response_to_image(img_response)
-            if "depth" in camera:
-                img = 255 * img
-            outfile = f"{camera}_manual_test_output.png"
-            iio.imsave(outfile, img)
+            rgbd = capture_image(robot, camera)
+            outfile = f"{camera}_manual_test_rgb_output.png"
+            iio.imsave(outfile, rgbd.rgb)
+            print(f"Wrote out to {outfile}")
+            outfile = f"{camera}_manual_test_depth_output.png"
+            iio.imsave(outfile, 255 * rgbd.depth)
             print(f"Wrote out to {outfile}")
 
     _run_manual_test()
