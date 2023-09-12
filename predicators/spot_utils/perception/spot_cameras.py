@@ -9,7 +9,8 @@ from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
 
-from predicators.spot_utils.perception.structs import RGBDImageWithContext
+from predicators.spot_utils.perception.perception_structs import \
+    RGBDImageWithContext
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
@@ -42,7 +43,6 @@ def capture_images(
     # Package all the requests together.
     img_reqs: image_pb2.ImageRequest = []
     for camera_name in camera_names:
-
         # Build RGB image request.
         if "hand" in camera_name:
             rgb_pixel_format = None
@@ -52,7 +52,6 @@ def capture_images(
                                           quality_percent=quality_percent,
                                           pixel_format=rgb_pixel_format)
         img_reqs.append(rgb_img_req)
-
         # Build depth image request.
         depth_camera_name = RGB_TO_DEPTH_CAMERAS[camera_name]
         depth_img_req = build_image_request(depth_camera_name,
@@ -65,9 +64,9 @@ def capture_images(
     name_to_response = {r.source.name: r for r in responses}
 
     # Build RGBDImageWithContexts.
-    for camera in camera_names:
-        rgb_img_resp = name_to_response[camera]
-        depth_img_resp = name_to_response[RGB_TO_DEPTH_CAMERAS[camera]]
+    for camera_name in camera_names:
+        rgb_img_resp = name_to_response[camera_name]
+        depth_img_resp = name_to_response[RGB_TO_DEPTH_CAMERAS[camera_name]]
         rgb_img = _image_response_to_image(rgb_img_resp)
         depth_img = _image_response_to_image(depth_img_resp)
         # Create transform.
@@ -82,7 +81,7 @@ def capture_images(
         # Finish RGBDImageWithContext.
         rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
                                     body_tform_camera, intrinsics, depth_scale)
-        rgbds[camera] = rgbd
+        rgbds[camera_name] = rgbd
 
     return rgbds
 

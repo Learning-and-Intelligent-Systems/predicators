@@ -3463,7 +3463,7 @@ def beta_from_mean_and_variance(mean: float,
     return rv
 
 
-def rotate_point_in_image(r: int, c: int, rot_degrees: float, height: int,
+def rotate_point_in_image(r: float, c: float, rot_degrees: float, height: int,
                           width: int) -> Tuple[int, int]:
     """If an image has been rotated using ndimage.rotate, this computes the
     location of a pixel (r, c) in that image following the same rotation.
