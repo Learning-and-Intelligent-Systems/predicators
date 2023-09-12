@@ -14,8 +14,10 @@ Object detection returns SE3Poses in the world frame but only x, y, z positions
 are currently detected. Rotations should be ignored.
 """
 
+# TODO: refactor so that transform stuff happens externally to object detection
+
 from dataclasses import dataclass
-from typing import Collection, Dict, List, Set
+from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 
 import apriltag
 import cv2
@@ -59,10 +61,22 @@ def detect_objects(
     depth_images: List[NDArray[np.uint16]],
     depth_image_responses: List[image_pb2.ImageResponse],
     world_tform_body: math_helpers.SE3Pose,
-) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
-    """Detect an object pose (in the world frame!) from RGBD."""
+    image_ids: Optional[List[str]] = None,
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
+    """Detect object poses (in the world frame!) from RGBD.
+
+    Each object ID is assumed to exist at most once in each image, but can
+    exist in multiple images.
+
+    The second return value is a collection of artifacts that can be useful
+    for debugging / analysis.
+    """
     assert len(rgb_images) == len(rgb_image_responses) == \
         len(depth_images) == len(depth_image_responses)
+    if image_ids is None:
+        image_ids = [f"img{i}" for i in range(len(rgb_images))]
+    assert len(image_ids) == len(rgb_images)
+
     # Collect and dispatch.
     april_tag_object_ids: Set[AprilTagObjectDetectionID] = set()
     language_object_ids: Set[LanguageObjectDetectionID] = set()
@@ -73,27 +87,30 @@ def detect_objects(
             assert isinstance(object_id, LanguageObjectDetectionID)
             language_object_ids.add(object_id)
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
+    artifacts: Dict[str, Any] = {}
     # There is no batching over images for april tag detection.
-    for rgb_image, rgb_image_response in zip(rgb_images, rgb_image_responses):
-        d = detect_objects_from_april_tags(april_tag_object_ids, rgb_image,
-                                           rgb_image_response,
-                                           world_tform_body)
-        detections.update(d)
+    for img, resp, img_id in zip(rgb_images, rgb_image_responses, image_ids):
+        img_detections, img_artifacts = detect_objects_from_april_tags(
+            april_tag_object_ids, img, resp, img_id, world_tform_body)
+        detections.update(img_detections)
+        artifacts.update(img_artifacts)
     # There IS batching over images here for efficiency.
-    language_detections = detect_objects_from_language(
+    language_detections, language_artifacts = detect_objects_from_language(
         language_object_ids, rgb_images, rgb_image_responses, depth_images,
-        depth_image_responses, world_tform_body)
+        depth_image_responses, image_ids, world_tform_body)
     detections.update(language_detections)
-    return detections
+    artifacts.update(language_artifacts)
+    return detections, artifacts
 
 
 def detect_objects_from_april_tags(
     object_ids: Collection[AprilTagObjectDetectionID],
     rgb_image: NDArray[np.uint8],
     rgb_image_response: image_pb2.ImageResponse,
+    image_id: str,
     world_tform_body: math_helpers.SE3Pose,
     fiducial_size: float = CFG.spot_fiducial_size,
-) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect an object pose from an april tag.
 
     The rotation is currently not detected (set to default).
@@ -116,7 +133,9 @@ def detect_objects_from_april_tags(
     options.refine_pose = 1
     detector = apriltag.Detector(options)
     apriltag_detections = detector.detect(image_grey)
+
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
+    artifacts: Dict[str, Any] = {}
 
     # For every detection, find pose in world frame.
     for apriltag_detection in apriltag_detections:
@@ -124,6 +143,10 @@ def detect_objects_from_april_tags(
         if apriltag_detection.tag_id not in tag_num_to_object_id:
             continue
         object_id = tag_num_to_object_id[apriltag_detection.tag_id]
+
+        # Save the detection for external analysis.
+        artifact_id = f"apriltag_{image_id}_{object_id.april_tag_number}"
+        artifacts[artifact_id] = apriltag_detection
 
         # Get the pose from the apriltag library.
         pose = detector.detection_pose(
@@ -151,7 +174,7 @@ def detect_objects_from_april_tags(
         # Save in detections.
         detections[object_id] = world_frame_pose
 
-    return detections
+    return detections, artifacts
 
 
 def detect_objects_from_language(
@@ -160,17 +183,19 @@ def detect_objects_from_language(
     rgb_image_responses: List[image_pb2.ImageResponse],
     depth_images: List[NDArray[np.uint16]],
     depth_image_responses: List[image_pb2.ImageResponse],
+    image_ids: List[str],
     world_tform_body: math_helpers.SE3Pose,
-) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect an object pose using a vision-language model."""
     # TODO
-    return {}
+    return {}, {}
 
 
 if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
 
+    # NOTE: make sure the spot hand camera sees the 408 april tag and a brush.
     # It is recommended to run this test a few times in a row while moving the
     # robot around, but keeping the object in place, to make sure that the
     # detections are consistent.
@@ -189,7 +214,6 @@ if __name__ == "__main__":
     from predicators.spot_utils.utils import verify_estop
 
     # TODO add brush
-    # NOTE: make sure the spot hand camera sees the 408 april tag and a brush.
 
     TEST_CAMERA = "hand_color_image"
     TEST_APRIL_TAG_ID = 408
@@ -240,9 +264,9 @@ if __name__ == "__main__":
         # TODO add language to the same call.
         april_tag_id = AprilTagObjectDetectionID(TEST_APRIL_TAG_ID,
                                                  TEST_APRIL_TAG_TRANSFORM)
-        detections = detect_objects([april_tag_id], [rgb_image],
-                                    [rgb_response], [depth_image],
-                                    [depth_response], world_tform_body)
+        detections, _ = detect_objects([april_tag_id], [rgb_image],
+                                       [rgb_response], [depth_image],
+                                       [depth_response], world_tform_body)
         detection = detections[april_tag_id]
         print(f"Detected tag {april_tag_id.april_tag_number} at {detection}")
 
