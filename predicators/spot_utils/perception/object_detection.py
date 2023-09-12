@@ -171,14 +171,14 @@ def detect_objects_from_language(
         buf_dict[rgbd.camera_name] = image_to_bytes(pil_rotated_img)
 
     # Extract all the classes that we want to detect.
-    language_ids = sorted(o.language_id for o in object_ids)
+    classes = sorted(o.language_id for o in object_ids)
 
     # Query server, retrying to handle possible wifi issues.
     for _ in range(max_server_retries):
         try:
             r = requests.post("http://localhost:5550/batch_predict",
                               files=buf_dict,
-                              data={"classes": ",".join(language_ids)})
+                              data={"classes": ",".join(classes)})
             break
         except requests.exceptions.ConnectionError:
             continue
@@ -200,36 +200,41 @@ def detect_objects_from_language(
             logging.warning("DETIC-SAM FAILED DURING UNPICKLING!")
             return detections, artifacts
 
-    # Process the results and save all detections per object ID.
-    object_id_to_img_detections: Dict[ObjectDetectionID,
-                                      Dict[str, SegmentedBoundingBox]] = {
-                                          obj_id: {}
-                                          for obj_id in object_ids
-                                      }
+        # Process the results and save all detections per object ID.
+        object_id_to_img_detections: Dict[ObjectDetectionID,
+                                        Dict[str, SegmentedBoundingBox]] = {
+                                            obj_id: {}
+                                            for obj_id in object_ids
+                                        }
 
-    for rgbd in rgbds:
-        boxes = server_results[f"{rgbd.camera_name}_boxes"]
-        ret_language_ids = server_results[f"{rgbd.camera_name}_classes"]
-        masks = server_results[f"{rgbd.camera_name}_masks"]
-        scores = server_results[f"{rgbd.camera_name}_scores"]
+        for rgbd in rgbds:
+            boxes = server_results[f"{rgbd.camera_name}_boxes"]
+            ret_classes = server_results[f"{rgbd.camera_name}_classes"]
+            masks = server_results[f"{rgbd.camera_name}_masks"]
+            scores = server_results[f"{rgbd.camera_name}_scores"]
 
-        # Filter out detections by confidence. We threshold detections
-        # at a set confidence level minimum, and if there are multiple,
-        # we only select the most confident one. This structure makes
-        # it easy for us to select multiple detections if that's ever
-        # necessary in the future.
-        for language_id in language_ids:
-            language_id_mask = (ret_language_ids['classes'] == language_id)
-            if not np.any(language_id_mask):
-                continue
-            max_score = np.max(scores['scores'][language_id_mask])
-            best_idx = np.where(scores['scores'] == max_score)[0]
-            if scores['scores'][best_idx] < detection_threshold:
-                continue
-            # Save the detection.
-            seg_bb = SegmentedBoundingBox(boxes[best_idx], masks[best_idx],
-                                          scores[best_idx])
-            object_id_to_img_detections[language_id][rgbd.camera_name] = seg_bb
+            # Filter out detections by confidence. We threshold detections
+            # at a set confidence level minimum, and if there are multiple,
+            # we only select the most confident one. This structure makes
+            # it easy for us to select multiple detections if that's ever
+            # necessary in the future.
+            for obj_id in object_ids:
+                # If there were no detections (which means all the
+                # returned values will be numpy arrays of shape (0, 0))
+                # then just skip this source.
+                if ret_classes.size == 0:
+                    continue
+                obj_id_mask = (ret_classes == obj_id.language_id)
+                if not np.any(obj_id_mask):
+                    continue
+                max_score = np.max(scores[obj_id_mask])
+                best_idx = np.where(scores == max_score)[0]
+                if scores[best_idx] < detection_threshold:
+                    continue
+                # Save the detection.
+                seg_bb = SegmentedBoundingBox(boxes[best_idx], masks[best_idx],
+                                            scores[best_idx])
+                object_id_to_img_detections[obj_id][rgbd.camera_name] = seg_bb
 
     # Save all artifacts.
     artifacts = object_id_to_img_detections
