@@ -145,8 +145,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.
-        self._q_function.train_q_function(
-            CFG.active_sampler_learning_per_cycle_num_batches_to_train)
+        self._q_function.train_q_function()
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
         save_path = utils.get_approach_save_path_str()

@@ -466,7 +466,8 @@ def test_maple_q_function():
                            n_iter_no_change=1000,
                            clip_gradients=True,
                            clip_value=5,
-                           learning_rate=1e-3)
+                           learning_rate=1e-3,
+                           rng=rng)
     # Test before learning from any data.
     model.train_from_q_data([])  # should have no effect
     # Default value.
