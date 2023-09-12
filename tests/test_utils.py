@@ -3254,3 +3254,12 @@ def test_motion_planning():
     # Test that query_to_goal_fn for BiRRT raises a NotImplementedError
     with pytest.raises(NotImplementedError):
         birrt.query_to_goal_fn(0, lambda: 1, lambda x: False)
+
+
+def test_rotate_point_in_image():
+    """Tests for rotate_point_in_image()."""
+    assert np.allclose(utils.rotate_point_in_image(2, 2, 45, 5, 5), (2, 2))
+    assert np.allclose(utils.rotate_point_in_image(2, 2, -45, 5, 5), (2, 2))
+    assert np.allclose(utils.rotate_point_in_image(0, 0, 90, 5, 5), (4, 0))
+    assert np.allclose(utils.rotate_point_in_image(0, 0, -90, 5, 5), (0, 4))
+    assert np.allclose(utils.rotate_point_in_image(0, 0, 180, 5, 5), (4, 4))

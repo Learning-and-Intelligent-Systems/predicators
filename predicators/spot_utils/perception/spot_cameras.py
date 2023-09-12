@@ -61,7 +61,7 @@ def capture_image(
     # Build RGBDImageWithContext.
     rgb_img = _image_response_to_image(rgb_img_resp)
     depth_img = _image_response_to_image(depth_img_resp)
-    
+
     # Create transform.
     camera_tform_body = get_a_tform_b(
         rgb_img_resp.shot.transforms_snapshot,
@@ -78,8 +78,7 @@ def capture_image(
 
 
 def _image_response_to_image(
-    image_response: image_pb2.ImageResponse,
-) -> NDArray:
+    image_response: image_pb2.ImageResponse, ) -> NDArray:
     """Extract an image from an image response.
 
     The type of image (rgb, depth, etc.) is detected based on the

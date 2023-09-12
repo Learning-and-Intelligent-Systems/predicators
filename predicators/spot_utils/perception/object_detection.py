@@ -30,9 +30,13 @@ import requests
 from bosdyn.api import image_pb2
 from bosdyn.client import math_helpers
 from numpy.typing import NDArray
+from scipy import ndimage
 
 from predicators.settings import CFG
-from predicators.spot_utils.perception.structs import ObjectDetectionID, LanguageObjectDetectionID, SegmentedBoundingBox, AprilTagObjectDetectionID, RGBDImageWithContext
+from predicators.spot_utils.perception.structs import \
+    AprilTagObjectDetectionID, LanguageObjectDetectionID, ObjectDetectionID, \
+    RGBDImageWithContext, SegmentedBoundingBox
+from predicators.utils import rotate_point_in_image
 
 
 def detect_objects(
@@ -74,7 +78,7 @@ def detect_objects(
         language_object_ids, rgbds, world_tform_body)
     detections.update(language_detections)
     artifacts.update(language_artifacts)
-    
+
     return detections, artifacts
 
 
@@ -117,8 +121,8 @@ def detect_objects_from_april_tags(
         pose = detector.detection_pose(
             apriltag_detection,
             (rgbd.intrinsics.focal_length.x, rgbd.intrinsics.focal_length.y,
-             rgbd.intrinsics.principal_point.x, rgbd.intrinsics.principal_point.y),
-            fiducial_size)[0]
+             rgbd.intrinsics.principal_point.x,
+             rgbd.intrinsics.principal_point.y), fiducial_size)[0]
         tx, ty, tz, tw = pose[:, -1]
         assert np.isclose(tw, 1.0)
 
@@ -202,16 +206,28 @@ def detect_objects_from_language(
 
         # Process the results and save all detections per object ID.
         object_id_to_img_detections: Dict[ObjectDetectionID,
-                                        Dict[str, SegmentedBoundingBox]] = {
-                                            obj_id: {}
-                                            for obj_id in object_ids
-                                        }
+                                          Dict[str, SegmentedBoundingBox]] = {
+                                              obj_id: {}
+                                              for obj_id in object_ids
+                                          }
 
         for rgbd in rgbds:
-            boxes = server_results[f"{rgbd.camera_name}_boxes"]
+            rot_boxes = server_results[f"{rgbd.camera_name}_boxes"]
             ret_classes = server_results[f"{rgbd.camera_name}_classes"]
-            masks = server_results[f"{rgbd.camera_name}_masks"]
+            rot_masks = server_results[f"{rgbd.camera_name}_masks"]
             scores = server_results[f"{rgbd.camera_name}_scores"]
+
+            # Invert the rotation immediately so we don't need to worry about
+            # them henceforth.
+            h, w = rgbd.rgb.shape[:2]
+            image_rot = rgbd.image_rot
+            boxes = [
+                _rotate_bounding_box(bb, -image_rot, h, w) for bb in rot_boxes
+            ]
+            masks = [
+                ndimage.rotate(m, -image_rot, reshape=False)
+                for m in rot_masks
+            ]
 
             # Filter out detections by confidence. We threshold detections
             # at a set confidence level minimum, and if there are multiple,
@@ -228,32 +244,52 @@ def detect_objects_from_language(
                 if not np.any(obj_id_mask):
                     continue
                 max_score = np.max(scores[obj_id_mask])
-                best_idx = np.where(scores == max_score)[0]
+                best_idx = np.where(scores == max_score)[0].item()
                 if scores[best_idx] < detection_threshold:
                     continue
                 # Save the detection.
                 seg_bb = SegmentedBoundingBox(boxes[best_idx], masks[best_idx],
-                                            scores[best_idx])
+                                              scores[best_idx])
                 object_id_to_img_detections[obj_id][rgbd.camera_name] = seg_bb
 
     # Save all artifacts.
     artifacts = object_id_to_img_detections
 
     # Get the best-scoring image detections for each object ID.
-    object_id_to_best_img_id: Dict[ObjectDetectionID, str] = {}
+    object_id_to_best_img: Dict[ObjectDetectionID, RGBDImageWithContext] = {}
     for obj_id, img_detections in object_id_to_img_detections.items():
         if not img_detections:
             continue
-        img_detections_lst = [img_detections[rgbd.camera_name] for rgbd in rgbds]
+        img_detections_lst = [
+            img_detections[rgbd.camera_name] for rgbd in rgbds
+        ]
         best_score_idx = np.argmax([d.score for d in img_detections_lst])
-        best_img_id = rgbds[best_score_idx].camera_name
-        object_id_to_best_img_id[obj_id] = best_img_id
+        object_id_to_best_img[obj_id] = rgbds[best_score_idx]
 
     # Convert the image detections into pose detections.
-    import ipdb
-    ipdb.set_trace()
+    for obj_id, rgbd in object_id_to_best_img.items():
+        seg_bb = object_id_to_img_detections[obj_id]
+        pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd,
+                                                     world_tform_body)
+        detections[obj_id] = pose
 
     return detections, artifacts
+
+
+def _rotate_bounding_box(bb: Tuple[float, float, float, float], rot_degrees: float,
+                         height: int, width: int) -> Tuple[float, float, float, float]:
+    x1, y1, x2, y2 = bb
+    # TODO check x/y orientation
+    rx1, ry1 = rotate_point_in_image(x1, y1, rot_degrees, height, width)
+    rx2, ry2 = rotate_point_in_image(x2, y2, rot_degrees, height, width)
+    return (rx1, ry1, rx2, ry2)
+
+
+def _get_pose_from_segmented_bounding_box(
+        seg_bb: SegmentedBoundingBox, rgbd: RGBDImageWithContext,
+        world_tform_body: math_helpers.SE3Pose):
+    import ipdb
+    ipdb.set_trace()
 
 
 if __name__ == "__main__":
