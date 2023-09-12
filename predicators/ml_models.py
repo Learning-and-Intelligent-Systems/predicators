@@ -1538,10 +1538,11 @@ class MapleQFunction(MLPRegressor):
         """Assuming both tensor_X and tensor_Y are 2D with the batch dimension
         first, sample a minibatch of size batch_size to train on."""
         train_dataset = TensorDataset(tensor_X, tensor_Y)
-        train_dataloader = DataLoader(train_dataset,
-                                    #   batch_size=batch_size,
-                                      batch_size=tensor_X.shape[0],
-                                      shuffle=True)
+        train_dataloader = DataLoader(
+            train_dataset,
+            #   batch_size=batch_size,
+            batch_size=tensor_X.shape[0],
+            shuffle=True)
         iterable_loader = iter(train_dataloader)
         while True:
             try:
