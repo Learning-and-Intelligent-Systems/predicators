@@ -17,11 +17,17 @@ are currently detected. Rotations should be ignored.
 # TODO: refactor so that transform stuff happens externally to object detection
 
 from dataclasses import dataclass
+import io
 from typing import Any, Collection, Dict, List, Optional, Set, Tuple
+import requests
+import logging
+import dill as pkl
+
 
 import apriltag
 import cv2
 import numpy as np
+import PIL
 from bosdyn.api import image_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, \
@@ -52,6 +58,14 @@ class AprilTagObjectDetectionID(ObjectDetectionID):
 class LanguageObjectDetectionID(ObjectDetectionID):
     """An ID for an object to be detected with a vision-language model."""
     language_id: str
+
+
+@dataclass(frozen=True)
+class SegmentedBoundingBox:
+    """Intermediate return value from vision-language models."""
+    bounding_box: Tuple[float, float, float, float]
+    mask: NDArray[np.uint8]
+    score: float
 
 
 def detect_objects(
@@ -88,12 +102,14 @@ def detect_objects(
             language_object_ids.add(object_id)
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
     artifacts: Dict[str, Any] = {}
+    
     # There is no batching over images for april tag detection.
     for img, resp, img_id in zip(rgb_images, rgb_image_responses, image_ids):
         img_detections, img_artifacts = detect_objects_from_april_tags(
             april_tag_object_ids, img, resp, img_id, world_tform_body)
         detections.update(img_detections)
         artifacts.update(img_artifacts)
+    
     # There IS batching over images here for efficiency.
     language_detections, language_artifacts = detect_objects_from_language(
         language_object_ids, rgb_images, rgb_image_responses, depth_images,
@@ -177,6 +193,14 @@ def detect_objects_from_april_tags(
     return detections, artifacts
 
 
+def image_to_bytes(img: PIL.Image.Image) -> io.BytesIO:
+    """Helper function to convert from a PIL image into a bytes object."""
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+
 def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
     rgb_images: List[NDArray[np.uint8]],
@@ -185,11 +209,100 @@ def detect_objects_from_language(
     depth_image_responses: List[image_pb2.ImageResponse],
     image_ids: List[str],
     world_tform_body: math_helpers.SE3Pose,
+    max_server_retries: int = 5,
+    detection_threshold: float = CFG.spot_vision_detection_threshold,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect an object pose using a vision-language model."""
-    # TODO
-    return {}, {}
 
+    # TODO refactor!
+
+    # Initialize detections and artifacts.
+    detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
+    artifacts: Dict[str, Any] = {}
+
+    # Create buffer dictionary to send to server.
+    buf_dict = {}
+    for img_id, rgb_img in zip(image_ids, rgb_images):
+        buf_dict[img_id] = image_to_bytes(PIL.Image.fromarray(rgb_img))
+    
+    # Extract all the classes that we want to detect.
+    language_ids = sorted(o.language_id for o in object_ids)
+
+    # Query server, retrying to handle possible wifi issues.
+    for _ in range(max_server_retries):
+        try:
+            r = requests.post("http://localhost:5550/batch_predict",
+                              files=buf_dict,
+                              data={"classes": ",".join(language_ids)})
+            break
+        except requests.exceptions.ConnectionError:
+            continue
+    else:
+        logging.warning("DETIC-SAM FAILED, POSSIBLE SERVER/WIFI ISSUE")
+        return detections, artifacts
+
+    # If the status code is not 200, then fail.
+    if r.status_code != 200:
+        logging.warning(f"DETIC-SAM FAILED! STATUS CODE: {r.status_code}")
+        return detections, artifacts
+
+    # Querying the server succeeded; unpack the contents.
+    with io.BytesIO(r.content) as f:
+        try:
+            server_results = np.load(f, allow_pickle=True)
+        # Corrupted results.
+        except pkl.UnpicklingError:
+            logging.warning("DETIC-SAM FAILED DURING UNPICKLING!")
+            return detections, artifacts
+        
+    # Process the results and save all detections per object ID.
+    object_id_to_img_detections: Dict[ObjectDetectionID, Dict[str, SegmentedBoundingBox]] = {
+        obj_id: {} for obj_id in object_ids
+    }
+
+    for img_id in image_ids:
+        boxes = server_results[f"{img_id}_boxes"]
+        ret_language_ids = server_results[f"{img_id}_classes"]
+        masks = server_results[f"{img_id}_masks"]
+        scores = server_results[f"{img_id}_scores"]
+
+        # Filter out detections by confidence. We threshold detections
+        # at a set confidence level minimum, and if there are multiple,
+        # we only select the most confident one. This structure makes
+        # it easy for us to select multiple detections if that's ever
+        # necessary in the future.
+        for language_id in language_ids:
+            language_id_mask = (ret_language_ids['classes'] == language_id)
+            if not np.any(language_id_mask):
+                continue
+            max_score = np.max(scores['scores'][language_id_mask])
+            best_idx = np.where(scores['scores'] == max_score)[0]
+            if scores['scores'][best_idx] < detection_threshold:
+                continue
+            # Save the detection.
+            seg_bb = SegmentedBoundingBox(
+                boxes[best_idx], masks[best_idx], scores[best_idx]
+            )
+            object_id_to_img_detections[language_id][img_id] = seg_bb
+        
+    # Save all artifacts.
+    artifacts = object_id_to_img_detections
+
+    # Get the best-scoring image detections for each object ID.
+    object_id_to_best_img_id: Dict[ObjectDetectionID, str] = {}
+    for obj_id, img_detections in object_id_to_img_detections.items():
+        if not img_detections:
+            continue
+        img_detections_lst = [img_detections[i] for i in image_ids]
+        best_score_idx = np.argmax([d.score for d in img_detections_lst])
+        best_img_id = image_ids[best_score_idx]
+        object_id_to_best_img_id[obj_id] = best_img_id
+
+    # Convert the image detections into pose detections.
+    import ipdb; ipdb.set_trace()
+
+
+    return detections, artifacts
 
 if __name__ == "__main__":
     # Run this file alone to test manually.
