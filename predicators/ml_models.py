@@ -16,7 +16,6 @@ from typing import TypeVar
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import TensorDataset, DataLoader
 from scipy.stats import beta as BetaRV
 from sklearn.base import BaseEstimator
 from sklearn.neighbors import \
@@ -25,6 +24,7 @@ from sklearn.neighbors import \
     KNeighborsRegressor as _SKLearnKNeighborsRegressor
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
+from torch.utils.data import DataLoader, TensorDataset
 
 from predicators import utils
 from predicators.settings import CFG
@@ -1328,11 +1328,11 @@ class ReplayBuffer(Generic[_D]):
         """Return a batch of a specified size."""
         raise NotImplementedError("Subclasses should override!")
 
-
     @abc.abstractmethod
     def dump_all_data(self) -> List[_D]:
-        """Return all data that is currently in the replay buffer"""
+        """Return all data that is currently in the replay buffer."""
         raise NotImplementedError("Subclasses should override!")
+
 
 class FixedSizeReplayBuffer(ReplayBuffer):
 
@@ -1372,7 +1372,7 @@ class FixedSizeReplayBuffer(ReplayBuffer):
             replace=self._sample_with_replacement
             or batch_size > len(self._buffer)).tolist()
         return random_batch
-    
+
     def dump_all_data(self) -> List[_D]:
         return self._buffer[:]
 
@@ -1510,12 +1510,10 @@ class MapleQFunction(MLPRegressor):
                     # Sample 1 per NSRT until we reach the target number.
                     for option in self._sample_applicable_options_from_state(
                             next_state):
-                        next_option_vecs.append(
-                            self._vectorize_option(option))
+                        next_option_vecs.append(self._vectorize_option(option))
                 for next_action_vec in next_option_vecs:
                     x_hat = np.concatenate([
-                        vectorized_next_state, vectorized_goal,
-                        next_action_vec
+                        vectorized_next_state, vectorized_goal, next_action_vec
                     ])
                     q_x_hat = self.predict(x_hat)[0]
                     best_next_value = max(best_next_value, q_x_hat)
@@ -1528,11 +1526,14 @@ class MapleQFunction(MLPRegressor):
         # number of iterations. It will also normalize all the data.
         self.fit(X_arr, Y_arr)
 
-    def minibatch_generator(self, tensor_X: Tensor, tensor_Y: Tensor, batch_size: int) -> Iterator[Tuple]:
+    def minibatch_generator(self, tensor_X: Tensor, tensor_Y: Tensor,
+                            batch_size: int) -> Iterator[Tuple]:
         """Assuming both tensor_X and tensor_Y are 2D with the batch dimension
         first, sample a minibatch of size batch_size to train on."""
         train_dataset = TensorDataset(tensor_X, tensor_Y)
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_dataloader = DataLoader(train_dataset,
+                                      batch_size=batch_size,
+                                      shuffle=True)
         return train_dataloader
 
     def _fit(self, X: Array, Y: Array) -> None:
@@ -1548,7 +1549,8 @@ class MapleQFunction(MLPRegressor):
             self._device)
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
             self._device)
-        batch_generator = _single_batch_generator(tensor_X, tensor_Y)
+        batch_generator = self.minibatch_generator(
+            tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
@@ -1561,7 +1563,6 @@ class MapleQFunction(MLPRegressor):
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value,
                              n_iter_no_change=self._n_iter_no_change)
-
 
     def _vectorize_state(self, state: State) -> Array:
         # Cannot just call state.vec() directly because some objects may not
