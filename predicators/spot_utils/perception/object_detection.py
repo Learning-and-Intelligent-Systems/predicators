@@ -139,18 +139,10 @@ def detect_objects_from_april_tags(
         world_frame_pose = world_tform_body * body_frame_pose
         world_frame_pose = obj_id.offset_transform * world_frame_pose
 
-        # Save in detections
+        # Save in detections.
         detections[obj_id] = world_frame_pose
 
     return detections, artifacts
-
-
-def image_to_bytes(img: PIL.Image.Image) -> io.BytesIO:
-    """Helper function to convert from a PIL image into a bytes object."""
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-    return buf
 
 
 def detect_objects_from_language(
@@ -172,7 +164,7 @@ def detect_objects_from_language(
     buf_dict = {}
     for rgbd in rgbds:
         pil_rotated_img = PIL.Image.fromarray(rgbd.rotated_rgb)
-        buf_dict[rgbd.camera_name] = image_to_bytes(pil_rotated_img)
+        buf_dict[rgbd.camera_name] = _image_to_bytes(pil_rotated_img)
 
     # Extract all the classes that we want to detect.
     classes = sorted(o.language_id for o in object_ids)
@@ -225,7 +217,7 @@ def detect_objects_from_language(
                 _rotate_bounding_box(bb, -image_rot, h, w) for bb in rot_boxes
             ]
             masks = [
-                ndimage.rotate(m, -image_rot, reshape=False)
+                ndimage.rotate(m.squeeze(), -image_rot, reshape=False)
                 for m in rot_masks
             ]
 
@@ -268,7 +260,7 @@ def detect_objects_from_language(
 
     # Convert the image detections into pose detections.
     for obj_id, rgbd in object_id_to_best_img.items():
-        seg_bb = object_id_to_img_detections[obj_id]
+        seg_bb = object_id_to_img_detections[obj_id][rgbd.camera_name]
         pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd,
                                                      world_tform_body)
         detections[obj_id] = pose
@@ -276,8 +268,17 @@ def detect_objects_from_language(
     return detections, artifacts
 
 
-def _rotate_bounding_box(bb: Tuple[float, float, float, float], rot_degrees: float,
-                         height: int, width: int) -> Tuple[float, float, float, float]:
+def _image_to_bytes(img: PIL.Image.Image) -> io.BytesIO:
+    """Helper function to convert from a PIL image into a bytes object."""
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+
+def _rotate_bounding_box(bb: Tuple[float, float, float,
+                                   float], rot_degrees: float, height: int,
+                         width: int) -> Tuple[float, float, float, float]:
     x1, y1, x2, y2 = bb
     # TODO check x/y orientation
     rx1, ry1 = rotate_point_in_image(x1, y1, rot_degrees, height, width)
@@ -286,10 +287,42 @@ def _rotate_bounding_box(bb: Tuple[float, float, float, float], rot_degrees: flo
 
 
 def _get_pose_from_segmented_bounding_box(
-        seg_bb: SegmentedBoundingBox, rgbd: RGBDImageWithContext,
-        world_tform_body: math_helpers.SE3Pose):
-    import ipdb
-    ipdb.set_trace()
+        seg_bb: SegmentedBoundingBox,
+        rgbd: RGBDImageWithContext,
+        world_tform_body: math_helpers.SE3Pose,
+        min_depth_value: float = 2) -> math_helpers.SE3Pose:
+    # Get the center of the bounding box.
+    x1, y1, x2, y2 = seg_bb.bounding_box
+    x_center = (x1 + x2) / 2
+    y_center = (y1 + y2) / 2
+
+    # Get the median depth value of segmented points.
+    # Filter 0 points out of the depth map.
+    seg_mask = seg_bb.mask & (rgbd.depth > min_depth_value)
+    segmented_depth = rgbd.depth[seg_mask]
+    depth_value = np.median(segmented_depth)
+
+    # Convert to camera frame position.
+    fx = rgbd.intrinsics.focal_length.x
+    fy = rgbd.intrinsics.focal_length.y
+    cx = rgbd.intrinsics.principal_point.x
+    cy = rgbd.intrinsics.principal_point.y
+    depth_scale = rgbd.depth_scale
+    camera_z = depth_value / depth_scale
+    camera_x = np.multiply(camera_z, (x_center - cx)) / fx
+    camera_y = np.multiply(camera_z, (y_center - cy)) / fy
+    camera_frame_pose = math_helpers.SE3Pose(x=camera_x,
+                                             y=camera_y,
+                                             z=camera_z,
+                                             rot=math_helpers.Quat())
+
+    # Convert camera to world.
+    # TODO remove redundancies
+    # Apply transforms.
+    body_frame_pose = rgbd.body_tform_camera * camera_frame_pose
+    world_frame_pose = world_tform_body * body_frame_pose
+
+    return world_frame_pose
 
 
 if __name__ == "__main__":

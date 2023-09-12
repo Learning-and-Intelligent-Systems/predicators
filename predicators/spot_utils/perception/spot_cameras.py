@@ -70,9 +70,10 @@ def capture_image(
     # Extract RGB camera intrinsics.
     rot = ROTATION_ANGLE[camera_name]
     intrinsics = rgb_img_resp.source.pinhole.intrinsics
+    depth_scale = depth_img_resp.source.depth_scale
     # Finish RGBDImageWithContext.
     rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
-                                body_tform_camera, intrinsics)
+                                body_tform_camera, intrinsics, depth_scale)
 
     return rgbd
 
