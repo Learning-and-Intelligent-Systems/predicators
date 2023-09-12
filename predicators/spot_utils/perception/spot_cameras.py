@@ -1,5 +1,5 @@
 """Utility functions for capturing images from Spot's cameras."""
-from typing import Type, Collection, Dict
+from typing import Collection, Dict, Type
 
 import cv2
 import numpy as np
@@ -42,15 +42,15 @@ def capture_images(
     # Package all the requests together.
     img_reqs: image_pb2.ImageRequest = []
     for camera_name in camera_names:
-        
+
         # Build RGB image request.
         if "hand" in camera_name:
             rgb_pixel_format = None
         else:
             rgb_pixel_format = image_pb2.Image.PIXEL_FORMAT_RGB_U8  # pylint: disable=no-member
         rgb_img_req = build_image_request(camera_name,
-                                        quality_percent=quality_percent,
-                                        pixel_format=rgb_pixel_format)
+                                          quality_percent=quality_percent,
+                                          pixel_format=rgb_pixel_format)
         img_reqs.append(rgb_img_req)
 
         # Build depth image request.
@@ -63,7 +63,7 @@ def capture_images(
     # Send the request.
     responses = image_client.get_image(img_reqs)
     name_to_response = {r.source.name: r for r in responses}
-    
+
     # Build RGBDImageWithContexts.
     for camera in camera_names:
         rgb_img_resp = name_to_response[camera]

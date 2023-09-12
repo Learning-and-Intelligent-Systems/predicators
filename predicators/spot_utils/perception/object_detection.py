@@ -17,6 +17,7 @@ are currently detected. Rotations should be ignored.
 import io
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 
 import apriltag
@@ -27,6 +28,7 @@ import PIL.Image
 import requests
 from bosdyn.api import image_pb2
 from bosdyn.client import math_helpers
+from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 from scipy import ndimage
 
@@ -61,7 +63,7 @@ def detect_objects(
             assert isinstance(object_id, LanguageObjectDetectionID)
             language_object_ids.add(object_id)
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
-    artifacts: Dict[str, Any] = {}
+    artifacts = {"april": {}, "language": {}}
 
     # There is no batching over images for april tag detection.
     for rgbd in rgbds:
@@ -69,13 +71,13 @@ def detect_objects(
             april_tag_object_ids, rgbd, world_tform_body)
         # Possibly overrides previous detections.
         detections.update(img_detections)
-        artifacts.update(img_artifacts)
+        artifacts["april"].update(img_artifacts)
 
     # There IS batching over images here for efficiency.
     language_detections, language_artifacts = detect_objects_from_language(
         language_object_ids, rgbds, world_tform_body)
     detections.update(language_detections)
-    artifacts.update(language_artifacts)
+    artifacts["language"] = language_artifacts
 
     return detections, artifacts
 
@@ -150,9 +152,7 @@ def detect_objects_from_language(
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect an object pose using a vision-language model."""
 
-    # Save all artifacts.
     object_id_to_img_detections = _query_detic_sam(object_ids, rgbds)
-    artifacts = object_id_to_img_detections
 
     # Aggregate detections over images.
     # Get the best-scoring image detections for each object ID.
@@ -174,21 +174,28 @@ def detect_objects_from_language(
                                                      world_tform_body)
         detections[obj_id] = pose
 
+    # Save artifacts for analysis and debugging.
+    artifacts = {
+        "rgbds": rgbds,
+        "object_id_to_img_detections": object_id_to_img_detections
+    }
+
     return detections, artifacts
 
 
-def _query_detic_sam(object_ids: Collection[LanguageObjectDetectionID],
+def _query_detic_sam(
+    object_ids: Collection[LanguageObjectDetectionID],
     rgbds: List[RGBDImageWithContext],
     max_server_retries: int = 5,
     detection_threshold: float = CFG.spot_vision_detection_threshold
-) -> Dict[ObjectDetectionID,  Dict[str, SegmentedBoundingBox]]:
+) -> Dict[ObjectDetectionID, Dict[str, SegmentedBoundingBox]]:
     """Returns object ID to image ID (camera) to segmented bounding box."""
-    
+
     object_id_to_img_detections: Dict[ObjectDetectionID,
-                                        Dict[str, SegmentedBoundingBox]] = {
-                                            obj_id: {}
-                                            for obj_id in object_ids
-                                        }
+                                      Dict[str, SegmentedBoundingBox]] = {
+                                          obj_id: {}
+                                          for obj_id in object_ids
+                                      }
 
     # Create buffer dictionary to send to server.
     buf_dict = {}
@@ -216,7 +223,7 @@ def _query_detic_sam(object_ids: Collection[LanguageObjectDetectionID],
     if r.status_code != 200:
         logging.warning(f"DETIC-SAM FAILED! STATUS CODE: {r.status_code}")
         return object_id_to_img_detections
-    
+
     # Querying the server succeeded; unpack the contents.
     with io.BytesIO(r.content) as f:
         try:
@@ -284,8 +291,8 @@ def _rotate_bounding_box(bb: Tuple[float, float, float,
                          width: int) -> Tuple[float, float, float, float]:
     x1, y1, x2, y2 = bb
     # TODO check x/y orientation
-    rx1, ry1 = rotate_point_in_image(x1, y1, rot_degrees, height, width)
-    rx2, ry2 = rotate_point_in_image(x2, y2, rot_degrees, height, width)
+    ry1, rx1 = rotate_point_in_image(y1, x1, rot_degrees, height, width)
+    ry2, rx2 = rotate_point_in_image(y2, x2, rot_degrees, height, width)
     return (rx1, ry1, rx2, ry2)
 
 
@@ -324,6 +331,59 @@ def _get_pose_from_segmented_bounding_box(
     world_frame_pose = world_tform_body * body_frame_pose
 
     return world_frame_pose
+
+
+def _visualize_all_artifacts(artifacts: Dict[str, Any], outfile: Path) -> None:
+    """Analyze the artifacts."""
+    # At the moment, only language detection artifacts are visualized.
+    rgbds = {r.camera_name: r for r in artifacts["language"]["rgbds"]}
+    detections = artifacts["language"]["object_id_to_img_detections"]
+    flat_detections: List[Tuple[RGBDImageWithContext,
+                                LanguageObjectDetectionID,
+                                SegmentedBoundingBox]] = []
+    for obj_id, img_detections in detections.items():
+        for camera, seg_bb in img_detections.items():
+            rgbd = rgbds[camera]
+            flat_detections.append((rgbd, obj_id, seg_bb))
+    # Visualize in subplots where columns are: rotated RGB, original RGB,
+    # bounding box, mask. Each row is one detection, so if there are multiple
+    # detections in a single image, then there will be duplicate first cols.
+    fig, axes = plt.subplots(len(flat_detections), 4, squeeze=False)
+    for i, (rgbd, obj_id, seg_bb) in enumerate(flat_detections):
+        ax_row = axes[i]
+        for ax in ax_row:
+            ax.set_xticks([])
+            ax.set_yticks([])
+        ax_row[0].imshow(rgbd.rotated_rgb)
+        ax_row[1].imshow(rgbd.rgb)
+
+        # Bounding box.
+        ax_row[2].imshow(rgbd.rgb)  # TODO show bounding box
+        box = seg_bb.bounding_box
+        x0, y0 = box[0], box[1]
+        w, h = box[2] - box[0], box[3] - box[1]
+        ax_row[2].add_patch(
+            plt.Rectangle((x0, y0),
+                          w,
+                          h,
+                          edgecolor='green',
+                          facecolor=(0, 0, 0, 0),
+                          lw=1))
+
+        ax_row[3].imshow(seg_bb.mask, cmap='Greys')
+
+        # Labels.
+        ax_row[0].set_ylabel(f"{obj_id.language_id}\n[{rgbd.camera_name}]",
+                             fontsize=6)
+        if i == len(flat_detections) - 1:
+            ax_row[0].set_xlabel("Rotated RGB")
+            ax_row[1].set_xlabel("Original RGB")
+            ax_row[2].set_xlabel("Bounding Box")
+            ax_row[3].set_xlabel("Mask")
+
+    plt.tight_layout()
+    plt.savefig(outfile, dpi=300)
+    print(f"Wrote out to {outfile}.")
 
 
 if __name__ == "__main__":
@@ -389,10 +449,17 @@ if __name__ == "__main__":
         # Detect the april tag and brush.
         april_tag_id = AprilTagObjectDetectionID(TEST_APRIL_TAG_ID,
                                                  TEST_APRIL_TAG_TRANSFORM)
-        language_ids = [LanguageObjectDetectionID(d) for d in TEST_LANGUAGE_DESCRIPTIONS]
-        detections, _ = detect_objects([april_tag_id] + language_ids, rgbds,
-                                       world_tform_body)
+        language_ids = [
+            LanguageObjectDetectionID(d) for d in TEST_LANGUAGE_DESCRIPTIONS
+        ]
+        object_ids = [april_tag_id] + language_ids
+        detections, artifacts = detect_objects(object_ids, rgbds,
+                                               world_tform_body)
         for obj_id, detection in detections.items():
             print(f"Detected {obj_id} at {detection}")
+
+        # Visualize the artifacts.
+        outfile = Path(".") / "object_detection_artifacts.png"
+        _visualize_all_artifacts(artifacts, outfile)
 
     _run_manual_test()
