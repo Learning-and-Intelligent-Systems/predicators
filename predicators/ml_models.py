@@ -1251,9 +1251,8 @@ def _single_batch_generator(
 def _train_pytorch_model(model: nn.Module,
                          loss_fn: Callable[[Tensor, Tensor], Tensor],
                          optimizer: optim.Optimizer,
-                         batch_generator: Union[DataLoader,
-                                                Iterator[Tuple[Tensor,
-                                                               Tensor]]],
+                         batch_generator: Iterator[Tuple[Tensor,
+                                                               Tensor]],
                          max_train_iters: MaxTrainIters,
                          dataset_size: int,
                          device: torch.device,
@@ -1298,6 +1297,7 @@ def _train_pytorch_model(model: nn.Module,
         if itr == max_iters:
             break
         itr += 1
+
     # Load best model.
     model.load_state_dict(torch.load(model_name,
                                      map_location='cpu'))  # type: ignore
@@ -1533,14 +1533,21 @@ class MapleQFunction(MLPRegressor):
         self.fit(X_arr, Y_arr)
 
     def minibatch_generator(self, tensor_X: Tensor, tensor_Y: Tensor,
-                            batch_size: int) -> DataLoader:
+                            batch_size: int) -> Tuple[Tensor, Tensor]:
         """Assuming both tensor_X and tensor_Y are 2D with the batch dimension
         first, sample a minibatch of size batch_size to train on."""
         train_dataset = TensorDataset(tensor_X, tensor_Y)
         train_dataloader = DataLoader(train_dataset,
                                       batch_size=batch_size,
                                       shuffle=True)
-        return train_dataloader
+        iterable_loader = iter(train_dataloader)
+        while True:
+            try:
+                X_batch, Y_batch = next(iterable_loader)
+            except StopIteration:
+                iterable_loader = iter(train_dataloader)
+                X_batch, Y_batch = next(iterable_loader)
+            yield X_batch, Y_batch
 
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
