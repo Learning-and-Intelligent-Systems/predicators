@@ -40,6 +40,7 @@ def _main() -> None:
     num_cmds = len(cmds)
     for i, cmd in enumerate(cmds):
         print(f"********* RUNNING COMMAND {i+1} of {num_cmds} *********")
+        print(cmd)
         subprocess.run(cmd, shell=True, check=False)
 
 
