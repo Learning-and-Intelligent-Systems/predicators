@@ -329,10 +329,9 @@ if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
 
-    # NOTE: make sure the spot hand camera sees the 408 april tag and a brush.
-    # It is recommended to run this test a few times in a row while moving the
-    # robot around, but keeping the object in place, to make sure that the
-    # detections are consistent.
+    # NOTE: make sure the spot hand camera sees the 408 april tag, a brush,
+    # and a drill. It is recommended to run this test a few times in a row
+    # while moving the robot around, but keeping the objects in place.
 
     # pylint: disable=ungrouped-imports
     from pathlib import Path
@@ -342,18 +341,18 @@ if __name__ == "__main__":
     from bosdyn.client.util import authenticate
 
     from predicators import utils
-    from predicators.spot_utils.perception.spot_cameras import capture_image
+    from predicators.spot_utils.perception.spot_cameras import capture_images
     from predicators.spot_utils.spot_localization import SpotLocalizer
     from predicators.spot_utils.utils import verify_estop
 
-    TEST_CAMERA = "hand_color_image"
+    TEST_CAMERAS = ["hand_color_image", "frontleft_fisheye_image"]
     TEST_APRIL_TAG_ID = 408
     # Assume the table is oriented such the tag is in the front with respect
     # to the world frame. In the 4th floor room, this is facing such that the
     # outside hall is on the left of the tag.
     TEST_APRIL_TAG_TRANSFORM = math_helpers.SE3Pose(0.0, 0.5, 0.0,
                                                     math_helpers.Quat())
-    TEST_LANGUAGE_DESCRIPTION = "brush"
+    TEST_LANGUAGE_DESCRIPTIONS = ["brush", "drill"]
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.
@@ -383,13 +382,14 @@ if __name__ == "__main__":
         assert path.exists()
         localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
         world_tform_body = localizer.localize()
-        rgbd = capture_image(robot, TEST_CAMERA)
+        camera_to_rgb = capture_images(robot, TEST_CAMERAS)
+        rgbds = list(camera_to_rgb.values())
 
         # Detect the april tag and brush.
         april_tag_id = AprilTagObjectDetectionID(TEST_APRIL_TAG_ID,
                                                  TEST_APRIL_TAG_TRANSFORM)
-        language_id = LanguageObjectDetectionID(TEST_LANGUAGE_DESCRIPTION)
-        detections, _ = detect_objects([april_tag_id, language_id], [rgbd],
+        language_ids = [LanguageObjectDetectionID(d) for d in TEST_LANGUAGE_DESCRIPTIONS]
+        detections, _ = detect_objects([april_tag_id] + language_ids, rgbds,
                                        world_tform_body)
         for obj_id, detection in detections.items():
             print(f"Detected {obj_id} at {detection}")

@@ -1,16 +1,13 @@
 """Utility functions for capturing images from Spot's cameras."""
-from dataclasses import dataclass
-from typing import Type
+from typing import Type, Collection, Dict
 
 import cv2
 import numpy as np
 from bosdyn.api import image_pb2
-from bosdyn.client import math_helpers
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, get_a_tform_b
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
-from scipy import ndimage
 
 from predicators.spot_utils.perception.structs import RGBDImageWithContext
 
@@ -32,50 +29,62 @@ RGB_TO_DEPTH_CAMERAS = {
 }
 
 
-def capture_image(
+def capture_images(
     robot: Robot,
-    camera_name: str,
+    camera_names: Collection[str],
     quality_percent: int = 100,
-) -> RGBDImageWithContext:
-    """Build an image request and get the response."""
+) -> Dict[str, RGBDImageWithContext]:
+    """Build an image request and get the responses."""
     image_client = robot.ensure_client(ImageClient.default_service_name)
 
-    # Build RGB image request.
-    if "hand" in camera_name:
-        rgb_pixel_format = None
-    else:
-        rgb_pixel_format = image_pb2.Image.PIXEL_FORMAT_RGB_U8  # pylint: disable=no-member
-    rgb_img_req = build_image_request(camera_name,
-                                      quality_percent=quality_percent,
-                                      pixel_format=rgb_pixel_format)
+    rgbds: Dict[str, RGBDImageWithContext] = {}
 
-    # Build depth image request.
-    depth_camera_name = RGB_TO_DEPTH_CAMERAS[camera_name]
-    depth_img_req = build_image_request(depth_camera_name,
+    # Package all the requests together.
+    img_reqs: image_pb2.ImageRequest = []
+    for camera_name in camera_names:
+        
+        # Build RGB image request.
+        if "hand" in camera_name:
+            rgb_pixel_format = None
+        else:
+            rgb_pixel_format = image_pb2.Image.PIXEL_FORMAT_RGB_U8  # pylint: disable=no-member
+        rgb_img_req = build_image_request(camera_name,
                                         quality_percent=quality_percent,
-                                        pixel_format=None)
+                                        pixel_format=rgb_pixel_format)
+        img_reqs.append(rgb_img_req)
 
-    reqs = [rgb_img_req, depth_img_req]
-    rgb_img_resp, depth_img_resp = image_client.get_image(reqs)
+        # Build depth image request.
+        depth_camera_name = RGB_TO_DEPTH_CAMERAS[camera_name]
+        depth_img_req = build_image_request(depth_camera_name,
+                                            quality_percent=quality_percent,
+                                            pixel_format=None)
+        img_reqs.append(depth_img_req)
 
-    # Build RGBDImageWithContext.
-    rgb_img = _image_response_to_image(rgb_img_resp)
-    depth_img = _image_response_to_image(depth_img_resp)
+    # Send the request.
+    responses = image_client.get_image(img_reqs)
+    name_to_response = {r.source.name: r for r in responses}
+    
+    # Build RGBDImageWithContexts.
+    for camera in camera_names:
+        rgb_img_resp = name_to_response[camera]
+        depth_img_resp = name_to_response[RGB_TO_DEPTH_CAMERAS[camera]]
+        rgb_img = _image_response_to_image(rgb_img_resp)
+        depth_img = _image_response_to_image(depth_img_resp)
+        # Create transform.
+        camera_tform_body = get_a_tform_b(
+            rgb_img_resp.shot.transforms_snapshot,
+            rgb_img_resp.shot.frame_name_image_sensor, BODY_FRAME_NAME)
+        body_tform_camera = camera_tform_body.inverse()
+        # Extract RGB camera intrinsics.
+        rot = ROTATION_ANGLE[camera_name]
+        intrinsics = rgb_img_resp.source.pinhole.intrinsics
+        depth_scale = depth_img_resp.source.depth_scale
+        # Finish RGBDImageWithContext.
+        rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
+                                    body_tform_camera, intrinsics, depth_scale)
+        rgbds[camera] = rgbd
 
-    # Create transform.
-    camera_tform_body = get_a_tform_b(
-        rgb_img_resp.shot.transforms_snapshot,
-        rgb_img_resp.shot.frame_name_image_sensor, BODY_FRAME_NAME)
-    body_tform_camera = camera_tform_body.inverse()
-    # Extract RGB camera intrinsics.
-    rot = ROTATION_ANGLE[camera_name]
-    intrinsics = rgb_img_resp.source.pinhole.intrinsics
-    depth_scale = depth_img_resp.source.depth_scale
-    # Finish RGBDImageWithContext.
-    rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
-                                body_tform_camera, intrinsics, depth_scale)
-
-    return rgbd
+    return rgbds
 
 
 def _image_response_to_image(
@@ -148,7 +157,7 @@ if __name__ == "__main__":
         # Take pictures out of all the cameras.
         for camera in RGB_TO_DEPTH_CAMERAS:
             print(f"Capturing image from {camera}")
-            rgbd = capture_image(robot, camera)
+            rgbd = capture_images(robot, [camera])[camera]
             outfile = f"{camera}_manual_test_rgb_output.png"
             iio.imsave(outfile, rgbd.rgb)
             print(f"Wrote out to {outfile}")
