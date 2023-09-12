@@ -16,6 +16,7 @@ from typing import TypeVar
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.utils.data import TensorDataset, DataLoader
 from scipy.stats import beta as BetaRV
 from sklearn.base import BaseEstimator
 from sklearn.neighbors import \
@@ -1323,10 +1324,15 @@ class ReplayBuffer(Generic[_D]):
         raise NotImplementedError("Subclasses should override!")
 
     @abc.abstractmethod
-    def sample_random_batch(self, batch_size: int) -> Array:
+    def sample_random_batch(self, batch_size: int) -> List[_D]:
         """Return a batch of a specified size."""
         raise NotImplementedError("Subclasses should override!")
 
+
+    @abc.abstractmethod
+    def dump_all_data(self) -> List[_D]:
+        """Return all data that is currently in the replay buffer"""
+        raise NotImplementedError("Subclasses should override!")
 
 class FixedSizeReplayBuffer(ReplayBuffer):
 
@@ -1366,6 +1372,9 @@ class FixedSizeReplayBuffer(ReplayBuffer):
             replace=self._sample_with_replacement
             or batch_size > len(self._buffer)).tolist()
         return random_batch
+    
+    def dump_all_data(self) -> List[_D]:
+        return self._buffer[:]
 
     def __len__(self):
         return len(self._buffer)
@@ -1460,7 +1469,9 @@ class MapleQFunction(MLPRegressor):
         return options[idx]
 
     def add_datum_to_replay_buffer(self, datum: MapleQData) -> None:
-        assert self._replay_buffer is not None, "Tried to add data to replay buffer without first calling set_grounding"
+        assert self._replay_buffer is not None, \
+            "Tried to add data to replay buffer without first calling" +\
+            " set_grounding."
         if not datum:
             return
         self._replay_buffer.add_datum(datum)
@@ -1477,45 +1488,80 @@ class MapleQFunction(MLPRegressor):
         if len(self._replay_buffer) == 0:
             return
 
-        for _ in range(iters):
-            # Sample a random batch of data from the replay buffer.
-            curr_batch = self._replay_buffer.sample_random_batch(
-                CFG.active_sampler_learning_batch_size)
-            X_arr = np.zeros((CFG.active_sampler_learning_batch_size, X_size))
-            Y_arr = np.zeros((CFG.active_sampler_learning_batch_size, Y_size))
-            for i, (state, goal, option, next_state, reward,
-                    terminal) in enumerate(curr_batch):
-                # Compute the input to the Q-function.
-                vectorized_state = self._vectorize_state(state)
-                vectorized_goal = self._vectorize_goal(goal)
-                vectorized_action = self._vectorize_option(option)
-                X_arr[i] = np.concatenate(
-                    [vectorized_state, vectorized_goal, vectorized_action])
-                # Next, compute the target for Q-learning by sampling next actions.
-                vectorized_next_state = self._vectorize_state(next_state)
-                if not terminal and self._y_dim != -1:
-                    best_next_value = -np.inf
-                    next_option_vecs: List[Array] = []
-                    # We want to pick a total of num_lookahead_samples samples.
-                    while len(next_option_vecs) < self._num_lookahead_samples:
-                        # Sample 1 per NSRT until we reach the target number.
-                        for option in self._sample_applicable_options_from_state(
-                                next_state):
-                            next_option_vecs.append(
-                                self._vectorize_option(option))
-                    for next_action_vec in next_option_vecs:
-                        x_hat = np.concatenate([
-                            vectorized_next_state, vectorized_goal,
-                            next_action_vec
-                        ])
-                        q_x_hat = self.predict(x_hat)[0]
-                        best_next_value = max(best_next_value, q_x_hat)
-                else:
-                    best_next_value = 0.0
-                Y_arr[i] = reward + self._discount * best_next_value
+        # Dump all data from the replay buffer so that we can vectorize.
+        all_buffer_data = self._replay_buffer.dump_all_data()
+        X_arr = np.zeros((len(all_buffer_data), X_size))
+        Y_arr = np.zeros((len(all_buffer_data), Y_size))
+        for i, (state, goal, option, next_state, reward,
+                terminal) in enumerate(all_buffer_data):
+            # Compute the input to the Q-function.
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            X_arr[i] = np.concatenate(
+                [vectorized_state, vectorized_goal, vectorized_action])
+            # Next, compute the target for Q-learning by sampling next actions.
+            vectorized_next_state = self._vectorize_state(next_state)
+            if not terminal and self._y_dim != -1:
+                best_next_value = -np.inf
+                next_option_vecs: List[Array] = []
+                # We want to pick a total of num_lookahead_samples samples.
+                while len(next_option_vecs) < self._num_lookahead_samples:
+                    # Sample 1 per NSRT until we reach the target number.
+                    for option in self._sample_applicable_options_from_state(
+                            next_state):
+                        next_option_vecs.append(
+                            self._vectorize_option(option))
+                for next_action_vec in next_option_vecs:
+                    x_hat = np.concatenate([
+                        vectorized_next_state, vectorized_goal,
+                        next_action_vec
+                    ])
+                    q_x_hat = self.predict(x_hat)[0]
+                    best_next_value = max(best_next_value, q_x_hat)
+            else:
+                best_next_value = 0.0
+            Y_arr[i] = reward + self._discount * best_next_value
 
-            # Finally, train on this batch of data.
-            self.fit(X_arr, Y_arr)
+        # Finally, pass all this vectorized data to the training function.
+        # This will implicitly sample mini batches and train for a certain
+        # number of iterations. It will also normalize all the data.
+        self.fit(X_arr, Y_arr)
+
+    def minibatch_generator(self, tensor_X: Tensor, tensor_Y: Tensor, batch_size: int) -> Iterator[Tuple]:
+        """Assuming both tensor_X and tensor_Y are 2D with the batch dimension
+        first, sample a minibatch of size batch_size to train on."""
+        train_dataset = TensorDataset(tensor_X, tensor_Y)
+        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        return train_dataloader
+
+    def _fit(self, X: Array, Y: Array) -> None:
+        # Initialize the network.
+        self._initialize_net()
+        self.to(self._device)
+        # Create the loss function.
+        loss_fn = self._create_loss_fn()
+        # Create the optimizer.
+        optimizer = self._create_optimizer()
+        # Convert data to tensors.
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
+            self._device)
+        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
+            self._device)
+        batch_generator = _single_batch_generator(tensor_X, tensor_Y)
+        # Run training.
+        _train_pytorch_model(self,
+                             loss_fn,
+                             optimizer,
+                             batch_generator,
+                             device=self._device,
+                             print_every=self._train_print_every,
+                             max_train_iters=self._max_train_iters,
+                             dataset_size=X.shape[0],
+                             clip_gradients=self._clip_gradients,
+                             clip_value=self._clip_value,
+                             n_iter_no_change=self._n_iter_no_change)
+
 
     def _vectorize_state(self, state: State) -> Array:
         # Cannot just call state.vec() directly because some objects may not
