@@ -1,7 +1,21 @@
-"""Interface for detecting objects with fiducials or pretrained models."""
+"""Interface for detecting objects with fiducials or pretrained models.
+
+The fiducials are april tags. The size of the april tag is important and can be
+configured via CFG.spot_fiducial_size.
+
+The pretrained models are currently DETIC and SAM (used together). DETIC takes
+a language description of an object (e.g., "brush") and an RGB image and finds
+a bounding box. SAM segments objects within the bounding box (class-agnostic).
+The associated depth image is then used to estimate the depth of the object
+based on the median depth of segmented points. See the README in this directory
+for instructions on setting up DETIC and SAM on a server.
+
+Object detection returns SE3Poses in the world frame but only x, y, z positions
+are currently detected. Rotations should be ignored.
+"""
 
 from dataclasses import dataclass
-from typing import Collection, Dict, Set
+from typing import Collection, Dict, List, Set
 
 import apriltag
 import cv2
@@ -40,13 +54,15 @@ class LanguageObjectDetectionID(ObjectDetectionID):
 
 def detect_objects(
     object_ids: Collection[ObjectDetectionID],
-    rgb_image: NDArray[np.uint8],
-    rgb_image_response: image_pb2.ImageResponse,
-    depth_image: NDArray[np.uint16],
-    depth_image_response: image_pb2.ImageResponse,
+    rgb_images: List[NDArray[np.uint8]],
+    rgb_image_responses: List[image_pb2.ImageResponse],
+    depth_images: List[NDArray[np.uint16]],
+    depth_image_responses: List[image_pb2.ImageResponse],
     world_tform_body: math_helpers.SE3Pose,
 ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
     """Detect an object pose (in the world frame!) from RGBD."""
+    assert len(rgb_images) == len(rgb_image_responses) == \
+        len(depth_images) == len(depth_image_responses)
     # Collect and dispatch.
     april_tag_object_ids: Set[AprilTagObjectDetectionID] = set()
     language_object_ids: Set[LanguageObjectDetectionID] = set()
@@ -56,12 +72,17 @@ def detect_objects(
         else:
             assert isinstance(object_id, LanguageObjectDetectionID)
             language_object_ids.add(object_id)
-    detections = detect_objects_from_april_tags(april_tag_object_ids,
-                                                rgb_image, rgb_image_response,
-                                                world_tform_body)
+    detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
+    # There is no batching over images for april tag detection.
+    for rgb_image, rgb_image_response in zip(rgb_images, rgb_image_responses):
+        d = detect_objects_from_april_tags(april_tag_object_ids, rgb_image,
+                                           rgb_image_response,
+                                           world_tform_body)
+        detections.update(d)
+    # There IS batching over images here for efficiency.
     language_detections = detect_objects_from_language(
-        language_object_ids, rgb_image, rgb_image_response, depth_image,
-        depth_image_response, world_tform_body)
+        language_object_ids, rgb_images, rgb_image_responses, depth_images,
+        depth_image_responses, world_tform_body)
     detections.update(language_detections)
     return detections
 
@@ -135,10 +156,10 @@ def detect_objects_from_april_tags(
 
 def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
-    rgb_image: NDArray[np.uint8],
-    rgb_image_response: image_pb2.ImageResponse,
-    depth_image: NDArray[np.uint16],
-    depth_image_response: image_pb2.ImageResponse,
+    rgb_images: List[NDArray[np.uint8]],
+    rgb_image_responses: List[image_pb2.ImageResponse],
+    depth_images: List[NDArray[np.uint16]],
+    depth_image_responses: List[image_pb2.ImageResponse],
     world_tform_body: math_helpers.SE3Pose,
 ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
     """Detect an object pose using a vision-language model."""
@@ -219,9 +240,9 @@ if __name__ == "__main__":
         # TODO add language to the same call.
         april_tag_id = AprilTagObjectDetectionID(TEST_APRIL_TAG_ID,
                                                  TEST_APRIL_TAG_TRANSFORM)
-        detections = detect_objects([april_tag_id], rgb_image, rgb_response,
-                                    depth_image, depth_response,
-                                    world_tform_body)
+        detections = detect_objects([april_tag_id], [rgb_image],
+                                    [rgb_response], [depth_image],
+                                    [depth_response], world_tform_body)
         detection = detections[april_tag_id]
         print(f"Detected tag {april_tag_id.april_tag_number} at {detection}")
 
