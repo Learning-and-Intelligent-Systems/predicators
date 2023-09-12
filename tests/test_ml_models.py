@@ -502,7 +502,8 @@ def test_maple_q_function():
                            clip_value=5,
                            learning_rate=1e-3,
                            rng=rng,
-                           replay_buffer_max_size=1)
+                           replay_buffer_max_size=1,
+                           replay_buffer_sample_with_replacement=False)
     model.add_datum_to_replay_buffer(data)
     model.add_datum_to_replay_buffer(data)
     # pylint:disable=protected-access
