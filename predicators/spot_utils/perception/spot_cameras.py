@@ -1,7 +1,4 @@
-"""Utility functions for capturing images from Spot's cameras.
-
-Based heavily on the get_image.py example from the SDK.
-"""
+"""Utility functions for capturing images from Spot's cameras."""
 from typing import Type
 
 import cv2
@@ -66,6 +63,7 @@ def image_response_to_image(
     The type of image (rgb, depth, etc.) is detected based on the
     format.
     """
+    # pylint: disable=no-member
     pixel_format = image_response.shot.image.pixel_format
     if pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
         dtype: Type[np.unsignedinteger] = np.uint16
@@ -103,7 +101,6 @@ if __name__ == "__main__":
 
     # pylint: disable=ungrouped-imports
     import imageio.v2 as iio
-    import numpy as np
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.lease import LeaseClient
     from bosdyn.client.util import authenticate
