@@ -470,9 +470,9 @@ def test_maple_q_function():
                            rng=rng)
     # Test before learning from any data.
     model.train_q_function()  # should have no effect
-    
+
     # TODO: Test the replay buffer.
-    
+
     # Default value.
     option = ground_nsrts[0].sample_option(task.init, task.goal, rng)
     value = model.predict_q_value(task.init, task.goal, option)

@@ -1251,8 +1251,7 @@ def _single_batch_generator(
 def _train_pytorch_model(model: nn.Module,
                          loss_fn: Callable[[Tensor, Tensor], Tensor],
                          optimizer: optim.Optimizer,
-                         batch_generator: Iterator[Tuple[Tensor,
-                                                               Tensor]],
+                         batch_generator: Iterator[Tuple[Tensor, Tensor]],
                          max_train_iters: MaxTrainIters,
                          dataset_size: int,
                          device: torch.device,
@@ -1532,8 +1531,9 @@ class MapleQFunction(MLPRegressor):
         # number of iterations. It will also normalize all the data.
         self.fit(X_arr, Y_arr)
 
-    def minibatch_generator(self, tensor_X: Tensor, tensor_Y: Tensor,
-                            batch_size: int) -> Tuple[Tensor, Tensor]:
+    def minibatch_generator(
+            self, tensor_X: Tensor, tensor_Y: Tensor,
+            batch_size: int) -> Iterator[Tuple[Tensor, Tensor]]:
         """Assuming both tensor_X and tensor_Y are 2D with the batch dimension
         first, sample a minibatch of size batch_size to train on."""
         train_dataset = TensorDataset(tensor_X, tensor_Y)
