@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Collection, Dict, FrozenSet, Generic, \
     Iterator, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
-from typing import TypeVar, Union
+from typing import TypeVar
 
 import numpy as np
 import torch
@@ -1345,6 +1345,7 @@ class FixedSizeReplayBuffer(ReplayBuffer, Generic[_D]):
     def __init__(self, max_buffer_size: int, sample_with_replacement: bool,
                  rng: np.random.Generator) -> None:
         super().__init__(rng)
+        assert max_buffer_size > 0
         self._max_buffer_size = max_buffer_size
         self._buffer: List[_D] = []
         self._sample_with_replacement = sample_with_replacement
@@ -1544,6 +1545,7 @@ class MapleQFunction(MLPRegressor):
         while True:
             try:
                 X_batch, Y_batch = next(iterable_loader)
+            # pylint:disable=stop-iteration-return
             except StopIteration:
                 iterable_loader = iter(train_dataloader)
                 X_batch, Y_batch = next(iterable_loader)

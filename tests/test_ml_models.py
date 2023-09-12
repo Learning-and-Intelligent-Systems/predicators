@@ -459,7 +459,6 @@ def test_maple_q_function():
     ground_nsrts = [
         n for nsrt in nsrts for n in utils.all_ground_nsrts(nsrt, objects)
     ]
-
     model = MapleQFunction(seed=123,
                            hid_sizes=[32, 32],
                            max_train_iters=100,
@@ -470,9 +469,6 @@ def test_maple_q_function():
                            rng=rng)
     # Test before learning from any data.
     model.train_q_function()  # should have no effect
-
-    # TODO: Test the replay buffer.
-
     # Default value.
     option = ground_nsrts[0].sample_option(task.init, task.goal, rng)
     value = model.predict_q_value(task.init, task.goal, option)
@@ -496,3 +492,19 @@ def test_maple_q_function():
     model.train_q_function()
     value = model.predict_q_value(task.init, task.goal, option)
     assert value != 0.0
+
+    # Test the replay buffer.
+    model = MapleQFunction(seed=123,
+                           hid_sizes=[32, 32],
+                           max_train_iters=100,
+                           n_iter_no_change=1000,
+                           clip_gradients=True,
+                           clip_value=5,
+                           learning_rate=1e-3,
+                           rng=rng,
+                           replay_buffer_max_size=1)
+    model.add_datum_to_replay_buffer(data)
+    model.add_datum_to_replay_buffer(data)
+    # pylint:disable=protected-access
+    batch = model._replay_buffer.sample_random_batch(8)
+    assert len(batch) == 8
