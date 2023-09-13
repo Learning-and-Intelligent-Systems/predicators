@@ -50,7 +50,6 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             clip_gradients=CFG.mlp_regressor_clip_gradients,
             clip_value=CFG.mlp_regressor_gradient_clip_value,
             learning_rate=CFG.learning_rate,
-            rng=self._rng,
             weight_decay=CFG.weight_decay,
             use_torch_gpu=CFG.use_torch_gpu,
             train_print_every=CFG.pytorch_train_print_every,

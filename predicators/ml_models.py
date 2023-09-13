@@ -1327,7 +1327,6 @@ class MapleQFunction(MLPRegressor):
                  clip_gradients: bool,
                  clip_value: float,
                  learning_rate: float,
-                 rng: np.random.Generator,
                  weight_decay: float = 0,
                  use_torch_gpu: bool = False,
                  train_print_every: int = 1000,
