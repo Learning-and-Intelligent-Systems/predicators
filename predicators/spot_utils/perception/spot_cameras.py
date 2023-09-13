@@ -147,7 +147,6 @@ if __name__ == "__main__":
 
     from predicators import utils
     from predicators.settings import CFG
-    from predicators.spot_utils.spot_localization import SpotLocalizer
     from predicators.spot_utils.utils import verify_estop
 
     def _run_manual_test() -> None:

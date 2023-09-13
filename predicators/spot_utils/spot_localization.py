@@ -146,6 +146,7 @@ class SpotLocalizer:
                                  retry_wait_time=retry_wait_time)
         logging.info("Localization succeeded.")
         self._robot_pose = math_helpers.SE3Pose.from_proto(transform)
+        return None
 
 
 if __name__ == "__main__":
