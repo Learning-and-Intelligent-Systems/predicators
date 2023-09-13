@@ -116,7 +116,7 @@ if __name__ == "__main__":
         camera = "hand_color_image"
         rgbd = capture_images(robot, localizer, [camera])[camera]
 
-        # Selcet a pixel manually.
+        # Select a pixel manually.
         pixel = get_pixel_from_user(rgbd.rgb)
 
         # Grasp at the pixel.
