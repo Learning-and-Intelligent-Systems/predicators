@@ -34,7 +34,7 @@ def stow_arm(robot: Robot, timeout: float = 5) -> None:
     robot_command_client = robot.ensure_client(
         RobotCommandClient.default_service_name)
 
-    # Enable stowing and stow Arm.
+    # Enable stowing.
     override = manipulation_api_pb2.ApiGraspedCarryStateOverride(
         override_request=3)
     grasp_override_request = manipulation_api_pb2.ApiGraspOverrideRequest(
@@ -67,7 +67,7 @@ def get_pixel_from_user(rgb: NDArray[np.uint8]) -> Tuple[int, int]:
         if event == cv2.EVENT_LBUTTONUP:
             image_click = (x, y)
 
-    image_title = 'Click to grasp'
+    image_title = "Click to grasp"
     cv2.namedWindow(image_title)
     cv2.setMouseCallback(image_title, _callback)
     cv2.imshow(image_title, bgr)
