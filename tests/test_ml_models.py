@@ -459,7 +459,6 @@ def test_maple_q_function():
     ground_nsrts = [
         n for nsrt in nsrts for n in utils.all_ground_nsrts(nsrt, objects)
     ]
-
     model = MapleQFunction(seed=123,
                            hid_sizes=[32, 32],
                            max_train_iters=100,
@@ -468,7 +467,7 @@ def test_maple_q_function():
                            clip_value=5,
                            learning_rate=1e-3)
     # Test before learning from any data.
-    model.train_from_q_data([])  # should have no effect
+    model.train_q_function()  # should have no effect
     # Default value.
     option = ground_nsrts[0].sample_option(task.init, task.goal, rng)
     value = model.predict_q_value(task.init, task.goal, option)
@@ -482,12 +481,13 @@ def test_maple_q_function():
     sampled_option = model.get_option(task.init, task.goal, 1, epsilon=0.0)
     assert sampled_option.initiable(task.init)
     # Test learning.
-    data = [(task.init, task.goal, option, task.init, 1.0, False)]
-    model.train_from_q_data(data)
+    data = (task.init, task.goal, option, task.init, 1.0, False)
+    model.add_datum_to_replay_buffer(data)
+    model.train_q_function()
     # Should be different now.
     value = model.predict_q_value(task.init, task.goal, option)
     assert value != 0.0
     # Train a second iteration.
-    model.train_from_q_data(data)
+    model.train_q_function()
     value = model.predict_q_value(task.init, task.goal, option)
     assert value != 0.0
