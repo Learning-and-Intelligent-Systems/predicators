@@ -35,10 +35,10 @@ def stow_arm(robot: Robot, timeout: float = 5) -> None:
         RobotCommandClient.default_service_name)
 
     # Enable stowing and stow Arm.
-    grasp_carry_state_override = manipulation_api_pb2.ApiGraspedCarryStateOverride(
+    override = manipulation_api_pb2.ApiGraspedCarryStateOverride(
         override_request=3)
     grasp_override_request = manipulation_api_pb2.ApiGraspOverrideRequest(
-        carry_state_override=grasp_carry_state_override)
+        carry_state_override=override)
     manipulation_client.grasp_override_command(grasp_override_request)
 
     # Build the commands.
