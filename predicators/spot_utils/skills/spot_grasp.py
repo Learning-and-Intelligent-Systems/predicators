@@ -69,3 +69,57 @@ def grasp_at_pixel(robot: Robot,
             break
     if (time.perf_counter() - start_time) > timeout:
         logging.warning("Timed out waiting for grasp to execute!")
+
+
+if __name__ == "__main__":
+    # Run this file alone to test manually.
+    # Make sure to pass in --spot_robot_ip.
+
+    # pylint: disable=ungrouped-imports
+    from pathlib import Path
+
+    from bosdyn.client import create_standard_sdk
+    from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+    from bosdyn.client.util import authenticate
+
+    from predicators import utils
+    from predicators.settings import CFG
+    from predicators.spot_utils.perception.spot_cameras import capture_images
+    from predicators.spot_utils.spot_localization import SpotLocalizer
+    from predicators.spot_utils.utils import get_pixel_from_user, verify_estop
+
+    def _run_manual_test() -> None:
+        # Put inside a function to avoid variable scoping issues.
+        args = utils.parse_args(env_required=False,
+                                seed_required=False,
+                                approach_required=False)
+        utils.update_config(args)
+
+        # Get constants.
+        hostname = CFG.spot_robot_ip
+        upload_dir = Path(__file__).parent.parent / "graph_nav_maps"
+        path = upload_dir / CFG.spot_graph_nav_map
+
+        sdk = create_standard_sdk('NavigationSkillTestClient')
+        robot = sdk.create_robot(hostname)
+        authenticate(robot)
+        verify_estop(robot)
+        lease_client = robot.ensure_client(LeaseClient.default_service_name)
+        lease_client.take()
+        lease_keepalive = LeaseKeepAlive(lease_client,
+                                         must_acquire=True,
+                                         return_at_exit=True)
+        robot.time_sync.wait_for_sync()
+        localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+
+        # Capture an image.
+        camera = "hand_color_image"
+        rgbd = capture_images(robot, localizer, [camera])[camera]
+
+        # Selcet a pixel manually.
+        pixel = get_pixel_from_user(rgbd.rgb)
+
+        # Grasp at the pixel.
+        grasp_at_pixel(robot, rgbd, pixel)
+
+    _run_manual_test()
