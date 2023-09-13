@@ -172,6 +172,10 @@ def detect_objects_from_language(
         seg_bb = object_id_to_img_detections[obj_id][rgbd.camera_name]
         pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd,
                                                      world_tform_body)
+        # Pose extraction can fail due to depth reading issues. See docstring
+        # of _get_pose_from_segmented_bounding_box for more.
+        if pose is None:
+            continue
         detections[obj_id] = pose
 
     # Save artifacts for analysis and debugging.
@@ -299,7 +303,12 @@ def _get_pose_from_segmented_bounding_box(
         seg_bb: SegmentedBoundingBox,
         rgbd: RGBDImageWithContext,
         world_tform_body: math_helpers.SE3Pose,
-        min_depth_value: float = 2) -> math_helpers.SE3Pose:
+        min_depth_value: float = 2) -> Optional[math_helpers.SE3Pose]:
+    """Returns None if the depth of the object cannot be estimated.
+
+    The known case where this happens is when the robot's hand occludes
+    the depth camera (which is physically above the RGB camera).
+    """
     # Get the center of the bounding box.
     x1, y1, x2, y2 = seg_bb.bounding_box
     x_center = (x1 + x2) / 2
@@ -309,6 +318,11 @@ def _get_pose_from_segmented_bounding_box(
     # Filter 0 points out of the depth map.
     seg_mask = seg_bb.mask & (rgbd.depth > min_depth_value)
     segmented_depth = rgbd.depth[seg_mask]
+    # See docstring.
+    if len(segmented_depth) == 0:
+        # logging.warning doesn't work here because of poor spot logging.
+        print("WARNING: depth reading failed. Is hand occluding?")
+        return None
     depth_value = np.median(segmented_depth)
 
     # Convert to camera frame position.
@@ -348,10 +362,11 @@ def _visualize_all_artifacts(artifacts: Dict[str,
             flat_detections.append((rgbd, obj_id, seg_bb))
 
     # Visualize in subplots where columns are: rotated RGB, original RGB,
-    # bounding box, mask. Each row is one detection, so if there are multiple
-    # detections in a single image, then there will be duplicate first cols.
+    # original depth, bounding box, mask. Each row is one detection, so if
+    # there are multiple detections in a single image, then there will be
+    # duplicate first cols.
     if flat_detections:
-        _, axes = plt.subplots(len(flat_detections), 4, squeeze=False)
+        _, axes = plt.subplots(len(flat_detections), 5, squeeze=False)
         plt.suptitle("Detections")
         for i, (rgbd, obj_id, seg_bb) in enumerate(flat_detections):
             ax_row = axes[i]
@@ -360,13 +375,14 @@ def _visualize_all_artifacts(artifacts: Dict[str,
                 ax.set_yticks([])
             ax_row[0].imshow(rgbd.rotated_rgb)
             ax_row[1].imshow(rgbd.rgb)
+            ax_row[2].imshow(rgbd.depth, cmap='Greys_r', vmin=0, vmax=10000)
 
             # Bounding box.
-            ax_row[2].imshow(rgbd.rgb)
+            ax_row[3].imshow(rgbd.rgb)
             box = seg_bb.bounding_box
             x0, y0 = box[0], box[1]
             w, h = box[2] - box[0], box[3] - box[1]
-            ax_row[2].add_patch(
+            ax_row[3].add_patch(
                 plt.Rectangle((x0, y0),
                               w,
                               h,
@@ -374,16 +390,20 @@ def _visualize_all_artifacts(artifacts: Dict[str,
                               facecolor=(0, 0, 0, 0),
                               lw=1))
 
-            ax_row[3].imshow(seg_bb.mask, cmap="binary_r", vmin=0, vmax=1)
+            ax_row[4].imshow(seg_bb.mask, cmap="binary_r", vmin=0, vmax=1)
 
             # Labels.
-            ax_row[0].set_ylabel(f"{obj_id.language_id}\n[{rgbd.camera_name}]",
-                                 fontsize=6)
+            row_label = "\n".join([
+                obj_id.language_id, f"[{rgbd.camera_name}]",
+                f"[score: {seg_bb.score:.2f}]"
+            ])
+            ax_row[0].set_ylabel(row_label, fontsize=6)
             if i == len(flat_detections) - 1:
                 ax_row[0].set_xlabel("Rotated RGB")
                 ax_row[1].set_xlabel("Original RGB")
-                ax_row[2].set_xlabel("Bounding Box")
-                ax_row[3].set_xlabel("Mask")
+                ax_row[2].set_xlabel("Original Depth")
+                ax_row[3].set_xlabel("Bounding Box")
+                ax_row[4].set_xlabel("Mask")
 
         plt.tight_layout()
         plt.savefig(detections_outfile, dpi=300)
@@ -396,7 +416,7 @@ def _visualize_all_artifacts(artifacts: Dict[str,
 
     if cameras_without_detections:
         _, axes = plt.subplots(len(cameras_without_detections),
-                               2,
+                               3,
                                squeeze=False)
         plt.suptitle("Cameras without Detections")
         for i, camera in enumerate(cameras_without_detections):
@@ -407,12 +427,14 @@ def _visualize_all_artifacts(artifacts: Dict[str,
                 ax.set_yticks([])
             ax_row[0].imshow(rgbd.rotated_rgb)
             ax_row[1].imshow(rgbd.rgb)
+            ax_row[2].imshow(rgbd.depth, cmap='Greys_r', vmin=0, vmax=10000)
 
             # Labels.
             ax_row[0].set_ylabel(f"[{rgbd.camera_name}]", fontsize=6)
             if i == len(flat_detections) - 1:
                 ax_row[0].set_xlabel("Rotated RGB")
                 ax_row[1].set_xlabel("Original RGB")
+                ax_row[2].set_xlabel("Original Depth")
 
         plt.tight_layout()
         plt.savefig(no_detections_outfile, dpi=300)
