@@ -1296,7 +1296,6 @@ def _train_pytorch_model(model: nn.Module,
         if itr == max_iters:
             break
         itr += 1
-
     # Load best model.
     model.load_state_dict(torch.load(model_name,
                                      map_location='cpu'))  # type: ignore
