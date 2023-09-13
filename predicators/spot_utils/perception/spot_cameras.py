@@ -93,10 +93,9 @@ def capture_images(
         camera_model = rgb_img_resp.source.pinhole
         # Finish RGBDImageWithContext.
         rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
-                                    world_tform_camera,
-                                    depth_scale, transforms_snapshot, 
-                                    frame_name_image_sensor,
-                                    camera_model)
+                                    world_tform_camera, depth_scale,
+                                    transforms_snapshot,
+                                    frame_name_image_sensor, camera_model)
         rgbds[camera_name] = rgbd
 
     return rgbds

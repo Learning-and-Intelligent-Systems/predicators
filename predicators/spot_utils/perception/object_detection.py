@@ -117,8 +117,8 @@ def detect_objects_from_april_tags(
         pose = detector.detection_pose(
             apriltag_detection,
             (intrinsics.focal_length.x, intrinsics.focal_length.y,
-             intrinsics.principal_point.x,
-             intrinsics.principal_point.y), fiducial_size)[0]
+             intrinsics.principal_point.x, intrinsics.principal_point.y),
+            fiducial_size)[0]
         tx, ty, tz, tw = pose[:, -1]
         assert np.isclose(tw, 1.0)
 
