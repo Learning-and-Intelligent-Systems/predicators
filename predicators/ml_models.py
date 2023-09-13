@@ -1540,8 +1540,7 @@ class MapleQFunction(MLPRegressor):
         train_dataset = TensorDataset(tensor_X, tensor_Y)
         train_dataloader = DataLoader(
             train_dataset,
-            #   batch_size=batch_size,
-            batch_size=tensor_X.shape[0],
+              batch_size=batch_size,
             shuffle=True)
         iterable_loader = iter(train_dataloader)
         while True:
@@ -1566,9 +1565,9 @@ class MapleQFunction(MLPRegressor):
             self._device)
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
             self._device)
-        # batch_generator = self.minibatch_generator(
-        #     tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
-        batch_generator = _single_batch_generator(tensor_X, tensor_Y)
+        batch_generator = self.minibatch_generator(
+            tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
+        # batch_generator = _single_batch_generator(tensor_X, tensor_Y)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
