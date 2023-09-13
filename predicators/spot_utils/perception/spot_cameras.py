@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
+from predicators.spot_utils.spot_localization import SpotLocalizer
 
 ROTATION_ANGLE = {
     'hand_color_image': 0,
@@ -32,13 +33,22 @@ RGB_TO_DEPTH_CAMERAS = {
 
 def capture_images(
     robot: Robot,
+    localizer: SpotLocalizer,
     camera_names: Collection[str],
     quality_percent: int = 100,
+    relocalize: bool = False,
 ) -> Dict[str, RGBDImageWithContext]:
     """Build an image request and get the responses."""
     image_client = robot.ensure_client(ImageClient.default_service_name)
 
     rgbds: Dict[str, RGBDImageWithContext] = {}
+
+    # Get the world->robot transform so we can store world->camera transforms
+    # in the RGBDWithContexts.
+    if relocalize:
+        localizer.localize()
+    world_tform_body = localizer.get_last_robot_pose()
+    body_tform_world = world_tform_body.inverse()
 
     # Package all the requests together.
     img_reqs: image_pb2.ImageRequest = []
@@ -73,14 +83,16 @@ def capture_images(
         camera_tform_body = get_a_tform_b(
             rgb_img_resp.shot.transforms_snapshot,
             rgb_img_resp.shot.frame_name_image_sensor, BODY_FRAME_NAME)
-        body_tform_camera = camera_tform_body.inverse()
+        camera_tform_world = camera_tform_body * body_tform_world
+        world_tform_camera = camera_tform_world.inverse()
         # Extract RGB camera intrinsics.
         rot = ROTATION_ANGLE[camera_name]
         intrinsics = rgb_img_resp.source.pinhole.intrinsics
         depth_scale = depth_img_resp.source.depth_scale
         # Finish RGBDImageWithContext.
         rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
-                                    body_tform_camera, intrinsics, depth_scale)
+                                    world_tform_camera, intrinsics,
+                                    depth_scale)
         rgbds[camera_name] = rgbd
 
     return rgbds
@@ -125,14 +137,17 @@ if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
 
+    from pathlib import Path
+
     # pylint: disable=ungrouped-imports
     import imageio.v2 as iio
     from bosdyn.client import create_standard_sdk
-    from bosdyn.client.lease import LeaseClient
+    from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
     from bosdyn.client.util import authenticate
 
     from predicators import utils
     from predicators.settings import CFG
+    from predicators.spot_utils.spot_localization import SpotLocalizer
     from predicators.spot_utils.utils import verify_estop
 
     def _run_manual_test() -> None:
@@ -144,6 +159,8 @@ if __name__ == "__main__":
 
         # Get constants.
         hostname = CFG.spot_robot_ip
+        upload_dir = Path(__file__).parent.parent / "graph_nav_maps"
+        path = upload_dir / CFG.spot_graph_nav_map
 
         sdk = create_standard_sdk('SpotCameraTestClient')
         robot = sdk.create_robot(hostname)
@@ -151,12 +168,16 @@ if __name__ == "__main__":
         verify_estop(robot)
         lease_client = robot.ensure_client(LeaseClient.default_service_name)
         lease_client.take()
+        lease_keepalive = LeaseKeepAlive(lease_client,
+                                         must_acquire=True,
+                                         return_at_exit=True)
         robot.time_sync.wait_for_sync()
+        localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
         # Take pictures out of all the cameras.
         for camera in RGB_TO_DEPTH_CAMERAS:
             print(f"Capturing image from {camera}")
-            rgbd = capture_images(robot, [camera])[camera]
+            rgbd = capture_images(robot, localizer, [camera])[camera]
             outfile = f"{camera}_manual_test_rgb_output.png"
             iio.imsave(outfile, rgbd.rgb)
             print(f"Wrote out to {outfile}")

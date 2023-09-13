@@ -39,7 +39,6 @@ from predicators.utils import rotate_point_in_image
 def detect_objects(
     object_ids: Collection[ObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],  # camera name to RGBD
-    world_tform_body: math_helpers.SE3Pose,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect object poses (in the world frame!) from RGBD.
 
@@ -65,14 +64,14 @@ def detect_objects(
     # There is no batching over images for april tag detection.
     for rgbd in rgbds.values():
         img_detections, img_artifacts = detect_objects_from_april_tags(
-            april_tag_object_ids, rgbd, world_tform_body)
+            april_tag_object_ids, rgbd)
         # Possibly overrides previous detections.
         detections.update(img_detections)
         artifacts["april"].update(img_artifacts)
 
     # There IS batching over images here for efficiency.
     language_detections, language_artifacts = detect_objects_from_language(
-        language_object_ids, rgbds, world_tform_body)
+        language_object_ids, rgbds)
     detections.update(language_detections)
     artifacts["language"] = language_artifacts
 
@@ -82,7 +81,6 @@ def detect_objects(
 def detect_objects_from_april_tags(
     object_ids: Collection[AprilTagObjectDetectionID],
     rgbd: RGBDImageWithContext,
-    world_tform_body: math_helpers.SE3Pose,
     fiducial_size: float = CFG.spot_fiducial_size,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect an object pose from an april tag.
@@ -132,8 +130,7 @@ def detect_objects_from_april_tags(
         )
 
         # Apply transforms.
-        body_frame_pose = rgbd.body_tform_camera * camera_frame_pose
-        world_frame_pose = world_tform_body * body_frame_pose
+        world_frame_pose = rgbd.world_tform_camera * camera_frame_pose
         world_frame_pose = obj_id.offset_transform * world_frame_pose
 
         # Save in detections.
@@ -145,7 +142,6 @@ def detect_objects_from_april_tags(
 def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],
-    world_tform_body: math_helpers.SE3Pose,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect an object pose using a vision-language model."""
 
@@ -170,8 +166,7 @@ def detect_objects_from_language(
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
     for obj_id, rgbd in object_id_to_best_img.items():
         seg_bb = object_id_to_img_detections[obj_id][rgbd.camera_name]
-        pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd,
-                                                     world_tform_body)
+        pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd)
         # Pose extraction can fail due to depth reading issues. See docstring
         # of _get_pose_from_segmented_bounding_box for more.
         if pose is None:
@@ -302,7 +297,6 @@ def _rotate_bounding_box(bb: Tuple[float, float, float,
 def _get_pose_from_segmented_bounding_box(
         seg_bb: SegmentedBoundingBox,
         rgbd: RGBDImageWithContext,
-        world_tform_body: math_helpers.SE3Pose,
         min_depth_value: float = 2) -> Optional[math_helpers.SE3Pose]:
     """Returns None if the depth of the object cannot be estimated.
 
@@ -340,8 +334,7 @@ def _get_pose_from_segmented_bounding_box(
                                              rot=math_helpers.Quat())
 
     # Convert camera to world.
-    body_frame_pose = rgbd.body_tform_camera * camera_frame_pose
-    world_frame_pose = world_tform_body * body_frame_pose
+    world_frame_pose = rgbd.world_tform_camera * camera_frame_pose
 
     return world_frame_pose
 
@@ -498,8 +491,7 @@ if __name__ == "__main__":
 
         assert path.exists()
         localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
-        world_tform_body = localizer.localize()
-        rgbds = capture_images(robot, TEST_CAMERAS)
+        rgbds = capture_images(robot, localizer, TEST_CAMERAS)
 
         # Detect the april tag and brush.
         april_tag_id: ObjectDetectionID = AprilTagObjectDetectionID(
@@ -508,8 +500,7 @@ if __name__ == "__main__":
             LanguageObjectDetectionID(d) for d in TEST_LANGUAGE_DESCRIPTIONS
         ]
         object_ids: List[ObjectDetectionID] = [april_tag_id] + language_ids
-        detections, artifacts = detect_objects(object_ids, rgbds,
-                                               world_tform_body)
+        detections, artifacts = detect_objects(object_ids, rgbds)
         for obj_id, detection in detections.items():
             print(f"Detected {obj_id} at {detection}")
 

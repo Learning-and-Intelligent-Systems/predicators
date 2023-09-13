@@ -17,7 +17,7 @@ class RGBDImageWithContext:
     depth: NDArray[np.uint16]
     image_rot: float
     camera_name: str
-    body_tform_camera: math_helpers.SE3Pose
+    world_tform_camera: math_helpers.SE3Pose
     intrinsics: Any  # bosdyn.api.image_pb2.CameraIntrinsics, but not available
     depth_scale: float
 
