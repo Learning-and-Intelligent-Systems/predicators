@@ -38,6 +38,11 @@ def find_objects(
     all_detections.update(detections)
     all_artifacts.update(artifacts)
 
+    # Success, finish.
+    remaining_object_ids = set(object_ids) - set(all_detections)
+    if not remaining_object_ids:
+        return all_detections, all_artifacts
+
     spin_amount = 2 * np.pi / (num_spins + 1)
     relative_pose = math_helpers.SE2Pose(0, 0, spin_amount)
 
@@ -45,10 +50,6 @@ def find_objects(
         remaining_object_ids = set(object_ids) - set(all_detections)
         print(f"Found objects: {set(all_detections)}")
         print(f"Remaining objects: {remaining_object_ids}")
-
-        # Success, finish.
-        if not remaining_object_ids:
-            return all_detections, all_artifacts
 
         # Spin and re-capture.
         navigate_to_relative_pose(robot, relative_pose)
@@ -58,6 +59,10 @@ def find_objects(
         detections, artifacts = detect_objects(object_ids, rgbds)
         all_detections.update(detections)
         all_artifacts.update(artifacts)
+
+        # Success, finish.
+        if not remaining_object_ids:
+            return all_detections, all_artifacts
 
     # Fail. Analyze the RGBDs if you want (by uncommenting here).
     # import imageio.v2 as iio

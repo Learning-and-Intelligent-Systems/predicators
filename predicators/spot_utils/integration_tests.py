@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Tuple
 
+import numpy as np
 from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
 from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
@@ -25,6 +26,8 @@ from predicators.settings import CFG
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID
 from predicators.spot_utils.skills.spot_find_objects import find_objects
+from predicators.spot_utils.skills.spot_navigation import \
+    navigate_to_relative_pose
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import verify_estop
 
@@ -33,9 +36,17 @@ def test_find_move_pick_place(
     manipuland_id: ObjectDetectionID,
     init_surface_id: ObjectDetectionID,
     target_surface_id: ObjectDetectionID,
+    surface_nav_distance: float,
+    surface_nav_angle: float,
 ) -> None:
     """Find the given object and surfaces, pick the object from the first
-    surface, and place it on the second surface."""
+    surface, and place it on the second surface.
+
+    The surface nav parameters determine where the robot should navigate
+    with respect to the surfaces when picking and placing. The
+    intelligence for choosing these offsets is external to the skills
+    (e.g., they might be sampled).
+    """
     # Set up the robot and localizer.
     hostname = CFG.spot_robot_ip
     upload_dir = Path(__file__).parent / "graph_nav_maps"
@@ -56,13 +67,34 @@ def test_find_move_pick_place(
     object_ids = [manipuland_id, init_surface_id, target_surface_id]
     detections, artifacts = find_objects(robot, localizer, object_ids)
 
-    import ipdb; ipdb.set_trace()
+    # Compute waypoints given the surface offsets.
+    def _get_waypoint(
+            surface_pose: math_helpers.SE3Pose) -> math_helpers.SE2Pose:
+        dx = np.cos(surface_nav_angle) * surface_nav_distance
+        dy = np.sin(surface_nav_angle) * surface_nav_distance
+        x = surface_pose.x + dx
+        y = surface_pose.y + dy
+        # Face towards the center.
+        rot = 2 * np.pi - surface_nav_angle
+        return math_helpers.SE2Pose(x, y, rot)
+
+    start_waypoint = _get_waypoint(detections[init_surface_id])
+    end_waypoint = _get_waypoint(detections[target_surface_id])
+
+    # Navigate to the first waypoint.
+    robot_pose = localizer.get_last_robot_pose().get_closest_se2_transform()
+    rel_pose = robot_pose.inverse() * start_waypoint
+    navigate_to_relative_pose(robot, rel_pose)
+    localizer.localize()
+
+    import ipdb
+    ipdb.set_trace()
 
 
 if __name__ == "__main__":
     from predicators.spot_utils.perception.object_detection import \
         AprilTagObjectDetectionID
-    
+
     # Parse flags.
     args = utils.parse_args(env_required=False,
                             seed_required=False,
@@ -71,9 +103,15 @@ if __name__ == "__main__":
 
     # Run tests.
     init_surface = AprilTagObjectDetectionID(
-                408, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
+        408, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
     target_surface = AprilTagObjectDetectionID(
-                409, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
+        409, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
     cube = AprilTagObjectDetectionID(
-                410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
-    test_find_move_pick_place(cube, init_surface, target_surface)
+        410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+    # Assume that the tables are at the "front" of the room (with the hall
+    # on the left in room 408).
+    test_find_move_pick_place(cube,
+                              init_surface,
+                              target_surface,
+                              surface_nav_distance=1.0,
+                              surface_nav_angle=-np.pi / 2)
