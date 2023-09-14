@@ -34,8 +34,8 @@ def test_find_move_pick_place(
     manipuland_id: ObjectDetectionID,
     init_surface_id: ObjectDetectionID,
     target_surface_id: ObjectDetectionID,
-    pre_pick_nav_distance: float = 1.5,
-    pre_place_nav_distance: float = 1.2,
+    pre_pick_nav_distance: float = 1.25,
+    pre_place_nav_distance: float = 1.0,
     surface_nav_angle: float = -np.pi / 2,
     place_offset_z: float = 0.25,
 ) -> None:
@@ -116,6 +116,9 @@ def test_find_move_pick_place(
                                       z=surface_rel_pose.z + place_offset_z)
     place_at_relative_position(robot, place_rel_pos)
 
+    # Finish by stowing arm again.
+    stow_arm(robot)
+
 
 if __name__ == "__main__":
     from predicators.spot_utils.perception.object_detection import \
@@ -129,9 +132,9 @@ if __name__ == "__main__":
 
     # Run test with april tag cube.
     init_surface = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
+        408, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
     target_surface = AprilTagObjectDetectionID(
-        409, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
+        409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
     cube = AprilTagObjectDetectionID(
         410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
     # Assume that the tables are at the "front" of the room (with the hall
