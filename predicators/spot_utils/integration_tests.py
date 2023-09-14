@@ -21,7 +21,7 @@ from predicators.spot_utils.skills.spot_find_objects import find_objects
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
 from predicators.spot_utils.skills.spot_hand_move import \
     move_hand_to_relative_pose, open_gripper
-from predicators.spot_utils.skills.spot_navigation import \
+from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
@@ -63,6 +63,9 @@ def test_find_move_pick_place(
                                      return_at_exit=True)
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+
+    go_home(robot, localizer)
+    localizer.localize()
 
     # Find objects.
     object_ids = [manipuland_id, init_surface_id, target_surface_id]
@@ -120,6 +123,10 @@ def test_find_move_pick_place(
     # Finish by stowing arm again.
     stow_arm(robot)
 
+    # Give up the lease.
+    lease_client.return_lease()
+    lease_keepalive.shutdown()
+
 
 if __name__ == "__main__":
     from predicators.spot_utils.perception.object_detection import \
@@ -138,26 +145,37 @@ if __name__ == "__main__":
         409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
     cube = AprilTagObjectDetectionID(
         410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
-    brush = LanguageObjectDetectionID("brush")
 
     # Assume that the tables are at the "front" of the room (with the hall
     # on the left when on the fourth floor).
-    # test_find_move_pick_place(cube, init_surface, target_surface)
+    input("Set up the tables and CUBE on the north wall")
+    test_find_move_pick_place(cube, init_surface, target_surface)
 
     # Run test with brush.
     # Assume that the tables are at the "front" of the room (with the hall
     # on the left when on the fourth floor).
-    # test_find_move_pick_place(brush, init_surface, target_surface)
+    brush = LanguageObjectDetectionID("brush")
+    input("Set up the tables and BRUSH on the north wall")
+    test_find_move_pick_place(brush, init_surface, target_surface)
 
     # Run test with tables moved so that the init table is on the wall adjacent
     # to the hallway and the target table is on the opposite wall.
     # Note that we need to change the offsets because the april tags are
     # now rotated.
+    input("Set up the tables and CUBE on opposite walls")
     init_surface = AprilTagObjectDetectionID(
         408, math_helpers.SE3Pose(-0.25, 0.0, 0.0, math_helpers.Quat()))
     target_surface = AprilTagObjectDetectionID(
         409, math_helpers.SE3Pose(0.25, 0.0, 0.0, math_helpers.Quat()))
     test_find_move_pick_place(cube,
+                              init_surface,
+                              target_surface,
+                              pre_pick_nav_angle=0,
+                              pre_place_nav_angle=np.pi)
+
+    drill = LanguageObjectDetectionID("drill")
+    input("Set up the tables and DRILL on opposite walls")
+    test_find_move_pick_place(drill,
                               init_surface,
                               target_surface,
                               pre_pick_nav_angle=0,
