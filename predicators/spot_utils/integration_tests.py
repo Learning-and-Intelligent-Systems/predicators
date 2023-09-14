@@ -9,6 +9,7 @@ import numpy as np
 from bosdyn.client import create_standard_sdk, math_helpers
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.util import authenticate
+from bosdyn.client.sdk import Robot
 
 from predicators import utils
 from predicators.settings import CFG
@@ -31,6 +32,8 @@ from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
 
 
 def test_find_move_pick_place(
+    robot: Robot,
+    localizer: SpotLocalizer,
     manipuland_id: ObjectDetectionID,
     init_surface_id: ObjectDetectionID,
     target_surface_id: ObjectDetectionID,
@@ -48,22 +51,6 @@ def test_find_move_pick_place(
     intelligence for choosing these offsets is external to the skills
     (e.g., they might be sampled).
     """
-    # Set up the robot and localizer.
-    hostname = CFG.spot_robot_ip
-    upload_dir = Path(__file__).parent / "graph_nav_maps"
-    path = upload_dir / CFG.spot_graph_nav_map
-    sdk = create_standard_sdk("TestClient")
-    robot = sdk.create_robot(hostname)
-    authenticate(robot)
-    verify_estop(robot)
-    lease_client = robot.ensure_client(LeaseClient.default_service_name)
-    lease_client.take()
-    lease_keepalive = LeaseKeepAlive(lease_client,
-                                     must_acquire=True,
-                                     return_at_exit=True)
-    assert path.exists()
-    localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
-
     go_home(robot, localizer)
     localizer.localize()
 
@@ -123,10 +110,6 @@ def test_find_move_pick_place(
     # Finish by stowing arm again.
     stow_arm(robot)
 
-    # Give up the lease.
-    lease_client.return_lease()
-    lease_keepalive.shutdown()
-
 
 if __name__ == "__main__":
     from predicators.spot_utils.perception.object_detection import \
@@ -137,6 +120,22 @@ if __name__ == "__main__":
                             seed_required=False,
                             approach_required=False)
     utils.update_config(args)
+
+    # Set up the robot and localizer.
+    hostname = CFG.spot_robot_ip
+    upload_dir = Path(__file__).parent / "graph_nav_maps"
+    path = upload_dir / CFG.spot_graph_nav_map
+    sdk = create_standard_sdk("TestClient")
+    robot = sdk.create_robot(hostname)
+    authenticate(robot)
+    verify_estop(robot)
+    lease_client = robot.ensure_client(LeaseClient.default_service_name)
+    lease_client.take()
+    lease_keepalive = LeaseKeepAlive(lease_client,
+                                     must_acquire=True,
+                                     return_at_exit=True)
+    assert path.exists()
+    localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
     # Run test with april tag cube.
     init_surface = AprilTagObjectDetectionID(
@@ -149,14 +148,16 @@ if __name__ == "__main__":
     # Assume that the tables are at the "front" of the room (with the hall
     # on the left when on the fourth floor).
     input("Set up the tables and CUBE on the north wall")
-    test_find_move_pick_place(cube, init_surface, target_surface)
+    test_find_move_pick_place(robot, localizer, cube, init_surface,
+                              target_surface)
 
     # Run test with brush.
     # Assume that the tables are at the "front" of the room (with the hall
     # on the left when on the fourth floor).
     brush = LanguageObjectDetectionID("brush")
     input("Set up the tables and BRUSH on the north wall")
-    test_find_move_pick_place(brush, init_surface, target_surface)
+    test_find_move_pick_place(robot, localizer, brush, init_surface,
+                              target_surface)
 
     # Run test with tables moved so that the init table is on the wall adjacent
     # to the hallway and the target table is on the opposite wall.
@@ -167,7 +168,9 @@ if __name__ == "__main__":
         408, math_helpers.SE3Pose(-0.25, 0.0, 0.0, math_helpers.Quat()))
     target_surface = AprilTagObjectDetectionID(
         409, math_helpers.SE3Pose(0.25, 0.0, 0.0, math_helpers.Quat()))
-    test_find_move_pick_place(cube,
+    test_find_move_pick_place(robot,
+                              localizer,
+                              cube,
                               init_surface,
                               target_surface,
                               pre_pick_nav_angle=0,
@@ -175,7 +178,9 @@ if __name__ == "__main__":
 
     drill = LanguageObjectDetectionID("drill")
     input("Set up the tables and DRILL on opposite walls")
-    test_find_move_pick_place(drill,
+    test_find_move_pick_place(robot,
+                              localizer,
+                              drill,
                               init_surface,
                               target_surface,
                               pre_pick_nav_angle=0,
