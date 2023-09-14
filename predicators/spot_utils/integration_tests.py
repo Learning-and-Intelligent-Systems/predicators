@@ -8,13 +8,14 @@ from pathlib import Path
 import numpy as np
 from bosdyn.client import create_standard_sdk, math_helpers
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.util import authenticate
 from bosdyn.client.sdk import Robot
+from bosdyn.client.util import authenticate
 
 from predicators import utils
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
-    detect_objects, get_object_center_pixel_from_artifacts
+    AprilTagObjectDetectionID, LanguageObjectDetectionID, detect_objects, \
+    get_object_center_pixel_from_artifacts
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID
 from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -111,9 +112,8 @@ def test_find_move_pick_place(
     stow_arm(robot)
 
 
-if __name__ == "__main__":
-    from predicators.spot_utils.perception.object_detection import \
-        AprilTagObjectDetectionID, LanguageObjectDetectionID
+def test_all_find_move_pick_place() -> None:
+    """Multiple tests for find, move, pick, place."""
 
     # Parse flags.
     args = utils.parse_args(env_required=False,
@@ -185,3 +185,7 @@ if __name__ == "__main__":
                               target_surface,
                               pre_pick_nav_angle=0,
                               pre_place_nav_angle=np.pi)
+
+
+if __name__ == "__main__":
+    test_all_find_move_pick_place()

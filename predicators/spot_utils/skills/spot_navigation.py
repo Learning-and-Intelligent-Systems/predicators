@@ -33,7 +33,7 @@ def navigate_to_relative_pose(robot: Robot,
     # Get the robot's current state.
     robot_state_client = robot.ensure_client(
         RobotStateClient.default_service_name)
-    robot_state = robot_state_client.get_robot_state()
+    robot_state = robot_state_client.get_robot_state(timeout=timeout)
     transforms = robot_state.kinematic_state.transforms_snapshot
     assert str(transforms) != ""
 

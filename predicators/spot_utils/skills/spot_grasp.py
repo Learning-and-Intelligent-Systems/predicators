@@ -58,7 +58,7 @@ def grasp_at_pixel(
     if grasp_rot is not None:
         robot_state_client = robot.ensure_client(
             RobotStateClient.default_service_name)
-        robot_state = robot_state_client.get_robot_state()
+        robot_state = robot_state_client.get_robot_state(timeout=timeout)
         grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME  # pylint: disable=no-member
         vision_tform_body = get_vision_tform_body(
             robot_state.kinematic_state.transforms_snapshot)

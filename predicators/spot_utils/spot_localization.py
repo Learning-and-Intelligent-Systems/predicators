@@ -116,13 +116,15 @@ class SpotLocalizer:
 
     def localize(self,
                  num_retries: int = 10,
-                 retry_wait_time: float = 1.0) -> None:
+                 retry_wait_time: float = 1.0,
+                 get_state_timeout: float = 20.0) -> None:
         """Re-localize the robot and return the current SE3Pose of the body.
 
         It's good practice to call this periodically to avoid drift
         issues. April tags need to be in view.
         """
-        robot_state = self._robot_state_client.get_robot_state()
+        robot_state = self._robot_state_client.get_robot_state(
+            timeout=get_state_timeout)
         current_odom_tform_body = get_odom_tform_body(
             robot_state.kinematic_state.transforms_snapshot).to_proto()
         localization = nav_pb2.Localization()
@@ -143,7 +145,8 @@ class SpotLocalizer:
             logging.warning("Localization failed once, retrying.")
             time.sleep(retry_wait_time)
             return self.localize(num_retries=num_retries - 1,
-                                 retry_wait_time=retry_wait_time)
+                                 retry_wait_time=retry_wait_time,
+                                 get_state_timeout=get_state_timeout)
         logging.info("Localization succeeded.")
         self._robot_pose = math_helpers.SE3Pose.from_proto(transform)
         return None
