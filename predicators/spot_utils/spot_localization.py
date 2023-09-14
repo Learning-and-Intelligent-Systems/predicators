@@ -150,6 +150,7 @@ if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
 
+    # pylint: disable=ungrouped-imports
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.util import authenticate
 
