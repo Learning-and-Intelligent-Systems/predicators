@@ -7,7 +7,7 @@ from bosdyn.api import image_pb2
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, get_a_tform_b
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.sdk import Robot
-from numpy.typing import NDArray
+from numpy.typing import NDArray, Optional
 
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
@@ -34,11 +34,17 @@ RGB_TO_DEPTH_CAMERAS = {
 def capture_images(
     robot: Robot,
     localizer: SpotLocalizer,
-    camera_names: Collection[str],
+    camera_names: Optional[Collection[str]] = None,
     quality_percent: int = 100,
     relocalize: bool = False,
 ) -> Dict[str, RGBDImageWithContext]:
-    """Build an image request and get the responses."""
+    """Build an image request and get the responses.
+
+    If no camera names are provided, all RGB cameras are used.
+    """
+    if camera_names is None:
+        camera_names = set(RGB_TO_DEPTH_CAMERAS)
+
     image_client = robot.ensure_client(ImageClient.default_service_name)
 
     rgbds: Dict[str, RGBDImageWithContext] = {}
