@@ -10,41 +10,56 @@ from bosdyn.client.sdk import Robot
 def move_hand_to_relative_pose(
     robot: Robot,
     body_tform_goal: math_helpers.SE3Pose,
-    open_gripper: bool = False,
-    close_gripper: bool = False,
-    timeout: float = 2,
+    duration: float = 2,
 ) -> None:
-    """Move the spot hand while optionally opening or closing the gripper.
+    """Move the spot hand.
 
     The target pose is relative to the robot's body.
     """
-
-    assert not (open_gripper and close_gripper)
-
     robot_command_client = robot.ensure_client(
         RobotCommandClient.default_service_name)
-
     # Build the arm command.
-    arm_cmd = RobotCommandBuilder.arm_pose_command(
+    cmd = RobotCommandBuilder.arm_pose_command(
         body_tform_goal.x, body_tform_goal.y, body_tform_goal.z,
         body_tform_goal.rot.w, body_tform_goal.rot.x, body_tform_goal.rot.y,
-        body_tform_goal.rot.z, BODY_FRAME_NAME, timeout)
-
-    # Build the gripper command (optional).
-    if open_gripper:
-        grip_cmd = RobotCommandBuilder.claw_gripper_open_fraction_command(1.0)
-        cmd = RobotCommandBuilder.build_synchro_command(grip_cmd, arm_cmd)
-    elif close_gripper:
-        grip_cmd = RobotCommandBuilder.claw_gripper_open_fraction_command(0.0)
-        cmd = RobotCommandBuilder.build_synchro_command(grip_cmd, arm_cmd)
-    else:
-        cmd = arm_cmd
-
+        body_tform_goal.rot.z, BODY_FRAME_NAME, duration)
     # Send the request.
     cmd_id = robot_command_client.robot_command(cmd)
-
     # Wait until the arm arrives at the goal.
-    block_until_arm_arrives(robot_command_client, cmd_id, timeout)
+    block_until_arm_arrives(robot_command_client, cmd_id, duration)
+
+
+def change_gripper(
+    robot: Robot,
+    fraction: float,
+    duration: float = 2,
+) -> None:
+    """Change the spot gripper angle."""
+    assert 0.0 <= fraction <= 1.0
+    robot_command_client = robot.ensure_client(
+        RobotCommandClient.default_service_name)
+    # Build the command.
+    cmd = RobotCommandBuilder.claw_gripper_open_fraction_command(fraction)
+    # Send the request.
+    cmd_id = robot_command_client.robot_command(cmd)
+    # Wait until the arm arrives at the goal.
+    block_until_arm_arrives(robot_command_client, cmd_id, duration)
+
+
+def open_gripper(
+    robot: Robot,
+    duration: float = 2,
+) -> None:
+    """Open the spot gripper."""
+    return change_gripper(robot, fraction=1.0, duration=duration)
+
+
+def close_gripper(
+    robot: Robot,
+    duration: float = 2,
+) -> None:
+    """Close the spot gripper."""
+    return change_gripper(robot, fraction=0.0, duration=duration)
 
 
 if __name__ == "__main__":
@@ -90,19 +105,21 @@ if __name__ == "__main__":
         move_hand_to_relative_pose(robot, resting_pose)
         input("Press enter when ready to move on")
 
-        print("Moving to the same pose, but now opening the gripper.")
-        move_hand_to_relative_pose(robot, resting_pose, open_gripper=True)
+        print("Opening the gripper.")
+        open_gripper(robot)
         input("Press enter when ready to move on")
 
         print("Moving to the same pose (should have no change).")
         move_hand_to_relative_pose(robot, resting_pose)
         input("Press enter when ready to move on")
 
-        print("Moving to the same pose, but now closing the gripper.")
-        move_hand_to_relative_pose(robot, resting_pose, close_gripper=True)
+        print("Closing the gripper.")
+        move_hand_to_relative_pose(robot, resting_pose)
+        close_gripper(robot)
         input("Press enter when ready to move on")
 
         print("Looking down and opening the gripper.")
-        move_hand_to_relative_pose(robot, resting_down_pose, open_gripper=True)
+        move_hand_to_relative_pose(robot, resting_down_pose)
+        open_gripper(robot)
 
     _run_manual_test()
