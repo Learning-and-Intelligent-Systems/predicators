@@ -56,8 +56,13 @@ def test_find_move_pick_place(
     object_ids = [manipuland_id, init_surface_id, target_surface_id]
     detections, artifacts = find_objects(robot, localizer, object_ids)
 
+    import ipdb; ipdb.set_trace()
+
 
 if __name__ == "__main__":
+    from predicators.spot_utils.perception.object_detection import \
+        AprilTagObjectDetectionID
+    
     # Parse flags.
     args = utils.parse_args(env_required=False,
                             seed_required=False,
@@ -65,4 +70,10 @@ if __name__ == "__main__":
     utils.update_config(args)
 
     # Run tests.
-    test_find_move_pick_place()
+    init_surface = AprilTagObjectDetectionID(
+                408, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
+    target_surface = AprilTagObjectDetectionID(
+                409, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
+    cube = AprilTagObjectDetectionID(
+                410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+    test_find_move_pick_place(cube, init_surface, target_surface)
