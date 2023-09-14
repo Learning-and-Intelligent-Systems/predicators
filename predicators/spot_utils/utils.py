@@ -5,9 +5,11 @@ from typing import Optional, Tuple
 
 import cv2
 import numpy as np
-from bosdyn.api import estop_pb2
+from bosdyn.api import estop_pb2, robot_state_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
+from bosdyn.client.exceptions import TimedOutError
+from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
 
@@ -84,3 +86,18 @@ def get_relative_se2_from_se3(
     target_se2 = math_helpers.SE2Pose(x, y, rot)
     robot_se2 = robot_pose.get_closest_se2_transform()
     return robot_se2.inverse() * target_se2
+
+
+def get_robot_state(robot: Robot,
+                    timeout_per_call: float = 20,
+                    num_retries: int = 10) -> robot_state_pb2.RobotState:
+    """Get the robot state."""
+    for _ in range(num_retries):
+        robot_state_client = robot.ensure_client(
+            RobotStateClient.default_service_name)
+        try:
+            robot_state = robot_state_client.get_robot_state(timeout_per_call)
+            return robot_state
+        except TimedOutError:
+            print("WARNING: get robot state failed once, retrying...")
+    raise RuntimeError("get_robot_state() failed permanently.")

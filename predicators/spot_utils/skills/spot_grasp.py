@@ -9,12 +9,12 @@ from bosdyn.client import math_helpers
 from bosdyn.client.frame_helpers import VISION_FRAME_NAME, \
     get_vision_tform_body
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
-from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
+from predicators.spot_utils.utils import get_robot_state
 
 
 def grasp_at_pixel(
@@ -56,9 +56,7 @@ def grasp_at_pixel(
 
     # If a desired rotation for the hand was given, add a grasp constraint.
     if grasp_rot is not None:
-        robot_state_client = robot.ensure_client(
-            RobotStateClient.default_service_name)
-        robot_state = robot_state_client.get_robot_state(timeout=timeout)
+        robot_state = get_robot_state(robot)
         grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME  # pylint: disable=no-member
         vision_tform_body = get_vision_tform_body(
             robot_state.kinematic_state.transforms_snapshot)

@@ -11,11 +11,10 @@ from bosdyn.client import math_helpers
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, ODOM_FRAME_NAME, \
     get_se2_a_tform_b
 from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient
-from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.utils import HOME_POSE
+from predicators.spot_utils.utils import HOME_POSE, get_robot_state
 
 
 def navigate_to_relative_pose(robot: Robot,
@@ -31,9 +30,7 @@ def navigate_to_relative_pose(robot: Robot,
     The pose is dx, dy, dyaw relative to the robot's body.
     """
     # Get the robot's current state.
-    robot_state_client = robot.ensure_client(
-        RobotStateClient.default_service_name)
-    robot_state = robot_state_client.get_robot_state(timeout=timeout)
+    robot_state = get_robot_state(robot)
     transforms = robot_state.kinematic_state.transforms_snapshot
     assert str(transforms) != ""
 
