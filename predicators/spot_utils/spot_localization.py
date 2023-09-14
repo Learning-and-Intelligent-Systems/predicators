@@ -59,6 +59,9 @@ class SpotLocalizer:
         # Upload graph and snapshots on start.
         self._upload_graph_and_snapshots()
 
+        # Initialize robot pose, which will be updated in localize().
+        self._robot_pose = math_helpers.SE3Pose(0, 0, 0, math_helpers.Quat())
+
         # Run localize once to start.
         self.localize()
 
@@ -104,9 +107,16 @@ class SpotLocalizer:
             edge_snapshot = edge_snapshots[snapshot_id]
             self.graph_nav_client.upload_edge_snapshot(edge_snapshot)
 
+    def get_last_robot_pose(self) -> math_helpers.SE3Pose:
+        """Get the last estimated robot pose.
+
+        Does not localize.
+        """
+        return self._robot_pose
+
     def localize(self,
                  num_retries: int = 10,
-                 retry_wait_time: float = 1.0) -> math_helpers.SE3Pose:
+                 retry_wait_time: float = 1.0) -> None:
         """Re-localize the robot and return the current SE3Pose of the body.
 
         It's good practice to call this periodically to avoid drift
@@ -135,8 +145,8 @@ class SpotLocalizer:
             return self.localize(num_retries=num_retries - 1,
                                  retry_wait_time=retry_wait_time)
         logging.info("Localization succeeded.")
-        gn_origin_tform_body = math_helpers.SE3Pose.from_proto(transform)
-        return gn_origin_tform_body
+        self._robot_pose = math_helpers.SE3Pose.from_proto(transform)
+        return None
 
 
 if __name__ == "__main__":
@@ -177,7 +187,8 @@ if __name__ == "__main__":
         while True:
             input("Move the robot to a new location, then press enter.")
             lease_client.take()
-            robot_pose = localizer.localize()
+            localizer.localize()
+            robot_pose = localizer.get_last_robot_pose()
             print("Robot pose:", robot_pose)
 
     _run_manual_test()

@@ -3461,3 +3461,27 @@ def beta_from_mean_and_variance(mean: float,
     rv = BetaRV(alpha, beta)
     assert abs(rv.mean() - mean) < 1e-6
     return rv
+
+
+def rotate_point_in_image(r: float, c: float, rot_degrees: float, height: int,
+                          width: int) -> Tuple[int, int]:
+    """If an image has been rotated using ndimage.rotate, this computes the
+    location of a pixel (r, c) in that image following the same rotation.
+
+    The rotation is expected in degrees, following ndimage.rotate.
+    """
+    rotation_radians = np.radians(rot_degrees)
+    transform_matrix = np.array(
+        [[np.cos(rotation_radians), -np.sin(rotation_radians)],
+         [np.sin(rotation_radians),
+          np.cos(rotation_radians)]])
+    # Subtract the center of the image from the pixel location to
+    # translate the rotation to the origin.
+    center = np.array([(height - 1) / 2., (width - 1) / 2])
+    centered_pt = np.subtract([r, c], center)
+    # Apply the rotation.
+    rotated_pt_centered = np.matmul(transform_matrix, centered_pt)
+    # Add the center of the image back to the pixel location to
+    # translate the rotation back from the origin.
+    rotated_pt = rotated_pt_centered + center
+    return rotated_pt[0], rotated_pt[1]
