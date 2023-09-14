@@ -86,6 +86,10 @@ def detect_objects_from_april_tags(
     """Detect an object pose from an april tag.
 
     The rotation is currently not detected (set to default).
+
+    The second return value is a dictionary of "artifacts", which include
+    the raw april tag detection results. These are primarily useful for
+    debugging / analysis.
     """
     tag_num_to_object_id = {t.april_tag_number: t for t in object_ids}
 
@@ -143,7 +147,13 @@ def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
-    """Detect an object pose using a vision-language model."""
+    """Detect an object pose using a vision-language model.
+
+    The second return value is a dictionary of "artifacts", which
+    include the raw vision-language detection results. These are
+    primarily useful for debugging / analysis. See
+    _visualize_all_artifacts().
+    """
 
     object_id_to_img_detections = _query_detic_sam(object_ids, rgbds)
 
