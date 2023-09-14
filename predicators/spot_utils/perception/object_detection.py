@@ -67,7 +67,7 @@ def detect_objects(
             april_tag_object_ids, rgbd)
         # Possibly overrides previous detections.
         detections.update(img_detections)
-        artifacts["april"].update(img_artifacts)
+        artifacts["april"][rgbd.camera_name] = img_artifacts
 
     # There IS batching over images here for efficiency.
     language_detections, language_artifacts = detect_objects_from_language(
@@ -113,8 +113,7 @@ def detect_objects_from_april_tags(
         obj_id = tag_num_to_object_id[apriltag_detection.tag_id]
 
         # Save the detection for external analysis.
-        artifact_id = f"apriltag_{rgbd.camera_name}_{obj_id.april_tag_number}"
-        artifacts[artifact_id] = apriltag_detection
+        artifacts[obj_id] = apriltag_detection
 
         # Get the pose from the apriltag library.
         intrinsics = rgbd.camera_model.intrinsics
@@ -348,6 +347,32 @@ def _get_pose_from_segmented_bounding_box(
     world_frame_pose = rgbd.world_tform_camera * camera_frame_pose
 
     return world_frame_pose
+
+
+def get_object_center_pixel_from_artifacts(
+        artifacts: Dict[str, Any], object_id: ObjectDetectionID,
+        camera_name: str) -> Tuple[int, int]:
+    """Extract the pixel in the image corresponding to the center of the object
+    with object ID.
+
+    The typical use case is to get the pixel to pass into the grasp
+    controller. This is a fairly hacky way to go about this, but since
+    the grasp controller parameterization is a special case (most users
+    of object detection shouldn't need to care about the pixel), we do
+    this.
+    """
+    if isinstance(object_id, AprilTagObjectDetectionID):
+        try:
+            april_detection = artifacts["april"][camera_name][object_id]
+        except KeyError:
+            raise ValueError(f"{object_id} not detected in {camera_name}")
+        pr, pc = april_detection.center
+        return int(pr), int(pc)
+
+    # TODO
+    assert isinstance(object_id, LanguageObjectDetectionID)
+    import ipdb
+    ipdb.set_trace()
 
 
 def _visualize_all_artifacts(artifacts: Dict[str,

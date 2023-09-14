@@ -3,42 +3,40 @@
 Run with --spot_robot_ip and any other flags.
 """
 
-import logging
-import time
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
-from bosdyn.api.basic_command_pb2 import RobotCommandFeedbackStatus
-from bosdyn.api.geometry_pb2 import SE2Velocity, SE2VelocityLimit, Vec2
-from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
 from bosdyn.client import create_standard_sdk, math_helpers
-from bosdyn.client.frame_helpers import BODY_FRAME_NAME, ODOM_FRAME_NAME, \
-    get_se2_a_tform_b
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient
-from bosdyn.client.robot_state import RobotStateClient
-from bosdyn.client.sdk import Robot
 from bosdyn.client.util import authenticate
 
 from predicators import utils
 from predicators.settings import CFG
+from predicators.spot_utils.perception.object_detection import \
+    detect_objects, get_object_center_pixel_from_artifacts
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID
+from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_find_objects import find_objects
+from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
+from predicators.spot_utils.skills.spot_hand_move import \
+    move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
+from predicators.spot_utils.skills.spot_place import place_at_relative_position
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.utils import get_relative_se2_from_se3, \
-    verify_estop
+from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
+    get_relative_se2_from_se3, verify_estop
 
 
 def test_find_move_pick_place(
     manipuland_id: ObjectDetectionID,
     init_surface_id: ObjectDetectionID,
     target_surface_id: ObjectDetectionID,
-    surface_nav_distance: float,
-    surface_nav_angle: float,
+    surface_nav_distance: float = 1.5,
+    surface_nav_angle: float = -np.pi / 2,
+    place_offset_z: float = 0.25,
 ) -> None:
     """Find the given object and surfaces, pick the object from the first
     surface, and place it on the second surface.
@@ -79,8 +77,44 @@ def test_find_move_pick_place(
     navigate_to_relative_pose(robot, rel_pose)
     localizer.localize()
 
-    import ipdb
-    ipdb.set_trace()
+    # Look down at the surface.
+    move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_DOWN_POSE)
+    open_gripper(robot)
+
+    # Capture an image from the hand camera.
+    hand_camera = "hand_color_image"
+    rgbds = capture_images(robot, localizer, [hand_camera])
+
+    # Run detection to get a pixel for grasping.
+    _, artifacts = detect_objects([manipuland_id], rgbds)
+    pixel = get_object_center_pixel_from_artifacts(artifacts, manipuland_id,
+                                                   hand_camera)
+
+    # Pick at the pixel.
+    grasp_at_pixel(robot, rgbds[hand_camera], pixel)
+    localizer.localize()
+
+    # Stow the arm.
+    stow_arm(robot)
+
+    # Navigate to the other surface.
+    robot_pose = localizer.get_last_robot_pose()
+    rel_pose = get_relative_se2_from_se3(robot_pose,
+                                         detections[target_surface_id],
+                                         surface_nav_distance,
+                                         surface_nav_angle)
+    navigate_to_relative_pose(robot, rel_pose)
+    localizer.localize()
+
+    # Place on the surface.
+    robot_pose = localizer.get_last_robot_pose()
+    surface_rel_pose = robot_pose.inverse() * detections[target_surface_id]
+    place_rel_pos = math_helpers.Vec3(
+        x=surface_rel_pose.x,
+        y=surface_rel_pose.y,
+        z=surface_rel_pose.z + place_offset_z
+    )
+    place_at_relative_position(robot, place_rel_pos)
 
 
 if __name__ == "__main__":
@@ -102,8 +136,4 @@ if __name__ == "__main__":
         410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
     # Assume that the tables are at the "front" of the room (with the hall
     # on the left in room 408).
-    test_find_move_pick_place(cube,
-                              init_surface,
-                              target_surface,
-                              surface_nav_distance=1.0,
-                              surface_nav_angle=-np.pi / 2)
+    test_find_move_pick_place(cube, init_surface, target_surface)

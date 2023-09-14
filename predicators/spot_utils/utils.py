@@ -11,6 +11,10 @@ from bosdyn.client.estop import EstopClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
 
+# Pose for the hand (relative to the body) that looks down in front.
+DEFAULT_HAND_LOOK_DOWN_POSE = math_helpers.SE3Pose(
+    x=0.80, y=0, z=0.45, rot=math_helpers.Quat.from_pitch(np.pi / 4))
+
 
 def verify_estop(robot: Robot) -> None:
     """Verify the robot is not estopped."""
