@@ -92,11 +92,12 @@ def get_robot_state(robot: Robot,
                     timeout_per_call: float = 20,
                     num_retries: int = 10) -> robot_state_pb2.RobotState:
     """Get the robot state."""
+    robot_state_client = robot.ensure_client(
+        RobotStateClient.default_service_name)
     for _ in range(num_retries):
-        robot_state_client = robot.ensure_client(
-            RobotStateClient.default_service_name)
         try:
-            robot_state = robot_state_client.get_robot_state(timeout_per_call)
+            robot_state = robot_state_client.get_robot_state(
+                timeout=timeout_per_call)
             return robot_state
         except TimedOutError:
             print("WARNING: get robot state failed once, retrying...")
