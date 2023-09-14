@@ -36,7 +36,8 @@ def test_find_move_pick_place(
     target_surface_id: ObjectDetectionID,
     pre_pick_nav_distance: float = 1.25,
     pre_place_nav_distance: float = 1.0,
-    surface_nav_angle: float = -np.pi / 2,
+    pre_pick_nav_angle: float = -np.pi / 2,
+    pre_place_nav_angle: float = -np.pi / 2,
     place_offset_z: float = 0.25,
 ) -> None:
     """Find the given object and surfaces, pick the object from the first
@@ -74,7 +75,7 @@ def test_find_move_pick_place(
     rel_pose = get_relative_se2_from_se3(robot_pose,
                                          detections[init_surface_id],
                                          pre_pick_nav_distance,
-                                         surface_nav_angle)
+                                         pre_pick_nav_angle)
     navigate_to_relative_pose(robot, rel_pose)
     localizer.localize()
 
@@ -104,7 +105,7 @@ def test_find_move_pick_place(
     rel_pose = get_relative_se2_from_se3(robot_pose,
                                          detections[target_surface_id],
                                          pre_place_nav_distance,
-                                         surface_nav_angle)
+                                         pre_place_nav_angle)
     navigate_to_relative_pose(robot, rel_pose)
     localizer.localize()
 
@@ -137,12 +138,27 @@ if __name__ == "__main__":
         409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
     cube = AprilTagObjectDetectionID(
         410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+    brush = LanguageObjectDetectionID("brush")
+
     # Assume that the tables are at the "front" of the room (with the hall
     # on the left when on the fourth floor).
     # test_find_move_pick_place(cube, init_surface, target_surface)
 
     # Run test with brush.
-    brush = LanguageObjectDetectionID("brush")
     # Assume that the tables are at the "front" of the room (with the hall
     # on the left when on the fourth floor).
-    test_find_move_pick_place(brush, init_surface, target_surface)
+    # test_find_move_pick_place(brush, init_surface, target_surface)
+
+    # Run test with tables moved so that the init table is on the wall adjacent
+    # to the hallway and the target table is on the opposite wall.
+    # Note that we need to change the offsets because the april tags are
+    # now rotated.
+    init_surface = AprilTagObjectDetectionID(
+        408, math_helpers.SE3Pose(-0.25, 0.0, 0.0, math_helpers.Quat()))
+    target_surface = AprilTagObjectDetectionID(
+        409, math_helpers.SE3Pose(0.25, 0.0, 0.0, math_helpers.Quat()))
+    test_find_move_pick_place(cube,
+                              init_surface,
+                              target_surface,
+                              pre_pick_nav_angle=0,
+                              pre_place_nav_angle=np.pi)

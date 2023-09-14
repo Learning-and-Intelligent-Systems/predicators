@@ -77,7 +77,7 @@ def get_relative_se2_from_se3(
     x = target_pose.x + dx
     y = target_pose.y + dy
     # Face towards the target.
-    rot = -target_offset_angle
+    rot = target_offset_angle + np.pi
     target_se2 = math_helpers.SE2Pose(x, y, rot)
     robot_se2 = robot_pose.get_closest_se2_transform()
     return robot_se2.inverse() * target_se2
