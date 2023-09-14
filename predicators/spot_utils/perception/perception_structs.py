@@ -47,7 +47,7 @@ class AprilTagObjectDetectionID(ObjectDetectionID):
 
     def __str__(self) -> str:
         return f"AprilTag({self.april_tag_number})"
-    
+
     def __repr__(self) -> str:
         return f"AprilTag({self.april_tag_number})"
 
@@ -59,7 +59,7 @@ class LanguageObjectDetectionID(ObjectDetectionID):
 
     def __str__(self) -> str:
         return f"LanguageID({self.language_id})"
-    
+
     def __repr__(self) -> str:
         return f"LanguageID({self.language_id})"
 

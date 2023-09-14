@@ -1,6 +1,6 @@
 """Interface for finding objects by moving around and running detection."""
 
-from typing import Any, Collection, Dict, Tuple
+from typing import Any, Collection, Dict, List, Tuple
 
 import numpy as np
 from bosdyn.client import math_helpers
@@ -8,7 +8,7 @@ from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.perception.object_detection import detect_objects
 from predicators.spot_utils.perception.perception_structs import \
-    ObjectDetectionID
+    ObjectDetectionID, RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
@@ -28,9 +28,12 @@ def find_objects(
     # Naively combine detections and artifacts using the most recent ones.
     all_detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
     all_artifacts: Dict[str, Any] = {}
+    # Save all RGBDs in case of failure so we can analyze them.
+    all_rgbds: List[Dict[str, RGBDImageWithContext]] = []
 
     # Run detection once to start before spinning.
     rgbds = capture_images(robot, localizer)
+    all_rgbds.append(rgbds)
     detections, artifacts = detect_objects(object_ids, rgbds)
     all_detections.update(detections)
     all_artifacts.update(artifacts)
@@ -50,8 +53,20 @@ def find_objects(
         # Spin and re-capture.
         navigate_to_relative_pose(robot, relative_pose)
         localizer.localize()
+        rgbds = capture_images(robot, localizer)
+        all_rgbds.append(rgbds)
+        detections, artifacts = detect_objects(object_ids, rgbds)
+        all_detections.update(detections)
+        all_artifacts.update(artifacts)
 
-    # Fail.
+    # Fail. Analyze the RGBDs if you want (by uncommenting here).
+    # import imageio.v2 as iio
+    # for i, rgbds in enumerate(all_rgbds):
+    #     for camera, rgbd in rgbds.items():
+    #         path = f"find_objects_angle{i}_{camera}.png"
+    #         iio.imsave(path, rgbd.rgb)
+    #         print(f"Wrote out to {path}.")
+
     remaining_object_ids = set(object_ids) - set(all_detections)
     raise RuntimeError(f"Could not find objects: {remaining_object_ids}")
 
