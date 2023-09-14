@@ -1,5 +1,5 @@
 """Utility functions for capturing images from Spot's cameras."""
-from typing import Collection, Dict, Type
+from typing import Collection, Dict, Optional, Type
 
 import cv2
 import numpy as np
@@ -7,7 +7,7 @@ from bosdyn.api import image_pb2
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, get_a_tform_b
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.client.sdk import Robot
-from numpy.typing import NDArray, Optional
+from numpy.typing import NDArray
 
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext

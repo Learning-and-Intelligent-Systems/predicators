@@ -1,6 +1,5 @@
 """Interface for finding objects by moving around and running detection."""
 
-import logging
 from typing import Any, Collection, Dict, Tuple
 
 import numpy as np
@@ -41,8 +40,8 @@ def find_objects(
 
     for _ in range(num_spins):
         remaining_object_ids = set(object_ids) - set(all_detections)
-        logging.info(f"Found objects: {set(all_detections)}")
-        logging.info(f"Remaining objects: {remaining_object_ids}")
+        print(f"Found objects: {set(all_detections)}")
+        print(f"Remaining objects: {remaining_object_ids}")
 
         # Success, finish.
         if not remaining_object_ids:
@@ -84,7 +83,7 @@ if __name__ == "__main__":
 
         # Get constants.
         hostname = CFG.spot_robot_ip
-        upload_dir = Path(__file__).parent / "graph_nav_maps"
+        upload_dir = Path(__file__).parent.parent / "graph_nav_maps"
         path = upload_dir / CFG.spot_graph_nav_map
 
         sdk = create_standard_sdk('FindObjectsTestClient')
