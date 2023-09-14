@@ -103,7 +103,7 @@ def detect_objects_from_april_tags(
     apriltag_detections = detector.detect(image_grey)
 
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
-    artifacts: Dict[str, Any] = {}
+    artifacts: Dict = {}
 
     # For every detection, find pose in world frame.
     for apriltag_detection in apriltag_detections:
@@ -369,10 +369,14 @@ def get_object_center_pixel_from_artifacts(
         pr, pc = april_detection.center
         return int(pr), int(pc)
 
-    # TODO
     assert isinstance(object_id, LanguageObjectDetectionID)
-    import ipdb
-    ipdb.set_trace()
+    detections = artifacts["language"]["object_id_to_img_detections"]
+    try:
+        seg_bb = detections[object_id][camera_name]
+    except KeyError:
+        raise ValueError(f"{object_id} not detected in {camera_name}")
+    x1, y1, x2, y2 = seg_bb.bounding_box
+    return int((x1 + x2) / 2), int((y1 + y2) / 2)
 
 
 def _visualize_all_artifacts(artifacts: Dict[str,

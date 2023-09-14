@@ -122,7 +122,7 @@ def test_find_move_pick_place(
 
 if __name__ == "__main__":
     from predicators.spot_utils.perception.object_detection import \
-        AprilTagObjectDetectionID
+        AprilTagObjectDetectionID, LanguageObjectDetectionID
 
     # Parse flags.
     args = utils.parse_args(env_required=False,
@@ -139,4 +139,10 @@ if __name__ == "__main__":
         410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
     # Assume that the tables are at the "front" of the room (with the hall
     # on the left when on the fourth floor).
-    test_find_move_pick_place(cube, init_surface, target_surface)
+    # test_find_move_pick_place(cube, init_surface, target_surface)
+
+    # Run test with brush.
+    brush = LanguageObjectDetectionID("brush")
+    # Assume that the tables are at the "front" of the room (with the hall
+    # on the left when on the fourth floor).
+    test_find_move_pick_place(brush, init_surface, target_surface)

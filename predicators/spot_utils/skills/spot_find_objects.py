@@ -10,6 +10,8 @@ from predicators.spot_utils.perception.object_detection import detect_objects
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID, RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
+from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
+    open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.spot_localization import SpotLocalizer
@@ -19,7 +21,7 @@ def find_objects(
     robot: Robot,
     localizer: SpotLocalizer,
     object_ids: Collection[ObjectDetectionID],
-    num_spins: int = 4
+    num_spins: int = 8
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Spin around in place looking for objects.
 
@@ -30,6 +32,9 @@ def find_objects(
     all_artifacts: Dict[str, Any] = {}
     # Save all RGBDs in case of failure so we can analyze them.
     all_rgbds: List[Dict[str, RGBDImageWithContext]] = []
+
+    # Open the hand to mitigate possible occlusions.
+    open_gripper(robot)
 
     # Run detection once to start before spinning.
     rgbds = capture_images(robot, localizer)
@@ -48,7 +53,7 @@ def find_objects(
 
         # Success, finish.
         if not remaining_object_ids:
-            return all_detections, all_artifacts
+            break
 
         # Spin and re-capture.
         navigate_to_relative_pose(robot, relative_pose)
@@ -58,6 +63,9 @@ def find_objects(
         detections, artifacts = detect_objects(object_ids, rgbds)
         all_detections.update(detections)
         all_artifacts.update(artifacts)
+
+    # Close the gripper.
+    close_gripper(robot)
 
     # Success, finish.
     remaining_object_ids = set(object_ids) - set(all_detections)
