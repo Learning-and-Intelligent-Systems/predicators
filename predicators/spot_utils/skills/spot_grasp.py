@@ -10,7 +10,7 @@ from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
-from predicators.spot_utils.utils import stow_arm
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 
 
 def grasp_at_pixel(robot: Robot,
