@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 import cv2
 import numpy as np
 from bosdyn.api import estop_pb2
+from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
@@ -51,3 +52,28 @@ def get_pixel_from_user(rgb: NDArray[np.uint8]) -> Tuple[int, int]:
     cv2.destroyAllWindows()
 
     return image_click
+
+
+def get_relative_se2_from_se3(
+        robot_pose: math_helpers.SE3Pose,
+        target_pose: math_helpers.SE3Pose,
+        target_offset_distance: float = 0.0,
+        target_offset_angle: float = 0.0) -> math_helpers.SE2Pose:
+    """Given a current se3 pose and a target se3 pose on the same plane, return
+    a relative se2 pose for moving from the current to the target.
+
+    Also add an angle and distance offset to the target pose. The returned
+    se2 pose is facing toward the target.
+
+    Typical use case: we know the current se3 pose for the body of the robot
+    and the se3 pose for a table, and we want to move in front of the table.
+    """
+    dx = np.cos(target_offset_angle) * target_offset_distance
+    dy = np.sin(target_offset_angle) * target_offset_distance
+    x = target_pose.x + dx
+    y = target_pose.y + dy
+    # Face towards the target.
+    rot = -target_offset_angle
+    target_se2 = math_helpers.SE2Pose(x, y, rot)
+    robot_se2 = robot_pose.get_closest_se2_transform()
+    return robot_se2.inverse() * target_se2

@@ -29,7 +29,8 @@ from predicators.spot_utils.skills.spot_find_objects import find_objects
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.utils import verify_estop
+from predicators.spot_utils.utils import get_relative_se2_from_se3, \
+    verify_estop
 
 
 def test_find_move_pick_place(
@@ -65,25 +66,16 @@ def test_find_move_pick_place(
 
     # Find objects.
     object_ids = [manipuland_id, init_surface_id, target_surface_id]
-    detections, artifacts = find_objects(robot, localizer, object_ids)
+    detections, _ = find_objects(robot, localizer, object_ids)
 
-    # Compute waypoints given the surface offsets.
-    def _get_waypoint(
-            surface_pose: math_helpers.SE3Pose) -> math_helpers.SE2Pose:
-        dx = np.cos(surface_nav_angle) * surface_nav_distance
-        dy = np.sin(surface_nav_angle) * surface_nav_distance
-        x = surface_pose.x + dx
-        y = surface_pose.y + dy
-        # Face towards the center.
-        rot = 2 * np.pi - surface_nav_angle
-        return math_helpers.SE2Pose(x, y, rot)
+    # Get current robot pose.
+    robot_pose = localizer.get_last_robot_pose()
 
-    start_waypoint = _get_waypoint(detections[init_surface_id])
-    end_waypoint = _get_waypoint(detections[target_surface_id])
-
-    # Navigate to the first waypoint.
-    robot_pose = localizer.get_last_robot_pose().get_closest_se2_transform()
-    rel_pose = robot_pose.inverse() * start_waypoint
+    # Navigate to the first surface.
+    rel_pose = get_relative_se2_from_se3(robot_pose,
+                                         detections[init_surface_id],
+                                         surface_nav_distance,
+                                         surface_nav_angle)
     navigate_to_relative_pose(robot, rel_pose)
     localizer.localize()
 
