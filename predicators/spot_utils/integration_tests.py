@@ -34,7 +34,8 @@ def test_find_move_pick_place(
     manipuland_id: ObjectDetectionID,
     init_surface_id: ObjectDetectionID,
     target_surface_id: ObjectDetectionID,
-    surface_nav_distance: float = 1.5,
+    pre_pick_nav_distance: float = 1.5,
+    pre_place_nav_distance: float = 1.2,
     surface_nav_angle: float = -np.pi / 2,
     place_offset_z: float = 0.25,
 ) -> None:
@@ -72,7 +73,7 @@ def test_find_move_pick_place(
     # Navigate to the first surface.
     rel_pose = get_relative_se2_from_se3(robot_pose,
                                          detections[init_surface_id],
-                                         surface_nav_distance,
+                                         pre_pick_nav_distance,
                                          surface_nav_angle)
     navigate_to_relative_pose(robot, rel_pose)
     localizer.localize()
@@ -90,8 +91,9 @@ def test_find_move_pick_place(
     pixel = get_object_center_pixel_from_artifacts(artifacts, manipuland_id,
                                                    hand_camera)
 
-    # Pick at the pixel.
-    grasp_at_pixel(robot, rgbds[hand_camera], pixel)
+    # Pick at the pixel with a top-down grasp.
+    top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
+    grasp_at_pixel(robot, rgbds[hand_camera], pixel, grasp_rot=top_down_rot)
     localizer.localize()
 
     # Stow the arm.
@@ -101,7 +103,7 @@ def test_find_move_pick_place(
     robot_pose = localizer.get_last_robot_pose()
     rel_pose = get_relative_se2_from_se3(robot_pose,
                                          detections[target_surface_id],
-                                         surface_nav_distance,
+                                         pre_place_nav_distance,
                                          surface_nav_angle)
     navigate_to_relative_pose(robot, rel_pose)
     localizer.localize()
@@ -109,11 +111,9 @@ def test_find_move_pick_place(
     # Place on the surface.
     robot_pose = localizer.get_last_robot_pose()
     surface_rel_pose = robot_pose.inverse() * detections[target_surface_id]
-    place_rel_pos = math_helpers.Vec3(
-        x=surface_rel_pose.x,
-        y=surface_rel_pose.y,
-        z=surface_rel_pose.z + place_offset_z
-    )
+    place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x,
+                                      y=surface_rel_pose.y,
+                                      z=surface_rel_pose.z + place_offset_z)
     place_at_relative_position(robot, place_rel_pos)
 
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
                             approach_required=False)
     utils.update_config(args)
 
-    # Run tests.
+    # Run test with april tag cube.
     init_surface = AprilTagObjectDetectionID(
         408, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat()))
     target_surface = AprilTagObjectDetectionID(
@@ -135,5 +135,5 @@ if __name__ == "__main__":
     cube = AprilTagObjectDetectionID(
         410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
     # Assume that the tables are at the "front" of the room (with the hall
-    # on the left in room 408).
+    # on the left when on the fourth floor).
     test_find_move_pick_place(cube, init_surface, target_surface)

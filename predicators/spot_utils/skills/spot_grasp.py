@@ -2,10 +2,14 @@
 
 import logging
 import time
-from typing import Tuple
+from typing import Optional, Tuple
 
 from bosdyn.api import geometry_pb2, manipulation_api_pb2
+from bosdyn.client import math_helpers
+from bosdyn.client.frame_helpers import VISION_FRAME_NAME, \
+    get_vision_tform_body
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
+from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.perception.perception_structs import \
@@ -13,11 +17,15 @@ from predicators.spot_utils.perception.perception_structs import \
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 
 
-def grasp_at_pixel(robot: Robot,
-                   rgbd: RGBDImageWithContext,
-                   pixel: Tuple[int, int],
-                   move_while_grasping: bool = True,
-                   timeout: float = 20.0) -> None:
+def grasp_at_pixel(
+    robot: Robot,
+    rgbd: RGBDImageWithContext,
+    pixel: Tuple[int, int],
+    move_while_grasping: bool = True,
+    grasp_rot: Optional[math_helpers.Quat] = None,
+    rot_thresh: float = 0.17,
+    timeout: float = 20.0,
+) -> None:
     """Grasp an object at a specified pixel in the RGBD image, which should be
     from the hand camera and should be up to date with the robot's state.
 
@@ -45,6 +53,22 @@ def grasp_at_pixel(robot: Robot,
         frame_name_image_sensor=rgbd.frame_name_image_sensor,
         camera_model=rgbd.camera_model,
         walk_gaze_mode=walk_gaze_mode)
+
+    # If a desired rotation for the hand was given, add a grasp constraint.
+    if grasp_rot is not None:
+        robot_state_client = robot.ensure_client(
+            RobotStateClient.default_service_name)
+        robot_state = robot_state_client.get_robot_state()
+        grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME
+        vision_tform_body = get_vision_tform_body(
+            robot_state.kinematic_state.transforms_snapshot)
+        # Rotation from the body to our desired grasp.
+        vision_rot = vision_tform_body.rotation * grasp_rot
+        # Turn into a proto.
+        constraint = grasp.grasp_params.allowable_orientation.add()
+        constraint.rotation_with_tolerance.rotation_ewrt_frame.CopyFrom(
+            vision_rot.to_proto())
+        constraint.rotation_with_tolerance.threshold_radians = rot_thresh
 
     # Create the request.
     grasp_request = manipulation_api_pb2.ManipulationApiRequest(
@@ -78,6 +102,7 @@ if __name__ == "__main__":
     # pylint: disable=ungrouped-imports
     from pathlib import Path
 
+    import numpy as np
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
     from bosdyn.client.util import authenticate
@@ -119,7 +144,8 @@ if __name__ == "__main__":
         # Select a pixel manually.
         pixel = get_pixel_from_user(rgbd.rgb)
 
-        # Grasp at the pixel.
-        grasp_at_pixel(robot, rgbd, pixel)
+        # Grasp at the pixel with a top-down grasp.
+        top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
+        grasp_at_pixel(robot, rgbd, pixel, grasp_rot=top_down_rot)
 
     _run_manual_test()

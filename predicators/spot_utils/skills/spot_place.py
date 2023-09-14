@@ -1,9 +1,8 @@
 """Interface for spot placing skill."""
 
+import numpy as np
 from bosdyn.client import math_helpers
 from bosdyn.client.sdk import Robot
-import numpy as np
-
 
 from predicators.spot_utils.skills.spot_hand_move import \
     move_hand_to_relative_pose, open_gripper
@@ -17,17 +16,15 @@ def place_at_relative_position(robot: Robot,
     The position is relative to the robot's body. It is the responsibility
     of the user of this method to specify a pose that makes sense, e.g.,
     one with an angle facing downward to facilitate the place.
-    
+
     Placing is always straight ahead of the robot, angled down.
     """
     # First move the hand to the target pose.
     rot = math_helpers.Quat.from_pitch(downward_angle)
-    body_tform_goal = math_helpers.SE3Pose(
-        x=body_to_position.x,
-        y=body_to_position.y,
-        z=body_to_position.z,
-        rot=rot
-    )
+    body_tform_goal = math_helpers.SE3Pose(x=body_to_position.x,
+                                           y=body_to_position.y,
+                                           z=body_to_position.z,
+                                           rot=rot)
     move_hand_to_relative_pose(robot, body_tform_goal)
     # Open the hand.
     open_gripper(robot)
