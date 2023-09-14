@@ -117,11 +117,12 @@ def detect_objects_from_april_tags(
         artifacts[artifact_id] = apriltag_detection
 
         # Get the pose from the apriltag library.
+        intrinsics = rgbd.camera_model.intrinsics
         pose = detector.detection_pose(
             apriltag_detection,
-            (rgbd.intrinsics.focal_length.x, rgbd.intrinsics.focal_length.y,
-             rgbd.intrinsics.principal_point.x,
-             rgbd.intrinsics.principal_point.y), fiducial_size)[0]
+            (intrinsics.focal_length.x, intrinsics.focal_length.y,
+             intrinsics.principal_point.x, intrinsics.principal_point.y),
+            fiducial_size)[0]
         tx, ty, tz, tw = pose[:, -1]
         assert np.isclose(tw, 1.0)
 
@@ -330,10 +331,10 @@ def _get_pose_from_segmented_bounding_box(
     depth_value = np.median(segmented_depth)
 
     # Convert to camera frame position.
-    fx = rgbd.intrinsics.focal_length.x
-    fy = rgbd.intrinsics.focal_length.y
-    cx = rgbd.intrinsics.principal_point.x
-    cy = rgbd.intrinsics.principal_point.y
+    fx = rgbd.camera_model.intrinsics.focal_length.x
+    fy = rgbd.camera_model.intrinsics.focal_length.y
+    cx = rgbd.camera_model.intrinsics.principal_point.x
+    cy = rgbd.camera_model.intrinsics.principal_point.y
     depth_scale = rgbd.depth_scale
     camera_z = depth_value / depth_scale
     camera_x = np.multiply(camera_z, (x_center - cx)) / fx

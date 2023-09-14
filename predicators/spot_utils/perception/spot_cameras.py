@@ -85,14 +85,17 @@ def capture_images(
             rgb_img_resp.shot.frame_name_image_sensor, BODY_FRAME_NAME)
         camera_tform_world = camera_tform_body * body_tform_world
         world_tform_camera = camera_tform_world.inverse()
-        # Extract RGB camera intrinsics.
+        # Extract other context.
         rot = ROTATION_ANGLE[camera_name]
-        intrinsics = rgb_img_resp.source.pinhole.intrinsics
         depth_scale = depth_img_resp.source.depth_scale
+        transforms_snapshot = rgb_img_resp.shot.transforms_snapshot
+        frame_name_image_sensor = rgb_img_resp.shot.frame_name_image_sensor
+        camera_model = rgb_img_resp.source.pinhole
         # Finish RGBDImageWithContext.
         rgbd = RGBDImageWithContext(rgb_img, depth_img, rot, camera_name,
-                                    world_tform_camera, intrinsics,
-                                    depth_scale)
+                                    world_tform_camera, depth_scale,
+                                    transforms_snapshot,
+                                    frame_name_image_sensor, camera_model)
         rgbds[camera_name] = rgbd
 
     return rgbds

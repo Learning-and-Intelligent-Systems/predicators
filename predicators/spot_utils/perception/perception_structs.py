@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Tuple
 
 import numpy as np
+from bosdyn.api.geometry_pb2 import FrameTreeSnapshot
 from bosdyn.client import math_helpers
 from numpy.typing import NDArray
 from scipy import ndimage
@@ -18,8 +19,10 @@ class RGBDImageWithContext:
     image_rot: float
     camera_name: str
     world_tform_camera: math_helpers.SE3Pose
-    intrinsics: Any  # bosdyn.api.image_pb2.CameraIntrinsics, but not available
     depth_scale: float
+    transforms_snapshot: FrameTreeSnapshot
+    frame_name_image_sensor: str
+    camera_model: Any  # bosdyn.api.image_pb2.PinholeModel, but not available
 
     @property
     def rotated_rgb(self) -> NDArray[np.uint8]:
