@@ -10,7 +10,7 @@ from bosdyn.client.sdk import Robot
 def move_hand_to_relative_pose(
     robot: Robot,
     body_tform_goal: math_helpers.SE3Pose,
-    duration: float = 2,
+    duration: float = 2.0,
 ) -> None:
     """Move the spot hand.
 
@@ -32,7 +32,7 @@ def move_hand_to_relative_pose(
 def change_gripper(
     robot: Robot,
     fraction: float,
-    duration: float = 2,
+    duration: float = 2.0,
 ) -> None:
     """Change the spot gripper angle."""
     assert 0.0 <= fraction <= 1.0
@@ -48,7 +48,7 @@ def change_gripper(
 
 def open_gripper(
     robot: Robot,
-    duration: float = 2,
+    duration: float = 2.0,
 ) -> None:
     """Open the spot gripper."""
     return change_gripper(robot, fraction=1.0, duration=duration)
@@ -56,7 +56,7 @@ def open_gripper(
 
 def close_gripper(
     robot: Robot,
-    duration: float = 2,
+    duration: float = 2.0,
 ) -> None:
     """Close the spot gripper."""
     return change_gripper(robot, fraction=0.0, duration=duration)

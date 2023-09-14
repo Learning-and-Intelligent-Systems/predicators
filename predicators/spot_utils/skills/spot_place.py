@@ -8,7 +8,8 @@ from predicators.spot_utils.skills.spot_hand_move import \
 
 
 def place_at_relative_pose(robot: Robot,
-                           body_tform_goal: math_helpers.SE3Pose) -> None:
+                           body_tform_goal: math_helpers.SE3Pose,
+                           pause_duration: float = 1.0) -> None:
     """Assuming something is held, place is at the given pose.
 
     The pose is relative to the robot's body. It is the responsibility
@@ -57,9 +58,9 @@ if __name__ == "__main__":
         robot.time_sync.wait_for_sync()
         target_pose = math_helpers.SE3Pose(x=0.80,
                                            y=0,
-                                           z=0.45,
+                                           z=0.25,
                                            rot=math_helpers.Quat.from_pitch(
-                                               np.pi / 4))
+                                               np.pi / 3))
         place_at_relative_pose(robot, target_pose)
 
     _run_manual_test()
