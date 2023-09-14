@@ -82,7 +82,7 @@ def detect_objects_from_april_tags(
     object_ids: Collection[AprilTagObjectDetectionID],
     rgbd: RGBDImageWithContext,
     fiducial_size: float = CFG.spot_fiducial_size,
-) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict]:
     """Detect an object pose from an april tag.
 
     The rotation is currently not detected (set to default).
@@ -146,7 +146,7 @@ def detect_objects_from_april_tags(
 def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],
-) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict]:
     """Detect an object pose using a vision-language model.
 
     The second return value is a dictionary of "artifacts", which
