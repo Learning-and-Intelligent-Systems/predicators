@@ -90,6 +90,7 @@ if __name__ == "__main__":
 
     # This test assumes that the 408, 409, and 410 april tags can be found.
 
+    # pylint: disable=ungrouped-imports
     from pathlib import Path
 
     from bosdyn.client import create_standard_sdk

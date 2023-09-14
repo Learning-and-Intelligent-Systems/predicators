@@ -59,13 +59,13 @@ def grasp_at_pixel(
         robot_state_client = robot.ensure_client(
             RobotStateClient.default_service_name)
         robot_state = robot_state_client.get_robot_state()
-        grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME
+        grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME  # pylint: disable=no-member
         vision_tform_body = get_vision_tform_body(
             robot_state.kinematic_state.transforms_snapshot)
         # Rotation from the body to our desired grasp.
         vision_rot = vision_tform_body.rotation * grasp_rot
         # Turn into a proto.
-        constraint = grasp.grasp_params.allowable_orientation.add()
+        constraint = grasp.grasp_params.allowable_orientation.add()  # pylint: disable=no-member
         constraint.rotation_with_tolerance.rotation_ewrt_frame.CopyFrom(
             vision_rot.to_proto())
         constraint.rotation_with_tolerance.threshold_radians = rot_thresh
