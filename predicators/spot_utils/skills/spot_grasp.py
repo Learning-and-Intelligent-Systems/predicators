@@ -100,7 +100,7 @@ if __name__ == "__main__":
         upload_dir = Path(__file__).parent.parent / "graph_nav_maps"
         path = upload_dir / CFG.spot_graph_nav_map
 
-        sdk = create_standard_sdk('NavigationSkillTestClient')
+        sdk = create_standard_sdk('GraspSkillTestClient')
         robot = sdk.create_robot(hostname)
         authenticate(robot)
         verify_estop(robot)
