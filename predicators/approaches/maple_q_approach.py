@@ -56,7 +56,8 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
             num_lookahead_samples=CFG.
             active_sampler_learning_num_lookahead_samples,
-            replay_buffer_max_size=CFG.active_sampler_learning_replay_buffer_size)
+            replay_buffer_max_size=CFG.
+            active_sampler_learning_replay_buffer_size)
 
     @classmethod
     def get_name(cls) -> str:

@@ -12,7 +12,7 @@ import abc
 import functools
 import logging
 from collections import deque
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Collection
+from typing import Any, Callable, Collection, Dict, List, Optional, Set, Tuple
 
 import dill as pkl
 import numpy as np
@@ -27,12 +27,13 @@ from predicators.explorers import BaseExplorer, create_explorer
 from predicators.gnn.gnn import EncodeProcessDecode, GraphDictDataset, \
     setup_graph_net
 from predicators.gnn.gnn_utils import compute_normalizers, \
-    graph_batch_collate, normalize_graph, train_model, get_single_model_prediction
+    get_single_model_prediction, graph_batch_collate, normalize_graph, \
+    train_model
 from predicators.ml_models import MapleQData
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, InteractionRequest, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type, \
-    _GroundNSRT, _Option, Object
+    LowLevelTrajectory, Object, ParameterizedOption, Predicate, State, Task, \
+    Type, _GroundNSRT, _Option
 
 
 class GNNMapleQApproach(OnlineNSRTLearningApproach):
@@ -57,13 +58,15 @@ class GNNMapleQApproach(OnlineNSRTLearningApproach):
         # contains a replay buffer.
         self._q_function = GNNMapleQFunction(
             seed=CFG.seed,
-            num_lookahead_samples=CFG.active_sampler_learning_num_lookahead_samples,
-            max_replay_buffer_size=CFG.active_sampler_learning_replay_buffer_size,
+            num_lookahead_samples=CFG.
+            active_sampler_learning_num_lookahead_samples,
+            max_replay_buffer_size=CFG.
+            active_sampler_learning_replay_buffer_size,
             discount=0.99,
             batch_size=CFG.active_sampler_learning_batch_size,
             initial_predicates=self._initial_predicates,
             initial_options=self._initial_options,
-        )
+            object_types=self._types)
 
     @classmethod
     def get_name(cls) -> str:
@@ -147,22 +150,25 @@ class GNNMapleQApproach(OnlineNSRTLearningApproach):
                 raise ValueError(
                     f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
             goals = [t.goal for t in self._train_tasks]
-            self._q_function.set_grounding(all_objects, goals, all_ground_nsrts)
+            init_states = [t.init for t in self._train_tasks]
+            self._q_function.set_grounding(init_states, all_objects, goals,
+                                           all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()
         # Re-learn Q function.
         self._q_function.train_q_function()
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
+        # TODO: Make the q-function saveable
         save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
-            pkl.dump(
-                {
-                    "q_function": self._q_function,
-                    "last_seen_segment_traj_idx":
-                    self._last_seen_segment_traj_idx,
-                    "interaction_goals": self._interaction_goals,
-                }, f)
+        # with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
+        #     pkl.dump(
+        #         {
+        #             "q_function": self._q_function,
+        #             "last_seen_segment_traj_idx":
+        #             self._last_seen_segment_traj_idx,
+        #             "interaction_goals": self._interaction_goals,
+        #         }, f)
 
     def _update_maple_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
@@ -197,11 +203,11 @@ class GNNMapleQApproach(OnlineNSRTLearningApproach):
 
 class GNNMapleQFunction():
 
-    def __init__(self, seed: int,
-                 num_lookahead_samples: int, max_replay_buffer_size: int,
-                 discount: float, batch_size: int,
+    def __init__(self, seed: int, num_lookahead_samples: int,
+                 max_replay_buffer_size: int, discount: float, batch_size: int,
                  initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption]):
+                 initial_options: Set[ParameterizedOption],
+                 object_types: Set[Type]):
         self._seed = seed
         self._num_lookahead_samples = num_lookahead_samples
         self._max_replay_buffer_size = max_replay_buffer_size
@@ -210,6 +216,7 @@ class GNNMapleQFunction():
         self._batch_size = batch_size
         self._initial_predicates = initial_predicates
         self._initial_options = initial_options
+        self._types = object_types
         self._sorted_options: List[ParameterizedOption] = sorted(
             self._initial_options, key=lambda o: o.name)
         self._rng = np.random.default_rng(self._seed)
@@ -236,11 +243,34 @@ class GNNMapleQFunction():
         """
         self._replay_buffer.append(datum)
 
-    def set_grounding(self, objects: Set[Object],
-                      goals: Collection[Set[GroundAtom]],
+    def set_grounding(self, init_states: Collection[State],
+                      objects: Set[Object], goals: Collection[Set[GroundAtom]],
                       ground_nsrts: Collection[_GroundNSRT]) -> None:
-        del objects, goals # unused
+        del objects  # unused
         self._ordered_ground_nsrts = sorted(ground_nsrts, key=lambda n: n.name)
+        init_states_list = list(init_states)
+        goals_list = list(goals)
+        ground_nsrts_list = list(ground_nsrts)
+        eg_init_state = init_states_list[0]
+        eg_goal = goals_list[0]
+        # Use the remaining inputs to initialize the GNN model.
+        eg_atoms = utils.abstract(eg_init_state, self._initial_predicates)
+        # Set up exemplar, which is just the first tuple in the data.
+        example_input_graph, _ = self._graphify_single_input(
+            eg_init_state, eg_atoms, eg_goal,
+            ground_nsrts_list[0].sample_option(eg_init_state, eg_goal,
+                                               self._rng))
+        # We can't estimate a q-value given inputs yet, since we don't have
+        # the GNN instantiated. Thus, we will simply pick a random value.
+        q_val = self._rng.random()
+        example_target = self._graphify_single_target(q_val,
+                                                      example_input_graph)
+        self._data_exemplar = (example_input_graph, example_target)
+        example_dataset = GraphDictDataset([example_input_graph],
+                                           [example_target])
+        self._gnn = setup_graph_net(example_dataset,
+                                    num_steps=CFG.gnn_num_message_passing,
+                                    layer_size=CFG.gnn_layer_size)
 
     def _graphify_single_target(self, target_q_val: float,
                                 graph_input: Dict) -> Dict:
@@ -295,18 +325,14 @@ class GNNMapleQFunction():
     def _setup_gnn_fields(self) -> None:
         """Use the initial predicates and options to setup the fields necessary
         to instantiate the GNN Q-network."""
-        all_obj_types = set(t for p in self._initial_predicates
-                            for t in p.types) | set(
-                                t for o in self._initial_options
-                                for t in o.types)
-        obj_types_set = set(f"type_{t.name}" for t in all_obj_types)
+        obj_types_set = set(f"type_{t.name}" for t in self._types)
         nullary_predicates_set = set(p for p in self._initial_predicates
                                      if p.arity == 0)
         unary_predicates_set = set(p for p in self._initial_predicates
                                    if p.arity == 1)
         binary_predicates_set = set(p for p in self._initial_predicates
                                     if p.arity == 2)
-        obj_attrs_set = set(f"feat_{f}" for t in all_obj_types
+        obj_attrs_set = set(f"feat_{f}" for t in self._types
                             for f in t.feature_names)
         self._nullary_predicates = sorted(nullary_predicates_set)
         self._max_option_objects = max(
@@ -564,38 +590,19 @@ class GNNMapleQFunction():
         if len(self._replay_buffer) == 0:
             return
 
-        # If the GNN hasn't been instantiated yet, then setup some example
-        # data to fix the structure of the GNN.
-        if self._gnn is None:
-            state, goal, option, _, _, _ = self._replay_buffer[0]
-            atoms = utils.abstract(state, self._initial_predicates)
-            # Set up exemplar, which is just the first tuple in the data.
-            example_input_graph, _ = self._graphify_single_input(
-                state, atoms, goal, option)
-            # We can't estimate a q-value given inputs yet, since we don't have
-            # the GNN instantiated. Thus, we will simply pick a random value.
-            q_val = self._rng.random()
-            example_target = self._graphify_single_target(
-                q_val, example_input_graph)
-            self._data_exemplar = (example_input_graph, example_target)
-            example_dataset = GraphDictDataset([example_input_graph],
-                                               [example_target])
-            self._gnn = setup_graph_net(example_dataset,
-                                        num_steps=CFG.gnn_num_message_passing,
-                                        layer_size=CFG.gnn_layer_size)
-
         # Set up all the input and output graphs, now using *all* the data.
         graph_inputs = []
         graph_targets = []
         for state, goal, option, next_state, reward, terminal in self._replay_buffer:
             atoms = utils.abstract(state, self._initial_predicates)
-            graph_input = self._graphify_single_input(state, atoms, goal,
+            graph_input, _ = self._graphify_single_input(state, atoms, goal,
                                                       option)
             graph_inputs.append(graph_input)
             # Now, we need to compute the q-value by doing inference
             # with the GNN q-network.
             if not terminal:
-                next_atoms = utils.abstract(next_state, self._initial_predicates)
+                next_atoms = utils.abstract(next_state,
+                                            self._initial_predicates)
                 best_next_value = -np.inf
                 next_options: List[_Option] = []
                 # We want to pick a total of num_lookahead_samples samples.
@@ -606,7 +613,8 @@ class GNNMapleQFunction():
                         next_options.append(next_option)
                 # We use the GNN to predict the Q-value for these samples.
                 for next_option in next_options:
-                    q_x_hat = self._predict(next_state, next_atoms, goal, next_option)
+                    q_x_hat = self._predict(next_state, next_atoms, goal,
+                                            next_option)
                     best_next_value = max(best_next_value, q_x_hat)
             else:
                 best_next_value = 0.0
