@@ -12,6 +12,7 @@ import abc
 import functools
 from collections import deque
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
+from torch.utils.data import DataLoader
 
 import dill as pkl
 import torch
@@ -22,7 +23,7 @@ from predicators import utils
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
 from predicators.explorers import BaseExplorer, create_explorer
-from predicators.gnn.gnn import EncodeProcessDecode, setup_graph_net
+from predicators.gnn.gnn import EncodeProcessDecode, setup_graph_net, GraphDictDataset
 from predicators.ml_models import MapleQData, MapleQFunction
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, InteractionRequest, \
@@ -211,11 +212,11 @@ class GNNMapleQApproach(OnlineNSRTLearningApproach):
 
 
 class GNNMapleQFunction():
-
     def __init__(self, seed: int, n_iter_no_change: int,
                  num_lookahead_samples: int, max_replay_buffer_size: int,
                  initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption]):
+                 initial_options: Set[ParameterizedOption],
+                 rng: np.random.Generator):
         self._seed = seed
         self._n_iter_no_change = n_iter_no_change
         self._num_lookahead_samples = num_lookahead_samples
@@ -225,6 +226,7 @@ class GNNMapleQFunction():
         self._initial_options = initial_options
         self._sorted_options: List[ParameterizedOption] = sorted(
             self._initial_options, key=lambda o: o.name)
+        self._rng = rng
         # Fields for the GNN; we initially just initialize them to
         # default values.
         self._gnn: Optional[EncodeProcessDecode] = None
@@ -260,9 +262,7 @@ class GNNMapleQFunction():
         raise NotImplementedError("Override me!")
 
 
-    @abc.abstractmethod
-    def _graphify_single_target(self, target: _Output, graph_input: Dict,
-                                object_to_node: Dict) -> Dict:
+    def _graphify_single_target(self, target_q_val: float, graph_input: Dict) -> Dict:
         """Given a target output, return a target graph.
 
         We also provide the return values of graphify_single_input on
@@ -270,7 +270,18 @@ class GNNMapleQFunction():
         between the input and the target graphs, and so we can simply
         copy them over.
         """
-        raise NotImplementedError("Override me!")
+        # First, copy over all unchanged fields.
+        graph_target = {
+            "n_node": graph_input["n_node"],
+            "n_edge": graph_input["n_edge"],
+            "edges": graph_input["edges"],
+            "nodes": graph_input["nodes"],
+            "senders": graph_input["senders"],
+            "receivers": graph_input["receivers"],
+        }
+        graph_target["globals"] = np.array([target_q_val])
+        return graph_target
+
 
     @abc.abstractmethod
     def _criterion(self, output: torch.Tensor,
@@ -508,23 +519,31 @@ class GNNMapleQFunction():
 
 
     def train_q_function(self):
-        """Trains the GNN's Q-function."""
+        """Trains the GNN-based Q-function."""
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
             return
+        
+        # If the GNN hasn't been instantiated yet, then setup some example
+        # data to fix the structure of the GNN.        
+        if self._gnn is None:
+            state, goal, option, _, _, _ = self._replay_buffer[0]
+            atoms = utils.abstract(state, self._initial_predicates)
+            # Set up exemplar, which is just the first tuple in the data.
+            example_input_graph, _ = self._graphify_single_input(
+                state, atoms, goal, option)
+            # We can't estimate a q-value given inputs yet, since we don't have
+            # the GNN instantiated. Thus, we will simply pick a random value.
+            q_val = self._rng.random()
+            example_target = self._graphify_single_target(q_val,
+                                                        example_input_graph)
+            self._data_exemplar = (example_input_graph, example_target)
+            example_dataset = GraphDictDataset([example_input_graph], [example_target])
+            self._gnn = setup_graph_net(example_dataset,
+                                        num_steps=CFG.gnn_num_message_passing,
+                                        layer_size=CFG.gnn_layer_size)
 
-        # Set up exemplar, which is just the first tuple in the data.
-        example_input, example_object_to_node = self._graphify_single_input(
-            data[0][0], data[0][1], data[0][2])
-        example_target = self._graphify_single_target(data[0][3],
-                                                      example_input,
-                                                      example_object_to_node)
-        self._data_exemplar = (example_input, example_target)
-        example_dataset = GraphDictDataset([example_input], [example_target])
-        self._gnn = setup_graph_net(example_dataset,
-                                    num_steps=CFG.gnn_num_message_passing,
-                                    layer_size=CFG.gnn_layer_size)
-        # Set up all the graphs, now using *all* the data.
+        # Set up all the input and output graphs, now using *all* the data.
         inputs = [(d[0], d[1], d[2]) for d in data]
         targets = [d[3] for d in data]
         graph_inputs = []

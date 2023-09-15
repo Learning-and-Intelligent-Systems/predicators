@@ -1306,8 +1306,8 @@ def _train_pytorch_model(model: nn.Module,
     return best_loss
 
 
-# Low-level state, current high-level (predicate) state, option taken,
-# next low-level state, reward, done.
+# Low-level state, goal, option taken, next low-level state,
+# reward, done.
 MapleQData = Tuple[State, Set[GroundAtom], _Option, State, float, bool]
 
 
