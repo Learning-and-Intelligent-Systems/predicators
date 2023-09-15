@@ -62,12 +62,12 @@ class GNNMapleQApproach(OnlineNSRTLearningApproach):
             discount=0.99,
             batch_size=CFG.active_sampler_learning_batch_size,
             initial_predicates=self._initial_predicates,
-            initial_options=self._initial_options
+            initial_options=self._initial_options,
         )
 
     @classmethod
     def get_name(cls) -> str:
-        return "maple_q"
+        return "gnn_maple_q"
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
@@ -197,13 +197,12 @@ class GNNMapleQApproach(OnlineNSRTLearningApproach):
 
 class GNNMapleQFunction():
 
-    def __init__(self, seed: int, n_iter_no_change: int,
+    def __init__(self, seed: int,
                  num_lookahead_samples: int, max_replay_buffer_size: int,
                  discount: float, batch_size: int,
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption]):
         self._seed = seed
-        self._n_iter_no_change = n_iter_no_change
         self._num_lookahead_samples = num_lookahead_samples
         self._max_replay_buffer_size = max_replay_buffer_size
         self._replay_buffer = deque(maxlen=self._max_replay_buffer_size)
@@ -241,7 +240,7 @@ class GNNMapleQFunction():
                       goals: Collection[Set[GroundAtom]],
                       ground_nsrts: Collection[_GroundNSRT]) -> None:
         del objects, goals # unused
-        self._ground_nsrts = sorted(ground_nsrts, key=lambda n: n.name)
+        self._ordered_ground_nsrts = sorted(ground_nsrts, key=lambda n: n.name)
 
     def _graphify_single_target(self, target_q_val: float,
                                 graph_input: Dict) -> Dict:
