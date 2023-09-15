@@ -223,6 +223,8 @@ class GNNMapleQFunction():
         self._replay_buffer = deque(maxlen=self._max_replay_buffer_size)
         self._initial_predicates = initial_predicates
         self._initial_options = initial_options
+        self._sorted_options: List[ParameterizedOption] = sorted(
+            self._initial_options, key=lambda o: o.name)
         # Fields for the GNN; we initially just initialize them to
         # default values.
         self._gnn: Optional[EncodeProcessDecode] = None
@@ -367,7 +369,6 @@ class GNNMapleQFunction():
         for binary_predicate in binary_predicates:
             self._edge_feature_to_index[G(R(binary_predicate))] = index
             index += 1
-
     
     def _graphify_single_input(self, state: State, atoms: Set[GroundAtom],
                                goal: Set[GroundAtom], option: _Option) -> Tuple[Dict, Dict]:
@@ -383,7 +384,8 @@ class GNNMapleQFunction():
 
         graph = {}
 
-        # Input globals: nullary predicates in atoms and goal.
+        # Input globals: nullary predicates in atoms and goal, option index,
+        # and option continuous params
         atoms_globals = np.zeros(len(self._nullary_predicates), dtype=np.int64)
         for atom in atoms:
             if atom.predicate.arity != 0:
@@ -394,6 +396,10 @@ class GNNMapleQFunction():
             if atom.predicate.arity != 0:
                 continue
             goal_globals[self._nullary_predicates.index(atom.predicate)] = 1
+        option_globals = np.zeros(len(self._sorted_options), dtype=np.int64)
+        option_globals[self._sorted_options.index(option.parent)] = 1
+        continuous_params_globals = np.zeros(self._max_option_params, dtype=np.float32)
+        continuous_params_globals[:option.params.shape[0]] = option.params
         graph["globals"] = np.r_[atoms_globals, goal_globals]
 
         # Add nodes (one per object) and node features.
@@ -429,6 +435,13 @@ class GNNMapleQFunction():
                 feat_index = self._node_feature_to_index[f"feat_{feat}"]
                 node_features[obj_index, feat_index] = val
 
+        ## Finally, create node features for the objects involved in the
+        ## currently-taken option.
+        option_objs_mask = np.zeros((num_objects, self._max_option_objects))
+        for i, obj in enumerate(option.objects):
+            option_objs_mask[object_to_node[obj], i] = 1
+        
+        node_features = np.concatenate((node_features, option_objs_mask), axis=1)
         graph["nodes"] = node_features
 
         # Deal with edge case (pun).
