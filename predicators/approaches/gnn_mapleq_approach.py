@@ -417,7 +417,8 @@ class GNNMapleQFunction():
         continuous_params_globals = np.zeros(self._max_option_params,
                                              dtype=np.float32)
         continuous_params_globals[:option.params.shape[0]] = option.params
-        graph["globals"] = np.r_[atoms_globals, goal_globals]
+
+        graph["globals"] = np.r_[atoms_globals, goal_globals, option_globals, continuous_params_globals]
 
         # Add nodes (one per object) and node features.
         graph["n_node"] = np.array(num_objects)
