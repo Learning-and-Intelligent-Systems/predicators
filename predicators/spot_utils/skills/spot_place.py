@@ -1,5 +1,6 @@
 """Interface for spot placing skill."""
 
+import numpy as np
 from bosdyn.client import math_helpers
 from bosdyn.client.sdk import Robot
 
@@ -7,15 +8,23 @@ from predicators.spot_utils.skills.spot_hand_move import \
     move_hand_to_relative_pose, open_gripper
 
 
-def place_at_relative_pose(robot: Robot,
-                           body_tform_goal: math_helpers.SE3Pose) -> None:
+def place_at_relative_position(robot: Robot,
+                               body_to_position: math_helpers.Vec3,
+                               downward_angle: float = np.pi / 3) -> None:
     """Assuming something is held, place is at the given pose.
 
-    The pose is relative to the robot's body. It is the responsibility
+    The position is relative to the robot's body. It is the responsibility
     of the user of this method to specify a pose that makes sense, e.g.,
     one with an angle facing downward to facilitate the place.
+
+    Placing is always straight ahead of the robot, angled down.
     """
     # First move the hand to the target pose.
+    rot = math_helpers.Quat.from_pitch(downward_angle)
+    body_tform_goal = math_helpers.SE3Pose(x=body_to_position.x,
+                                           y=body_to_position.y,
+                                           z=body_to_position.z,
+                                           rot=rot)
     move_hand_to_relative_pose(robot, body_tform_goal)
     # Open the hand.
     open_gripper(robot)
@@ -29,7 +38,6 @@ if __name__ == "__main__":
     # the location where it wants to place.
 
     # pylint: disable=ungrouped-imports
-    import numpy as np
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.lease import LeaseClient
     from bosdyn.client.util import authenticate
@@ -55,11 +63,7 @@ if __name__ == "__main__":
         lease_client = robot.ensure_client(LeaseClient.default_service_name)
         lease_client.take()
         robot.time_sync.wait_for_sync()
-        target_pose = math_helpers.SE3Pose(x=0.80,
-                                           y=0,
-                                           z=0.25,
-                                           rot=math_helpers.Quat.from_pitch(
-                                               np.pi / 3))
-        place_at_relative_pose(robot, target_pose)
+        target_pos = math_helpers.Vec3(0.8, 0.0, 0.25)
+        place_at_relative_position(robot, target_pos)
 
     _run_manual_test()

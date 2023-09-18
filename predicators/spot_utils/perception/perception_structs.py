@@ -45,11 +45,23 @@ class AprilTagObjectDetectionID(ObjectDetectionID):
     april_tag_number: int
     offset_transform: math_helpers.SE3Pose
 
+    def __str__(self) -> str:
+        return f"AprilTag({self.april_tag_number})"
+
+    def __repr__(self) -> str:
+        return f"AprilTag({self.april_tag_number})"
+
 
 @dataclass(frozen=True)
 class LanguageObjectDetectionID(ObjectDetectionID):
     """An ID for an object to be detected with a vision-language model."""
     language_id: str
+
+    def __str__(self) -> str:
+        return f"LanguageID({self.language_id})"
+
+    def __repr__(self) -> str:
+        return f"LanguageID({self.language_id})"
 
 
 @dataclass(frozen=True)

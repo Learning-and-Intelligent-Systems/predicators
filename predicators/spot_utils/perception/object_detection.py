@@ -67,7 +67,7 @@ def detect_objects(
             april_tag_object_ids, rgbd)
         # Possibly overrides previous detections.
         detections.update(img_detections)
-        artifacts["april"].update(img_artifacts)
+        artifacts["april"][rgbd.camera_name] = img_artifacts
 
     # There IS batching over images here for efficiency.
     language_detections, language_artifacts = detect_objects_from_language(
@@ -82,7 +82,7 @@ def detect_objects_from_april_tags(
     object_ids: Collection[AprilTagObjectDetectionID],
     rgbd: RGBDImageWithContext,
     fiducial_size: float = CFG.spot_fiducial_size,
-) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict]:
     """Detect an object pose from an april tag.
 
     The rotation is currently not detected (set to default).
@@ -103,7 +103,7 @@ def detect_objects_from_april_tags(
     apriltag_detections = detector.detect(image_grey)
 
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
-    artifacts: Dict[str, Any] = {}
+    artifacts: Dict = {}
 
     # For every detection, find pose in world frame.
     for apriltag_detection in apriltag_detections:
@@ -113,8 +113,7 @@ def detect_objects_from_april_tags(
         obj_id = tag_num_to_object_id[apriltag_detection.tag_id]
 
         # Save the detection for external analysis.
-        artifact_id = f"apriltag_{rgbd.camera_name}_{obj_id.april_tag_number}"
-        artifacts[artifact_id] = apriltag_detection
+        artifacts[obj_id] = apriltag_detection
 
         # Get the pose from the apriltag library.
         intrinsics = rgbd.camera_model.intrinsics
@@ -147,7 +146,7 @@ def detect_objects_from_april_tags(
 def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],
-) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict]:
     """Detect an object pose using a vision-language model.
 
     The second return value is a dictionary of "artifacts", which
@@ -348,6 +347,36 @@ def _get_pose_from_segmented_bounding_box(
     world_frame_pose = rgbd.world_tform_camera * camera_frame_pose
 
     return world_frame_pose
+
+
+def get_object_center_pixel_from_artifacts(
+        artifacts: Dict[str, Any], object_id: ObjectDetectionID,
+        camera_name: str) -> Tuple[int, int]:
+    """Extract the pixel in the image corresponding to the center of the object
+    with object ID.
+
+    The typical use case is to get the pixel to pass into the grasp
+    controller. This is a fairly hacky way to go about this, but since
+    the grasp controller parameterization is a special case (most users
+    of object detection shouldn't need to care about the pixel), we do
+    this.
+    """
+    if isinstance(object_id, AprilTagObjectDetectionID):
+        try:
+            april_detection = artifacts["april"][camera_name][object_id]
+        except KeyError:
+            raise ValueError(f"{object_id} not detected in {camera_name}")
+        pr, pc = april_detection.center
+        return int(pr), int(pc)
+
+    assert isinstance(object_id, LanguageObjectDetectionID)
+    detections = artifacts["language"]["object_id_to_img_detections"]
+    try:
+        seg_bb = detections[object_id][camera_name]
+    except KeyError:
+        raise ValueError(f"{object_id} not detected in {camera_name}")
+    x1, y1, x2, y2 = seg_bb.bounding_box
+    return int((x1 + x2) / 2), int((y1 + y2) / 2)
 
 
 def _visualize_all_artifacts(artifacts: Dict[str,

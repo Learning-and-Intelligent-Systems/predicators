@@ -26,8 +26,9 @@ from bosdyn.client import ResponseError, TimedOutError, math_helpers
 from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
+
+from predicators.spot_utils.utils import get_robot_state
 
 
 class LocalizationFailure(Exception):
@@ -47,10 +48,6 @@ class SpotLocalizer:
 
         # Force trigger timesync.
         self._robot.time_sync.wait_for_sync()
-
-        # Create robot state client.
-        self._robot_state_client = self._robot.ensure_client(
-            RobotStateClient.default_service_name)
 
         # Create the client for the Graph Nav main service.
         self.graph_nav_client = self._robot.ensure_client(
@@ -122,7 +119,7 @@ class SpotLocalizer:
         It's good practice to call this periodically to avoid drift
         issues. April tags need to be in view.
         """
-        robot_state = self._robot_state_client.get_robot_state()
+        robot_state = get_robot_state(self._robot)
         current_odom_tform_body = get_odom_tform_body(
             robot_state.kinematic_state.transforms_snapshot).to_proto()
         localization = nav_pb2.Localization()
@@ -153,6 +150,7 @@ if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
 
+    # pylint: disable=ungrouped-imports
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.util import authenticate
 

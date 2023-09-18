@@ -1,5 +1,5 @@
 """Utility functions for capturing images from Spot's cameras."""
-from typing import Collection, Dict, Type
+from typing import Collection, Dict, Optional, Type
 
 import cv2
 import numpy as np
@@ -34,11 +34,17 @@ RGB_TO_DEPTH_CAMERAS = {
 def capture_images(
     robot: Robot,
     localizer: SpotLocalizer,
-    camera_names: Collection[str],
+    camera_names: Optional[Collection[str]] = None,
     quality_percent: int = 100,
     relocalize: bool = False,
 ) -> Dict[str, RGBDImageWithContext]:
-    """Build an image request and get the responses."""
+    """Build an image request and get the responses.
+
+    If no camera names are provided, all RGB cameras are used.
+    """
+    if camera_names is None:
+        camera_names = set(RGB_TO_DEPTH_CAMERAS)
+
     image_client = robot.ensure_client(ImageClient.default_service_name)
 
     rgbds: Dict[str, RGBDImageWithContext] = {}

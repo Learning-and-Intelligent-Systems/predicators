@@ -11,8 +11,10 @@ from bosdyn.client import math_helpers
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, ODOM_FRAME_NAME, \
     get_se2_a_tform_b
 from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient
-from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
+
+from predicators.spot_utils.spot_localization import SpotLocalizer
+from predicators.spot_utils.utils import HOME_POSE, get_robot_state
 
 
 def navigate_to_relative_pose(robot: Robot,
@@ -28,9 +30,7 @@ def navigate_to_relative_pose(robot: Robot,
     The pose is dx, dy, dyaw relative to the robot's body.
     """
     # Get the robot's current state.
-    robot_state_client = robot.ensure_client(
-        RobotStateClient.default_service_name)
-    robot_state = robot_state_client.get_robot_state()
+    robot_state = get_robot_state(robot)
     transforms = robot_state.kinematic_state.transforms_snapshot
     assert str(transforms) != ""
 
@@ -80,6 +80,19 @@ def navigate_to_relative_pose(robot: Robot,
             return
     if (time.perf_counter() - start_time) > timeout:
         logging.warning("Timed out waiting for movement to execute!")
+
+
+def go_home(robot: Robot,
+            localizer: SpotLocalizer,
+            max_xytheta_vel: Tuple[float, float, float] = (2.0, 2.0, 1.0),
+            min_xytheta_vel: Tuple[float, float, float] = (-2.0, -2.0, -1.0),
+            timeout: float = 20.0) -> None:
+    """Navigate to a known home position (defined in utils.py)."""
+    robot_pose = localizer.get_last_robot_pose()
+    robot_se2 = robot_pose.get_closest_se2_transform()
+    rel_pose = robot_se2.inverse() * HOME_POSE
+    return navigate_to_relative_pose(robot, rel_pose, max_xytheta_vel,
+                                     min_xytheta_vel, timeout)
 
 
 if __name__ == "__main__":
