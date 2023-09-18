@@ -21,11 +21,16 @@ import time
 from pathlib import Path
 from typing import Dict
 
-from bosdyn.api.graph_nav import map_pb2
+from bosdyn.api.graph_nav import map_pb2, nav_pb2
 from bosdyn.client import ResponseError, TimedOutError, math_helpers
+from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
+
+from predicators.spot_utils.utils import get_robot_state
+
+_MAP_INITIALIZED = False
 
 
 class LocalizationFailure(Exception):
@@ -116,7 +121,16 @@ class SpotLocalizer:
         It's good practice to call this periodically to avoid drift
         issues. April tags need to be in view.
         """
+        global _MAP_INITIALIZED
+        robot_state = get_robot_state(self._robot)
+        current_odom_tform_body = get_odom_tform_body(
+            robot_state.kinematic_state.transforms_snapshot).to_proto()
+        localization = nav_pb2.Localization()
         try:
+            if not _MAP_INITIALIZED:
+                self.graph_nav_client.set_localization(
+                    initial_guess_localization=localization,
+                    ko_tform_body=current_odom_tform_body)
             localization_state = self.graph_nav_client.get_localization_state()
             transform = localization_state.localization.seed_tform_body
             if str(transform) == "":
@@ -132,6 +146,7 @@ class SpotLocalizer:
             return self.localize(num_retries=num_retries - 1,
                                  retry_wait_time=retry_wait_time)
         logging.info("Localization succeeded.")
+        _MAP_INITIALIZED = True
         self._robot_pose = math_helpers.SE3Pose.from_proto(transform)
         return None
 
