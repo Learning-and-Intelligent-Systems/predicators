@@ -112,12 +112,14 @@ def test_find_move_pick_place(
         navigate_to_relative_pose(robot, rel_pose)
         localizer.localize()
 
-    # Place on the surface.
-    robot_pose = localizer.get_last_robot_pose()
-    surface_rel_pose = robot_pose.inverse() * detections[target_surface_id]
-    place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x,
-                                      y=surface_rel_pose.y,
-                                      z=surface_rel_pose.z + place_offset_z)
+        # Place on the surface.
+        robot_pose = localizer.get_last_robot_pose()
+        surface_rel_pose = robot_pose.inverse() * detections[target_surface_id]
+        place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x,
+                                        y=surface_rel_pose.y,
+                                        z=surface_rel_pose.z + place_offset_z)
+
+    # TODO: Make and test a placement just onto the floor.
     place_at_relative_position(robot, place_rel_pos)
 
     # Finish by stowing arm again.
