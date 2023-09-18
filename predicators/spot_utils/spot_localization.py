@@ -121,7 +121,7 @@ class SpotLocalizer:
         It's good practice to call this periodically to avoid drift
         issues. April tags need to be in view.
         """
-        global _MAP_INITIALIZED
+        global _MAP_INITIALIZED  # pylint: disable=global-statement
         robot_state = get_robot_state(self._robot)
         current_odom_tform_body = get_odom_tform_body(
             robot_state.kinematic_state.transforms_snapshot).to_proto()
