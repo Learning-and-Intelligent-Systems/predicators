@@ -2,7 +2,7 @@
 
 Run with --spot_robot_ip and any other flags.
 """
-
+from typing import Optional
 from pathlib import Path
 
 import numpy as np
@@ -36,8 +36,8 @@ def test_find_move_pick_place(
     robot: Robot,
     localizer: SpotLocalizer,
     manipuland_id: ObjectDetectionID,
-    init_surface_id: ObjectDetectionID,
-    target_surface_id: ObjectDetectionID,
+    init_surface_id: Optional[ObjectDetectionID],
+    target_surface_id: Optional[ObjectDetectionID],
     pre_pick_nav_distance: float = 1.25,
     pre_place_nav_distance: float = 1.0,
     pre_pick_nav_angle: float = -np.pi / 2,
@@ -56,19 +56,33 @@ def test_find_move_pick_place(
     localizer.localize()
 
     # Find objects.
-    object_ids = [manipuland_id, init_surface_id, target_surface_id]
+    object_ids = [manipuland_id]
+    if init_surface_id is not None:
+        object_ids.append(init_surface_id)
+    if target_surface_id is not None:
+        object_ids.append(target_surface_id)
     detections, _ = find_objects(robot, localizer, object_ids)
 
     # Get current robot pose.
     robot_pose = localizer.get_last_robot_pose()
-
-    # Navigate to the first surface.
-    rel_pose = get_relative_se2_from_se3(robot_pose,
-                                         detections[init_surface_id],
-                                         pre_pick_nav_distance,
-                                         pre_pick_nav_angle)
-    navigate_to_relative_pose(robot, rel_pose)
-    localizer.localize()
+    if init_surface_id is not None:
+        # Navigate to the first surface.
+        rel_pose = get_relative_se2_from_se3(robot_pose,
+                                            detections[init_surface_id],
+                                            pre_pick_nav_distance,
+                                            pre_pick_nav_angle)
+        navigate_to_relative_pose(robot, rel_pose)
+        localizer.localize()
+    else:
+        # In this case, we assume the object is on the floor.
+        # TODO: the pre pick nav distance is too close if the object
+        # is on the floor
+        rel_pose = get_relative_se2_from_se3(robot_pose,
+                                            detections[manipuland_id],
+                                            pre_pick_nav_distance,
+                                            pre_pick_nav_angle)
+        navigate_to_relative_pose(robot, rel_pose)
+        localizer.localize()
 
     # Look down at the surface.
     move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_DOWN_POSE)
@@ -92,13 +106,14 @@ def test_find_move_pick_place(
     stow_arm(robot)
 
     # Navigate to the other surface.
-    robot_pose = localizer.get_last_robot_pose()
-    rel_pose = get_relative_se2_from_se3(robot_pose,
-                                         detections[target_surface_id],
-                                         pre_place_nav_distance,
-                                         pre_place_nav_angle)
-    navigate_to_relative_pose(robot, rel_pose)
-    localizer.localize()
+    if target_surface_id is not None:
+        robot_pose = localizer.get_last_robot_pose()
+        rel_pose = get_relative_se2_from_se3(robot_pose,
+                                            detections[target_surface_id],
+                                            pre_place_nav_distance,
+                                            pre_place_nav_angle)
+        navigate_to_relative_pose(robot, rel_pose)
+        localizer.localize()
 
     # Place on the surface.
     robot_pose = localizer.get_last_robot_pose()
@@ -145,18 +160,23 @@ def test_all_find_move_pick_place() -> None:
     cube = AprilTagObjectDetectionID(
         410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
 
-    # Assume that the tables are at the "front" of the room (with the hall
-    # on the left when on the fourth floor).
-    input("Set up the tables and CUBE on the north wall")
-    test_find_move_pick_place(robot, localizer, cube, init_surface,
-                              target_surface)
+    # # Assume that the tables are at the "front" of the room (with the hall
+    # # on the left when on the fourth floor).
+    # input("Set up the tables and CUBE on the north wall")
+    # test_find_move_pick_place(robot, localizer, cube, init_surface,
+    #                           target_surface)
 
-    # Run test with brush.
-    # Assume that the tables are at the "front" of the room (with the hall
-    # on the left when on the fourth floor).
-    brush = LanguageObjectDetectionID("brush")
-    input("Set up the tables and BRUSH on the north wall")
-    test_find_move_pick_place(robot, localizer, brush, init_surface,
+    # # Run test with brush.
+    # # Assume that the tables are at the "front" of the room (with the hall
+    # # on the left when on the fourth floor).
+    # brush = LanguageObjectDetectionID("brush")
+    # input("Set up the tables and BRUSH on the north wall")
+    # test_find_move_pick_place(robot, localizer, cube, init_surface,
+    #                           target_surface)
+
+    # Run test with cube on floor.
+    input("Place the cube anywhere on the floor")
+    test_find_move_pick_place(robot, localizer, cube, None,
                               target_surface)
 
     # Run test with tables moved so that the init table is on the wall adjacent
