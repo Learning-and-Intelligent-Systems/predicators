@@ -1,6 +1,12 @@
 # Sanity test for online RL approach.
 ---
 APPROACHES:
+  gnn_maple_q:
+    NAME: "gnn_maple_q"
+    FLAGS:
+        explorer: "maple_q"
+        gnn_do_normalization: True
+        gnn_num_epochs: 1000
   maple_q:
     NAME: "maple_q"
     FLAGS:
