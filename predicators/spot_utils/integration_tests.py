@@ -37,7 +37,7 @@ def test_find_move_pick_place(
     localizer: SpotLocalizer,
     manipuland_id: ObjectDetectionID,
     init_surface_id: Optional[ObjectDetectionID],
-    target_surface_id: Optional[ObjectDetectionID],
+    target_surface_id: ObjectDetectionID,
     pre_pick_nav_distance: float = 1.25,
     pre_place_nav_distance: float = 1.0,
     pre_pick_nav_angle: float = -np.pi / 2,
@@ -103,23 +103,20 @@ def test_find_move_pick_place(
     stow_arm(robot)
 
     # Navigate to the other surface.
-    if target_surface_id is not None:
-        robot_pose = localizer.get_last_robot_pose()
-        rel_pose = get_relative_se2_from_se3(robot_pose,
-                                             detections[target_surface_id],
-                                             pre_place_nav_distance,
-                                             pre_place_nav_angle)
-        navigate_to_relative_pose(robot, rel_pose)
-        localizer.localize()
+    robot_pose = localizer.get_last_robot_pose()
+    rel_pose = get_relative_se2_from_se3(robot_pose,
+                                         detections[target_surface_id],
+                                         pre_place_nav_distance,
+                                         pre_place_nav_angle)
+    navigate_to_relative_pose(robot, rel_pose)
+    localizer.localize()
 
-        # Place on the surface.
-        robot_pose = localizer.get_last_robot_pose()
-        surface_rel_pose = robot_pose.inverse() * detections[target_surface_id]
-        place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x,
-                                        y=surface_rel_pose.y,
-                                        z=surface_rel_pose.z + place_offset_z)
-
-    # TODO: Make and test a placement just onto the floor.
+    # Place on the surface.
+    robot_pose = localizer.get_last_robot_pose()
+    surface_rel_pose = robot_pose.inverse() * detections[target_surface_id]
+    place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x,
+                                      y=surface_rel_pose.y,
+                                      z=surface_rel_pose.z + place_offset_z)
     place_at_relative_position(robot, place_rel_pos)
 
     # Finish by stowing arm again.
