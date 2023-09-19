@@ -112,8 +112,8 @@ class GNNMapleQFunction(MapleQFunction):
 
     def __getnewargs__(self) -> Tuple:
         # TODO
-        return ("TODO",)
-    
+        return ("TODO", )
+
     def __getstate__(self) -> Dict:
         return {}
 
@@ -318,7 +318,7 @@ class GNNMapleQFunction(MapleQFunction):
         ## currently-taken option.
         for i, obj in enumerate(option.objects):
             obj_index = object_to_node[obj]
-            feat_index = self._node_feature_to_index[ f"option_index_{i}"]
+            feat_index = self._node_feature_to_index[f"option_index_{i}"]
             node_features[obj_index, feat_index] = 1
 
         graph["nodes"] = node_features
@@ -398,13 +398,14 @@ class GNNMapleQFunction(MapleQFunction):
     def _get_q_function_input(self, state: State, goal: Set[GroundAtom],
                               option: _Option) -> Any:
         atoms = utils.abstract(state, self._predicates)
-        in_graph, _  = self._graphify_single_input(state, atoms, goal, option)
+        in_graph, _ = self._graphify_single_input(state, atoms, goal, option)
         return in_graph
 
     def _get_q_value_from_prediction(self, prediction: Any) -> float:
         return prediction["globals"][0]
 
-    def _get_prediction_from_q_value(self, value: float, q_function_input: Any) -> Any:
+    def _get_prediction_from_q_value(self, value: float,
+                                     q_function_input: Any) -> Any:
         # Copy the graph and substitute the globals.
         out_graph = {k: v.copy() for k, v in q_function_input.items()}
         out_graph["globals"] = np.array([value], dtype=np.float32)

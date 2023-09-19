@@ -1503,9 +1503,11 @@ class MapleQFunction(MLPRegressor):
     def _get_q_value_from_prediction(self, prediction: Any) -> float:
         """Subclasses may override."""
         return prediction[0]
-    
-    def _get_prediction_from_q_value(self, value: float, q_function_input: Any) -> Any:
-        """An inverse to _get_q_value_from_prediction() used for creating learning targets."""
+
+    def _get_prediction_from_q_value(self, value: float,
+                                     q_function_input: Any) -> Any:
+        """An inverse to _get_q_value_from_prediction() used for creating
+        learning targets."""
         del q_function_input  # subclasses may use
         return np.array([value], dtype=np.float32)
 
