@@ -1381,6 +1381,8 @@ class MapleQFunction(MLPRegressor):
         if self._rng.uniform() < epsilon:
             options = self._sample_applicable_options_from_state(
                 state, num_samples_per_applicable_nsrt=1)
+            # Note that this assumes that the output of sampling is completely
+            # random, including in the order of ground NSRTs.
             return options[0]
         # Return the best option (approx argmax.)
         options = self._sample_applicable_options_from_state(
@@ -1555,6 +1557,12 @@ class MapleQFunction(MLPRegressor):
                 set(o.objects).issubset(state_objs) and all(
                 a.holds(state) for a in o.preconditions)
         ]
+        # Randomize order of applicable NSRTs to assure that the output order
+        # of this function is completely randomized.
+        indices = list(range(len(applicable_nsrts)))
+        self._rng.shuffle(indices)
+        applicable_nsrts = [applicable_nsrts[i] for i in indices]
+        # Sample options per NSRT.
         sampled_options: List[_Option] = []
         for app_nsrt in applicable_nsrts:
             for _ in range(num_samples_per_applicable_nsrt):
