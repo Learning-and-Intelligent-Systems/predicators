@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from predicators import utils
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
-    Predicate, State, _GroundNSRT, _Option
+    State, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1588,3 +1588,12 @@ class MapleQFunction(MLPRegressor):
                 assert option.initiable(state)
                 sampled_options.append(option)
         return sampled_options
+
+    def save(self, model_path: str) -> None:
+        torch.save(self.state_dict(), model_path)
+
+    def load(self, model_path: str) -> None:
+        # Load best model.
+        self.load_state_dict(torch.load(model_path,
+                                        map_location='cpu'))  # type: ignore
+        self.to(self._device)

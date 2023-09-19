@@ -8,10 +8,8 @@ Base samplers and applicable actions are used to perform the argmax.
 
 from __future__ import annotations
 
-import abc
 import functools
 import logging
-from collections import deque
 from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 
 import dill as pkl
@@ -26,7 +24,7 @@ from predicators.gnn.gnn import EncodeProcessDecode, GraphDictDataset, \
 from predicators.gnn.gnn_utils import compute_normalizers, \
     get_single_model_prediction, graph_batch_collate, normalize_graph, \
     train_model
-from predicators.ml_models import MapleQData, MapleQFunction
+from predicators.ml_models import MapleQFunction
 from predicators.settings import CFG
 from predicators.structs import GroundAtom, Object, ParameterizedOption, \
     Predicate, State, Type, _GroundNSRT, _Option
@@ -36,8 +34,6 @@ class GNNMapleQApproach(MapleQApproach):
     """A parameterized action RL approach inspired by MAPLE."""
 
     def _initialize_q_function(self) -> MapleQFunction:
-        # Store the Q function. Note that this implicitly
-        # contains a replay buffer.
         return GNNMapleQFunction(
             seed=CFG.seed,
             predicates=self._get_current_predicates(),
@@ -109,13 +105,6 @@ class GNNMapleQFunction(MapleQFunction):
 
         # Initialize the loss function (for the globals only).
         self._mse_loss = torch.nn.MSELoss()
-
-    def __getnewargs__(self) -> Tuple:
-        # TODO
-        return ("TODO", )
-
-    def __getstate__(self) -> Dict:
-        return {}
 
     def set_grounding(self, init_states: Collection[State],
                       objects: Set[Object], goals: Collection[Set[GroundAtom]],
@@ -380,10 +369,10 @@ class GNNMapleQFunction(MapleQFunction):
 
         return graph, object_to_node
 
-    def predict(self, in_graph: Any) -> Any:  # type: ignore
+    def predict(self, x: Any) -> Any:  # type: ignore
         if CFG.gnn_do_normalization:
-            in_graph = normalize_graph(in_graph, self._input_normalizers)
-        out_graph = get_single_model_prediction(self._gnn, in_graph)
+            in_graph = normalize_graph(x, self._input_normalizers)
+        out_graph = get_single_model_prediction(self._gnn, x)
         if CFG.gnn_do_normalization:
             out_graph = normalize_graph(out_graph,
                                         self._target_normalizers,
@@ -458,3 +447,42 @@ class GNNMapleQFunction(MapleQFunction):
                                       num_epochs=CFG.gnn_num_epochs,
                                       do_validation=CFG.gnn_use_validation_set)
         self._gnn.load_state_dict(best_model_dict)
+
+    def save(self, model_path: str) -> None:
+        assert self._gnn is not None
+        state_dict = self._gnn.state_dict()
+        info = {
+            "predicates": self._predicates,
+            "sorted_types": self._sorted_types,
+            "sorted_options": self._sorted_options,
+            "gnn": state_dict,
+            "nullary_predicates": self._nullary_predicates,
+            "node_feature_to_index": self._node_feature_to_index,
+            "edge_feature_to_index": self._edge_feature_to_index,
+            "input_normalizers": self._input_normalizers,
+            "target_normalizers": self._target_normalizers,
+            "data_exemplar": self._data_exemplar,
+            "max_option_objects": self._max_option_objects,
+        }
+        with open(f"{model_path}_None.gnn", "wb") as f:
+            pkl.dump(info, f)
+
+    def load(self, model_path: str) -> None:
+        with open(model_path, "rb") as f:
+            info = pkl.load(f)
+        # Initialize fields from loaded dictionary.
+        input_example, target_example = info["data_exemplar"]
+        dataset = GraphDictDataset([input_example], [target_example])
+        self._gnn = setup_graph_net(dataset,
+                                    num_steps=CFG.gnn_num_message_passing,
+                                    layer_size=CFG.gnn_layer_size)
+        self._gnn.load_state_dict(info["state_dict"])
+        self._predicates = info["predicates"]
+        self._sorted_types = info["sorted_types"]
+        self._sorted_options = info["sorted_options"]
+        self._nullary_predicates = info["nullary_predicates"]
+        self._node_feature_to_index = info["node_feature_to_index"]
+        self._edge_feature_to_index = info["edge_feature_to_index"]
+        self._input_normalizers = info["input_normalizers"]
+        self._target_normalizers = info["target_normalizers"]
+        self._max_option_objects = info["max_option_objects"]

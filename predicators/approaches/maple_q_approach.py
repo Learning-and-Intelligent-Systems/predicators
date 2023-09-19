@@ -100,7 +100,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
             save_dict = pkl.load(f)
-        self._q_function = save_dict["q_function"]
+        self._q_function.load(f"{save_path}_{online_learning_cycle}.MAPLE")
         self._last_seen_segment_traj_idx = save_dict[
             "last_seen_segment_traj_idx"]
         self._interaction_goals = save_dict["interaction_goals"]
@@ -158,11 +158,11 @@ class MapleQApproach(OnlineNSRTLearningApproach):
         with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
             pkl.dump(
                 {
-                    "q_function": self._q_function,
                     "last_seen_segment_traj_idx":
                     self._last_seen_segment_traj_idx,
                     "interaction_goals": self._interaction_goals,
                 }, f)
+        self._q_function.save(f"{save_path}_{online_learning_cycle}.MAPLE")
 
     def _update_maple_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
