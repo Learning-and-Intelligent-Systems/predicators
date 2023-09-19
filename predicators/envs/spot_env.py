@@ -6,6 +6,10 @@ Example usage with apriltag grasping:
      --bilevel_plan_without_sim True --spot_grasp_use_apriltag True
      --perceiver spot_bike_env
 """
+from bosdyn.client import create_standard_sdk, math_helpers
+from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.client.sdk import Robot
+from bosdyn.client.util import authenticate
 
 import abc
 import functools
@@ -14,7 +18,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
-    Tuple
+    Tuple, Union
 
 import matplotlib
 import numpy as np
@@ -29,6 +33,16 @@ from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Image, LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
     Type, Variable
+from predicators.spot_utils.spot_localization import SpotLocalizer
+from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
+    get_relative_se2_from_se3, verify_estop
+from predicators.spot_utils.perception.object_detection import \
+    AprilTagObjectDetectionID, LanguageObjectDetectionID, detect_objects, \
+    get_object_center_pixel_from_artifacts, ObjectDetectionID
+from predicators.spot_utils.skills.spot_navigation import go_home, \
+    navigate_to_relative_pose
+from predicators.spot_utils.skills.spot_find_objects import find_objects
+
 
 ###############################################################################
 #                                Base Class                                   #
@@ -127,12 +141,43 @@ class SpotEnv(BaseEnv):
         super().__init__(use_gui)
         assert "spot_wrapper" in CFG.approach, \
             "Must use spot wrapper in spot envs!"
-        self._spot_interface = get_spot_interface()
+        # self._spot_interface = get_spot_interface()
         # Note that we need to include the operators in this
         # class because they're used to update the symbolic
         # parts of the state during execution.
+
+        hostname = CFG.spot_robot_ip
+        upload_dir = Path(
+            __file__).parent.parent / "spot_utils" / "graph_nav_maps"
+        path = upload_dir / CFG.spot_graph_nav_map
+        sdk = create_standard_sdk("PredicatorsClient")
+        self.robot = sdk.create_robot(hostname)
+        authenticate(self.robot)
+        verify_estop(self.robot)
+        self.lease_client = self.robot.ensure_client(
+            LeaseClient.default_service_name)
+        self.lease_client.take()
+        self.lease_keepalive = LeaseKeepAlive(self.lease_client,
+                                              must_acquire=True,
+                                              return_at_exit=True)
+        assert path.exists()
+        self.localizer = SpotLocalizer(self.robot, path, self.lease_client,
+                                       self.lease_keepalive)
+
         self._strips_operators: Set[STRIPSOperator] = set()
         self._current_task_goal_reached = False
+
+    @property
+    def params_spaces(self) -> Dict[str, Box]:
+        """The parameter spaces for each of the controllers."""
+        return {
+            "navigate": Box(-5.0, 5.0, (3, )),
+            "grasp": Box(-1.0, 2.0, (4, )),
+            "graspFromPlatform": Box(-1.0, 2.0, (4, )),
+            "placeOnTop": Box(-5.0, 5.0, (3, )),
+            "drag": Box(-12.0, 12.0, (2, )),
+            "noop": Box(0, 1, (0, ))
+        }
 
     @property
     def _ordered_strips_operators(self) -> List[STRIPSOperator]:
@@ -148,8 +193,7 @@ class SpotEnv(BaseEnv):
 
     @property
     def _max_controller_params(self) -> int:
-        return max(p.shape[0]
-                   for p in self._spot_interface.params_spaces.values())
+        return max(p.shape[0] for p in self.params_spaces.values())
 
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
@@ -238,7 +282,7 @@ class SpotEnv(BaseEnv):
 
         Exposed for use by oracle options.
         """
-        return self._spot_interface.params_spaces[name]
+        return self.params_spaces[name]
 
     def build_action(self, op: STRIPSOperator, objects: Sequence[Object],
                      params: Array) -> Action:
@@ -268,7 +312,7 @@ class SpotEnv(BaseEnv):
         else:
             prompt = f"Please set up {train_or_test} task {task_idx}!"
             utils.prompt_user(prompt)
-            self._spot_interface.lease_client.take()
+            self.lease_client.take()
             self._current_task = self._actively_construct_env_task()
         self._current_observation = self._current_task.init_obs
         self._current_task_goal_reached = False
@@ -620,21 +664,18 @@ class SpotCubeEnv(SpotEnv):
             LiftedAtom(self._On, [tool, surface]),
         }
         add_effs = {LiftedAtom(self._InViewTool, [spot, tool])}
-        ignore_effs = {
-            self._ReachableSurface, self._InViewTool
-        }
-        self._MoveToToolOnSurfaceOp = STRIPSOperator(
-            "MoveToToolOnSurface", [spot, tool, surface], preconditions,
-            add_effs, set(), ignore_effs)
+        ignore_effs = {self._ReachableSurface, self._InViewTool}
+        self._MoveToToolOnSurfaceOp = STRIPSOperator("MoveToToolOnSurface",
+                                                     [spot, tool, surface],
+                                                     preconditions, add_effs,
+                                                     set(), ignore_effs)
         # MoveToToolOnFloor
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         floor = Variable("?floor", self._floor_type)
         preconditions = {LiftedAtom(self._OnFloor, [tool, floor])}
         add_effs = {LiftedAtom(self._InViewTool, [spot, tool])}
-        ignore_effs = {
-            self._ReachableSurface, self._InViewTool
-        }
+        ignore_effs = {self._ReachableSurface, self._InViewTool}
         self._MoveToToolOnFloorOp = STRIPSOperator("MoveToToolOnFloor",
                                                    [spot, tool, floor],
                                                    preconditions, add_effs,
@@ -644,13 +685,10 @@ class SpotCubeEnv(SpotEnv):
         surface = Variable("?surface", self._surface_type)
         preconditions = set()
         add_effs = {LiftedAtom(self._ReachableSurface, [spot, surface])}
-        ignore_effs = {
-            self._ReachableSurface, self._InViewTool
-        }
+        ignore_effs = {self._ReachableSurface, self._InViewTool}
         self._MoveToSurfaceOp = STRIPSOperator("MoveToSurface",
-                                                      [spot, surface],
-                                                      preconditions, add_effs,
-                                                      set(), ignore_effs)
+                                               [spot, surface], preconditions,
+                                               add_effs, set(), ignore_effs)
         # GraspToolFromSurface
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -714,9 +752,9 @@ class SpotCubeEnv(SpotEnv):
             LiftedAtom(self._ReachableSurface, [spot, surface]),
         }
         self._PlaceToolOnSurfaceOp = STRIPSOperator("PlaceTool",
-                                                  [spot, tool, surface],
-                                                  preconds, add_effs, del_effs,
-                                                  set())
+                                                    [spot, tool, surface],
+                                                    preconds, add_effs,
+                                                    del_effs, set())
         # PlaceToolOnFloor
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
@@ -757,8 +795,9 @@ class SpotCubeEnv(SpotEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._On, self._HandEmpty, self._HoldingTool, self._ReachableSurface,
-            self._notHandEmpty, self._InViewTool, self._OnFloor
+            self._On, self._HandEmpty, self._HoldingTool,
+            self._ReachableSurface, self._notHandEmpty, self._InViewTool,
+            self._OnFloor
         }
 
     @classmethod
@@ -874,18 +913,37 @@ class SpotCubeEnv(SpotEnv):
         return {GroundAtom(self._On, [cube, extra_table])}
 
     @functools.lru_cache(maxsize=None)
-    def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
-        objects: List[Object] = []
+    def _make_object_name_to_obj_and_detectionid_dict(
+        self
+    ) -> Dict[str, Tuple[Object, ObjectDetectionID]]:
+
+        objects_and_detections: List[Tuple[Object, ObjectDetectionID]] = []
+        # Initialize all objects to detections with default
+        # values.
         cube = Object("cube", self._tool_type)
-        objects.append(cube)
+        cube_detection = AprilTagObjectDetectionID(
+            410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+        objects_and_detections.append((cube, cube_detection))
         spot = Object("spot", self._robot_type)
         tool_room_table = Object("tool_room_table", self._surface_type)
+        tool_room_table_detection = AprilTagObjectDetectionID(
+            408, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
         extra_room_table = Object("extra_room_table", self._surface_type)
+        extra_room_table_detection = AprilTagObjectDetectionID(
+            409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
         floor = Object("floor", self._floor_type)
-        objects.extend([
-            spot, tool_room_table, extra_room_table, floor
+        # Spot and the floor get initialized with non-existent detection IDs.
+        spot_detection = AprilTagObjectDetectionID(
+            -1, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+        floor_detection = AprilTagObjectDetectionID(
+            -2, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+        objects_and_detections.extend([
+            (spot, spot_detection),
+            (tool_room_table, tool_room_table_detection),
+            (extra_room_table, extra_room_table_detection),
+            (floor, floor_detection)
         ])
-        return {o.name: o for o in objects}
+        return {o.name: (o, d) for o, d in objects_and_detections}
 
     def _obj_name_to_obj(self, obj_name: str) -> Object:
         return self._make_object_name_to_obj_dict()[obj_name]
@@ -896,12 +954,14 @@ class SpotCubeEnv(SpotEnv):
 
     def _actively_construct_initial_object_views(
             self) -> Dict[str, Tuple[float, float, float]]:
-        # TODO: Need to completely overhaul this when the time comes.
         obj_names = set(self._make_object_name_to_obj_dict().keys())
         obj_names.remove("spot")
-        return self._spot_interface.actively_construct_initial_object_views(
-            obj_names)
-
+        obj_names.remove("floor")
+        go_home(self.robot, self.localizer)
+        self.localizer.localize()
+        detections, _ = find_objects(self.robot, self.localizer, [self._make_object_name_to_obj_dict()[o][1] for o in obj_names])
+        import ipdb; ipdb.set_trace()
+        return detections
 
 
 ###############################################################################

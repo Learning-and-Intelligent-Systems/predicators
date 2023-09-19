@@ -566,7 +566,7 @@ class _SpotInterface():
         return {
             "navigate": Box(-5.0, 5.0, (3, )),
             "grasp": Box(-1.0, 2.0, (4, )),
-            "grasp_from_platform": Box(-1.0, 2.0, (4, )),
+            "graspFromPlatform": Box(-1.0, 2.0, (4, )),
             "placeOnTop": Box(-5.0, 5.0, (3, )),
             "drag": Box(-12.0, 12.0, (2, )),
             "noop": Box(0, 1, (0, ))

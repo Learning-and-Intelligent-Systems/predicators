@@ -68,7 +68,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"spot_bike_env"}
+        return {"spot_bike_env", "spot_cube_env"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],

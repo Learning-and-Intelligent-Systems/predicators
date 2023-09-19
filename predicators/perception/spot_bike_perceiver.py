@@ -32,7 +32,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._gripper_open_percentage = 0.0
         self._robot_pos = (0.0, 0.0, 0.0, 0.0)
         self._lost_objects: Set[Object] = set()
-        assert CFG.env == "spot_bike_env"
+        assert CFG.env in ["spot_bike_env", "spot_cube_env"]
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
         # Keep track of objects that are contained (out of view) in another
