@@ -5,6 +5,8 @@ APPROACHES:
     NAME: "maple_q"
     FLAGS:
       explorer: "maple_q"
+      mlp_regressor_max_itr: 640000
+      active_sampler_learning_batch_size: 512
 ENVS:
   discrete_regional_bumpy_cover:
     NAME: "regional_bumpy_cover"
