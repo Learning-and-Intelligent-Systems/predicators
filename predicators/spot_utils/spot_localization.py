@@ -21,11 +21,17 @@ import time
 from pathlib import Path
 from typing import Dict
 
-from bosdyn.api.graph_nav import map_pb2
+from bosdyn.api.graph_nav import map_pb2, nav_pb2
 from bosdyn.client import ResponseError, TimedOutError, math_helpers
+from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
+
+from predicators.spot_utils.utils import get_robot_state
+
+NUM_LOCALIZATION_RETRIES = 10
+LOCALIZATION_RETRY_WAIT_TIME = 1.0
 
 
 class LocalizationFailure(Exception):
@@ -55,6 +61,25 @@ class SpotLocalizer:
 
         # Initialize robot pose, which will be updated in localize().
         self._robot_pose = math_helpers.SE3Pose(0, 0, 0, math_helpers.Quat())
+        # Initialize the robot's position in the map.
+        robot_state = get_robot_state(self._robot)
+        current_odom_tform_body = get_odom_tform_body(
+            robot_state.kinematic_state.transforms_snapshot).to_proto()
+        localization = nav_pb2.Localization()
+        for r in range(NUM_LOCALIZATION_RETRIES + 1):
+            try:
+                self.graph_nav_client.set_localization(
+                    initial_guess_localization=localization,
+                    ko_tform_body=current_odom_tform_body)
+                break
+            except (ResponseError, TimedOutError) as e:
+                # Retry or fail.
+                if r == NUM_LOCALIZATION_RETRIES:
+                    msg = f"Localization failed permanently: {e}."
+                    logging.warning(msg)
+                    raise LocalizationFailure(msg)
+                logging.warning("Localization failed once, retrying.")
+                time.sleep(LOCALIZATION_RETRY_WAIT_TIME)
 
         # Run localize once to start.
         self.localize()
