@@ -48,9 +48,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
     @classmethod
     def get_name(cls) -> str:
         return "maple_q"
-    
+
     def _initialize_q_function(self) -> MapleQFunction:
-         return MapleQFunction(
+        return MapleQFunction(
             seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
             max_train_iters=CFG.mlp_regressor_max_itr,

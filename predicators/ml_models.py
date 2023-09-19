@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from predicators import utils
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
-    State, _GroundNSRT, _Option, Predicate
+    Predicate, State, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1357,8 +1357,7 @@ class MapleQFunction(MLPRegressor):
             maxlen=self._replay_buffer_max_size)
 
     def set_grounding(self, init_states: Collection[State],
-                      objects: Set[Object],
-                      goals: Collection[Set[GroundAtom]],
+                      objects: Set[Object], goals: Collection[Set[GroundAtom]],
                       ground_nsrts: Collection[_GroundNSRT]) -> None:
         """After initialization because NSRTs not learned at first."""
         del init_states  # used by subclasses
@@ -1424,9 +1423,8 @@ class MapleQFunction(MLPRegressor):
                             next_state):
                         next_options.append(option)
                 for next_option in next_options:
-                    x_next = self._get_q_function_input(next_state, goal, next_option)
-                    q_x_next = self.predict(x_next)[0]
-                    best_next_value = max(best_next_value, q_x_next)
+                    val = self.predict_q_value(next_state, goal, next_option)
+                    best_next_value = max(best_next_value, val)
             else:
                 best_next_value = 0.0
             y = rew + self._discount * best_next_value
@@ -1455,7 +1453,8 @@ class MapleQFunction(MLPRegressor):
                 X_batch, Y_batch = next(iterable_loader)
             yield X_batch, Y_batch
 
-    def _fit_from_input_output_lists(self, inputs: List[Any], outputs: List[Any]) -> None:
+    def _fit_from_input_output_lists(self, inputs: List[Any],
+                                     outputs: List[Any]) -> None:
         """Flexible typing for subclasses."""
         X_arr = np.array(inputs, dtype=np.float32)
         Y_arr = np.array(outputs, dtype=np.float32)
@@ -1474,8 +1473,8 @@ class MapleQFunction(MLPRegressor):
             self._device)
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
             self._device)
-        batch_generator = self.minibatch_generator(
-            tensor_X, tensor_Y, self._batch_size)
+        batch_generator = self.minibatch_generator(tensor_X, tensor_Y,
+                                                   self._batch_size)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
@@ -1488,13 +1487,19 @@ class MapleQFunction(MLPRegressor):
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value,
                              n_iter_no_change=self._n_iter_no_change)
-        
-    def _get_q_function_input(self, state: State, goal: Set[GroundAtom], option: _Option) -> Any:
+
+    def _get_q_function_input(self, state: State, goal: Set[GroundAtom],
+                              option: _Option) -> Any:
         """Returns Any for flexibility in subclasses."""
         vectorized_state = self._vectorize_state(state)
         vectorized_goal = self._vectorize_goal(goal)
         vectorized_action = self._vectorize_option(option)
-        return np.concatenate([vectorized_state, vectorized_goal, vectorized_action])
+        return np.concatenate(
+            [vectorized_state, vectorized_goal, vectorized_action])
+
+    def _get_q_value_from_prediction(self, prediction: Any) -> float:
+        """Subclasses may override."""
+        return prediction[0]
 
     def _vectorize_state(self, state: State) -> Array:
         # Cannot just call state.vec() directly because some objects may not
@@ -1539,8 +1544,8 @@ class MapleQFunction(MLPRegressor):
         if self._y_dim == -1:
             return 0.0
         x = self._get_q_function_input(state, goal, option)
-        y = self.predict(x)[0]
-        return y
+        y = self.predict(x)
+        return self._get_q_value_from_prediction(y)
 
     def _sample_applicable_options_from_state(
             self,
