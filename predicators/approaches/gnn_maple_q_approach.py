@@ -371,7 +371,7 @@ class GNNMapleQFunction(MapleQFunction):
 
     def predict(self, x: Any) -> Any:  # type: ignore
         if CFG.gnn_do_normalization:
-            in_graph = normalize_graph(x, self._input_normalizers)
+            x = normalize_graph(x, self._input_normalizers)
         out_graph = get_single_model_prediction(self._gnn, x)
         if CFG.gnn_do_normalization:
             out_graph = normalize_graph(out_graph,

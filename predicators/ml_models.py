@@ -1590,9 +1590,11 @@ class MapleQFunction(MLPRegressor):
         return sampled_options
 
     def save(self, model_path: str) -> None:
+        """Save the current model."""
         torch.save(self.state_dict(), model_path)
 
     def load(self, model_path: str) -> None:
+        """Load the current model from file."""
         # Load best model.
         self.load_state_dict(torch.load(model_path,
                                         map_location='cpu'))  # type: ignore
