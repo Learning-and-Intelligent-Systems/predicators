@@ -43,7 +43,14 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
         # Store the Q function. Note that this implicitly
         # contains a replay buffer.
-        self._q_function = MapleQFunction(
+        self._q_function = self._initialize_q_function()
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "maple_q"
+    
+    def _initialize_q_function(self) -> MapleQFunction:
+         return MapleQFunction(
             seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
             max_train_iters=CFG.mlp_regressor_max_itr,
@@ -54,14 +61,11 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             use_torch_gpu=CFG.use_torch_gpu,
             train_print_every=CFG.pytorch_train_print_every,
             n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
+            batch_size=CFG.active_sampler_learning_batch_size,
             num_lookahead_samples=CFG.
             active_sampler_learning_num_lookahead_samples,
             replay_buffer_max_size=CFG.
             active_sampler_learning_replay_buffer_size)
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "maple_q"
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
@@ -140,8 +144,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
             else:  # pragma: no cover
                 raise ValueError(
                     f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+            init_states = [t.init for t in self._train_tasks]
             goals = [t.goal for t in self._train_tasks]
-            self._q_function.set_grounding(all_objects, goals,
+            self._q_function.set_grounding(init_states, all_objects, goals,
                                            all_ground_nsrts)
         # Update the data using the updated self._segmented_trajs.
         self._update_maple_data()

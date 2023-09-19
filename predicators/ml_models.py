@@ -27,9 +27,8 @@ from torch.distributions.categorical import Categorical
 from torch.utils.data import DataLoader, TensorDataset
 
 from predicators import utils
-from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
-    State, _GroundNSRT, _Option
+    State, _GroundNSRT, _Option, Predicate
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -1333,6 +1332,7 @@ class MapleQFunction(MLPRegressor):
                  n_iter_no_change: int = 10000000,
                  discount: float = 0.99,
                  num_lookahead_samples: int = 5,
+                 batch_size: int = 128,
                  replay_buffer_max_size: int = 1000000,
                  replay_buffer_sample_with_replacement: bool = True) -> None:
         super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
@@ -1341,6 +1341,7 @@ class MapleQFunction(MLPRegressor):
         self._rng = np.random.default_rng(seed)
         self._discount = discount
         self._num_lookahead_samples = num_lookahead_samples
+        self._batch_size = batch_size
         self._replay_buffer_max_size = replay_buffer_max_size
         self._replay_buffer_sample_with_replacement = \
             replay_buffer_sample_with_replacement
@@ -1355,10 +1356,12 @@ class MapleQFunction(MLPRegressor):
         self._replay_buffer: Deque[MapleQData] = deque(
             maxlen=self._replay_buffer_max_size)
 
-    def set_grounding(self, objects: Set[Object],
+    def set_grounding(self, init_states: Collection[State],
+                      objects: Set[Object],
                       goals: Collection[Set[GroundAtom]],
                       ground_nsrts: Collection[_GroundNSRT]) -> None:
         """After initialization because NSRTs not learned at first."""
+        del init_states  # used by subclasses
         for ground_nsrt in ground_nsrts:
             num_params = ground_nsrt.option.params_space.shape[0]
             self._max_num_params = max(self._max_num_params, num_params)
@@ -1400,51 +1403,38 @@ class MapleQFunction(MLPRegressor):
 
     def train_q_function(self) -> None:
         """Fit the model."""
-        # First, precompute the size of the input and output from the
-        # Q-network.
-        X_size = sum(o.type.dim for o in self._ordered_objects) + len(
-            self._ordered_frozen_goals
-        ) + self._num_ground_nsrts + self._max_num_params
-        Y_size = 1
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
             return
         # Otherwise, start by vectorizing all data in the replay buffer.
-        X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
-        Y_arr = np.zeros((len(self._replay_buffer), Y_size), dtype=np.float32)
-        for i, (state, goal, option, next_state, reward,
-                terminal) in enumerate(self._replay_buffer):
+        input_data = []
+        output_data = []
+        for state, goal, option, next_state, rew, done in self._replay_buffer:
             # Compute the input to the Q-function.
-            vectorized_state = self._vectorize_state(state)
-            vectorized_goal = self._vectorize_goal(goal)
-            vectorized_action = self._vectorize_option(option)
-            X_arr[i] = np.concatenate(
-                [vectorized_state, vectorized_goal, vectorized_action])
+            x = self._get_q_function_input(state, goal, option)
+            input_data.append(x)
             # Next, compute the target for Q-learning by sampling next actions.
-            vectorized_next_state = self._vectorize_state(next_state)
-            if not terminal and self._y_dim != -1:
+            if not done and self._y_dim != -1:
                 best_next_value = -np.inf
-                next_option_vecs: List[Array] = []
+                next_options: List[_Option] = []
                 # We want to pick a total of num_lookahead_samples samples.
-                while len(next_option_vecs) < self._num_lookahead_samples:
+                while len(next_options) < self._num_lookahead_samples:
                     # Sample 1 per NSRT until we reach the target number.
                     for option in self._sample_applicable_options_from_state(
                             next_state):
-                        next_option_vecs.append(self._vectorize_option(option))
-                for next_action_vec in next_option_vecs:
-                    x_hat = np.concatenate([
-                        vectorized_next_state, vectorized_goal, next_action_vec
-                    ])
-                    q_x_hat = self.predict(x_hat)[0]
-                    best_next_value = max(best_next_value, q_x_hat)
+                        next_options.append(option)
+                for next_option in next_options:
+                    x_next = self._get_q_function_input(next_state, goal, next_option)
+                    q_x_next = self.predict(x_next)[0]
+                    best_next_value = max(best_next_value, q_x_next)
             else:
                 best_next_value = 0.0
-            Y_arr[i] = reward + self._discount * best_next_value
-
+            y = rew + self._discount * best_next_value
+            output_data.append(y)
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
         # number of iterations. It will also normalize all the data.
-        self.fit(X_arr, Y_arr)
+        self._fit_from_input_output_lists(input_data, output_data)
 
     def minibatch_generator(
             self, tensor_X: Tensor, tensor_Y: Tensor,
@@ -1465,6 +1455,12 @@ class MapleQFunction(MLPRegressor):
                 X_batch, Y_batch = next(iterable_loader)
             yield X_batch, Y_batch
 
+    def _fit_from_input_output_lists(self, inputs: List[Any], outputs: List[Any]) -> None:
+        """Flexible typing for subclasses."""
+        X_arr = np.array(inputs, dtype=np.float32)
+        Y_arr = np.array(outputs, dtype=np.float32)
+        self._fit(X_arr, Y_arr)
+
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
@@ -1479,7 +1475,7 @@ class MapleQFunction(MLPRegressor):
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
             self._device)
         batch_generator = self.minibatch_generator(
-            tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
+            tensor_X, tensor_Y, self._batch_size)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
@@ -1492,6 +1488,13 @@ class MapleQFunction(MLPRegressor):
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value,
                              n_iter_no_change=self._n_iter_no_change)
+        
+    def _get_q_function_input(self, state: State, goal: Set[GroundAtom], option: _Option) -> Any:
+        """Returns Any for flexibility in subclasses."""
+        vectorized_state = self._vectorize_state(state)
+        vectorized_goal = self._vectorize_goal(goal)
+        vectorized_action = self._vectorize_option(option)
+        return np.concatenate([vectorized_state, vectorized_goal, vectorized_action])
 
     def _vectorize_state(self, state: State) -> Array:
         # Cannot just call state.vec() directly because some objects may not
@@ -1535,11 +1538,7 @@ class MapleQFunction(MLPRegressor):
         # Default value if not yet fit.
         if self._y_dim == -1:
             return 0.0
-        x = np.concatenate([
-            self._vectorize_state(state),
-            self._vectorize_goal(goal),
-            self._vectorize_option(option)
-        ])
+        x = self._get_q_function_input(state, goal, option)
         y = self.predict(x)[0]
         return y
 

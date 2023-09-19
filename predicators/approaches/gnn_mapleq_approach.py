@@ -1,6 +1,6 @@
 """A parameterized action reinforcement learning approach inspired by MAPLE,
 (https://ut-austin-rpl.github.io/maple/) but where only a Q function is
-learned. The Q-function here  takes the form of a GNN so that it is able to
+learned. The Q-function here takes the form of a GNN so that it is able to
 generalize to problems with a different number of objects.
 
 Base samplers and applicable actions are used to perform the argmax.
@@ -12,214 +12,81 @@ import abc
 import functools
 import logging
 from collections import deque
-from typing import Any, Callable, Collection, Dict, List, Optional, Set, Tuple
+from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 
 import dill as pkl
 import numpy as np
 import torch
-from gym.spaces import Box
 from torch.utils.data import DataLoader
 
 from predicators import utils
-from predicators.approaches.online_nsrt_learning_approach import \
-    OnlineNSRTLearningApproach
-from predicators.explorers import BaseExplorer, create_explorer
+from predicators.approaches.maple_q_approach import \
+    MapleQApproach
 from predicators.gnn.gnn import EncodeProcessDecode, GraphDictDataset, \
     setup_graph_net
 from predicators.gnn.gnn_utils import compute_normalizers, \
     get_single_model_prediction, graph_batch_collate, normalize_graph, \
     train_model
-from predicators.ml_models import MapleQData
+from predicators.ml_models import MapleQData, MapleQFunction
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, InteractionRequest, \
-    LowLevelTrajectory, Object, ParameterizedOption, Predicate, State, Task, \
+from predicators.structs import GroundAtom, \
+    Object, ParameterizedOption, Predicate, State, \
     Type, _GroundNSRT, _Option
 
 
-class GNNMapleQApproach(OnlineNSRTLearningApproach):
+class GNNMapleQApproach(MapleQApproach):
     """A parameterized action RL approach inspired by MAPLE."""
 
-    def __init__(self, initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task]) -> None:
-        super().__init__(initial_predicates, initial_options, types,
-                         action_space, train_tasks)
-
-        # The current implementation assumes that NSRTs are not changing.
-        assert CFG.strips_learner == "oracle"
-        # The base sampler should also be unchanging and from the oracle.
-        assert CFG.sampler_learner == "oracle"
-
-        # Log all transition data.
-        self._interaction_goals: List[Set[GroundAtom]] = []
-        self._last_seen_segment_traj_idx = -1
-
+    def _initialize_q_function(self) -> MapleQFunction:
         # Store the Q function. Note that this implicitly
         # contains a replay buffer.
         self._q_function = GNNMapleQFunction(
             seed=CFG.seed,
+            predicates=self._get_current_predicates(),
+            types=self._types,
+            options=self._initial_options,
             num_lookahead_samples=CFG.
             active_sampler_learning_num_lookahead_samples,
-            max_replay_buffer_size=CFG.
-            active_sampler_learning_replay_buffer_size,
-            discount=0.99,
             batch_size=CFG.active_sampler_learning_batch_size,
-            initial_predicates=self._initial_predicates,
-            initial_options=self._initial_options,
-            object_types=self._types)
+            replay_buffer_max_size=CFG.
+            active_sampler_learning_replay_buffer_size,
+        )
 
     @classmethod
     def get_name(cls) -> str:
         return "gnn_maple_q"
 
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
-        def _option_policy(state: State) -> _Option:
-            return self._q_function.get_option(
-                state,
-                task.goal,
-                num_samples_per_ground_nsrt=CFG.
-                active_sampler_learning_num_samples)
+class GNNMapleQFunction(MapleQFunction):
+    """A Maple Q function where the base model is a GNN."""
 
-        return utils.option_policy_to_policy(
-            _option_policy, max_option_steps=CFG.max_num_steps_option_rollout)
+    def __init__(self, seed: int,
+                 predicates: Set[Predicate],
+                 types: Set[Type],
+                 options: Set[ParameterizedOption],
+                 num_lookahead_samples: int,
+                 discount: float = 0.99,
+                 batch_size: int = 128,
+                 replay_buffer_max_size: int = 1000000,
+                 replay_buffer_sample_with_replacement: bool = True):
 
-    def _create_explorer(self) -> BaseExplorer:
-        """Create a new explorer at the beginning of each interaction cycle."""
-        # Note that greedy lookahead is not yet supported.
-        preds = self._get_current_predicates()
-        assert CFG.explorer == "maple_q"
-        explorer = create_explorer(CFG.explorer,
-                                   preds,
-                                   self._initial_options,
-                                   self._types,
-                                   self._action_space,
-                                   self._train_tasks,
-                                   self._get_current_nsrts(),
-                                   self._option_model,
-                                   maple_q_function=self._q_function)
-        return explorer
+        # Several of these inputs are not used, set to trivial values.
+        super().__init__(seed=seed, hid_sizes=[], max_train_iters=0,
+                         clip_gradients=False, clip_value=0.0,
+                         learning_rate=0.0, weight_decay=0.0,
+                         use_torch_gpu=False, train_print_every=0,
+                         n_iter_no_change=0, discount=discount,
+                         num_lookahead_samples=num_lookahead_samples,
+                         batch_size=batch_size,
+                         replay_buffer_max_size=replay_buffer_max_size,
+                         replay_buffer_sample_with_replacement=replay_buffer_sample_with_replacement)
 
-    def load(self, online_learning_cycle: Optional[int]) -> None:
-        super().load(online_learning_cycle)
-        save_path = utils.get_approach_load_path_str()
-        with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
-            save_dict = pkl.load(f)
-        self._q_function = save_dict["q_function"]
-        self._last_seen_segment_traj_idx = save_dict[
-            "last_seen_segment_traj_idx"]
-        self._interaction_goals = save_dict["interaction_goals"]
-        self._online_learning_cycle = CFG.skip_until_cycle + 1
+        # Store the predicates, types, and options for state abstraction and
+        # graph construction.
+        self._predicates = predicates
+        self._sorted_types = sorted(types)
+        self._sorted_options = sorted(options)
 
-    def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
-                     online_learning_cycle: Optional[int],
-                     annotations: Optional[List[Any]]) -> None:
-        # Start by learning NSRTs in the usual way.
-        super()._learn_nsrts(trajectories, online_learning_cycle, annotations)
-        # Check the assumption that operators and options are 1:1.
-        # This is just an implementation convenience.
-        assert len({nsrt.option for nsrt in self._nsrts}) == len(self._nsrts)
-        for nsrt in self._nsrts:
-            assert nsrt.option_vars == nsrt.parameters
-        # On the first cycle, we need to register the ground NSRTs, goals, and
-        # objects in the Q function so that it can define its inputs.
-        if not online_learning_cycle:
-            all_ground_nsrts: Set[_GroundNSRT] = set()
-            if CFG.sesame_grounder == "naive":
-                for nsrt in self._nsrts:
-                    all_objects = {
-                        o
-                        for t in self._train_tasks for o in t.init
-                    }
-                    all_ground_nsrts.update(
-                        utils.all_ground_nsrts(nsrt, all_objects))
-            elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
-                all_objects = set()
-                for t in self._train_tasks:
-                    curr_task_objects = set(t.init)
-                    curr_task_types = {o.type for o in t.init}
-                    curr_init_atoms = utils.abstract(
-                        t.init, self._get_current_predicates())
-                    all_ground_nsrts.update(
-                        utils.all_ground_nsrts_fd_translator(
-                            self._nsrts, curr_task_objects,
-                            self._get_current_predicates(), curr_task_types,
-                            curr_init_atoms, t.goal))
-                    all_objects.update(curr_task_objects)
-            else:  # pragma: no cover
-                raise ValueError(
-                    f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
-            goals = [t.goal for t in self._train_tasks]
-            init_states = [t.init for t in self._train_tasks]
-            self._q_function.set_grounding(init_states, all_objects, goals,
-                                           all_ground_nsrts)
-        # Update the data using the updated self._segmented_trajs.
-        self._update_maple_data()
-        # Re-learn Q function.
-        self._q_function.train_q_function()
-        # Save the things we need other than the NSRTs, which were already
-        # saved in the above call to self._learn_nsrts()
-        # TODO: Make the q-function saveable
-        save_path = utils.get_approach_save_path_str()
-        # with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
-        #     pkl.dump(
-        #         {
-        #             "q_function": self._q_function,
-        #             "last_seen_segment_traj_idx":
-        #             self._last_seen_segment_traj_idx,
-        #             "interaction_goals": self._interaction_goals,
-        #         }, f)
-
-    def _update_maple_data(self) -> None:
-        start_idx = self._last_seen_segment_traj_idx + 1
-        new_trajs = self._segmented_trajs[start_idx:]
-
-        goal_offset = CFG.max_initial_demos
-        assert len(self._segmented_trajs) == goal_offset + \
-            len(self._interaction_goals)
-        new_traj_goals = self._interaction_goals[goal_offset + start_idx:]
-
-        for traj_i, segmented_traj in enumerate(new_trajs):
-            self._last_seen_segment_traj_idx += 1
-            for seg_i, segment in enumerate(segmented_traj):
-                s = segment.states[0]
-                goal = new_traj_goals[traj_i]
-                o = segment.get_option()
-                ns = segment.states[-1]
-                reward = 1.0 if goal.issubset(segment.final_atoms) else 0.0
-                terminal = reward > 0 or seg_i == len(segmented_traj) - 1
-                self._q_function.add_datum_to_replay_buffer(
-                    (s, goal, o, ns, reward, terminal))
-
-    def get_interaction_requests(self) -> List[InteractionRequest]:
-        # Save the goals for each interaction request so we can later associate
-        # states, actions, and goals.
-        requests = super().get_interaction_requests()
-        for request in requests:
-            goal = self._train_tasks[request.train_task_idx].goal
-            self._interaction_goals.append(goal)
-        return requests
-
-
-class GNNMapleQFunction():
-
-    def __init__(self, seed: int, num_lookahead_samples: int,
-                 max_replay_buffer_size: int, discount: float, batch_size: int,
-                 initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption],
-                 object_types: Set[Type]):
-        self._seed = seed
-        self._num_lookahead_samples = num_lookahead_samples
-        self._max_replay_buffer_size = max_replay_buffer_size
-        self._replay_buffer = deque(maxlen=self._max_replay_buffer_size)
-        self._discount = discount
-        self._batch_size = batch_size
-        self._initial_predicates = initial_predicates
-        self._initial_options = initial_options
-        self._types = object_types
-        self._sorted_options: List[ParameterizedOption] = sorted(
-            self._initial_options, key=lambda o: o.name)
-        self._rng = np.random.default_rng(self._seed)
         # Fields for the GNN; we initially just initialize them to
         # default values.
         self._gnn: Optional[EncodeProcessDecode] = None
@@ -230,23 +97,18 @@ class GNNMapleQFunction():
         self._target_normalizers: Dict = {}
         self._data_exemplar: Tuple[Dict, Dict] = ({}, {})
         self._max_option_objects: int = 0
-        self._max_option_params: int = 0
+
+        # Set up the GNN fields.
         self._setup_gnn_fields()
-        # Torch-related init.
-        torch.manual_seed(self._seed)
+
+        # Initialize the loss function (for the globals only).
         self._mse_loss = torch.nn.MSELoss()
-
-    def add_datum_to_replay_buffer(self, datum: MapleQData) -> None:
-        """Add one datapoint to the replay buffer.
-
-        If the buffer is full, data is appended in a FIFO manner.
-        """
-        self._replay_buffer.append(datum)
 
     def set_grounding(self, init_states: Collection[State],
                       objects: Set[Object], goals: Collection[Set[GroundAtom]],
                       ground_nsrts: Collection[_GroundNSRT]) -> None:
-        del objects  # unused
+        super().set_grounding(init_states, objects, goals, ground_nsrts)
+
         self._ordered_ground_nsrts = sorted(ground_nsrts, key=lambda n: n.name)
         init_states_list = list(init_states)
         goals_list = list(goals)
@@ -254,7 +116,7 @@ class GNNMapleQFunction():
         eg_init_state = init_states_list[0]
         eg_goal = goals_list[0]
         # Use the remaining inputs to initialize the GNN model.
-        eg_atoms = utils.abstract(eg_init_state, self._initial_predicates)
+        eg_atoms = utils.abstract(eg_init_state, self._predicates)
         # Set up exemplar, which is just the first tuple in the data.
         example_input_graph, _ = self._graphify_single_input(
             eg_init_state, eg_atoms, eg_goal,
@@ -297,6 +159,7 @@ class GNNMapleQFunction():
                    target: torch.Tensor) -> torch.Tensor:
         """Define the criterion function for passing into train_model()."""
         # Unused, since input and output nodes and edges are the same.
+        del output, target
         return torch.tensor(0.0)
 
     def _global_criterion(self, output: torch.Tensor,
@@ -325,30 +188,28 @@ class GNNMapleQFunction():
     def _setup_gnn_fields(self) -> None:
         """Use the initial predicates and options to setup the fields necessary
         to instantiate the GNN Q-network."""
-        obj_types_set = set(f"type_{t.name}" for t in self._types)
-        nullary_predicates_set = set(p for p in self._initial_predicates
+        nullary_predicates_set = set(p for p in self._predicates
                                      if p.arity == 0)
-        unary_predicates_set = set(p for p in self._initial_predicates
+        unary_predicates_set = set(p for p in self._predicates
                                    if p.arity == 1)
-        binary_predicates_set = set(p for p in self._initial_predicates
+        binary_predicates_set = set(p for p in self._predicates
                                     if p.arity == 2)
-        obj_attrs_set = set(f"feat_{f}" for t in self._types
+        obj_attrs_set = set(f"feat_{f}" for t in self._sorted_types
                             for f in t.feature_names)
         self._nullary_predicates = sorted(nullary_predicates_set)
         self._max_option_objects = max(
-            len(o.types) for o in self._initial_options)
-        self._max_option_params = max(o.params_space.shape[0]
-                                      for o in self._initial_options)
+            len(o.types) for o in self._sorted_options)
 
         # Seemingly, this below line is just something that sets up
         # class-specific variables that might be important for setting the output
         # I doubt we'll need any of this, since we're just outputting a single float.
         # self._setup_output_specific_fields(data)
 
-        obj_types = sorted(obj_types_set)
+        obj_types = self._sorted_types
         unary_predicates = sorted(unary_predicates_set)
         binary_predicates = sorted(binary_predicates_set)
         obj_attrs = sorted(obj_attrs_set)
+        option_index_features = [f"option_index_{i}" for i in range(self._max_option_objects)]
 
         G = functools.partial(utils.wrap_predicate, prefix="GOAL-")
         R = functools.partial(utils.wrap_predicate, prefix="REV-")
@@ -367,6 +228,9 @@ class GNNMapleQFunction():
             index += 1
         for obj_attr in obj_attrs:
             self._node_feature_to_index[obj_attr] = index
+            index += 1
+        for option_idx_feature in option_index_features:
+            self._node_feature_to_index[option_idx_feature] = index
             index += 1
 
         # Initialize input edge features.
@@ -414,7 +278,7 @@ class GNNMapleQFunction():
             goal_globals[self._nullary_predicates.index(atom.predicate)] = 1
         option_globals = np.zeros(len(self._sorted_options), dtype=np.int64)
         option_globals[self._sorted_options.index(option.parent)] = 1
-        continuous_params_globals = np.zeros(self._max_option_params,
+        continuous_params_globals = np.zeros(self._max_num_params,
                                              dtype=np.float32)
         continuous_params_globals[:option.params.shape[0]] = option.params
 
@@ -455,12 +319,11 @@ class GNNMapleQFunction():
 
         ## Finally, create node features for the objects involved in the
         ## currently-taken option.
-        option_objs_mask = np.zeros((num_objects, self._max_option_objects))
         for i, obj in enumerate(option.objects):
-            option_objs_mask[object_to_node[obj], i] = 1
+            obj_index = object_to_node[obj]
+            feat = f"option_index_{i}"
+            node_features[obj_index, feat] = 1
 
-        node_features = np.concatenate((node_features, option_objs_mask),
-                                       axis=1)
         graph["nodes"] = node_features
 
         # Deal with edge case (pun).
@@ -525,51 +388,6 @@ class GNNMapleQFunction():
 
         return graph, object_to_node
 
-    def _sample_applicable_options_from_state(
-            self,
-            state: State,
-            num_samples_per_applicable_nsrt: int = 1) -> List[_Option]:
-        """Use NSRTs to sample options in the current state."""
-        # Create all applicable ground NSRTs.
-        state_objs = set(state)
-        applicable_nsrts = [
-            o for o in self._ordered_ground_nsrts if \
-                set(o.objects).issubset(state_objs) and all(
-                a.holds(state) for a in o.preconditions)
-        ]
-        sampled_options: List[_Option] = []
-        for app_nsrt in applicable_nsrts:
-            for _ in range(num_samples_per_applicable_nsrt):
-                # Sample an option.
-                option = app_nsrt.sample_option(
-                    state,
-                    goal=set(),  # goal not used
-                    rng=self._rng)
-                assert option.initiable(state)
-                sampled_options.append(option)
-        return sampled_options
-
-    def get_option(self,
-                   state: State,
-                   goal: Set[GroundAtom],
-                   num_samples_per_ground_nsrt: int,
-                   epsilon: float = 0.0) -> _Option:
-        """Get the best option under Q, epsilon-greedy."""
-        # Return a random option.
-        if self._rng.uniform() < epsilon:
-            options = self._sample_applicable_options_from_state(
-                state, num_samples_per_applicable_nsrt=1)
-            return options[0]
-        atoms = utils.abstract(state, self._initial_predicates)
-        # Return the best option (approx argmax.)
-        options = self._sample_applicable_options_from_state(
-            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
-        scores = [
-            self._predict(state, atoms, goal, option) for option in options
-        ]
-        idx = np.argmax(scores)
-        return options[idx]
-
     def _predict(self, state: State, atoms: Set[GroundAtom],
                  goal: Set[GroundAtom], option: _Option) -> float:
         # Get output graph.
@@ -587,6 +405,9 @@ class GNNMapleQFunction():
 
     def train_q_function(self):
         """Trains the GNN-based Q-function."""
+
+        # TODO remove the first half of this function and subclass the other function instead
+
         # If there's no data in the replay buffer, we can't train.
         if len(self._replay_buffer) == 0:
             return
@@ -595,7 +416,7 @@ class GNNMapleQFunction():
         graph_inputs = []
         graph_targets = []
         for state, goal, option, next_state, reward, terminal in self._replay_buffer:
-            atoms = utils.abstract(state, self._initial_predicates)
+            atoms = utils.abstract(state, self._predicates)
             graph_input, _ = self._graphify_single_input(state, atoms, goal,
                                                       option)
             graph_inputs.append(graph_input)
@@ -603,7 +424,7 @@ class GNNMapleQFunction():
             # with the GNN q-network.
             if not terminal:
                 next_atoms = utils.abstract(next_state,
-                                            self._initial_predicates)
+                                            self._predicates)
                 best_next_value = -np.inf
                 next_options: List[_Option] = []
                 # We want to pick a total of num_lookahead_samples samples.
