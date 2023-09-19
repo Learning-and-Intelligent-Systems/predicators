@@ -194,11 +194,6 @@ class GNNMapleQFunction(MapleQFunction):
         self._max_option_objects = max(
             len(o.types) for o in self._sorted_options)
 
-        # Seemingly, this below line is just something that sets up
-        # class-specific variables that might be important for setting the output
-        # I doubt we'll need any of this, since we're just outputting a single float.
-        # self._setup_output_specific_fields(data)
-
         obj_types = [f"type_{t.name}" for t in self._sorted_types]
         unary_predicates = sorted(unary_predicates_set)
         binary_predicates = sorted(binary_predicates_set)
@@ -443,12 +438,12 @@ class GNNMapleQFunction(MapleQFunction):
                                      lr=CFG.gnn_learning_rate)
         train_dataloader = DataLoader(train_dataset,
                                       batch_size=self._batch_size,
-                                      shuffle=False,
+                                      shuffle=True,
                                       num_workers=0,
                                       collate_fn=graph_batch_collate)
         val_dataloader = DataLoader(val_dataset,
                                     batch_size=self._batch_size,
-                                    shuffle=False,
+                                    shuffle=True,
                                     num_workers=0,
                                     collate_fn=graph_batch_collate)
         dataloaders = {"train": train_dataloader, "val": val_dataloader}
