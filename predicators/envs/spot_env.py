@@ -130,6 +130,8 @@ _SPECIAL_ACTIONS = {
 }
 
 
+
+
 class SpotEnv(BaseEnv):
     """An environment containing tasks for a real Spot robot to execute.
 
@@ -145,12 +147,16 @@ class SpotEnv(BaseEnv):
         # Note that we need to include the operators in this
         # class because they're used to update the symbolic
         # parts of the state during execution.
+        self._initialize_robot()
+        self._strips_operators: Set[STRIPSOperator] = set()
+        self._current_task_goal_reached = False
 
+    def _initialize_robot(self):
         hostname = CFG.spot_robot_ip
         upload_dir = Path(
             __file__).parent.parent / "spot_utils" / "graph_nav_maps"
         path = upload_dir / CFG.spot_graph_nav_map
-        sdk = create_standard_sdk("PredicatorsClient")
+        sdk = create_standard_sdk("PredicatorsClient-")
         self.robot = sdk.create_robot(hostname)
         authenticate(self.robot)
         verify_estop(self.robot)
@@ -164,8 +170,6 @@ class SpotEnv(BaseEnv):
         self.localizer = SpotLocalizer(self.robot, path, self.lease_client,
                                        self.lease_keepalive)
 
-        self._strips_operators: Set[STRIPSOperator] = set()
-        self._current_task_goal_reached = False
 
     @property
     def params_spaces(self) -> Dict[str, Box]:
@@ -556,9 +560,9 @@ class SpotEnv(BaseEnv):
     def _generate_task_goal(self) -> Set[GroundAtom]:
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
-        raise NotImplementedError
+    # @abc.abstractmethod
+    # def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
+    #     raise NotImplementedError
 
     @abc.abstractmethod
     def _obj_name_to_obj(self, obj_name: str) -> Object:
@@ -946,7 +950,7 @@ class SpotCubeEnv(SpotEnv):
         return {o.name: (o, d) for o, d in objects_and_detections}
 
     def _obj_name_to_obj(self, obj_name: str) -> Object:
-        return self._make_object_name_to_obj_dict()[obj_name]
+        return self._make_object_name_to_obj_and_detectionid_dict()[obj_name][0]
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -954,12 +958,12 @@ class SpotCubeEnv(SpotEnv):
 
     def _actively_construct_initial_object_views(
             self) -> Dict[str, Tuple[float, float, float]]:
-        obj_names = set(self._make_object_name_to_obj_dict().keys())
+        obj_names = set(self._make_object_name_to_obj_and_detectionid_dict().keys())
         obj_names.remove("spot")
         obj_names.remove("floor")
         go_home(self.robot, self.localizer)
         self.localizer.localize()
-        detections, _ = find_objects(self.robot, self.localizer, [self._make_object_name_to_obj_dict()[o][1] for o in obj_names])
+        detections, _ = find_objects(self.robot, self.localizer, [self._make_object_name_to_obj_and_detectionid_dict()[o][1] for o in obj_names])
         import ipdb; ipdb.set_trace()
         return detections
 
