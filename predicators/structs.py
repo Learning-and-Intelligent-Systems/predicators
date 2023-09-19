@@ -1020,6 +1020,11 @@ class Action:
     """
     _arr: Array
     _option: _Option = field(repr=False, default=DummyOption)
+    # In rare cases, we want to associate additional information with an action
+    # to control how it is executed in the environment. This is helpful if
+    # actions are awkward to represent with continuous vectors, and if we have
+    # no ambition to learn models over the actions directly.
+    extra_info: Optional[Any] = None
 
     @property
     def arr(self) -> Array:
