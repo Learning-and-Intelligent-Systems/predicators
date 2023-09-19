@@ -9,7 +9,7 @@ Example usage with apriltag grasping:
 from bosdyn.client import create_standard_sdk, math_helpers
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
-from bosdyn.client.util import authenticate
+from bosdyn.client.util import authenticate, setup_logging
 
 import abc
 import functools
@@ -129,7 +129,36 @@ _SPECIAL_ACTIONS = {
     "done": 2,
 }
 
+# Initialize a bunch of spot-related variables.
+# NOTE: we do this globally/outside of the environment class because we
+# want this to persist even if we destroy/make multiple new versions of
+# the environment, which happens during the course of planning.
+# See hello_spot.py for an explanation of these lines.
+robot = None
+localizer = None
+lease_client = None
 
+def initialize_robot():
+    global robot, localizer, lease_client
+    setup_logging(False)
+    hostname = CFG.spot_robot_ip
+    upload_dir = Path(
+        __file__).parent.parent / "spot_utils" / "graph_nav_maps"
+    path = upload_dir / CFG.spot_graph_nav_map
+    if robot is None and localizer is None and lease_client is None:
+        sdk = create_standard_sdk("PredicatorsClient-")
+        robot = sdk.create_robot(hostname)
+        authenticate(robot)
+        verify_estop(robot)
+        lease_client = robot.ensure_client(
+            LeaseClient.default_service_name)
+        lease_client.take()
+        lease_keepalive = LeaseKeepAlive(lease_client,
+                                                must_acquire=True,
+                                                return_at_exit=True)
+        assert path.exists()
+        localizer = SpotLocalizer(robot, path, lease_client,
+                                        lease_keepalive)
 
 
 class SpotEnv(BaseEnv):
@@ -144,31 +173,19 @@ class SpotEnv(BaseEnv):
         assert "spot_wrapper" in CFG.approach, \
             "Must use spot wrapper in spot envs!"
         # self._spot_interface = get_spot_interface()
+        global robot, localizer, lease_client
+        initialize_robot()
+        assert robot is not None
+        assert localizer is not None
+        assert lease_client is not None
         # Note that we need to include the operators in this
         # class because they're used to update the symbolic
         # parts of the state during execution.
-        self._initialize_robot()
+        self.robot = robot
+        self.localizer = localizer
+        self.lease_client = lease_client
         self._strips_operators: Set[STRIPSOperator] = set()
         self._current_task_goal_reached = False
-
-    def _initialize_robot(self):
-        hostname = CFG.spot_robot_ip
-        upload_dir = Path(
-            __file__).parent.parent / "spot_utils" / "graph_nav_maps"
-        path = upload_dir / CFG.spot_graph_nav_map
-        sdk = create_standard_sdk("PredicatorsClient-")
-        self.robot = sdk.create_robot(hostname)
-        authenticate(self.robot)
-        verify_estop(self.robot)
-        self.lease_client = self.robot.ensure_client(
-            LeaseClient.default_service_name)
-        self.lease_client.take()
-        self.lease_keepalive = LeaseKeepAlive(self.lease_client,
-                                              must_acquire=True,
-                                              return_at_exit=True)
-        assert path.exists()
-        self.localizer = SpotLocalizer(self.robot, path, self.lease_client,
-                                       self.lease_keepalive)
 
 
     @property

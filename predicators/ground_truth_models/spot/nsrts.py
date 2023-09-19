@@ -163,8 +163,11 @@ class _SpotInterfaceSampler:
     def __init__(self, name: str) -> None:
         self._name = name
         spot_interface_sampler = _NAME_TO_SPOT_INTERFACE_SAMPLER[name]
-        spot_interface = get_spot_interface()
-        self._sampler = partial(spot_interface_sampler, spot_interface)
+        # spot_interface = get_spot_interface()
+        # self._sampler = partial(spot_interface_sampler, spot_interface)
+        # TODO: this is likely to break something when we actually try
+        # to invoke a sampler...
+        self._sampler = partial(spot_interface_sampler, None)
 
     def __call__(self, state: State, goal: Set[GroundAtom],
                  rng: np.random.Generator, objs: Sequence[Object]) -> Array:
