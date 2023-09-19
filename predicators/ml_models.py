@@ -1355,6 +1355,7 @@ class MapleQFunction(MLPRegressor):
         self._num_ground_nsrts = 0
         self._replay_buffer: Deque[MapleQData] = deque(
             maxlen=self._replay_buffer_max_size)
+        self._trained_at_least_once = False
 
     def set_grounding(self, init_states: Collection[State],
                       objects: Set[Object], goals: Collection[Set[GroundAtom]],
@@ -1415,7 +1416,7 @@ class MapleQFunction(MLPRegressor):
             x = self._get_q_function_input(state, goal, option)
             input_data.append(x)
             # Next, compute the target for Q-learning by sampling next actions.
-            if not done and self._y_dim != -1:
+            if not done and self._trained_at_least_once:
                 best_next_value = -np.inf
                 next_options: List[_Option] = []
                 # We want to pick a total of num_lookahead_samples samples.
@@ -1436,6 +1437,7 @@ class MapleQFunction(MLPRegressor):
         # This will implicitly sample mini batches and train for a certain
         # number of iterations. It will also normalize all the data.
         self._fit_from_input_output_lists(input_data, output_data)
+        self._trained_at_least_once = True
 
     def minibatch_generator(
             self, tensor_X: Tensor, tensor_Y: Tensor,
@@ -1551,7 +1553,7 @@ class MapleQFunction(MLPRegressor):
                         option: _Option) -> float:
         """Predict the Q value."""
         # Default value if not yet fit.
-        if self._y_dim == -1:
+        if not self._trained_at_least_once:
             return 0.0
         x = self._get_q_function_input(state, goal, option)
         y = self.predict(x)
