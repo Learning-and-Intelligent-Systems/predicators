@@ -1427,7 +1427,8 @@ class MapleQFunction(MLPRegressor):
                     best_next_value = max(best_next_value, val)
             else:
                 best_next_value = 0.0
-            y = rew + self._discount * best_next_value
+            val = rew + self._discount * best_next_value
+            y = self._get_prediction_from_q_value(val, x)
             output_data.append(y)
         # Finally, pass all this vectorized data to the training function.
         # This will implicitly sample mini batches and train for a certain
@@ -1500,6 +1501,11 @@ class MapleQFunction(MLPRegressor):
     def _get_q_value_from_prediction(self, prediction: Any) -> float:
         """Subclasses may override."""
         return prediction[0]
+    
+    def _get_prediction_from_q_value(self, value: float, q_function_input: Any) -> Any:
+        """An inverse to _get_q_value_from_prediction() used for creating learning targets."""
+        del q_function_input  # subclasses may use
+        return np.array([value], dtype=np.float32)
 
     def _vectorize_state(self, state: State) -> Array:
         # Cannot just call state.vec() directly because some objects may not
