@@ -38,7 +38,8 @@ def test_find_move_pick_place(
     manipuland_id: ObjectDetectionID,
     init_surface_id: Optional[ObjectDetectionID],
     target_surface_id: ObjectDetectionID,
-    pre_pick_nav_distance: float = 1.25,
+    pre_pick_surface_nav_distance: float = 1.25,
+    pre_pick_floor_nav_distance: float = 1.75,
     pre_place_nav_distance: float = 1.0,
     pre_pick_nav_angle: float = -np.pi / 2,
     pre_place_nav_angle: float = -np.pi / 2,
@@ -59,8 +60,7 @@ def test_find_move_pick_place(
     object_ids = [manipuland_id]
     if init_surface_id is not None:
         object_ids.append(init_surface_id)
-    if target_surface_id is not None:
-        object_ids.append(target_surface_id)
+    object_ids.append(target_surface_id)
     detections, _ = find_objects(robot, localizer, object_ids)
 
     # Get current robot pose.
@@ -69,7 +69,7 @@ def test_find_move_pick_place(
         # Navigate to the first surface.
         rel_pose = get_relative_se2_from_se3(robot_pose,
                                              detections[init_surface_id],
-                                             pre_pick_nav_distance,
+                                             pre_pick_surface_nav_distance,
                                              pre_pick_nav_angle)
         navigate_to_relative_pose(robot, rel_pose)
         localizer.localize()
@@ -77,7 +77,7 @@ def test_find_move_pick_place(
         # In this case, we assume the object is on the floor.
         rel_pose = get_relative_se2_from_se3(robot_pose,
                                              detections[manipuland_id],
-                                             pre_pick_nav_distance + 0.5,
+                                             pre_pick_floor_nav_distance,
                                              pre_pick_nav_angle)
         navigate_to_relative_pose(robot, rel_pose)
         localizer.localize()

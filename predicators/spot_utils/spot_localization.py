@@ -72,7 +72,7 @@ class SpotLocalizer:
                     initial_guess_localization=localization,
                     ko_tform_body=current_odom_tform_body)
                 break
-            except (ResponseError, TimedOutError):
+            except (ResponseError, TimedOutError) as e:
                 # Retry or fail.
                 if r == NUM_LOCALIZATION_RETRIES:
                     msg = f"Localization failed permanently: {e}."
@@ -157,7 +157,6 @@ class SpotLocalizer:
             return self.localize(num_retries=num_retries - 1,
                                  retry_wait_time=retry_wait_time)
         logging.info("Localization succeeded.")
-        self._map_initialized = True
         self._robot_pose = math_helpers.SE3Pose.from_proto(transform)
         return None
 
