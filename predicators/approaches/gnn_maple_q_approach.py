@@ -385,7 +385,7 @@ class GNNMapleQFunction(MapleQFunction):
 
         return graph, object_to_node
 
-    def predict(self, in_graph: Any) -> float:
+    def predict(self, in_graph: Any) -> Any:  # type: ignore
         if CFG.gnn_do_normalization:
             in_graph = normalize_graph(in_graph, self._input_normalizers)
         out_graph = get_single_model_prediction(self._gnn, in_graph)
@@ -438,6 +438,7 @@ class GNNMapleQFunction(MapleQFunction):
         val_dataset = GraphDictDataset(val_inputs, val_targets)
 
         ## Set up Adam optimizer and dataloaders.
+        assert self._gnn is not None
         optimizer = torch.optim.Adam(self._gnn.parameters(),
                                      lr=CFG.gnn_learning_rate)
         train_dataloader = DataLoader(train_dataset,
