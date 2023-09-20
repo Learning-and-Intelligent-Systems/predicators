@@ -1463,7 +1463,7 @@ class MapleQFunction(MLPRegressor):
         """Flexible typing for subclasses."""
         X_arr = np.array(inputs, dtype=np.float32)
         Y_arr = np.array(outputs, dtype=np.float32)
-        self._fit(X_arr, Y_arr)
+        self.fit(X_arr, Y_arr)
 
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.

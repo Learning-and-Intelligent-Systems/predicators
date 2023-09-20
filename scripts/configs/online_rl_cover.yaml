@@ -4,9 +4,10 @@ APPROACHES:
   gnn_maple_q:
     NAME: "gnn_maple_q"
     FLAGS:
-        explorer: "maple_q"
-        gnn_do_normalization: True
-        gnn_num_epochs: 1000
+      explorer: "maple_q"
+      gnn_do_normalization: True
+      gnn_num_epochs: 25000
+      active_sampler_learning_batch_size: 512
   maple_q:
     NAME: "maple_q"
     FLAGS:
