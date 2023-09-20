@@ -29,13 +29,15 @@ from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
-    get_spot_interface, obj_name_to_apriltag_id
+    get_spot_interface, obj_name_to_apriltag_id 
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
-    Image, LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
+    LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
     Type, Variable
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    get_relative_se2_from_se3, verify_estop
+    get_relative_se2_from_se3, verify_estop, get_robot_gripper_open_percentage
+from predicators.spot_utils.perception.spot_cameras import capture_images
+from predicators.spot_utils.perception.perception_structs import RGBDImageWithContext
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, LanguageObjectDetectionID, detect_objects, \
     get_object_center_pixel_from_artifacts, ObjectDetectionID
@@ -53,7 +55,7 @@ from predicators.spot_utils.skills.spot_find_objects import find_objects
 class _SpotObservation:
     """An observation for a SpotEnv."""
     # Camera name to image
-    images: Dict[str, Image]
+    images: Dict[str, RGBDImageWithContext]
     # Objects that are seen in the current image and their positions in world
     objects_in_view: Dict[Object, Tuple[float, float, float]]
     # Objects seen only by the hand camera
@@ -62,8 +64,8 @@ class _SpotObservation:
     robot: Object
     # Status of the robot gripper.
     gripper_open_percentage: float
-    # Robot x, y, z, yaw
-    robot_pos: Tuple[float, float, float, float]
+    # Robot SE3 Pose
+    robot_pos: math_helpers.SE3Pose
     # Ground atoms without ground-truth classifiers
     # A placeholder until all predicates have classifiers
     nonpercept_atoms: Set[GroundAtom]
@@ -522,9 +524,9 @@ class SpotEnv(BaseEnv):
         }
         robot_type = next(t for t in self.types if t.name == "robot")
         robot = Object("spot", robot_type)
-        rgb_images, _, _, _ = self._spot_interface.get_camera_images()
-        gripper_open_percentage = self._spot_interface.get_gripper_obs()
-        robot_pos = self._spot_interface.get_robot_pose()
+        rgb_images = capture_images(self.robot, self.localizer)
+        gripper_open_percentage = get_robot_gripper_open_percentage(self.robot)
+        robot_pos = self.localizer.get_last_robot_pose()
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
@@ -536,6 +538,8 @@ class SpotEnv(BaseEnv):
         # Save the task for future use.
         json_objects = {o.name: o.type.name for o in objects_in_view}
         json_objects[robot.name] = robot.type.name
+        # TODO: this init json dict construction is broken! The objects_in_view
+        # dict now contains SE3 poses, so this code doesn't really work...
         init_json_dict = {
             o.name: {
                 "x": x,
@@ -969,20 +973,27 @@ class SpotCubeEnv(SpotEnv):
     def _obj_name_to_obj(self, obj_name: str) -> Object:
         return self._make_object_name_to_obj_and_detectionid_dict()[obj_name][0]
 
+    @functools.lru_cache(maxsize=None)
+    def _make_detection_id_to_obj_name(self) -> Dict[ObjectDetectionID, str]:
+        return {vals[1]: obj_name for (obj_name, vals) in self._make_object_name_to_obj_and_detectionid_dict().items()}
+
+    def _detection_id_to_obj_name(self, det_id: ObjectDetectionID) -> str:
+        return self._make_detection_id_to_obj_name()[det_id]
+
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return self.predicates
 
     def _actively_construct_initial_object_views(
-            self) -> Dict[str, Tuple[float, float, float]]:
+            self) -> Dict[str, math_helpers.SE3Pose]:
         obj_names = set(self._make_object_name_to_obj_and_detectionid_dict().keys())
         obj_names.remove("spot")
         obj_names.remove("floor")
         go_home(self.robot, self.localizer)
         self.localizer.localize()
         detections, _ = find_objects(self.robot, self.localizer, [self._make_object_name_to_obj_and_detectionid_dict()[o][1] for o in obj_names])
-        import ipdb; ipdb.set_trace()
-        return detections
+        obj_name_to_se3_pose = {self._detection_id_to_obj_name(det_id): val for (det_id, val) in detections.items()}
+        return obj_name_to_se3_pose
 
 
 ###############################################################################
