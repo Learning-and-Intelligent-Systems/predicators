@@ -3,17 +3,64 @@
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from bosdyn.client import math_helpers
+from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.spot_utils.perception.object_detection import \
+    ObjectDetectionID, detect_objects, \
+    get_object_center_pixel_from_artifacts
+from predicators.spot_utils.perception.spot_cameras import capture_images
+from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
+from predicators.spot_utils.skills.spot_hand_move import \
+    move_hand_to_relative_pose
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
-from predicators.spot_utils.utils import get_relative_se2_from_se3
+from predicators.spot_utils.skills.spot_place import place_at_relative_position
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
+from predicators.spot_utils.spot_localization import SpotLocalizer
+from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
+    get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Type
+
+
+def _navigate_to(robot: Robot, pose_to_nav_to: math_helpers.SE3Pose,
+                 hand_pose: Optional[math_helpers.SE3Pose]) -> None:
+    """Convenience function that wraps navigation and hand movement calls."""
+    navigate_to_relative_pose(robot, pose_to_nav_to)
+    if hand_pose is not None:
+        move_hand_to_relative_pose(robot, hand_pose)
+
+
+def _grasp_obj(robot: Robot, localizer: SpotLocalizer,
+               manipuland_id: ObjectDetectionID) -> None:
+    """Convenience function that wraps object detection and grasping calls."""
+    # Capture an image from the hand camera.
+    hand_camera = "hand_color_image"
+    rgbds = capture_images(robot, localizer, [hand_camera])
+    # Run detection to get a pixel for grasping.
+    _, artifacts = detect_objects([manipuland_id], rgbds)
+    pixel = get_object_center_pixel_from_artifacts(artifacts, manipuland_id,
+                                                   hand_camera)
+    grasp_at_pixel(robot, rgbds[hand_camera], pixel)
+    stow_arm(robot)
+
+
+def _place_obj(robot: Robot, localizer: SpotLocalizer,
+               target_surface_pose: math_helpers.SE3Pose,
+               params: Array) -> None:
+    robot_pose = localizer.get_last_robot_pose()
+    surface_rel_pose = robot_pose.inverse() * target_surface_pose
+    place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x + params[0],
+                                      y=surface_rel_pose.y + params[1],
+                                      z=surface_rel_pose.z + params[2])
+    place_at_relative_position(robot, place_rel_pos)
+    # Finally, stow the arm.
+    stow_arm(robot)
 
 
 class _SpotEnvOption(utils.SingletonParameterizedOption):
@@ -68,7 +115,11 @@ class _SpotEnvOption(utils.SingletonParameterizedOption):
         if controller_name == "navigate":
             assert len(o) in [2, 3, 4]
             robot = o[0]
-            obj = o[-1]
+            if o[-1].type.name != "floor":
+                obj = o[-1]
+            else:
+                assert len(o) == 3
+                obj = o[1]
             robot_pose = math_helpers.SE3Pose(
                 s.get(robot, "x"), s.get(robot, "y"), s.get(robot, "z"),
                 math_helpers.Quat(s.get(robot,
@@ -81,8 +132,30 @@ class _SpotEnvOption(utils.SingletonParameterizedOption):
                                   s.get(obj, "Y_quat"), s.get(obj, "Z_quat")))
             pose_to_nav_to = get_relative_se2_from_se3(robot_pose, obj_pose,
                                                        p[0], p[1])
-            func_to_invoke = navigate_to_relative_pose
-            func_args = [curr_env.robot, pose_to_nav_to]
+            # Move the hand only if we're trying to move to then pick up an
+            # object.
+            hand_pose = None
+            if len(o) == 3 and o[-2].type.name == "tool":
+                hand_pose = DEFAULT_HAND_LOOK_DOWN_POSE
+            func_to_invoke = _navigate_to
+            func_args = [curr_env.robot, pose_to_nav_to, hand_pose]
+        elif controller_name == "grasp":
+            obj_to_grasp = o[1]
+            obj_to_grasp_id = curr_env.obj_to_detection_id(obj_to_grasp)
+            func_to_invoke = _grasp_obj
+            func_args = [curr_env.robot, curr_env.localizer, obj_to_grasp_id]
+        elif controller_name == "place":
+            surface = o[-1]
+            target_surface_pose = math_helpers.SE3Pose(
+                s.get(surface, "x"), s.get(surface, "y"), s.get(surface, "z"),
+                math_helpers.Quat(s.get(surface, "W_quat"),
+                                  s.get(surface, "X_quat"),
+                                  s.get(surface, "Y_quat"),
+                                  s.get(surface, "Z_quat")))
+            func_to_invoke = _place_obj
+            func_args = [
+                curr_env.robot, curr_env.localizer, target_surface_pose, p
+            ]
         else:
             raise NotImplementedError(
                 f"Controller {controller_name} not implemented.")
@@ -93,7 +166,8 @@ class _SpotEnvOption(utils.SingletonParameterizedOption):
         # value, but whose extra info field contains a tuple of the
         # controller name, function to invoke, and its arguments.
         return Action(curr_env.action_space.low,
-                      extra_info=(controller_name, o, func_to_invoke, func_args))
+                      extra_info=(controller_name, o, func_to_invoke,
+                                  func_args))
 
     def _types_from_operator(self) -> List[Type]:
         return [p.type for p in self._get_operator().parameters]

@@ -36,6 +36,7 @@ from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_find_objects import find_objects
 from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_relative_pose
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
     get_spot_interface, obj_name_to_apriltag_id
@@ -194,7 +195,7 @@ class SpotEnv(BaseEnv):
             "navigate": Box(-5.0, 5.0, (2, )),
             "grasp": Box(-1.0, 2.0, (4, )),
             "graspFromPlatform": Box(-1.0, 2.0, (4, )),
-            "placeOnTop": Box(-5.0, 5.0, (3, )),
+            "place": Box(-5.0, 5.0, (3, )),
             "drag": Box(-12.0, 12.0, (2, )),
             "noop": Box(0, 1, (0, ))
         }
@@ -260,7 +261,7 @@ class SpotEnv(BaseEnv):
                 return "grasp_from_platform"
             return "grasp"
         if "Place" in operator.name:
-            return "placeOnTop"
+            return "place"
         if "Drag" in operator.name:
             return "drag"
         # Forthcoming controllers.
@@ -288,7 +289,7 @@ class SpotEnv(BaseEnv):
 
     def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
-        assert len(action.extra_info) == 3
+        assert len(action.extra_info) == 4
         # Check if the action is the special "done" action. If so, ask the
         # human if the task was actually accomplished.
         if action.extra_info[0] == "done":
@@ -355,6 +356,7 @@ class SpotEnv(BaseEnv):
             for det_id in hand_detections.keys())
         gripper_open_percentage = get_robot_gripper_open_percentage(self.robot)
         robot_pos = self.localizer.get_last_robot_pose()
+        robot = self._obj_name_to_obj("spot")
         # Prepare the non-percepts.
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in ground_atoms)
@@ -499,18 +501,24 @@ class SpotEnv(BaseEnv):
         }
 
     @functools.lru_cache(maxsize=None)
-    def _make_detection_id_to_obj(self) -> Dict[ObjectDetectionID, str]:
+    def _make_detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
         return {
             vals[1]: vals[0]
             for (_, vals) in
             self._make_object_name_to_obj_and_detectionid_dict().items()
         }
 
+    def _make_obj_to_detection_id(self) -> Dict[Object, ObjectDetectionID]:
+        return {v: k for (k, v) in self._make_detection_id_to_obj().items()}
+
     def _detection_id_to_obj_name(self, det_id: ObjectDetectionID) -> str:
         return self._make_detection_id_to_obj_name()[det_id]
 
-    def _detection_id_to_obj(self, det_id: ObjectDetectionID) -> str:
+    def _detection_id_to_obj(self, det_id: ObjectDetectionID) -> Object:
         return self._make_detection_id_to_obj()[det_id]
+
+    def obj_to_detection_id(self, obj: Object) -> ObjectDetectionID:
+        return self._make_obj_to_detection_id()[obj]
 
     def render_state_plt(
             self,
@@ -938,6 +946,7 @@ class SpotCubeEnv(SpotEnv):
 
     def _actively_construct_initial_object_views(
             self) -> Dict[str, math_helpers.SE3Pose]:
+        stow_arm(self.robot)
         go_home(self.robot, self.localizer)
         self.localizer.localize()
         detections, _ = find_objects(self.robot, self.localizer,

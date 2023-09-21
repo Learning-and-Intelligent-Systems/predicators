@@ -9,8 +9,7 @@ from bosdyn.client import math_helpers
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
-from predicators.spot_utils.spot_utils import _SpotInterface, \
-    get_spot_interface
+from predicators.spot_utils.spot_utils import _SpotInterface
 from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
     ParameterizedOption, Predicate, State, Type
 from predicators.utils import null_sampler
@@ -71,8 +70,7 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
         return np.array([0.65, 0.0])
         # return np.array([0.65, 0.0, 0.0])
 
-    # return np.array([-0.25, 0.0, dyaw])
-    return np.array([1.00, -np.pi / 2])
+    return np.array([1.20, -np.pi / 2])
 
 
 def _grasp_sampler(spot_interface: _SpotInterface, state: State,
@@ -106,11 +104,15 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
         state.get(surface, "x"),
         state.get(surface, "y"),
     )
-    world_to_robot = math_helpers.SE2Pose(state.get(robot, "x"),
-                                          state.get(robot, "y"),
-                                          state.get(robot, "yaw"))
-    fiducial_in_robot_frame = world_to_robot.inverse() * world_fiducial
-    fiducial_pose = list(fiducial_in_robot_frame) + [spot_interface.hand_z]
+    world_to_robot_se3 = math_helpers.SE3Pose(
+        state.get(robot, "x"), state.get(robot, "y"), state.get(robot, "z"),
+        math_helpers.Quat(state.get(robot,
+                                    "W_quat"), state.get(robot, "X_quat"),
+                          state.get(robot, "Y_quat"),
+                          state.get(robot, "Z_quat")))
+    world_to_robot_se2 = world_to_robot_se3.get_closest_se2_transform()
+    fiducial_in_robot_frame = world_to_robot_se2.inverse() * world_fiducial
+    fiducial_pose = list(fiducial_in_robot_frame) + [state.get(surface, "z")]
 
     if surface.type.name == "bag":  # pragma: no cover
         return fiducial_pose + np.array([0.1, 0.0, -0.25])
