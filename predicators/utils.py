@@ -303,8 +303,10 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
             if param_option.name == "PlaceOnTable":
                 _, table = objects
                 table_y = state.get(table, "y")
+                sticky = state.get(table, "sticky")
                 _, param_y = params
                 sampler_input_lst.append(param_y - table_y)
+                sampler_input_lst.append(sticky)
             else:
                 sampler_input_lst.extend(params)
         else:  # pragma: no cover
