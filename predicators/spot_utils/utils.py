@@ -103,6 +103,7 @@ def get_robot_state(robot: Robot,
             print("WARNING: get robot state failed once, retrying...")
     raise RuntimeError("get_robot_state() failed permanently.")
 
+
 def get_robot_gripper_open_percentage(robot: Robot) -> float:
     """Get the current state of how open the gripper is."""
     robot_state = get_robot_state(robot)

@@ -6,11 +6,6 @@ Example usage with apriltag grasping:
      --bilevel_plan_without_sim True --spot_grasp_use_apriltag True
      --perceiver spot_bike_env
 """
-from bosdyn.client import create_standard_sdk, math_helpers
-from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
-from bosdyn.client.sdk import Robot
-from bosdyn.client.util import authenticate, setup_logging
-
 import abc
 import functools
 import json
@@ -22,29 +17,34 @@ from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
 
 import matplotlib
 import numpy as np
+from bosdyn.client import create_standard_sdk, math_helpers
+from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+from bosdyn.client.sdk import Robot
+from bosdyn.client.util import authenticate, setup_logging
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
-from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
-    get_spot_interface, obj_name_to_apriltag_id 
-from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
-    LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, \
-    Type, Variable
-from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    get_relative_se2_from_se3, verify_estop, get_robot_gripper_open_percentage
-from predicators.spot_utils.perception.spot_cameras import capture_images
-from predicators.spot_utils.perception.perception_structs import RGBDImageWithContext
 from predicators.spot_utils.perception.object_detection import \
-    AprilTagObjectDetectionID, LanguageObjectDetectionID, detect_objects, \
-    get_object_center_pixel_from_artifacts, ObjectDetectionID
+    AprilTagObjectDetectionID, LanguageObjectDetectionID, ObjectDetectionID, \
+    detect_objects, get_object_center_pixel_from_artifacts
+from predicators.spot_utils.perception.perception_structs import \
+    RGBDImageWithContext
+from predicators.spot_utils.perception.spot_cameras import capture_images
+from predicators.spot_utils.skills.spot_find_objects import find_objects
 from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_relative_pose
-from predicators.spot_utils.skills.spot_find_objects import find_objects
-
+from predicators.spot_utils.spot_localization import SpotLocalizer
+from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
+    get_spot_interface, obj_name_to_apriltag_id
+from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
+    get_relative_se2_from_se3, get_robot_gripper_open_percentage, \
+    verify_estop
+from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+    LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
+    Variable
 
 ###############################################################################
 #                                Base Class                                   #
@@ -57,7 +57,7 @@ class _SpotObservation:
     # Camera name to image
     images: Dict[str, RGBDImageWithContext]
     # Objects that are seen in the current image and their positions in world
-    objects_in_view: Dict[Object, Tuple[float, float, float]]
+    objects_in_view: Dict[Object, math_helpers.SE3Pose]
     # Objects seen only by the hand camera
     objects_in_hand_view: Set[Object]
     # Expose the robot object.
@@ -140,27 +140,25 @@ robot = None
 localizer = None
 lease_client = None
 
+
 def initialize_robot():
     global robot, localizer, lease_client
     setup_logging(False)
     hostname = CFG.spot_robot_ip
-    upload_dir = Path(
-        __file__).parent.parent / "spot_utils" / "graph_nav_maps"
+    upload_dir = Path(__file__).parent.parent / "spot_utils" / "graph_nav_maps"
     path = upload_dir / CFG.spot_graph_nav_map
     if robot is None and localizer is None and lease_client is None:
         sdk = create_standard_sdk("PredicatorsClient-")
         robot = sdk.create_robot(hostname)
         authenticate(robot)
         verify_estop(robot)
-        lease_client = robot.ensure_client(
-            LeaseClient.default_service_name)
+        lease_client = robot.ensure_client(LeaseClient.default_service_name)
         lease_client.take()
         lease_keepalive = LeaseKeepAlive(lease_client,
-                                                must_acquire=True,
-                                                return_at_exit=True)
+                                         must_acquire=True,
+                                         return_at_exit=True)
         assert path.exists()
-        localizer = SpotLocalizer(robot, path, lease_client,
-                                        lease_keepalive)
+        localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
 
 class SpotEnv(BaseEnv):
@@ -188,7 +186,6 @@ class SpotEnv(BaseEnv):
         self.lease_client = lease_client
         self._strips_operators: Set[STRIPSOperator] = set()
         self._current_task_goal_reached = False
-
 
     @property
     def params_spaces(self) -> Dict[str, Box]:
@@ -498,7 +495,7 @@ class SpotEnv(BaseEnv):
         }
 
     def _actively_construct_initial_object_views(
-            self) -> Dict[str, Tuple[float, float, float]]:
+            self) -> Dict[str, math_helpers.SE3Pose]:
         raise NotImplementedError("Subclass must override!")
 
     def simulate(self, state: State, action: Action) -> State:
@@ -538,15 +535,17 @@ class SpotEnv(BaseEnv):
         # Save the task for future use.
         json_objects = {o.name: o.type.name for o in objects_in_view}
         json_objects[robot.name] = robot.type.name
-        # TODO: this init json dict construction is broken! The objects_in_view
-        # dict now contains SE3 poses, so this code doesn't really work...
         init_json_dict = {
             o.name: {
-                "x": x,
-                "y": y,
-                "z": z
+                "x": pose.x,
+                "y": pose.y,
+                "z": pose.z,
+                "W_quat": pose.rot.w,
+                "X_quat": pose.rot.x,
+                "Y_quat": pose.rot.y,
+                "Z_quat": pose.rot.z,
             }
-            for o, (x, y, z) in objects_in_view.items()
+            for o, pose in objects_in_view.items()
         }
         for obj in objects_in_view:
             if "lost" in obj.type.feature_names:
@@ -556,10 +555,13 @@ class SpotEnv(BaseEnv):
         init_json_dict[robot.name] = {
             "gripper_open_percentage": gripper_open_percentage,
             "curr_held_item_id": 0,
-            "x": robot_pos[0],
-            "y": robot_pos[1],
-            "z": robot_pos[2],
-            "yaw": robot_pos[3],
+            "x": robot_pos.x,
+            "y": robot_pos.y,
+            "z": robot_pos.z,
+            "W_quat": robot_pos.rot.w,
+            "X_quat": robot_pos.rot.x,
+            "Y_quat": robot_pos.rot.y,
+            "Z_quat": robot_pos.rot.z,
         }
         json_dict = {
             "objects": json_objects,
@@ -640,23 +642,41 @@ class SpotEnv(BaseEnv):
 ###############################################################################
 #                                Cube Table Env                               #
 ###############################################################################
+HANDEMPTY_GRIPPER_THRESHOLD = 2.5
+
+
 class SpotCubeEnv(SpotEnv):
     """An environment corresponding to the spot cube task where the robot
     attempts to place an April Tag cube onto a particular table."""
 
+    _ontop_threshold: ClassVar[float] = 0.55
+    _reachable_threshold: ClassVar[float] = 1.7
+    _bucket_center_offset_x: ClassVar[float] = 0.0
+    _bucket_center_offset_y: ClassVar[float] = -0.15
+    _inbag_threshold: ClassVar[float] = 0.25
+    _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
+    _handempty_gripper_threshold: ClassVar[float] = HANDEMPTY_GRIPPER_THRESHOLD
+    _robot_on_platform_threshold: ClassVar[float] = 0.18
+    _surface_too_high_threshold: ClassVar[float] = 0.7
+    _ontop_max_height_threshold: ClassVar[float] = 0.25
+
     def __init__(self, use_gui: bool = True) -> None:
-        # TODO: comment out the use of a SpotInterface in the superclass
-        # and instead use a Localizer + Tom's helper functions.
         super().__init__(use_gui)
 
         # Types
         self._robot_type = Type("robot", [
             "gripper_open_percentage", "curr_held_item_id", "x", "y", "z",
-            "yaw"
+            "W_quat", "X_quat", "Y_quat", "Z_quat"
         ])
-        self._tool_type = Type("tool", ["x", "y", "z", "lost", "in_view"])
-        self._surface_type = Type("flat_surface", ["x", "y", "z"])
-        self._floor_type = Type("floor", ["x", "y", "z"])
+        self._tool_type = Type("tool", [
+            "x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat", "lost",
+            "in_view"
+        ])
+        self._surface_type = Type(
+            "flat_surface",
+            ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
+        self._floor_type = Type(
+            "floor", ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
 
         # Predicates
         # Note that all classifiers assigned here just directly use
@@ -888,7 +908,10 @@ class SpotCubeEnv(SpotEnv):
             state.get(spot, "x"),
             state.get(spot, "y"),
             state.get(spot, "z"),
-            state.get(spot, "yaw")
+            state.get(spot, "W_quat"),
+            state.get(spot, "X_quat"),
+            state.get(spot, "Y_quat"),
+            state.get(spot, "Z_quat")
         ]
         obj_pose = [
             state.get(obj, "x"),
@@ -901,7 +924,11 @@ class SpotCubeEnv(SpotEnv):
 
         # Compute angle between spot's forward direction and the line from
         # spot to the object.
-        forward_unit = [np.cos(spot_pose[3]), np.sin(spot_pose[3])]
+        spot_yaw = math_helpers.SE3Pose(
+            spot_pose[0], spot_pose[1], spot_pose[2],
+            math_helpers.Quat(spot_pose[3], spot_pose[4], spot_pose[5],
+                              spot_pose[6])).get_closest_se2_transform().angle
+        forward_unit = [np.cos(spot_yaw), np.sin(spot_yaw)]
         spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
         spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
         angle_between_robot_and_obj = np.arccos(
@@ -939,8 +966,7 @@ class SpotCubeEnv(SpotEnv):
 
     @functools.lru_cache(maxsize=None)
     def _make_object_name_to_obj_and_detectionid_dict(
-        self
-    ) -> Dict[str, Tuple[Object, ObjectDetectionID]]:
+            self) -> Dict[str, Tuple[Object, ObjectDetectionID]]:
 
         objects_and_detections: List[Tuple[Object, ObjectDetectionID]] = []
         # Initialize all objects to detections with default
@@ -971,11 +997,16 @@ class SpotCubeEnv(SpotEnv):
         return {o.name: (o, d) for o, d in objects_and_detections}
 
     def _obj_name_to_obj(self, obj_name: str) -> Object:
-        return self._make_object_name_to_obj_and_detectionid_dict()[obj_name][0]
+        return self._make_object_name_to_obj_and_detectionid_dict(
+        )[obj_name][0]
 
     @functools.lru_cache(maxsize=None)
     def _make_detection_id_to_obj_name(self) -> Dict[ObjectDetectionID, str]:
-        return {vals[1]: obj_name for (obj_name, vals) in self._make_object_name_to_obj_and_detectionid_dict().items()}
+        return {
+            vals[1]: obj_name
+            for (obj_name, vals) in
+            self._make_object_name_to_obj_and_detectionid_dict().items()
+        }
 
     def _detection_id_to_obj_name(self, det_id: ObjectDetectionID) -> str:
         return self._make_detection_id_to_obj_name()[det_id]
@@ -986,21 +1017,26 @@ class SpotCubeEnv(SpotEnv):
 
     def _actively_construct_initial_object_views(
             self) -> Dict[str, math_helpers.SE3Pose]:
-        obj_names = set(self._make_object_name_to_obj_and_detectionid_dict().keys())
+        obj_names = set(
+            self._make_object_name_to_obj_and_detectionid_dict().keys())
         obj_names.remove("spot")
         obj_names.remove("floor")
         go_home(self.robot, self.localizer)
         self.localizer.localize()
-        detections, _ = find_objects(self.robot, self.localizer, [self._make_object_name_to_obj_and_detectionid_dict()[o][1] for o in obj_names])
-        obj_name_to_se3_pose = {self._detection_id_to_obj_name(det_id): val for (det_id, val) in detections.items()}
+        detections, _ = find_objects(self.robot, self.localizer, [
+            self._make_object_name_to_obj_and_detectionid_dict()[o][1]
+            for o in obj_names
+        ])
+        obj_name_to_se3_pose = {
+            self._detection_id_to_obj_name(det_id): val
+            for (det_id, val) in detections.items()
+        }
         return obj_name_to_se3_pose
 
 
 ###############################################################################
 #                                Bike Repair Env                              #
 ###############################################################################
-
-HANDEMPTY_GRIPPER_THRESHOLD = 2.5
 
 
 class SpotBikeEnv(SpotEnv):
@@ -1642,7 +1678,7 @@ class SpotBikeEnv(SpotEnv):
         return self.predicates
 
     def _actively_construct_initial_object_views(
-            self) -> Dict[str, Tuple[float, float, float]]:
+            self) -> Dict[str, math_helpers.SE3Pose]:
         obj_names = set(self._make_object_name_to_obj_dict().keys())
         obj_names.remove("spot")
         return self._spot_interface.actively_construct_initial_object_views(

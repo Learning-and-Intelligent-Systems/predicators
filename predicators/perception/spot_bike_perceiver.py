@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Optional, Set, Tuple
 
 import numpy as np
+from bosdyn.client import math_helpers
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
@@ -21,7 +22,7 @@ class SpotBikePerceiver(BasePerceiver):
 
     def __init__(self) -> None:
         super().__init__()
-        self._known_object_poses: Dict[Object, Tuple[float, float, float]] = {}
+        self._known_object_poses: Dict[Object, math_helpers.SE3Pose] = {}
         self._known_objects_in_hand_view: Set[Object] = set()
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
@@ -30,7 +31,8 @@ class SpotBikePerceiver(BasePerceiver):
         self._prev_action: Optional[Action] = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
-        self._robot_pos = (0.0, 0.0, 0.0, 0.0)
+        self._robot_pos: math_helpers.SE3Pose = math_helpers.SE3Pose(
+            0, 0, 0, math_helpers.Quat())
         self._lost_objects: Set[Object] = set()
         assert CFG.env in ["spot_bike_env", "spot_cube_env"]
         self._curr_env: Optional[BaseEnv] = None
@@ -57,7 +59,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._prev_action = None
         self._holding_item_id_feature = 0.0
         self._gripper_open_percentage = 0.0
-        self._robot_pos = (0.0, 0.0, 0.0, 0.0)
+        self._robot_pos = math_helpers.SE3Pose(0, 0, 0, math_helpers.Quat())
         self._lost_objects = set()
         self._container_to_contained_objects = {}
         init_state = self._create_state()
@@ -157,9 +159,13 @@ class SpotBikePerceiver(BasePerceiver):
             new_container_pose = observation.objects_in_view[container]
             dx, dy, dz = np.subtract(new_container_pose, last_container_pose)
             for obj in self._container_to_contained_objects[container]:
-                x, y, z = self._known_object_poses[obj]
+                x, y, z = self._known_object_poses[
+                    obj].x, self._known_object_poses[
+                        obj].y, self._known_object_poses[obj].z
                 new_obj_pose = (x + dx, y + dy, z + dz)
-                self._known_object_poses[obj] = new_obj_pose
+                self._known_object_poses[obj] = math_helpers.SE3Pose(
+                    new_obj_pose[0], new_obj_pose[1], new_obj_pose[2],
+                    self._known_object_poses[obj].rot)
         self._waiting_for_observation = False
         self._robot = observation.robot
         self._known_object_poses.update(observation.objects_in_view)
@@ -180,17 +186,24 @@ class SpotBikePerceiver(BasePerceiver):
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
                 "curr_held_item_id": self._holding_item_id_feature,
-                "x": self._robot_pos[0],
-                "y": self._robot_pos[1],
-                "z": self._robot_pos[2],
-                "yaw": self._robot_pos[3],
+                "x": self._robot_pos.x,
+                "y": self._robot_pos.y,
+                "z": self._robot_pos.z,
+                "W_quat": self._robot_pos.rot.w,
+                "X_quat": self._robot_pos.rot.x,
+                "Y_quat": self._robot_pos.rot.y,
+                "Z_quat": self._robot_pos.rot.z,
             },
         }
-        for obj, (x, y, z) in self._known_object_poses.items():
+        for obj, pose in self._known_object_poses.items():
             state_dict[obj] = {
-                "x": x,
-                "y": y,
-                "z": z,
+                "x": pose.x,
+                "y": pose.y,
+                "z": pose.z,
+                "W_quat": pose.rot.w,
+                "X_quat": pose.rot.x,
+                "Y_quat": pose.rot.y,
+                "Z_quat": pose.rot.z,
             }
             if obj.type.name in ("tool", "platform"):
                 # Detect if the object is in view currently.
