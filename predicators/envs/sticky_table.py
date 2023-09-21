@@ -129,7 +129,9 @@ class StickyTableEnv(BaseEnv):
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               rng=self._test_rng,
+                               sticky_table_only=True)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -199,8 +201,10 @@ class StickyTableEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
+    def _get_tasks(self,
+                   num: int,
+                   rng: np.random.Generator,
+                   sticky_table_only: bool = False) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             # The goal is to move the cube to some table.
@@ -236,7 +240,13 @@ class StickyTableEnv(BaseEnv):
                 }
             tables = sorted(state_dict)
             rng.shuffle(tables)  # type: ignore
-            init_table, target_table = tables[:2]
+            if sticky_table_only:
+                stickies = [t for t in tables if state_dict[t]["sticky"] > 0.5]
+                target_table = stickies[0]
+                remaining_tables = [t for t in tables if t != target_table]
+                init_table = remaining_tables[0]
+            else:
+                init_table, target_table = tables[:2]
             # Create cube.
             size = radius * self.cube_scale
             table_x = state_dict[init_table]["x"]

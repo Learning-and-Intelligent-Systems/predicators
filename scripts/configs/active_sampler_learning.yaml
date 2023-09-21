@@ -35,16 +35,24 @@ ENVS:
   tiny_grid_row:
     NAME: "grid_row"
     FLAGS:
+      max_num_steps_interaction_request: 500
       grid_row_num_cells: 3
   grid_row:
     NAME: "grid_row"
+    FLAGS:
+      max_num_steps_interaction_request: 500
   sticky_table:
     NAME: "sticky_table"
+    FLAGS:
+      max_num_steps_interaction_request: 50
   sticky_table_tricky_floor:
     NAME: "sticky_table_tricky_floor"
+    FLAGS:
+      max_num_steps_interaction_request: 50
   regional_bumpy_cover:
     NAME: "regional_bumpy_cover"
     FLAGS:
+      max_num_steps_interaction_request: 500
       regional_bumpy_cover_include_impossible_nsrt: "True"
       bumpy_cover_num_bumps: 3
       bumpy_cover_spaces_per_bump: 5
@@ -56,6 +64,7 @@ ENVS:
   kitchen:
     NAME: "kitchen"
     FLAGS:
+      max_num_steps_interaction_request: 500
       num_train_tasks: 100
       max_num_steps_option_rollout: 250
 ARGS:
@@ -73,7 +82,6 @@ FLAGS:
   active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 500
   num_online_learning_cycles: 10
   active_sampler_learning_explore_length_base: 100000  # effectively disable
   sesame_task_planner: "fdopt-costs"

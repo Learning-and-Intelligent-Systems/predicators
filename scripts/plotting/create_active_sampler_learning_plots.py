@@ -40,19 +40,19 @@ def _derive_per_task_average(metric: str,
                              unsolved_task_penalty: float = 100) -> float:
     """Add a large constant penalty for unsolved tasks."""
     total_tasks = int(row["num_test_tasks"])
-    total_options_executed = 0.0
-    for test_task_idx in range(1, total_tasks + 1):
+    total_value = 0.0
+    for test_task_idx in range(total_tasks):
         key = f"PER_TASK_task{test_task_idx}_{metric}"
         # Add penalty for tasks that raised an approach failure.
         if key not in row:
-            total_options_executed += unsolved_task_penalty
+            total_value += unsolved_task_penalty
         else:
-            total_options_executed += row[key]
+            total_value += row[key]
     # Add penalty for unsolved tasks.
     num_unsolved_tasks = total_tasks - row["num_solved"]
-    total_options_executed += unsolved_task_penalty * num_unsolved_tasks
+    total_value += unsolved_task_penalty * num_unsolved_tasks
     # Get average.
-    return total_options_executed / total_tasks
+    return total_value / total_tasks
 
 
 DERIVED_KEYS: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]] = [
