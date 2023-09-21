@@ -1,19 +1,19 @@
 """Ground-truth options for PDDL environments."""
 
-from typing import Dict, List, Sequence, Set, Tuple, Optional, Callable, Any
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
+from bosdyn.client import math_helpers
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.spot_utils.skills.spot_navigation import \
+    navigate_to_relative_pose
+from predicators.spot_utils.utils import get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Type
-
-from predicators.spot_utils.utils import get_relative_se2_from_se3
-from predicators.spot_utils.skills.spot_navigation import navigate_to_relative_pose
-from bosdyn.client import math_helpers
 
 
 class _SpotEnvOption(utils.SingletonParameterizedOption):
@@ -64,27 +64,36 @@ class _SpotEnvOption(utils.SingletonParameterizedOption):
         # with the right objects and params.
         func_to_invoke: Optional[Callable] = None
         func_args: List[Any] = []
+
         if controller_name == "navigate":
-            import ipdb; ipdb.set_trace()
-            assert len(o) == 2
-            robot, obj = o
-            robot_pose = math_helpers.SE3Pose(s.get(robot, "x"), s.get(robot, "y"), s.get(robot, "z"), math_helpers.Quat(s.get(robot, "W_quat"), s.get(robot, "X_quat"), s.get(robot, "Y_quat"), s.get(robot, "Z_quat")))
-            obj_pose = math_helpers.SE3Pose(s.get(obj, "x"), s.get(obj, "y"), s.get(obj, "z"), math_helpers.Quat(s.get(obj, "W_quat"), s.get(obj, "X_quat"), s.get(obj, "Y_quat"), s.get(obj, "Z_quat")))
-            # TODO: get the offset sample distance and the angle from the params
-            pose_to_nav_to = get_relative_se2_from_se3(robot_pose, obj_pose, p[0], p[1])
+            assert len(o) in [2, 3, 4]
+            robot = o[0]
+            obj = o[-1]
+            robot_pose = math_helpers.SE3Pose(
+                s.get(robot, "x"), s.get(robot, "y"), s.get(robot, "z"),
+                math_helpers.Quat(s.get(robot,
+                                        "W_quat"), s.get(robot, "X_quat"),
+                                  s.get(robot, "Y_quat"),
+                                  s.get(robot, "Z_quat")))
+            obj_pose = math_helpers.SE3Pose(
+                s.get(obj, "x"), s.get(obj, "y"), s.get(obj, "z"),
+                math_helpers.Quat(s.get(obj, "W_quat"), s.get(obj, "X_quat"),
+                                  s.get(obj, "Y_quat"), s.get(obj, "Z_quat")))
+            pose_to_nav_to = get_relative_se2_from_se3(robot_pose, obj_pose,
+                                                       p[0], p[1])
             func_to_invoke = navigate_to_relative_pose
-            func_args = [pose_to_nav_to]
-            pass # TODO
+            func_args = [curr_env.robot, pose_to_nav_to]
         else:
-            raise NotImplementedError(f"Controller {controller_name} not implemented.")
+            raise NotImplementedError(
+                f"Controller {controller_name} not implemented.")
 
+        assert func_to_invoke is not None
 
-        # TODO: find the correct function to invoke from the helpers
-        # for moving/picking/placing, and put these in the action's
-        # 'info' field.
-        Action()
-
-        return curr_env.build_action(operator, o, p)
+        # We return an Action whose array contains an arbitrary, unused
+        # value, but whose extra info field contains a tuple of the
+        # controller name, function to invoke, and its arguments.
+        return Action(curr_env.action_space.low,
+                      extra_info=(controller_name, func_to_invoke, func_args))
 
     def _types_from_operator(self) -> List[Type]:
         return [p.type for p in self._get_operator().parameters]

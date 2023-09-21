@@ -191,7 +191,7 @@ class SpotEnv(BaseEnv):
     def params_spaces(self) -> Dict[str, Box]:
         """The parameter spaces for each of the controllers."""
         return {
-            "navigate": Box(-5.0, 5.0, (3, )),
+            "navigate": Box(-5.0, 5.0, (2, )),
             "grasp": Box(-1.0, 2.0, (4, )),
             "graspFromPlatform": Box(-1.0, 2.0, (4, )),
             "placeOnTop": Box(-5.0, 5.0, (3, )),
@@ -225,6 +225,10 @@ class SpotEnv(BaseEnv):
         """The predicates that are NOT stored in the simulator state."""
         return set()
 
+    @abc.abstractmethod
+    def _get_object_detection_ids(self) -> Set[ObjectDetectionID]:
+        raise NotImplementedError
+
     @property
     def action_space(self) -> Box:
         # The first entry is the controller identity.
@@ -241,43 +245,6 @@ class SpotEnv(BaseEnv):
         lb_arr = np.array(lb, dtype=np.float32)
         ub_arr = np.array(ub, dtype=np.float32)
         return Box(lb_arr, ub_arr, dtype=np.float32)
-
-    def get_special_action(self, action_name: str) -> Action:
-        """Get a special action that has no operator."""
-        # In the future, may want to make this object-specific.
-        arr = np.zeros(self.action_space.shape, dtype=np.float32)
-        arr[0] = -1.0
-        arr[1] = _SPECIAL_ACTIONS[action_name]
-        return Action(arr)
-
-    def parse_action(self, action: Action) -> Tuple[str, List[Object], Array]:
-        """(Only for this environment) A convenience method that converts low-
-        level actions into more interpretable high-level actions by exploiting
-        knowledge of how we encode actions."""
-        # Special case actions with no operator.
-        if np.isclose(action.arr[0], -1.0):
-            action_idx = int(np.round(action.arr[1]))
-            idx_to_action = {v: k for k, v in _SPECIAL_ACTIONS.items()}
-            action_name = idx_to_action[action_idx]
-            return action_name, [], np.zeros(0, dtype=np.float32)
-        # Convert the first action part into a _GroundSTRIPSOperator.
-        first_action_part_len = self._max_operator_arity + 1
-        op_action = Action(action.arr[:first_action_part_len])
-        all_objects = set(
-            val[0] for val in
-            self._make_object_name_to_obj_and_detectionid_dict().values())
-        ordered_objs = sorted(all_objects)
-        ground_op = _action_to_ground_strips_op(op_action, ordered_objs,
-                                                self._ordered_strips_operators)
-        assert ground_op is not None
-        # Convert the operator into a controller (name).
-        controller_name = self.operator_to_controller_name(ground_op.parent)
-        # Extract the objects.
-        objects = list(ground_op.objects)
-        # Extract the parameters.
-        n = self.controller_name_to_param_space(controller_name).shape[0]
-        params = action.arr[first_action_part_len:first_action_part_len + n]
-        return controller_name, objects, params
 
     def operator_to_controller_name(self, operator: STRIPSOperator) -> str:
         """Helper to convert operators to controllers.
@@ -306,29 +273,6 @@ class SpotEnv(BaseEnv):
         """
         return self.params_spaces[name]
 
-    def build_action(self, op: STRIPSOperator, objects: Sequence[Object],
-                     params: Array) -> Action:
-        """Helper function exposed for use by oracle options."""
-        # Initialize the action array.
-        action_arr = np.zeros(self.action_space.shape[0], dtype=np.float32)
-        # Add the operator index.
-        op_idx = self._ordered_strips_operators.index(op)
-        action_arr[0] = op_idx
-        # Add the object indices.
-        all_objects = set(
-            val[0] for val in
-            self._make_object_name_to_obj_and_detectionid_dict().values())
-        ordered_objects = sorted(all_objects)
-        for i, o in enumerate(objects):
-            obj_idx = ordered_objects.index(o)
-            action_arr[i + 1] = obj_idx
-        # Add the parameters.
-        first_action_part_len = self._max_operator_arity + 1
-        n = len(params)
-        action_arr[first_action_part_len:first_action_part_len + n] = params
-        # Finalize action.
-        return Action(action_arr)
-
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         # NOTE: task_idx and train_or_test ignored unless loading from JSON!
         if CFG.test_task_json_dir is not None and train_or_test == "test":
@@ -344,9 +288,10 @@ class SpotEnv(BaseEnv):
 
     def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
+        assert len(action.extra_info) == 3
         # Check if the action is the special "done" action. If so, ask the
         # human if the task was actually accomplished.
-        if np.allclose(action.arr, self.get_special_action("done").arr):
+        if action.extra_info[0] == "done":
             while True:
                 logging.info(f"The goal is: {self._current_task.goal}")
                 prompt = "Is the goal accomplished? Answer y or n. "
@@ -363,10 +308,12 @@ class SpotEnv(BaseEnv):
         obs = self._current_observation
         assert isinstance(obs, _SpotObservation)
         assert self.action_space.contains(action.arr)
-        # Parse the action into the components needed for a controller.
-        name, objects, params = self.parse_action(action)
-        # Execute the controller in the real environment.
-        self._spot_interface.execute(name, objects, params)
+
+        # Simply execute the action using the information contained in
+        # the info field.
+        assert isinstance(action.extra_info[1], Callable)
+        action.extra_info[1](*action.extra_info[2])
+
         # Now update the part of the state that is cheated based on the
         # ground-truth STRIPS operators.
         next_nonpercept = self._get_next_nonpercept_atoms(obs, action)
@@ -387,86 +334,31 @@ class SpotEnv(BaseEnv):
         may vary per environment.
         """
         # Get the camera images.
-        rgb_img_dict, rgb_img_response_dict, \
-            depth_img_dict, depth_img_response_dict = \
-                    self._spot_interface.get_camera_images()
-
-        # Detect objects using AprilTags (which we need for surfaces anyways).
-        object_names_in_view_by_camera = {}
-        object_names_in_view_by_camera_apriltag = \
-            self._spot_interface.get_objects_in_view_by_camera\
-                (from_apriltag=True, rgb_image_dict=rgb_img_dict,
-                 rgb_image_response_dict=rgb_img_response_dict,
-                 depth_image_dict=depth_img_dict,
-                 depth_image_response_dict=depth_img_response_dict)
-        object_names_in_view_by_camera.update(
-            object_names_in_view_by_camera_apriltag)
-        # Additionally, if we're using SAM, then update using that.
-        if CFG.spot_grasp_use_sam:
-            object_names_in_view_by_camera_sam = self._spot_interface.\
-                get_objects_in_view_by_camera(from_apriltag=False,
-                                            rgb_image_dict=rgb_img_dict,
-                                            rgb_image_response_dict=\
-                                                rgb_img_response_dict,
-                                            depth_image_dict=depth_img_dict,
-                                            depth_image_response_dict=\
-                                                depth_img_response_dict)
-            # Combine these together to get all objects in view.
-            for k, v in object_names_in_view_by_camera.items():
-                v.update(object_names_in_view_by_camera_sam[k])
-
-        object_names_in_view: Dict[str, Tuple[float, float, float]] = {}
-        # IMPORTANT NOTE: when using DETIC-SAM for vision, we generally
-        # only associate an object with the camera source that detected
-        # that object with the highest score. However, we also
-        # keep around all objects seen by the hand camera, even if
-        # other cameras have higher scores for the same object.
-        # Thus, if an object appears to be associated with more than
-        # one camera, it can only be because it was seen by the hand
-        # camera, and also by another camera, but the other camera
-        # had a higher-scoring detection. "hand_color_image" is the
-        # first element of CAMERA_NAMES, so we will overwrite
-        # the pose of an object if we detect it from another camera
-        # other than the hand, which is exactly what we want.
-        # "hand_color_image" being the first element of the CAMERA_NAMES
-        # list is vital for this behavior; things could start to
-        # silently go wrong here if that's changed.
-        for source_camera in CAMERA_NAMES:
-            object_names_in_view.update(
-                object_names_in_view_by_camera[source_camera])
-
-        # Find the subset of those objects that are only in view of
-        # the hand camera.
-        object_names_in_hand_view = object_names_in_view_by_camera[
-            "hand_color_image"]
-
-        # Filter out unknown objects.
-        known_object_names = set(self._make_object_name_to_obj_dict())
-        object_names_in_view = {
-            n: p
-            for n, p in object_names_in_view.items() if n in known_object_names
+        rgbds = capture_images(self.robot, self.localizer)
+        all_detections, _ = detect_objects(self._get_object_detection_ids(),
+                                           rgbds)
+        # Separately, get detections for the hand in particular.
+        hand_rgbd = {
+            k: v
+            for (k, v) in rgbds.items() if k == "hand_color_image"
         }
-        object_names_in_hand_view = {
-            n: p
-            for n, p in object_names_in_hand_view.items()
-            if n in known_object_names
-        }
+        hand_detections, _ = detect_objects(self._get_object_detection_ids(),
+                                            hand_rgbd)
+        # Now construct a dict of all objects in view, as well as a set
+        # of objects that the hand can see.
         objects_in_view = {
-            self._obj_name_to_obj(n): v
-            for n, v in object_names_in_view.items()
+            self._detection_id_to_obj(det_id): val
+            for (det_id, val) in all_detections.items()
         }
         objects_in_hand_view = set(
-            self._obj_name_to_obj(n) for n in object_names_in_hand_view.keys())
-
-        # Get the robot status.
-        robot = self._obj_name_to_obj("spot")
-        gripper_open_percentage = self._spot_interface.get_gripper_obs()
-        robot_pos = self._spot_interface.get_robot_pose()
-
+            self._detection_id_to_obj(det_id)
+            for det_id in hand_detections.keys())
+        gripper_open_percentage = get_robot_gripper_open_percentage(self.robot)
+        robot_pos = self.localizer.get_last_robot_pose()
         # Prepare the non-percepts.
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in ground_atoms)
-        obs = _SpotObservation(rgb_img_dict, objects_in_view,
+        obs = _SpotObservation(all_detections, objects_in_view,
                                objects_in_hand_view, robot,
                                gripper_open_percentage, robot_pos,
                                ground_atoms, nonpercept_preds)
@@ -589,9 +481,6 @@ class SpotEnv(BaseEnv):
     def _generate_task_goal(self) -> Set[GroundAtom]:
         raise NotImplementedError
 
-    # @abc.abstractmethod
-    # def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
-    #     raise NotImplementedError
     @abc.abstractmethod
     def _make_object_name_to_obj_and_detectionid_dict(
             self) -> Dict[str, Tuple[Object, ObjectDetectionID]]:
@@ -600,6 +489,28 @@ class SpotEnv(BaseEnv):
     @abc.abstractmethod
     def _obj_name_to_obj(self, obj_name: str) -> Object:
         raise NotImplementedError
+
+    @functools.lru_cache(maxsize=None)
+    def _make_detection_id_to_obj_name(self) -> Dict[ObjectDetectionID, str]:
+        return {
+            vals[1]: obj_name
+            for (obj_name, vals) in
+            self._make_object_name_to_obj_and_detectionid_dict().items()
+        }
+
+    @functools.lru_cache(maxsize=None)
+    def _make_detection_id_to_obj(self) -> Dict[ObjectDetectionID, str]:
+        return {
+            vals[1]: vals[0]
+            for (_, vals) in
+            self._make_object_name_to_obj_and_detectionid_dict().items()
+        }
+
+    def _detection_id_to_obj_name(self, det_id: ObjectDetectionID) -> str:
+        return self._make_detection_id_to_obj_name()[det_id]
+
+    def _detection_id_to_obj(self, det_id: ObjectDetectionID) -> str:
+        return self._make_detection_id_to_obj()[det_id]
 
     def render_state_plt(
             self,
@@ -1010,33 +921,27 @@ class SpotCubeEnv(SpotEnv):
         return self._make_object_name_to_obj_and_detectionid_dict(
         )[obj_name][0]
 
-    @functools.lru_cache(maxsize=None)
-    def _make_detection_id_to_obj_name(self) -> Dict[ObjectDetectionID, str]:
-        return {
-            vals[1]: obj_name
-            for (obj_name, vals) in
-            self._make_object_name_to_obj_and_detectionid_dict().items()
-        }
-
-    def _detection_id_to_obj_name(self, det_id: ObjectDetectionID) -> str:
-        return self._make_detection_id_to_obj_name()[det_id]
-
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return self.predicates
 
-    def _actively_construct_initial_object_views(
-            self) -> Dict[str, math_helpers.SE3Pose]:
+    @functools.lru_cache(maxsize=None)
+    def _get_object_detection_ids(self) -> Set[ObjectDetectionID]:
+        """Useful helper function for getting the object detection ids we might
+        want to detect to pass to our vision pipeline."""
         obj_names = set(
             self._make_object_name_to_obj_and_detectionid_dict().keys())
         obj_names.remove("spot")
         obj_names.remove("floor")
+        return set(self._make_object_name_to_obj_and_detectionid_dict()[o][1]
+                   for o in obj_names)
+
+    def _actively_construct_initial_object_views(
+            self) -> Dict[str, math_helpers.SE3Pose]:
         go_home(self.robot, self.localizer)
         self.localizer.localize()
-        detections, _ = find_objects(self.robot, self.localizer, [
-            self._make_object_name_to_obj_and_detectionid_dict()[o][1]
-            for o in obj_names
-        ])
+        detections, _ = find_objects(self.robot, self.localizer,
+                                     self._get_object_detection_ids())
         obj_name_to_se3_pose = {
             self._detection_id_to_obj_name(det_id): val
             for (det_id, val) in detections.items()

@@ -72,7 +72,7 @@ def _move_sampler(spot_interface: _SpotInterface, state: State,
         # return np.array([0.65, 0.0, 0.0])
 
     # return np.array([-0.25, 0.0, dyaw])
-    return np.array([0.25, 0.0])
+    return np.array([1.00, -np.pi / 2])
 
 
 def _grasp_sampler(spot_interface: _SpotInterface, state: State,
