@@ -45,10 +45,12 @@ ENVS:
     NAME: "sticky_table"
     FLAGS:
       max_num_steps_interaction_request: 50
+      active_sampler_learning_feature_selection: "oracle"
   # sticky_table_tricky_floor:
   #   NAME: "sticky_table_tricky_floor"
   #   FLAGS:
   #     max_num_steps_interaction_request: 50
+  #     active_sampler_learning_feature_selection: "oracle"
   # regional_bumpy_cover:
   #   NAME: "regional_bumpy_cover"
   #   FLAGS:

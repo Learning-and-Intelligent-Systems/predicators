@@ -148,7 +148,7 @@ PLOT_GROUPS = {
 ADD_ZERO_POINT = False
 
 # Plot type.
-PLOT_TYPE = "single_lines"  # single_lines or seed_lines
+PLOT_TYPE = "seed_lines"  # single_lines or seed_lines
 
 # Line transparency for seed line plots.
 SEED_LINE_ALPHA = 0.5
