@@ -171,6 +171,7 @@ def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
         if entry_df.size == 0:
             print(f"No results found for {label}, skipping")
             continue
+        plot_has_data = True
         # Draw one line per seed.
         for seed in entry_df["SEED"].unique():
             seed_df = entry_df[entry_df["SEED"] == seed]
