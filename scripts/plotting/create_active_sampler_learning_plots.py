@@ -72,8 +72,8 @@ X_KEY_AND_LABEL = [
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
-    ("POLICY_CALL_TIME", "Policy Call Time (s)"),
-    ("NUM_OPTIONS_EXECUTED", "# Skills Executed"),
+    # ("POLICY_CALL_TIME", "Policy Call Time (s)"),
+    # ("NUM_OPTIONS_EXECUTED", "# Skills Executed"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
