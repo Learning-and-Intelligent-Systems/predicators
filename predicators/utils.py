@@ -302,10 +302,8 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
         elif "sticky_table" in CFG.env:
             if param_option.name == "PlaceOnTable":
                 _, table = objects
-                table_x = state.get(table, "x")
                 table_y = state.get(table, "y")
-                param_x, param_y = params
-                sampler_input_lst.append(param_x - table_x)
+                _, param_y = params
                 sampler_input_lst.append(param_y - table_y)
             else:
                 sampler_input_lst.extend(params)
