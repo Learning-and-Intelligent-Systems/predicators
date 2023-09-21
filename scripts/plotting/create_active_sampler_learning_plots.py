@@ -37,7 +37,7 @@ COLUMN_NAMES_AND_KEYS = [
 
 def _derive_per_task_average(metric: str,
                              row: Dict[str, float],
-                             unsolved_task_penalty: float = 100) -> float:
+                             unsolved_task_penalty: float = 10) -> float:
     """Add a large constant penalty for unsolved tasks."""
     total_tasks = int(row["num_test_tasks"])
     total_value = 0.0
@@ -92,6 +92,8 @@ PLOT_GROUPS = {
             lambda v: "kitchen-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-random_nsrts_explore" in v)),
+        ("Maple Q", "gray", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "kitchen-maple_q" in v)),
     ],
     "Regional Bumpy Cover": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
@@ -104,6 +106,8 @@ PLOT_GROUPS = {
             lambda v: "regional_bumpy_cover-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
+        ("Maple Q", "gray", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "regional_bumpy_cover-maple_q" in v)),
     ],
     "Grid 1D Environment": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
@@ -116,6 +120,8 @@ PLOT_GROUPS = {
             lambda v: "grid_row-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-random_nsrts_explore" in v)),
+        ("Maple Q", "gray", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "grid_row-maple_q" in v)),
     ],
     "Sticky Table": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
@@ -128,6 +134,8 @@ PLOT_GROUPS = {
             lambda v: "sticky_table-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-random_nsrts_explore" in v)),
+        ("Maple Q", "gray", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table-maple_q" in v)),
     ],
     "Sticky Table Tricky Floor": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].
@@ -141,6 +149,8 @@ PLOT_GROUPS = {
             lambda v: "sticky_table_tricky_floor-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table_tricky_floor-random_nsrts_explore" in v)),
+        ("Maple Q", "gray", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "sticky_table_tricky_floor-maple_q" in v)),
     ],
 }
 
@@ -148,7 +158,7 @@ PLOT_GROUPS = {
 ADD_ZERO_POINT = False
 
 # Plot type.
-PLOT_TYPE = "seed_lines"  # single_lines or seed_lines
+PLOT_TYPE = "single_lines"  # single_lines or seed_lines
 
 # Line transparency for seed line plots.
 SEED_LINE_ALPHA = 0.5
@@ -180,7 +190,7 @@ def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
             if ADD_ZERO_POINT:
                 xs = [0] + xs
                 ys = [0] + ys
-            ax.plot(xs, ys, color=color, label=label, alpha=SEED_LINE_ALPHA)
+            ax.plot(xs, ys, label=label, alpha=SEED_LINE_ALPHA)
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     plt.legend(by_label.values(), by_label.keys())
