@@ -1,15 +1,15 @@
 """A perceiver specific to the spot bike env."""
 
 import logging
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, Optional, Set
 
 import numpy as np
 from bosdyn.client import math_helpers
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
-from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotBikeEnv, _PartialPerceptionState, _SpotObservation
+from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, SpotEnv, \
+    _PartialPerceptionState, _SpotObservation
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
@@ -48,8 +48,8 @@ class SpotBikePerceiver(BasePerceiver):
 
     def reset(self, env_task: EnvironmentTask) -> Task:
         self._waiting_for_observation = True
-        self._curr_env = get_or_create_env("spot_bike_env")
-        assert isinstance(self._curr_env, SpotBikeEnv)
+        self._curr_env = get_or_create_env(CFG.env)
+        assert isinstance(self._curr_env, SpotEnv)
         self._known_object_poses = {}
         self._known_objects_in_hand_view = set()
         self._robot = None
@@ -76,7 +76,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._update_state_from_observation(observation)
         # Update the curr held item when applicable.
         assert self._curr_env is not None and isinstance(
-            self._curr_env, SpotBikeEnv)
+            self._curr_env, SpotEnv)
         if self._prev_action is not None:
             controller_name, objects, _ = self._curr_env.parse_action(
                 self._prev_action)

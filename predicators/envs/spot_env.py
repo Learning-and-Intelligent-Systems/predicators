@@ -263,7 +263,9 @@ class SpotEnv(BaseEnv):
         # Convert the first action part into a _GroundSTRIPSOperator.
         first_action_part_len = self._max_operator_arity + 1
         op_action = Action(action.arr[:first_action_part_len])
-        all_objects = set(self._make_object_name_to_obj_dict().values())
+        all_objects = set(
+            val[0] for val in
+            self._make_object_name_to_obj_and_detectionid_dict().values())
         ordered_objs = sorted(all_objects)
         ground_op = _action_to_ground_strips_op(op_action, ordered_objs,
                                                 self._ordered_strips_operators)
@@ -313,7 +315,9 @@ class SpotEnv(BaseEnv):
         op_idx = self._ordered_strips_operators.index(op)
         action_arr[0] = op_idx
         # Add the object indices.
-        all_objects = set(self._make_object_name_to_obj_dict().values())
+        all_objects = set(
+            val[0] for val in
+            self._make_object_name_to_obj_and_detectionid_dict().values())
         ordered_objects = sorted(all_objects)
         for i, o in enumerate(objects):
             obj_idx = ordered_objects.index(o)
@@ -479,7 +483,9 @@ class SpotEnv(BaseEnv):
         if np.isclose(action.arr[0], -1.0):
             return set(obs.nonpercept_atoms)
         # Get the ground operator.
-        all_objects = set(self._make_object_name_to_obj_dict().values())
+        all_objects = set(
+            val[0] for val in
+            self._make_object_name_to_obj_and_detectionid_dict().values())
         ordered_objs = sorted(all_objects)
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
@@ -586,6 +592,10 @@ class SpotEnv(BaseEnv):
     # @abc.abstractmethod
     # def _make_object_name_to_obj_dict(self) -> Dict[str, Object]:
     #     raise NotImplementedError
+    @abc.abstractmethod
+    def _make_object_name_to_obj_and_detectionid_dict(
+            self) -> Dict[str, Tuple[Object, ObjectDetectionID]]:
+        raise NotImplementedError
 
     @abc.abstractmethod
     def _obj_name_to_obj(self, obj_name: str) -> Object:
