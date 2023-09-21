@@ -93,7 +93,7 @@ class _SpotEnvOption(utils.SingletonParameterizedOption):
         # value, but whose extra info field contains a tuple of the
         # controller name, function to invoke, and its arguments.
         return Action(curr_env.action_space.low,
-                      extra_info=(controller_name, func_to_invoke, func_args))
+                      extra_info=(controller_name, o, func_to_invoke, func_args))
 
     def _types_from_operator(self) -> List[Type]:
         return [p.type for p in self._get_operator().parameters]

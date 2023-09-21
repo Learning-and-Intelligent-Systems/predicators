@@ -311,8 +311,8 @@ class SpotEnv(BaseEnv):
 
         # Simply execute the action using the information contained in
         # the info field.
-        assert isinstance(action.extra_info[1], Callable)
-        action.extra_info[1](*action.extra_info[2])
+        assert isinstance(action.extra_info[2], Callable)
+        action.extra_info[2](*action.extra_info[3])
 
         # Now update the part of the state that is cheated based on the
         # ground-truth STRIPS operators.

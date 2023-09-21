@@ -78,8 +78,7 @@ class SpotBikePerceiver(BasePerceiver):
         assert self._curr_env is not None and isinstance(
             self._curr_env, SpotEnv)
         if self._prev_action is not None:
-            controller_name, objects, _ = self._curr_env.parse_action(
-                self._prev_action)
+            controller_name, objects, _, _ = self._prev_action.extra_info
             logging.info(f"[Perceiver] Previous action was {controller_name}.")
             # The robot is always the 0th argument of an
             # operator!
