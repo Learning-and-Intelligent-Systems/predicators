@@ -626,7 +626,6 @@ class _SpotInterface():
         elif self._find_controller_move_queue_idx == 4:
             self.relative_move(0.0, 0.0, -np.pi / 6)
 
-        # Soon we should implement asking for help here instead of crashing.
         else:
             prompt = """Please take control of the robot and make the
             object become in its view. Hit the 'Enter' key

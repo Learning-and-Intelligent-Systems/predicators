@@ -11,13 +11,14 @@ from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID, RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
-    open_gripper
+    open_gripper, move_hand_to_relative_pose
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.spot_localization import SpotLocalizer
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
+from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE
 
-
-def find_objects(
+def init_search_for_objects(
     robot: Robot,
     localizer: SpotLocalizer,
     object_ids: Collection[ObjectDetectionID],
@@ -76,12 +77,49 @@ def find_objects(
     # import imageio.v2 as iio
     # for i, rgbds in enumerate(all_rgbds):
     #     for camera, rgbd in rgbds.items():
-    #         path = f"find_objects_angle{i}_{camera}.png"
+    #         path = f"init_search_for_objects_angle{i}_{camera}.png"
     #         iio.imsave(path, rgbd.rgb)
     #         print(f"Wrote out to {path}.")
 
     remaining_object_ids = set(object_ids) - set(all_detections)
     raise RuntimeError(f"Could not find objects: {remaining_object_ids}")
+
+def find_object(robot: Robot, find_controller_move_queue_idx: int, lease_client) -> None:
+    """Execute look around."""
+    # Execute a hard-coded sequence of movements and hope that one of them
+    # puts the lost object in view. This is very specifically designed for
+    # the case where an object has fallen in the immediate vicinity.
+    stow_arm(robot)
+
+    # First move way back and don't move the hand. This is useful when the
+    # object has not actually fallen, but wasn't grasped.
+    if find_controller_move_queue_idx == 1:
+        move_back_pose = math_helpers.SE2Pose(-0.75, 0.0, 0.0)
+        navigate_to_relative_pose(robot, move_back_pose)
+        return
+
+    # Now just look down.
+    if find_controller_move_queue_idx == 2:
+        pass
+    # Move to the right.
+    elif find_controller_move_queue_idx == 3:
+        look_right_pose = math_helpers.SE2Pose(0.0, 0.0, np.pi / 6)
+        navigate_to_relative_pose(robot, look_right_pose)
+    # Move to the left.
+    elif find_controller_move_queue_idx == 4:
+        look_left_pose = math_helpers.SE2Pose(0.0, 0.0, -np.pi / 6)
+        navigate_to_relative_pose(robot, look_left_pose)
+    else:
+        prompt = """Please take control of the robot and make the
+        object become in its view. Hit the 'Enter' key
+        when you're done!"""
+        utils.prompt_user(prompt)
+        lease_client.take()
+        return
+
+    # Move the hand to get a view of the floor.
+    move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_DOWN_POSE)
+    return
 
 
 if __name__ == "__main__":
@@ -140,6 +178,6 @@ if __name__ == "__main__":
                 410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat())),
         ]
 
-        find_objects(robot, localizer, object_ids)
+        init_search_for_objects(robot, localizer, object_ids)
 
     _run_manual_test()

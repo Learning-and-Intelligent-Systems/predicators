@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 from bosdyn.client import math_helpers
 from bosdyn.client.sdk import Robot
 from gym.spaces import Box
+import numpy as np
 
 from predicators import utils
 from predicators.envs import get_or_create_env
@@ -52,13 +53,13 @@ def _grasp_obj(robot: Robot, localizer: SpotLocalizer,
 
 def _place_obj(robot: Robot, localizer: SpotLocalizer,
                target_surface_pose: math_helpers.SE3Pose,
-               params: Array) -> None:
+               params: Array, downward_angle: float = np.pi/2) -> None:
     robot_pose = localizer.get_last_robot_pose()
     surface_rel_pose = robot_pose.inverse() * target_surface_pose
     place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x + params[0],
                                       y=surface_rel_pose.y + params[1],
                                       z=surface_rel_pose.z + params[2])
-    place_at_relative_position(robot, place_rel_pos)
+    place_at_relative_position(robot, place_rel_pos, downward_angle)
     # Finally, stow the arm.
     stow_arm(robot)
 
@@ -132,6 +133,7 @@ class _SpotEnvOption(utils.SingletonParameterizedOption):
                                   s.get(obj, "Y_quat"), s.get(obj, "Z_quat")))
             pose_to_nav_to = get_relative_se2_from_se3(robot_pose, obj_pose,
                                                        p[0], p[1])
+
             # Move the hand only if we're trying to move to then pick up an
             # object.
             hand_pose = None

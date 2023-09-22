@@ -120,7 +120,7 @@ def _place_sampler(spot_interface: _SpotInterface, state: State,
 
         dx = 0.2
         dy = rng.uniform(-0.2, 0.2)  # positive is left
-        dz = -0.6
+        dz = -0.1
 
         # Oracle values for slanted table.
         # dx = 0.2

@@ -33,7 +33,7 @@ from predicators.spot_utils.perception.object_detection import \
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
-from predicators.spot_utils.skills.spot_find_objects import find_objects
+from predicators.spot_utils.skills.spot_find_objects import init_search_for_objects
 from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
@@ -187,6 +187,9 @@ class SpotEnv(BaseEnv):
         self.lease_client = lease_client
         self._strips_operators: Set[STRIPSOperator] = set()
         self._current_task_goal_reached = False
+        # Special counter variable useful for the special
+        # 'find' action.
+        self._find_controller_move_queue_idx = 0
 
     @property
     def params_spaces(self) -> Dict[str, Box]:
@@ -306,6 +309,12 @@ class SpotEnv(BaseEnv):
                 logging.info("Invalid input, must be either 'y' or 'n'")
             return self._current_observation
 
+        elif action.extra_info[0] == "find":
+            self._find_controller_move_queue_idx += 1
+            # TODO: wakanda
+
+        # Finding must have finished.
+        self._find_controller_move_queue_idx = 0
         obs = self._current_observation
         assert isinstance(obs, _SpotObservation)
         assert self.action_space.contains(action.arr)
@@ -604,6 +613,7 @@ class SpotCubeEnv(SpotEnv):
         self._surface_type = Type(
             "flat_surface",
             ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
+        self._bag_type = Type("bag", ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
         self._floor_type = Type(
             "floor", ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
 
@@ -628,6 +638,8 @@ class SpotCubeEnv(SpotEnv):
         self._ReachableSurface = Predicate(
             "ReachableSurface", [self._robot_type, self._surface_type],
             self._reachable_classifier)
+        self._InBag = Predicate("InBag", [self._tool_type, self._bag_type],
+                                self._inbag_classifier)
 
         # STRIPS Operators (needed for option creation)
         # MoveToToolOnSurface
@@ -828,6 +840,17 @@ class SpotCubeEnv(SpotEnv):
     def _onfloor_classifier(state: State, objects: Sequence[Object]) -> bool:
         obj_on, _ = objects
         return state.get(obj_on, "z") < 0.0
+    
+    @classmethod
+    def _inbag_classifier(cls, state: State,
+                          objects: Sequence[Object]) -> bool:
+        obj, bag = objects
+        obj_x = state.get(obj, "x")
+        obj_y = state.get(obj, "y")
+        bag_x = state.get(bag, "x") + cls._bucket_center_offset_x
+        bag_y = state.get(bag, "y") + cls._bucket_center_offset_y
+        dist = np.sqrt((obj_x - bag_x)**2 + (obj_y - bag_y)**2)
+        return dist <= cls._inbag_threshold
 
     @classmethod
     def _reachable_classifier(cls, state: State,
@@ -949,7 +972,7 @@ class SpotCubeEnv(SpotEnv):
         stow_arm(self.robot)
         go_home(self.robot, self.localizer)
         self.localizer.localize()
-        detections, _ = find_objects(self.robot, self.localizer,
+        detections, _ = init_search_for_objects(self.robot, self.localizer,
                                      self._get_object_detection_ids())
         obj_name_to_se3_pose = {
             self._detection_id_to_obj_name(det_id): val

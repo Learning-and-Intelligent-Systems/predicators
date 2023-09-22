@@ -19,7 +19,7 @@ from predicators.spot_utils.perception.object_detection import \
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID
 from predicators.spot_utils.perception.spot_cameras import capture_images
-from predicators.spot_utils.skills.spot_find_objects import find_objects
+from predicators.spot_utils.skills.spot_find_objects import init_search_for_objects
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
 from predicators.spot_utils.skills.spot_hand_move import \
     move_hand_to_relative_pose, open_gripper
@@ -61,7 +61,7 @@ def test_find_move_pick_place(
     if init_surface_id is not None:
         object_ids.append(init_surface_id)
     object_ids.append(target_surface_id)
-    detections, _ = find_objects(robot, localizer, object_ids)
+    detections, _ = init_search_for_objects(robot, localizer, object_ids)
 
     # Get current robot pose.
     robot_pose = localizer.get_last_robot_pose()
