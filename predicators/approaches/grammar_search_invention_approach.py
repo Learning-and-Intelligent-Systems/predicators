@@ -1132,7 +1132,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 shared_add_effects_per_cluster.append(
                     shared_add_effects_in_cluster)
                 extracted_preds |= shared_add_effects_in_cluster
-            print("SIZE OF EXTRACTED: ", len(extracted_preds))
 
             # Step 6:
             # Remove inconsistent predicates except if removing them prevents us
@@ -1163,7 +1162,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     if consistent_shared_add_effects_per_cluster[
                             i] == consistent_shared_add_effects_per_cluster[
                                 j]:
-                        print(
+                        logging.info(
                             f"Final clusters {i} and {j} cannot be "
                             f"disambiguated after removing the inconsistent"
                             f" predicates.")
