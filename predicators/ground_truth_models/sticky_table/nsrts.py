@@ -114,8 +114,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             table_x = state.get(table, "x")
             table_y = state.get(table, "y")
             table_radius = state.get(table, "radius")
-            cube_size = state.get(cube, "size")
-            dist = rng.uniform(0, table_radius - cube_size)
+            cube_diag = np.sqrt(2) * state.get(cube, "size")
+            assert table_radius > cube_diag
+            dist = rng.uniform(0, table_radius - cube_diag)
             theta = rng.uniform(0, 2 * np.pi)
             x = table_x + dist * np.cos(theta)
             y = table_y + dist * np.sin(theta)
