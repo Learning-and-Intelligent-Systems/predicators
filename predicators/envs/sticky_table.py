@@ -120,6 +120,7 @@ class StickyTableEnv(BaseEnv):
                 else:
                     next_state.set(cube, "x", act_x)
                     next_state.set(cube, "y", act_y)
+                    assert self._OnTable_holds(next_state, [cube, table])
         return next_state
 
     def _action_grasps_object(self, act_x: float, act_y: float, cube: Object,

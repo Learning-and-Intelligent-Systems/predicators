@@ -211,6 +211,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 # NSRT because those change as we re-learn.
                 if o.parent not in self._sampler_data:
                     self._sampler_data[o.parent] = []
+                if len(self._sampler_data[o.parent]) >= 95:
+                    import ipdb; ipdb.set_trace()
                 self._sampler_data[o.parent].append((s, o, ns, label))
                 ground_nsrt = utils.option_to_ground_nsrt(o, self._nsrts)
                 ground_op_to_num_data[ground_nsrt.op] += 1
