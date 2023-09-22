@@ -9,8 +9,8 @@ import logging
 from dataclasses import dataclass, field
 from functools import cached_property
 from operator import le
-from typing import Callable, Dict, FrozenSet, Iterator, List, Sequence, Set, \
-    Tuple, Any
+from typing import Any, Callable, Dict, FrozenSet, Iterator, List, Sequence, \
+    Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -921,9 +921,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     pred_in_curr_del_effs = pred in [
                         atom.predicate for atom in seg.delete_effects
                     ]
-                    not_consistently_add = pred_in_add_effs_0 != pred_in_curr_add_effs
-                    not_consistently_delete = pred_in_del_effs_0 != pred_in_curr_del_effs
-                    if not_consistently_add or not_consistently_delete:
+                    not_consis_add = pred_in_add_effs_0 != pred_in_curr_add_effs
+                    not_consis_del = pred_in_del_effs_0 != pred_in_curr_del_effs
+                    if not_consis_add or not_consis_del:
                         keep_pred = False
                         inconsistent.add(pred)
                         logging.info(f"Inconsistent predicate: {pred.name}")
@@ -956,14 +956,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Step 1:
             # Cluster segments by the option that generated them. We know that
             # at the very least, operators are 1 to 1 with options.
-            # option_to_segments = {}
-            option_to_segments: Dict[Any, Any] = {} # Dict[str, List[Segment]]
+            option_to_segments: Dict[Any, Any] = {}  # Dict[str, List[Segment]]
             for seg in segments:
                 name = seg.get_option().name
                 option_to_segments.setdefault(name, []).append(seg)
-            logging.info(
-                f"STEP 1: generated {len(option_to_segments.keys())} option-based clusters."
-            )
+            logging.info(f"STEP 1: generated {len(option_to_segments.keys())} "
+                         f"option-based clusters.")
             clusters = option_to_segments.copy()  # Tree-like structure.
 
             # Step 2:
@@ -987,8 +985,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     types = tuple(sorted(list(set.union(*types_in_effects))))
                     types_to_segments.setdefault(types, []).append(seg)
                 logging.info(
-                    f"STEP 2: generated {len(types_to_segments.keys())} type-based clusters for cluster {i+1} from STEP 1 involving option {option}."
-                )
+                    f"STEP 2: generated {len(types_to_segments.keys())} "
+                    f"type-based clusters for cluster {i+1} from STEP 1 "
+                    f"involving option {option}.")
                 clusters[option] = types_to_segments
 
             # Step 3:
@@ -1007,8 +1006,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         num_to_segments.setdefault(max_num_objs,
                                                    []).append(seg)
                     logging.info(
-                        f"STEP 3: generated {len(num_to_segments.keys())} num-object-based clusters for cluster {i+j+1} from STEP 2 involving option {option} and type {types}."
-                    )
+                        f"STEP 3: generated {len(num_to_segments.keys())} "
+                        f"num-object-based clusters for cluster {i+j+1} from "
+                        f"STEP 2 involving option {option} and type {types}.")
                     clusters[option][types] = num_to_segments
 
             # Step 4:
@@ -1024,73 +1024,83 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         if len(segments[0].get_option().params) == 0:
                             clusters[option][types][max_num_objs] = [segments]
                             logging.info(
-                                f"STEP 4: generated no further sample-based clusters (no parameter) for the {i+j+k+1}th cluster from STEP 3 involving option {option}, type {types}, and max num objects {max_num_objs}."
+                                f"STEP 4: generated no further sample-based "
+                                f"clusters (no parameter) for cluster {i+j+k+1}"
+                                f" from STEP 3 involving option {option}, type "
+                                f"{types}, and max num objects {max_num_objs}."
                             )
                             continue
-                        else:
-                            # pylint: disable=line-too-long
-                            # If the parameters are described by a uniform
-                            # distribution, then don't cluster further. This
-                            # helps prevent overfitting. A proper implementation
-                            # would do a multi-dimensional test
-                            # (https://ieeexplore.ieee.org/document/4767477,
-                            # https://ui.adsabs.harvard.edu/abs/1987MNRAS.225..155F/abstract,
-                            # https://stats.stackexchange.com/questions/30982/how-to-test-uniformity-in-several-dimensions)
-                            # but for now we will only check each dimension
-                            # individually to keep the implementation simple.
-                            # pylint: enable=line-too-long
-                            samples = np.array(
-                                [seg.get_option().params for seg in segments])
-                            each_dim_uniform = True
-                            for d in range(samples.shape[1]):
-                                col = samples[:, d]
-                                minimum = col.min()
-                                maximum = col.max()
-                                null_hypothesis = np.random.uniform(
-                                    minimum, maximum, len(col))
-                                p_value = kstest(col, null_hypothesis).pvalue
+                        # pylint: disable=line-too-long
+                        # If the parameters are described by a uniform
+                        # distribution, then don't cluster further. This
+                        # helps prevent overfitting. A proper implementation
+                        # would do a multi-dimensional test
+                        # (https://ieeexplore.ieee.org/document/4767477,
+                        # https://ui.adsabs.harvard.edu/abs/1987MNRAS.225..155F/abstract,
+                        # https://stats.stackexchange.com/questions/30982/how-to-test-uniformity-in-several-dimensions)
+                        # but for now we will only check each dimension
+                        # individually to keep the implementation simple.
+                        # pylint: enable=line-too-long
+                        samples = np.array(
+                            [seg.get_option().params for seg in segments])
+                        each_dim_uniform = True
+                        for d in range(samples.shape[1]):
+                            col = samples[:, d]
+                            minimum = col.min()
+                            maximum = col.max()
+                            null_hypothesis = np.random.uniform(
+                                minimum, maximum, len(col))
+                            p_value = kstest(col, null_hypothesis).pvalue
 
-                                # We use a significance value of 0.05.
-                                if p_value < 0.05:
-                                    each_dim_uniform = False
-                                    break
-                            if each_dim_uniform:
-                                clusters[option][types][max_num_objs] = [
-                                    segments
-                                ]
-                                logging.info(
-                                    f"STEP 4: generated no further sample-based clusters (uniformly distributed parameter) for the {i+j+k+1}th cluster from STEP 3 involving option {option}, type {types}, and max num objects {max_num_objs}."
-                                )
-                                continue
-                            else:
-                                # Determine clusters by assignment from a
-                                # Gaussian Mixture Model. The number of
-                                # components and the negative weighting on the
-                                # complexity of the model (chosen by BIC here)
-                                # are hyperparameters.
-                                max_components = min(
-                                    len(samples), len(np.unique(samples)), CFG.
-                                    grammar_search_clustering_gmm_num_components
-                                )
-                                n_components = np.arange(1, max_components + 1)
-                                models = [
-                                    GMM(n,
-                                        covariance_type="full",
-                                        random_state=0).fit(samples)
-                                    for n in n_components
-                                ]
-                                bic = [m.bic(samples) for m in models]
-                                best = models[np.argmin(bic)]
-                                assignments = best.predict(samples)
-                                label_to_segments: Dict[int, List[Segment]] = {}
-                                for l, assignment in enumerate(assignments):
-                                    label_to_segments.setdefault(
-                                        assignment, []).append(segments[l])
-                                clusters[option][types][max_num_objs] = list(
-                                    label_to_segments.values())
-                                logging.info(
-                                    f"STEP 4: generated {len(label_to_segments.keys())} sample-based clusters for the {i+j+k+1}th cluster from STEP 3 involving option {option}, type {types}, and max num objects {max_num_objs}."
-                                )
+                            # We use a significance value of 0.05.
+                            if p_value < 0.05:
+                                each_dim_uniform = False
+                                break
+                        if each_dim_uniform:
+                            clusters[option][types][max_num_objs] = [
+                                segments
+                            ]
+                            logging.info(
+                                f"STEP 4: generated no further sample-based"
+                                f" clusters (uniformly distributed "
+                                f"parameter) for cluster {i+j+k+1} "
+                                f"from STEP 3 involving option {option}, "
+                                f" type {types}, and max num objects "
+                                f"{max_num_objs}.")
+                            continue
+                        # Determine clusters by assignment from a
+                        # Gaussian Mixture Model. The number of
+                        # components and the negative weighting on the
+                        # complexity of the model (chosen by BIC here)
+                        # are hyperparameters.
+                        max_components = min(
+                            len(samples), len(np.unique(samples)), CFG.
+                            grammar_search_clustering_gmm_num_components
+                        )
+                        n_components = np.arange(1, max_components + 1)
+                        models = [
+                            GMM(n,
+                                covariance_type="full",
+                                random_state=0).fit(samples)
+                            for n in n_components
+                        ]
+                        bic = [m.bic(samples) for m in models]
+                        best = models[np.argmin(bic)]
+                        assignments = best.predict(samples)
+                        label_to_segments: Dict[int,
+                                                List[Segment]] = {}
+                        for l, assignment in enumerate(assignments):
+                            label_to_segments.setdefault(
+                                assignment, []).append(segments[l])
+                        clusters[option][types][max_num_objs] = list(
+                            label_to_segments.values())
+                        logging.info(
+                            f"STEP 4: generated "
+                            f"{len(label_to_segments.keys())}"
+                            f"sample-based clusters for cluster "
+                            f"{i+j+k+1} from STEP 3 involving option "
+                            f"{option}, type {types}, and max num "
+                            f"objects {max_num_objs}.")
 
             # We could avoid these loops by creating the final set of clusters
             # as part of STEP 4, but this is not prohibitively slow and serves
@@ -1109,7 +1119,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # in each cluster.
             extracted_preds = set()
             shared_add_effects_per_cluster = []
-            for b, c in enumerate(final_clusters):
+            for c in final_clusters:
                 grounded_add_effects_per_segment = [
                     seg.add_effects for seg in c
                 ]
@@ -1150,17 +1160,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for j in range(num_clusters):
                     if i == j:
                         continue
-                    else:
-                        if consistent_shared_add_effects_per_cluster[
-                                i] == consistent_shared_add_effects_per_cluster[
-                                    j]:
-                            print(
-                                f"Final clusters {i} and {j} cannot be disambiguated after removing the inconsistent predicates."
-                            )
-                            predicates_to_keep |= shared_add_effects_per_cluster[
-                                i]
-                            predicates_to_keep |= shared_add_effects_per_cluster[
-                                j]
+                    if consistent_shared_add_effects_per_cluster[
+                            i] == consistent_shared_add_effects_per_cluster[
+                                j]:
+                        print(
+                            f"Final clusters {i} and {j} cannot be "
+                            f"disambiguated after removing the inconsistent"
+                            f" predicates.")
+                        predicates_to_keep |= \
+                            shared_add_effects_per_cluster[i]
+                        predicates_to_keep |= \
+                            shared_add_effects_per_cluster[j]
 
             # Remove the initial predicates.
             predicates_to_keep -= initial_predicates
