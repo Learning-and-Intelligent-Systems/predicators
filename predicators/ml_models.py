@@ -1275,10 +1275,6 @@ def _train_pytorch_model(model: nn.Module,
         max_iters = max_train_iters(dataset_size)
     assert isinstance(max_iters, int)
     for tensor_X, tensor_Y in batch_generator:
-
-        if len(tensor_X) >= 106:
-            import ipdb; ipdb.set_trace()
-
         Y_hat = model(tensor_X)
         loss = loss_fn(Y_hat, tensor_Y)
         if loss.item() < best_loss:
