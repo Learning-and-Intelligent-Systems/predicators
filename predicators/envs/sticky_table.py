@@ -92,9 +92,11 @@ class StickyTableEnv(BaseEnv):
             next_state.set(cube, "held", 0.0)
             # Find the table for placing, if any.
             table: Optional[Object] = None
+            cube_size = state.get(cube, "size")
+            rect = utils.Rectangle(act_x, act_y, cube_size, cube_size, 0.0)
             for target in state.get_objects(self._table_type):
-                rect = self._object_to_geom(target, state)
-                if rect.contains_point(act_x, act_y):
+                circ = self._object_to_geom(target, state)
+                if self._rectangle_inside_geom(rect, circ):
                     table = target
                     break
             if table is None:
@@ -278,8 +280,12 @@ class StickyTableEnv(BaseEnv):
         rect = self._object_to_geom(cube, state)
         circ = self._object_to_geom(table, state)
         assert isinstance(rect, utils.Rectangle)
+        return self._rectangle_inside_geom(rect, circ)
+
+    @staticmethod
+    def _rectangle_inside_geom(rect: utils.Rectangle, geom: utils._Geom2D) -> bool:
         for x, y in rect.vertices:
-            if not circ.contains_point(x, y):
+            if not geom.contains_point(x, y):
                 return False
         return True
 

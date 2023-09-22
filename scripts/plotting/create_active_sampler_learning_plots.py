@@ -190,7 +190,7 @@ def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
             if ADD_ZERO_POINT:
                 xs = [0] + xs
                 ys = [0] + ys
-            ax.plot(xs, ys, label=label, alpha=SEED_LINE_ALPHA)
+            ax.plot(xs, ys, color=color, label=label, alpha=SEED_LINE_ALPHA)
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     plt.legend(by_label.values(), by_label.keys())

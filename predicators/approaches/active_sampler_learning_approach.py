@@ -346,7 +346,7 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
                 weight_decay=CFG.weight_decay,
                 use_torch_gpu=CFG.use_torch_gpu,
                 train_print_every=CFG.pytorch_train_print_every,
-                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+                n_iter_no_change=CFG.active_sampler_learning_n_iter_no_change,
                 hid_sizes=CFG.mlp_classifier_hid_sizes,
                 n_reinitialize_tries=CFG.
                 sampler_mlp_classifier_n_reinitialize_tries,
