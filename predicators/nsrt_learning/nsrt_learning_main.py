@@ -124,6 +124,25 @@ def learn_nsrts_from_data(
         logging.info(nsrt)
     logging.info("")
 
+    # count total number of predicates used
+    # can use pnads to do so
+    total_preds = set()
+    for pnad in pnads:
+        opp = pnad.op
+        for x in opp.preconditions:
+            total_preds.add(x.predicate)
+        for x in opp.add_effects:
+            total_preds.add(x.predicate)
+        for x in opp.delete_effects:
+            total_preds.add(x.predicate)
+        for x in opp.ignore_effects:
+            total_preds.add(x)
+    print("NUMBER OF PREDICATES USED IN NSRTS: ", len(total_preds))
+    for t in total_preds:
+        print(t)
+    print("donedone")
+    ###
+
     return set(nsrts), segmented_trajs, seg_to_nsrt
 
 

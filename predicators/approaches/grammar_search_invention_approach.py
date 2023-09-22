@@ -975,8 +975,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         clusters[types].append(seg)
                     else:
                         clusters[types] = [seg]
+                        print("New unique type: ", types)
                 logging.info(f"STEP 2: generated {len(clusters.values())} type-based clusters for for {j+1}th cluster from STEP 1 involving option {option}.")
-                for c in clusters.values():
+                for _, c in clusters.items():
                     all_clusters.append(c)
 
             # Step 3:
@@ -1004,6 +1005,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for j, cluster in enumerate(all_clusters):
                 example_segment = cluster[0]
                 option_name = example_segment.get_option().name
+                # if len(example_segment.get_option().params) == 0 or option_name in ["Paint", "Place", "Pick"]:
                 if len(example_segment.get_option().params) == 0:
                     final_clusters.append(cluster)
                     logging.info(f"STEP 4: generated no further sample-based clusters (no parameter!) for the {j+1}th cluster from STEP 3 involving option {option_name}.")
@@ -1018,13 +1020,31 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     # further. Should do a multi-dimensional test but won't do
                     # that for now. TODO: do that later.
                     all_uniform = True
+                    # TODO: explain that this is doing it per dimension, but we should be looking at the joint distribution.
                     for i in range(data.shape[1]):
                         col = data[:,i]
-                        p_value = kstest(col, "uniform").pvalue
+                        minimum = col.min()
+                        maximum = col.max()
+                        null_hypothesis = np.random.uniform(minimum, maximum, len(col))
+                        p_value = kstest(col, null_hypothesis).pvalue
+                        # p_value = kstest(col, "uniform").pvalue
+
                         # Significance value of 0.05
                         if p_value < 0.05:
                             all_uniform = False
                             break
+                    # if option_name == "Paint":
+                    #     import matplotlib.pyplot as plt
+                    #     x = data[:,0]
+                    #     plt.hist(x)
+                    #     plt.savefig("painting_samples.png")
+                    #     plt.clf()
+                    #     import pdb; pdb.set_trace()
+                        # arr = data[:,0]
+                        # import matplotlib.pyplot as plt
+                        # plt.hist(arr)
+                        # plt.savefig("temp.png")
+                        # plt.clf()
                     if all_uniform:
                         final_clusters.append(cluster)
                         logging.info(f"STEP 4: generated no further sample-based clusters (uniformly distributed parameter!) for the {j+1}th cluster from STEP 3 involving option {option_name}.")
@@ -1045,6 +1065,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                 sub_clusters[assignment].append(cluster[i])
                             else:
                                 sub_clusters[assignment] = [cluster[i]]
+
 
                         logging.info(f"STEP 4: generated {len(sub_clusters.values())} sample-based clusters for the {j+1}th cluster from STEP 3 involving option {option_name}.")
                         for c in sub_clusters.values():
@@ -1078,68 +1099,68 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             predicates_to_keep = all_add_effects
 
             ##########
-            # # Remove inconsistent predicates.
-            # inconsistent_preds = set()
-            #
-            # # Old way to remove inconsistent predicates
-            # predicates_to_keep: Set[Predicate] = set()
-            # for pred in all_add_effects:
-            #     keep_pred = True
-            #     for j, seg_list in enumerate(final_clusters):
-            #         seg_0 = seg_list[0]
-            #         pred_in_add_effs_0 = pred in [
-            #             atom.predicate for atom in seg_0.add_effects
-            #         ]
-            #         pred_in_del_effs_0 = pred in [
-            #             atom.predicate for atom in seg_0.delete_effects
-            #         ]
-            #         for seg in seg_list[1:]:
-            #             pred_in_curr_add_effs = pred in [
-            #                 atom.predicate for atom in seg.add_effects
-            #             ]
-            #             pred_in_curr_del_effs = pred in [
-            #                 atom.predicate for atom in seg.delete_effects
-            #             ]
-            #             A = pred_in_add_effs_0 != pred_in_curr_add_effs
-            #             B = pred_in_del_effs_0 != pred_in_curr_del_effs
-            #             if A or B:
-            #             # if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
-            #             #         and
-            #             #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
-            #                 keep_pred = False
-            #                 print("INCONSISTENT: ", pred.name)
-            #
-            #                 inconsistent_preds.add(pred)
-            #                 # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
-            #                 #     import pdb; pdb.set_trace()
-            #                 break
-            #         if not keep_pred:
-            #             break
-            #     if keep_pred:
-            #         predicates_to_keep.add(pred)
-            #     else:
-            #         inconsistent_preds.add(pred)
-            #
-            # # Re-add inconsistent predicates that were necessary to disambiguate two clusters.
-            # # That is, if any two clusters's predicates look the same after removing inconsistent predicates from both,
-            # # keep all those predicates.
-            # new_add_effects_per_cluster = []
-            # for effs_cluster in add_effects_per_cluster:
-            #     new_add_effects_per_cluster.append(effs_cluster - inconsistent_preds)
-            # # Check all pairs of clusters, if they are the same, add their original cluster's predicates back.
-            # num_clusters = len(final_clusters)
-            # for i in range(num_clusters):
-            #     for j in range(num_clusters):
-            #         if i == j:
-            #             continue
-            #         else:
-            #             if new_add_effects_per_cluster[i] == new_add_effects_per_cluster[j]:
-            #                 print(f"MATCH! : {i}, {j}")
-            #                 predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[i])
-            #                 predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[j])
+            # Remove inconsistent predicates.
+            inconsistent_preds = set()
+
+            # Old way to remove inconsistent predicates
+            predicates_to_keep: Set[Predicate] = set()
+            for pred in all_add_effects:
+                keep_pred = True
+                for j, seg_list in enumerate(final_clusters):
+                    seg_0 = seg_list[0]
+                    pred_in_add_effs_0 = pred in [
+                        atom.predicate for atom in seg_0.add_effects
+                    ]
+                    pred_in_del_effs_0 = pred in [
+                        atom.predicate for atom in seg_0.delete_effects
+                    ]
+                    for seg in seg_list[1:]:
+                        pred_in_curr_add_effs = pred in [
+                            atom.predicate for atom in seg.add_effects
+                        ]
+                        pred_in_curr_del_effs = pred in [
+                            atom.predicate for atom in seg.delete_effects
+                        ]
+                        A = pred_in_add_effs_0 != pred_in_curr_add_effs
+                        B = pred_in_del_effs_0 != pred_in_curr_del_effs
+                        if A or B:
+                        # if not ((pred_in_add_effs_0 == pred_in_curr_add_effs)
+                        #         and
+                        #         (pred_in_del_effs_0 == pred_in_curr_del_effs)):
+                            keep_pred = False
+                            print("INCONSISTENT: ", pred.name)
+
+                            inconsistent_preds.add(pred)
+                            # if pred.name == "NOT-((0:obj).grasp<=[idx 0]0.5)" or pred.name == "((0:obj).grasp<=[idx 1]0.25)":
+                            #     import pdb; pdb.set_trace()
+                            break
+                    if not keep_pred:
+                        break
+                if keep_pred:
+                    predicates_to_keep.add(pred)
+                else:
+                    inconsistent_preds.add(pred)
+
+            # Re-add inconsistent predicates that were necessary to disambiguate two clusters.
+            # That is, if any two clusters's predicates look the same after removing inconsistent predicates from both,
+            # keep all those predicates.
+            new_add_effects_per_cluster = []
+            for effs_cluster in add_effects_per_cluster:
+                new_add_effects_per_cluster.append(effs_cluster - inconsistent_preds)
+            # Check all pairs of clusters, if they are the same, add their original cluster's predicates back.
+            num_clusters = len(final_clusters)
+            for i in range(num_clusters):
+                for j in range(num_clusters):
+                    if i == j:
+                        continue
+                    else:
+                        if new_add_effects_per_cluster[i] == new_add_effects_per_cluster[j]:
+                            print(f"MATCH! : {i}, {j}")
+                            predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[i])
+                            predicates_to_keep = predicates_to_keep.union(add_effects_per_cluster[j])
             ####################
 
-
+            # import pdb; pdb.set_trace()
             #
             # import pdb; pdb.set_trace()
             # print("inconsistent preds: ", inconsistent_preds)
@@ -1207,8 +1228,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             logging.info(
                 f"\nSelected {len(predicates_to_keep)} predicates out of "
                 f"{len(candidates)} candidates:")
-            for pred in predicates_to_keep:
-                logging.info(f"\t{pred}")
+            for pred in sorted(predicates_to_keep):
+                logging.info(f"{pred}")
             return predicates_to_keep
 
         if CFG.grammar_search_pred_clusterer == "oracle":
@@ -1289,13 +1310,22 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     predicates_to_keep.add(pred)
             print("DONE LOOKING FOR ANY INCONSISTENT PREDICATES.")
 
+            # remove for a test
+            temp = predicates_to_keep.copy()
+            for p in temp:
+                if p.name == "((0:obj).grasp<=[idx 0]0.5)" or p.name == "Forall[0:obj].[((0:obj).grasp<=[idx 0]0.5)(0)]":
+                    predicates_to_keep.remove(p)
+                    print("Removing for the purpose of test: ", p)
+
             # Remove all the initial predicates.
             predicates_to_keep -= initial_predicates
             logging.info(
                 f"\nSelected {len(predicates_to_keep)} predicates out of "
                 f"{len(candidates)} candidates:")
-            for pred in predicates_to_keep:
-                logging.info(f"\t{pred}")
+            for pred in sorted(predicates_to_keep):
+                logging.info(f"{pred}")
+            # for pred in sorted(predicates_to_keep):
+            #     logging.info(f"\t{pred}")
 
             # print("Final # of predicates: ", len(predicates_to_keep))
             # import pdb; pdb.set_trace()

@@ -50,30 +50,30 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
             while uncovered_segment is not None and \
                 new_heuristic_val >= init_heuristic_val:
 
-                option_name = uncovered_segment.get_option().name
-                print(f"_BackChainingPNADSearchOperator found uncovered segment involving option {option_name}.")
-                old_pnads_list = ret_pnads_list.copy()
+                # option_name = uncovered_segment.get_option().name
+                # print(f"_BackChainingPNADSearchOperator found uncovered segment involving option {option_name}.")
+                # old_pnads_list = ret_pnads_list.copy()
 
                 # We will need to induce an operator to cover this
                 # segment, and thus it must have some necessary add effects.
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
-                if "Stack" in new_pnad.op.name:
-                    print("Printing new stack pnad: ")
-                    print(new_pnad.op)
+                # if "Stack" in new_pnad.op.name:
+                #     print("Printing new stack pnad: ")
+                #     print(new_pnad.op)
 
-                # #
-                for ll_traj, seg_traj in zip(self._trajectories,
-                                             self._segmented_trajs):
-                    if uncovered_segment in seg_traj:
-                        if ll_traj.is_demo:
-                            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-                            relevant_seg = seg_traj
-                if option_name == "Stack":
-                    print("First breakpoint in get_sucessors().")
-                    # try backchaining and see what happens
-                    self._learner.backchain2(relevant_seg, old_pnads_list, traj_goal)
-                    import pdb; pdb.set_trace()
-                # #
+                # # #
+                # for ll_traj, seg_traj in zip(self._trajectories,
+                #                              self._segmented_trajs):
+                #     if uncovered_segment in seg_traj:
+                #         if ll_traj.is_demo:
+                #             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+                #             relevant_seg = seg_traj
+                # if option_name == "Stack":
+                #     print("First breakpoint in get_sucessors().")
+                #     # try backchaining and see what happens
+                #     # self._learner.backchain2(relevant_seg, old_pnads_list, traj_goal)
+                #     # import pdb; pdb.set_trace()
+                # # #
 
 
                 ret_pnads_list = self._append_new_pnad_and_keep_effects(
@@ -81,27 +81,27 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
 
 
 
+                # # #
+                # stack_pnads = [p for p in ret_pnads_list if "Stack" in p.op.name]
+                # num_stack_pnads = len(stack_pnads)
+                # option_name = uncovered_segment.get_option().name
+                # # if option_name == "Stack":
+                # #     print("Second breakpoint in get_sucessors().")
+                # #     for j, st in enumerate(stack_pnads):
+                # #         print(f"Preconditions for stack pnad {j}")
+                # #         preconds = sorted(list(st.op.preconditions))
+                # #         for pr in preconds:
+                # #             print(pr)
+                # #         print(f"Add effects for stack pnad {j}")
+                # #         preconds = sorted(list(st.op.add_effects))
+                # #         for pr in preconds:
+                # #             print(pr)
+                # #         print(f"Delete effects for stack pnad {j}")
+                # #         preconds = sorted(list(st.op.delete_effects))
+                # #         for pr in preconds:
+                # #             print(pr)
+                #     # import pdb; pdb.set_trace()
                 # #
-                stack_pnads = [p for p in ret_pnads_list if "Stack" in p.op.name]
-                num_stack_pnads = len(stack_pnads)
-                option_name = uncovered_segment.get_option().name
-                if option_name == "Stack":
-                    print("Second breakpoint in get_sucessors().")
-                    for j, st in enumerate(stack_pnads):
-                        print(f"Preconditions for stack pnad {j}")
-                        preconds = sorted(list(st.op.preconditions))
-                        for pr in preconds:
-                            print(pr)
-                        print(f"Add effects for stack pnad {j}")
-                        preconds = sorted(list(st.op.add_effects))
-                        for pr in preconds:
-                            print(pr)
-                        print(f"Delete effects for stack pnad {j}")
-                        preconds = sorted(list(st.op.delete_effects))
-                        for pr in preconds:
-                            print(pr)
-                    import pdb; pdb.set_trace()
-                #
 
                 ret_pnads = frozenset(pnad.copy() for pnad in ret_pnads_list)
                 new_heuristic_val = self._associated_heuristic(ret_pnads)
@@ -390,8 +390,8 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                              check_goal=lambda _: False,
                                              get_successors=get_successors,
                                              heuristic=heuristic,
-                                             # verbose=self._verbose,
-                                             verbose=True,
+                                             verbose=self._verbose,
+                                             # verbose=True,
                                              timeout=CFG.pnad_search_timeout)
 
         # Extract the best PNADs set.
@@ -501,7 +501,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     print("No pnad match found.")
                     stack_pnads = [pr for pr in pnads if "Stack" in pr.op.name]
                     print("LENGTH OF STACK PNADS: ", len(stack_pnads))
-                    import pdb; pdb.set_trace()
+                    # import pdb; pdb.set_trace()
                     if len(stack_pnads) == 1:
                         print("Debugging 1st stack pnad!")
                         # ground for debugging
@@ -521,7 +521,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         temp2 = stack_pnads[1].op.ground((robot, block2, block1))
                         temp3 = stack_pnads[2].op.ground((robot, block2, block1))
 
-                    import pdb; pdb.set_trace()
+                    # import pdb; pdb.set_trace()
                     return operator_chain
                 assert var_to_obj is not None
                 obj_to_var = {v: k for k, v in var_to_obj.items()}
