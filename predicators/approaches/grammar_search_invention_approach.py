@@ -937,8 +937,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         to operators and use this to select predicates."""
 
         if CFG.grammar_search_pred_clusterer == "option-type-number-sample":
-            # Algorithm:
-            # TODO
+            # This procedure tries to reverse engineer the clusters of segments
+            # that correspond to the oracle operators and selects predicates
+            # that are add effects in those clusters, letting pnad_search
+            # downstream handle chainability.
 
             assert CFG.segmenter == "option_changes"
             segments = [
@@ -946,7 +948,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ]
 
             # Step 1:
-            # Cluster segments by the option that generated them.
+            # Cluster segments by the option that generated them. We know that
+            # at the very least, operators are 1 to 1 with options.
             option_to_segments = {}
             for seg in segments:
                 name = seg.get_option().name
@@ -956,7 +959,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # Step 2:
             # Further cluster by the types that appear in a segment's add
-            # effects.
+            # effects. Operators have a fixed number of typed arguments.
             for i, pair in enumerate(option_to_segments.items()):
                 option, segments = pair
                 types_to_segments = {}
@@ -976,7 +979,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # Step 3:
             # Further cluster by the maximum number of objects that appear in a
-            # segment's add effects.
+            # segment's add effects. Note that the use of maximum here is
+            # somewhat arbitrary. Alternatively, you could cluster for every
+            # possible number of objects and not the max among what you see in
+            # the add effects of a particular segment.
             for i, (option, types_to_segments) in enumerate(clusters.items()):
                 for j, (types, segments) in enumerate(types_to_segments.items()):
                     num_to_segments = {}
@@ -987,7 +993,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     clusters[option][types] = num_to_segments
 
             # Step 4:
-            # Further cluster by sample, if a sample is present.
+            # Further cluster by sample, if a sample is present. The idea here
+            # is to separate things like PickFromTop and PickFromSide.
             for i, (option, types_to_num) in enumerate(clusters.items()):
                 for j, (types, num_to_segments) in enumerate(types_to_num.items()):
                     for k, (max_num_objs, segments) in enumerate(num_to_segments.items()):
@@ -1000,8 +1007,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         else:
                             # pylint: disable=line-too-long
                             # If the parameters are described by a uniform
-                            # distribution, then don't cluster further. A proper
-                            # implementation would do a multi-dimensional test
+                            # distribution, then don't cluster further. This
+                            # helps prevent overfitting. A proper implementation
+                            # would do a multi-dimensional test
                             # (https://ieeexplore.ieee.org/document/4767477,
                             # https://ui.adsabs.harvard.edu/abs/1987MNRAS.225..155F/abstract,
                             # https://stats.stackexchange.com/questions/30982/how-to-test-uniformity-in-several-dimensions)
@@ -1027,7 +1035,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                 continue
                             else:
                                 # Determine clusters by assignment from a
-                                # Gaussian Mixture Model.
+                                # Gaussian Mixture Model. The number of
+                                # components and the negative weighting on the
+                                # complexity of the model (chosen by BIC here)
+                                # are hyperparameters.
                                 max_components = min(len(samples), len(np.unique(samples)), CFG.grammar_search_clustering_gmm_num_components)
                                 n_components = np.arange(1, max_components+1)
                                 models = [GMM(n, covariance_type="full", random_state=0).fit(samples) for n in n_components]
@@ -1041,9 +1052,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                 logging.info(f"STEP 4: generated {len(label_to_segments.keys())} sample-based clusters for the {i+j+k+1}th cluster from STEP 3 involving option {option}, type {types}, and max num objects {max_num_objs}.")
 
             # We could avoid these loops by creating the final set of clusters
-            # as part of STEP 4, but this is not slow and serves to clarify
-            # the nested dictionary structure, which we may make use of in
-            # follow-up work.
+            # as part of STEP 4, but this is not prohibitively slow and serves
+            # to clarify the nested dictionary structure, which we may make use
+            # of in follow-up work that modifies the clusters more.
             final_clusters = []
             for option in clusters.keys():
                 for types in clusters[option].keys():
@@ -1065,11 +1076,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 shared_add_effects_in_cluster = set.intersection(*ungrounded_add_effects_per_segment)
                 shared_add_effects_per_cluster.append(shared_add_effects_in_cluster)
                 extracted_preds |= shared_add_effects_in_cluster
+            print("SIZE OF EXTRACTED: ", len(extracted_preds))
 
             # Step 6:
             # Remove inconsistent predicates except if removing them prevents us
             # from disambiguating two or more clusters (i.e. their add effect
-            # sets are the same after removing the inconsistent predicates).
+            # sets are the same after removing the inconsistent predicates). The
+            # idea here is that HoldingTop and HoldingSide are inconsistent
+            # within the PlaceOnTable cluster in painting, but we don't want to
+            # remove them, since we had generated them specifically to
+            # disambiguate segments in the cluster with the Pick option.
             # A consistent predicate is is either an add effect, a delete
             # effect, or doesn't change, within each cluster, for all clusters.
             # Note that it is possible that when 2 inconsistent predicates are
@@ -1077,7 +1093,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # keep either of the two, then you can disambiguate the clusters.
             # For now, we just add both back, which is not ideal.
             consistent, inconsistent = self._get_consistent_predicates(extracted_preds, list(final_clusters))
-            predicates_to_keep: Set[Predicate] = set()
+            predicates_to_keep: Set[Predicate] = consistent
             consistent_shared_add_effects_per_cluster = [add_effs - inconsistent for add_effs in shared_add_effects_per_cluster]
             num_clusters = len(final_clusters)
             for i in range(num_clusters):
@@ -1086,7 +1102,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         continue
                     else:
                         if consistent_shared_add_effects_per_cluster[i] == consistent_shared_add_effects_per_cluster[j]:
-                            print(f"Final clusters {i} and {j} cannot be disambiguated after removing some inconsistent predicates.")
+                            print(f"Final clusters {i} and {j} cannot be disambiguated after removing the inconsistent predicates.")
                             predicates_to_keep |= shared_add_effects_per_cluster[i]
                             predicates_to_keep |= shared_add_effects_per_cluster[j]
 
@@ -1138,7 +1154,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Finally, select predicates that are consistent (either, it is
             # an add effect, or a delete effect, or doesn't change)
             # within all demos.
-            predicates_to_keep = self._get_consistent_predicates(non_static_predicates, list(gt_op_to_segments.values()))
+            predicates_to_keep, _ = self._get_consistent_predicates(non_static_predicates, list(gt_op_to_segments.values()))
 
             # Before returning, remove all the initial predicates.
             predicates_to_keep -= initial_predicates
