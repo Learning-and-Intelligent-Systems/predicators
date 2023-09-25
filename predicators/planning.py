@@ -16,8 +16,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Collection, Dict, FrozenSet, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
+    Optional, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -28,7 +28,7 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
     DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _Option
+    _GroundNSRT, _GroundSTRIPSOperator, _Option
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
@@ -168,6 +168,7 @@ def _sesame_plan_with_astar(
                 gen = iter(
                     sorted(proposed_skeletons,
                            key=lambda s: estimator.get_cost(task, *s)))
+            refinement_start_time = time.perf_counter()
             for skeleton, atoms_sequence in gen:
                 if CFG.sesame_use_necessary_atoms:
                     atoms_seq = utils.compute_necessary_atoms_seq(
@@ -188,6 +189,8 @@ def _sesame_plan_with_astar(
                         f" samples, discovering "
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
+                    metrics["refinement_time"] = (time.perf_counter() -
+                                                  refinement_start_time)
                     return plan, skeleton, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
@@ -319,6 +322,8 @@ def task_plan(
     in tests/test_planning for usage examples.
     """
     if not goal.issubset(reachable_atoms):
+        logging.info(f"Detected goal unreachable. Goal: {goal}")
+        logging.info(f"Initial atoms: {init_atoms}")
         raise PlanningFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(DefaultState, goal)
     metrics: Metrics = defaultdict(float)
@@ -486,11 +491,17 @@ def _skeleton_generator(
     raise _SkeletonSearchTimeout
 
 
-def run_low_level_search(task: Task, option_model: _OptionModelBase,
-                         skeleton: List[_GroundNSRT],
-                         atoms_sequence: List[Set[GroundAtom]], seed: int,
-                         timeout: float, metrics: Metrics,
-                         max_horizon: int) -> Tuple[List[_Option], bool]:
+def run_low_level_search(
+    task: Task,
+    option_model: _OptionModelBase,
+    skeleton: List[_GroundNSRT],
+    atoms_sequence: List[Set[GroundAtom]],
+    seed: int,
+    timeout: float,
+    metrics: Metrics,
+    max_horizon: int,
+    refinement_time: Optional[List[float]] = None
+) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -513,6 +524,12 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
     ]
     plan: List[_Option] = [DummyOption for _ in skeleton]
+    # If refinement_time list is passed, record the refinement time
+    # distributed across each step of the skeleton
+    if refinement_time is not None:
+        assert len(refinement_time) == 0
+        for _ in skeleton:
+            refinement_time.append(0)
     # The number of actions taken by each option in the plan. This is to
     # make sure that we do not exceed the task horizon.
     num_actions_per_option = [0 for _ in plan]
@@ -523,10 +540,12 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
     discovered_failures: List[Optional[_DiscoveredFailure]] = [
         None for _ in skeleton
     ]
+    plan_found = False
     while cur_idx < len(skeleton):
         if time.perf_counter() - start_time > timeout:
             return longest_failed_refinement, False
         assert num_tries[cur_idx] < max_tries[cur_idx]
+        try_start_time = time.perf_counter()
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
@@ -590,7 +609,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
-                            return plan, True  # success!
+                            plan_found = True
                     else:
                         can_continue_on = False
                 else:
@@ -599,11 +618,17 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     can_continue_on = True
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
-                            return plan, True  # success!
-                        can_continue_on = False
+                            plan_found = True
+                        else:
+                            can_continue_on = False
         else:
             # The option is not initiable.
             can_continue_on = False
+        if refinement_time is not None:
+            try_end_time = time.perf_counter()
+            refinement_time[cur_idx - 1] += try_end_time - try_start_time
+        if plan_found:
+            return plan, True  # success!
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
             # Update the longest_failed_refinement found so far.
             if cur_idx > len(longest_failed_refinement):
@@ -614,7 +639,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
             # the longest_failed_refinement first.
             possible_failure = discovered_failures[cur_idx - 1]
             if possible_failure is not None and \
-               CFG.sesame_propagate_failures == "immediately":
+                CFG.sesame_propagate_failures == "immediately":
                 raise _DiscoveredFailureException(
                     "Discovered a failure", possible_failure,
                     {"longest_failed_refinement": longest_failed_refinement})
@@ -636,7 +661,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     # high-level search continues.
                     for possible_failure in discovered_failures:
                         if possible_failure is not None and \
-                           CFG.sesame_propagate_failures == "after_exhaust":
+                            CFG.sesame_propagate_failures == "after_exhaust":
                             raise _DiscoveredFailureException(
                                 "Discovered a failure", possible_failure, {
                                     "longest_failed_refinement":
@@ -729,7 +754,7 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                 assert line.isdigit()
                 num_variables = int(line)
                 # Change num variables
-                new_sas_file_lines.append(f"{num_variables+1}\n")
+                new_sas_file_lines.append(f"{num_variables + 1}\n")
             elif "end_variable" in line:
                 count_variables += 1
                 new_sas_file_lines.append(line)
@@ -818,7 +843,7 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                 # Append preconditions
                 if operator_str.replace("\n", "") == ground_op_str:
                     new_sas_file_lines.append(
-                        f"{num_precondition_conditons+1}\n")
+                        f"{num_precondition_conditons + 1}\n")
                     new_sas_file_lines.append(
                         f"{num_variables} 0\n")  # additional precondition
                 else:
@@ -829,7 +854,7 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                                                         j])
                 # Append effects
                 if obj.name.lower() in operator_str:
-                    new_sas_file_lines.append(f"{num_effects+1}\n")
+                    new_sas_file_lines.append(f"{num_effects + 1}\n")
                     new_sas_file_lines.append(
                         f"0 {num_variables} -1 0\n")  # additional effect
                 else:
@@ -964,6 +989,60 @@ def generate_sas_file_for_fd(
     return sas_file
 
 
+def _ground_op_to_sas_op(
+        ground_op: _GroundSTRIPSOperator) -> str:  # pragma: no cover
+    name = ground_op.parent.name.lower()
+    objs = [o.name.lower() for o in ground_op.objects]
+    objs_str = " ".join(objs)
+    return f"{name} {objs_str}".strip()
+
+
+def _update_sas_file_with_costs(
+        sas_file: str, ground_op_costs: Dict[_GroundSTRIPSOperator, float],
+        default_ground_op_cost: float,
+        cost_precision: int) -> None:  # pragma: no cover
+    """Modifies the SAS file in place.
+
+    See https://www.fast-downward.org/TranslatorOutputFormat for info on SAS.
+    """
+    with open(sas_file, "r", encoding="utf-8") as f:
+        sas_str = f.read()
+    # Make sure that 'metric' is turned on.
+    metric_off_str = "begin_metric\n0\nend_metric"
+    metric_on_str = "begin_metric\n1\nend_metric"
+    sas_str = sas_str.replace(metric_off_str, metric_on_str)
+    # Convert ground op names to SAS format.
+    remaining_sas_ground_op_costs = {
+        _ground_op_to_sas_op(op): c
+        for op, c in ground_op_costs.items()
+    }
+    # Replace costs for all operators.
+    sas_lines = sas_str.split("\n")
+    num_lines = len(sas_lines)
+    for idx in range(num_lines):
+        if sas_lines[idx] == "begin_operator":
+            name_idx = idx + 1
+            end_idx = next(i for i in range(idx + 1, num_lines)
+                           if sas_lines[i] == "end_operator")
+            cost_idx = end_idx - 1
+            assert sas_lines[end_idx] == "end_operator"
+            assert sas_lines[cost_idx] == "1"  # original cost
+            sas_op_name = sas_lines[name_idx]
+            if sas_op_name in remaining_sas_ground_op_costs:
+                cost = remaining_sas_ground_op_costs.pop(sas_op_name)
+            else:
+                cost = default_ground_op_cost
+            int_cost = int((10**cost_precision) * cost)
+            sas_lines[cost_idx] = str(int_cost)
+    if remaining_sas_ground_op_costs:
+        # Operators can get filtered out if they are not needed for the goal.
+        unmatched_ops = sorted(remaining_sas_ground_op_costs)
+        logging.warning(f"No SAS file matches found for ops: {unmatched_ops}")
+    new_sas_str = "\n".join(sas_lines)
+    with open(sas_file, "w", encoding="utf-8") as f:
+        f.write(new_sas_str)
+
+
 def fd_plan_from_sas_file(
     sas_file: str, timeout_cmd: str, timeout: float, exec_str: str,
     alias_flag: str, start_time: float, objects: List[Object],
@@ -1064,6 +1143,7 @@ def _sesame_plan_with_fast_downward(
         try:
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)
+            refinement_start_time = time.perf_counter()
             plan, suc = run_low_level_search(task, option_model, skeleton,
                                              necessary_atoms_seq, seed,
                                              low_level_timeout, metrics,
@@ -1073,12 +1153,102 @@ def _sesame_plan_with_fast_downward(
                     raise PlanningTimeout("Planning timed out in refinement!")
                 raise PlanningFailure("Skeleton produced by FD not refinable!")
             metrics["plan_length"] = len(plan)
+            metrics["refinement_time"] = (time.perf_counter() -
+                                          refinement_start_time)
             return plan, skeleton, metrics
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
             raise e
+
+
+def run_task_plan_once(
+        task: Task,
+        nsrts: Set[NSRT],
+        preds: Set[Predicate],
+        types: Set[Type],
+        timeout: float,
+        seed: int,
+        task_planning_heuristic: Optional[str] = None,
+        ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
+        default_cost: float = 1.0,
+        cost_precision: int = 3,
+        **kwargs: Any
+) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
+    """Get a single abstract plan for a task."""
+
+    init_atoms = utils.abstract(task.init, preds)
+    goal = task.goal
+    objects = set(task.init)
+
+    start_time = time.perf_counter()
+
+    if CFG.sesame_task_planner == "astar":
+        ground_nsrts, reachable_atoms = task_plan_grounding(
+            init_atoms, objects, nsrts)
+        assert task_planning_heuristic is not None
+        heuristic = utils.create_task_planning_heuristic(
+            task_planning_heuristic, init_atoms, goal, ground_nsrts, preds,
+            objects)
+        duration = time.perf_counter() - start_time
+        timeout -= duration
+        plan, atoms_seq, metrics = next(
+            task_plan(init_atoms,
+                      goal,
+                      ground_nsrts,
+                      reachable_atoms,
+                      heuristic,
+                      seed,
+                      timeout,
+                      max_skeletons_optimized=1,
+                      use_visited_state_set=True,
+                      **kwargs))
+    elif "fd" in CFG.sesame_task_planner:  # pragma: no cover
+        fd_exec_path = os.environ["FD_EXEC_PATH"]
+        exec_str = os.path.join(fd_exec_path, "fast-downward.py")
+        timeout_cmd = "gtimeout" if sys.platform == "darwin" \
+            else "timeout"
+        # Run Fast Downward followed by cleanup. Capture the output.
+        assert "FD_EXEC_PATH" in os.environ, \
+            "Please follow instructions in the docstring of the" +\
+            "_sesame_plan_with_fast_downward method in planning.py"
+
+        sesame_task_planner = CFG.sesame_task_planner
+        if sesame_task_planner.endswith("-costs"):
+            use_costs = True
+            sesame_task_planner = sesame_task_planner[:-len("-costs")]
+        else:
+            use_costs = False
+
+        if sesame_task_planner == "fdopt":
+            alias_flag = "--alias seq-opt-lmcut"
+        elif sesame_task_planner == "fdsat":
+            alias_flag = "--alias lama-first"
+        else:
+            raise ValueError("Unrecognized sesame_task_planner: "
+                             f"{CFG.sesame_task_planner}")
+
+        sas_file = generate_sas_file_for_fd(task, nsrts, preds, types, timeout,
+                                            timeout_cmd, alias_flag, exec_str,
+                                            list(objects), init_atoms)
+
+        if use_costs:
+            assert ground_op_costs is not None
+            assert all(c >= 0 for c in ground_op_costs.values())
+            _update_sas_file_with_costs(sas_file,
+                                        ground_op_costs,
+                                        default_ground_op_cost=default_cost,
+                                        cost_precision=cost_precision)
+
+        plan, atoms_seq, metrics = fd_plan_from_sas_file(
+            sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
+            list(objects), init_atoms, nsrts, CFG.horizon)
+    else:
+        raise ValueError("Unrecognized sesame_task_planner: "
+                         f"{CFG.sesame_task_planner}")
+
+    return plan, atoms_seq, metrics
 
 
 class PlanningFailure(utils.ExceptionWithInfo):

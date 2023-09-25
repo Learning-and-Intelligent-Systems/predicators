@@ -55,9 +55,9 @@ from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options, \
     parse_config_included_options
 from predicators.perception import create_perceiver
-from predicators.settings import CFG
+from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Observation, Task
+    InteractionResult, Metrics, Observation, Response, Task, Video, _Option
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -77,7 +77,8 @@ def main() -> None:
         handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
-                        handlers=handlers)
+                        handlers=handlers,
+                        force=True)
     logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
     if CFG.log_file:
         logging.info(f"Logging to {CFG.log_file}")
@@ -171,7 +172,12 @@ def _run_pipeline(env: BaseEnv,
             results["learning_time"] = learning_time
             results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=None)
-        teacher = Teacher(train_tasks)
+        # Only create a teacher if there are possibly queries coming.
+        if get_allowed_query_type_names():
+            teacher = Teacher(train_tasks)
+        else:
+            teacher = None
+        already_loaded_approach = False
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:
@@ -188,14 +194,20 @@ def _run_pipeline(env: BaseEnv,
                              "terminating")
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
-                env, teacher, interaction_requests, i)
+                cogman, env, teacher, interaction_requests, i)
             num_online_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
             logging.info(f"Query cost incurred this cycle: {query_cost}")
-            if CFG.load_approach:
+            # We want to load iff:
+            # - CFG.restart_learning is False
+            # - CFG.restart_learning is True, but we haven't yet loaded the
+            #   approach
+            if CFG.load_approach and not (CFG.restart_learning
+                                          and already_loaded_approach):
                 cogman.load(online_learning_cycle=i)
                 learning_time += 0.0  # ignore loading time
+                already_loaded_approach = True
             else:
                 learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
@@ -219,8 +231,9 @@ def _run_pipeline(env: BaseEnv,
 
 
 def _generate_interaction_results(
+        cogman: CogMan,
         env: BaseEnv,
-        teacher: Teacher,
+        teacher: Optional[Teacher],
         requests: Sequence[InteractionRequest],
         cycle_num: Optional[int] = None
 ) -> Tuple[List[InteractionResult], float]:
@@ -230,33 +243,51 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     if CFG.make_interaction_videos:
-        video = []
+        video: Video = []
     for request in requests:
         if request.train_task_idx < CFG.max_initial_demos and \
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
-        monitor = TeacherInteractionMonitorWithVideo(env.render, request,
-                                                     teacher)
-        traj, _ = utils.run_policy(
-            request.act_policy,
+        monitor: Optional[utils.VideoMonitor] = None
+        if teacher is not None:
+            monitor = TeacherInteractionMonitorWithVideo(
+                env.render, request, teacher)
+        elif CFG.make_interaction_videos:
+            monitor = utils.VideoMonitor(env.render)
+        cogman.set_override_policy(request.act_policy)
+        cogman.set_termination_function(request.termination_function)
+        env_task = env.get_train_tasks()[request.train_task_idx]
+        cogman.reset(env_task)
+        observed_traj, _, _ = _run_episode(
+            cogman,
             env,
             "train",
             request.train_task_idx,
-            request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
-            do_env_reset=(not CFG.online_learning_lifelong),
+            terminate_on_goal_reached=False,
             exceptions_to_break_on={
-                utils.EnvironmentFailure, utils.OptionExecutionFailure,
-                utils.RequestActPolicyFailure
+                utils.EnvironmentFailure,
+                utils.OptionExecutionFailure,
+                utils.RequestActPolicyFailure,
             },
             monitor=monitor)
-        request_responses = monitor.get_responses()
-        query_cost += monitor.get_query_cost()
+        cogman.unset_override_policy()
+        cogman.unset_termination_function()
+        traj = cogman.get_current_history()
+        request_responses: List[Optional[Response]] = [
+            None for _ in traj.states
+        ]
+        if isinstance(monitor, TeacherInteractionMonitorWithVideo):
+            request_responses = monitor.get_responses()
+            query_cost += monitor.get_query_cost()
+        assert len(traj.states) == len(observed_traj[0])
+        assert len(traj.actions) == len(observed_traj[1])
         result = InteractionResult(traj.states, traj.actions,
                                    request_responses)
         results.append(result)
         if CFG.make_interaction_videos:
+            assert monitor is not None
             video.extend(monitor.get_video())
     if CFG.make_interaction_videos:
         save_prefix = utils.get_config_path_str()
@@ -271,6 +302,7 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     num_solved = 0
     cogman.reset_metrics()
     total_suc_time = 0.0
+    total_low_level_action_cost = 0.0
     total_num_solve_timeouts = 0
     total_num_solve_failures = 0
     total_num_execution_timeouts = 0
@@ -331,8 +363,14 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
                 test_task_idx,
                 max_num_steps=CFG.horizon,
                 monitor=monitor)
+            num_opt = execution_metrics["num_options_executed"]
+            metrics[f"PER_TASK_task{test_task_idx}_options_executed"] = num_opt
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
+            if CFG.refinement_data_include_execution_cost:
+                total_low_level_action_cost += (
+                    len(traj[1]) *
+                    CFG.refinement_data_low_level_execution_cost)
             # Save the successful trajectory, e.g., for playback on a robot.
             traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
             traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
@@ -378,6 +416,9 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
+    metrics["avg_ref_cost"] = ((total_low_level_action_cost +
+                                cogman.metrics["total_refinement_time"]) /
+                               num_solved if num_solved > 0 else float("inf"))
     metrics["min_num_samples"] = cogman.metrics[
         "min_num_samples"] if cogman.metrics["min_num_samples"] < float(
             "inf") else 0
@@ -413,6 +454,7 @@ def _run_episode(
     task_idx: int,
     max_num_steps: int,
     do_env_reset: bool = True,
+    terminate_on_goal_reached: bool = True,
     exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
     monitor: Optional[utils.LoggingMonitor] = None
 ) -> Tuple[Tuple[List[Observation], List[Action]], bool, Metrics]:
@@ -422,9 +464,10 @@ def _run_episode(
     Note that the environment and cogman internal states are updated.
 
     Terminates when any of these conditions hold:
-    (1) the termination_function returns True
+    (1) cogman.step returns None, indicating termination
     (2) max_num_steps is reached
     (3) cogman or env raise an exception of type in exceptions_to_break_on
+    (4) terminate_on_goal_reached is True and the env goal is reached.
 
     Note that in the case where the exception is raised in step, we exclude the
     last action from the returned trajectory to maintain the invariant that
@@ -440,10 +483,12 @@ def _run_episode(
     obs = env.get_observation()
     observations = [obs]
     actions: List[Action] = []
+    curr_option: Optional[_Option] = None
     metrics: Metrics = defaultdict(float)
     metrics["policy_call_time"] = 0.0
+    metrics["num_options_executed"] = 0.0
     exception_raised_in_step = False
-    if not env.goal_reached():
+    if not (terminate_on_goal_reached and env.goal_reached()):
         for _ in range(max_num_steps):
             monitor_observed = False
             exception_raised_in_step = False
@@ -451,6 +496,11 @@ def _run_episode(
                 start_time = time.perf_counter()
                 act = cogman.step(obs)
                 metrics["policy_call_time"] += time.perf_counter() - start_time
+                if act is None:
+                    break
+                if act.has_option() and act.get_option() != curr_option:
+                    curr_option = act.get_option()
+                    metrics["num_options_executed"] += 1
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may, for example, call
                 # env.render(), which outputs images of the current env
@@ -465,17 +515,18 @@ def _run_episode(
                 observations.append(obs)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
+                   any(issubclass(type(e), c) for c in exceptions_to_break_on):
                     if monitor_observed:
                         exception_raised_in_step = True
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(obs, None)
                 raise e
-            if env.goal_reached():
+            if terminate_on_goal_reached and env.goal_reached():
                 break
     if monitor is not None and not exception_raised_in_step:
         monitor.observe(obs, None)
+    cogman.finish_episode(obs)
     traj = (observations, actions)
     solved = env.goal_reached()
     return traj, solved, metrics

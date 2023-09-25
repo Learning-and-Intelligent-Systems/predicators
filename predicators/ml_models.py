@@ -7,13 +7,16 @@ import abc
 import logging
 import os
 import tempfile
+from collections import deque
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Collection, Deque, Dict, FrozenSet, \
+    Iterator, List, Optional, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+from scipy.stats import beta as BetaRV
 from sklearn.base import BaseEstimator
 from sklearn.neighbors import \
     KNeighborsClassifier as _SKLearnKNeighborsClassifier
@@ -21,8 +24,12 @@ from sklearn.neighbors import \
     KNeighborsRegressor as _SKLearnKNeighborsRegressor
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
+from torch.utils.data import DataLoader, TensorDataset
 
-from predicators.structs import Array, MaxTrainIters, Object, State
+from predicators import utils
+from predicators.settings import CFG
+from predicators.structs import Array, GroundAtom, MaxTrainIters, Object, \
+    State, _GroundNSRT, _Option
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -78,11 +85,12 @@ class _NormalizingRegressor(Regressor):
     Also infers the dimensionality of the inputs and outputs from fit().
     """
 
-    def __init__(self, seed: int) -> None:
+    def __init__(self, seed: int, disable_normalization: bool = False) -> None:
         super().__init__(seed)
         # Set in fit().
         self._x_dims: Tuple[int, ...] = tuple()
         self._y_dim = -1
+        self._disable_normalization = disable_normalization
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
         self._output_shift = np.zeros(1, dtype=np.float32)
@@ -95,20 +103,23 @@ class _NormalizingRegressor(Regressor):
         assert Y.shape[0] == num_data
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
-        X, self._input_shift, self._input_scale = _normalize_data(X)
-        Y, self._output_shift, self._output_scale = _normalize_data(Y)
+        if not self._disable_normalization:
+            X, self._input_shift, self._input_scale = _normalize_data(X)
+            Y, self._output_shift, self._output_scale = _normalize_data(Y)
         self._fit(X, Y)
 
     def predict(self, x: Array) -> Array:
         assert len(self._x_dims), "Fit must be called before predict."
         assert x.shape == self._x_dims
         # Normalize.
-        x = (x - self._input_shift) / self._input_scale
+        if not self._disable_normalization:
+            x = (x - self._input_shift) / self._input_scale
         # Make prediction.
         y = self._predict(x)
         assert y.shape == (self._y_dim, )
         # Denormalize.
-        y = (y * self._output_scale) + self._output_shift
+        if not self._disable_normalization:
+            y = (y * self._output_scale) + self._output_shift
         return y
 
     @abc.abstractmethod
@@ -132,16 +143,20 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                  clip_value: float,
                  learning_rate: float,
                  weight_decay: float = 0,
+                 n_iter_no_change: int = 10000000,
                  use_torch_gpu: bool = False,
-                 train_print_every: int = 1000) -> None:
+                 train_print_every: int = 1000,
+                 disable_normalization: bool = False) -> None:
         torch.manual_seed(seed)
-        _NormalizingRegressor.__init__(self, seed)
+        _NormalizingRegressor.__init__(
+            self, seed, disable_normalization=disable_normalization)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
         self._clip_gradients = clip_gradients
         self._clip_value = clip_value
         self._learning_rate = learning_rate
         self._weight_decay = weight_decay
+        self._n_iter_no_change = n_iter_no_change
         self._device = _get_torch_device(use_torch_gpu)
         self._train_print_every = train_print_every
 
@@ -190,7 +205,8 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              max_train_iters=self._max_train_iters,
                              dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
-                             clip_value=self._clip_value)
+                             clip_value=self._clip_value,
+                             n_iter_no_change=self._n_iter_no_change)
 
     def _predict(self, x: Array) -> Array:
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(
@@ -275,6 +291,9 @@ class _ScikitLearnBinaryClassifier(BinaryClassifier):
 
     def predict_proba(self, x: Array) -> float:
         probs = self._model.predict_proba([x])[0]
+        # Special case: only one class.
+        if probs.shape == (1, ):
+            return float(self.classify(x))
         assert probs.shape == (2, )  # [P(x is class 0), P(x is class 1)]
         return probs[1]  # return the second element of probs
 
@@ -306,7 +325,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
         self._x_dims = tuple(X.shape[1:])
         assert y.shape == (num_data, )
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
-                     "datapoints")
+                     f"datapoints ({sum(y)} positive)")
         # If there is only one class in the data, then there's no point in
         # learning, since any predictions other than that one class could
         # only be generalization issues.
@@ -387,6 +406,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
         The input is NOT normalized.
         """
+        if self._do_single_class_prediction:
+            return float(self._predicted_single_class)
         norm_x = (x - self._input_shift) / self._input_scale
         return self._forward_single_input_np(norm_x)
 
@@ -491,13 +512,15 @@ class MLPRegressor(PyTorchRegressor):
                  learning_rate: float,
                  weight_decay: float = 0,
                  use_torch_gpu: bool = False,
-                 train_print_every: int = 1000) -> None:
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000) -> None:
         super().__init__(seed,
                          max_train_iters,
                          clip_gradients,
                          clip_value,
                          learning_rate,
                          weight_decay=weight_decay,
+                         n_iter_no_change=n_iter_no_change,
                          use_torch_gpu=use_torch_gpu,
                          train_print_every=train_print_every)
         self._hid_sizes = hid_sizes
@@ -999,6 +1022,86 @@ class KNeighborsRegressor(_ScikitLearnRegressor):
         return _SKLearnKNeighborsRegressor(**kwargs)
 
 
+class MonotonicBetaRegressor(PyTorchRegressor, DistributionRegressor):
+    """A model that learns conditional beta distributions with the requirement
+    that the mean of the distribution increases with the (assumed 1d) input.
+
+    This regressor is used primarily for competence modeling.
+    """
+
+    def __init__(self,
+                 seed: int,
+                 max_train_iters: MaxTrainIters,
+                 clip_gradients: bool,
+                 clip_value: float,
+                 learning_rate: float,
+                 weight_decay: float = 0,
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000,
+                 constant_variance: float = 1e-2) -> None:
+
+        super().__init__(seed,
+                         max_train_iters,
+                         clip_gradients,
+                         clip_value,
+                         learning_rate,
+                         weight_decay=weight_decay,
+                         n_iter_no_change=n_iter_no_change,
+                         use_torch_gpu=use_torch_gpu,
+                         disable_normalization=True,
+                         train_print_every=train_print_every)
+
+        # This model has three learnable parameters.
+        self.theta = torch.nn.Parameter(torch.randn(3), requires_grad=True)
+        # We use a constant variance.
+        assert 0 < constant_variance < 0.25
+        self.variance = constant_variance
+
+    def _transform_theta(self) -> List[Tensor]:
+        # Map unbounded parameters to constrained parameters with the following
+        # guarantees: (1) 0 <= theta0 <= 1; (2) theta0 <= theta1 <= 1; and
+        # (3) theta2 >= 0.
+        theta0 = self.theta[0]
+        theta1 = self.theta[1]
+        theta2 = self.theta[2]
+        ctheta0 = F.sigmoid(theta0)
+        ctheta1 = F.sigmoid(theta0 + (F.elu(theta1) + 1))
+        ctheta2 = F.elu(theta2) + 1
+        return [ctheta0, ctheta1, ctheta2]
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        # Transform weights to obey constraints.
+        c0, c1, c2 = self._transform_theta()
+        # Exponential saturation function.
+        mean = c0 + (c1 - c0) * (1 - torch.exp(-c2 * tensor_X))  # type: ignore
+        # Clip mean to avoid numerical issues.
+        mean = torch.clip(mean, 1e-3, 1.0 - 1e-3)
+        return mean
+
+    def _initialize_net(self) -> None:
+        # Reset the learnable parameters.
+        self.theta = torch.nn.Parameter(torch.randn(3), requires_grad=True)
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        # Just regress the mean for stability.
+        return nn.MSELoss()
+
+    def predict_beta(self, x: float) -> BetaRV:
+        """Predict a beta distribution given the input."""
+        mean = self._predict(np.array([x], dtype=np.float32))[0]
+        return utils.beta_from_mean_and_variance(mean, self.variance)
+
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        assert len(x) == 1
+        rv = self.predict_beta(x[0])
+        return rv.rvs(random_state=rng).reshape(x.shape)
+
+    def get_transformed_params(self) -> List[float]:
+        """For interpretability."""
+        return [v.item() for v in self._transform_theta()]
+
+
 ################################ Classifiers ##################################
 
 
@@ -1201,3 +1304,273 @@ def _train_pytorch_model(model: nn.Module,
     model.eval()
     logging.info(f"Loaded best model with loss: {best_loss:.5f}")
     return best_loss
+
+
+# Low-level state, current high-level (predicate) state, option taken,
+# next low-level state, reward, done.
+MapleQData = Tuple[State, Set[GroundAtom], _Option, State, float, bool]
+
+
+class MapleQFunction(MLPRegressor):
+    """A Q function inspired by MAPLE (https://ut-austin-rpl.github.io/maple/)
+    that has access to ground NSRTs.
+
+    The ground NSRTs are used to approximately argmax the learned Q.
+
+    Assumes a fixed set of objects and ground NSRTs.
+    """
+
+    def __init__(self,
+                 seed: int,
+                 hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters,
+                 clip_gradients: bool,
+                 clip_value: float,
+                 learning_rate: float,
+                 weight_decay: float = 0,
+                 use_torch_gpu: bool = False,
+                 train_print_every: int = 1000,
+                 n_iter_no_change: int = 10000000,
+                 discount: float = 0.99,
+                 num_lookahead_samples: int = 5,
+                 replay_buffer_max_size: int = 1000000,
+                 replay_buffer_sample_with_replacement: bool = True) -> None:
+        super().__init__(seed, hid_sizes, max_train_iters, clip_gradients,
+                         clip_value, learning_rate, weight_decay,
+                         use_torch_gpu, train_print_every, n_iter_no_change)
+        self._rng = np.random.default_rng(seed)
+        self._discount = discount
+        self._num_lookahead_samples = num_lookahead_samples
+        self._replay_buffer_max_size = replay_buffer_max_size
+        self._replay_buffer_sample_with_replacement = \
+            replay_buffer_sample_with_replacement
+
+        # Updated once, after the first round of learning.
+        self._ordered_objects: List[Object] = []
+        self._ordered_frozen_goals: List[FrozenSet[GroundAtom]] = []
+        self._ordered_ground_nsrts: List[_GroundNSRT] = []
+        self._ground_nsrt_to_idx: Dict[_GroundNSRT, int] = {}
+        self._max_num_params = 0
+        self._num_ground_nsrts = 0
+        self._replay_buffer: Deque[MapleQData] = deque(
+            maxlen=self._replay_buffer_max_size)
+
+    def set_grounding(self, objects: Set[Object],
+                      goals: Collection[Set[GroundAtom]],
+                      ground_nsrts: Collection[_GroundNSRT]) -> None:
+        """After initialization because NSRTs not learned at first."""
+        for ground_nsrt in ground_nsrts:
+            num_params = ground_nsrt.option.params_space.shape[0]
+            self._max_num_params = max(self._max_num_params, num_params)
+        self._ordered_objects = sorted(objects)
+        self._ordered_frozen_goals = sorted({frozenset(g) for g in goals})
+        self._num_ground_nsrts = len(ground_nsrts)
+        self._ordered_ground_nsrts = sorted(ground_nsrts)
+        self._ground_nsrt_to_idx = {
+            n: i
+            for i, n in enumerate(self._ordered_ground_nsrts)
+        }
+
+    def get_option(self,
+                   state: State,
+                   goal: Set[GroundAtom],
+                   num_samples_per_ground_nsrt: int,
+                   epsilon: float = 0.0) -> _Option:
+        """Get the best option under Q, epsilon-greedy."""
+        # Return a random option.
+        if self._rng.uniform() < epsilon:
+            options = self._sample_applicable_options_from_state(
+                state, num_samples_per_applicable_nsrt=1)
+            # Note that this assumes that the output of sampling is completely
+            # random, including in the order of ground NSRTs.
+            return options[0]
+        # Return the best option (approx argmax.)
+        options = self._sample_applicable_options_from_state(
+            state, num_samples_per_applicable_nsrt=num_samples_per_ground_nsrt)
+        scores = [
+            self.predict_q_value(state, goal, option) for option in options
+        ]
+        idx = np.argmax(scores)
+        return options[idx]
+
+    def add_datum_to_replay_buffer(self, datum: MapleQData) -> None:
+        """Add one datapoint to the replay buffer.
+
+        If the buffer is full, data is appended in a FIFO manner.
+        """
+        self._replay_buffer.append(datum)
+
+    def train_q_function(self) -> None:
+        """Fit the model."""
+        # First, precompute the size of the input and output from the
+        # Q-network.
+        X_size = sum(o.type.dim for o in self._ordered_objects) + len(
+            self._ordered_frozen_goals
+        ) + self._num_ground_nsrts + self._max_num_params
+        Y_size = 1
+        # If there's no data in the replay buffer, we can't train.
+        if len(self._replay_buffer) == 0:
+            return
+        # Otherwise, start by vectorizing all data in the replay buffer.
+        X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
+        Y_arr = np.zeros((len(self._replay_buffer), Y_size), dtype=np.float32)
+        for i, (state, goal, option, next_state, reward,
+                terminal) in enumerate(self._replay_buffer):
+            # Compute the input to the Q-function.
+            vectorized_state = self._vectorize_state(state)
+            vectorized_goal = self._vectorize_goal(goal)
+            vectorized_action = self._vectorize_option(option)
+            X_arr[i] = np.concatenate(
+                [vectorized_state, vectorized_goal, vectorized_action])
+            # Next, compute the target for Q-learning by sampling next actions.
+            vectorized_next_state = self._vectorize_state(next_state)
+            if not terminal and self._y_dim != -1:
+                best_next_value = -np.inf
+                next_option_vecs: List[Array] = []
+                # We want to pick a total of num_lookahead_samples samples.
+                while len(next_option_vecs) < self._num_lookahead_samples:
+                    # Sample 1 per NSRT until we reach the target number.
+                    for option in self._sample_applicable_options_from_state(
+                            next_state):
+                        next_option_vecs.append(self._vectorize_option(option))
+                for next_action_vec in next_option_vecs:
+                    x_hat = np.concatenate([
+                        vectorized_next_state, vectorized_goal, next_action_vec
+                    ])
+                    q_x_hat = self.predict(x_hat)[0]
+                    best_next_value = max(best_next_value, q_x_hat)
+            else:
+                best_next_value = 0.0
+            Y_arr[i] = reward + self._discount * best_next_value
+
+        # Finally, pass all this vectorized data to the training function.
+        # This will implicitly sample mini batches and train for a certain
+        # number of iterations. It will also normalize all the data.
+        self.fit(X_arr, Y_arr)
+
+    def minibatch_generator(
+            self, tensor_X: Tensor, tensor_Y: Tensor,
+            batch_size: int) -> Iterator[Tuple[Tensor, Tensor]]:
+        """Assuming both tensor_X and tensor_Y are 2D with the batch dimension
+        first, sample a minibatch of size batch_size to train on."""
+        train_dataset = TensorDataset(tensor_X, tensor_Y)
+        train_dataloader = DataLoader(train_dataset,
+                                      batch_size=batch_size,
+                                      shuffle=True)
+        iterable_loader = iter(train_dataloader)
+        while True:
+            try:
+                X_batch, Y_batch = next(iterable_loader)
+            # pylint:disable=stop-iteration-return
+            except StopIteration:
+                iterable_loader = iter(train_dataloader)
+                X_batch, Y_batch = next(iterable_loader)
+            yield X_batch, Y_batch
+
+    def _fit(self, X: Array, Y: Array) -> None:
+        # Initialize the network.
+        self._initialize_net()
+        self.to(self._device)
+        # Create the loss function.
+        loss_fn = self._create_loss_fn()
+        # Create the optimizer.
+        optimizer = self._create_optimizer()
+        # Convert data to tensors.
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(
+            self._device)
+        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32)).to(
+            self._device)
+        batch_generator = self.minibatch_generator(
+            tensor_X, tensor_Y, CFG.active_sampler_learning_batch_size)
+        # Run training.
+        _train_pytorch_model(self,
+                             loss_fn,
+                             optimizer,
+                             batch_generator,
+                             device=self._device,
+                             print_every=self._train_print_every,
+                             max_train_iters=self._max_train_iters,
+                             dataset_size=X.shape[0],
+                             clip_gradients=self._clip_gradients,
+                             clip_value=self._clip_value,
+                             n_iter_no_change=self._n_iter_no_change)
+
+    def _vectorize_state(self, state: State) -> Array:
+        # Cannot just call state.vec() directly because some objects may not
+        # appear in this state.
+        vecs: List[Array] = []
+        for o in self._ordered_objects:
+            try:
+                vec = state[o]
+            except KeyError:
+                vec = np.zeros(o.type.dim, dtype=np.float32)
+            vecs.append(vec)
+        return np.concatenate(vecs)
+
+    def _vectorize_goal(self, goal: Set[GroundAtom]) -> Array:
+        frozen_goal = frozenset(goal)
+        idx = self._ordered_frozen_goals.index(frozen_goal)
+        vec = np.zeros(len(self._ordered_frozen_goals), dtype=np.float32)
+        vec[idx] = 1.0
+        return vec
+
+    def _vectorize_option(self, option: _Option) -> Array:
+        matches = [
+            i for (n, i) in self._ground_nsrt_to_idx.items()
+            if n.option == option.parent
+            and tuple(n.objects) == tuple(option.objects)
+        ]
+        assert len(matches) == 1
+        # Create discrete part.
+        discrete_vec = np.zeros(self._num_ground_nsrts)
+        discrete_vec[matches[0]] = 1.0
+        # Create continuous part.
+        continuous_vec = np.zeros(self._max_num_params)
+        continuous_vec[:len(option.params)] = option.params
+        # Concatenate.
+        vec = np.concatenate([discrete_vec, continuous_vec]).astype(np.float32)
+        return vec
+
+    def predict_q_value(self, state: State, goal: Set[GroundAtom],
+                        option: _Option) -> float:
+        """Predict the Q value."""
+        # Default value if not yet fit.
+        if self._y_dim == -1:
+            return 0.0
+        x = np.concatenate([
+            self._vectorize_state(state),
+            self._vectorize_goal(goal),
+            self._vectorize_option(option)
+        ])
+        y = self.predict(x)[0]
+        return y
+
+    def _sample_applicable_options_from_state(
+            self,
+            state: State,
+            num_samples_per_applicable_nsrt: int = 1) -> List[_Option]:
+        """Use NSRTs to sample options in the current state."""
+        # Create all applicable ground NSRTs.
+        state_objs = set(state)
+        applicable_nsrts = [
+            o for o in self._ordered_ground_nsrts if \
+                set(o.objects).issubset(state_objs) and all(
+                a.holds(state) for a in o.preconditions)
+        ]
+        # Randomize order of applicable NSRTs to assure that the output order
+        # of this function is completely randomized.
+        indices = list(range(len(applicable_nsrts)))
+        self._rng.shuffle(indices)
+        applicable_nsrts = [applicable_nsrts[i] for i in indices]
+        # Sample options per NSRT.
+        sampled_options: List[_Option] = []
+        for app_nsrt in applicable_nsrts:
+            for _ in range(num_samples_per_applicable_nsrt):
+                # Sample an option.
+                option = app_nsrt.sample_option(
+                    state,
+                    goal=set(),  # goal not used
+                    rng=self._rng)
+                assert option.initiable(state)
+                sampled_options.append(option)
+        return sampled_options

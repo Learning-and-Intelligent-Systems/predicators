@@ -8,10 +8,13 @@ import numpy as np
 import pytest
 
 from predicators import utils
+from predicators.envs import get_or_create_env
+from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.ml_models import BinaryClassifierEnsemble, CNNRegressor, \
     DegenerateMLPDistributionRegressor, ImplicitMLPRegressor, \
-    KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
-    MLPRegressor, NeuralGaussianRegressor
+    KNeighborsClassifier, KNeighborsRegressor, MapleQFunction, \
+    MLPBinaryClassifier, MLPRegressor, MonotonicBetaRegressor, \
+    NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -23,6 +26,7 @@ def test_basic_mlp_regressor():
     model = MLPRegressor(seed=123,
                          hid_sizes=[32, 32],
                          max_train_iters=100,
+                         n_iter_no_change=1000,
                          clip_gradients=True,
                          clip_value=5,
                          learning_rate=1e-3)
@@ -178,6 +182,29 @@ def test_degenerate_mlp_distribution_regressor():
     assert np.allclose(sample, mean, atol=1e-6)
 
 
+def test_monotonic_beta_regressor():
+    """Tests for MonotonicBetaRegressor."""
+    utils.reset_config()
+    num_samples = 5
+    model = MonotonicBetaRegressor(seed=123,
+                                   max_train_iters=1000,
+                                   clip_gradients=False,
+                                   clip_value=1,
+                                   learning_rate=1e-2)
+    X = np.arange(num_samples).reshape((-1, 1))
+    Y = 0.5 * np.ones((num_samples, 1))
+    model.fit(X, Y)
+    x = np.array([num_samples - 1])
+    mean = model.predict(x)
+    expected_y = np.array([0.5])
+    assert mean.shape == expected_y.shape
+    assert np.allclose(mean, expected_y, atol=1e-2)
+    rng = np.random.default_rng(123)
+    sample = model.predict_sample(x, rng)
+    assert sample.shape == expected_y.shape
+    assert 0 < sample[0] < 1
+
+
 def test_mlp_classifier():
     """Tests for MLPBinaryClassifier."""
     utils.reset_config()
@@ -241,6 +268,8 @@ def test_mlp_classifier():
     assert not prediction
     prediction = model.classify(np.ones(input_size))
     assert not prediction
+    proba = model.predict_proba(np.zeros(input_size))
+    assert abs(proba - 0.0) < 1e-6
     # Test with no negative examples.
     y = np.ones(len(X))
     model = MLPBinaryClassifier(seed=123,
@@ -259,6 +288,8 @@ def test_mlp_classifier():
     assert prediction
     prediction = model.classify(np.ones(input_size))
     assert prediction
+    proba = model.predict_proba(np.zeros(input_size))
+    assert abs(proba - 1.0) < 1e-6
     # Test with non-default weight initialization.
     X = np.concatenate([
         np.zeros((num_class_samples, input_size)),
@@ -405,3 +436,58 @@ def test_k_neighbors_classifier():
     assert isinstance(predicted_y, bool)
     assert predicted_y == expected_y
     assert model.predict_proba(x) == expected_y
+    # Test with no negative examples.
+    Y = np.ones_like(Y)
+    model = KNeighborsClassifier(seed=123, n_neighbors=1)
+    model.fit(X, Y)
+    x = X[0]
+    assert model.classify(x) == 1
+    assert model.predict_proba(x) == 1
+
+
+def test_maple_q_function():
+    """Tests for MapleQFunction()."""
+    utils.reset_config()
+    rng = np.random.default_rng(123)
+
+    # Set up env and ground NSRTs.
+    env = get_or_create_env("regional_bumpy_cover")
+    task = env.get_train_tasks()[0].task
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    objects = list(task.init)
+    ground_nsrts = [
+        n for nsrt in nsrts for n in utils.all_ground_nsrts(nsrt, objects)
+    ]
+    model = MapleQFunction(seed=123,
+                           hid_sizes=[32, 32],
+                           max_train_iters=100,
+                           n_iter_no_change=1000,
+                           clip_gradients=True,
+                           clip_value=5,
+                           learning_rate=1e-3)
+    # Test before learning from any data.
+    model.train_q_function()  # should have no effect
+    # Default value.
+    option = ground_nsrts[0].sample_option(task.init, task.goal, rng)
+    value = model.predict_q_value(task.init, task.goal, option)
+    assert value == 0.0
+    # Test grounding.
+    model.set_grounding(objects, [task.goal], ground_nsrts)
+    # Test getting a random option.
+    sampled_option = model.get_option(task.init, task.goal, 1, epsilon=1.0)
+    assert sampled_option.initiable(task.init)
+    # Test getting a non-random option.
+    sampled_option = model.get_option(task.init, task.goal, 1, epsilon=0.0)
+    assert sampled_option.initiable(task.init)
+    # Test learning.
+    data = (task.init, task.goal, option, task.init, 1.0, False)
+    model.add_datum_to_replay_buffer(data)
+    model.train_q_function()
+    # Should be different now.
+    value = model.predict_q_value(task.init, task.goal, option)
+    assert value != 0.0
+    # Train a second iteration.
+    model.train_q_function()
+    value = model.predict_q_value(task.init, task.goal, option)
+    assert value != 0.0

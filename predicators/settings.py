@@ -46,13 +46,6 @@ class GlobalSettings:
     # your call to utils.reset_config().
     render_state_dpi = 150
 
-    # cover env parameters
-    cover_num_blocks = 2
-    cover_num_targets = 2
-    cover_block_widths = [0.1, 0.07]
-    cover_target_widths = [0.05, 0.03]
-    cover_initial_holding_prob = 0.75
-
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_degenerate_oracle_samplers = False
@@ -62,6 +55,16 @@ class GlobalSettings:
     cover_multistep_bhr_percent = 0.4  # block hand region percent of width
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
+
+    # bumpy cover env parameters
+    bumpy_cover_num_bumps = 2
+    bumpy_cover_spaces_per_bump = 1
+    bumpy_cover_right_targets = False
+    bumpy_cover_bumpy_region_start = 0.8
+    bumpy_cover_init_bumpy_prob = 0.25
+
+    # regional bumpy cover env parameters
+    regional_bumpy_cover_include_impossible_nsrt = False
 
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
@@ -278,7 +281,7 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
-    narrow_passage_open_door_refine_penalty = 0.2
+    narrow_passage_open_door_refine_penalty = 0
     narrow_passage_door_width_padding_lb = 1e-4
     narrow_passage_door_width_padding_ub = 0.015
     narrow_passage_passage_width_padding_lb = 5e-4
@@ -288,12 +291,12 @@ class GlobalSettings:
     narrow_passage_birrt_smooth_amt = 50
 
     # exit_garage env parameters
-    exit_garage_pick_place_refine_penalty = 0.2
+    exit_garage_clear_refine_penalty = 0
     exit_garage_min_num_obstacles = 2
-    exit_garage_max_num_obstacles = 4  # inclusive
-    exit_garage_rrt_extend_fn_threshold = 1e-4
+    exit_garage_max_num_obstacles = 3  # inclusive
+    exit_garage_rrt_extend_fn_threshold = 1e-3
     exit_garage_rrt_num_control_samples = 100
-    exit_garage_rrt_num_attempts = 10
+    exit_garage_rrt_num_attempts = 3
     exit_garage_rrt_num_iters = 100
     exit_garage_rrt_sample_goal_eps = 0.1
     exit_garage_motion_planning_ignore_obstacles = False
@@ -315,6 +318,20 @@ class GlobalSettings:
     # initialization and resetting. use Sokoban-small-v0 for tests
     sokoban_gym_name = "Sokoban-v0"
 
+    # kitchen env parameters
+    kitchen_use_perfect_samplers = False
+    kitchen_goals = "all"
+
+    # sticky table env parameters
+    sticky_table_num_tables = 5
+    sticky_table_place_smooth_fall_prob = 0.95
+    sticky_table_place_sticky_fall_prob = 0.05
+    sticky_table_pick_success_prob = 0.9
+    sticky_table_tricky_floor_place_sticky_fall_prob = 0.5
+
+    # grid row env parameters
+    grid_row_num_cells = 100
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -326,6 +343,7 @@ class GlobalSettings:
     gnn_num_message_passing = 3
     gnn_layer_size = 16
     gnn_learning_rate = 1e-3
+    gnn_weight_decay = 0
     gnn_num_epochs = 25000
     gnn_batch_size = 128
     gnn_do_normalization = False  # performs worse in Cover when True
@@ -417,6 +435,8 @@ class GlobalSettings:
     offline_data_max_skeletons_optimized = -1
     # Number of replays used when offline_data_method is replay-based.
     offline_data_num_replays = 500
+    # Default to bilevel_plan_without_sim.
+    offline_data_bilevel_plan_without_sim = None
 
     # teacher dataset parameters
     # Number of positive examples and negative examples per predicate.
@@ -507,7 +527,34 @@ class GlobalSettings:
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
     online_learning_max_novelty_count = 0
-    online_learning_lifelong = False
+
+    # active sampler learning parameters
+    active_sampler_learning_model = "myopic_classifier_mlp"
+    active_sampler_learning_feature_selection = "all"
+    active_sampler_learning_knn_neighbors = 3
+    active_sampler_learning_use_teacher = True
+    active_sampler_learning_num_samples = 100
+    active_sampler_learning_score_gamma = 0.5
+    active_sampler_learning_fitted_q_iters = 5
+    # shared with maple q function learning
+    active_sampler_learning_n_iter_no_change = 5000
+    active_sampler_learning_num_lookahead_samples = 5
+    active_sampler_learning_explore_length_base = 2
+    active_sampler_learning_num_ensemble_members = 10
+    active_sampler_learning_exploration_sample_strategy = "epsilon_greedy"
+    active_sampler_learning_exploration_epsilon = 0.5
+    active_sampler_learning_replay_buffer_size = 1000000
+    active_sampler_learning_batch_size = 64
+
+    # skill competence model parameters
+    skill_competence_model = "optimistic"
+    skill_competence_model_num_em_iters = 3
+    skill_competence_model_max_train_iters = 1000
+    skill_competence_model_learning_rate = 1e-2
+    skill_competence_model_lookahead = 1
+    skill_competence_model_optimistic_window_size = 5
+    skill_competence_model_optimistic_recency_size = 5
+    skill_competence_default_alpha_beta = (10.0, 1.0)
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -518,6 +565,8 @@ class GlobalSettings:
     refinement_data_skeleton_generator_timeout = 20
     refinement_data_low_level_search_timeout = 5  # timeout for refinement try
     refinement_data_failed_refinement_penalty = 5  # added time on failure
+    refinement_data_include_execution_cost = True
+    refinement_data_low_level_execution_cost = 0.05  # per action cost to add
 
     # CNN refinement cost estimator image pre-processing parameters
     cnn_refinement_estimator_crop = False  # True
@@ -536,6 +585,13 @@ class GlobalSettings:
     greedy_lookahead_max_num_trajectories = 100
     greedy_lookahead_max_traj_length = 2
     greedy_lookahead_max_num_resamples = 10
+
+    # active sampler explorer parameters
+    active_sampler_explore_bonus = 1e-1
+    active_sampler_explore_task_strategy = "planning_progress"
+    active_sampler_explorer_replan_frequency = 100
+    active_sampler_explorer_planning_progress_max_tasks = 10
+    active_sampler_explorer_planning_progress_max_replan_tasks = 5
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -570,8 +626,8 @@ class GlobalSettings:
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
-    @staticmethod
-    def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
+    @classmethod
+    def get_arg_specific_settings(cls, args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
 
@@ -579,6 +635,7 @@ class GlobalSettings:
             # The method used for perception: now only "trivial" or "sokoban".
             perceiver=defaultdict(lambda: "trivial", {
                 "sokoban": "sokoban",
+                "kitchen": "kitchen",
             })[args.get("env", "")],
             # Horizon for each environment. When checking if a policy solves a
             # task, we run the policy for at most this many steps.
@@ -591,9 +648,12 @@ class GlobalSettings:
                     "pybullet_blocks": 1000,
                     "doors": 1000,
                     "coffee": 1000,
+                    "kitchen": 1000,
                     # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
+                    # Ditto for the simple grid row environment.
+                    "grid_row": cls.grid_row_num_cells + 5,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
@@ -666,6 +726,24 @@ class GlobalSettings:
                     # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
+
+            # Parameters specific to the cover environment.
+            # cover env parameters
+            cover_num_blocks=defaultdict(lambda: 2, {
+                "cover_place_hard": 1,
+            })[args.get("env", "")],
+            cover_num_targets=defaultdict(lambda: 2, {
+                "cover_place_hard": 1,
+            })[args.get("env", "")],
+            cover_block_widths=defaultdict(lambda: [0.1, 0.07], {
+                "cover_place_hard": [0.1],
+            })[args.get("env", "")],
+            cover_target_widths=defaultdict(lambda: [0.05, 0.03], {
+                "cover_place_hard": [0.05],
+            })[args.get("env", "")],
+            cover_initial_holding_prob=defaultdict(lambda: 0.75, {
+                "cover_place_hard": 0.0,
+            })[args.get("env", "")],
         )
 
 

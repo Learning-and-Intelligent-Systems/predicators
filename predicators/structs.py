@@ -945,6 +945,11 @@ class _GroundNSRT:
         """Ignore effects from the parent."""
         return self.parent.ignore_effects
 
+    @property
+    def op(self) -> _GroundSTRIPSOperator:
+        """The corresponding ground operator."""
+        return self.parent.op.ground(tuple(self.objects))
+
     def __str__(self) -> str:
         return self._str
 
@@ -1010,6 +1015,11 @@ class Action:
     """
     _arr: Array
     _option: _Option = field(repr=False, default=DummyOption)
+    # In rare cases, we want to associate additional information with an action
+    # to control how it is executed in the environment. This is helpful if
+    # actions are awkward to represent with continuous vectors, and if we have
+    # no ambition to learn models over the actions directly.
+    extra_info: Optional[Any] = None
 
     @property
     def arr(self) -> Array:
@@ -1798,7 +1808,7 @@ ObjectOrVariable = TypeVar("ObjectOrVariable", bound=_TypedEntity)
 SamplerDatapoint = Tuple[State, VarToObjSub, _Option,
                          Optional[Set[GroundAtom]]]
 RefinementDatapoint = Tuple[Task, List[_GroundNSRT], List[Set[GroundAtom]],
-                            bool, float]
+                            bool, List[float], List[int]]
 # For PDDLEnv environments, given a desired number of problems and an rng,
 # returns a list of that many PDDL problem strings.
 PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]

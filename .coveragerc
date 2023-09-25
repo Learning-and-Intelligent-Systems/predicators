@@ -1,6 +1,9 @@
 [run]
 omit =
     predicators/third_party/**
+    predicators/envs/kitchen.py
+    predicators/perception/kitchen_perceiver.py
+    predicators/ground_truth_models/kitchen/**
 
 [report]
 # Regexes for lines to exclude from consideration

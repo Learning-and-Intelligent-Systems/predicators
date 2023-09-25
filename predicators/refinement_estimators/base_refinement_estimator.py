@@ -4,6 +4,8 @@ import abc
 from pathlib import Path
 from typing import List, Set
 
+import numpy as np
+
 from predicators.envs import get_or_create_env
 from predicators.settings import CFG
 from predicators.structs import GroundAtom, Task, _GroundNSRT
@@ -14,6 +16,7 @@ class BaseRefinementEstimator(abc.ABC):
 
     def __init__(self) -> None:
         self._env = get_or_create_env(CFG.env)
+        self._rng = np.random.default_rng(CFG.seed)
 
     @classmethod
     @abc.abstractmethod

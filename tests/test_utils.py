@@ -33,6 +33,7 @@ def test_count_positives_for_ops(max_groundings, exp_num_true, exp_num_false):
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
     not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    preds = {on, not_on}
     cup_var = cup_type("?cup")
     plate_var = plate_type("?plate")
     parameters = [cup_var, plate_var]
@@ -69,7 +70,8 @@ def test_count_positives_for_ops(max_groundings, exp_num_true, exp_num_false):
                                                set()]),
     ]
     segments = [
-        seg for traj in pruned_atom_data for seg in segment_trajectory(traj)
+        seg for ll_traj, atom_seq in pruned_atom_data
+        for seg in segment_trajectory(ll_traj, preds, atom_seq)
     ]
 
     num_true, num_false, _, _ = utils.count_positives_for_ops(

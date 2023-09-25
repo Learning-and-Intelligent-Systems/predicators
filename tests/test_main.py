@@ -4,7 +4,7 @@ import shutil
 import sys
 import tempfile
 import time
-from typing import Callable
+from typing import Any, Callable, List
 
 import numpy as np
 import pytest
@@ -276,7 +276,7 @@ def test_run_episode():
     train_tasks = [t.task for t in env.get_train_tasks()]
     cover_options = get_gt_options(env.get_name())
     task = env.get_task("test", 0)
-    approach = create_approach("random_actions", env.predicates, cover_options,
+    approach = create_approach("random_options", env.predicates, cover_options,
                                env.types, env.action_space, train_tasks)
     perceiver = create_perceiver("trivial")
     exec_monitor = create_execution_monitor("trivial")
@@ -292,6 +292,7 @@ def test_run_episode():
     assert len(actions) == 5
     assert "policy_call_time" in metrics
     assert metrics["policy_call_time"] > 0.0
+    assert metrics["num_options_executed"] > 0.0
 
     # Test exceptions_to_break_on.
     def _value_error_policy(_):
@@ -306,6 +307,10 @@ def test_run_episode():
             """Just use the given policy."""
             del task, timeout  # unused
             return self._policy
+
+        def get_execution_monitoring_info(self) -> List[Any]:
+            """Just return empty list."""
+            return []
 
     class _CountingMonitor(utils.LoggingMonitor):
 
@@ -389,6 +394,7 @@ def test_run_episode():
 
     _, _, metrics = _run_episode(cogman, env, "test", 0, max_num_steps=3)
     assert metrics["policy_call_time"] >= 3 * 0.1
+    assert metrics["num_options_executed"] == 0
 
     # Test with monitor in case where an uncaught exception is raised.
 

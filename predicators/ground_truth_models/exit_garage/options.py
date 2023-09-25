@@ -31,8 +31,6 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
         storage_type = types["storage"]
 
         CarHasExited = predicates["CarHasExited"]
-        CarryingObstacle = predicates["CarryingObstacle"]
-        NotCarryingObstacle = predicates["NotCarryingObstacle"]
         ObstacleCleared = predicates["ObstacleCleared"]
         ObstacleNotCleared = predicates["ObstacleNotCleared"]
 
@@ -71,7 +69,14 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             target_y = 0.4 - ExitGarageEnv.exit_width / 2
             target_theta = 0
             if CFG.exit_garage_motion_planning_ignore_obstacles:
-                cls._plan_direct(state, memory, params, car,
+                start_pos_list = [
+                    state.get(car, "x"),
+                    state.get(car, "y"),
+                ]
+                start_position = np.array(start_pos_list)
+                memory["action_plan"] = []
+                memory["position_plan"] = []
+                cls._plan_direct(memory, params, start_position,
                                  np.array([target_x, target_y]), 0, 1)
                 return True
             success = cls._run_rrt(state,
@@ -92,80 +97,68 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             terminal=_DriveCarToExit_terminal,
         )
 
-        # PickupObstacle
-        def _PickupObstacle_terminal(state: State, memory: Dict,
-                                     objects: Sequence[Object],
-                                     params: Array) -> bool:
-            del memory, params  # unused
-            return CarryingObstacle.holds(state, objects)
-
-        def _PickupObstacle_initiable(state: State, memory: Dict,
-                                      objects: Sequence[Object],
-                                      params: Array) -> bool:
-            robot, obstacle = objects
-            if not ObstacleNotCleared.holds(state, objects[1:]):
-                return False  # obstacle already picked or cleared
-            if not NotCarryingObstacle.holds(state, objects[:1]):
-                return False  # robot already carrying something else
-            # Set up the target input for the motion planner.
-            target_x = state.get(obstacle, "x")
-            target_y = state.get(obstacle, "y")
-            cls._plan_direct(state, memory, params, robot,
-                             np.array([target_x, target_y]), 2, 3)
-            # Append pickup action to memory action plan
-            memory["action_plan"].append(
-                Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))
-            # Picking an obstacle takes a bit of time to plan, artificially
-            time.sleep(CFG.exit_garage_pick_place_refine_penalty)
-            return True
-
-        PickupObstacle = ParameterizedOption(
-            "PickupObstacle",
-            types=[robot_type, obstacle_type],
-            params_space=Box(0, 1, (1, )),
-            policy=_motion_plan_policy,
-            initiable=_PickupObstacle_initiable,
-            terminal=_PickupObstacle_terminal,
-        )
-
-        # StoreObstacle
-        def _StoreObstacle_terminal(state: State, memory: Dict,
+        # ClearObstacle
+        def _ClearObstacle_terminal(state: State, memory: Dict,
                                     objects: Sequence[Object],
                                     params: Array) -> bool:
             del memory, params  # unused
-            return ObstacleCleared.holds(state, objects[1:])
+            _, obstacle = objects
+            return ObstacleCleared.holds(state, [obstacle])
 
-        def _StoreObstacle_initiable(state: State, memory: Dict,
+        def _ClearObstacle_initiable(state: State, memory: Dict,
                                      objects: Sequence[Object],
                                      params: Array) -> bool:
-            robot, _ = objects
-            if not CarryingObstacle.holds(state, objects):
-                return False  # obstacle isn't being carried, so can't store
+            robot, obstacle = objects
+            if not ObstacleNotCleared.holds(state, [obstacle]):
+                return False  # obstacle already cleared
+
+            memory["action_plan"] = []
+            memory["position_plan"] = []
+            start_pos_list = [
+                state.get(robot, "x"),
+                state.get(robot, "y"),
+            ]
+            start_position = np.array(start_pos_list)
+
+            # Straight-line plan to pickup obstacle
+            pickup_target_x = state.get(obstacle, "x")
+            pickup_target_y = state.get(obstacle, "y")
+            pickup_position = np.array([pickup_target_x, pickup_target_y])
+            cls._plan_direct(memory, params, start_position, pickup_position,
+                             2, 3)
+            # Append pickup action to memory plans
+            memory["action_plan"].append(
+                Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))
+
+            # Straight-line plan to place obstacle
             storage, = state.get_objects(storage_type)
             num_stored = state.get(storage, "num_stored")
             # Set up the target input for the motion planner.
             target_x = (0.01 + ExitGarageEnv.obstacle_radius * 2) * num_stored
             target_x += ExitGarageEnv.obstacle_radius
-            target_y = 1.0 - ExitGarageEnv.storage_area_height / 2
-            cls._plan_direct(state, memory, params, robot,
+            target_y = (ExitGarageEnv.y_ub -
+                        ExitGarageEnv.storage_area_height / 2)
+            cls._plan_direct(memory, params, pickup_position,
                              np.array([target_x, target_y]), 2, 3)
             # Append place action to memory action plan
             memory["action_plan"].append(
                 Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)))
-            # Placing an obstacle takes a bit of time to plan, artificially
-            time.sleep(CFG.exit_garage_pick_place_refine_penalty)
+
+            # Moving an obstacle takes a bit of time to plan, artificially
+            time.sleep(CFG.exit_garage_clear_refine_penalty)
+
             return True
 
-        StoreObstacle = ParameterizedOption(
-            "StoreObstacle",
+        ClearObstacle = ParameterizedOption(
+            "ClearObstacle",
             types=[robot_type, obstacle_type],
             params_space=Box(0, 1, (1, )),
             policy=_motion_plan_policy,
-            initiable=_StoreObstacle_initiable,
-            terminal=_StoreObstacle_terminal,
+            initiable=_ClearObstacle_initiable,
+            terminal=_ClearObstacle_terminal,
         )
 
-        return {DriveCarToExit, PickupObstacle, StoreObstacle}
+        return {DriveCarToExit, ClearObstacle}
 
     @classmethod
     def _run_rrt(cls, state: State, memory: Dict, params: Array,
@@ -195,7 +188,7 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             angle_dist = (from_pt[2] - to_pt[2] + np.pi) % (2 * np.pi) - np.pi
             # We need to scale the weight of the angle for the distance down
             # because it should matter but not as much as the position diff
-            scaled_angle_dist = angle_dist / (10 * np.pi)
+            scaled_angle_dist = angle_dist / (2 * np.pi)
             distance += scaled_angle_dist**2
             return distance
 
@@ -281,9 +274,9 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
         return True
 
     @classmethod
-    def _plan_direct(cls, state: State, memory: Dict, params: Array,
-                     move_obj: Object, target_position: Array,
-                     x_action_idx: int, y_action_idx: int) -> None:
+    def _plan_direct(cls, memory: Dict, params: Array, start_position: Array,
+                     target_position: Array, x_action_idx: int,
+                     y_action_idx: int) -> None:
         """Set position and action plans for a straight line from the starting
         position to the target position.
 
@@ -299,16 +292,11 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
                 yield pt1 * (1 - i / num) + pt2 * i / num
 
         # Run planning.
-        start_pos_list = [
-            state.get(move_obj, "x"),
-            state.get(move_obj, "y"),
-        ]
-        start_position = np.array(start_pos_list)
         extender = _extend_fn(start_position, target_position)
         position_plan = [start_position] + list(extender)
         # The position plan is used for the termination check, and possibly
         # can be used for debug drawing in the rendering in the future.
-        memory["position_plan"] = position_plan
+        memory["position_plan"].extend(position_plan)
         # Convert the plan from position space to action space.
         deltas = np.subtract(position_plan[1:], position_plan[:-1])
 
@@ -319,4 +307,4 @@ class ExitGarageGroundTruthOptionFactory(GroundTruthOptionFactory):
             return Action(arr)
 
         action_plan = [_create_action(dx, dy) for (dx, dy) in deltas]
-        memory["action_plan"] = action_plan
+        memory["action_plan"].extend(action_plan)

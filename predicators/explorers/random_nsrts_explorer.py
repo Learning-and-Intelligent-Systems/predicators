@@ -6,6 +6,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.explorers.base_explorer import BaseExplorer
+from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DummyOption, \
     ExplorationStrategy, ParameterizedOption, Predicate, State, Task, Type, \
     _GroundNSRT
@@ -43,19 +44,38 @@ class RandomNSRTsExplorer(BaseExplorer):
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task],
-                 nsrts: Set[NSRT]) -> None:
+                 max_steps_before_termination: int, nsrts: Set[NSRT]) -> None:
 
-        super().__init__(predicates, options, types, action_space, train_tasks)
+        super().__init__(predicates, options, types, action_space, train_tasks,
+                         max_steps_before_termination)
         self._nsrts = nsrts
 
     @classmethod
     def get_name(cls) -> str:
         return "random_nsrts"
 
-    def get_exploration_strategy(self, train_task_idx: int,
-                                 timeout: int) -> ExplorationStrategy:
+    def _get_exploration_strategy(self, train_task_idx: int,
+                                  timeout: int) -> ExplorationStrategy:
         cur_option = DummyOption
         task = self._train_tasks[train_task_idx]
+
+        # Create all applicable ground NSRTs.
+        ground_nsrt_set: Set[_GroundNSRT] = set()
+        objects = set(task.init)
+        if CFG.sesame_grounder == "naive":
+            for nsrt in self._nsrts:
+                ground_nsrt_set.update(utils.all_ground_nsrts(nsrt, objects))
+        elif CFG.sesame_grounder == "fd_translator":  # pragma: no cover
+            atoms = utils.abstract(task.init, self._predicates)
+            ground_nsrt_set.update(
+                utils.all_ground_nsrts_fd_translator(self._nsrts, objects,
+                                                     self._predicates,
+                                                     self._types, atoms,
+                                                     task.goal))
+        else:  # pragma: no cover
+            raise ValueError(
+                f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+        ground_nsrts = sorted(ground_nsrt_set)
 
         def fallback_policy(state: State) -> Action:
             del state  # unused
@@ -66,12 +86,6 @@ class RandomNSRTsExplorer(BaseExplorer):
             nonlocal cur_option
 
             if cur_option is DummyOption or cur_option.terminal(state):
-                # Create all applicable ground NSRTs.
-                ground_nsrts: List[_GroundNSRT] = []
-                for nsrt in sorted(self._nsrts):
-                    ground_nsrts.extend(
-                        utils.all_ground_nsrts(nsrt, list(state)))
-
                 # Sample an applicable NSRT.
                 ground_nsrt = utils.sample_applicable_ground_nsrt(
                     state, ground_nsrts, self._predicates, self._rng)
@@ -84,6 +98,7 @@ class RandomNSRTsExplorer(BaseExplorer):
                                                    goal=task.goal,
                                                    rng=self._rng)
                 cur_option = option
+                assert cur_option.initiable(state)
 
             act = cur_option.policy(state)
             return act

@@ -2,7 +2,7 @@
 
 import abc
 from collections import defaultdict
-from typing import Callable, List, Optional, Sequence, Set
+from typing import Any, Callable, List, Optional, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
@@ -51,6 +51,16 @@ class BaseApproach(abc.ABC):
         A policy maps states to low-level actions.
         """
         raise NotImplementedError("Override me!")
+
+    def get_execution_monitoring_info(self) -> List[Any]:
+        """Provide any info the execution monitoring system might need to
+        perform its job.
+
+        For instance, a planning based approach might provide a symbolic
+        plan that the monitor can check is being followed precisely
+        during execution.
+        """
+        return []
 
     def solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Light wrapper around the abstract self._solve().
@@ -120,6 +130,31 @@ class BaseApproach(abc.ABC):
     def reset_metrics(self) -> None:
         """Reset the metrics dictionary."""
         self._metrics = defaultdict(float)
+
+
+class BaseApproachWrapper(BaseApproach):
+    """Base class for an approach that wraps another approach."""
+
+    def __init__(self, base_approach: BaseApproach,
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task]) -> None:
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks)
+        self._base_approach = base_approach
+
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        return self._base_approach.learn_from_offline_dataset(dataset)
+
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        return self._base_approach.load(online_learning_cycle)
+
+    def get_interaction_requests(self) -> List[InteractionRequest]:
+        return self._base_approach.get_interaction_requests()
+
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
+        return self._base_approach.learn_from_interaction_results(results)
 
 
 class ApproachTimeout(ExceptionWithInfo):

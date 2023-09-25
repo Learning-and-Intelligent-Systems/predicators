@@ -5,13 +5,15 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
+from predicators.cogman import CogMan
 from predicators.datasets import create_dataset
 from predicators.envs.cover import CoverEnv
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_options
 from predicators.main import _generate_interaction_results
+from predicators.perception import create_perceiver
 from predicators.settings import CFG
 from predicators.structs import Dataset
-from predicators.teacher import Teacher
 
 
 def test_online_nsrt_learning_approach():
@@ -29,6 +31,7 @@ def test_online_nsrt_learning_approach():
         "num_test_tasks": 3,
         "explorer": "random_options",
         "online_learning_max_novelty_count": float("inf"),
+        "make_interaction_videos": True,
     })
     env = CoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]
@@ -44,9 +47,12 @@ def test_online_nsrt_learning_approach():
     approach.learn_from_offline_dataset(dataset)
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
-    teacher = Teacher(train_tasks)
+    teacher = None
+    perceiver = create_perceiver("trivial")
+    exec_monitor = create_execution_monitor("trivial")
+    cogman = CogMan(approach, perceiver, exec_monitor)
     interaction_results, _ = _generate_interaction_results(
-        env, teacher, interaction_requests)
+        cogman, env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=0)
     with pytest.raises(FileNotFoundError):

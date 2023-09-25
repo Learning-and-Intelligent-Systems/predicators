@@ -27,6 +27,7 @@ def _test_approach(env_name,
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
                    solve_exceptions=None,
+                   save_atoms=False,
                    load_atoms=False,
                    additional_settings=None):
     """Integration test for the given approach."""
@@ -51,6 +52,7 @@ def _test_approach(env_name,
         "sampler_learner": sampler_learner,
         "segmenter": segmenter,
         "cover_initial_holding_prob": 0.0,
+        "save_atoms": save_atoms,
         "load_atoms": load_atoms,
         **additional_settings,
     })
@@ -178,6 +180,7 @@ def test_saving_and_loading_atoms():
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
                               try_solving=False,
+                              save_atoms=True,
                               load_atoms=False)
     # Next, try to manually load these saved atoms.
     dataset_fname, _ = utils.create_dataset_filename_str(
@@ -314,6 +317,19 @@ def test_oracle_samplers():
                    sampler_learner="oracle",
                    try_solving=False,
                    num_train_tasks=3)
+
+
+def test_full_oracle_no_data():
+    """Test NSRTLearningApproach with oracle everything and no data."""
+    # Oracle sampler learning should work (and be fast) in cover and blocks.
+    # We can even check that the policy succeeds!
+    _test_approach(env_name="cover",
+                   approach_name="nsrt_learning",
+                   strips_learner="oracle",
+                   sampler_learner="oracle",
+                   offline_data_method="demo",
+                   check_solution=True,
+                   num_train_tasks=0)
 
 
 def test_degenerate_mlp_sampler_learning():

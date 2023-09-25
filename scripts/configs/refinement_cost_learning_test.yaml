@@ -1,0 +1,83 @@
+# Run experiments for refinement cost estimation
+---
+APPROACHES:
+  benchmark:
+    NAME: "oracle"
+    SKIP: false
+  oracle:
+    NAME: "refinement_estimation"
+    SKIP: false
+    FLAGS:
+      refinement_estimator: "oracle"
+  tabular:
+    NAME: "refinement_estimation"
+    SKIP: false
+    FLAGS:
+      refinement_estimator: "tabular"
+  cnn:
+    NAME: "refinement_estimation"
+    SKIP: false
+    FLAGS:
+      refinement_estimator: "cnn"
+  gnn:
+    NAME: "refinement_estimation"
+    SKIP: false
+    FLAGS:
+      refinement_estimator: "gnn"
+ENVS:
+  variable_passage:
+    NAME: "narrow_passage"
+    SKIP: false
+    FLAGS:
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_do_normalization: true
+      timeout: 1
+  fixed_passage:
+    NAME: "narrow_passage"
+    SKIP: false
+    FLAGS:
+      narrow_passage_door_width_padding_lb: 0.01
+      narrow_passage_door_width_padding_ub: 0.01
+      narrow_passage_passage_width_padding_lb: 0.0005
+      narrow_passage_passage_width_padding_ub: 0.0005
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_do_normalization: true
+      timeout: 1
+  exit_garage:
+    NAME: "exit_garage"
+    SKIP: true
+    FLAGS:
+      exit_garage_min_num_obstacles: 2
+      exit_garage_max_num_obstacles: 3  # inclusive
+      exit_garage_rrt_num_attempts: 3
+      refinement_estimation_num_skeletons_generated: 15
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_do_normalization: true
+      timeout: 20
+  cluttered_garage:
+    NAME: "exit_garage"
+    SKIP: true
+    FLAGS:
+      exit_garage_min_num_obstacles: 4
+      exit_garage_max_num_obstacles: 4
+      exit_garage_rrt_num_attempts: 3
+      refinement_estimation_num_skeletons_generated: 50
+      # gnn
+      gnn_num_message_passing: 3
+      gnn_layer_size: 32
+      gnn_do_normalization: true
+      timeout: 30
+ARGS: []
+FLAGS:  # general flags
+  num_test_tasks: 50
+  use_torch_gpu: true
+  refinement_data_low_level_execution_cost: 0.05
+START_SEED: 456
+NUM_SEEDS: 5
+USE_GPU: true

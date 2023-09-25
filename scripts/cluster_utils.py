@@ -7,7 +7,10 @@ from typing import Any, Dict, Iterator, List, Tuple
 
 import yaml
 
-SAVE_DIRS = ["results", "logs", "saved_datasets", "saved_approaches"]
+SAVE_DIRS = [
+    "results", "logs", "saved_datasets", "saved_approaches",
+    "eval_trajectories"
+]
 SUPERCLOUD_IP = "txe1-login.mit.edu"
 DEFAULT_BRANCH = "master"
 
@@ -21,6 +24,8 @@ class RunConfig:
     args: List[str]  # e.g. --make_test_videos
     flags: Dict[str, Any]  # e.g. --num_train_tasks 1
     use_gpu: bool  # e.g. --use_gpu True
+    use_mujoco: bool  # needed for supercloud only
+    train_refinement_estimator: bool  # e.g. --train_refinement_estimator True
 
     def __post_init__(self) -> None:
         # For simplicity, disallow overrides of the SAVE_DIRS.
@@ -50,7 +55,9 @@ def config_to_logfile(cfg: RunConfig, suffix: str = ".log") -> str:
     else:
         assert isinstance(cfg, BatchSeedRunConfig)
         seed = None
-    return f"{cfg.env}__{cfg.approach}__{cfg.experiment_id}__{seed}" + suffix
+    name = "train_" if cfg.train_refinement_estimator else ""
+    name += f"{cfg.env}__{cfg.approach}__{cfg.experiment_id}__{seed}" + suffix
+    return name
 
 
 def config_to_cmd_flags(cfg: RunConfig) -> str:
@@ -89,11 +96,23 @@ def generate_run_configs(config_filename: str,
             use_gpu = config["USE_GPU"]
         else:
             use_gpu = False
+        if "USE_MUJOCO" in config.keys():
+            use_mujoco = config["USE_MUJOCO"]
+        else:
+            use_mujoco = False
+        if "TRAIN_REFINEMENT_ESTIMATOR" in config.keys():
+            train_refinement_estimator = config["TRAIN_REFINEMENT_ESTIMATOR"]
+        else:
+            train_refinement_estimator = False
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
+            if approach_config.get("SKIP", False):
+                continue
             approach = approach_config["NAME"]
             # Loop over envs.
             for env_exp_id, env_config in config["ENVS"].items():
+                if env_config.get("SKIP", False):
+                    continue
                 env = env_config["NAME"]
                 # Create the experiment ID, args, and flags.
                 experiment_id = f"{env_exp_id}-{approach_exp_id}"
@@ -111,25 +130,30 @@ def generate_run_configs(config_filename: str,
                 if batch_seeds:
                     yield BatchSeedRunConfig(experiment_id, approach, env,
                                              run_args, run_flags, use_gpu,
+                                             use_mujoco,
+                                             train_refinement_estimator,
                                              start_seed, num_seeds)
                 else:
                     for seed in range(start_seed, start_seed + num_seeds):
                         yield SingleSeedRunConfig(experiment_id, approach, env,
                                                   run_args, run_flags, use_gpu,
+                                                  use_mujoco,
+                                                  train_refinement_estimator,
                                                   seed)
 
 
 def get_cmds_to_prep_repo(branch: str) -> List[str]:
     """Get the commands that should be run while already in the repository but
     before launching the experiments."""
+    old_dir_pattern = " ".join(f"{d}/" for d in SAVE_DIRS)
     return [
-        "mkdir -p logs",
         "git stash",
         "git fetch --all",
         f"git checkout {branch}",
         "git pull",
         # Remove old results.
-        "rm -f results/* logs/* saved_approaches/* saved_datasets/*",
+        f"rm -rf {old_dir_pattern}",
+        "mkdir -p logs",
     ]
 
 

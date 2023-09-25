@@ -117,10 +117,11 @@ def test_interaction():
     dataset = create_dataset(env, train_tasks, get_gt_options(env.get_name()))
     _run_pipeline(env, cogman, train_tasks, dataset)
     utils.update_config({
-        "approach": "nsrt_learning",
+        "approach": "bridge_policy",
         "load_data": True,
         "make_interaction_videos": False,
     })
+    env = create_new_env("cover")
     # Invalid query type.
     with pytest.raises(AssertionError) as e:
         _run_pipeline(env, cogman, train_tasks, dataset)
@@ -179,7 +180,7 @@ def test_interaction():
     utils.reset_config({
         "max_initial_demos": 1,
         "allow_interaction_in_demo_tasks": False,
-        "num_online_learning_cycles": 1,
+        "num_online_learning_cycles": 3,
         "env": "cover",
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
@@ -189,4 +190,5 @@ def test_interaction():
         "make_interaction_videos": True,
         "max_num_steps_interaction_request": 3,
     })
+    env = create_new_env("cover")
     _run_pipeline(env, cogman, train_tasks, dataset)

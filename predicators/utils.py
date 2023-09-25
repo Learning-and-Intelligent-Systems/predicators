@@ -37,6 +37,7 @@ from matplotlib import patches
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
+from scipy.stats import beta as BetaRV
 
 from predicators.args import create_arg_parser
 from predicators.pybullet_helpers.joint import JointPositions
@@ -56,6 +57,14 @@ if TYPE_CHECKING:
     from predicators.envs import BaseEnv
 
 matplotlib.use("Agg")
+
+# Unpickling CUDA models errs out if the device isn't recognized because of
+# an unusual name, including in supercloud, but we can set it manually
+if "CUDA_VISIBLE_DEVICES" in os.environ:  # pragma: no cover
+    cuda_visible_devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
+    if len(cuda_visible_devices) and cuda_visible_devices[0] != "0":
+        cuda_visible_devices[0] = "0"
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_visible_devices)
 
 
 def count_positives_for_ops(
@@ -253,6 +262,45 @@ def create_json_dict_from_task(task: Task) -> Dict[str, Any]:
     }
     goal_dict = create_json_dict_from_ground_atoms(task.goal)
     return {"objects": object_dict, "init": init_dict, "goal": goal_dict}
+
+
+def construct_active_sampler_input(state: State, objects: Sequence[Object],
+                                   params: Array,
+                                   param_option: ParameterizedOption) -> Array:
+    """Helper function for active sampler learning and explorer."""
+
+    assert not CFG.sampler_learning_use_goals
+    sampler_input_lst = [1.0]  # start with bias term
+    if CFG.active_sampler_learning_feature_selection == "all":
+        for obj in objects:
+            sampler_input_lst.extend(state[obj])
+        sampler_input_lst.extend(params)
+
+    else:
+        assert CFG.active_sampler_learning_feature_selection == "oracle"
+        assert CFG.env == "bumpy_cover"
+        if param_option.name == "Pick":
+            # In this case, the x-data should be
+            # [block_bumpy, relative_pick_loc]
+            assert len(objects) == 1
+            block = objects[0]
+            block_pos = state[block][3]
+            block_bumpy = state[block][5]
+            sampler_input_lst.append(block_bumpy)
+            assert len(params) == 1
+            sampler_input_lst.append(params[0] - block_pos)
+        else:
+            assert param_option.name == "Place"
+            assert len(objects) == 2
+            block, target = objects
+            target_pos = state[target][3]
+            grasp = state[block][4]
+            target_width = state[target][2]
+            sampler_input_lst.extend([grasp, target_width])
+            assert len(params) == 1
+            sampler_input_lst.append(params[0] - target_pos)
+
+    return np.array(sampler_input_lst)
 
 
 class _Geom2D(abc.ABC):
@@ -1078,6 +1126,10 @@ class OptionExecutionFailure(ExceptionWithInfo):
     """An exception raised by an option policy in the course of execution."""
 
 
+class OptionTimeoutFailure(OptionExecutionFailure):
+    """A special kind of option execution failure due to an exceeded budget."""
+
+
 class RequestActPolicyFailure(ExceptionWithInfo):
     """An exception raised by an acting policy in a request when it fails to
     produce an action, which terminates the interaction."""
@@ -1122,13 +1174,13 @@ def option_policy_to_policy(
 
         if max_option_steps is not None and \
             num_cur_option_steps >= max_option_steps:
-            raise OptionExecutionFailure(
+            raise OptionTimeoutFailure(
                 "Exceeded max option steps.",
                 info={"last_failed_option": last_option})
 
         if last_state is not None and \
             raise_error_on_repeated_state and state.allclose(last_state):
-            raise OptionExecutionFailure(
+            raise OptionTimeoutFailure(
                 "Encountered repeated state.",
                 info={"last_failed_option": last_option})
         last_state = state
@@ -1226,6 +1278,22 @@ def nsrt_plan_to_greedy_policy(
     return option_policy_to_policy(option_policy)
 
 
+def sample_applicable_option(param_options: List[ParameterizedOption],
+                             state: State,
+                             rng: np.random.Generator) -> Optional[_Option]:
+    """Sample an applicable option."""
+    for _ in range(CFG.random_options_max_tries):
+        param_opt = param_options[rng.choice(len(param_options))]
+        objs = get_random_object_combination(list(state), param_opt.types, rng)
+        if objs is None:
+            continue
+        params = param_opt.params_space.sample()
+        opt = param_opt.ground(objs, params)
+        if opt.initiable(state):
+            return opt
+    return None
+
+
 def create_random_option_policy(
         options: Collection[ParameterizedOption], rng: np.random.Generator,
         fallback_policy: Callable[[State],
@@ -1241,17 +1309,9 @@ def create_random_option_policy(
         nonlocal cur_option
         if cur_option is DummyOption or cur_option.terminal(state):
             cur_option = DummyOption
-            for _ in range(CFG.random_options_max_tries):
-                param_opt = sorted_options[rng.choice(len(sorted_options))]
-                objs = get_random_object_combination(list(state),
-                                                     param_opt.types, rng)
-                if objs is None:
-                    continue
-                params = param_opt.params_space.sample()
-                opt = param_opt.ground(objs, params)
-                if opt.initiable(state):
-                    cur_option = opt
-                    break
+            sample = sample_applicable_option(sorted_options, state, rng)
+            if sample is not None:
+                cur_option = sample
             else:
                 return fallback_policy(state)
         act = cur_option.policy(state)
@@ -1473,6 +1533,21 @@ def create_new_variables(
         new_var = Variable(new_var_name, t)
         new_vars.append(new_var)
     return new_vars
+
+
+def param_option_to_nsrt(param_option: ParameterizedOption,
+                         nsrts: Set[NSRT]) -> NSRT:
+    """If options and NSRTs are 1:1, then map an option to an NSRT."""
+    nsrt_matches = [n for n in nsrts if n.option == param_option]
+    assert len(nsrt_matches) == 1
+    nsrt = nsrt_matches[0]
+    return nsrt
+
+
+def option_to_ground_nsrt(option: _Option, nsrts: Set[NSRT]) -> _GroundNSRT:
+    """If options and NSRTs are 1:1, then map an option to an NSRT."""
+    nsrt = param_option_to_nsrt(option.parent, nsrts)
+    return nsrt.ground(option.objects)
 
 
 _S = TypeVar("_S", bound=Hashable)  # state in heuristic search
@@ -3299,3 +3374,73 @@ def roundrobin(iterables: Sequence[Iterator]) -> Iterator:
     while num_active:
         for nxt in nexts:
             yield nxt()
+
+
+def get_task_seed(train_or_test: str, task_idx: int) -> int:
+    """Parses task seed from CFG.test_env_seed_offset."""
+    assert task_idx < CFG.test_env_seed_offset
+    # SeedSequence generates a sequence of random values given an integer
+    # "entropy". We use CFG.seed to define the "entropy" and then get the
+    # n^th generated random value and use that to seed the gym environment.
+    # This is all to avoid unintentional dependence between experiments
+    # that are conducted with consecutive random seeds. For example, if
+    # we used CFG.seed + task_idx to seed the gym environment, there would
+    # be overlap between experiments when CFG.seed = 1, CFG.seed = 2, etc.
+    seed_entropy = CFG.seed
+    if train_or_test == "test":
+        seed_entropy += CFG.test_env_seed_offset
+    seed_sequence = np.random.SeedSequence(seed_entropy)
+    # Need to cast to int because generate_state() returns a numpy int.
+    task_seed = int(seed_sequence.generate_state(task_idx + 1)[-1])
+    return task_seed
+
+
+def _beta_bernoulli_posterior_alpha_beta(
+        success_history: List[bool],
+        alpha: float = 1.0,
+        beta: float = 1.0) -> Tuple[float, float]:
+    """See https://gregorygundersen.com/blog/2020/08/19/bernoulli-beta/"""
+    n = len(success_history)
+    s = sum(success_history)
+    alpha_n = alpha + s
+    beta_n = n - s + beta
+    return (alpha_n, beta_n)
+
+
+def beta_bernoulli_posterior(success_history: List[bool],
+                             alpha: float = 1.0,
+                             beta: float = 1.0) -> BetaRV:
+    """Returns the RV."""
+    alpha_n, beta_n = _beta_bernoulli_posterior_alpha_beta(
+        success_history, alpha, beta)
+    return BetaRV(alpha_n, beta_n)
+
+
+def beta_bernoulli_posterior_mean(success_history: List[bool],
+                                  alpha: float = 1.0,
+                                  beta: float = 1.0) -> float:
+    """Faster computation to avoid instantiating BetaRV when not needed."""
+    alpha_n, beta_n = _beta_bernoulli_posterior_alpha_beta(
+        success_history, alpha, beta)
+    return alpha_n / (alpha_n + beta_n)
+
+
+def beta_from_mean_and_variance(mean: float,
+                                variance: float,
+                                variance_lower_pad: float = 1e-6,
+                                variance_upper_pad: float = 1e-3) -> BetaRV:
+    """Recover a beta distribution given a mean and a variance.
+
+    See https://stats.stackexchange.com/questions/12232/ for derivation.
+    """
+    # Clip variance.
+    variance = max(min(variance,
+                       mean * (1 - mean) - variance_upper_pad),
+                   variance_lower_pad)
+    alpha = ((1 - mean) / variance - 1 / mean) * (mean**2)
+    beta = alpha * (1 / mean - 1)
+    assert alpha > 0
+    assert beta > 0
+    rv = BetaRV(alpha, beta)
+    assert abs(rv.mean() - mean) < 1e-6
+    return rv

@@ -560,8 +560,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     traj2 = LowLevelTrajectory(
         [state1, state10, state11, state12, state13],
         [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 1)
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2], preds)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    segmented_trajs = [segment_trajectory(t, preds) for t in [traj1, traj2]]
     # Now, run the learner on the demo.
     learner = approach_cls([traj1, traj2], [task1, task2],
                            preds,
@@ -595,8 +594,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     traj2 = LowLevelTrajectory(
         [state1, state10, state11, state12, state13],
         [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 0)
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj2, traj1], preds)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    segmented_trajs = [segment_trajectory(t, preds) for t in [traj2, traj1]]
     # Now, create and run the learner with the 3 demos in the reverse order.
     learner = approach_cls([traj2, traj1], [task2, task1],
                            preds,
@@ -826,9 +824,9 @@ def test_keep_effect_data_partitioning(approach_cls):
     task1 = Task(all_off_not_configed, goal)
     task2 = Task(m3_on, goal)
 
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2],
-                                                         predicates)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    segmented_trajs = [
+        segment_trajectory(t, predicates) for t in [traj1, traj2]
+    ]
 
     # Now, run the learner on the two demos.
     learner = approach_cls([traj1, traj2], [task1, task2],
@@ -1039,9 +1037,10 @@ def test_combinatorial_keep_effect_data_partitioning(approach_name,
     task3 = Task(all_off_not_configed, goal)
     task4 = Task(m3_fix_m3_on, goal)
 
-    ground_atom_trajs = utils.create_ground_atom_dataset(
-        [traj1, traj2, traj3, traj4], predicates)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    segmented_trajs = [
+        segment_trajectory(t, predicates)
+        for t in [traj1, traj2, traj3, traj4]
+    ]
 
     # Now, run the learner on the four demos.
     learner = approach_cls([traj1, traj2, traj3, traj4],
@@ -1210,8 +1209,7 @@ def test_keep_effect_adding_new_variables(approach_cls):
     goal = {ButtonPressed([button]), PotatoHeld([potato3])}
     task = Task(s0, goal)
 
-    ground_atom_traj = utils.create_ground_atom_dataset([traj], predicates)[0]
-    segmented_traj = segment_trajectory(ground_atom_traj)
+    segmented_traj = segment_trajectory(traj, predicates)
 
     # Now, run the learner on the demo.
     learner = approach_cls([traj], [task],
@@ -1314,9 +1312,9 @@ def test_multi_pass_backchaining(approach_cls, val):
     goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
     task3 = Task(s30, goal3)
 
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2, traj3],
-                                                         predicates)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    segmented_trajs = [
+        segment_trajectory(t, predicates) for t in [traj1, traj2, traj3]
+    ]
 
     # Now, run the learner on the three demos.
     learner = approach_cls([traj1, traj2, traj3], [task1, task2, task3],
@@ -1436,8 +1434,7 @@ def test_segment_not_in_datastore(approach_cls):
     task3 = Task(s30, goal3)
     # Ground and segment these trajectories.
     trajs = [traj0, traj1, traj2, traj3]
-    ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    segmented_trajs = [segment_trajectory(t, predicates) for t in trajs]
     # Now, run the learner on the demos.
     learner = approach_cls(trajs, [task0, task1, task2, task3],
                            predicates,
@@ -1625,8 +1622,7 @@ def test_backchaining_randomly_generated(approach_cls, use_single_option,
     trajs = [traj1, traj2, traj3, traj4][:num_demos]
     tasks = [task1, task2, task3, task4][:num_demos]
 
-    ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    segmented_trajs = [segment_trajectory(t, predicates) for t in trajs]
 
     # Now, run the learner on the demos.
     learner = approach_cls(trajs,

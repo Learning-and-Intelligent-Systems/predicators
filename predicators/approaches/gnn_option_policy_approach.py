@@ -43,15 +43,14 @@ class GNNOptionPolicyApproach(GNNApproach):
         self, dataset: Dataset
     ) -> List[Tuple[State, Set[GroundAtom], Set[GroundAtom], _Option]]:
         data = []
-        ground_atom_dataset = utils.create_ground_atom_dataset(
-            dataset.trajectories, self._initial_predicates)
         # In this approach, we never learned any NSRTs, so we just call
         # segment_trajectory() to segment the given dataset.
         segmented_trajs = [
-            segment_trajectory(traj) for traj in ground_atom_dataset
+            segment_trajectory(traj, self._initial_predicates)
+            for traj in dataset.trajectories
         ]
-        for segment_traj, (ll_traj, _) in zip(segmented_trajs,
-                                              ground_atom_dataset):
+        for segment_traj, ll_traj in zip(segmented_trajs,
+                                         dataset.trajectories):
             if not ll_traj.is_demo:
                 continue
             goal = self._train_tasks[ll_traj.train_task_idx].goal

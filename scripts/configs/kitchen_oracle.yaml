@@ -1,0 +1,20 @@
+# Run oracle on kitchen environment.
+---
+APPROACHES:
+  oracle-perfect-samplers:
+    NAME: "oracle"
+    FLAGS:
+      kitchen_use_perfect_samplers: True
+  oracle:
+    NAME: "oracle"
+ENVS:
+  kitchen:
+    NAME: "kitchen"
+ARGS:
+  - "debug"
+FLAGS:  # general flags
+  bilevel_plan_without_sim: True
+  num_train_tasks: 0
+  num_test_tasks: 5
+START_SEED: 456
+NUM_SEEDS: 2
