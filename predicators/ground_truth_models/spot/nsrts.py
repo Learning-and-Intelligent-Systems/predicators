@@ -27,16 +27,16 @@ def _move_to_tool_on_floor_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
-    import ipdb
-    ipdb.set_trace()
+    # TODO randomize.
+    return np.array([1.20, -np.pi / 2])
 
 
 def _move_to_surface_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the surface you're moving to).
-    import ipdb
-    ipdb.set_trace()
+    # TODO randomize.
+    return np.array([1.20, -np.pi / 2])
 
 
 def _grasp_tool_from_surface_sampler(state: State, goal: Set[GroundAtom],
@@ -58,8 +58,8 @@ def _place_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
                                    objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dz (to surface objects center).
     del state, goal, objs
-    # TODO randomize, and maybe take out dz.
-    return np.array([0.0, 0.0, 0.0])
+    # TODO randomize.
+    return np.array([0.0, 0.0, 0.25])
 
 
 def _place_tool_on_floor_sampler(state: State, goal: Set[GroundAtom],

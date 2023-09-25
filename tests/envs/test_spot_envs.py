@@ -231,6 +231,38 @@ def real_robot_cube_env_test():
     assert not HandEmpty([spot]).holds(state)
     assert HoldingTool([spot, cube]).holds(state)
 
+    # Sample and run an option to move to the surface.
+    move_to_target_table_nsrt = MoveToSurface.ground([spot, target_table])
+    assert all(a.holds(state) for a in move_to_target_table_nsrt.preconditions)
+    option = move_to_target_table_nsrt.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Sample and run an option to place on the surface.
+    PlaceToolOnSurface = nsrt_name_to_nsrt["PlaceToolOnSurface"]
+    place_on_table_nsrt = PlaceToolOnSurface.ground([spot, cube, target_table])
+    assert all(a.holds(state) for a in place_on_table_nsrt.preconditions)
+    option = place_on_table_nsrt.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Check that placing on the table succeeded.
+    assert HandEmpty([spot]).holds(state)
+    assert not HoldingTool([spot, cube]).holds(state)
+    assert On([cube, target_table]).holds(state)
+
 
 if __name__ == "__main__":
     real_robot_cube_env_test()
