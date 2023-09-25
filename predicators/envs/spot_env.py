@@ -245,7 +245,8 @@ class SpotEnv(BaseEnv):
             # NOTE: the observation is only updated after an operator finishes!
             # This assumes options don't really need to be closed-loop. We do
             # this for significant speed-up purposes.
-            self._current_observation = self._build_observation(next_nonpercept)
+            self._current_observation = self._build_observation(
+                next_nonpercept)
         # The action corresponds to the task finishing.
         elif action_name == "done":
             while True:

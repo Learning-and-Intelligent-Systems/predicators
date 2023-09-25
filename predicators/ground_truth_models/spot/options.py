@@ -33,6 +33,16 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
 from predicators.utils import LinearChainParameterizedOption
 
 
+class _SpotAction(Action):
+    """Subclassed to avoid issues with pickling bosdyn functions."""
+
+    def __getnewargs__(self) -> Tuple:
+        return (self.arr, )
+
+    def __getstate__(self) -> Dict:
+        return {"arr": self.arr}
+
+
 def _get_se3_pose_from_state(state: State,
                              obj: Object) -> math_helpers.SE3Pose:
     # TODO consider moving this function.
@@ -44,8 +54,8 @@ def _get_se3_pose_from_state(state: State,
 
 def _create_action(action_name: str, operator_objects: Tuple[Object],
                    fn: Callable, fn_args: Tuple) -> Action:
-    return Action(np.array([], dtype=np.float32),
-                  extra_info=(action_name, operator_objects, fn, fn_args))
+    return _SpotAction(np.array([], dtype=np.float32),
+                       extra_info=(action_name, operator_objects, fn, fn_args))
 
 
 def _create_navigate_parameterized_policy(
@@ -226,6 +236,14 @@ class _MoveToToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
 
         super().__init__(name, children)
 
+    def __getnewargs__(self) -> Tuple:
+        """Avoid pickling issues with bosdyn functions."""
+        return (self.name, self.types)
+
+    def __getstate__(self) -> Dict:
+        """Avoid pickling issues with bosdyn functions."""
+        return {"name": self.name}
+
 
 class _MoveToToolOnFloorParameterizedOption(LinearChainParameterizedOption):
     """Navigate to the object and look down at the object so it's in view.
@@ -265,6 +283,14 @@ class _MoveToToolOnFloorParameterizedOption(LinearChainParameterizedOption):
 
         super().__init__(name, children)
 
+    def __getnewargs__(self) -> Tuple:
+        """Avoid pickling issues with bosdyn functions."""
+        return (self.name, self.types)
+
+    def __getstate__(self) -> Dict:
+        """Avoid pickling issues with bosdyn functions."""
+        return {"name": self.name}
+
 
 class _MoveToSurfaceParameterizedOption(LinearChainParameterizedOption):
     """Navigate to the surface.
@@ -303,6 +329,14 @@ class _MoveToSurfaceParameterizedOption(LinearChainParameterizedOption):
         children = [navigate, finish]
 
         super().__init__(name, children)
+
+    def __getnewargs__(self) -> Tuple:
+        """Avoid pickling issues with bosdyn functions."""
+        return (self.name, self.types)
+
+    def __getstate__(self) -> Dict:
+        """Avoid pickling issues with bosdyn functions."""
+        return {"name": self.name}
 
 
 class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
@@ -347,6 +381,14 @@ class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
 
         super().__init__(name, children)
 
+    def __getnewargs__(self) -> Tuple:
+        """Avoid pickling issues with bosdyn functions."""
+        return (self.name, self.types)
+
+    def __getstate__(self) -> Dict:
+        """Avoid pickling issues with bosdyn functions."""
+        return {"name": self.name}
+
 
 class _GraspToolFromFloorParameterizedOption(LinearChainParameterizedOption):
     """Grasp a tool from thje floor.
@@ -389,6 +431,14 @@ class _GraspToolFromFloorParameterizedOption(LinearChainParameterizedOption):
         children = [grasp, stow_arm, finish]
 
         super().__init__(name, children)
+
+    def __getnewargs__(self) -> Tuple:
+        """Avoid pickling issues with bosdyn functions."""
+        return (self.name, self.types)
+
+    def __getstate__(self) -> Dict:
+        """Avoid pickling issues with bosdyn functions."""
+        return {"name": self.name}
 
 
 class _PlaceToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
@@ -434,6 +484,14 @@ class _PlaceToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
 
         super().__init__(name, children)
 
+    def __getnewargs__(self) -> Tuple:
+        """Avoid pickling issues with bosdyn functions."""
+        return (self.name, self.types)
+
+    def __getstate__(self) -> Dict:
+        """Avoid pickling issues with bosdyn functions."""
+        return {"name": self.name}
+
 
 class _PlaceToolOnFloorParameterizedOption(LinearChainParameterizedOption):
     """Place a tool on a surface.
@@ -468,6 +526,14 @@ class _PlaceToolOnFloorParameterizedOption(LinearChainParameterizedOption):
         children = [open_hand, finish]
 
         super().__init__(name, children)
+
+    def __getnewargs__(self) -> Tuple:
+        """Avoid pickling issues with bosdyn functions."""
+        return (self.name, self.types)
+
+    def __getstate__(self) -> Dict:
+        """Avoid pickling issues with bosdyn functions."""
+        return {"name": self.name}
 
 
 class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):

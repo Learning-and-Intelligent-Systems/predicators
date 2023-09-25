@@ -4,6 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 
+import dill as pkl
 import numpy as np
 
 from predicators import utils
@@ -168,6 +169,12 @@ def real_robot_cube_env_test():
     assert "table" in table2.name
     state = perceiver.step(obs)
     spot = next(o for o in state if o.type.name == "robot")
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    MoveToToolOnSurface = nsrt_name_to_nsrt["MoveToToolOnSurface"]
+    MoveToSurface = nsrt_name_to_nsrt["MoveToSurface"]
+    ground_nsrts = []
+    for nsrt in sorted(nsrts):
+        ground_nsrts.extend(utils.all_ground_nsrts(nsrt, set(state)))
 
     # The robot gripper should be empty, and the cube should be on a table.
     pred_name_to_pred = {p.name: p for p in env.predicates}
@@ -183,15 +190,9 @@ def real_robot_cube_env_test():
     target_table = table1 if init_table is table2 else table2
 
     # Find the applicable NSRTs.
-    ground_nsrts = []
-    for nsrt in sorted(nsrts):
-        ground_nsrts.extend(utils.all_ground_nsrts(nsrt, set(state)))
     atoms = utils.abstract(state, env.predicates)
     applicable_nsrts = list(utils.get_applicable_operators(
         ground_nsrts, atoms))
-    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
-    MoveToToolOnSurface = nsrt_name_to_nsrt["MoveToToolOnSurface"]
-    MoveToSurface = nsrt_name_to_nsrt["MoveToSurface"]
     move_to_cube_nsrt = MoveToToolOnSurface.ground((spot, cube, init_table))
     assert set(applicable_nsrts) == {
         move_to_cube_nsrt,
@@ -201,14 +202,19 @@ def real_robot_cube_env_test():
 
     # Sample and run an option to move to the surface.
     option = move_to_cube_nsrt.sample_option(state, set(), rng)
+    actions = []  # to test pickling
     assert option.initiable(state)
     for _ in range(100):  # should terminate much earlier
         action = option.policy(state)
+        actions.append(action)
         obs = env.step(action)
         state = perceiver.step(obs)
         perceiver.update_perceiver_with_action(action)
         if option.terminal(state):
             break
+
+    with tempfile.NamedTemporaryFile(mode="wb") as f:
+        pkl.dump((nsrts, task, state, actions), f)
 
     # Check that moving succeeded.
     assert InViewTool([spot, cube]).holds(state)

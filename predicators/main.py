@@ -375,6 +375,8 @@ def _run_testing(env: BaseEnv, cogman: CogMan) -> Metrics:
             traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
             traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
             # Include the original task too so we know the goal.
+            import ipdb
+            ipdb.set_trace()
             traj_data = {
                 "task": env_task,
                 "trajectory": traj,
