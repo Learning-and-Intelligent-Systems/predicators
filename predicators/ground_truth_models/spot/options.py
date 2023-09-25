@@ -9,6 +9,7 @@ from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.utils import LinearChainParameterizedOption
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
@@ -18,7 +19,7 @@ from predicators.spot_utils.perception.object_detection import \
 from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
 from predicators.spot_utils.skills.spot_hand_move import \
-    move_hand_to_relative_pose, open_gripper
+    move_hand_to_relative_pose, open_gripper, close_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
@@ -85,6 +86,18 @@ def _create_open_hand_parameterized_policy() -> ParameterizedPolicy:
     return _policy
 
 
+def _create_close_hand_parameterized_policy() -> ParameterizedPolicy:
+
+    robot, _, _ = get_robot()
+
+    def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        del state, memory, params  # not used
+        return _create_action("execute", objects, close_gripper, (robot, ))
+
+    return _policy
+
+
 def _create_move_hand_parameterized_policy(
         hand_pose: math_helpers.SE3Pose) -> ParameterizedPolicy:
 
@@ -110,11 +123,13 @@ def _create_operator_finish_parameterized_policy(
     return _policy
 
 
-class _MoveToToolOnSurfaceParameterizedOption(
-        utils.LinearChainParameterizedOption):
-    """Navigate to the surface and then open the hand.
+class _MoveToToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
+    """Navigate to the surface and look down at the object so it's in view.
 
     The types are [robot, tool, surface].
+
+    The parameters are relative distance and relative yaw between the robot
+    and the surface.
     """
 
     def __init__(self, name: str, types: List[Type]) -> None:
@@ -133,19 +148,12 @@ class _MoveToToolOnSurfaceParameterizedOption(
             params_space=params_space,
         )
 
-        # Look down at the surface.
+        # Look down at the surface. Note that we can't open the hand because
+        # that would mess up the HandEmpty detector.
         move_hand = utils.SingletonParameterizedOption(
             "MoveToToolOnSurface-MoveHand",
             _create_move_hand_parameterized_policy(
                 DEFAULT_HAND_LOOK_DOWN_POSE),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Open the hand.
-        open_hand = utils.SingletonParameterizedOption(
-            "MoveToToolOnSurface-OpenHand",
-            _create_open_hand_parameterized_policy(),
             types=types,
             params_space=params_space,
         )
@@ -159,177 +167,185 @@ class _MoveToToolOnSurfaceParameterizedOption(
         )
 
         # Create the linear chain.
-        children = [navigate, move_hand, open_hand, finish]
+        children = [navigate, move_hand, finish]
 
         super().__init__(name, children)
 
 
-class _MoveToToolOnFloorParameterizedOption(ParameterizedOption):
+class _MoveToToolOnFloorParameterizedOption(LinearChainParameterizedOption):
+    """Navigate to the object and look down at the object so it's in view.
+
+    The types are [robot, tool].
+
+    The parameters are relative distance and relative yaw between the robot
+    and the tool.
+    """
 
     def __init__(self, name: str, types: List[Type]) -> None:
-        super().__init__(name,
-                         types,
-                         self._params_space,
-                         policy=self._policy,
-                         initiable=lambda _1, _2, _3, _4: True,
-                         terminal=self._terminal)
 
-    @property
-    def _params_space(self) -> Box:
         # Parameters are relative distance, dyaw.
-        return Box(-np.inf, np.inf, (2, ))
+        params_space = Box(-np.inf, np.inf, (2, ))
 
-    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # TODO add children to implement option.
 
-    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
-                  params: Array) -> bool:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # Finish the action.
+        finish = utils.SingletonParameterizedOption(
+            "MoveToToolOnFloor-Finish",
+            _create_operator_finish_parameterized_policy(name),
+            types=types,
+            params_space=params_space,
+        )
+
+        # Create the linear chain.
+        children = [finish]
+
+        super().__init__(name, children)
 
 
-class _MoveToSurfaceParameterizedOption(ParameterizedOption):
+class _MoveToSurfaceParameterizedOption(LinearChainParameterizedOption):
+    """Navigate to the surface.
+
+    The types are [robot, surface].
+
+    The parameters are relative distance and relative yaw between the robot
+    and the surface.
+    """
 
     def __init__(self, name: str, types: List[Type]) -> None:
-        super().__init__(name,
-                         types,
-                         self._params_space,
-                         policy=self._policy,
-                         initiable=lambda _1, _2, _3, _4: True,
-                         terminal=self._terminal)
 
-    @property
-    def _params_space(self) -> Box:
         # Parameters are relative distance, dyaw.
-        return Box(-np.inf, np.inf, (2, ))
+        params_space = Box(-np.inf, np.inf, (2, ))
 
-    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # TODO add children to implement option.
 
-    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
-                  params: Array) -> bool:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # Finish the action.
+        finish = utils.SingletonParameterizedOption(
+            "MoveToSurface-Finish",
+            _create_operator_finish_parameterized_policy(name),
+            types=types,
+            params_space=params_space,
+        )
+
+        # Create the linear chain.
+        children = [finish]
+
+        super().__init__(name, children)
 
 
-class _GraspToolFromSurfaceParameterizedOption(ParameterizedOption):
+class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
+    """Grasp a tool on a surface.
+
+    The types are [robot, tool, surface].
+
+    There are currently no parameters.
+    """
 
     def __init__(self, name: str, types: List[Type]) -> None:
-        super().__init__(name,
-                         types,
-                         self._params_space,
-                         policy=self._policy,
-                         initiable=lambda _1, _2, _3, _4: True,
-                         terminal=self._terminal)
 
-    @property
-    def _params_space(self) -> Box:
-        # Parameters are relative distance, dyaw.
-        return Box(-np.inf, np.inf, (2, ))
+        # Currently no parameters.
+        params_space = Box(0, 1, (0, ))
 
-    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # TODO add children to implement option.
 
-    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
-                  params: Array) -> bool:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # Finish the action.
+        finish = utils.SingletonParameterizedOption(
+            "GraspToolFromSurface-Finish",
+            _create_operator_finish_parameterized_policy(name),
+            types=types,
+            params_space=params_space,
+        )
+
+        # Create the linear chain.
+        children = [finish]
+
+        super().__init__(name, children)
 
 
-class _GraspToolFromFloorParameterizedOption(ParameterizedOption):
+class _GraspToolFromFloorParameterizedOption(LinearChainParameterizedOption):
+    """Grasp a tool from thje floor.
 
-    def __init__(self, name: str, types: List[Type]) -> None:
-        super().__init__(name,
-                         types,
-                         self._params_space,
-                         policy=self._policy,
-                         initiable=lambda _1, _2, _3, _4: True,
-                         terminal=self._terminal)
+    The types are [robot, tool].
 
-    @property
-    def _params_space(self) -> Box:
-        # Parameters are relative distance, dyaw.
-        return Box(-np.inf, np.inf, (2, ))
-
-    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
-
-    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
-                  params: Array) -> bool:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
-
-
-class _PlaceToolOnSurfaceParameterizedOption(ParameterizedOption):
+    There are currently no parameters.
+    """
 
     def __init__(self, name: str, types: List[Type]) -> None:
-        super().__init__(name,
-                         types,
-                         self._params_space,
-                         policy=self._policy,
-                         initiable=lambda _1, _2, _3, _4: True,
-                         terminal=self._terminal)
 
-    @property
-    def _params_space(self) -> Box:
-        # Parameters are relative distance, dyaw.
-        return Box(-np.inf, np.inf, (2, ))
+        # Currently no parameters.
+        params_space = Box(0, 1, (0, ))
 
-    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # TODO add children to implement option.
 
-    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
-                  params: Array) -> bool:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # Finish the action.
+        finish = utils.SingletonParameterizedOption(
+            "GraspToolFromFloor-Finish",
+            _create_operator_finish_parameterized_policy(name),
+            types=types,
+            params_space=params_space,
+        )
+
+        # Create the linear chain.
+        children = [finish]
+
+        super().__init__(name, children)
 
 
-class _PlaceToolOnFloorParameterizedOption(ParameterizedOption):
+class _PlaceToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
+    """Place a tool on a surface.
+
+    The types are [robot, tool, surface].
+
+    Parameters are relative dx, dy, dz (to surface objects center).
+    """
 
     def __init__(self, name: str, types: List[Type]) -> None:
-        super().__init__(name,
-                         types,
-                         self._params_space,
-                         policy=self._policy,
-                         initiable=lambda _1, _2, _3, _4: True,
-                         terminal=self._terminal)
 
-    @property
-    def _params_space(self) -> Box:
-        # Parameters are relative distance, dyaw.
-        return Box(-np.inf, np.inf, (2, ))
+        # Parameters are relative dx, dy, dz (to surface objects center).
+        params_space = Box(-np.inf, np.inf, (3, ))
 
-    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # TODO add children to implement option.
 
-    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
-                  params: Array) -> bool:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        # Finish the action.
+        finish = utils.SingletonParameterizedOption(
+            "PlaceToolOnSurface-Finish",
+            _create_operator_finish_parameterized_policy(name),
+            types=types,
+            params_space=params_space,
+        )
+
+        # Create the linear chain.
+        children = [finish]
+
+        super().__init__(name, children)
+
+
+class _PlaceToolOnFloorParameterizedOption(LinearChainParameterizedOption):
+    """Place a tool on a surface.
+
+    The types are [robot, tool].
+
+    There are currently no parameters.
+    """
+
+    def __init__(self, name: str, types: List[Type]) -> None:
+
+        # There are currently no parameters.
+        params_space = Box(0, 1, (0, ))
+
+        # TODO add children to implement option.
+
+        # Finish the action.
+        finish = utils.SingletonParameterizedOption(
+            "PlaceToolOnFloor-Finish",
+            _create_operator_finish_parameterized_policy(name),
+            types=types,
+            params_space=params_space,
+        )
+
+        # Create the linear chain.
+        children = [finish]
+
+        super().__init__(name, children)
 
 
 class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):

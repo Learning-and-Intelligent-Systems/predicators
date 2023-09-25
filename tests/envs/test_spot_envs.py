@@ -10,6 +10,7 @@ from predicators import utils
 from predicators.envs.spot_env import SpotBikeEnv, SpotCubeEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.spot_bike_perceiver import SpotBikePerceiver
+from predicators.settings import CFG
 
 
 def test_spot_bike_env():
@@ -123,18 +124,25 @@ def real_robot_cube_env_test():
     Run this test by running the file directly, i.e.,
 
     python tests/envs/test_spot_envs.py --spot_robot_ip <ip address>
+
+    TODO: support the below, which currently will crash.
+
+    Optionally load the last initial state:
+
+    python tests/envs/test_spot_envs.py --spot_robot_ip <ip address> \
+        --test_task_json_dir predicators/envs/assets/task_jsons/spot_bike_env/
     """
     args = utils.parse_args(env_required=False,
-                            seed_required=False,
-                            approach_required=False)
-    spot_robot_ip = args["spot_robot_ip"]
+                    seed_required=False,
+                     approach_required=False)
     utils.reset_config({
         "env": "spot_cube_env",
         "approach": "spot_wrapper[oracle]",
         "num_train_tasks": 0,
         "num_test_tasks": 1,
         "seed": 123,
-        "spot_robot_ip": spot_robot_ip,
+        "spot_robot_ip": args["spot_robot_ip"],
+        "test_task_json_dir": args.get("test_task_json_dir", None),
     })
     rng = np.random.default_rng(123)
     env = SpotCubeEnv()
@@ -159,6 +167,7 @@ def real_robot_cube_env_test():
     HandEmpty = pred_name_to_pred["HandEmpty"]
     On = pred_name_to_pred["On"]
     InViewTool = pred_name_to_pred["InViewTool"]
+    HoldingTool = pred_name_to_pred["HoldingTool"]
     assert HandEmpty([spot]).holds(state)
     on_atoms = [On([cube, t]) for t in [table1, table2]]
     true_on_atoms = [a for a in on_atoms if a.holds(state)]
@@ -183,7 +192,7 @@ def real_robot_cube_env_test():
         MoveToSurface.ground((spot, target_table)),
     }
 
-    # Sample and run the option to move to the NSRT.
+    # Sample and run an option to move to the surface.
     option = move_to_cube_nsrt.sample_option(state, set(), rng)
     assert option.initiable(state)
     for _ in range(100):  # should terminate much earlier
@@ -196,8 +205,21 @@ def real_robot_cube_env_test():
     # Check that moving succeeded.
     assert InViewTool([spot, cube]).holds(state)
 
-    import ipdb
-    ipdb.set_trace()
+    # Now sample and run an option to pick from the surface.
+    GraspToolFromSurface = nsrt_name_to_nsrt["GraspToolFromSurface"]
+    grasp_cube_nrst = GraspToolFromSurface.ground([spot, cube, init_table])
+    assert all(a.holds(state) for a in grasp_cube_nrst.preconditions)
+    option = grasp_cube_nrst.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Check that picking succeeded.
+    assert HoldingTool([spot, cube]).holds(state)
 
 
 if __name__ == "__main__":

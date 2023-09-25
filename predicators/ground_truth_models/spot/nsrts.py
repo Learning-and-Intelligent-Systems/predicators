@@ -65,10 +65,8 @@ def _place_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
 def _place_tool_on_floor_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
-    # Parameters are relative dx, dy, dz (to surface objects center).
-    del state, goal, objs
-    # TODO randomize, and maybe take out dz.
-    return np.array([0.0, 0.0, 0.0])
+    # Not parameterized; may change in the future.
+    return null_sampler(state, goal, rng, objs)
 
 
 class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
