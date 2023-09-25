@@ -242,6 +242,10 @@ class SpotEnv(BaseEnv):
             # Update the non-percepts.
             operator_names = {o.name for o in self._strips_operators}
             next_nonpercept = self._get_next_nonpercept_atoms(obs, action)
+            # NOTE: the observation is only updated after an operator finishes!
+            # This assumes options don't really need to be closed-loop. We do
+            # this for significant speed-up purposes.
+            self._current_observation = self._build_observation(next_nonpercept)
         # The action corresponds to the task finishing.
         elif action_name == "done":
             while True:
@@ -261,11 +265,8 @@ class SpotEnv(BaseEnv):
         else:
             assert action_name == "execute"
             assert isinstance(action.extra_info[2], Callable)
-            # No change yet to non-percept atoms.
-            next_nonpercept = obs.nonpercept_atoms
             # Execute!
             action.extra_info[2](*action.extra_info[3])
-        self._current_observation = self._build_observation(next_nonpercept)
         return self._current_observation
 
     def get_observation(self) -> Observation:
