@@ -206,6 +206,7 @@ def real_robot_cube_env_test():
         action = option.policy(state)
         obs = env.step(action)
         state = perceiver.step(obs)
+        perceiver.update_perceiver_with_action(action)
         if option.terminal(state):
             break
 
@@ -221,11 +222,13 @@ def real_robot_cube_env_test():
     for _ in range(100):  # should terminate much earlier
         action = option.policy(state)
         obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
         state = perceiver.step(obs)
         if option.terminal(state):
             break
 
     # Check that picking succeeded.
+    assert not HandEmpty([spot]).holds(state)
     assert HoldingTool([spot, cube]).holds(state)
 
 
