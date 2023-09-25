@@ -413,6 +413,14 @@ class _PlaceToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
             params_space=params_space,
         )
 
+        # Stow the arm.
+        stow_arm = utils.SingletonParameterizedOption(
+            "GraspToolFromSurface-Stow",
+            _create_stow_arm_parameterized_policy(),
+            types=types,
+            params_space=params_space,
+        )
+
         # Finish the action.
         finish = utils.SingletonParameterizedOption(
             "PlaceToolOnSurface-Finish",
@@ -422,7 +430,7 @@ class _PlaceToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Create the linear chain.
-        children = [place, finish]
+        children = [place, stow_arm, finish]
 
         super().__init__(name, children)
 
