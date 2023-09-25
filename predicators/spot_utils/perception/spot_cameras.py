@@ -30,6 +30,15 @@ RGB_TO_DEPTH_CAMERAS = {
     "back_fisheye_image": "back_depth_in_visual_frame"
 }
 
+# Hack to avoid double image capturing when we want to (1) get object states
+# and then (2) use the image again for pixel-based grasping.
+_LAST_CAPTURED_IMAGES: Dict[str, RGBDImageWithContext] = {}
+
+
+def get_last_captured_images() -> Dict[str, RGBDImageWithContext]:
+    """Return the last output from capture_images(), ignoring inputs."""
+    return _LAST_CAPTURED_IMAGES
+
 
 def capture_images(
     robot: Robot,
@@ -42,6 +51,8 @@ def capture_images(
 
     If no camera names are provided, all RGB cameras are used.
     """
+    global _LAST_CAPTURED_IMAGES
+
     if camera_names is None:
         camera_names = set(RGB_TO_DEPTH_CAMERAS)
 
@@ -103,6 +114,8 @@ def capture_images(
                                     transforms_snapshot,
                                     frame_name_image_sensor, camera_model)
         rgbds[camera_name] = rgbd
+
+    _LAST_CAPTURED_IMAGES = rgbds
 
     return rgbds
 

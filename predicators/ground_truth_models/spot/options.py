@@ -9,17 +9,18 @@ from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.utils import LinearChainParameterizedOption
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
-    ObjectDetectionID, detect_objects, \
+    ObjectDetectionID, get_last_detected_objects, \
     get_object_center_pixel_from_artifacts
-from predicators.spot_utils.perception.spot_cameras import capture_images
+from predicators.spot_utils.perception.spot_cameras import \
+    get_last_captured_images
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
-from predicators.spot_utils.skills.spot_hand_move import \
-    move_hand_to_relative_pose, open_gripper, close_gripper
+from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
+    move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
@@ -29,6 +30,7 @@ from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
     get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, STRIPSOperator, Type
+from predicators.utils import LinearChainParameterizedOption
 
 
 def _get_se3_pose_from_state(state: State,
@@ -74,6 +76,31 @@ def _create_navigate_parameterized_policy(
     return _policy
 
 
+def _create_grasp_parameterized_policy(
+        target_obj_idx: int) -> ParameterizedPolicy:
+
+    robot, _, _ = get_robot()
+    env = get_or_create_env(CFG.env)
+    obj_to_detection_id = env.obj_to_detection_id
+
+    def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        del memory, params, state  # not used
+        target_obj = objects[target_obj_idx]
+        target_detection_id = obj_to_detection_id(target_obj)
+        rgbds = get_last_captured_images()
+        _, artifacts = get_last_detected_objects()
+        hand_camera = "hand_color_image"
+        img = rgbds[hand_camera]
+        pixel = get_object_center_pixel_from_artifacts(artifacts,
+                                                       target_detection_id,
+                                                       hand_camera)
+        return _create_action("execute", objects, grasp_at_pixel,
+                              (robot, img, pixel))
+
+    return _policy
+
+
 def _create_open_hand_parameterized_policy() -> ParameterizedPolicy:
 
     robot, _, _ = get_robot()
@@ -94,6 +121,18 @@ def _create_close_hand_parameterized_policy() -> ParameterizedPolicy:
                 params: Array) -> Action:
         del state, memory, params  # not used
         return _create_action("execute", objects, close_gripper, (robot, ))
+
+    return _policy
+
+
+def _create_stow_arm_parameterized_policy() -> ParameterizedPolicy:
+
+    robot, _, _ = get_robot()
+
+    def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        del state, memory, params  # not used
+        return _create_action("execute", objects, stow_arm, (robot, ))
 
     return _policy
 
@@ -245,7 +284,21 @@ class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
         # Currently no parameters.
         params_space = Box(0, 1, (0, ))
 
-        # TODO add children to implement option.
+        # Pick the tool.
+        grasp = utils.SingletonParameterizedOption(
+            "GraspToolFromSurface-Grasp",
+            _create_grasp_parameterized_policy(target_obj_idx=1),
+            types=types,
+            params_space=params_space,
+        )
+
+        # Stow the arm.
+        stow_arm = utils.SingletonParameterizedOption(
+            "GraspToolFromSurface-Stow",
+            _create_stow_arm_parameterized_policy(),
+            types=types,
+            params_space=params_space,
+        )
 
         # Finish the action.
         finish = utils.SingletonParameterizedOption(
@@ -256,7 +309,7 @@ class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Create the linear chain.
-        children = [finish]
+        children = [grasp, stow_arm, finish]
 
         super().__init__(name, children)
 

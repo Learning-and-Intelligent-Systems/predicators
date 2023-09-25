@@ -133,16 +133,23 @@ def real_robot_cube_env_test():
         --test_task_json_dir predicators/envs/assets/task_jsons/spot_bike_env/
     """
     args = utils.parse_args(env_required=False,
-                    seed_required=False,
-                     approach_required=False)
+                            seed_required=False,
+                            approach_required=False)
     utils.reset_config({
-        "env": "spot_cube_env",
-        "approach": "spot_wrapper[oracle]",
-        "num_train_tasks": 0,
-        "num_test_tasks": 1,
-        "seed": 123,
-        "spot_robot_ip": args["spot_robot_ip"],
-        "test_task_json_dir": args.get("test_task_json_dir", None),
+        "env":
+        "spot_cube_env",
+        "approach":
+        "spot_wrapper[oracle]",
+        "num_train_tasks":
+        0,
+        "num_test_tasks":
+        1,
+        "seed":
+        123,
+        "spot_robot_ip":
+        args["spot_robot_ip"],
+        "test_task_json_dir":
+        args.get("test_task_json_dir", None),
     })
     rng = np.random.default_rng(123)
     env = SpotCubeEnv()
