@@ -11,12 +11,13 @@ from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID, RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
-    open_gripper, move_hand_to_relative_pose
+    move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
-from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
+from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE
+
 
 def init_search_for_objects(
     robot: Robot,
@@ -84,7 +85,9 @@ def init_search_for_objects(
     remaining_object_ids = set(object_ids) - set(all_detections)
     raise RuntimeError(f"Could not find objects: {remaining_object_ids}")
 
-def find_object(robot: Robot, find_controller_move_queue_idx: int, lease_client) -> None:
+
+def find_object(robot: Robot, find_controller_move_queue_idx: int,
+                lease_client) -> None:
     """Execute look around."""
     # Execute a hard-coded sequence of movements and hope that one of them
     # puts the lost object in view. This is very specifically designed for

@@ -17,9 +17,9 @@ from gym.spaces import Box
 
 from predicators.approaches import BaseApproach, BaseApproachWrapper
 from predicators.envs import get_or_create_env
-from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.envs.spot_env import SpotEnv
 from predicators.settings import CFG
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.structs import Action, Object, ParameterizedOption, \
     Predicate, State, Task, Type
 
@@ -30,15 +30,17 @@ def get_special_spot_action(action_name: str) -> Action:
     assert isinstance(env, SpotEnv)
     if action_name == "done":
         return Action(env.action_space.low,
-                      extra_info=(action_name, [], None,
-                                  []))
+                      extra_info=(action_name, [], None, []))
     elif action_name == "find":
         # TODO
         pass
     elif action_name == "stow":
-        return Action(env.action_space.low, extra_info=(action_name, [], stow_arm, [env.robot]))
+        return Action(env.action_space.low,
+                      extra_info=(action_name, [], stow_arm, [env.robot]))
     else:
-        raise NotImplementedError(f"Special action {action_name} not implemented.")
+        raise NotImplementedError(
+            f"Special action {action_name} not implemented.")
+
 
 class SpotWrapperApproach(BaseApproachWrapper):
     """Always "find" if some object is lost."""

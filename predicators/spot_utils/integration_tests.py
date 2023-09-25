@@ -19,7 +19,8 @@ from predicators.spot_utils.perception.object_detection import \
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID
 from predicators.spot_utils.perception.spot_cameras import capture_images
-from predicators.spot_utils.skills.spot_find_objects import init_search_for_objects
+from predicators.spot_utils.skills.spot_find_objects import \
+    init_search_for_objects
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
 from predicators.spot_utils.skills.spot_hand_move import \
     move_hand_to_relative_pose, open_gripper

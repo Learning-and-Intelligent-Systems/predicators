@@ -1,8 +1,8 @@
 """Ground-truth models for the Spot Grocery Env."""
 
-from .nsrts import SpotEnvsGroundTruthNSRTFactory
-from .options import SpotEnvsGroundTruthOptionFactory
+from .nsrts import SpotCubeEnvGroundTruthNSRTFactory
+from .options import SpotCubeEnvGroundTruthOptionFactory
 
 __all__ = [
-    "SpotEnvsGroundTruthNSRTFactory", "SpotEnvsGroundTruthOptionFactory"
+    "SpotCubeEnvGroundTruthOptionFactory", "SpotCubeEnvGroundTruthNSRTFactory"
 ]

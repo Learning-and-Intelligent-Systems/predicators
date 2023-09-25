@@ -25,7 +25,6 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.envs.pddl_env import _action_to_ground_strips_op
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, LanguageObjectDetectionID, ObjectDetectionID, \
@@ -33,7 +32,8 @@ from predicators.spot_utils.perception.object_detection import \
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
-from predicators.spot_utils.skills.spot_find_objects import init_search_for_objects
+from predicators.spot_utils.skills.spot_find_objects import \
+    init_search_for_objects
 from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
@@ -132,34 +132,26 @@ _SPECIAL_ACTIONS = {
     "done": 2,
 }
 
-# Initialize a bunch of spot-related variables.
-# NOTE: we do this globally/outside of the environment class because we
-# want this to persist even if we destroy/make multiple new versions of
-# the environment, which happens during the course of planning.
-# See hello_spot.py for an explanation of these lines.
-robot = None
-localizer = None
-lease_client = None
 
-
-def initialize_robot():
-    global robot, localizer, lease_client
+@functools.lru_cache(maxsize=None)
+def get_robot() -> Tuple[Robot, SpotLocalizer, LeaseClient]:
+    """Create the robot only once."""
     setup_logging(False)
     hostname = CFG.spot_robot_ip
     upload_dir = Path(__file__).parent.parent / "spot_utils" / "graph_nav_maps"
     path = upload_dir / CFG.spot_graph_nav_map
-    if robot is None and localizer is None and lease_client is None:
-        sdk = create_standard_sdk("PredicatorsClient-")
-        robot = sdk.create_robot(hostname)
-        authenticate(robot)
-        verify_estop(robot)
-        lease_client = robot.ensure_client(LeaseClient.default_service_name)
-        lease_client.take()
-        lease_keepalive = LeaseKeepAlive(lease_client,
-                                         must_acquire=True,
-                                         return_at_exit=True)
-        assert path.exists()
-        localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+    sdk = create_standard_sdk("PredicatorsClient-")
+    robot = sdk.create_robot(hostname)
+    authenticate(robot)
+    verify_estop(robot)
+    lease_client = robot.ensure_client(LeaseClient.default_service_name)
+    lease_client.take()
+    lease_keepalive = LeaseKeepAlive(lease_client,
+                                     must_acquire=True,
+                                     return_at_exit=True)
+    assert path.exists()
+    localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+    return robot, localizer, lease_client
 
 
 class SpotEnv(BaseEnv):
@@ -173,39 +165,18 @@ class SpotEnv(BaseEnv):
         super().__init__(use_gui)
         assert "spot_wrapper" in CFG.approach, \
             "Must use spot wrapper in spot envs!"
-        # self._spot_interface = get_spot_interface()
-        global robot, localizer, lease_client
-        initialize_robot()
-        assert robot is not None
-        assert localizer is not None
-        assert lease_client is not None
+        robot, localizer, lease_client = get_robot()
+        self._robot = robot
+        self._localizer = localizer
+        self._lease_client = lease_client
         # Note that we need to include the operators in this
         # class because they're used to update the symbolic
         # parts of the state during execution.
-        self.robot = robot
-        self.localizer = localizer
-        self.lease_client = lease_client
         self._strips_operators: Set[STRIPSOperator] = set()
         self._current_task_goal_reached = False
         # Special counter variable useful for the special
         # 'find' action.
         self._find_controller_move_queue_idx = 0
-
-    @property
-    def params_spaces(self) -> Dict[str, Box]:
-        """The parameter spaces for each of the controllers."""
-        return {
-            "navigate": Box(-5.0, 5.0, (2, )),
-            "grasp": Box(-1.0, 2.0, (4, )),
-            "graspFromPlatform": Box(-1.0, 2.0, (4, )),
-            "place": Box(-5.0, 5.0, (3, )),
-            "drag": Box(-12.0, 12.0, (2, )),
-            "noop": Box(0, 1, (0, ))
-        }
-
-    @property
-    def _ordered_strips_operators(self) -> List[STRIPSOperator]:
-        return sorted(self._strips_operators)
 
     @property
     def _num_operators(self) -> int:
@@ -235,47 +206,9 @@ class SpotEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # The first entry is the controller identity.
-        lb = [-1.0]  # -1.0 reserved for special actions that have no operator
-        ub = [self._num_operators - 1.0]
-        # The next max_arity entries are the object identities.
-        for _ in range(self._max_operator_arity):
-            lb.append(0.0)
-            ub.append(np.inf)
-        # The next max_params entries are the parameters.
-        for _ in range(self._max_controller_params):
-            lb.append(-np.inf)
-            ub.append(np.inf)
-        lb_arr = np.array(lb, dtype=np.float32)
-        ub_arr = np.array(ub, dtype=np.float32)
-        return Box(lb_arr, ub_arr, dtype=np.float32)
-
-    def operator_to_controller_name(self, operator: STRIPSOperator) -> str:
-        """Helper to convert operators to controllers.
-
-        Exposed for use by oracle options.
-        """
-        if "MoveTo" in operator.name:
-            return "navigate"
-        if "Grasp" in operator.name:
-            # If we're grasping from atop a platform
-            # then we want to modify the skill execution.
-            if "FromHigh" in operator.name:
-                return "grasp_from_platform"
-            return "grasp"
-        if "Place" in operator.name:
-            return "place"
-        if "Drag" in operator.name:
-            return "drag"
-        # Forthcoming controllers.
-        return "noop"
-
-    def controller_name_to_param_space(self, name: str) -> Box:
-        """Helper for defining the controller param spaces.
-
-        Exposed for use by oracle options.
-        """
-        return self.params_spaces[name]
+        # The action space is effectively empty because only the extra info
+        # part of actions are used.
+        return Box(0, 1, (0, ))
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         # NOTE: task_idx and train_or_test ignored unless loading from JSON!
@@ -284,7 +217,7 @@ class SpotEnv(BaseEnv):
         else:
             prompt = f"Please set up {train_or_test} task {task_idx}!"
             utils.prompt_user(prompt)
-            self.lease_client.take()
+            self._lease_client.take()
             self._current_task = self._actively_construct_env_task()
         self._current_observation = self._current_task.init_obs
         self._current_task_goal_reached = False
@@ -293,9 +226,24 @@ class SpotEnv(BaseEnv):
     def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
         assert len(action.extra_info) == 4
-        # Check if the action is the special "done" action. If so, ask the
-        # human if the task was actually accomplished.
-        if action.extra_info[0] == "done":
+        # The extra info is (action name, objects, function, function args).
+        # The action name is either an operator name (for use with nonpercept
+        # predicates) or a special name. See below for the special names.
+
+        obs = self._current_observation
+        assert isinstance(obs, _SpotObservation)
+        assert self.action_space.contains(action.arr)
+
+        action_name = action.extra_info[0]
+        operator_names = {o.name for o in self._strips_operators}
+
+        # The action corresponds to an operator finishing.
+        if action_name in operator_names:
+            # Update the non-percepts.
+            operator_names = {o.name for o in self._strips_operators}
+            next_nonpercept = self._get_next_nonpercept_atoms(obs, action)
+        # The action corresponds to the task finishing.
+        elif action_name == "done":
             while True:
                 logging.info(f"The goal is: {self._current_task.goal}")
                 prompt = "Is the goal accomplished? Answer y or n. "
@@ -308,25 +256,15 @@ class SpotEnv(BaseEnv):
                     break
                 logging.info("Invalid input, must be either 'y' or 'n'")
             return self._current_observation
-
-        elif action.extra_info[0] == "find":
-            self._find_controller_move_queue_idx += 1
-            # TODO: wakanda
-
-        # Finding must have finished.
-        self._find_controller_move_queue_idx = 0
-        obs = self._current_observation
-        assert isinstance(obs, _SpotObservation)
-        assert self.action_space.contains(action.arr)
-
-        # Simply execute the action using the information contained in
-        # the info field.
-        assert isinstance(action.extra_info[2], Callable)
-        action.extra_info[2](*action.extra_info[3])
-
-        # Now update the part of the state that is cheated based on the
-        # ground-truth STRIPS operators.
-        next_nonpercept = self._get_next_nonpercept_atoms(obs, action)
+        # The action is a real action to be executed.
+        # TODO handle finding.
+        else:
+            assert action_name == "execute"
+            assert isinstance(action.extra_info[2], Callable)
+            # No change yet to non-percept atoms.
+            next_nonpercept = obs.nonpercept_atoms
+            # Execute!
+            action.extra_info[2](*action.extra_info[3])
         self._current_observation = self._build_observation(next_nonpercept)
         return self._current_observation
 
@@ -344,7 +282,7 @@ class SpotEnv(BaseEnv):
         may vary per environment.
         """
         # Get the camera images.
-        rgbds = capture_images(self.robot, self.localizer)
+        rgbds = capture_images(self._robot, self._localizer)
         all_detections, _ = detect_objects(self._get_object_detection_ids(),
                                            rgbds)
         # Separately, get detections for the hand in particular.
@@ -352,6 +290,7 @@ class SpotEnv(BaseEnv):
             k: v
             for (k, v) in rgbds.items() if k == "hand_color_image"
         }
+        # TODO refactor to avoid extra call to detect!
         hand_detections, _ = detect_objects(self._get_object_detection_ids(),
                                             hand_rgbd)
         # Now construct a dict of all objects in view, as well as a set
@@ -363,8 +302,9 @@ class SpotEnv(BaseEnv):
         objects_in_hand_view = set(
             self._detection_id_to_obj(det_id)
             for det_id in hand_detections.keys())
-        gripper_open_percentage = get_robot_gripper_open_percentage(self.robot)
-        robot_pos = self.localizer.get_last_robot_pose()
+        gripper_open_percentage = get_robot_gripper_open_percentage(
+            self._robot)
+        robot_pos = self._localizer.get_last_robot_pose()
         robot = self._obj_name_to_obj("spot")
         # Prepare the non-percepts.
         nonpercept_preds = self.predicates - self.percept_predicates
@@ -382,17 +322,10 @@ class SpotEnv(BaseEnv):
 
         This should be deprecated eventually.
         """
-        # Special case: the last action was special (has no operator).
-        if np.isclose(action.arr[0], -1.0):
-            return set(obs.nonpercept_atoms)
-        # Get the ground operator.
-        all_objects = set(
-            val[0] for val in
-            self._make_object_name_to_obj_and_detectionid_dict().values())
-        ordered_objs = sorted(all_objects)
-        ground_op = _action_to_ground_strips_op(action, ordered_objs,
-                                                self._ordered_strips_operators)
-        assert ground_op is not None
+        op_name, op_objects, _, _ = action.extra_info
+        op_name_to_op = {o.name: o for o in self._strips_operators}
+        op = op_name_to_op[op_name]
+        ground_op = op.ground(tuple(op_objects))
         # Update the atoms using the operator.
         next_ground_atoms = utils.apply_operator(ground_op,
                                                  obs.nonpercept_atoms)
@@ -430,9 +363,11 @@ class SpotEnv(BaseEnv):
         }
         robot_type = next(t for t in self.types if t.name == "robot")
         robot = Object("spot", robot_type)
-        rgb_images = capture_images(self.robot, self.localizer)
-        gripper_open_percentage = get_robot_gripper_open_percentage(self.robot)
-        robot_pos = self.localizer.get_last_robot_pose()
+        rgb_images = capture_images(self._robot, self._localizer)
+        gripper_open_percentage = get_robot_gripper_open_percentage(
+            self._robot)
+        self._localizer.localize()
+        robot_pos = self._localizer.get_last_robot_pose()
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
@@ -613,7 +548,8 @@ class SpotCubeEnv(SpotEnv):
         self._surface_type = Type(
             "flat_surface",
             ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
-        self._bag_type = Type("bag", ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
+        self._bag_type = Type(
+            "bag", ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
         self._floor_type = Type(
             "floor", ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
 
@@ -719,7 +655,7 @@ class SpotCubeEnv(SpotEnv):
                                                     [spot, tool, floor],
                                                     preconds, add_effs,
                                                     del_effs, set())
-        # PlaceToolOnSurface
+        # Rpplae
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         surface = Variable("?surface", self._surface_type)
@@ -737,7 +673,7 @@ class SpotCubeEnv(SpotEnv):
             LiftedAtom(self._notHandEmpty, [spot]),
             LiftedAtom(self._ReachableSurface, [spot, surface]),
         }
-        self._PlaceToolOnSurfaceOp = STRIPSOperator("PlaceTool",
+        self._PlaceToolOnSurfaceOp = STRIPSOperator("PlaceToolOnSurface",
                                                     [spot, tool, surface],
                                                     preconds, add_effs,
                                                     del_effs, set())
@@ -840,7 +776,7 @@ class SpotCubeEnv(SpotEnv):
     def _onfloor_classifier(state: State, objects: Sequence[Object]) -> bool:
         obj_on, _ = objects
         return state.get(obj_on, "z") < 0.0
-    
+
     @classmethod
     def _inbag_classifier(cls, state: State,
                           objects: Sequence[Object]) -> bool:
@@ -969,11 +905,11 @@ class SpotCubeEnv(SpotEnv):
 
     def _actively_construct_initial_object_views(
             self) -> Dict[str, math_helpers.SE3Pose]:
-        stow_arm(self.robot)
-        go_home(self.robot, self.localizer)
-        self.localizer.localize()
-        detections, _ = init_search_for_objects(self.robot, self.localizer,
-                                     self._get_object_detection_ids())
+        stow_arm(self._robot)
+        go_home(self._robot, self._localizer)
+        self._localizer.localize()
+        detections, _ = init_search_for_objects(
+            self._robot, self._localizer, self._get_object_detection_ids())
         obj_name_to_se3_pose = {
             self._detection_id_to_obj_name(det_id): val
             for (det_id, val) in detections.items()

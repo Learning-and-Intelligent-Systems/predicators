@@ -3,12 +3,13 @@
 import json
 import tempfile
 from pathlib import Path
+
 import numpy as np
 
 from predicators import utils
 from predicators.envs.spot_env import SpotBikeEnv, SpotCubeEnv
-from predicators.perception.spot_bike_perceiver import SpotBikePerceiver
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
+from predicators.perception.spot_bike_perceiver import SpotBikePerceiver
 
 
 def test_spot_bike_env():
@@ -118,7 +119,7 @@ def test_spot_bike_env_load_task_from_json():
 
 def real_robot_cube_env_test():
     """A real robot test, not to be run by unit tests!
-    
+
     Run this test by running the file directly, i.e.,
 
     python tests/envs/test_spot_envs.py --spot_robot_ip <ip address>
@@ -138,8 +139,9 @@ def real_robot_cube_env_test():
     rng = np.random.default_rng(123)
     env = SpotCubeEnv()
     perceiver = SpotBikePerceiver()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, get_gt_options(env.get_name()))
-    
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+
     # This should have the robot spin around and locate all objects.
     task = env.get_test_tasks()[0]
     obs = env.reset("test", 0)
@@ -163,13 +165,14 @@ def real_robot_cube_env_test():
     assert len(true_on_atoms) == 1
     _, init_table = true_on_atoms[0].objects
     target_table = table1 if init_table is table2 else table2
-    
+
     # Find the applicable NSRTs.
     ground_nsrts = []
     for nsrt in sorted(nsrts):
         ground_nsrts.extend(utils.all_ground_nsrts(nsrt, set(state)))
     atoms = utils.abstract(state, env.predicates)
-    applicable_nsrts = list(utils.get_applicable_operators(ground_nsrts, atoms))
+    applicable_nsrts = list(utils.get_applicable_operators(
+        ground_nsrts, atoms))
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     MoveToToolOnSurface = nsrt_name_to_nsrt["MoveToToolOnSurface"]
     MoveToSurface = nsrt_name_to_nsrt["MoveToSurface"]
@@ -183,16 +186,18 @@ def real_robot_cube_env_test():
     # Sample and run the option to move to the NSRT.
     option = move_to_cube_nsrt.sample_option(state, set(), rng)
     assert option.initiable(state)
-    action = option.policy(state)
-    obs = env.step(action)
-    state = perceiver.step(obs)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
 
     # Check that moving succeeded.
     assert InViewTool([spot, cube]).holds(state)
 
-    import ipdb; ipdb.set_trace()
-
-
+    import ipdb
+    ipdb.set_trace()
 
 
 if __name__ == "__main__":
