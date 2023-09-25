@@ -13,7 +13,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
-    Tuple, Union
+    Tuple
 
 import matplotlib
 import numpy as np
@@ -482,21 +482,32 @@ class SpotEnv(BaseEnv):
         base_env_task = super()._load_task_from_json(json_file)
         init = base_env_task.init
         # Images not currently saved or used.
-        images: Dict[str, Image] = {}
-        objects_in_view: Dict[Object, Tuple[float, float, float]] = {}
-        known_objects = set(self._make_object_name_to_obj_dict().values())
+        images: Dict[str, RGBDImageWithContext] = {}
+        objects_in_view: Dict[Object, math_helpers.SE3Pose] = {}
+        known_objects = set(
+            val[0] for val in
+            self._make_object_name_to_obj_and_detectionid_dict().values())
         robot: Optional[Object] = None
         for obj in init:
             assert obj in known_objects
             if obj.name == "spot":
                 robot = obj
                 continue
-            pos = (init.get(obj, "x"), init.get(obj, "y"), init.get(obj, "z"))
+            pos = math_helpers.SE3Pose(
+                init.get(obj, "x"), init.get(obj, "y"), init.get(obj, "z"),
+                math_helpers.Quat(init.get(obj, "W_quat"),
+                                  init.get(obj, "X_quat"),
+                                  init.get(obj, "Y_quat"),
+                                  init.get(obj, "Z_quat")))
             objects_in_view[obj] = pos
         assert robot is not None
         gripper_open_percentage = init.get(robot, "gripper_open_percentage")
-        robot_pos = (init.get(robot, "x"), init.get(robot, "y"),
-                     init.get(robot, "z"), init.get(robot, "yaw"))
+        robot_pos = math_helpers.SE3Pose(
+            init.get(robot, "x"), init.get(robot, "y"), init.get(robot, "z"),
+            math_helpers.Quat(init.get(robot, "W_quat"),
+                              init.get(robot, "X_quat"),
+                              init.get(robot, "Y_quat"),
+                              init.get(robot, "Z_quat")))
         # Prepare the non-percepts.
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
