@@ -282,6 +282,7 @@ class SpotEnv(BaseEnv):
         This is an environment method because the nonpercept predicates
         may vary per environment.
         """
+        self._localizer.localize()
         # Get the camera images.
         rgbds = capture_images(self._robot, self._localizer)
         all_detections, _ = detect_objects(self._get_object_detection_ids(),
@@ -516,7 +517,7 @@ class SpotEnv(BaseEnv):
 ###############################################################################
 #                                Cube Table Env                               #
 ###############################################################################
-HANDEMPTY_GRIPPER_THRESHOLD = 2.5
+HANDEMPTY_GRIPPER_THRESHOLD = 5.0
 
 
 class SpotCubeEnv(SpotEnv):
