@@ -3,7 +3,7 @@
 import abc
 from typing import Any, List, Optional
 
-from predicators.structs import State, Task, Action
+from predicators.structs import Action, State, Task
 
 
 class BaseExecutionMonitor(abc.ABC):

@@ -2,13 +2,12 @@
 suggest replanning when the expected atoms check is not met."""
 
 import logging
-
 from typing import Set
 
 from predicators.execution_monitoring.base_execution_monitor import \
     BaseExecutionMonitor
 from predicators.settings import CFG
-from predicators.structs import Action, State, GroundAtom
+from predicators.structs import GroundAtom, State
 
 
 class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):

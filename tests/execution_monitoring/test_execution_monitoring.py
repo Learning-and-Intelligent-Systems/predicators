@@ -2,6 +2,10 @@
 
 import pytest
 
+from predicators import utils
+from predicators.approaches import create_approach
+from predicators.cogman import CogMan
+from predicators.envs import get_or_create_env
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.execution_monitoring.expected_atoms_monitor import \
     ExpectedAtomsExecutionMonitor
@@ -9,12 +13,8 @@ from predicators.execution_monitoring.mpc_execution_monitor import \
     MpcExecutionMonitor
 from predicators.execution_monitoring.trivial_execution_monitor import \
     TrivialExecutionMonitor
-from predicators.cogman import CogMan
-from predicators.perception import create_perceiver
-from predicators.envs import get_or_create_env
-from predicators import utils
-from predicators.approaches import create_approach
 from predicators.ground_truth_models import get_gt_options
+from predicators.perception import create_perceiver
 
 
 def test_create_execution_monitor():
@@ -46,7 +46,8 @@ def test_expected_atoms_execution_monitor():
     env = get_or_create_env(env_name)
     options = get_gt_options(env.get_name())
     train_tasks = [t.task for t in env.get_train_tasks()]
-    approach = create_approach("oracle", env.predicates, options, env.types, env.action_space, train_tasks)
+    approach = create_approach("oracle", env.predicates, options, env.types,
+                               env.action_space, train_tasks)
     perceiver = create_perceiver("trivial")
     exec_monitor = create_execution_monitor("expected_atoms")
     cogman = CogMan(approach, perceiver, exec_monitor)
