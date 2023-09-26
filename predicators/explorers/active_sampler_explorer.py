@@ -359,7 +359,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
-    def _score_ground_op(self, ground_op: _GroundSTRIPSOperator) -> float:
+    def _score_ground_op(
+            self, ground_op: _GroundSTRIPSOperator) -> Tuple[float, ...]:
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
@@ -379,7 +380,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             raise NotImplementedError(
                 "Unrecognized explore task strategy: "
                 f"{CFG.active_sampler_explore_task_strategy}")
-        return score
+        # Break ties randomly.
+        return (score, self._rng.uniform())
 
     def _score_ground_op_planning_progress(
             self, ground_op: _GroundSTRIPSOperator) -> float:
