@@ -1,10 +1,8 @@
 """Ground-truth NSRTs for the PDDLEnv."""
 
-from functools import partial
-from typing import Dict, Sequence, Set, Tuple
+from typing import Dict, Sequence, Set
 
 import numpy as np
-from bosdyn.client import math_helpers
 
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
@@ -18,8 +16,7 @@ def _move_to_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
                                      rng: np.random.Generator,
                                      objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
-    del state, goal, objs
-    # TODO randomize.
+    del state, goal, objs, rng  # randomization coming soon
     return np.array([1.20, -np.pi / 2])
 
 
@@ -27,7 +24,7 @@ def _move_to_tool_on_floor_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
-    # TODO randomize.
+    del state, goal, objs, rng  # randomization coming soon
     return np.array([1.20, -np.pi / 2])
 
 
@@ -35,7 +32,7 @@ def _move_to_surface_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the surface you're moving to).
-    # TODO randomize.
+    del state, goal, objs, rng  # randomization coming soon
     return np.array([1.20, -np.pi / 2])
 
 
@@ -57,8 +54,7 @@ def _place_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
                                    rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dz (to surface objects center).
-    del state, goal, objs
-    # TODO randomize.
+    del state, goal, objs, rng  # randomization coming soon
     return np.array([0.0, 0.0, 0.25])
 
 

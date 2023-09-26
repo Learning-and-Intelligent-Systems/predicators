@@ -1,11 +1,10 @@
 """Ground-truth options for PDDL environments."""
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, List, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
 from bosdyn.client import math_helpers
-from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
 from predicators import utils
@@ -14,8 +13,7 @@ from predicators.envs.spot_env import SpotEnv, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
-    ObjectDetectionID, get_last_detected_objects, \
-    get_object_center_pixel_from_artifacts
+    get_last_detected_objects, get_object_center_pixel_from_artifacts
 from predicators.spot_utils.perception.spot_cameras import \
     get_last_captured_images
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
@@ -25,11 +23,10 @@ from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
-from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
     get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    ParameterizedPolicy, Predicate, State, STRIPSOperator, Type
+    ParameterizedPolicy, Predicate, State, Type
 from predicators.utils import LinearChainParameterizedOption
 
 
@@ -45,7 +42,6 @@ class _SpotAction(Action):
 
 def _get_se3_pose_from_state(state: State,
                              obj: Object) -> math_helpers.SE3Pose:
-    # TODO consider moving this function.
     return math_helpers.SE3Pose(
         state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z"),
         math_helpers.Quat(state.get(obj, "W_quat"), state.get(obj, "X_quat"),

@@ -11,7 +11,6 @@ from predicators import utils
 from predicators.envs.spot_env import SpotBikeEnv, SpotCubeEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.spot_bike_perceiver import SpotBikePerceiver
-from predicators.settings import CFG
 
 
 def test_spot_bike_env():

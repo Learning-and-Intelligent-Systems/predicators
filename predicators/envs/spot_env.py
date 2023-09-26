@@ -20,8 +20,7 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
-    AprilTagObjectDetectionID, LanguageObjectDetectionID, ObjectDetectionID, \
-    detect_objects, get_object_center_pixel_from_artifacts
+    AprilTagObjectDetectionID, ObjectDetectionID, detect_objects
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -31,12 +30,10 @@ from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_absolute_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
-    get_spot_interface, obj_name_to_apriltag_id
-from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    get_relative_se2_from_se3, get_robot_gripper_open_percentage, \
+from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
+from predicators.spot_utils.utils import get_robot_gripper_open_percentage, \
     verify_estop
-from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
+from predicators.structs import Action, EnvironmentTask, GroundAtom, \
     LiftedAtom, Object, Observation, Predicate, State, STRIPSOperator, Type, \
     Variable
 
