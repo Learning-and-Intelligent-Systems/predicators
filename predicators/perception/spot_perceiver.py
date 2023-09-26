@@ -237,13 +237,14 @@ class SpotPerceiver(BasePerceiver):
 
     def _create_goal(self, state: State,
                      goal_description: GoalDescription) -> Set[GroundAtom]:
-        if self._waiting_for_observation:
-            return set()
+        del state  # not used
+        # Unfortunate hack to deal with the fact that the state is actually
+        # not yet set. Hopefully one day other cleanups will enable cleaning.
         assert goal_description == "put the cube on the sticky table"
-        obj_name_to_obj = {o.name: o for o in state}
-        cube = obj_name_to_obj["cube"]
-        target_table = obj_name_to_obj["extra_room_table"]
-        predicates = self._percept_predicates | self._nonpercept_predicates
-        pred_name_to_pred = {p.name: p for p in predicates}
+        assert isinstance(self._curr_env, SpotCubeEnv)
+        type_name_to_type = {t.name: t for t in self._curr_env.types}
+        pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
+        cube = Object("cube", type_name_to_type["tool"])
+        target = Object("extra_room_table", type_name_to_type["flat_surface"])
         On = pred_name_to_pred["On"]
-        return {GroundAtom(On, [cube, target_table])}
+        return {GroundAtom(On, [cube, target])}
