@@ -51,7 +51,7 @@ def capture_images(
 
     If no camera names are provided, all RGB cameras are used.
     """
-    global _LAST_CAPTURED_IMAGES
+    global _LAST_CAPTURED_IMAGES  # pylint: disable=global-statement
 
     if camera_names is None:
         camera_names = set(RGB_TO_DEPTH_CAMERAS)

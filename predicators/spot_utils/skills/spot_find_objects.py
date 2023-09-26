@@ -4,6 +4,7 @@ from typing import Any, Collection, Dict, List, Tuple
 
 import numpy as np
 from bosdyn.client import math_helpers
+from bosdyn.client.lease import LeaseClient
 from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.perception.object_detection import detect_objects
@@ -135,7 +136,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     from bosdyn.client import create_standard_sdk
-    from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
+    from bosdyn.client.lease import LeaseKeepAlive
     from bosdyn.client.util import authenticate
 
     from predicators import utils

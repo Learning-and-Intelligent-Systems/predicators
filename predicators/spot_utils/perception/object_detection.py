@@ -59,7 +59,7 @@ def detect_objects(
     The second return value is a collection of artifacts that can be useful
     for debugging / analysis.
     """
-    global _LAST_DETECTED_OBJECTS
+    global _LAST_DETECTED_OBJECTS  # pylint: disable=global-statement
 
     # Collect and dispatch.
     april_tag_object_ids: Set[AprilTagObjectDetectionID] = set()

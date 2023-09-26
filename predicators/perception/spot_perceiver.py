@@ -13,7 +13,7 @@ from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
-    GroundAtom, Object, Observation, Predicate, State, Task
+    GroundAtom, Object, Observation, Predicate, State, Task, GoalDescription
 
 
 class SpotPerceiver(BasePerceiver):
@@ -62,7 +62,8 @@ class SpotPerceiver(BasePerceiver):
         self._lost_objects = set()
         self._container_to_contained_objects = {}
         init_state = self._create_state()
-        return Task(init_state, env_task.goal)
+        goal = self._create_goal(init_state, env_task.goal)
+        return Task(init_state, goal)
 
     def update_perceiver_with_action(self, action: Action) -> None:
         # NOTE: we need to keep track of the previous action
@@ -230,3 +231,14 @@ class SpotPerceiver(BasePerceiver):
         state = _PartialPerceptionState(percept_state.data,
                                         simulator_state=simulator_state)
         return state
+
+    def _create_goal(self, state: State,
+                     goal_description: GoalDescription) -> Set[GroundAtom]:
+        assert goal_description == "put the cube on the sticky table"
+        obj_name_to_obj = {o.name: o for o in state}
+        cube = obj_name_to_obj["cube"]
+        target_table = obj_name_to_obj["extra_room_table"]
+        predicates = self._percept_predicates | self._nonpercept_predicates
+        pred_name_to_pred = {p.name: p for p in predicates}
+        On = pred_name_to_pred["On"]
+        return {GroundAtom(On, [cube, target_table])}

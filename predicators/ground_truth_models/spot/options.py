@@ -351,7 +351,7 @@ class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Stow the arm.
-        stow_arm = utils.SingletonParameterizedOption(
+        stow = utils.SingletonParameterizedOption(
             "GraspToolFromSurface-Stow",
             _create_stow_arm_parameterized_policy(),
             types=types,
@@ -367,7 +367,7 @@ class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Create the linear chain.
-        children = [grasp, stow_arm, finish]
+        children = [grasp, stow, finish]
 
         super().__init__(name, children)
 
@@ -402,7 +402,7 @@ class _GraspToolFromFloorParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Stow the arm.
-        stow_arm = utils.SingletonParameterizedOption(
+        stow = utils.SingletonParameterizedOption(
             "GraspToolFromSurface-Stow",
             _create_stow_arm_parameterized_policy(),
             types=types,
@@ -418,7 +418,7 @@ class _GraspToolFromFloorParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Create the linear chain.
-        children = [grasp, stow_arm, finish]
+        children = [grasp, stow, finish]
 
         super().__init__(name, children)
 
@@ -454,7 +454,7 @@ class _PlaceToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Stow the arm.
-        stow_arm = utils.SingletonParameterizedOption(
+        stow = utils.SingletonParameterizedOption(
             "GraspToolFromSurface-Stow",
             _create_stow_arm_parameterized_policy(),
             types=types,
@@ -470,7 +470,7 @@ class _PlaceToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Create the linear chain.
-        children = [place, stow_arm, finish]
+        children = [place, stow, finish]
 
         super().__init__(name, children)
 

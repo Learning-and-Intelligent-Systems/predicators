@@ -272,7 +272,7 @@ class SpotEnv(BaseEnv):
             for (det_id, val) in all_detections.items()
         }
         objects_in_hand_view = set(self._detection_id_to_obj[det_id]
-                                   for det_id in hand_detections.keys())
+                                   for det_id in hand_detections)
         gripper_open_percentage = get_robot_gripper_open_percentage(
             self._robot)
         robot_pos = self._localizer.get_last_robot_pose()
@@ -371,7 +371,7 @@ class SpotEnv(BaseEnv):
         json_dict = {
             "objects": json_objects,
             "init": init_json_dict,
-            "goal": utils.create_json_dict_from_ground_atoms(goal),
+            "goal": goal,
         }
         outfile = utils.get_env_asset_path("task_jsons/spot/last.json",
                                            assert_exists=False)
@@ -822,5 +822,4 @@ class SpotCubeEnv(SpotEnv):
         return set()
 
     def _generate_goal_description(self) -> GoalDescription:
-        # TODO update perceiver
         return "put the cube on the sticky table"

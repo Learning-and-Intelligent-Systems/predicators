@@ -10,9 +10,8 @@ from predicators import utils
 from predicators.envs.spot_env import SpotCubeEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.spot_perceiver import SpotPerceiver
-from predicators.structs import Action, _GroundNSRT, GroundAtom
-from predicators.settings import CFG
 from predicators.spot_utils.skills.spot_navigation import go_home
+from predicators.structs import Action, GroundAtom, _GroundNSRT
 
 
 def real_robot_cube_env_test() -> None:
@@ -201,7 +200,7 @@ def real_robot_cube_env_test() -> None:
     assert GroundAtom(HoldingTool, [spot, cube]).holds(state)
 
     # Navigate home.
-    go_home(env._robot, env._localizer)
+    go_home(env._robot, env._localizer)  # pylint: disable=protected-access
 
     # Drop the object onto the floor.
     PlaceToolOnFloor = nsrt_name_to_nsrt["PlaceToolOnFloor"]
