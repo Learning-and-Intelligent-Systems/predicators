@@ -78,8 +78,8 @@ def real_robot_cube_env_test() -> None:
     InViewTool = pred_name_to_pred["InViewTool"]
     HoldingTool = pred_name_to_pred["HoldingTool"]
     OnFloor = pred_name_to_pred["OnFloor"]
-    assert HandEmpty([spot]).holds(state)
-    on_atoms = [On([cube, t]) for t in [table1, table2]]
+    assert GroundAtom(HandEmpty, [spot]).holds(state)
+    on_atoms = [GroundAtom(On, [cube, t]) for t in [table1, table2]]
     true_on_atoms = [a for a in on_atoms if a.holds(state)]
     assert len(true_on_atoms) == 1
     _, init_table = true_on_atoms[0].objects
@@ -179,7 +179,7 @@ def real_robot_cube_env_test() -> None:
             break
 
     # Check that moving succeeded.
-    assert InViewTool([spot, cube]).holds(state)
+    assert GroundAtom(InViewTool, [spot, cube]).holds(state)
 
     # Sample an option to pick from the surface again.
     GraspToolFromSurface = nsrt_name_to_nsrt["GraspToolFromSurface"]
@@ -197,8 +197,8 @@ def real_robot_cube_env_test() -> None:
             break
 
     # Check that picking succeeded.
-    assert not HandEmpty([spot]).holds(state)
-    assert HoldingTool([spot, cube]).holds(state)
+    assert not GroundAtom(HandEmpty, [spot]).holds(state)
+    assert GroundAtom(HoldingTool, [spot, cube]).holds(state)
 
     # Navigate home.
     go_home(env._robot, env._localizer)

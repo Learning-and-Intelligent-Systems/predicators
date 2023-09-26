@@ -381,7 +381,7 @@ class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
 
 
 class _GraspToolFromFloorParameterizedOption(LinearChainParameterizedOption):
-    """Grasp a tool from thje floor.
+    """Grasp a tool from the floor.
 
     The types are [robot, tool].
 
