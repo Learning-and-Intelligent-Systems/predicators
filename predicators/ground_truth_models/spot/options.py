@@ -12,7 +12,6 @@ from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv, get_detection_id_for_object, \
     get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
-from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     get_last_detected_objects, get_object_center_pixel_from_artifacts
 from predicators.spot_utils.perception.spot_cameras import \

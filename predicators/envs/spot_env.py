@@ -135,7 +135,7 @@ def get_robot() -> Tuple[Robot, SpotLocalizer, LeaseClient]:
 
 
 @functools.lru_cache(maxsize=None)
-def get_detection_id_for_object(object: Object) -> ObjectDetectionID:
+def get_detection_id_for_object(obj: Object) -> ObjectDetectionID:
     """Exposed for wrapper and options."""
     # Avoid circular import issues.
     from predicators.envs import \
@@ -144,7 +144,7 @@ def get_detection_id_for_object(object: Object) -> ObjectDetectionID:
     assert isinstance(env, SpotEnv)
     detection_id_to_obj = env._detection_id_to_obj  # pylint: disable=protected-access
     obj_to_detection_id = {o: d for d, o in detection_id_to_obj.items()}
-    return obj_to_detection_id[object]
+    return obj_to_detection_id[obj]
 
 
 class SpotEnv(BaseEnv):
