@@ -1,9 +1,9 @@
 """Base class for execution monitors."""
 
 import abc
-from typing import Any, List, Optional
+from typing import Any, List
 
-from predicators.structs import Action, State, Task
+from predicators.structs import State, Task
 
 
 class BaseExecutionMonitor(abc.ABC):
@@ -12,7 +12,6 @@ class BaseExecutionMonitor(abc.ABC):
     def __init__(self) -> None:
         self._approach_info: List[Any] = []
         self._curr_plan_timestep = 0
-        self._prev_action: Optional[Action] = None
 
     @classmethod
     @abc.abstractmethod
@@ -23,15 +22,10 @@ class BaseExecutionMonitor(abc.ABC):
         """Reset after replanning."""
         del task  # unused
         self._curr_plan_timestep = 0
-        self._prev_action = None
 
     @abc.abstractmethod
     def step(self, state: State) -> bool:
         """Return true if the agent should replan."""
-
-    def update_with_action(self, action: Action) -> None:
-        """Called after each action is executed."""
-        self._prev_action = action
 
     def update_approach_info(self, info: List[Any]) -> None:
         """Update internal info received from approach."""
