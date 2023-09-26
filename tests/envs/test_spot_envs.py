@@ -55,14 +55,13 @@ def real_robot_cube_env_test() -> None:
     task = env.get_test_tasks()[0]
     obs = env.reset("test", 0)
     perceiver.reset(task)
-    assert len(obs.objects_in_view) == 4
-    cube, table1, _, table2 = sorted(obs.objects_in_view)
+    assert len(obs.objects_in_view) == 3
+    cube, table1, table2 = sorted(obs.objects_in_view)
     assert cube.name == "cube"
     assert "table" in table1.name
     assert "table" in table2.name
     state = perceiver.step(obs)
     spot = next(o for o in state if o.type.name == "robot")
-    floor = next(o for o in state if o.type.name == "floor")
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     MoveToToolOnSurface = nsrt_name_to_nsrt["MoveToToolOnSurface"]
     MoveToSurface = nsrt_name_to_nsrt["MoveToSurface"]
@@ -179,6 +178,8 @@ def real_robot_cube_env_test() -> None:
 
     # Check that moving succeeded.
     assert GroundAtom(InViewTool, [spot, cube]).holds(state)
+    assert GroundAtom(On, [cube, target_table]).holds(state)
+    assert GroundAtom(HandEmpty, [spot]).holds(state)
 
     # Sample an option to pick from the surface again.
     GraspToolFromSurface = nsrt_name_to_nsrt["GraspToolFromSurface"]
@@ -200,11 +201,13 @@ def real_robot_cube_env_test() -> None:
     assert GroundAtom(HoldingTool, [spot, cube]).holds(state)
 
     # Navigate home.
-    go_home(env._robot, env._localizer)  # pylint: disable=protected-access
+    localizer = env._localizer  # pylint: disable=protected-access
+    localizer.localize()
+    go_home(env._robot, localizer)  # pylint: disable=protected-access
 
     # Drop the object onto the floor.
     PlaceToolOnFloor = nsrt_name_to_nsrt["PlaceToolOnFloor"]
-    place_cube_nrst = PlaceToolOnFloor.ground([spot, cube, floor])
+    place_cube_nrst = PlaceToolOnFloor.ground([spot, cube])
     assert all(a.holds(state) for a in place_cube_nrst.preconditions)
     option = place_cube_nrst.sample_option(state, set(), rng)
     assert option.initiable(state)
@@ -219,11 +222,11 @@ def real_robot_cube_env_test() -> None:
     # Check that placing on the floor succeeded.
     assert GroundAtom(HandEmpty, [spot]).holds(state)
     assert not GroundAtom(HoldingTool, [spot, cube]).holds(state)
-    assert GroundAtom(OnFloor, [cube, floor]).holds(state)
+    assert GroundAtom(OnFloor, [cube]).holds(state)
 
     # Move to the object on the floor.
     MoveToToolOnFloor = nsrt_name_to_nsrt["MoveToToolOnFloor"]
-    move_to_cube_on_floor = MoveToToolOnFloor.ground([spot, cube, floor])
+    move_to_cube_on_floor = MoveToToolOnFloor.ground([spot, cube])
     assert all(a.holds(state) for a in move_to_cube_on_floor.preconditions)
     option = move_to_cube_on_floor.sample_option(state, set(), rng)
     assert option.initiable(state)
@@ -240,7 +243,7 @@ def real_robot_cube_env_test() -> None:
 
     # Now pick from floor.
     GraspToolFromFloorOp = nsrt_name_to_nsrt["GraspToolFromFloor"]
-    grasp_cube_nrst = GraspToolFromFloorOp.ground([spot, cube, floor])
+    grasp_cube_nrst = GraspToolFromFloorOp.ground([spot, cube])
     assert all(a.holds(state) for a in grasp_cube_nrst.preconditions)
     option = grasp_cube_nrst.sample_option(state, set(), rng)
     assert option.initiable(state)

@@ -334,8 +334,8 @@ class SpotEnv(BaseEnv):
         obs = _SpotObservation(rgb_images, objects_in_view, set(),
                                self._spot_object, gripper_open_percentage,
                                robot_pos, nonpercept_atoms, nonpercept_preds)
-        goal = self._generate_goal_description()
-        task = EnvironmentTask(obs, goal)
+        goal_description = self._generate_goal_description()
+        task = EnvironmentTask(obs, goal_description)
         # Save the task for future use.
         json_objects = {o.name: o.type.name for o in objects_in_view}
         json_objects[self._spot_object.name] = self._spot_object.type.name
@@ -371,7 +371,7 @@ class SpotEnv(BaseEnv):
         json_dict = {
             "objects": json_objects,
             "init": init_json_dict,
-            "goal": goal,
+            "goal_description": goal_description,
         }
         outfile = utils.get_env_asset_path("task_jsons/spot/last.json",
                                            assert_exists=False)
@@ -399,11 +399,12 @@ class SpotEnv(BaseEnv):
         # Images not currently saved or used.
         images: Dict[str, RGBDImageWithContext] = {}
         objects_in_view: Dict[Object, math_helpers.SE3Pose] = {}
-        known_objects = set(self._detection_id_to_obj.values())
+        known_objects = set(
+            self._detection_id_to_obj.values()) | {self._spot_object}
         robot: Optional[Object] = None
         for obj in init:
             assert obj in known_objects
-            if obj.name == "spot":
+            if obj.is_instance(self._robot_type):
                 robot = obj
                 continue
             pos = math_helpers.SE3Pose(
@@ -442,7 +443,7 @@ class SpotEnv(BaseEnv):
             nonpercept_preds,
         )
         # The goal can remain the same.
-        goal = base_env_task.goal
+        goal = base_env_task.goal_description
         return EnvironmentTask(init_obs, goal)
 
     @property

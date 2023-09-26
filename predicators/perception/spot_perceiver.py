@@ -13,7 +13,7 @@ from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
-    GroundAtom, Object, Observation, Predicate, State, Task, GoalDescription
+    GoalDescription, GroundAtom, Object, Observation, Predicate, State, Task
 
 
 class SpotPerceiver(BasePerceiver):
@@ -234,6 +234,8 @@ class SpotPerceiver(BasePerceiver):
 
     def _create_goal(self, state: State,
                      goal_description: GoalDescription) -> Set[GroundAtom]:
+        if self._waiting_for_observation:
+            return set()
         assert goal_description == "put the cube on the sticky table"
         obj_name_to_obj = {o.name: o for o in state}
         cube = obj_name_to_obj["cube"]

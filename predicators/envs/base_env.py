@@ -224,7 +224,7 @@ class BaseEnv(abc.ABC):
             }
         }
 
-        Instead of "goal", "language_goal" can also be used.
+        Instead of "goal", "language_goal" or "goal_description" can be used.
 
         Environments can override this method to handle different formats.
         """
@@ -253,6 +253,8 @@ class BaseEnv(abc.ABC):
         if "goal" in json_dict:
             goal = self._parse_goal_from_json(json_dict["goal"],
                                               object_name_to_object)
+        elif "goal_description" in json_dict:
+            goal = json_dict["goal_description"]
         else:  # pragma: no cover
             if CFG.override_json_with_input:
                 goal = self._parse_goal_from_input_to_json(
