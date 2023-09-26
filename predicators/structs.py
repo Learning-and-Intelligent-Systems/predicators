@@ -1053,10 +1053,10 @@ class Action:
 class SpotAction(Action):
     """Subclassed to avoid issues with pickling bosdyn functions."""
 
-    def __getnewargs__(self) -> Tuple:
+    def __getnewargs__(self) -> Tuple:  # pragma: no cover
         return (self.arr, )
 
-    def __getstate__(self) -> Dict:
+    def __getstate__(self) -> Dict:  # pragma: no cover
         return {"arr": self.arr}
 
 

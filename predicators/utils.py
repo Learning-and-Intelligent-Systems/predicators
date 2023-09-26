@@ -3488,7 +3488,8 @@ def rotate_point_in_image(r: float, c: float, rot_degrees: float, height: int,
     return rotated_pt[0], rotated_pt[1]
 
 
-def get_se3_pose_from_state(state: State, obj: Object) -> math_helpers.SE3Pose:
+def get_se3_pose_from_state(
+        state: State, obj: Object) -> math_helpers.SE3Pose:  # pragma: no cover
     """Helper for spot environments."""
     return math_helpers.SE3Pose(
         state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z"),
@@ -3500,7 +3501,8 @@ def create_spot_env_action(
     action_name: str,
     operator_objects: Sequence[Object] = tuple(),
     fn: Optional[Callable] = None,
-    fn_args: Sequence = tuple()) -> Action:
+    fn_args: Sequence = tuple()
+) -> Action:  # pragma: no cover
     """Helper for spot environments."""
     return SpotAction(np.array([], dtype=np.float32),
                       extra_info=(action_name, tuple(operator_objects), fn,

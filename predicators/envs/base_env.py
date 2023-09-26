@@ -253,7 +253,7 @@ class BaseEnv(abc.ABC):
         if "goal" in json_dict:
             goal = self._parse_goal_from_json(json_dict["goal"],
                                               object_name_to_object)
-        elif "goal_description" in json_dict:
+        elif "goal_description" in json_dict:  # pragma: no cover
             goal = json_dict["goal_description"]
         else:  # pragma: no cover
             if CFG.override_json_with_input:
