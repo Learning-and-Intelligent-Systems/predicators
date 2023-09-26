@@ -126,8 +126,6 @@ def real_robot_cube_env_test():
 
     python tests/envs/test_spot_envs.py --spot_robot_ip <ip address>
 
-    TODO: support the below, which currently will crash.
-
     Optionally load the last initial state:
 
     python tests/envs/test_spot_envs.py --spot_robot_ip <ip address> \

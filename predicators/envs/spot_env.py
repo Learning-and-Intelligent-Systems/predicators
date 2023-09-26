@@ -1,11 +1,4 @@
-"""Basic environment for the Boston Dynamics Spot Robot.
-
-Example usage with apriltag grasping:
-    python predicators/main.py --env spot_bike_env --approach oracle --seed 0
-     --num_train_tasks 0 --num_test_tasks 1 --spot_robot_ip $SPOT_IP
-     --bilevel_plan_without_sim True --spot_grasp_use_apriltag True
-     --perceiver spot_bike_env
-"""
+"""Basic environment for the Boston Dynamics Spot Robot."""
 import abc
 import functools
 import json
@@ -35,7 +28,7 @@ from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_find_objects import \
     init_search_for_objects
 from predicators.spot_utils.skills.spot_navigation import go_home, \
-    navigate_to_relative_pose
+    navigate_to_absolute_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.spot_utils import CAMERA_NAMES, \
@@ -124,15 +117,6 @@ def _create_dummy_predicate_classifier(
     return _classifier
 
 
-# Special actions are ones that are not exposed to the planner. Used by the
-# approach wrappper for finding objects.
-_SPECIAL_ACTIONS = {
-    "find": 0,
-    "stow": 1,
-    "done": 2,
-}
-
-
 @functools.lru_cache(maxsize=None)
 def get_robot() -> Tuple[Robot, SpotLocalizer, LeaseClient]:
     """Create the robot only once."""
@@ -174,9 +158,6 @@ class SpotEnv(BaseEnv):
         # parts of the state during execution.
         self._strips_operators: Set[STRIPSOperator] = set()
         self._current_task_goal_reached = False
-        # Special counter variable useful for the special
-        # 'find' action.
-        self._find_controller_move_queue_idx = 0
 
     @property
     def _num_operators(self) -> int:
@@ -262,7 +243,6 @@ class SpotEnv(BaseEnv):
                 logging.info("Invalid input, must be either 'y' or 'n'")
             return self._current_observation
         # The action is a real action to be executed.
-        # TODO handle finding.
         else:
             assert action_name == "execute"
             assert isinstance(action.extra_info[2], Callable)
@@ -508,6 +488,12 @@ class SpotEnv(BaseEnv):
                               init.get(robot, "X_quat"),
                               init.get(robot, "Y_quat"),
                               init.get(robot, "Z_quat")))
+
+        # Reset the robot to the given position.
+        self._localizer.localize()
+        navigate_to_absolute_pose(self._robot, self._localizer,
+                                  robot_pos.get_closest_se2_transform())
+
         # Prepare the non-percepts.
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
