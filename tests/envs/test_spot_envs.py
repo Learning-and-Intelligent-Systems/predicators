@@ -183,8 +183,7 @@ def real_robot_cube_env_test() -> None:
 
     # Sample an option to pick from the surface again.
     GraspToolFromSurface = nsrt_name_to_nsrt["GraspToolFromSurface"]
-    # grasp_cube_nsrt = GraspToolFromSurface.ground([spot, cube, target_table])
-    grasp_cube_nsrt = GraspToolFromSurface.ground([spot, cube, init_table])
+    grasp_cube_nsrt = GraspToolFromSurface.ground([spot, cube, target_table])
     assert all(a.holds(state) for a in grasp_cube_nsrt.preconditions)
     option = grasp_cube_nsrt.sample_option(state, set(), rng)
     assert option.initiable(state)

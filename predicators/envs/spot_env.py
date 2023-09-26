@@ -262,7 +262,6 @@ class SpotEnv(BaseEnv):
             k: v
             for (k, v) in rgbds.items() if k == "hand_color_image"
         }
-        # TODO refactor to avoid extra call to detect!
         hand_detections, _ = detect_objects(all_object_detection_ids,
                                             hand_rgbd)
         # Now construct a dict of all objects in view, as well as a set
