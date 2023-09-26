@@ -35,6 +35,17 @@ from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext, SegmentedBoundingBox
 from predicators.utils import rotate_point_in_image
 
+# Hack to avoid double image capturing when we want to (1) get object states
+# and then (2) use the image again for pixel-based grasping.
+_LAST_DETECTED_OBJECTS: Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose],
+                              Dict[str, Any]] = ({}, {})
+
+
+def get_last_detected_objects(
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
+    """Return the last output from detect_objects(), ignoring inputs."""
+    return _LAST_DETECTED_OBJECTS
+
 
 def detect_objects(
     object_ids: Collection[ObjectDetectionID],
@@ -48,6 +59,7 @@ def detect_objects(
     The second return value is a collection of artifacts that can be useful
     for debugging / analysis.
     """
+    global _LAST_DETECTED_OBJECTS  # pylint: disable=global-statement
 
     # Collect and dispatch.
     april_tag_object_ids: Set[AprilTagObjectDetectionID] = set()
@@ -74,6 +86,8 @@ def detect_objects(
         language_object_ids, rgbds)
     detections.update(language_detections)
     artifacts["language"] = language_artifacts
+
+    _LAST_DETECTED_OBJECTS = (detections, artifacts)
 
     return detections, artifacts
 

@@ -82,17 +82,35 @@ def navigate_to_relative_pose(robot: Robot,
         logging.warning("Timed out waiting for movement to execute!")
 
 
+def navigate_to_absolute_pose(robot: Robot,
+                              localizer: SpotLocalizer,
+                              target_pose: math_helpers.SE2Pose,
+                              max_xytheta_vel: Tuple[float, float,
+                                                     float] = (2.0, 2.0, 1.0),
+                              min_xytheta_vel: Tuple[float, float,
+                                                     float] = (-2.0, -2.0,
+                                                               -1.0),
+                              timeout: float = 20.0) -> None:
+    """Move to the absolute SE2 pose."""
+    robot_pose = localizer.get_last_robot_pose()
+    robot_se2 = robot_pose.get_closest_se2_transform()
+    rel_pose = robot_se2.inverse() * target_pose
+    return navigate_to_relative_pose(robot, rel_pose, max_xytheta_vel,
+                                     min_xytheta_vel, timeout)
+
+
 def go_home(robot: Robot,
             localizer: SpotLocalizer,
             max_xytheta_vel: Tuple[float, float, float] = (2.0, 2.0, 1.0),
             min_xytheta_vel: Tuple[float, float, float] = (-2.0, -2.0, -1.0),
             timeout: float = 20.0) -> None:
     """Navigate to a known home position (defined in utils.py)."""
-    robot_pose = localizer.get_last_robot_pose()
-    robot_se2 = robot_pose.get_closest_se2_transform()
-    rel_pose = robot_se2.inverse() * HOME_POSE
-    return navigate_to_relative_pose(robot, rel_pose, max_xytheta_vel,
-                                     min_xytheta_vel, timeout)
+    return navigate_to_absolute_pose(robot,
+                                     localizer,
+                                     HOME_POSE,
+                                     max_xytheta_vel=max_xytheta_vel,
+                                     min_xytheta_vel=min_xytheta_vel,
+                                     timeout=timeout)
 
 
 if __name__ == "__main__":

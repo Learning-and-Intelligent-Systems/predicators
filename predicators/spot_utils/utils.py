@@ -16,6 +16,8 @@ from numpy.typing import NDArray
 # Pose for the hand (relative to the body) that looks down in front.
 DEFAULT_HAND_LOOK_DOWN_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 6))
+DEFAULT_HAND_LOOK_FLOOR_POSE = math_helpers.SE3Pose(
+    x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 3))
 
 # Center of the fourth floor room.
 HOME_POSE = math_helpers.SE2Pose(x=1.25, y=0.0, angle=np.pi / 2)
@@ -102,3 +104,9 @@ def get_robot_state(robot: Robot,
         except TimedOutError:
             print("WARNING: get robot state failed once, retrying...")
     raise RuntimeError("get_robot_state() failed permanently.")
+
+
+def get_robot_gripper_open_percentage(robot: Robot) -> float:
+    """Get the current state of how open the gripper is."""
+    robot_state = get_robot_state(robot)
+    return float(robot_state.manipulator_state.gripper_open_percentage)

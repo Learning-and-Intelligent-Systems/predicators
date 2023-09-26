@@ -15,20 +15,10 @@ from typing import Any, Callable, List, Optional, Set
 
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.approaches import BaseApproach, BaseApproachWrapper
-from predicators.envs import get_or_create_env
-from predicators.envs.spot_env import SpotEnv
-from predicators.settings import CFG
 from predicators.structs import Action, Object, ParameterizedOption, \
     Predicate, State, Task, Type
-
-
-def get_special_spot_action(action_name: str) -> Action:
-    """Expose special actions for approaches and explorers."""
-    env = get_or_create_env(CFG.env)
-    assert isinstance(env, SpotEnv)
-    # In the future, may want to make this object-specific.
-    return env.get_special_action(action_name)
 
 
 class SpotWrapperApproach(BaseApproachWrapper):
@@ -61,7 +51,7 @@ class SpotWrapperApproach(BaseApproachWrapper):
             nonlocal base_approach_policy, need_stow
             # If we think that we're done, return the done action.
             if task.goal_holds(state):
-                return get_special_spot_action("done")
+                return utils.create_spot_env_action("done")
             # If some objects are lost, find them.
             lost_objects: Set[Object] = set()
             for obj in state:
@@ -75,14 +65,14 @@ class SpotWrapperApproach(BaseApproachWrapper):
                 base_approach_policy = None
                 need_stow = True
                 self._base_approach_has_control = False
-                return get_special_spot_action("find")
+                raise NotImplementedError("Coming soon!")
             # Found the objects. Stow the arm before replanning.
             if need_stow:
                 logging.info("[Spot Wrapper] Lost objects found, stowing.")
                 base_approach_policy = None
                 need_stow = False
                 self._base_approach_has_control = False
-                return get_special_spot_action("stow")
+                raise NotImplementedError("Coming soon!")
             # Check if we need to re-solve.
             if base_approach_policy is None:
                 logging.info("[Spot Wrapper] Replanning with base approach.")

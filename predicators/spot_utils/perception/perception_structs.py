@@ -51,6 +51,13 @@ class AprilTagObjectDetectionID(ObjectDetectionID):
     def __repr__(self) -> str:
         return f"AprilTag({self.april_tag_number})"
 
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __eq__(self, other: Any) -> bool:
+        assert isinstance(other, AprilTagObjectDetectionID)
+        return self.april_tag_number == other.april_tag_number
+
 
 @dataclass(frozen=True)
 class LanguageObjectDetectionID(ObjectDetectionID):
@@ -62,6 +69,13 @@ class LanguageObjectDetectionID(ObjectDetectionID):
 
     def __repr__(self) -> str:
         return f"LanguageID({self.language_id})"
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __eq__(self, other: Any) -> bool:
+        assert isinstance(other, LanguageObjectDetectionID)
+        return self.language_id == other.language_id
 
 
 @dataclass(frozen=True)

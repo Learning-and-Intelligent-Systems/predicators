@@ -168,14 +168,7 @@ class GlobalSettings:
 
     # SpotEnv parameters
     spot_robot_ip = "invalid-IP-address"
-    spot_grasp_use_apriltag = False
-    spot_grasp_use_cv2 = False
-    spot_grasp_use_sam = False
-    spot_cube_only = False
-    spot_platform_only = False
-    spot_initialize_surfaces_to_default = True
     spot_fiducial_size = 44.45
-    spot_visualize_vision_model_outputs = False
     spot_vision_detection_threshold = 0.3
     spot_perception_outdir = "spot_perception_outputs"
     spot_graph_nav_map = "bike_env_floor4"
