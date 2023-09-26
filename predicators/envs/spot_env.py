@@ -375,7 +375,9 @@ class SpotEnv(BaseEnv):
         }
         outfile = utils.get_env_asset_path("task_jsons/spot/last.json",
                                            assert_exists=False)
-        with open(outfile, "w", encoding="utf-8") as f:
+        outpath = Path(outfile)
+        outpath.parent.mkdir(parents=True, exist_ok=True)
+        with open(outpath, "w", encoding="utf-8") as f:
             json.dump(json_dict, f, indent=4)
         logging.info(f"Dumped task to {outfile}. Rename it to save it.")
         return task

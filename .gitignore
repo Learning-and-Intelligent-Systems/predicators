@@ -24,7 +24,7 @@ machines.txt
 *_vision_data
 tests/_fake_trajs
 tests/_fake_results
-predicators/envs/assets/task_jsons/spot_bike_env/last.json
+predicators/envs/assets/task_jsons/spot/last.json
 spot_perception_outputs
 spot_perception_debug_dir/
 sas_plan

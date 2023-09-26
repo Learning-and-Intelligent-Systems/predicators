@@ -62,7 +62,7 @@ class SpotPerceiver(BasePerceiver):
         self._lost_objects = set()
         self._container_to_contained_objects = {}
         init_state = self._create_state()
-        goal = self._create_goal(init_state, env_task.goal)
+        goal = self._create_goal(init_state, env_task.goal_description)
         return Task(init_state, goal)
 
     def update_perceiver_with_action(self, action: Action) -> None:
