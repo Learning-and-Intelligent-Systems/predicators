@@ -9,7 +9,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.envs.spot_env import SpotEnv, get_robot
+from predicators.envs.spot_env import SpotEnv, get_detection_id_for_object, \
+    get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
@@ -63,16 +64,12 @@ def _create_grasp_parameterized_policy(
         target_obj_idx: int) -> ParameterizedPolicy:
 
     robot, _, _ = get_robot()
-    env = get_or_create_env(CFG.env)
-    assert isinstance(env, SpotEnv)
-    detection_id_to_obj = env._detection_id_to_obj  # pylint: disable=protected-access
-    obj_to_detection_id = {o: d for d, o in detection_id_to_obj.items()}
 
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del memory, params, state  # not used
         target_obj = objects[target_obj_idx]
-        target_detection_id = obj_to_detection_id[target_obj]
+        target_detection_id = get_detection_id_for_object(target_obj)
         rgbds = get_last_captured_images()
         _, artifacts = get_last_detected_objects()
         hand_camera = "hand_color_image"

@@ -134,6 +134,19 @@ def get_robot() -> Tuple[Robot, SpotLocalizer, LeaseClient]:
     return robot, localizer, lease_client
 
 
+@functools.lru_cache(maxsize=None)
+def get_detection_id_for_object(object: Object) -> ObjectDetectionID:
+    """Exposed for wrapper and options."""
+    # Avoid circular import issues.
+    from predicators.envs import \
+        get_or_create_env  # pylint: disable=import-outside-toplevel
+    env = get_or_create_env(CFG.env)
+    assert isinstance(env, SpotEnv)
+    detection_id_to_obj = env._detection_id_to_obj  # pylint: disable=protected-access
+    obj_to_detection_id = {o: d for d, o in detection_id_to_obj.items()}
+    return obj_to_detection_id[object]
+
+
 class SpotEnv(BaseEnv):
     """An environment containing tasks for a real Spot robot to execute.
 
@@ -233,9 +246,13 @@ class SpotEnv(BaseEnv):
             return self._current_observation
         # The action is a real action to be executed.
         else:
-            assert action_name == "execute"
+            assert action_name.startswith("execute")
             # Execute!
             action_fn(*action_fn_args)  # type: ignore
+            # For finding in particular, we need to reperceive!
+            if action_name.endswith("perceive"):
+                nonpercept = obs.nonpercept_atoms
+                self._current_observation = self._build_observation(nonpercept)
         return self._current_observation
 
     def get_observation(self) -> Observation:

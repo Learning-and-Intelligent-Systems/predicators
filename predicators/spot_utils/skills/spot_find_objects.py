@@ -16,7 +16,6 @@ from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
     move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
-from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
     DEFAULT_HAND_LOOK_FLOOR_POSE
@@ -28,6 +27,7 @@ def _find_objects_with_choreographed_moves(
     object_ids: Collection[ObjectDetectionID],
     relative_base_moves: List[math_helpers.SE2Pose],
     relative_hand_moves: Optional[List[math_helpers.SE3Pose]] = None,
+    open_and_close_gripper: bool = True,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Helper for object search with hard-coded relative moves."""
 
@@ -41,7 +41,8 @@ def _find_objects_with_choreographed_moves(
     all_rgbds: List[Dict[str, RGBDImageWithContext]] = []
 
     # Open the hand to mitigate possible occlusions.
-    open_gripper(robot)
+    if open_and_close_gripper:
+        open_gripper(robot)
 
     # Run detection once to start before moving.
     rgbds = capture_images(robot, localizer)
@@ -74,7 +75,8 @@ def _find_objects_with_choreographed_moves(
         all_artifacts.update(artifacts)
 
     # Close the gripper.
-    close_gripper(robot)
+    if open_and_close_gripper:
+        close_gripper(robot)
 
     # Success, finish.
     remaining_object_ids = set(object_ids) - set(all_detections)
@@ -137,15 +139,20 @@ def find_objects(
     ]
     base_moves, hand_moves = zip(*moves)
     try:
-        return _find_objects_with_choreographed_moves(robot, localizer,
-                                                      object_ids, base_moves,
-                                                      hand_moves)
+        # Don't open and close the gripper because we need the object to be
+        # in view when the action has finished, and we can't leave the gripper
+        # open because then HandEmpty will misfire.
+        _find_objects_with_choreographed_moves(robot,
+                                               localizer,
+                                               object_ids,
+                                               base_moves,
+                                               hand_moves,
+                                               open_and_close_gripper=False)
     except RuntimeError:
         prompt = ("Please take control of the robot and make the object "
                   "become in its view. Hit the 'Enter' key when you're done!")
         utils.prompt_user(prompt)
         lease_client.take()
-        return
 
 
 if __name__ == "__main__":
