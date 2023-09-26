@@ -17,6 +17,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.approaches import BaseApproach, BaseApproachWrapper
+from predicators.spot_utils.skills.spot_find_objects import find_object
 from predicators.structs import Action, Object, ParameterizedOption, \
     Predicate, State, Task, Type
 
@@ -65,7 +66,10 @@ class SpotWrapperApproach(BaseApproachWrapper):
                 base_approach_policy = None
                 need_stow = True
                 self._base_approach_has_control = False
-                raise NotImplementedError("Coming soon!")
+                return utils.create_spot_env_action(
+                    "execute",
+                    [],
+                )
             # Found the objects. Stow the arm before replanning.
             if need_stow:
                 logging.info("[Spot Wrapper] Lost objects found, stowing.")
