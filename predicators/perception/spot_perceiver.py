@@ -1,4 +1,4 @@
-"""A perceiver specific to the spot bike env."""
+"""A perceiver specific to spot envs."""
 
 import logging
 from typing import Dict, Optional, Set
@@ -8,17 +8,16 @@ from bosdyn.client import math_helpers
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
-from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, SpotEnv, \
-    _PartialPerceptionState, _SpotObservation
+from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
+    SpotCubeEnv, _PartialPerceptionState, _SpotObservation
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
-from predicators.spot_utils.spot_utils import obj_name_to_apriltag_id
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GroundAtom, Object, Observation, Predicate, State, Task
 
 
-class SpotBikePerceiver(BasePerceiver):
-    """A perceiver specific to the spot bike env."""
+class SpotPerceiver(BasePerceiver):
+    """A perceiver specific to spot envs."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -29,12 +28,12 @@ class SpotBikePerceiver(BasePerceiver):
         self._nonpercept_predicates: Set[Predicate] = set()
         self._percept_predicates: Set[Predicate] = set()
         self._prev_action: Optional[Action] = None
-        self._holding_item_id_feature = 0.0
+        self._held_object: Optional[Object] = None
         self._gripper_open_percentage = 0.0
         self._robot_pos: math_helpers.SE3Pose = math_helpers.SE3Pose(
             0, 0, 0, math_helpers.Quat())
         self._lost_objects: Set[Object] = set()
-        assert CFG.env in ["spot_bike_env", "spot_cube_env"]
+        assert CFG.env == "spot_cube_env"
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
         # Keep track of objects that are contained (out of view) in another
@@ -44,12 +43,12 @@ class SpotBikePerceiver(BasePerceiver):
 
     @classmethod
     def get_name(cls) -> str:
-        return "spot_bike_env"
+        return "spot_perceiver"
 
     def reset(self, env_task: EnvironmentTask) -> Task:
         self._waiting_for_observation = True
         self._curr_env = get_or_create_env(CFG.env)
-        assert isinstance(self._curr_env, SpotEnv)
+        assert isinstance(self._curr_env, SpotCubeEnv)
         self._known_object_poses = {}
         self._known_objects_in_hand_view = set()
         self._robot = None
@@ -57,7 +56,7 @@ class SpotBikePerceiver(BasePerceiver):
         self._nonpercept_predicates = set()
         self._percept_predicates = self._curr_env.percept_predicates
         self._prev_action = None
-        self._holding_item_id_feature = 0.0
+        self._held_object = None
         self._gripper_open_percentage = 0.0
         self._robot_pos = math_helpers.SE3Pose(0, 0, 0, math_helpers.Quat())
         self._lost_objects = set()
@@ -76,32 +75,31 @@ class SpotBikePerceiver(BasePerceiver):
         self._update_state_from_observation(observation)
         # Update the curr held item when applicable.
         assert self._curr_env is not None and isinstance(
-            self._curr_env, SpotEnv)
+            self._curr_env, SpotCubeEnv)
         if self._prev_action is not None:
+            assert isinstance(self._prev_action.extra_info, (list, tuple))
             controller_name, objects, _, _ = self._prev_action.extra_info
             logging.info(f"[Perceiver] Previous action was {controller_name}.")
             # The robot is always the 0th argument of an
             # operator!
             if "grasp" in controller_name.lower():
-                assert self._holding_item_id_feature == 0.0
+                assert self._held_object is None
                 # We know that the object that we attempted to grasp was
                 # the second argument to the controller.
                 object_attempted_to_grasp = objects[1]
                 # Remove from contained objects.
                 for contained in self._container_to_contained_objects.values():
                     contained.discard(object_attempted_to_grasp)
-                grasp_obj_id = obj_name_to_apriltag_id[
-                    object_attempted_to_grasp.name]
                 # We only want to update the holding item id feature
                 # if we successfully picked something.
                 if self._gripper_open_percentage > HANDEMPTY_GRIPPER_THRESHOLD:
-                    self._holding_item_id_feature = grasp_obj_id
+                    self._held_object = object_attempted_to_grasp
                 else:
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(object_attempted_to_grasp)
             elif "place" in controller_name.lower():
-                self._holding_item_id_feature = 0.0
+                self._held_object = None
                 # Check if the item we just placed is in view. It needs to
                 # be in view to assess whether it was placed correctly.
                 robot, obj, surface = objects
@@ -120,28 +118,17 @@ class SpotBikePerceiver(BasePerceiver):
                         self._container_to_contained_objects[surface] = set()
                     self._container_to_contained_objects[surface].add(obj)
             else:
-                # We ensure the holding item feature is set
-                # back to 0.0 if the hand is ever empty.
-                prev_holding_item_id = self._holding_item_id_feature
+                # Ensure the held object is reset if the hand is empty.
+                prev_held_object = self._held_object
                 if self._gripper_open_percentage <= HANDEMPTY_GRIPPER_THRESHOLD:
-                    self._holding_item_id_feature = 0.0
+                    self._held_object = None
                     # This can only happen if the item was dropped during
                     # something other than a place.
-                    if prev_holding_item_id != 0.0:
-                        tag_id = int(np.round(prev_holding_item_id))
-                        # We lost the object that we were holding!
-                        apriltag_id_to_obj_name = {
-                            v: k
-                            for k, v in obj_name_to_apriltag_id.items()
-                        }
-                        obj_name = apriltag_id_to_obj_name[tag_id]
-                        obj = [
-                            o for o in self._known_object_poses
-                            if o.name == obj_name
-                        ][0]
+                    if prev_held_object is not None:
                         # We lost the object!
-                        logging.info("[Perceiver] Object was lost!")
-                        self._lost_objects.add(obj)
+                        logging.info("[Perceiver] An object was lost: "
+                                     f"{prev_held_object} was lost!")
+                        self._lost_objects.add(prev_held_object)
 
         return self._create_state()
 
@@ -184,7 +171,6 @@ class SpotBikePerceiver(BasePerceiver):
         state_dict = {
             self._robot: {
                 "gripper_open_percentage": self._gripper_open_percentage,
-                "curr_held_item_id": self._holding_item_id_feature,
                 "x": self._robot_pos.x,
                 "y": self._robot_pos.y,
                 "z": self._robot_pos.z,
@@ -217,6 +203,11 @@ class SpotBikePerceiver(BasePerceiver):
                 else:
                     lost_val = 0.0
                 state_dict[obj]["lost"] = lost_val
+                if obj == self._held_object:
+                    held_val = 1.0
+                else:
+                    held_val = 0.0
+                state_dict[obj]["held"] = held_val
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)
         logging.info("Percept state:")
