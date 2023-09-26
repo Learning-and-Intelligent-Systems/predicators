@@ -202,11 +202,11 @@ class _MoveToToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
         # Parameters are relative distance, dyaw.
         params_space = Box(-np.inf, np.inf, (2, ))
 
-        # Navigate to the surface.
+        # Navigate to the tool.
         navigate = utils.SingletonParameterizedOption(
             "MoveToToolOnSurface-Navigate",
             _create_navigate_parameterized_policy(robot_obj_idx=0,
-                                                  target_obj_idx=2,
+                                                  target_obj_idx=1,
                                                   distance_param_idx=0,
                                                   yaw_param_idx=1),
             types=types,
