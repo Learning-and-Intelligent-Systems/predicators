@@ -219,7 +219,8 @@ class SpotEnv(BaseEnv):
         # The action corresponds to the task finishing.
         elif action_name == "done":
             while True:
-                logging.info(f"The goal is: {self._current_task.goal}")
+                goal_description = self._current_task.goal_description
+                logging.info(f"The goal is: {goal_description}")
                 prompt = "Is the goal accomplished? Answer y or n. "
                 response = utils.prompt_user(prompt).strip()
                 if response == "y":
