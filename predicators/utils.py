@@ -40,6 +40,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
+from bosdyn.client import math_helpers
 from gym.spaces import Box
 from matplotlib import patches
 from pyperplan.heuristics.heuristic_base import \
@@ -55,9 +56,9 @@ from predicators.structs import NSRT, Action, Array, DummyOption, \
     GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, Observation, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option, _TypedEntity
+    ParameterizedOption, Predicate, Segment, SpotAction, State, \
+    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundLDLRule, \
+    _GroundNSRT, _GroundSTRIPSOperator, _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -3485,3 +3486,22 @@ def rotate_point_in_image(r: float, c: float, rot_degrees: float, height: int,
     # translate the rotation back from the origin.
     rotated_pt = rotated_pt_centered + center
     return rotated_pt[0], rotated_pt[1]
+
+
+def get_se3_pose_from_state(state: State, obj: Object) -> math_helpers.SE3Pose:
+    """Helper for spot environments."""
+    return math_helpers.SE3Pose(
+        state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z"),
+        math_helpers.Quat(state.get(obj, "W_quat"), state.get(obj, "X_quat"),
+                          state.get(obj, "Y_quat"), state.get(obj, "Z_quat")))
+
+
+def create_spot_env_action(
+    action_name: str,
+    operator_objects: Sequence[Object] = tuple(),
+    fn: Optional[Callable] = None,
+    fn_args: Sequence = tuple()) -> Action:
+    """Helper for spot environments."""
+    return SpotAction(np.array([], dtype=np.float32),
+                      extra_info=(action_name, tuple(operator_objects), fn,
+                                  tuple(fn_args)))

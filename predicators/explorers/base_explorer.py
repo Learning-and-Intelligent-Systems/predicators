@@ -8,8 +8,6 @@ from typing import List, Set
 import numpy as np
 from gym.spaces import Box
 
-from predicators.approaches.spot_wrapper_approach import \
-    get_special_spot_action
 from predicators.settings import CFG
 from predicators.structs import Action, ExplorationStrategy, Object, \
     ParameterizedOption, Predicate, State, Task, Type
@@ -76,13 +74,13 @@ class BaseExplorer(abc.ABC):
                     f"[Explorer Spot Wrapper] Lost objects: {lost_objects}")
                 # Reset the base approach policy.
                 need_stow = True
-                return get_special_spot_action("find")
+                raise NotImplementedError("Coming soon!")
             # Found the objects. Stow the arm before replanning.
             if need_stow:
                 logging.info(
                     "[Explorer Spot Wrapper] Lost objects found, stowing.")
                 need_stow = False
-                return get_special_spot_action("stow")
+                raise NotImplementedError("Coming soon!")
             # Give control back to base policy.
             logging.info(
                 "[Explorer Spot Wrapper] Giving control to base policy.")

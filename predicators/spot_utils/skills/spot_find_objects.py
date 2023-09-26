@@ -87,7 +87,7 @@ def init_search_for_objects(
 
 
 def find_object(robot: Robot, find_controller_move_queue_idx: int,
-                lease_client) -> None:
+                lease_client: LeaseClient) -> None:
     """Execute look around."""
     # Execute a hard-coded sequence of movements and hope that one of them
     # puts the lost object in view. This is very specifically designed for

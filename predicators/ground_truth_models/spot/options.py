@@ -1,6 +1,6 @@
 """Ground-truth options for PDDL environments."""
 
-from typing import Callable, Dict, List, Sequence, Set, Tuple
+from typing import Dict, List, Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import numpy as np
@@ -30,30 +30,6 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
 from predicators.utils import LinearChainParameterizedOption
 
 
-class _SpotAction(Action):
-    """Subclassed to avoid issues with pickling bosdyn functions."""
-
-    def __getnewargs__(self) -> Tuple:
-        return (self.arr, )
-
-    def __getstate__(self) -> Dict:
-        return {"arr": self.arr}
-
-
-def _get_se3_pose_from_state(state: State,
-                             obj: Object) -> math_helpers.SE3Pose:
-    return math_helpers.SE3Pose(
-        state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z"),
-        math_helpers.Quat(state.get(obj, "W_quat"), state.get(obj, "X_quat"),
-                          state.get(obj, "Y_quat"), state.get(obj, "Z_quat")))
-
-
-def _create_action(action_name: str, operator_objects: Tuple[Object],
-                   fn: Callable, fn_args: Tuple) -> Action:
-    return _SpotAction(np.array([], dtype=np.float32),
-                       extra_info=(action_name, operator_objects, fn, fn_args))
-
-
 def _create_navigate_parameterized_policy(
         robot_obj_idx: int, target_obj_idx: int, distance_param_idx: int,
         yaw_param_idx: int) -> ParameterizedPolicy:
@@ -68,16 +44,17 @@ def _create_navigate_parameterized_policy(
         yaw = params[yaw_param_idx]
 
         robot_obj = objects[robot_obj_idx]
-        robot_pose = _get_se3_pose_from_state(state, robot_obj)
+        robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
 
         target_obj = objects[target_obj_idx]
-        target_pose = _get_se3_pose_from_state(state, target_obj)
+        target_pose = utils.get_se3_pose_from_state(state, target_obj)
 
         rel_pose = get_relative_se2_from_se3(robot_pose, target_pose, distance,
                                              yaw)
 
-        return _create_action("execute", objects, navigate_to_relative_pose,
-                              (robot, rel_pose))
+        return utils.create_spot_env_action("execute", objects,
+                                            navigate_to_relative_pose,
+                                            (robot, rel_pose))
 
     return _policy
 
@@ -87,13 +64,15 @@ def _create_grasp_parameterized_policy(
 
     robot, _, _ = get_robot()
     env = get_or_create_env(CFG.env)
-    obj_to_detection_id = env.obj_to_detection_id
+    assert isinstance(env, SpotEnv)
+    detection_id_to_obj = env._detection_id_to_obj  # pylint: disable=protected-access
+    obj_to_detection_id = {o: d for d, o in detection_id_to_obj.items()}
 
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del memory, params, state  # not used
         target_obj = objects[target_obj_idx]
-        target_detection_id = obj_to_detection_id(target_obj)
+        target_detection_id = obj_to_detection_id[target_obj]
         rgbds = get_last_captured_images()
         _, artifacts = get_last_detected_objects()
         hand_camera = "hand_color_image"
@@ -101,8 +80,8 @@ def _create_grasp_parameterized_policy(
         pixel = get_object_center_pixel_from_artifacts(artifacts,
                                                        target_detection_id,
                                                        hand_camera)
-        return _create_action("execute", objects, grasp_at_pixel,
-                              (robot, img, pixel))
+        return utils.create_spot_env_action("execute", objects, grasp_at_pixel,
+                                            (robot, img, pixel))
 
     return _policy
 
@@ -119,18 +98,19 @@ def _create_place_parameterized_policy(
         dx, dy, dz = params
 
         robot_obj = objects[robot_obj_idx]
-        robot_pose = _get_se3_pose_from_state(state, robot_obj)
+        robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
 
         surface_obj = objects[surface_obj_idx]
-        surface_pose = _get_se3_pose_from_state(state, surface_obj)
+        surface_pose = utils.get_se3_pose_from_state(state, surface_obj)
 
         surface_rel_pose = robot_pose.inverse() * surface_pose
         place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x + dx,
                                           y=surface_rel_pose.y + dy,
                                           z=surface_rel_pose.z + dz)
 
-        return _create_action("execute", objects, place_at_relative_position,
-                              (robot, place_rel_pos))
+        return utils.create_spot_env_action("execute", objects,
+                                            place_at_relative_position,
+                                            (robot, place_rel_pos))
 
     return _policy
 
@@ -142,7 +122,8 @@ def _create_stow_arm_parameterized_policy() -> ParameterizedPolicy:
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del state, memory, params  # not used
-        return _create_action("execute", objects, stow_arm, (robot, ))
+        return utils.create_spot_env_action("execute", objects, stow_arm,
+                                            (robot, ))
 
     return _policy
 
@@ -155,8 +136,9 @@ def _create_move_hand_parameterized_policy(
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del state, memory, params  # not used
-        return _create_action("execute", objects, move_hand_to_relative_pose,
-                              (robot, hand_pose))
+        return utils.create_spot_env_action("execute", objects,
+                                            move_hand_to_relative_pose,
+                                            (robot, hand_pose))
 
     return _policy
 
@@ -168,7 +150,8 @@ def _create_open_hand_parameterized_policy() -> ParameterizedPolicy:
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del state, memory, params  # not used
-        return _create_action("execute", objects, open_gripper, (robot, ))
+        return utils.create_spot_env_action("execute", objects, open_gripper,
+                                            (robot, ))
 
     return _policy
 
@@ -179,7 +162,8 @@ def _create_operator_finish_parameterized_policy(
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         del state, memory, params  # not used
-        return _create_action(operator_name, objects, None, tuple())
+        return utils.create_spot_env_action(operator_name, objects, None,
+                                            tuple())
 
     return _policy
 
@@ -561,7 +545,7 @@ class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
         for operator in env.strips_operators:
             option_cls = op_name_to_option_cls[operator.name]
             operator_types = [p.type for p in operator.parameters]
-            option = option_cls(operator.name, operator_types)
+            option = option_cls(operator.name, operator_types)  # type: ignore
             options.add(option)
 
         return options

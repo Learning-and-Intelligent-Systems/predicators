@@ -1050,6 +1050,16 @@ class Action:
         assert not self.has_option()
 
 
+class SpotAction(Action):
+    """Subclassed to avoid issues with pickling bosdyn functions."""
+
+    def __getnewargs__(self) -> Tuple:
+        return (self.arr, )
+
+    def __getstate__(self) -> Dict:
+        return {"arr": self.arr}
+
+
 @dataclass(frozen=True, repr=False, eq=False)
 class LowLevelTrajectory:
     """A structure representing a low-level trajectory, containing a state
