@@ -11,6 +11,8 @@ from predicators.envs.spot_env import SpotCubeEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.spot_perceiver import SpotPerceiver
 from predicators.structs import Action, _GroundNSRT, GroundAtom
+from predicators.settings import CFG
+from predicators.spot_utils.skills.spot_navigation import go_home
 
 
 def real_robot_cube_env_test() -> None:
@@ -54,13 +56,14 @@ def real_robot_cube_env_test() -> None:
     task = env.get_test_tasks()[0]
     obs = env.reset("test", 0)
     perceiver.reset(task)
-    assert len(obs.objects_in_view) == 3
-    cube, table1, table2 = sorted(obs.objects_in_view)
+    assert len(obs.objects_in_view) == 4
+    cube, table1, _, table2 = sorted(obs.objects_in_view)
     assert cube.name == "cube"
     assert "table" in table1.name
     assert "table" in table2.name
     state = perceiver.step(obs)
     spot = next(o for o in state if o.type.name == "robot")
+    floor = next(o for o in state if o.type.name == "floor")
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     MoveToToolOnSurface = nsrt_name_to_nsrt["MoveToToolOnSurface"]
     MoveToSurface = nsrt_name_to_nsrt["MoveToSurface"]
@@ -74,8 +77,9 @@ def real_robot_cube_env_test() -> None:
     On = pred_name_to_pred["On"]
     InViewTool = pred_name_to_pred["InViewTool"]
     HoldingTool = pred_name_to_pred["HoldingTool"]
-    assert GroundAtom(HandEmpty, [spot]).holds(state)
-    on_atoms = [GroundAtom(On, [cube, t]) for t in [table1, table2]]
+    OnFloor = pred_name_to_pred["OnFloor"]
+    assert HandEmpty([spot]).holds(state)
+    on_atoms = [On([cube, t]) for t in [table1, table2]]
     true_on_atoms = [a for a in on_atoms if a.holds(state)]
     assert len(true_on_atoms) == 1
     _, init_table = true_on_atoms[0].objects
@@ -160,6 +164,98 @@ def real_robot_cube_env_test() -> None:
     assert GroundAtom(HandEmpty, [spot]).holds(state)
     assert not GroundAtom(HoldingTool, [spot, cube]).holds(state)
     assert GroundAtom(On, [cube, target_table]).holds(state)
+
+    # Sample and run an option to move to the surface.
+    option = move_to_cube_nsrt.sample_option(state, set(), rng)
+    actions = []  # to test pickling
+    assert option.initiable(state)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        actions.append(action)
+        obs = env.step(action)
+        state = perceiver.step(obs)
+        perceiver.update_perceiver_with_action(action)
+        if option.terminal(state):
+            break
+
+    # Check that moving succeeded.
+    assert InViewTool([spot, cube]).holds(state)
+
+    # Sample an option to pick from the surface again.
+    GraspToolFromSurface = nsrt_name_to_nsrt["GraspToolFromSurface"]
+    # grasp_cube_nsrt = GraspToolFromSurface.ground([spot, cube, target_table])
+    grasp_cube_nsrt = GraspToolFromSurface.ground([spot, cube, init_table])
+    assert all(a.holds(state) for a in grasp_cube_nsrt.preconditions)
+    option = grasp_cube_nsrt.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Check that picking succeeded.
+    assert not HandEmpty([spot]).holds(state)
+    assert HoldingTool([spot, cube]).holds(state)
+
+    # Navigate home.
+    go_home(env._robot, env._localizer)
+
+    # Drop the object onto the floor.
+    PlaceToolOnFloor = nsrt_name_to_nsrt["PlaceToolOnFloor"]
+    place_cube_nrst = PlaceToolOnFloor.ground([spot, cube, floor])
+    assert all(a.holds(state) for a in place_cube_nrst.preconditions)
+    option = place_cube_nrst.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Check that placing on the floor succeeded.
+    assert GroundAtom(HandEmpty, [spot]).holds(state)
+    assert not GroundAtom(HoldingTool, [spot, cube]).holds(state)
+    assert GroundAtom(OnFloor, [cube, floor]).holds(state)
+
+    # Move to the object on the floor.
+    MoveToToolOnFloor = nsrt_name_to_nsrt["MoveToToolOnFloor"]
+    move_to_cube_on_floor = MoveToToolOnFloor.ground([spot, cube, floor])
+    assert all(a.holds(state) for a in move_to_cube_on_floor.preconditions)
+    option = move_to_cube_on_floor.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Check that moving succeeded.
+    assert GroundAtom(InViewTool, [spot, cube]).holds(state)
+
+    # Now pick from floor.
+    GraspToolFromFloorOp = nsrt_name_to_nsrt["GraspToolFromFloor"]
+    grasp_cube_nrst = GraspToolFromFloorOp.ground([spot, cube, floor])
+    assert all(a.holds(state) for a in grasp_cube_nrst.preconditions)
+    option = grasp_cube_nrst.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(100):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Check that picking succeeded.
+    assert not GroundAtom(HandEmpty, [spot]).holds(state)
+    assert GroundAtom(HoldingTool, [spot, cube]).holds(state)
 
 
 if __name__ == "__main__":
