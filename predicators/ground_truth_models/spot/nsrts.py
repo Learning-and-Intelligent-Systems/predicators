@@ -1,10 +1,8 @@
 """Ground-truth NSRTs for the PDDLEnv."""
 
-from functools import partial
-from typing import Dict, Sequence, Set, Tuple
+from typing import Dict, Sequence, Set
 
 import numpy as np
-from bosdyn.client import math_helpers
 
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv

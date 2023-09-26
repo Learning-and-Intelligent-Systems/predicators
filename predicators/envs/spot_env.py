@@ -364,6 +364,11 @@ class SpotEnv(BaseEnv):
             self._obj_name_to_obj(n): v
             for n, v in object_names_in_view.items()
         }
+        # Be sure to add the 'floor' to the set of objects in view.
+        floor_type = next(t for t in self.types if t.name == "floor")
+        floor = Object("floor", floor_type)
+        objects_in_view[floor] = math_helpers.SE3Pose(
+            0.0, 0.0, 0.0, math_helpers.Quat(0.0, 0.0, 0.0, 1.0))
         robot_type = next(t for t in self.types if t.name == "robot")
         robot = Object("spot", robot_type)
         rgb_images = capture_images(self._robot, self._localizer)
@@ -669,7 +674,7 @@ class SpotCubeEnv(SpotEnv):
                                                     [spot, tool, floor],
                                                     preconds, add_effs,
                                                     del_effs, set())
-        # Rpplae
+        # PlaceToolOnSurface
         spot = Variable("?robot", self._robot_type)
         tool = Variable("?tool", self._tool_type)
         surface = Variable("?surface", self._surface_type)

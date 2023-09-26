@@ -27,7 +27,7 @@ from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    get_relative_se2_from_se3
+    DEFAULT_HAND_LOOK_FLOOR_POSE, get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     ParameterizedPolicy, Predicate, State, STRIPSOperator, Type
 from predicators.utils import LinearChainParameterizedOption
@@ -270,6 +270,16 @@ class _MoveToToolOnFloorParameterizedOption(LinearChainParameterizedOption):
             params_space=params_space,
         )
 
+        # Look down at the surface. Note that we can't open the hand because
+        # that would mess up the HandEmpty detector.
+        move_hand = utils.SingletonParameterizedOption(
+            "MoveToToolOnFloor-MoveHand",
+            _create_move_hand_parameterized_policy(
+                DEFAULT_HAND_LOOK_FLOOR_POSE),
+            types=types,
+            params_space=params_space,
+        )
+
         # Finish the action.
         finish = utils.SingletonParameterizedOption(
             "MoveToToolOnFloor-Finish",
@@ -279,7 +289,7 @@ class _MoveToToolOnFloorParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Create the linear chain.
-        children = [navigate, finish]
+        children = [navigate, move_hand, finish]
 
         super().__init__(name, children)
 
@@ -506,6 +516,16 @@ class _PlaceToolOnFloorParameterizedOption(LinearChainParameterizedOption):
         # There are currently no parameters.
         params_space = Box(0, 1, (0, ))
 
+        # First, move the arm to a position from which the
+        # object will drop.
+        move_hand = utils.SingletonParameterizedOption(
+            "PlaceToolOnFloor-MoveHand",
+            _create_move_hand_parameterized_policy(
+                DEFAULT_HAND_LOOK_DOWN_POSE),
+            types=types,
+            params_space=params_space,
+        )
+
         # Just naively open the hand and assume the object will drop.
         open_hand = utils.SingletonParameterizedOption(
             "PlaceToolOnFloor-OpenHand",
@@ -513,6 +533,12 @@ class _PlaceToolOnFloorParameterizedOption(LinearChainParameterizedOption):
             types=types,
             params_space=params_space,
         )
+
+        close_hand = utils.SingletonParameterizedOption(
+            "PlaceToolOnFloor-StowArm",
+            _create_stow_arm_parameterized_policy(),
+            types=types,
+            params_space=params_space)
 
         # Finish the action.
         finish = utils.SingletonParameterizedOption(
@@ -523,7 +549,7 @@ class _PlaceToolOnFloorParameterizedOption(LinearChainParameterizedOption):
         )
 
         # Create the linear chain.
-        children = [open_hand, finish]
+        children = [move_hand, open_hand, close_hand, finish]
 
         super().__init__(name, children)
 
