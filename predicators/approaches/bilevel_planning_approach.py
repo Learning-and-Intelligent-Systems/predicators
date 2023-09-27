@@ -48,8 +48,8 @@ class BilevelPlanningApproach(BaseApproach):
         self._last_plan: List[_Option] = []  # used if plan WITH sim
         self._last_nsrt_plan: List[_GroundNSRT] = []  # plan WITHOUT sim
         self._last_atoms_seq: List[Set[GroundAtom]] = []  # plan WITHOUT sim
-        self._last_executed_option: Optional[_Option] = None
-        self._last_executed_option_terminated = False
+        self._last_executed_nsrt: Optional[_Option] = None
+        self._last_executed_nsrt_terminated = False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
@@ -57,8 +57,8 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        self._last_executed_option = None
-        self._last_executed_option_terminated = False
+        self._last_executed_nsrt = None
+        self._last_executed_nsrt_terminated = False
 
         # Run task planning only and then greedily sample and execute in the
         # policy.
@@ -86,14 +86,20 @@ class BilevelPlanningApproach(BaseApproach):
         self._save_metrics(metrics, nsrts, preds)
 
         def _policy(s: State) -> Action:
-            self._last_executed_option_terminated = False
+            self._last_executed_nsrt_terminated = False
+            nonlocal nsrt_plan
+            # TODO: For some reason, this is always
+            # making the last executed nsrt none or something like that?
+            # Need to look into when this is getting triggered...
+            if self._last_executed_nsrt is None:
+                self._last_executed_nsrt = nsrt_plan[0]
             try:
-                # Record for execution monitoring.
                 act = policy(s)
-                option = act.get_option()
-                if option is not self._last_executed_option:
-                    self._last_executed_option_terminated = True
-                self._last_executed_option = option
+                if self._plan_without_sim:
+                    # Record for execution monitoring.
+                    if nsrt_plan[0] is not self._last_executed_nsrt:
+                        self._last_executed_nsrt_terminated = True
+                        self._last_executed_nsrt = nsrt_plan[0]
                 return act
             except utils.OptionExecutionFailure as e:
                 raise ApproachFailure(e.args[0], e.info)
@@ -214,9 +220,7 @@ class BilevelPlanningApproach(BaseApproach):
 
     def get_execution_monitoring_info(self) -> List[Set[GroundAtom]]:
         if self._plan_without_sim:
-            remaining_atoms_seq = list(self._last_atoms_seq)
-            if remaining_atoms_seq:
-                if self._last_executed_option_terminated:
-                    self._last_atoms_seq.pop(0)
-            return remaining_atoms_seq
+            if len(self._last_atoms_seq) > 0 and self._last_executed_nsrt_terminated:
+                self._last_atoms_seq.pop(0)
+                return list(self._last_atoms_seq)
         return []
