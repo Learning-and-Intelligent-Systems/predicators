@@ -70,7 +70,7 @@ class BilevelPlanningApproach(BaseApproach):
             # Always pop the first element because it's already achieved.
             # self._last_atoms_seq.pop(0)
             policy = utils.nsrt_plan_to_greedy_policy(nsrt_plan, task.goal,
-                                                      self._rng)
+                                                      self._rng, modify_nsrt_plan=True)
             logging.debug("Current Task Plan:")
             for act in nsrt_plan:
                 logging.debug(act)
@@ -88,14 +88,13 @@ class BilevelPlanningApproach(BaseApproach):
         def _policy(s: State) -> Action:
             self._last_executed_nsrt_terminated = False
             nonlocal nsrt_plan
-            # TODO: For some reason, this is always
-            # making the last executed nsrt none or something like that?
-            # Need to look into when this is getting triggered...
-            if self._last_executed_nsrt is None:
-                self._last_executed_nsrt = nsrt_plan[0]
             try:
                 act = policy(s)
                 if self._plan_without_sim:
+                    if self._last_executed_nsrt is None:
+                        self._last_executed_nsrt = nsrt_plan[0]
+                    print(nsrt_plan[0])
+                    # import ipdb; ipdb.set_trace()
                     # Record for execution monitoring.
                     if nsrt_plan[0] is not self._last_executed_nsrt:
                         self._last_executed_nsrt_terminated = True

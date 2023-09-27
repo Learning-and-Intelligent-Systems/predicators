@@ -1246,21 +1246,34 @@ def nsrt_plan_to_greedy_option_policy(
     nsrt_plan: Sequence[_GroundNSRT],
     goal: Set[GroundAtom],
     rng: np.random.Generator,
-    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None,
+    modify_nsrt_plan: bool = False
 ) -> Callable[[State], _Option]:
     """Greedily execute an NSRT plan, assuming downward refinability and that
     any sample will work.
 
     If an option is not initiable or if the plan runs out, an
     OptionExecutionFailure is raised.
+
+    The modify_nsrt_plan variable dictates whether this method will
+    gradually pop from the nsrt plan, or leave the nsrt plan input
+    unchanged. It is usually dangerous to set it to True, but can
+    be useful for an external function using this variable to tell
+    what part of the plan is being executed.
     """
     cur_nsrt: Optional[_GroundNSRT] = None
-    nsrt_queue = list(nsrt_plan)
+    if not modify_nsrt_plan:
+        nsrt_queue = list(nsrt_plan)
+    else:
+        nsrt_queue = nsrt_plan
     if necessary_atoms_seq is None:
         empty_atoms: Set[GroundAtom] = set()
         necessary_atoms_seq = [empty_atoms for _ in range(len(nsrt_plan) + 1)]
     assert len(necessary_atoms_seq) == len(nsrt_plan) + 1
     necessary_atoms_queue = list(necessary_atoms_seq)
+
+    # Key issue: there's an off by one error now in that the execution monitor
+    # only runs one option step AFTER we want it to.
 
     def _option_policy(state: State) -> _Option:
         nonlocal cur_nsrt
@@ -1283,7 +1296,8 @@ def nsrt_plan_to_greedy_policy(
     nsrt_plan: Sequence[_GroundNSRT],
     goal: Set[GroundAtom],
     rng: np.random.Generator,
-    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None
+    necessary_atoms_seq: Optional[Sequence[Set[GroundAtom]]] = None,
+    modify_nsrt_plan: bool = False
 ) -> Callable[[State], Action]:
     """Greedily execute an NSRT plan, assuming downward refinability and that
     any sample will work.
@@ -1292,7 +1306,7 @@ def nsrt_plan_to_greedy_policy(
     OptionExecutionFailure is raised.
     """
     option_policy = nsrt_plan_to_greedy_option_policy(
-        nsrt_plan, goal, rng, necessary_atoms_seq=necessary_atoms_seq)
+        nsrt_plan, goal, rng, necessary_atoms_seq=necessary_atoms_seq, modify_nsrt_plan=modify_nsrt_plan)
     return option_policy_to_policy(option_policy)
 
 
