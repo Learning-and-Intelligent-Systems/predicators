@@ -1,12 +1,13 @@
 """Interface for finding objects by moving around and running detection."""
 
-from typing import Any, Collection, Dict, List, Tuple
+from typing import Any, Collection, Dict, List, Optional, Tuple
 
 import numpy as np
 from bosdyn.client import math_helpers
 from bosdyn.client.lease import LeaseClient
 from bosdyn.client.sdk import Robot
 
+from predicators import utils
 from predicators.spot_utils.perception.object_detection import detect_objects
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID, RGBDImageWithContext
@@ -15,21 +16,24 @@ from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
     move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
-from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE
+from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
+    DEFAULT_HAND_LOOK_FLOOR_POSE
 
 
-def init_search_for_objects(
+def _find_objects_with_choreographed_moves(
     robot: Robot,
     localizer: SpotLocalizer,
     object_ids: Collection[ObjectDetectionID],
-    num_spins: int = 8
+    relative_base_moves: List[math_helpers.SE2Pose],
+    relative_hand_moves: Optional[List[math_helpers.SE3Pose]] = None,
+    open_and_close_gripper: bool = True,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
-    """Spin around in place looking for objects.
+    """Helper for object search with hard-coded relative moves."""
 
-    Raise a RuntimeError if an object can't be found after spinning.
-    """
+    if relative_hand_moves is not None:
+        assert len(relative_hand_moves) == len(relative_base_moves)
+
     # Naively combine detections and artifacts using the most recent ones.
     all_detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
     all_artifacts: Dict[str, Any] = {}
@@ -37,19 +41,17 @@ def init_search_for_objects(
     all_rgbds: List[Dict[str, RGBDImageWithContext]] = []
 
     # Open the hand to mitigate possible occlusions.
-    open_gripper(robot)
+    if open_and_close_gripper:
+        open_gripper(robot)
 
-    # Run detection once to start before spinning.
+    # Run detection once to start before moving.
     rgbds = capture_images(robot, localizer)
     all_rgbds.append(rgbds)
     detections, artifacts = detect_objects(object_ids, rgbds)
     all_detections.update(detections)
     all_artifacts.update(artifacts)
 
-    spin_amount = 2 * np.pi / (num_spins + 1)
-    relative_pose = math_helpers.SE2Pose(0, 0, spin_amount)
-
-    for _ in range(num_spins):
+    for i, relative_pose in enumerate(relative_base_moves):
         remaining_object_ids = set(object_ids) - set(all_detections)
         print(f"Found objects: {set(all_detections)}")
         print(f"Remaining objects: {remaining_object_ids}")
@@ -58,8 +60,13 @@ def init_search_for_objects(
         if not remaining_object_ids:
             break
 
-        # Spin and re-capture.
+        # Move and re-capture.
         navigate_to_relative_pose(robot, relative_pose)
+
+        if relative_hand_moves is not None:
+            hand_move = relative_hand_moves[i]
+            move_hand_to_relative_pose(robot, hand_move)
+
         localizer.localize()
         rgbds = capture_images(robot, localizer)
         all_rgbds.append(rgbds)
@@ -68,7 +75,8 @@ def init_search_for_objects(
         all_artifacts.update(artifacts)
 
     # Close the gripper.
-    close_gripper(robot)
+    if open_and_close_gripper:
+        close_gripper(robot)
 
     # Success, finish.
     remaining_object_ids = set(object_ids) - set(all_detections)
@@ -87,43 +95,64 @@ def init_search_for_objects(
     raise RuntimeError(f"Could not find objects: {remaining_object_ids}")
 
 
-def find_object(robot: Robot, find_controller_move_queue_idx: int,
-                lease_client: LeaseClient) -> None:
-    """Execute look around."""
-    # Execute a hard-coded sequence of movements and hope that one of them
-    # puts the lost object in view. This is very specifically designed for
-    # the case where an object has fallen in the immediate vicinity.
-    stow_arm(robot)
+def init_search_for_objects(
+    robot: Robot,
+    localizer: SpotLocalizer,
+    object_ids: Collection[ObjectDetectionID],
+    num_spins: int = 8
+) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
+    """Spin around in place looking for objects.
 
-    # First move way back and don't move the hand. This is useful when the
-    # object has not actually fallen, but wasn't grasped.
-    if find_controller_move_queue_idx == 1:
-        move_back_pose = math_helpers.SE2Pose(-0.75, 0.0, 0.0)
-        navigate_to_relative_pose(robot, move_back_pose)
-        return
+    Raise a RuntimeError if an object can't be found after spinning.
+    """
+    spin_amount = 2 * np.pi / (num_spins + 1)
+    relative_pose = math_helpers.SE2Pose(0, 0, spin_amount)
+    base_moves = [relative_pose] * num_spins
+    return _find_objects_with_choreographed_moves(robot, localizer, object_ids,
+                                                  base_moves)
 
-    # Now just look down.
-    if find_controller_move_queue_idx == 2:
-        pass
-    # Move to the right.
-    elif find_controller_move_queue_idx == 3:
-        look_right_pose = math_helpers.SE2Pose(0.0, 0.0, np.pi / 6)
-        navigate_to_relative_pose(robot, look_right_pose)
-    # Move to the left.
-    elif find_controller_move_queue_idx == 4:
-        look_left_pose = math_helpers.SE2Pose(0.0, 0.0, -np.pi / 6)
-        navigate_to_relative_pose(robot, look_left_pose)
-    else:
-        prompt = """Please take control of the robot and make the
-        object become in its view. Hit the 'Enter' key
-        when you're done!"""
+
+def find_objects(
+    robot: Robot,
+    localizer: SpotLocalizer,
+    lease_client: LeaseClient,
+    object_ids: Collection[ObjectDetectionID],
+) -> None:
+    """Execute a hard-coded sequence of movements and hope that one of them
+    puts the lost object in view.
+
+    This is very specifically designed for the case where an object has
+    fallen in the immediate vicinity.
+    """
+    moves = [
+        # First move way back and don't move the hand. This is useful when the
+        # object has not actually fallen, but wasn't grasped.
+        (math_helpers.SE2Pose(-0.75, 0.0, 0.0), DEFAULT_HAND_LOOK_DOWN_POSE),
+        # Just look down at the floor.
+        (math_helpers.SE2Pose(0.0, 0.0, 0.0), DEFAULT_HAND_LOOK_FLOOR_POSE),
+        # Spin to the right and look at the floor.
+        (math_helpers.SE2Pose(0.0, 0.0,
+                              np.pi / 6), DEFAULT_HAND_LOOK_FLOOR_POSE),
+        # Spin to the left and look at the floor.
+        (math_helpers.SE2Pose(0.0, 0.0,
+                              -np.pi / 6), DEFAULT_HAND_LOOK_FLOOR_POSE),
+    ]
+    base_moves, hand_moves = zip(*moves)
+    try:
+        # Don't open and close the gripper because we need the object to be
+        # in view when the action has finished, and we can't leave the gripper
+        # open because then HandEmpty will misfire.
+        _find_objects_with_choreographed_moves(robot,
+                                               localizer,
+                                               object_ids,
+                                               base_moves,
+                                               hand_moves,
+                                               open_and_close_gripper=False)
+    except RuntimeError:
+        prompt = ("Please take control of the robot and make the object "
+                  "become in its view. Hit the 'Enter' key when you're done!")
         utils.prompt_user(prompt)
         lease_client.take()
-        return
-
-    # Move the hand to get a view of the floor.
-    move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_DOWN_POSE)
-    return
 
 
 if __name__ == "__main__":
@@ -139,7 +168,6 @@ if __name__ == "__main__":
     from bosdyn.client.lease import LeaseKeepAlive
     from bosdyn.client.util import authenticate
 
-    from predicators import utils
     from predicators.settings import CFG
     from predicators.spot_utils.perception.object_detection import \
         AprilTagObjectDetectionID
@@ -182,6 +210,13 @@ if __name__ == "__main__":
                 410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat())),
         ]
 
+        # Test running the initial search for objects.
+        input("Set up initial object search test")
         init_search_for_objects(robot, localizer, object_ids)
+
+        # Test finding a lost object.
+        input("Set up finding lost object test")
+        cube = object_ids[2]
+        find_objects(robot, localizer, lease_client, {cube})
 
     _run_manual_test()

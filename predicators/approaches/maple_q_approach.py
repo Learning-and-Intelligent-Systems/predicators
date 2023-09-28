@@ -75,7 +75,9 @@ class MapleQApproach(OnlineNSRTLearningApproach):
 
     def _create_explorer(self) -> BaseExplorer:
         """Create a new explorer at the beginning of each interaction cycle."""
-        # Note that greedy lookahead is not yet supported.
+        # Geometrically increase the length of exploration.
+        b = CFG.active_sampler_learning_explore_length_base
+        max_steps = b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
         assert CFG.explorer == "maple_q"
         explorer = create_explorer(CFG.explorer,
@@ -86,6 +88,7 @@ class MapleQApproach(OnlineNSRTLearningApproach):
                                    self._train_tasks,
                                    self._get_current_nsrts(),
                                    self._option_model,
+                                   max_steps_before_termination=max_steps,
                                    maple_q_function=self._q_function)
         return explorer
 
