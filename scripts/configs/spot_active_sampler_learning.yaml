@@ -7,13 +7,11 @@ APPROACHES:
       explorer: "active_sampler"
 ENVS:
   spot_bike_env:
-    NAME: "spot_bike_env"
+    NAME: "spot_cube_env"
     FLAGS:
       spot_robot_ip: "10.17.30.30"
-      spot_grasp_use_apriltag: "True"
-      perceiver: "spot_bike_env"
+      perceiver: "spot_perceiver"
       execution_monitor: "expected_atoms"
-      spot_cube_only: "True"
 ARGS:
   - "debug"
 FLAGS:
