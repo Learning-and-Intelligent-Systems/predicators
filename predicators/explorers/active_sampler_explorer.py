@@ -117,7 +117,7 @@ class ActiveSamplerExplorer(BaseExplorer):
 
             # Hack to deal with the fact that train tasks have empty initial
             # observations in the spot environment.
-            if assigned_task.init is DefaultState:
+            if assigned_task.init is DefaultState:  # pragma: no cover
                 assigned_task = Task(state, assigned_task.goal)
                 self._train_tasks[train_task_idx] = assigned_task
 
