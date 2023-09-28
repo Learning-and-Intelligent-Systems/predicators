@@ -1,6 +1,6 @@
 """Ground-truth options for PDDL environments."""
 
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from bosdyn.client import math_helpers
@@ -60,7 +60,7 @@ def _place_at_relative_position_and_stow(
     stow_arm(robot)
 
 
-def _drop_and_stow(robot: Robot):
+def _drop_and_stow(robot: Robot) -> None:
     # First, move the arm to a position from which the object will drop.
     move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_DOWN_POSE)
     # Open the hand.
@@ -98,8 +98,8 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
                                          yaw)
 
     if hand_pose is None:
-        fn = navigate_to_relative_pose
-        fn_args = (robot, rel_pose)
+        fn: Callable = navigate_to_relative_pose
+        fn_args: Tuple = (robot, rel_pose)
     else:
         fn = _navigate_to_relative_pose_and_move_hand
         fn_args = (robot, rel_pose, hand_pose)
