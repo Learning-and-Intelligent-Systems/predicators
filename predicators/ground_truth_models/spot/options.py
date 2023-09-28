@@ -1,10 +1,10 @@
 """Ground-truth options for PDDL environments."""
 
-from typing import Dict, List, Sequence, Set, Tuple
-from typing import Type as TypingType
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from bosdyn.client import math_helpers
+from bosdyn.client.sdk import Robot
 from gym.spaces import Box
 
 from predicators import utils
@@ -14,6 +14,8 @@ from predicators.envs.spot_env import SpotEnv, get_detection_id_for_object, \
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.spot_utils.perception.object_detection import \
     get_last_detected_objects, get_object_center_pixel_from_artifacts
+from predicators.spot_utils.perception.perception_structs import \
+    RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import \
     get_last_captured_images
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
@@ -26,508 +28,247 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
     DEFAULT_HAND_LOOK_FLOOR_POSE, get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    ParameterizedPolicy, Predicate, State, Type
-from predicators.utils import LinearChainParameterizedOption
+    Predicate, State, Type
+
+###############################################################################
+#            Helper functions for chaining multiple spot skills               #
+###############################################################################
 
 
-def _create_navigate_parameterized_policy(
-        robot_obj_idx: int, target_obj_idx: int, distance_param_idx: int,
-        yaw_param_idx: int) -> ParameterizedPolicy:
-
-    robot, _, _ = get_robot()
-
-    def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        del memory  # not used
-
-        distance = params[distance_param_idx]
-        yaw = params[yaw_param_idx]
-
-        robot_obj = objects[robot_obj_idx]
-        robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
-
-        target_obj = objects[target_obj_idx]
-        target_pose = utils.get_se3_pose_from_state(state, target_obj)
-
-        rel_pose = get_relative_se2_from_se3(robot_pose, target_pose, distance,
-                                             yaw)
-
-        return utils.create_spot_env_action("execute", objects,
-                                            navigate_to_relative_pose,
-                                            (robot, rel_pose))
-
-    return _policy
+def _navigate_to_relative_pose_and_move_hand(
+        robot: Robot, rel_pose: math_helpers.SE2Pose,
+        hand_pose: math_helpers.SE3Pose) -> None:
+    # First navigate to the pose.
+    navigate_to_relative_pose(robot, rel_pose)
+    # Then look down.
+    move_hand_to_relative_pose(robot, hand_pose)
 
 
-def _create_grasp_parameterized_policy(
-        target_obj_idx: int) -> ParameterizedPolicy:
-
-    robot, _, _ = get_robot()
-
-    def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        del memory, params, state  # not used
-        target_obj = objects[target_obj_idx]
-        target_detection_id = get_detection_id_for_object(target_obj)
-        rgbds = get_last_captured_images()
-        _, artifacts = get_last_detected_objects()
-        hand_camera = "hand_color_image"
-        img = rgbds[hand_camera]
-        pixel = get_object_center_pixel_from_artifacts(artifacts,
-                                                       target_detection_id,
-                                                       hand_camera)
-        return utils.create_spot_env_action("execute", objects, grasp_at_pixel,
-                                            (robot, img, pixel))
-
-    return _policy
+def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
+                             pixel: Tuple[int, int]) -> None:
+    # Grasp.
+    grasp_at_pixel(robot, img, pixel)
+    # Stow.
+    stow_arm(robot)
 
 
-def _create_place_parameterized_policy(
-        robot_obj_idx: int, surface_obj_idx: int) -> ParameterizedPolicy:
+def _place_at_relative_position_and_stow(
+        robot: Robot, rel_pose: math_helpers.SE3Pose) -> None:
+    # Place.
+    place_at_relative_position(robot, rel_pose)
+    # Stow.
+    stow_arm(robot)
+
+
+def _drop_and_stow(robot: Robot):
+    # First, move the arm to a position from which the object will drop.
+    move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_DOWN_POSE)
+    # Open the hand.
+    open_gripper(robot)
+    # Stow.
+    stow_arm(robot)
+
+
+###############################################################################
+#                    Helper parameterized option policies                     #
+###############################################################################
+
+
+def _move_to_target_policy(name: str, distance_param_idx: int,
+                           yaw_param_idx: int, robot_obj_idx: int,
+                           target_obj_idx: int,
+                           hand_pose: Optional[math_helpers.SE3Pose],
+                           state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
+
+    del memory  # not used
 
     robot, _, _ = get_robot()
 
-    def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        del memory  # not used
+    distance = params[distance_param_idx]
+    yaw = params[yaw_param_idx]
 
-        dx, dy, dz = params
+    robot_obj = objects[robot_obj_idx]
+    robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
 
-        robot_obj = objects[robot_obj_idx]
-        robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
+    target_obj = objects[target_obj_idx]
+    target_pose = utils.get_se3_pose_from_state(state, target_obj)
 
-        surface_obj = objects[surface_obj_idx]
-        surface_pose = utils.get_se3_pose_from_state(state, surface_obj)
+    rel_pose = get_relative_se2_from_se3(robot_pose, target_pose, distance,
+                                         yaw)
 
-        surface_rel_pose = robot_pose.inverse() * surface_pose
-        place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x + dx,
-                                          y=surface_rel_pose.y + dy,
-                                          z=surface_rel_pose.z + dz)
+    if hand_pose is None:
+        fn = navigate_to_relative_pose
+        fn_args = (robot, rel_pose)
+    else:
+        fn = _navigate_to_relative_pose_and_move_hand
+        fn_args = (robot, rel_pose, hand_pose)
 
-        return utils.create_spot_env_action("execute", objects,
-                                            place_at_relative_position,
-                                            (robot, place_rel_pos))
-
-    return _policy
+    return utils.create_spot_env_action(name, objects, fn, fn_args)
 
 
-def _create_stow_arm_parameterized_policy() -> ParameterizedPolicy:
-
-    robot, _, _ = get_robot()
-
-    def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        del state, memory, params  # not used
-        return utils.create_spot_env_action("execute", objects, stow_arm,
-                                            (robot, ))
-
-    return _policy
-
-
-def _create_move_hand_parameterized_policy(
-        hand_pose: math_helpers.SE3Pose) -> ParameterizedPolicy:
+def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
+                  objects: Sequence[Object], params: Array) -> Action:
+    del state, memory, params  # not used
 
     robot, _, _ = get_robot()
 
-    def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        del state, memory, params  # not used
-        return utils.create_spot_env_action("execute", objects,
-                                            move_hand_to_relative_pose,
-                                            (robot, hand_pose))
+    target_obj = objects[target_obj_idx]
+    target_detection_id = get_detection_id_for_object(target_obj)
+    rgbds = get_last_captured_images()
+    _, artifacts = get_last_detected_objects()
+    hand_camera = "hand_color_image"
+    img = rgbds[hand_camera]
+    pixel = get_object_center_pixel_from_artifacts(artifacts,
+                                                   target_detection_id,
+                                                   hand_camera)
 
-    return _policy
+    return utils.create_spot_env_action(name, objects,
+                                        _grasp_at_pixel_and_stow,
+                                        (robot, img, pixel))
 
 
-def _create_open_hand_parameterized_policy() -> ParameterizedPolicy:
+###############################################################################
+#                   Concrete parameterized option policies                    #
+###############################################################################
+
+
+def _move_to_tool_on_surface_policy(state: State, memory: Dict,
+                                    objects: Sequence[Object],
+                                    params: Array) -> Action:
+    name = "MoveToToolOnSurface"
+    distance_param_idx = 0
+    yaw_param_idx = 1
+    robot_obj_idx = 0
+    target_obj_idx = 1
+    hand_pose = DEFAULT_HAND_LOOK_DOWN_POSE
+    return _move_to_target_policy(name, distance_param_idx, yaw_param_idx,
+                                  robot_obj_idx, target_obj_idx, hand_pose,
+                                  state, memory, objects, params)
+
+
+def _move_to_tool_on_floor_policy(state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> Action:
+    name = "MoveToToolOnFloor"
+    distance_param_idx = 0
+    yaw_param_idx = 1
+    robot_obj_idx = 0
+    target_obj_idx = 1
+    hand_pose = DEFAULT_HAND_LOOK_FLOOR_POSE
+    return _move_to_target_policy(name, distance_param_idx, yaw_param_idx,
+                                  robot_obj_idx, target_obj_idx, hand_pose,
+                                  state, memory, objects, params)
+
+
+def _move_to_surface_policy(state: State, memory: Dict,
+                            objects: Sequence[Object],
+                            params: Array) -> Action:
+    name = "MoveToSurface"
+    distance_param_idx = 0
+    yaw_param_idx = 1
+    robot_obj_idx = 0
+    target_obj_idx = 1
+    hand_pose = None
+    return _move_to_target_policy(name, distance_param_idx, yaw_param_idx,
+                                  robot_obj_idx, target_obj_idx, hand_pose,
+                                  state, memory, objects, params)
+
+
+def _grasp_tool_from_surface_policy(state: State, memory: Dict,
+                                    objects: Sequence[Object],
+                                    params: Array) -> Action:
+    name = "GraspToolFromSurface"
+    target_obj_idx = 1
+    return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
+
+
+def _grasp_tool_from_floor_policy(state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> Action:
+    name = "GraspToolFromFloor"
+    target_obj_idx = 1
+    return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
+
+
+def _place_tool_on_surface_policy(state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> Action:
+    del memory  # not used
+
+    name = "PlaceToolOnSurface"
+    robot_obj_idx = 0
+    surface_obj_idx = 2
 
     robot, _, _ = get_robot()
 
-    def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        del state, memory, params  # not used
-        return utils.create_spot_env_action("execute", objects, open_gripper,
-                                            (robot, ))
+    dx, dy, dz = params
 
-    return _policy
+    robot_obj = objects[robot_obj_idx]
+    robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
 
+    surface_obj = objects[surface_obj_idx]
+    surface_pose = utils.get_se3_pose_from_state(state, surface_obj)
 
-def _create_operator_finish_parameterized_policy(
-        operator_name: str) -> ParameterizedPolicy:
+    surface_rel_pose = robot_pose.inverse() * surface_pose
+    place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x + dx,
+                                      y=surface_rel_pose.y + dy,
+                                      z=surface_rel_pose.z + dz)
 
-    def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                params: Array) -> Action:
-        del state, memory, params  # not used
-        return utils.create_spot_env_action(operator_name, objects, None,
-                                            tuple())
-
-    return _policy
+    return utils.create_spot_env_action(name, objects,
+                                        _place_at_relative_position_and_stow,
+                                        (robot, place_rel_pos))
 
 
-class _MoveToToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
-    """Navigate to the surface and look down at the object so it's in view.
+def _place_tool_on_floor_policy(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+    del state, memory, params  # not used
+    name = "PlaceToolOnFloor"
+    robot, _, _ = get_robot()
+    return utils.create_spot_env_action(name, objects, _drop_and_stow,
+                                        (robot, ))
 
-    The types are [robot, tool, surface].
 
-    The parameters are relative distance and relative yaw between the robot
-    and the surface.
+###############################################################################
+#                       Parameterized option factory                          #
+###############################################################################
+
+_OPERATOR_NAME_TO_PARAM_SPACE = {
+    "MoveToToolOnSurface": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
+    "MoveToToolOnFloor": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
+    "MoveToSurface": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
+    "GraspToolFromSurface": Box(0, 1, (0, )),
+    "GraspToolFromFloor": Box(0, 1, (0, )),
+    "PlaceToolOnSurface": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz 
+    "PlaceToolOnFloor": Box(0, 1, (0, )),
+}
+
+_OPERATOR_NAME_TO_POLICY = {
+    "MoveToToolOnSurface": _move_to_tool_on_surface_policy,
+    "MoveToToolOnFloor": _move_to_tool_on_floor_policy,
+    "MoveToSurface": _move_to_surface_policy,
+    "GraspToolFromSurface": _grasp_tool_from_surface_policy,
+    "GraspToolFromFloor": _grasp_tool_from_floor_policy,
+    "PlaceToolOnSurface": _place_tool_on_surface_policy,
+    "PlaceToolOnFloor": _place_tool_on_floor_policy,
+}
+
+
+class _SpotParameterizedOption(utils.SingletonParameterizedOption):
+    """A parameterized option for spot.
+
+    NOTE: parameterized options MUST be singletons in order to avoid nasty
+    issues with the expected atoms monitoring.
+
+    Also note that we need to define the policies outside the class, rather
+    than pass the policies into the class, to avoid pickling issues via bosdyn.
     """
 
-    def __init__(self, name: str, types: List[Type]) -> None:
-
-        # Parameters are relative distance, dyaw.
-        params_space = Box(-np.inf, np.inf, (2, ))
-
-        # Navigate to the tool.
-        navigate = utils.SingletonParameterizedOption(
-            "MoveToToolOnSurface-Navigate",
-            _create_navigate_parameterized_policy(robot_obj_idx=0,
-                                                  target_obj_idx=1,
-                                                  distance_param_idx=0,
-                                                  yaw_param_idx=1),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Look down at the surface. Note that we can't open the hand because
-        # that would mess up the HandEmpty detector.
-        move_hand = utils.SingletonParameterizedOption(
-            "MoveToToolOnSurface-MoveHand",
-            _create_move_hand_parameterized_policy(
-                DEFAULT_HAND_LOOK_DOWN_POSE),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Finish the action.
-        finish = utils.SingletonParameterizedOption(
-            "MoveToToolOnSurface-Finish",
-            _create_operator_finish_parameterized_policy(name),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Create the linear chain.
-        children = [navigate, move_hand, finish]
-
-        super().__init__(name, children)
-
-    def __getnewargs__(self) -> Tuple:
-        """Avoid pickling issues with bosdyn functions."""
-        return (self.name, self.types)
-
-    def __getstate__(self) -> Dict:
-        """Avoid pickling issues with bosdyn functions."""
-        return {"name": self.name}
-
-
-class _MoveToToolOnFloorParameterizedOption(LinearChainParameterizedOption):
-    """Navigate to the object and look down at the object so it's in view.
-
-    The types are [robot, tool].
-
-    The parameters are relative distance and relative yaw between the robot
-    and the tool.
-    """
-
-    def __init__(self, name: str, types: List[Type]) -> None:
-
-        # Parameters are relative distance, dyaw.
-        params_space = Box(-np.inf, np.inf, (2, ))
-
-        # Navigate to the floor.
-        navigate = utils.SingletonParameterizedOption(
-            "MoveToToolOnFloor-Navigate",
-            _create_navigate_parameterized_policy(robot_obj_idx=0,
-                                                  target_obj_idx=1,
-                                                  distance_param_idx=0,
-                                                  yaw_param_idx=1),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Look down at the surface. Note that we can't open the hand because
-        # that would mess up the HandEmpty detector.
-        move_hand = utils.SingletonParameterizedOption(
-            "MoveToToolOnFloor-MoveHand",
-            _create_move_hand_parameterized_policy(
-                DEFAULT_HAND_LOOK_FLOOR_POSE),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Finish the action.
-        finish = utils.SingletonParameterizedOption(
-            "MoveToToolOnFloor-Finish",
-            _create_operator_finish_parameterized_policy(name),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Create the linear chain.
-        children = [navigate, move_hand, finish]
-
-        super().__init__(name, children)
-
-    def __getnewargs__(self) -> Tuple:
-        """Avoid pickling issues with bosdyn functions."""
-        return (self.name, self.types)
-
-    def __getstate__(self) -> Dict:
-        """Avoid pickling issues with bosdyn functions."""
-        return {"name": self.name}
-
-
-class _MoveToSurfaceParameterizedOption(LinearChainParameterizedOption):
-    """Navigate to the surface.
-
-    The types are [robot, surface].
-
-    The parameters are relative distance and relative yaw between the robot
-    and the surface.
-    """
-
-    def __init__(self, name: str, types: List[Type]) -> None:
-
-        # Parameters are relative distance, dyaw.
-        params_space = Box(-np.inf, np.inf, (2, ))
-
-        # Navigate to the floor.
-        navigate = utils.SingletonParameterizedOption(
-            "MoveToSurface-Navigate",
-            _create_navigate_parameterized_policy(robot_obj_idx=0,
-                                                  target_obj_idx=1,
-                                                  distance_param_idx=0,
-                                                  yaw_param_idx=1),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Finish the action.
-        finish = utils.SingletonParameterizedOption(
-            "MoveToSurface-Finish",
-            _create_operator_finish_parameterized_policy(name),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Create the linear chain.
-        children = [navigate, finish]
-
-        super().__init__(name, children)
-
-    def __getnewargs__(self) -> Tuple:
-        """Avoid pickling issues with bosdyn functions."""
-        return (self.name, self.types)
-
-    def __getstate__(self) -> Dict:
-        """Avoid pickling issues with bosdyn functions."""
-        return {"name": self.name}
-
-
-class _GraspToolFromSurfaceParameterizedOption(LinearChainParameterizedOption):
-    """Grasp a tool on a surface.
-
-    The types are [robot, tool, surface].
-
-    There are currently no parameters.
-    """
-
-    def __init__(self, name: str, types: List[Type]) -> None:
-
-        # Currently no parameters.
-        params_space = Box(0, 1, (0, ))
-
-        # Pick the tool.
-        grasp = utils.SingletonParameterizedOption(
-            "GraspToolFromSurface-Grasp",
-            _create_grasp_parameterized_policy(target_obj_idx=1),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Stow the arm.
-        stow = utils.SingletonParameterizedOption(
-            "GraspToolFromSurface-Stow",
-            _create_stow_arm_parameterized_policy(),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Finish the action.
-        finish = utils.SingletonParameterizedOption(
-            "GraspToolFromSurface-Finish",
-            _create_operator_finish_parameterized_policy(name),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Create the linear chain.
-        children = [grasp, stow, finish]
-
-        super().__init__(name, children)
-
-    def __getnewargs__(self) -> Tuple:
-        """Avoid pickling issues with bosdyn functions."""
-        return (self.name, self.types)
-
-    def __getstate__(self) -> Dict:
-        """Avoid pickling issues with bosdyn functions."""
-        return {"name": self.name}
-
-
-class _GraspToolFromFloorParameterizedOption(LinearChainParameterizedOption):
-    """Grasp a tool from the floor.
-
-    The types are [robot, tool].
-
-    There are currently no parameters.
-    """
-
-    def __init__(self, name: str, types: List[Type]) -> None:
-
-        # Currently no parameters.
-        params_space = Box(0, 1, (0, ))
-
-        # Pick the tool.
-        grasp = utils.SingletonParameterizedOption(
-            "GraspToolFromSurface-Grasp",
-            _create_grasp_parameterized_policy(target_obj_idx=1),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Stow the arm.
-        stow = utils.SingletonParameterizedOption(
-            "GraspToolFromSurface-Stow",
-            _create_stow_arm_parameterized_policy(),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Finish the action.
-        finish = utils.SingletonParameterizedOption(
-            "GraspToolFromFloor-Finish",
-            _create_operator_finish_parameterized_policy(name),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Create the linear chain.
-        children = [grasp, stow, finish]
-
-        super().__init__(name, children)
-
-    def __getnewargs__(self) -> Tuple:
-        """Avoid pickling issues with bosdyn functions."""
-        return (self.name, self.types)
-
-    def __getstate__(self) -> Dict:
-        """Avoid pickling issues with bosdyn functions."""
-        return {"name": self.name}
-
-
-class _PlaceToolOnSurfaceParameterizedOption(LinearChainParameterizedOption):
-    """Place a tool on a surface.
-
-    The types are [robot, tool, surface].
-
-    Parameters are relative dx, dy, dz (to surface objects center).
-    """
-
-    def __init__(self, name: str, types: List[Type]) -> None:
-
-        # Parameters are relative dx, dy, dz (to surface objects center).
-        params_space = Box(-np.inf, np.inf, (3, ))
-
-        # Place the tool.
-        place = utils.SingletonParameterizedOption(
-            "PlaceToolOnSurface-Place",
-            _create_place_parameterized_policy(robot_obj_idx=0,
-                                               surface_obj_idx=2),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Stow the arm.
-        stow = utils.SingletonParameterizedOption(
-            "GraspToolFromSurface-Stow",
-            _create_stow_arm_parameterized_policy(),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Finish the action.
-        finish = utils.SingletonParameterizedOption(
-            "PlaceToolOnSurface-Finish",
-            _create_operator_finish_parameterized_policy(name),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Create the linear chain.
-        children = [place, stow, finish]
-
-        super().__init__(name, children)
-
-    def __getnewargs__(self) -> Tuple:
-        """Avoid pickling issues with bosdyn functions."""
-        return (self.name, self.types)
-
-    def __getstate__(self) -> Dict:
-        """Avoid pickling issues with bosdyn functions."""
-        return {"name": self.name}
-
-
-class _PlaceToolOnFloorParameterizedOption(LinearChainParameterizedOption):
-    """Place a tool on a surface.
-
-    The types are [robot, tool].
-
-    There are currently no parameters.
-    """
-
-    def __init__(self, name: str, types: List[Type]) -> None:
-
-        # There are currently no parameters.
-        params_space = Box(0, 1, (0, ))
-
-        # First, move the arm to a position from which the
-        # object will drop.
-        move_hand = utils.SingletonParameterizedOption(
-            "PlaceToolOnFloor-MoveHand",
-            _create_move_hand_parameterized_policy(
-                DEFAULT_HAND_LOOK_DOWN_POSE),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Just naively open the hand and assume the object will drop.
-        open_hand = utils.SingletonParameterizedOption(
-            "PlaceToolOnFloor-OpenHand",
-            _create_open_hand_parameterized_policy(),
-            types=types,
-            params_space=params_space,
-        )
-
-        close_hand = utils.SingletonParameterizedOption(
-            "PlaceToolOnFloor-StowArm",
-            _create_stow_arm_parameterized_policy(),
-            types=types,
-            params_space=params_space)
-
-        # Finish the action.
-        finish = utils.SingletonParameterizedOption(
-            "PlaceToolOnFloor-Finish",
-            _create_operator_finish_parameterized_policy(name),
-            types=types,
-            params_space=params_space,
-        )
-
-        # Create the linear chain.
-        children = [move_hand, open_hand, close_hand, finish]
-
-        super().__init__(name, children)
+    def __init__(self, operator_name: str, types: List[Type]) -> None:
+        params_space = _OPERATOR_NAME_TO_PARAM_SPACE[operator_name]
+        policy = _OPERATOR_NAME_TO_POLICY[operator_name]
+        super().__init__(operator_name, policy, types, params_space)
 
     def __getnewargs__(self) -> Tuple:
         """Avoid pickling issues with bosdyn functions."""
@@ -553,21 +294,10 @@ class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
         env = get_or_create_env(env_name)
         assert isinstance(env, SpotEnv)
 
-        op_name_to_option_cls: Dict[str, TypingType[ParameterizedOption]] = {
-            "MoveToToolOnSurface": _MoveToToolOnSurfaceParameterizedOption,
-            "MoveToToolOnFloor": _MoveToToolOnFloorParameterizedOption,
-            "MoveToSurface": _MoveToSurfaceParameterizedOption,
-            "GraspToolFromSurface": _GraspToolFromSurfaceParameterizedOption,
-            "GraspToolFromFloor": _GraspToolFromFloorParameterizedOption,
-            "PlaceToolOnSurface": _PlaceToolOnSurfaceParameterizedOption,
-            "PlaceToolOnFloor": _PlaceToolOnFloorParameterizedOption,
-        }
-
         options: Set[ParameterizedOption] = set()
         for operator in env.strips_operators:
-            option_cls = op_name_to_option_cls[operator.name]
             operator_types = [p.type for p in operator.parameters]
-            option = option_cls(operator.name, operator_types)  # type: ignore
+            option = _SpotParameterizedOption(operator.name, operator_types)
             options.add(option)
 
         return options

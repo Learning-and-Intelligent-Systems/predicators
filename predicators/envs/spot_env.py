@@ -217,20 +217,9 @@ class SpotEnv(BaseEnv):
         assert isinstance(obs, _SpotObservation)
         assert self.action_space.contains(action.arr)
 
-        operator_names = {o.name for o in self._strips_operators}
-
-        # The action corresponds to an operator finishing.
-        if action_name in operator_names:
-            # Update the non-percepts.
-            operator_names = {o.name for o in self._strips_operators}
-            next_nonpercept = self._get_next_nonpercept_atoms(obs, action)
-            # NOTE: the observation is only updated after an operator finishes!
-            # This assumes options don't really need to be closed-loop. We do
-            # this for significant speed-up purposes.
-            self._current_observation = self._build_observation(
-                next_nonpercept)
-        # The action corresponds to the task finishing.
-        elif action_name == "done":
+        # Special case: the action is "done", indicating that the robot
+        # believes it has finished the task. Used for goal checking.
+        if action_name == "done":
             while True:
                 goal_description = self._current_task.goal_description
                 logging.info(f"The goal is: {goal_description}")
@@ -244,15 +233,27 @@ class SpotEnv(BaseEnv):
                     break
                 logging.info("Invalid input, must be either 'y' or 'n'")
             return self._current_observation
-        # The action is a real action to be executed.
+
+        # Otherwise, the action is either an operator to execute or a special
+        # action. The only difference between the two is that operators update
+        # the non-perfect states.
+
+        operator_names = {o.name for o in self._strips_operators}
+
+        # The action corresponds to an operator finishing.
+        if action_name in operator_names:
+            # Update the non-percepts.
+            operator_names = {o.name for o in self._strips_operators}
+            next_nonpercept = self._get_next_nonpercept_atoms(obs, action)
         else:
-            assert action_name.startswith("execute")
-            # Execute!
-            action_fn(*action_fn_args)  # type: ignore
-            # For finding in particular, we need to reperceive!
-            if action_name.endswith("perceive"):
-                nonpercept = obs.nonpercept_atoms
-                self._current_observation = self._build_observation(nonpercept)
+            next_nonpercept = obs.nonpercept_atoms
+
+        # Execute the action in the real environment.
+        action_fn(*action_fn_args)  # type: ignore
+
+        # Get the new observation.
+        self._current_observation = self._build_observation(next_nonpercept)
+
         return self._current_observation
 
     def get_observation(self) -> Observation:

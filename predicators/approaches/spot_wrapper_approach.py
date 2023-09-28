@@ -74,7 +74,7 @@ class SpotWrapperApproach(BaseApproachWrapper):
                     for o in lost_objects
                 }
                 return utils.create_spot_env_action(
-                    "execute-and-perceive", [], find_objects,
+                    "find-objects", [], find_objects,
                     (robot, localizer, lease_client, lost_object_ids))
             # Found the objects. Stow the arm before replanning.
             if need_stow:
@@ -83,7 +83,7 @@ class SpotWrapperApproach(BaseApproachWrapper):
                 need_stow = False
                 self._base_approach_has_control = False
                 robot, _, _ = get_robot()
-                return utils.create_spot_env_action("execute", [], stow_arm,
+                return utils.create_spot_env_action("stow-arm", [], stow_arm,
                                                     (robot, ))
             # Check if we need to re-solve.
             if base_approach_policy is None:
