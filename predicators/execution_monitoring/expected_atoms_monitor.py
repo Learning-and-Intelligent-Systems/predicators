@@ -22,8 +22,6 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         # bilevel planning approach.
         assert "oracle" in CFG.approach or "active_sampler" in CFG.approach \
             or "maple_q" in CFG.approach
-        print(self._approach_info)
-        import ipdb; ipdb.set_trace()
         # If the approach info is empty, don't replan.
         if not self._approach_info:  # pragma: no cover
             return False
