@@ -8,7 +8,7 @@ import numpy as np
 from bosdyn.api import estop_pb2, robot_state_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
-from bosdyn.client.exceptions import TimedOutError
+from bosdyn.client.exceptions import ProxyConnectionError, TimedOutError
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
@@ -101,7 +101,7 @@ def get_robot_state(robot: Robot,
             robot_state = robot_state_client.get_robot_state(
                 timeout=timeout_per_call)
             return robot_state
-        except TimedOutError:
+        except (TimedOutError, ProxyConnectionError):
             print("WARNING: get robot state failed once, retrying...")
     raise RuntimeError("get_robot_state() failed permanently.")
 
