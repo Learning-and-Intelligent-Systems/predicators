@@ -240,7 +240,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "MoveToSurface": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "GraspToolFromSurface": Box(0, 1, (0, )),
     "GraspToolFromFloor": Box(0, 1, (0, )),
-    "PlaceToolOnSurface": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz 
+    "PlaceToolOnSurface": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "PlaceToolOnFloor": Box(0, 1, (0, )),
 }
 
