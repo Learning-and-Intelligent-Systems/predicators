@@ -19,9 +19,10 @@ from predicators.explorers.base_explorer import BaseExplorer
 from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once
 from predicators.settings import CFG
-from predicators.structs import NSRT, Action, ExplorationStrategy, \
-    GroundAtom, NSRTSampler, ParameterizedOption, Predicate, State, Task, \
-    Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
+from predicators.structs import NSRT, Action, DefaultState, \
+    ExplorationStrategy, GroundAtom, NSRTSampler, ParameterizedOption, \
+    Predicate, State, Task, Type, _GroundNSRT, _GroundSTRIPSOperator, \
+    _Option
 
 # Helper type to distinguish training tasks from replanning tasks.
 _TaskID = Tuple[str, int]
@@ -108,11 +109,17 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         def _option_policy(state: State) -> _Option:
             logging.info("[Explorer] Option policy called.")
-            nonlocal assigned_task_finished, current_policy, \
+            nonlocal assigned_task, assigned_task_finished, current_policy, \
                 next_practice_nsrt, using_random, assigned_task_horizon
 
             # Need to wait for policy to get called to "see" the train task.
             self._seen_train_task_idxs.add(train_task_idx)
+
+            # Hack to deal with the fact that train tasks have empty initial
+            # observations in the spot environment.
+            if assigned_task.init is DefaultState:
+                assigned_task = Task(state, assigned_task.goal)
+                self._train_tasks[train_task_idx] = assigned_task
 
             if using_random:
                 logging.info("[Explorer] Using random option policy.")
@@ -448,6 +455,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 "train": self._train_tasks,
                 "replan": self._replanning_tasks,
             }[task_type][task_idx]
+            assert task.init is not DefaultState
             plan, _, _ = run_task_plan_once(
                 task,
                 self._nsrts,
