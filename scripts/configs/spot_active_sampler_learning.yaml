@@ -21,7 +21,7 @@ FLAGS:
   bilevel_plan_without_sim: "True"
   max_initial_demos: 0
   num_train_tasks: 1000  # doesn't really matter
-  num_test_tasks: 10
+  num_test_tasks: 0  # can add back later if we want
   max_num_steps_interaction_request: 50
   sampler_mlp_classifier_max_itr: 100000
   mlp_classifier_balance_data: False

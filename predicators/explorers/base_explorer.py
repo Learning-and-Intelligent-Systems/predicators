@@ -8,7 +8,11 @@ from typing import List, Set
 import numpy as np
 from gym.spaces import Box
 
+from predicators import utils
+from predicators.envs.spot_env import get_detection_id_for_object, get_robot
 from predicators.settings import CFG
+from predicators.spot_utils.skills.spot_find_objects import find_objects
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.structs import Action, ExplorationStrategy, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
@@ -74,13 +78,22 @@ class BaseExplorer(abc.ABC):
                     f"[Explorer Spot Wrapper] Lost objects: {lost_objects}")
                 # Reset the base approach policy.
                 need_stow = True
-                raise NotImplementedError("Coming soon!")
+                robot, localizer, lease_client = get_robot()
+                lost_object_ids = {
+                    get_detection_id_for_object(o)
+                    for o in lost_objects
+                }
+                return utils.create_spot_env_action(
+                    "find-objects", [], find_objects,
+                    (robot, localizer, lease_client, lost_object_ids))
             # Found the objects. Stow the arm before replanning.
             if need_stow:
                 logging.info(
                     "[Explorer Spot Wrapper] Lost objects found, stowing.")
                 need_stow = False
-                raise NotImplementedError("Coming soon!")
+                robot, _, _ = get_robot()
+                return utils.create_spot_env_action("stow-arm", [], stow_arm,
+                                                    (robot, ))
             # Give control back to base policy.
             logging.info(
                 "[Explorer Spot Wrapper] Giving control to base policy.")
