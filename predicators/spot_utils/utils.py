@@ -115,7 +115,8 @@ def sample_move_offset_from_target(
         y = target_origin[1] + dy
         # Face towards the target.
         rot = angle + np.pi if angle < 0 else angle - np.pi
-        cand_geom = Rectangle(x, y, robot_geom.width, robot_geom.height, rot)
+        cand_geom = Rectangle.from_center(x, y, robot_geom.width,
+                                          robot_geom.height, rot)
         # Check for out-of-bounds.
         oob = False
         for cx, cy in cand_geom.vertices:
@@ -161,10 +162,19 @@ def get_robot_gripper_open_percentage(robot: Robot) -> float:
 
 def spot_pose_to_geom2d(pose: math_helpers.SE3Pose) -> Rectangle:
     """Use known dimensions for spot robot to create a bounding box for the
-    robot (top-down view)."""
-    length = 0.85  # meters, approximately
-    width = 0.25
-    x = pose.x
-    y = pose.y
-    theta = pose.rot.to_yaw()
-    return Rectangle(x, y, length, width, theta)
+    robot (top-down view).
+
+    The origin of the rectangle is the back RIGHT leg of the spot.
+
+    NOTE: the spot's x axis in the body frame points forward and the y axis
+    points leftward. See the link below for an illustration of the frame.
+    https://dev.bostondynamics.com/docs/concepts/geometry_and_frames
+    """
+    # We want to create a rectangle whose center is (pose.x, pose.y),
+    # whose width (x direction) is front_to_back_length, whose height
+    # (y direction) is side_length, and whose rotation is the pose yaw.
+    front_to_back_length = 0.85  # meters, approximately
+    side_length = 0.25
+    yaw = pose.rot.to_yaw()
+    return Rectangle.from_center(pose.x, pose.y, front_to_back_length,
+                                 side_length, yaw)

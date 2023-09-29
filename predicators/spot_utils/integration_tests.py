@@ -211,7 +211,7 @@ def test_move_with_sampling() -> None:
 
     # Approximate values for the set up on the fourth floor.
     room_bounds = (0.4, -1.0, 2.25, 1.75)  # min x, min y, max x, max y
-    surface_radius = 0.25
+    surface_radius = 0.2
 
     num_samples = 10
     max_distance = 1.5
@@ -278,17 +278,28 @@ def test_move_with_sampling() -> None:
                    1.1 * (room_bounds[3] - room_bounds[1]))
         _, ax = plt.subplots(1, 1, figsize=figsize)
         robot_geom.plot(ax, facecolor="lightgreen", edgecolor="black")
+        # Draw the origin of the robot, which should be the back right leg.
+        ax.scatter([robot_geom.x], [robot_geom.y],
+                   s=120,
+                   marker="*",
+                   color="gray",
+                   zorder=3)
         next_robot_geom.plot(ax,
                              facecolor="lightblue",
                              edgecolor="black",
                              linestyle="--")
+        ax.scatter([next_robot_geom.x], [next_robot_geom.y],
+                   s=120,
+                   marker="*",
+                   color="gray",
+                   zorder=3)
         for object_id, geom in zip(object_ids, collision_geoms):
             geom.plot(ax, facecolor="lightgray", edgecolor="black")
             if object_id == surface1:
                 ax.scatter([geom.x], [geom.y],
                            s=320,
-                           marker='*',
-                           color='gold',
+                           marker="*",
+                           color="gold",
                            zorder=3)
         # Draw the walls.
         min_x, min_y, max_x, max_y = room_bounds
