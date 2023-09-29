@@ -162,8 +162,8 @@ def get_robot_gripper_open_percentage(robot: Robot) -> float:
 def spot_pose_to_geom2d(pose: math_helpers.SE3Pose) -> Rectangle:
     """Use known dimensions for spot robot to create a bounding box for the
     robot (top-down view)."""
-    length = 0.75  # meters
-    width = 0.2
+    length = 0.85  # meters, approximately
+    width = 0.25
     x = pose.x
     y = pose.y
     theta = pose.rot.to_yaw()
