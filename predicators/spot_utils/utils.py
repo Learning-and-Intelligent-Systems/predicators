@@ -1,7 +1,7 @@
 """Small utility functions for spot."""
 
 import sys
-from typing import Optional, Tuple
+from typing import Optional, Set, Tuple
 
 import cv2
 import numpy as np
@@ -12,6 +12,8 @@ from bosdyn.client.exceptions import ProxyConnectionError, TimedOutError
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
+
+from predicators.utils import Rectangle, _Geom2D
 
 # Pose for the hand (relative to the body) that looks down in front.
 DEFAULT_HAND_LOOK_DOWN_POSE = math_helpers.SE3Pose(
@@ -90,6 +92,51 @@ def get_relative_se2_from_se3(
     return robot_se2.inverse() * target_se2
 
 
+def sample_move_offset_from_target(
+        target_origin: Tuple[float, float],
+        robot_geom: Rectangle,
+        collision_geoms: Set[_Geom2D],
+        rng: np.random.Generator,
+        max_distance: float,
+        room_bounds: Tuple[float, float, float, float],
+        max_samples=100) -> Tuple[float, float, Rectangle]:
+    """Sampler for navigating to a target object.
+
+    Returns a distance an an angle in radians. Also returns the next
+    robot geom for visualization and debugging convenience.
+    """
+    min_x, min_y, max_x, max_y = room_bounds
+    for _ in range(max_samples):
+        distance = rng.uniform(0.0, max_distance)
+        angle = rng.uniform(-np.pi, np.pi)
+        dx = np.cos(angle) * distance
+        dy = np.sin(angle) * distance
+        x = target_origin[0] + dx
+        y = target_origin[1] + dy
+        # Face towards the target.
+        rot = angle + np.pi if angle < 0 else angle - np.pi
+        cand_geom = Rectangle(x, y, robot_geom.width, robot_geom.height, rot)
+        # Check for out-of-bounds.
+        oob = False
+        for cx, cy in cand_geom.vertices:
+            if cx < min_x or cy < min_y or cx > max_x or cy > max_y:
+                oob = True
+                break
+        if oob:
+            continue
+        # Check for collisions.
+        collision = False
+        for collision_geom in collision_geoms:
+            if collision_geom.intersects(cand_geom):
+                collision = True
+                break
+        # Success!
+        if not collision:
+            return distance, angle, cand_geom
+
+    raise RuntimeError(f"Sampling failed after {max_samples} attempts")
+
+
 def get_robot_state(robot: Robot,
                     timeout_per_call: float = 20,
                     num_retries: int = 10) -> robot_state_pb2.RobotState:
@@ -110,3 +157,14 @@ def get_robot_gripper_open_percentage(robot: Robot) -> float:
     """Get the current state of how open the gripper is."""
     robot_state = get_robot_state(robot)
     return float(robot_state.manipulator_state.gripper_open_percentage)
+
+
+def spot_pose_to_geom2d(pose: math_helpers.SE3Pose) -> _Geom2D:
+    """Use known dimensions for spot robot to create a bounding box for the
+    robot (top-down view)."""
+    length = 0.75  # meters
+    width = 0.2
+    x = pose.x
+    y = pose.y
+    theta = pose.rot.to_yaw()
+    return Rectangle(x, y, length, width, theta)
