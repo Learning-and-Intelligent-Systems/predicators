@@ -1,7 +1,7 @@
 """Small utility functions for spot."""
 
 import sys
-from typing import Optional, Set, Tuple
+from typing import Collection, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -95,11 +95,11 @@ def get_relative_se2_from_se3(
 def sample_move_offset_from_target(
         target_origin: Tuple[float, float],
         robot_geom: Rectangle,
-        collision_geoms: Set[_Geom2D],
+        collision_geoms: Collection[_Geom2D],
         rng: np.random.Generator,
         max_distance: float,
         room_bounds: Tuple[float, float, float, float],
-        max_samples=100) -> Tuple[float, float, Rectangle]:
+        max_samples: int = 100) -> Tuple[float, float, Rectangle]:
     """Sampler for navigating to a target object.
 
     Returns a distance an an angle in radians. Also returns the next
@@ -159,7 +159,7 @@ def get_robot_gripper_open_percentage(robot: Robot) -> float:
     return float(robot_state.manipulator_state.gripper_open_percentage)
 
 
-def spot_pose_to_geom2d(pose: math_helpers.SE3Pose) -> _Geom2D:
+def spot_pose_to_geom2d(pose: math_helpers.SE3Pose) -> Rectangle:
     """Use known dimensions for spot robot to create a bounding box for the
     robot (top-down view)."""
     length = 0.75  # meters

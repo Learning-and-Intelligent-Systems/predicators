@@ -209,11 +209,11 @@ def test_move_with_sampling() -> None:
     """Test for moving to a surface with a sampled rotation and distance,
     taking into account potential collisions with walls and other surfaces."""
 
-    # TODO figure out how to extract these from the localizer.
+    # Approximate values for the set up on the fourth floor.
     room_bounds = (0.4, -0.4, 2.25, 1.75)  # min x, min y, max x, max y
-    surface_radius = 0.25  # approximation
+    surface_radius = 0.25
 
-    num_samples = 5
+    num_samples = 10
     max_distance = 1.5
 
     # Parse flags.
@@ -277,13 +277,13 @@ def test_move_with_sampling() -> None:
         figsize = (1.1 * (room_bounds[2] - room_bounds[0]),
                    1.1 * (room_bounds[3] - room_bounds[1]))
         _, ax = plt.subplots(1, 1, figsize=figsize)
-        robot_geom.plot(ax, color="lightgreen", edgecolor="black")
+        robot_geom.plot(ax, facecolor="lightgreen", edgecolor="black")
         next_robot_geom.plot(ax,
-                             color="lightblue",
+                             facecolor="lightblue",
                              edgecolor="black",
                              linestyle="--")
         for object_id, geom in zip(object_ids, collision_geoms):
-            geom.plot(ax, color="lightgray", edgecolor="black")
+            geom.plot(ax, facecolor="lightgray", edgecolor="black")
             if object_id == surface1:
                 ax.scatter([geom.x], [geom.y],
                            s=320,
