@@ -210,7 +210,7 @@ def test_move_with_sampling() -> None:
     taking into account potential collisions with walls and other surfaces."""
 
     # Approximate values for the set up on the fourth floor.
-    room_bounds = (0.4, -0.4, 2.25, 1.75)  # min x, min y, max x, max y
+    room_bounds = (0.4, -1.0, 2.25, 1.75)  # min x, min y, max x, max y
     surface_radius = 0.25
 
     num_samples = 10
