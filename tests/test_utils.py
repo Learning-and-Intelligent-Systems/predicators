@@ -390,6 +390,13 @@ def test_rectangle():
     rect6 = rect5.rotate_about_point(origin.x, origin.y, rot=np.pi / 4)
     rect6.plot(ax, facecolor="none", edgecolor="black", linestyle="dashed")
 
+    rect7 = utils.Rectangle.from_center(center_x=1,
+                                        center_y=2,
+                                        width=2,
+                                        height=4,
+                                        rotation_about_center=0)
+    assert rect7.center == (1, 2)
+
     # Uncomment for debugging.
     # plt.savefig("/tmp/rectangle_unit_test.png")
 
