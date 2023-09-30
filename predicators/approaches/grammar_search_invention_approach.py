@@ -1073,6 +1073,37 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             logging.info(f"Total {len(final_clusters)} final clusters.")
 
+            ####
+            def cluster_to_op_num(segment, clusters):
+                for i, c in enumerate(clusters):
+                    if segment in c:
+                        return f"Op{i}"
+            # Go through demos
+            temp = []
+            for segmented_traj in segmented_trajs:
+                traj = []
+                for seg in segmented_traj:
+                    traj.append(cluster_to_op_num(seg, final_clusters))
+                temp.append(traj)
+                print(traj)
+
+            # operator to preconditions, and add effects
+            # filter out an operator that barely ever appears
+            ddd = {}
+            for i, c in enumerate(final_clusters):
+                op_name = "Op"+str(i)
+                ddd[op_name] = [set(), set()] # preconditions, add_effects
+
+            # For clusters that appear at the end,
+            # we can narrow down their add effects as:
+            # they DEFINITELY have an add effect that whatever goal atoms
+            # were not true in the pre-image.
+            # But beyond that, they may have other effects?
+            #
+
+
+            ####
+
             add_effects_per_cluster = []
             all_add_effects = set()
             for j, c in enumerate(final_clusters):
@@ -1082,6 +1113,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     ungrounded_add_effects_per_segment.append(set(a.predicate for a in add_effects))
                 add_effects = set.intersection(*ungrounded_add_effects_per_segment)
                 add_effects_per_cluster.append(add_effects)
+
+                init_atoms_per_segment = [s.init_atoms for s in c]
+                ungrounded_init_atoms_per_segment = []
+                for init_atoms in init_atoms_per_segment:
+                    ungrounded_init_atoms_per_segment.append(set(a.predicate for a in init_atoms))
+                init_atoms = set.intersection(*ungrounded_init_atoms_per_segment)
+                op_name = "Op"+str(j)
+                ddd[op_name][0] = init_atoms
+                ddd[op_name][1] = add_effects
+
                 print(f"Cluster {j} with option {c[0].get_option().name}, predicates:")
                 for a in add_effects:
                     print(a)
@@ -1223,7 +1264,30 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             #
 
             # Remove the initial predicates.
-            predicates_to_keep -= initial_predicates
+            # predicates_to_keep -= initial_predicates
+
+            # remove predicates we aren't keeping
+            for i, c in enumerate(final_clusters):
+                if len(c) < 10:
+                    ddd.pop("Op"+str(i))
+            print()
+            print()
+            for op, stuff in ddd.items():
+                print()
+                ddd[op][0] = ddd[op][0].intersection(predicates_to_keep)
+                ddd[op][1] = ddd[op][1].intersection(predicates_to_keep)
+
+                preconditions, add_effects = stuff
+                print(op + ": ")
+                print("preconditions: ")
+                for p in preconditions:
+                    print(p)
+                print()
+                print("add effects: ")
+                for p in add_effects:
+                    print(p)
+
+            import pdb; pdb.set_trace()
 
             logging.info(
                 f"\nSelected {len(predicates_to_keep)} predicates out of "
