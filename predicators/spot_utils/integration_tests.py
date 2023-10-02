@@ -29,10 +29,11 @@ from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
+from predicators.spot_utils.skills.spot_dump import dump_container
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
     get_relative_se2_from_se3, sample_move_offset_from_target, \
-    spot_pose_to_geom2d, verify_estop
+    spot_pose_to_geom2d, verify_estop, DEFAULT_HAND_LOOK_FLOOR_POSE
 
 
 def test_find_move_pick_place(
@@ -315,6 +316,138 @@ def test_move_with_sampling() -> None:
         navigate_to_relative_pose(robot, rel_pose)
 
 
+def test_repeated_brush_bucket_dump_pick_place(
+        num_repeats: int = 3,
+        pre_pick_floor_nav_distance: float = 1.25,
+        pre_place_nav_distance: float = 1.0,
+        pre_dump_nav_distance: float = 1.5,
+        pre_pick_nav_angle: float = -np.pi / 2,
+        pre_place_nav_angle: float = -np.pi / 2,
+        place_offset_z: float = 0.35,
+        post_dump_place_offset_z: float = 0.05,
+        bucket_grasp_dr: int = 50):
+    """Test repeatedly picking, placing, and dumping a brush into a bucket.
+    
+    The brush should start outside the bucket.
+    """
+
+    # Parse flags.
+    args = utils.parse_args(env_required=False,
+                            seed_required=False,
+                            approach_required=False)
+    utils.update_config(args)
+
+    # Set up the robot and localizer.
+    hostname = CFG.spot_robot_ip
+    upload_dir = Path(__file__).parent / "graph_nav_maps"
+    path = upload_dir / CFG.spot_graph_nav_map
+    sdk = create_standard_sdk("TestClient")
+    robot = sdk.create_robot(hostname)
+    authenticate(robot)
+    verify_estop(robot)
+    lease_client = robot.ensure_client(LeaseClient.default_service_name)
+    lease_client.take()
+    lease_keepalive = LeaseKeepAlive(lease_client,
+                                     must_acquire=True,
+                                     return_at_exit=True)
+    assert path.exists()
+    localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+
+    # Run test with april tag cube.
+    bucket = LanguageObjectDetectionID("large red bucket")
+    brush = LanguageObjectDetectionID("brush")
+
+    for _ in range(num_repeats):
+        # Find the brush and bucket.
+        go_home(robot, localizer)
+        localizer.localize()
+
+        # Find objects.
+        detections, _ = init_search_for_objects(robot, localizer,
+                                                [bucket, brush])
+
+        # Move to the brush.
+        robot_pose = localizer.get_last_robot_pose()
+        rel_pose = get_relative_se2_from_se3(robot_pose, detections[brush],
+                                             pre_pick_floor_nav_distance,
+                                             pre_pick_nav_angle)
+        navigate_to_relative_pose(robot, rel_pose)
+        localizer.localize()
+
+        # Look down at the floor.
+        move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_FLOOR_POSE)
+        open_gripper(robot)
+
+        # Capture an image from the hand camera.
+        hand_camera = "hand_color_image"
+        rgbds = capture_images(robot, localizer, [hand_camera])
+
+        # Run detection to get a pixel for grasping.
+        _, artifacts = detect_objects([brush], rgbds)
+        pixel = get_object_center_pixel_from_artifacts(artifacts, brush,
+                                                       hand_camera)
+
+        # Pick at the pixel with a top-down grasp.
+        grasp_at_pixel(robot, rgbds[hand_camera], pixel)
+        localizer.localize()
+
+        # Stow the arm.
+        stow_arm(robot)
+
+        # Move to the bucket.
+        robot_pose = localizer.get_last_robot_pose()
+        rel_pose = get_relative_se2_from_se3(robot_pose, detections[bucket],
+                                             pre_place_nav_distance,
+                                             pre_place_nav_angle)
+        navigate_to_relative_pose(robot, rel_pose)
+        localizer.localize()
+
+        # Place in the bucket.
+        robot_pose = localizer.get_last_robot_pose()
+        surface_rel_pose = robot_pose.inverse() * detections[bucket]
+        place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x,
+                                          y=surface_rel_pose.y,
+                                          z=surface_rel_pose.z +
+                                          place_offset_z)
+        place_at_relative_position(robot, place_rel_pos)
+
+        # Stow the arm again.
+        stow_arm(robot)
+
+        # Navigate to look at the bucket.
+        robot_pose = localizer.get_last_robot_pose()
+        rel_pose = get_relative_se2_from_se3(robot_pose, detections[bucket],
+                                             pre_dump_nav_distance,
+                                             pre_place_nav_angle)
+        navigate_to_relative_pose(robot, rel_pose)
+        localizer.localize()
+
+        # Look at the bucket.
+        move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_FLOOR_POSE)
+
+        # Capture an image.
+        rgbds = capture_images(robot, localizer, [hand_camera])
+        rgbd = rgbds[hand_camera]
+
+        # Choose a grasp.
+        _, artifacts = detect_objects([bucket], rgbds)
+
+        r, c = get_object_center_pixel_from_artifacts(artifacts, bucket,
+                                                      hand_camera)
+        pixel = (r + bucket_grasp_dr, c)
+
+        # Grasp at the pixel with a top-down grasp.
+        top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
+        grasp_at_pixel(robot, rgbd, pixel, grasp_rot=top_down_rot)
+
+        # Dump!
+        dump_container(robot, post_dump_place_offset_z)
+
+        # Stow the arm again.
+        stow_arm(robot)
+
+
 if __name__ == "__main__":
-    test_all_find_move_pick_place()
+    # test_all_find_move_pick_place()
     # test_move_with_sampling()
+    test_repeated_brush_bucket_dump_pick_place()
