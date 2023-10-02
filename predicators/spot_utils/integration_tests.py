@@ -5,6 +5,7 @@ Run with --spot_robot_ip and any other flags.
 from pathlib import Path
 from typing import Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 from bosdyn.client import create_standard_sdk, math_helpers
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
@@ -30,7 +31,8 @@ from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    get_relative_se2_from_se3, verify_estop
+    get_relative_se2_from_se3, sample_move_offset_from_target, \
+    spot_pose_to_geom2d, verify_estop
 
 
 def test_find_move_pick_place(
@@ -203,5 +205,116 @@ def test_all_find_move_pick_place() -> None:
                               pre_place_nav_angle=np.pi)
 
 
+def test_move_with_sampling() -> None:
+    """Test for moving to a surface with a sampled rotation and distance,
+    taking into account potential collisions with walls and other surfaces."""
+
+    # Approximate values for the set up on the fourth floor.
+    room_bounds = (0.4, -1.0, 2.25, 1.75)  # min x, min y, max x, max y
+    surface_radius = 0.2
+
+    num_samples = 10
+    max_distance = 1.5
+
+    # Parse flags.
+    args = utils.parse_args(env_required=False,
+                            seed_required=False,
+                            approach_required=False)
+    utils.update_config(args)
+
+    # Set up the robot and localizer.
+    hostname = CFG.spot_robot_ip
+    upload_dir = Path(__file__).parent / "graph_nav_maps"
+    path = upload_dir / CFG.spot_graph_nav_map
+    sdk = create_standard_sdk("TestClient")
+    robot = sdk.create_robot(hostname)
+    authenticate(robot)
+    verify_estop(robot)
+    lease_client = robot.ensure_client(LeaseClient.default_service_name)
+    lease_client.take()
+    lease_keepalive = LeaseKeepAlive(lease_client,
+                                     must_acquire=True,
+                                     return_at_exit=True)
+    assert path.exists()
+    localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+
+    # Run test with april tag cube.
+    surface1 = AprilTagObjectDetectionID(
+        408, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+    surface2 = AprilTagObjectDetectionID(
+        409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+
+    go_home(robot, localizer)
+    localizer.localize()
+
+    # Find objects.
+    object_ids = [surface1, surface2]
+    detections, _ = init_search_for_objects(robot, localizer, object_ids)
+
+    # Create collision geoms using known object sizes.
+    collision_geoms = [
+        utils.Circle(detections[o].x, detections[o].y, surface_radius)
+        for o in object_ids
+    ]
+
+    # Repeatedly sample valid places to move and move there.
+    target_pose = detections[surface1]
+    target_origin = (target_pose.x, target_pose.y)
+    rng = np.random.default_rng(123)
+    for i in range(num_samples):
+        localizer.localize()
+        robot_pose = localizer.get_last_robot_pose()
+        robot_geom = spot_pose_to_geom2d(robot_pose)
+        distance, angle, next_robot_geom = sample_move_offset_from_target(
+            target_origin,
+            robot_geom,
+            collision_geoms,
+            rng,
+            max_distance=max_distance,
+            room_bounds=room_bounds,
+        )
+        # Visualize everything.
+        figsize = (1.1 * (room_bounds[2] - room_bounds[0]),
+                   1.1 * (room_bounds[3] - room_bounds[1]))
+        _, ax = plt.subplots(1, 1, figsize=figsize)
+        robot_geom.plot(ax, facecolor="lightgreen", edgecolor="black")
+        # Draw the origin of the robot, which should be the back right leg.
+        ax.scatter([robot_geom.x], [robot_geom.y],
+                   s=120,
+                   marker="*",
+                   color="gray",
+                   zorder=3)
+        next_robot_geom.plot(ax,
+                             facecolor="lightblue",
+                             edgecolor="black",
+                             linestyle="--")
+        ax.scatter([next_robot_geom.x], [next_robot_geom.y],
+                   s=120,
+                   marker="*",
+                   color="gray",
+                   zorder=3)
+        for object_id, geom in zip(object_ids, collision_geoms):
+            geom.plot(ax, facecolor="lightgray", edgecolor="black")
+            if object_id == surface1:
+                ax.scatter([geom.x], [geom.y],
+                           s=320,
+                           marker="*",
+                           color="gold",
+                           zorder=3)
+        # Draw the walls.
+        min_x, min_y, max_x, max_y = room_bounds
+        ax.plot((min_x, min_x), (min_y, max_y), linestyle="--", color="gray")
+        ax.plot((max_x, max_x), (min_y, max_y), linestyle="--", color="gray")
+        ax.plot((min_x, max_x), (min_y, min_y), linestyle="--", color="gray")
+        ax.plot((min_x, max_x), (max_y, max_y), linestyle="--", color="gray")
+        plt.savefig(f"sampling_integration_test_{i}.png")
+
+        # Execute the move.
+        rel_pose = get_relative_se2_from_se3(robot_pose, target_pose, distance,
+                                             angle)
+        navigate_to_relative_pose(robot, rel_pose)
+
+
 if __name__ == "__main__":
-    test_all_find_move_pick_place()
+    # test_all_find_move_pick_place()
+    test_move_with_sampling()

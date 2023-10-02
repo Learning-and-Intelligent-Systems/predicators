@@ -437,6 +437,19 @@ class Rectangle(_Geom2D):
     def __post_init__(self) -> None:
         assert -np.pi <= self.theta <= np.pi, "Expecting angle in [-pi, pi]."
 
+    @staticmethod
+    def from_center(center_x: float, center_y: float, width: float,
+                    height: float, rotation_about_center: float) -> Rectangle:
+        """Create a rectangle given an (x, y) for the center, with theta
+        rotating about that center point."""
+        x = center_x - width / 2
+        y = center_y - height / 2
+        norm_rect = Rectangle(x, y, width, height, 0.0)
+        assert np.isclose(norm_rect.center[0], center_x)
+        assert np.isclose(norm_rect.center[1], center_y)
+        return norm_rect.rotate_about_point(center_x, center_y,
+                                            rotation_about_center)
+
     @functools.cached_property
     def vertices(self) -> List[Tuple[float, float]]:
         """Get the four vertices for the rectangle."""

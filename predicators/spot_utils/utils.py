@@ -1,7 +1,7 @@
 """Small utility functions for spot."""
 
 import sys
-from typing import Optional, Tuple
+from typing import Collection, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -12,6 +12,8 @@ from bosdyn.client.exceptions import ProxyConnectionError, TimedOutError
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
+
+from predicators.utils import Rectangle, _Geom2D
 
 # Pose for the hand (relative to the body) that looks down in front.
 DEFAULT_HAND_LOOK_DOWN_POSE = math_helpers.SE3Pose(
@@ -90,6 +92,52 @@ def get_relative_se2_from_se3(
     return robot_se2.inverse() * target_se2
 
 
+def sample_move_offset_from_target(
+        target_origin: Tuple[float, float],
+        robot_geom: Rectangle,
+        collision_geoms: Collection[_Geom2D],
+        rng: np.random.Generator,
+        max_distance: float,
+        room_bounds: Tuple[float, float, float, float],
+        max_samples: int = 100) -> Tuple[float, float, Rectangle]:
+    """Sampler for navigating to a target object.
+
+    Returns a distance and an angle in radians. Also returns the next
+    robot geom for visualization and debugging convenience.
+    """
+    min_x, min_y, max_x, max_y = room_bounds
+    for _ in range(max_samples):
+        distance = rng.uniform(0.0, max_distance)
+        angle = rng.uniform(-np.pi, np.pi)
+        dx = np.cos(angle) * distance
+        dy = np.sin(angle) * distance
+        x = target_origin[0] + dx
+        y = target_origin[1] + dy
+        # Face towards the target.
+        rot = angle + np.pi if angle < 0 else angle - np.pi
+        cand_geom = Rectangle.from_center(x, y, robot_geom.width,
+                                          robot_geom.height, rot)
+        # Check for out-of-bounds.
+        oob = False
+        for cx, cy in cand_geom.vertices:
+            if cx < min_x or cy < min_y or cx > max_x or cy > max_y:
+                oob = True
+                break
+        if oob:
+            continue
+        # Check for collisions.
+        collision = False
+        for collision_geom in collision_geoms:
+            if collision_geom.intersects(cand_geom):
+                collision = True
+                break
+        # Success!
+        if not collision:
+            return distance, angle, cand_geom
+
+    raise RuntimeError(f"Sampling failed after {max_samples} attempts")
+
+
 def get_robot_state(robot: Robot,
                     timeout_per_call: float = 20,
                     num_retries: int = 10) -> robot_state_pb2.RobotState:
@@ -110,3 +158,23 @@ def get_robot_gripper_open_percentage(robot: Robot) -> float:
     """Get the current state of how open the gripper is."""
     robot_state = get_robot_state(robot)
     return float(robot_state.manipulator_state.gripper_open_percentage)
+
+
+def spot_pose_to_geom2d(pose: math_helpers.SE3Pose) -> Rectangle:
+    """Use known dimensions for spot robot to create a bounding box for the
+    robot (top-down view).
+
+    The origin of the rectangle is the back RIGHT leg of the spot.
+
+    NOTE: the spot's x axis in the body frame points forward and the y axis
+    points leftward. See the link below for an illustration of the frame.
+    https://dev.bostondynamics.com/docs/concepts/geometry_and_frames
+    """
+    # We want to create a rectangle whose center is (pose.x, pose.y),
+    # whose width (x direction) is front_to_back_length, whose height
+    # (y direction) is side_length, and whose rotation is the pose yaw.
+    front_to_back_length = 0.85  # meters, approximately
+    side_length = 0.25
+    yaw = pose.rot.to_yaw()
+    return Rectangle.from_center(pose.x, pose.y, front_to_back_length,
+                                 side_length, yaw)
