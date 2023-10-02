@@ -50,7 +50,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         cube = Variable("?cube", cube_type)
         table = Variable("?table", table_type)
         parameters = [robot, cube, table]
-        option_vars = [cube, table]
+        option_vars = parameters
         option = PickFromTable
         preconditions = {
             LiftedAtom(ReachableSurface, [robot, table]),
@@ -85,7 +85,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # PickFromFloor
         parameters = [robot, cube]
-        option_vars = [cube]
+        option_vars = parameters
         option = PickFromFloor
         preconditions = {
             LiftedAtom(ReachableCube, [robot, cube]),
@@ -105,7 +105,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # PlaceOnTable
         parameters = [robot, cube, table]
-        option_vars = [cube, table]
+        option_vars = parameters
         option = PlaceOnTable
         preconditions = {
             LiftedAtom(ReachableSurface, [robot, table]),
@@ -166,7 +166,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # NavigateToCube
         parameters = [robot, cube]
-        option_vars = [robot]
+        option_vars = parameters
         option = NavigateToCube
         preconditions = set()
         add_effects = {ReachableCube([robot, cube])}
@@ -199,7 +199,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
 
         # NavigateToTable
         parameters = [robot, table]
-        option_vars = [robot]
+        option_vars = parameters
         option = NavigateToTable
         preconditions = set()
         add_effects = {ReachableSurface([robot, table])}

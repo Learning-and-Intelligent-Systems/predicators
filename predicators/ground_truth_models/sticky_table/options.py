@@ -36,51 +36,51 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
         robot_type = types["robot"]
 
         PickFromTable = utils.SingletonParameterizedOption(
-            # variables: [cube, table]
+            # variables: [robot, cube, table]
             "PickFromTable",
             cls._create_pass_through_policy(action_space),
             params_space=params_space,
-            types=[cube_type, table_type])
+            types=[robot_type, cube_type, table_type])
 
         PickFromFloor = utils.SingletonParameterizedOption(
-            # variables: [cube]
+            # variables: [robot, cube]
             "PickFromFloor",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
-            types=[cube_type])
+            types=[robot_type, cube_type])
 
         PlaceOnTable = utils.SingletonParameterizedOption(
-            # variables: [cube, table]
+            # variables: [robot, cube, table]
             "PlaceOnTable",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
-            types=[cube_type, table_type])
+            types=[robot_type, cube_type, table_type])
 
         PlaceOnFloor = utils.SingletonParameterizedOption(
-            # variables: [cube]
+            # variables: [robot, cube]
             "PlaceOnFloor",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
-            types=[cube_type])
+            types=[robot_type, cube_type])
 
         NavigateToCube = utils.SingletonParameterizedOption(
-            # variables: [robot]
+            # variables: [robot, cube]
             "NavigateToCube",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
-            types=[robot_type])
+            types=[robot_type, cube_type])
         
         NavigateToTable = utils.SingletonParameterizedOption(
-            # variables: [robot]
+            # variables: [robot, table]
             "NavigateToTable",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
-            types=[robot_type])
+            types=[robot_type, table_type])
 
         return {
             PickFromTable, PickFromFloor, PlaceOnTable, PlaceOnFloor,
