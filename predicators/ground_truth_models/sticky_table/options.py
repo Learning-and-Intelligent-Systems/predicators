@@ -66,9 +66,17 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
             params_space=params_space,
             types=[cube_type])
 
-        NavigateToLocation = utils.SingletonParameterizedOption(
+        NavigateToCube = utils.SingletonParameterizedOption(
             # variables: [robot]
-            "NavigateToLocation",
+            "NavigateToCube",
+            cls._create_pass_through_policy(action_space),
+            # Parameters are absolute x, y actions.
+            params_space=params_space,
+            types=[robot_type])
+        
+        NavigateToTable = utils.SingletonParameterizedOption(
+            # variables: [robot]
+            "NavigateToTable",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
@@ -76,7 +84,7 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
 
         return {
             PickFromTable, PickFromFloor, PlaceOnTable, PlaceOnFloor,
-            NavigateToLocation
+            NavigateToCube, NavigateToTable
         }
 
     @classmethod
