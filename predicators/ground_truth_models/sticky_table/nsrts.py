@@ -40,7 +40,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         PickFromFloor = options["PickFromFloor"]
         PlaceOnTable = options["PlaceOnTable"]
         PlaceOnFloor = options["PlaceOnFloor"]
-        NavigateToLocation = options["NavigateToLocation"]
+        NavigateToCube = options["NavigateToCube"]
+        NavigateToTable = options["NavigateToTable"]
 
         nsrts = set()
 
@@ -166,7 +167,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # NavigateToCube
         parameters = [robot, cube]
         option_vars = [robot]
-        option = NavigateToLocation
+        option = NavigateToCube
         preconditions = set()
         add_effects = {ReachableCube([robot, cube])}
         ignore_effects = {ReachableSurface, ReachableCube}
@@ -199,7 +200,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         # NavigateToTable
         parameters = [robot, table]
         option_vars = [robot]
-        option = NavigateToLocation
+        option = NavigateToTable
         preconditions = set()
         add_effects = {ReachableSurface([robot, table])}
         ignore_effects = {ReachableSurface, ReachableCube}
