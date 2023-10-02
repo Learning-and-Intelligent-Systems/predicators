@@ -1,5 +1,6 @@
 """Sticky table simulated environment."""
 
+import math
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
@@ -34,6 +35,7 @@ class StickyTableEnv(BaseEnv):
     x_ub: ClassVar[float] = 1.0
     y_lb: ClassVar[float] = 0.0
     y_ub: ClassVar[float] = 1.0
+    reachable_thresh: ClassVar[float] = 0.25
     cube_scale: ClassVar[float] = 0.25  # as a function of table radius
     sticky_surface_mode: ClassVar[str] = "half"  # half or whole
 
@@ -46,6 +48,7 @@ class StickyTableEnv(BaseEnv):
         # Types
         self._cube_type = Type("cube", ["x", "y", "size", "held"])
         self._table_type = Type("table", ["x", "y", "radius", "sticky"])
+        self._robot_type = Type("robot", ["x", "y"])
 
         # Predicates
         self._OnTable = Predicate("OnTable",
@@ -56,6 +59,12 @@ class StickyTableEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._cube_type],
                                   self._Holding_holds)
         self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
+        self._IsReachableSurface = Predicate(
+            "IsReachableSurface", [self._robot_type, self._table_type],
+            self._IsReachable_holds)
+        self._IsReachableCube = Predicate("IsReachableCube",
+                                          [self._robot_type, self._cube_type],
+                                          self._IsReachable_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -77,49 +86,59 @@ class StickyTableEnv(BaseEnv):
         # NOTE: noise is added here. Two calls to simulate with the same
         # inputs may produce different outputs!
         assert self.action_space.contains(action.arr)
-        act_x, act_y = action.arr
+        move_or_pickplace, act_x, act_y = action.arr
         next_state = state.copy()
         hand_empty = self._HandEmpty_holds(state, [])
         cube, = state.get_objects(self._cube_type)
-        # Picking logic.
-        if hand_empty:
-            # Fail sometimes.
-            if self._noise_rng.uniform() < self._pick_success_prob:
-                if self._action_grasps_object(act_x, act_y, cube, state):
-                    next_state.set(cube, "held", 1.0)
-        # Placing logic.
-        else:
-            next_state.set(cube, "held", 0.0)
-            # Find the table for placing, if any.
-            table: Optional[Object] = None
-            cube_size = state.get(cube, "size")
-            rect = utils.Rectangle(act_x, act_y, cube_size, cube_size, 0.0)
-            for target in state.get_objects(self._table_type):
-                circ = self._object_to_geom(target, state)
-                if self._rectangle_inside_geom(rect, circ):
-                    table = target
-                    break
-            if table is None:
-                # Put on the floor here.
-                next_state.set(cube, "x", act_x)
-                next_state.set(cube, "y", act_y)
+        robot, = state.get_objects(self._robot_type)
+        if move_or_pickplace == 1.0:
+            # Picking logic.
+            if hand_empty:
+                # Fail sometimes.
+                if self._noise_rng.uniform() < self._pick_success_prob:
+                    if self._action_grasps_object(act_x, act_y, cube, state):
+                        next_state.set(cube, "held", 1.0)
+            # Placing logic.
             else:
-                # Possibly put on the table, or have it fall somewhere near.
-                fall_prob = self._place_sticky_fall_prob
-                if self._table_is_sticky(table, state):
-                    # Check if placing on the smooth side of the sticky table.
-                    table_y = state.get(table, "y")
-                    if self.sticky_surface_mode == "half" and act_y < table_y:
-                        fall_prob = self._place_smooth_fall_prob
-                if self._noise_rng.uniform() < fall_prob:
-                    fall_x, fall_y = self._sample_floor_point_around_table(
-                        table, state, self._noise_rng)
-                    next_state.set(cube, "x", fall_x)
-                    next_state.set(cube, "y", fall_y)
-                    assert self._OnFloor_holds(next_state, [cube])
-                else:
+                next_state.set(cube, "held", 0.0)
+                # Find the table for placing, if any.
+                table: Optional[Object] = None
+                for target in state.get_objects(self._table_type):
+                    rect = self._object_to_geom(target, state)
+                    if rect.contains_point(act_x, act_y):
+                        table = target
+                        break
+                if table is None:
+                    # Put on the floor here.
                     next_state.set(cube, "x", act_x)
                     next_state.set(cube, "y", act_y)
+                else:
+                    # Possibly put on the table, or have it fall somewhere near.
+                    fall_prob = self._place_sticky_fall_prob
+                    if self._table_is_sticky(table, state):
+                        # Check if placing on the smooth side of the sticky table.
+                        table_y = state.get(table, "y")
+                        if self.sticky_surface_mode == "half" and act_y < table_y:
+                            fall_prob = self._place_smooth_fall_prob
+                    if self._noise_rng.uniform() < fall_prob:
+                        fall_x, fall_y = self._sample_floor_point_around_table(
+                            table, state, self._noise_rng)
+                        next_state.set(cube, "x", fall_x)
+                        next_state.set(cube, "y", fall_y)
+                        assert self._OnFloor_holds(next_state, [cube])
+                    else:
+                        next_state.set(cube, "x", act_x)
+                        next_state.set(cube, "y", act_y)
+        else:
+            # Navigation logic.
+            pseudo_next_state = state.copy()
+            pseudo_next_state.set(robot, "x", act_x)
+            pseudo_next_state.set(robot, "y", act_y)
+            if self._exists_robot_collision(pseudo_next_state):
+                return next_state
+            next_state.set(robot, "x", act_x)
+            next_state.set(robot, "y", act_y)
+
         return next_state
 
     def _action_grasps_object(self, act_x: float, act_y: float, cube: Object,
@@ -131,26 +150,32 @@ class StickyTableEnv(BaseEnv):
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_test_tasks,
-                               rng=self._test_rng,
-                               sticky_table_only=True)
+        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._OnTable, self._OnFloor, self._Holding, self._HandEmpty}
+        return {
+            self._OnTable, self._OnFloor, self._Holding, self._HandEmpty,
+            self._IsReachableCube, self._IsReachableSurface
+        }
+
+    @property
+    def types(self) -> Set[Type]:
+        return {self._cube_type, self._table_type, self._robot_type}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
         return {self._OnTable}
 
     @property
-    def types(self) -> Set[Type]:
-        return {self._cube_type, self._table_type}
-
-    @property
     def action_space(self) -> Box:
-        return Box(np.array([self.x_lb, self.y_lb], dtype=np.float32),
-                   np.array([self.x_ub, self.y_ub], dtype=np.float32))
+        # Action space is [move_or_pickplace, x, y].
+        # If move_or_pickplace is 0, robot will move to the indicated
+        # x, y location.
+        # Otherwise, if move_or_pickplace is 1, it will either pick or place
+        # at the x, y location.
+        return Box(np.array([0.0, self.x_lb, self.y_lb], dtype=np.float32),
+                   np.array([1.0, self.x_ub, self.y_ub], dtype=np.float32))
 
     def _object_to_geom(self, obj: Object, state: State) -> utils._Geom2D:
         if obj.is_instance(self._cube_type):
@@ -203,10 +228,8 @@ class StickyTableEnv(BaseEnv):
         plt.tight_layout()
         return fig
 
-    def _get_tasks(self,
-                   num: int,
-                   rng: np.random.Generator,
-                   sticky_table_only: bool = False) -> List[EnvironmentTask]:
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             # The goal is to move the cube to some table.
@@ -242,13 +265,7 @@ class StickyTableEnv(BaseEnv):
                 }
             tables = sorted(state_dict)
             rng.shuffle(tables)  # type: ignore
-            if sticky_table_only:
-                stickies = [t for t in tables if state_dict[t]["sticky"] > 0.5]
-                target_table = stickies[0]
-                remaining_tables = [t for t in tables if t != target_table]
-                init_table = remaining_tables[0]
-            else:
-                init_table, target_table = tables[:2]
+            init_table, target_table = tables[:2]
             # Create cube.
             size = radius * self.cube_scale
             table_x = state_dict[init_table]["x"]
@@ -280,13 +297,8 @@ class StickyTableEnv(BaseEnv):
         rect = self._object_to_geom(cube, state)
         circ = self._object_to_geom(table, state)
         assert isinstance(rect, utils.Rectangle)
-        return self._rectangle_inside_geom(rect, circ)
-
-    @staticmethod
-    def _rectangle_inside_geom(rect: utils.Rectangle,
-                               geom: utils._Geom2D) -> bool:
         for x, y in rect.vertices:
-            if not geom.contains_point(x, y):
+            if not circ.contains_point(x, y):
                 return False
         return True
 
@@ -309,6 +321,14 @@ class StickyTableEnv(BaseEnv):
         cube, = state.get_objects(self._cube_type)
         return not self._Holding_holds(state, [cube])
 
+    def _IsReachable_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
+        robot, other_obj = objects
+        x_squared_dist = (state.get(robot, "x") - state.get(other_obj, "x"))**2
+        y_squared_dist = (state.get(robot, "y") - state.get(other_obj, "y"))**2
+        curr_dist = math.sqrt((x_squared_dist + y_squared_dist))
+        return curr_dist <= self.reachable_thresh
+
     def _table_is_sticky(self, table: Object, state: State) -> bool:
         return state.get(table, "sticky") > 0.5
 
@@ -321,6 +341,19 @@ class StickyTableEnv(BaseEnv):
         dist = radius + rng.uniform(radius / 10, radius / 4)
         theta = rng.uniform(0, 2 * np.pi)
         return (x + dist * np.cos(theta), y + dist * np.sin(theta))
+
+    def _exists_robot_collision(self, state: State) -> bool:
+        """Return true if there is a collision between the robot and any other
+        object in the environment."""
+        robot, = state.get_objects(self._robot_type)
+        all_possible_collision_objs = state.get_objects(
+            self._cube_type) + state.get_objects(self._table_type)
+        for obj in all_possible_collision_objs:
+            obj_geom = self._object_to_geom(obj, state)
+            if obj_geom.contains_point(state.get(robot, "x"),
+                                       state.get(robot, "y")):
+                return True
+        return False
 
 
 class StickyTableTrickyFloorEnv(StickyTableEnv):
