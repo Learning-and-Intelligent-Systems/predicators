@@ -15,7 +15,7 @@ def dump_container(robot: Robot,
                    place_z: float,
                    place_angle: float = np.pi / 3,
                    dump_x: float = 0.8,
-                   dump_y: float = -0.3,
+                   dump_y: float = -0.4,
                    dump_z: float = 0.5,
                    place_y: float = 0.0) -> None:
     """Turn over and dump out a container.
@@ -26,7 +26,7 @@ def dump_container(robot: Robot,
     # Construct the desired hand pose for dumping.
     yaw = math_helpers.Quat.from_yaw(np.pi / 3)
     pitch = math_helpers.Quat.from_roll(np.pi / 3)
-    roll = math_helpers.Quat.from_roll(np.pi / 2)
+    roll = math_helpers.Quat.from_roll(np.pi / 3)
     rot = roll * yaw * pitch
     hand_dump_pose = math_helpers.SE3Pose(x=dump_x,
                                           y=dump_y,

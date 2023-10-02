@@ -20,6 +20,7 @@ from predicators.spot_utils.perception.object_detection import \
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID
 from predicators.spot_utils.perception.spot_cameras import capture_images
+from predicators.spot_utils.skills.spot_dump import dump_container
 from predicators.spot_utils.skills.spot_find_objects import \
     init_search_for_objects
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
@@ -29,11 +30,10 @@ from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
-from predicators.spot_utils.skills.spot_dump import dump_container
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    get_relative_se2_from_se3, sample_move_offset_from_target, \
-    spot_pose_to_geom2d, verify_estop, DEFAULT_HAND_LOOK_FLOOR_POSE
+    DEFAULT_HAND_LOOK_FLOOR_POSE, get_relative_se2_from_se3, \
+    sample_move_offset_from_target, spot_pose_to_geom2d, verify_estop
 
 
 def test_find_move_pick_place(
@@ -319,15 +319,16 @@ def test_move_with_sampling() -> None:
 def test_repeated_brush_bucket_dump_pick_place(
         num_repeats: int = 3,
         pre_pick_floor_nav_distance: float = 1.25,
-        pre_place_nav_distance: float = 1.0,
-        pre_dump_nav_distance: float = 1.5,
+        pre_place_nav_distance: float = 0.75,
+        pre_dump_nav_distance: float = 1.25,
         pre_pick_nav_angle: float = -np.pi / 2,
         pre_place_nav_angle: float = -np.pi / 2,
-        place_offset_z: float = 0.35,
-        post_dump_place_offset_z: float = 0.05,
-        bucket_grasp_dr: int = 50):
+        place_offset_x: float = 0.1,
+        place_offset_z: float = 0.5,
+        post_dump_place_offset_z: float = 0.0,
+        bucket_grasp_dr: int = 50) -> None:
     """Test repeatedly picking, placing, and dumping a brush into a bucket.
-    
+
     The brush should start outside the bucket.
     """
 
@@ -365,6 +366,7 @@ def test_repeated_brush_bucket_dump_pick_place(
         # Find objects.
         detections, _ = init_search_for_objects(robot, localizer,
                                                 [bucket, brush])
+        localizer.localize()
 
         # Move to the brush.
         robot_pose = localizer.get_last_robot_pose()
@@ -377,6 +379,7 @@ def test_repeated_brush_bucket_dump_pick_place(
         # Look down at the floor.
         move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_FLOOR_POSE)
         open_gripper(robot)
+        localizer.localize()
 
         # Capture an image from the hand camera.
         hand_camera = "hand_color_image"
@@ -393,6 +396,7 @@ def test_repeated_brush_bucket_dump_pick_place(
 
         # Stow the arm.
         stow_arm(robot)
+        localizer.localize()
 
         # Move to the bucket.
         robot_pose = localizer.get_last_robot_pose()
@@ -405,14 +409,18 @@ def test_repeated_brush_bucket_dump_pick_place(
         # Place in the bucket.
         robot_pose = localizer.get_last_robot_pose()
         surface_rel_pose = robot_pose.inverse() * detections[bucket]
-        place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x,
-                                          y=surface_rel_pose.y,
-                                          z=surface_rel_pose.z +
-                                          place_offset_z)
-        place_at_relative_position(robot, place_rel_pos)
+        place_rel_pos = math_helpers.Vec3(
+            x=surface_rel_pose.x + place_offset_x,
+            y=surface_rel_pose.y,
+            z=surface_rel_pose.z + place_offset_z)
+        place_at_relative_position(robot,
+                                   place_rel_pos,
+                                   downward_angle=np.pi / 2)
+        localizer.localize()
 
         # Stow the arm again.
         stow_arm(robot)
+        localizer.localize()
 
         # Navigate to look at the bucket.
         robot_pose = localizer.get_last_robot_pose()
@@ -424,6 +432,7 @@ def test_repeated_brush_bucket_dump_pick_place(
 
         # Look at the bucket.
         move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_FLOOR_POSE)
+        localizer.localize()
 
         # Capture an image.
         rgbds = capture_images(robot, localizer, [hand_camera])
@@ -442,9 +451,11 @@ def test_repeated_brush_bucket_dump_pick_place(
 
         # Dump!
         dump_container(robot, post_dump_place_offset_z)
+        localizer.localize()
 
         # Stow the arm again.
         stow_arm(robot)
+        localizer.localize()
 
 
 if __name__ == "__main__":
