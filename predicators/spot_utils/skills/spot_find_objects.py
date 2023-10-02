@@ -201,7 +201,7 @@ if __name__ == "__main__":
         object_ids = [
             # Table.
             AprilTagObjectDetectionID(
-                408, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat())),
+                408, math_helpers.SE3Pose(0.12, 0.12, 0.0, math_helpers.Quat())),
             # Table.
             AprilTagObjectDetectionID(
                 409, math_helpers.SE3Pose(0.0, 0.5, 0.0, math_helpers.Quat())),

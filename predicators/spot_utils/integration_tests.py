@@ -153,7 +153,7 @@ def test_all_find_move_pick_place() -> None:
 
     # Run test with april tag cube.
     init_surface = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+        408, math_helpers.SE3Pose(0.12, 0.12, 0.0, math_helpers.Quat()))
     target_surface = AprilTagObjectDetectionID(
         409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
     cube = AprilTagObjectDetectionID(
@@ -183,7 +183,7 @@ def test_all_find_move_pick_place() -> None:
     # now rotated.
     input("Set up the tables and CUBE on opposite walls")
     init_surface = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(-0.25, 0.0, 0.0, math_helpers.Quat()))
+        408, math_helpers.SE3Pose(-0.12, 0.12, 0.0, math_helpers.Quat()))
     target_surface = AprilTagObjectDetectionID(
         409, math_helpers.SE3Pose(0.25, 0.0, 0.0, math_helpers.Quat()))
     test_find_move_pick_place(robot,
@@ -210,7 +210,7 @@ def test_move_with_sampling() -> None:
     taking into account potential collisions with walls and other surfaces."""
 
     # Approximate values for the set up on the fourth floor.
-    room_bounds = (0.4, -1.0, 2.25, 1.75)  # min x, min y, max x, max y
+    room_bounds = (0.4, -1.0, 4.0, 2.0)  # min x, min y, max x, max y
     surface_radius = 0.2
 
     num_samples = 10
@@ -240,7 +240,7 @@ def test_move_with_sampling() -> None:
 
     # Run test with april tag cube.
     surface1 = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+        408, math_helpers.SE3Pose(0.12, 0.12, 0.0, math_helpers.Quat()))
     surface2 = AprilTagObjectDetectionID(
         409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
 

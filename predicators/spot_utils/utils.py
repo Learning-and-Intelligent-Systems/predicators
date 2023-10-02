@@ -22,7 +22,7 @@ DEFAULT_HAND_LOOK_FLOOR_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 3))
 
 # Center of the fourth floor room.
-HOME_POSE = math_helpers.SE2Pose(x=1.25, y=0.0, angle=np.pi / 2)
+HOME_POSE = math_helpers.SE2Pose(x=2.0, y=-0.5, angle=np.pi / 2)
 
 
 def verify_estop(robot: Robot) -> None:
