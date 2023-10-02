@@ -1,29 +1,37 @@
 """Interface for spot dumping skill."""
 
-import numpy as np
 import time
 
+import numpy as np
 from bosdyn.client import math_helpers
 from bosdyn.client.sdk import Robot
 
-from predicators.spot_utils.skills.spot_hand_move import move_hand_to_relative_pose
+from predicators.spot_utils.skills.spot_hand_move import \
+    move_hand_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 
 
-def dump_container(robot: Robot, place_z: float, place_angle: float = np.pi / 3,
-                   dump_x: float = 0.8, dump_y: float = -0.3, dump_z: float = 0.5,
+def dump_container(robot: Robot,
+                   place_z: float,
+                   place_angle: float = np.pi / 3,
+                   dump_x: float = 0.8,
+                   dump_y: float = -0.3,
+                   dump_z: float = 0.5,
                    place_y: float = 0.0) -> None:
     """Turn over and dump out a container.
-    
-    Assumes that the container is grasped with a top-down grasp on the side
-    of the container, and with the fingers pointed inward.
+
+    Assumes that the container is grasped with a top-down grasp on the
+    side of the container, and with the fingers pointed inward.
     """
     # Construct the desired hand pose for dumping.
     yaw = math_helpers.Quat.from_yaw(np.pi / 3)
     pitch = math_helpers.Quat.from_roll(np.pi / 3)
     roll = math_helpers.Quat.from_roll(np.pi / 2)
     rot = roll * yaw * pitch
-    hand_dump_pose = math_helpers.SE3Pose(x=dump_x, y=dump_y, z=dump_z, rot=rot)
+    hand_dump_pose = math_helpers.SE3Pose(x=dump_x,
+                                          y=dump_y,
+                                          z=dump_z,
+                                          rot=rot)
     # Execute the move to the pose.
     move_hand_to_relative_pose(robot, hand_dump_pose)
     # Wait a few seconds for the object(s) to be dumped.
@@ -33,13 +41,11 @@ def dump_container(robot: Robot, place_z: float, place_angle: float = np.pi / 3,
     place_at_relative_position(robot, body_to_position, place_angle)
 
 
-
 if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
-    
-    # NOTE: this test assumes that the robot is facing the bucket. The user
-    # is asked for a grasp pixel, since the focus of this file is dumping.
+
+    # NOTE: this test assumes that the robot is facing the bucket.
 
     # pylint: disable=ungrouped-imports
     from pathlib import Path
@@ -51,10 +57,13 @@ if __name__ == "__main__":
     from predicators import utils
     from predicators.settings import CFG
     from predicators.spot_utils.perception.spot_cameras import capture_images
-    from predicators.spot_utils.spot_localization import SpotLocalizer
-    from predicators.spot_utils.utils import get_pixel_from_user, verify_estop, DEFAULT_HAND_LOOK_FLOOR_POSE
     from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
-
+    from predicators.spot_utils.spot_localization import SpotLocalizer
+    from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_FLOOR_POSE, \
+        get_pixel_from_user, verify_estop
+    from predicators.spot_utils.perception.perception_structs import \
+        LanguageObjectDetectionID
+    from predicators.spot_utils.perception.object_detection import detect_objects, get_object_center_pixel_from_artifacts
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.
@@ -87,10 +96,14 @@ if __name__ == "__main__":
 
         # Capture an image.
         camera = "hand_color_image"
-        rgbd = capture_images(robot, localizer, [camera])[camera]
+        rgbds = capture_images(robot, localizer, [camera])
+        rgbd = rgbds[camera]
 
-        # Select a pixel manually.
-        pixel = get_pixel_from_user(rgbd.rgb)
+        # Run detection to find the bucket.
+        # Detect the april tag and brush.
+        bucket_id = LanguageObjectDetectionID("large red bucket")
+        _, artifacts = detect_objects([bucket_id], rgbds)
+        pixel = get_object_center_pixel_from_artifacts(artifacts, bucket_id, camera)
 
         # Grasp at the pixel with a top-down grasp.
         top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
@@ -98,6 +111,5 @@ if __name__ == "__main__":
 
         # Dump!
         dump_container(robot, place_height)
-
 
     _run_manual_test()
