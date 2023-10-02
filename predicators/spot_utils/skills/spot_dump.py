@@ -56,14 +56,15 @@ if __name__ == "__main__":
 
     from predicators import utils
     from predicators.settings import CFG
+    from predicators.spot_utils.perception.object_detection import \
+        detect_objects, get_object_center_pixel_from_artifacts
+    from predicators.spot_utils.perception.perception_structs import \
+        LanguageObjectDetectionID
     from predicators.spot_utils.perception.spot_cameras import capture_images
     from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
     from predicators.spot_utils.spot_localization import SpotLocalizer
     from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_FLOOR_POSE, \
-        get_pixel_from_user, verify_estop
-    from predicators.spot_utils.perception.perception_structs import \
-        LanguageObjectDetectionID
-    from predicators.spot_utils.perception.object_detection import detect_objects, get_object_center_pixel_from_artifacts
+        verify_estop
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.
@@ -103,7 +104,10 @@ if __name__ == "__main__":
         # Detect the april tag and brush.
         bucket_id = LanguageObjectDetectionID("large red bucket")
         _, artifacts = detect_objects([bucket_id], rgbds)
-        pixel = get_object_center_pixel_from_artifacts(artifacts, bucket_id, camera)
+
+        r, c = get_object_center_pixel_from_artifacts(artifacts, bucket_id,
+                                                      camera)
+        pixel = (r + 50, c)
 
         # Grasp at the pixel with a top-down grasp.
         top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
