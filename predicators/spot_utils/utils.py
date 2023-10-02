@@ -102,7 +102,7 @@ def sample_move_offset_from_target(
         max_samples: int = 100) -> Tuple[float, float, Rectangle]:
     """Sampler for navigating to a target object.
 
-    Returns a distance an an angle in radians. Also returns the next
+    Returns a distance and an angle in radians. Also returns the next
     robot geom for visualization and debugging convenience.
     """
     min_x, min_y, max_x, max_y = room_bounds
