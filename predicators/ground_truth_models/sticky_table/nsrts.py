@@ -169,13 +169,18 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = NavigateToLocation
         preconditions = set()
         add_effects = {ReachableCube([robot, cube])}
+        ignore_effects = {ReachableSurface, ReachableCube}
 
         def navigate_to_obj_sampler(state: State, goal: Set[GroundAtom],
                                     rng: np.random.Generator,
                                     objs: Sequence[Object]) -> Array:
-            del state, goal, rng, objs  # not used
+            del goal  # not used
             obj = objs[1]
-            size = state.get(obj, "size")
+            if obj.type.name == "cube":
+                size = state.get(obj, "size")
+            else:
+                assert obj.type.name == "table"
+                size = state.get(obj, "radius") * 2
             obj_x = state.get(obj, "x") + size / 2
             obj_y = state.get(obj, "y") + size / 2
             nav_dist = StickyTableEnv.reachable_thresh
@@ -186,8 +191,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             return np.array([0.0, x, y], dtype=np.float32)
 
         navigatetocube_nsrt = NSRT("NavigateToCube", parameters,
-                                   preconditions, add_effects, delete_effects,
-                                   set(), option, option_vars,
+                                   preconditions, add_effects, set(),
+                                   ignore_effects, option, option_vars,
                                    navigate_to_obj_sampler)
         nsrts.add(navigatetocube_nsrt)
 
@@ -197,10 +202,11 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option = NavigateToLocation
         preconditions = set()
         add_effects = {ReachableSurface([robot, table])}
+        ignore_effects = {ReachableSurface, ReachableCube}
 
         navigatetotable_nsrt = NSRT("NavigateToTable", parameters,
-                                    preconditions, add_effects, delete_effects,
-                                    set(), option, option_vars,
+                                    preconditions, add_effects, set(),
+                                    ignore_effects, option, option_vars,
                                     navigate_to_obj_sampler)
         nsrts.add(navigatetotable_nsrt)
 

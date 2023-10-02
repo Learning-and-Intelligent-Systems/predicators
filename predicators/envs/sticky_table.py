@@ -234,7 +234,8 @@ class StickyTableEnv(BaseEnv):
         while len(tasks) < num:
             # The goal is to move the cube to some table.
             # The table positions are static
-            # The initial location of the cube and the goal are randomized.
+            # The initial location of the cube, the goal
+            # and the robot are randomized.
             num_tables = CFG.sticky_table_num_tables
             assert num_tables >= 2
             state_dict: Dict[Object, Dict[str, float]] = {}
@@ -285,6 +286,19 @@ class StickyTableEnv(BaseEnv):
                 state = utils.create_state_from_dict(state_dict)
                 if self._OnTable_holds(state, [cube, init_table]):
                     break
+            # Create robot.
+            while True:
+                x = rng.uniform(self.x_lb, self.x_ub)
+                y = rng.uniform(self.y_lb, self.y_ub)
+                robot = Object("robot", self._robot_type)
+                state_dict[robot] = {
+                    "x": x,
+                    "y": y,
+                }
+                state = utils.create_state_from_dict(state_dict)
+                if not self._exists_robot_collision(state):
+                    break
+
             goal = {GroundAtom(self._OnTable, [cube, target_table])}
             task = EnvironmentTask(state, goal)
             tasks.append(task)

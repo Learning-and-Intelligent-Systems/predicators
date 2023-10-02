@@ -895,7 +895,12 @@ class SingletonParameterizedOption(ParameterizedOption):
         # has been executed yet.
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
+            nonlocal name
             if "start_state" in memory:
+    
+                # if "Navigate" in name:
+                #     import ipdb; ipdb.set_trace()
+
                 assert state.allclose(memory["start_state"])
             # Always update the memory dict due to the "is" check in _terminal.
             memory["start_state"] = state
@@ -1191,6 +1196,10 @@ def option_policy_to_policy(
             except OptionExecutionFailure as e:
                 e.info["last_failed_option"] = last_option
                 raise e
+            
+            # if "Navigate" in cur_option.name:
+            #     import ipdb; ipdb.set_trace()
+            
             if not cur_option.initiable(state):
                 raise OptionExecutionFailure(
                     "Unsound option policy.",
