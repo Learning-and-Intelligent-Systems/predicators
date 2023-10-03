@@ -139,7 +139,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts.add(placeontable_nsrt)
 
         # PlaceOnFloor
-        parameters = [cube]
+        parameters = [robot, cube]
         option_vars = parameters
         option = PlaceOnFloor
         preconditions = {LiftedAtom(Holding, [cube])}
@@ -156,7 +156,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # Just place in the center of the room.
             x = (StickyTableEnv.x_lb + StickyTableEnv.x_ub) / 2
             y = (StickyTableEnv.y_lb + StickyTableEnv.y_ub) / 2
-            return np.array([x, y], dtype=np.float32)
+            return np.array([1.0, x, y], dtype=np.float32)
 
         placeonfloor_nsrt = NSRT("PlaceOnFloor", parameters,
                                  preconditions, add_effects, delete_effects,

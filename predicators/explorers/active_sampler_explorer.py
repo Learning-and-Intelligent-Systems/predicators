@@ -200,10 +200,11 @@ class ActiveSamplerExplorer(BaseExplorer):
                 for goal in generate_goals():
                     task = Task(state, goal)
                     logging.info(f"[Explorer] Replanning to {task.goal}")
-
-                    # Add this task to the re-planning task queue.
-                    self._replanning_tasks.append(task)
-
+                    # If the goal is empty, then we can just recursively
+                    # call the policy, since we don't need to execute
+                    # anything.  
+                    if len(goal) == 0:
+                        return _option_policy(state)
                     try:
                         current_policy = self._get_option_policy_for_task(task)
                     # Not covering this case because the intention of this
@@ -214,6 +215,10 @@ class ActiveSamplerExplorer(BaseExplorer):
                             PlanningTimeout):  # pragma: no cover
                         continue
                     logging.info("[Explorer] Plan found.")
+
+                    # Add this task to the re-planning task queue.
+                    self._replanning_tasks.append(task)
+
                     break
                 # Terminate early if no goal could be found.
                 else:
