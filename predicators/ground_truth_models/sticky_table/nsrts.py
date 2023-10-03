@@ -182,10 +182,10 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             else:
                 assert obj.type.name == "table"
                 size = state.get(obj, "radius") * 2
-            obj_x = state.get(obj, "x") + size / 2
-            obj_y = state.get(obj, "y") + size / 2
-            nav_dist = StickyTableEnv.reachable_thresh
-            dist = rng.uniform(size / 2, nav_dist)
+            obj_x = state.get(obj, "x")
+            obj_y = state.get(obj, "y")
+            max_dist = StickyTableEnv.reachable_thresh
+            dist = rng.uniform(0, max_dist)
             theta = rng.uniform(0, 2 * np.pi)
             x = obj_x + dist * np.cos(theta)
             y = obj_y + dist * np.sin(theta)

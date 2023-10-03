@@ -72,8 +72,8 @@ X_KEY_AND_LABEL = [
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
-    # ("POLICY_CALL_TIME", "Policy Call Time (s)"),
-    # ("NUM_OPTIONS_EXECUTED", "# Skills Executed"),
+    ("POLICY_CALL_TIME", "Policy Call Time (s)"),
+    ("NUM_OPTIONS_EXECUTED", "# Skills Executed"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
@@ -120,14 +120,14 @@ PLOT_GROUPS = {
     "Sticky Table": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-planning_progress_explore" in v)),
-        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table-task_repeat_explore" in v)),
-        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table-success_rate_explore" in v)),
-        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table-random_score_explore" in v)),
-        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table-random_nsrts_explore" in v)),
+        # ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+        #     lambda v: "sticky_table-task_repeat_explore" in v)),
+        # ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+        #     lambda v: "sticky_table-success_rate_explore" in v)),
+        # ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+        #     lambda v: "sticky_table-random_score_explore" in v)),
+        # ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+        #     lambda v: "sticky_table-random_nsrts_explore" in v)),
     ],
     # "Sticky Table Tricky Floor": [
     #     ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].
@@ -148,7 +148,7 @@ PLOT_GROUPS = {
 ADD_ZERO_POINT = False
 
 # Plot type.
-PLOT_TYPE = "single_lines"  # single_lines or seed_lines
+PLOT_TYPE = "single_lines" #"single_lines"  # single_lines or seed_lines
 
 # Line transparency for seed line plots.
 SEED_LINE_ALPHA = 0.5
