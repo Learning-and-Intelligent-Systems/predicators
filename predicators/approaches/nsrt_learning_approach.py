@@ -15,7 +15,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
-from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
+from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data, learn_nsrts_from_data2
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Dataset, LowLevelTrajectory, \
@@ -52,6 +52,66 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         self._learn_nsrts(dataset.trajectories,
                           online_learning_cycle=None,
                           annotations=dataset.annotations)
+
+    def _learn_nsrts2(self, trajectories: List[LowLevelTrajectory],
+                     online_learning_cycle: Optional[int],
+                     annotations: Optional[List[Any]]) -> None:
+        dataset_fname, _ = utils.create_dataset_filename_str(
+            saving_ground_atoms=True,
+            online_learning_cycle=online_learning_cycle)
+        # If CFG.load_atoms is set, then try to create a GroundAtomTrajectory
+        # by loading sets of GroundAtoms directly from a saved file.
+        if CFG.load_atoms:
+            os.makedirs(CFG.data_dir, exist_ok=True)
+            # Check that the dataset file was previously saved.
+            if os.path.exists(dataset_fname):
+                # Load the ground atoms dataset.
+                with open(dataset_fname, "rb") as f:
+                    ground_atom_dataset_atoms = pkl.load(f)
+                assert len(trajectories) == len(ground_atom_dataset_atoms)
+                logging.info("\n\nLOADED GROUND ATOM DATASET")
+
+                # The saved ground atom dataset consists only of sequences
+                # of sets of GroundAtoms, we need to recombine this with
+                # the LowLevelTrajectories to create a GroundAtomTrajectory.
+                ground_atom_dataset = []
+                for i, traj in enumerate(trajectories):
+                    ground_atom_seq = ground_atom_dataset_atoms[i]
+                    ground_atom_dataset.append(
+                        (traj, [set(atoms) for atoms in ground_atom_seq]))
+            else:
+                raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
+        else:
+            # Apply predicates to data, producing a dataset of abstract states.
+            ground_atom_dataset = utils.create_ground_atom_dataset(
+                trajectories, self._get_current_predicates())
+            # Save ground atoms dataset to file. Note that a
+            # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
+            # list of sets of GroundAtoms, so we only save the list of
+            # GroundAtoms (the LowLevelTrajectories are saved separately).
+            ground_atom_dataset_to_pkl = []
+            for gt_traj in ground_atom_dataset:
+                trajectory = []
+                for ground_atom_set in gt_traj[1]:
+                    trajectory.append(ground_atom_set)
+                ground_atom_dataset_to_pkl.append(trajectory)
+            with open(dataset_fname, "wb") as f:
+                pkl.dump(ground_atom_dataset_to_pkl, f)
+
+        self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
+            learn_nsrts_from_data2(self.clusters, trajectories,
+                                  self._train_tasks,
+                                  self._get_current_predicates(),
+                                  self._initial_options,
+                                  self._action_space,
+                                  ground_atom_dataset,
+                                  sampler_learner=CFG.sampler_learner,
+                                  annotations=annotations)
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
+            pkl.dump(self._nsrts, f)
+        if CFG.compute_sidelining_objective_value:
+            self._compute_sidelining_objective_value(trajectories)
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],

@@ -787,11 +787,48 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             self._learned_predicates = self._select_predicates_by_clustering(
                 candidates, self._initial_predicates, dataset, atom_dataset)
         logging.info("Done.")
+
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset.trajectories,
+        self._learn_nsrts2(dataset.trajectories,
                           online_learning_cycle=None,
                           annotations=dataset.annotations)
         print("NUM NSRTS: ", len(self._nsrts))
+
+    # def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    #     # Generate a candidate set of predicates.
+    #     logging.info("Generating candidate predicates...")
+    #     grammar = _create_grammar(dataset, self._initial_predicates)
+    #     candidates = grammar.generate(
+    #         max_num=CFG.grammar_search_max_predicates)
+    #     logging.info(f"Done: created {len(candidates)} candidates:")
+    #     for predicate, cost in candidates.items():
+    #         logging.info(f"{predicate} {cost}")
+    #     # Apply the candidate predicates to the data.
+    #     logging.info("Applying predicates to data...")
+    #     atom_dataset = utils.create_ground_atom_dataset(
+    #         dataset.trajectories,
+    #         set(candidates) | self._initial_predicates)
+    #     logging.info("Done.")
+    #     # Create the score function that will be used to guide search.
+    #     score_function = create_score_function(
+    #         CFG.grammar_search_score_function, self._initial_predicates,
+    #         atom_dataset, candidates, self._train_tasks)
+    #     # Select a subset of the candidates to keep.
+    #     logging.info("Selecting a subset...")
+    #     if CFG.grammar_search_pred_selection_approach == "score_optimization":
+    #         self._learned_predicates = \
+    #             self._select_predicates_by_score_hillclimbing(
+    #             candidates, score_function, self._initial_predicates,
+    #             atom_dataset, self._train_tasks)
+    #     elif CFG.grammar_search_pred_selection_approach == "clustering":
+    #         self._learned_predicates = self._select_predicates_by_clustering(
+    #             candidates, self._initial_predicates, dataset, atom_dataset)
+    #     logging.info("Done.")
+    #     # Finally, learn NSRTs via superclass, using all the kept predicates.
+    #     self._learn_nsrts(dataset.trajectories,
+    #                       online_learning_cycle=None,
+    #                       annotations=dataset.annotations)
+    #     print("NUM NSRTS: ", len(self._nsrts))
 
     def _select_predicates_by_score_hillclimbing(
             self, candidates: Dict[Predicate, float],
@@ -923,6 +960,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
 
         if CFG.grammar_search_pred_clusterer == "option-type-number-sample":
+
+            # first, look at every operator in the last frontier.
+            # from the potential add effects, initialize the goal atoms as definitely add effects.
+
+
+
             # Algorithm:
             # Step 1: cluster segments according to which option was executed
             # Step 2: in each of clusters from the previous step, further cluster
@@ -1092,7 +1135,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ddd = {}
             for i, c in enumerate(final_clusters):
                 op_name = "Op"+str(i)
-                ddd[op_name] = [set(), set()] # preconditions, add_effects
+                ddd[op_name] = [set(), set(), c] # preconditions, add_effects, segments
 
             # For clusters that appear at the end,
             # we can narrow down their add effects as:
@@ -1315,6 +1358,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_name: []
                 for op_name in all_gt_op_names
             }
+
+            ###
+            self.gt_op_to_segments = gt_op_to_segments
+            ###
+
             for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
                 assert len(seg_list) == len(op_list)
                 for ground_nsrt, segment in zip(op_list, seg_list):
