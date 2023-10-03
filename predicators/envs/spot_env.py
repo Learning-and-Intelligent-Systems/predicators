@@ -733,13 +733,13 @@ class SpotCubeEnv(SpotEnv):
 
         op_to_name = {o.name: o for o in _create_operators()}
         op_names_to_keep = {
-            "MoveToToolOnSurfaceOp",
-            "MoveToToolOnFloorOp",
-            "MoveToSurfaceOp",
-            "GraspToolFromSurfaceOp",
-            "GraspToolFromFloorOp",
-            "PlaceToolOnSurfaceOp",
-            "PlaceToolOnFloorOp",
+            "MoveToToolOnSurface",
+            "MoveToToolOnFloor",
+            "MoveToSurface",
+            "GraspToolFromSurface",
+            "GraspToolFromFloor",
+            "PlaceToolOnSurface",
+            "PlaceToolOnFloor",
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
 
