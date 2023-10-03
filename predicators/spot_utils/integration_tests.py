@@ -354,7 +354,7 @@ def test_repeated_brush_bucket_dump_pick_place(
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
-    # Run test with april tag cube.
+    # Use vision-language model to detect bucket and brush.
     bucket = LanguageObjectDetectionID("large red bucket")
     brush = LanguageObjectDetectionID("brush")
 
@@ -459,6 +459,6 @@ def test_repeated_brush_bucket_dump_pick_place(
 
 
 if __name__ == "__main__":
-    # test_all_find_move_pick_place()
-    # test_move_with_sampling()
+    test_all_find_move_pick_place()
+    test_move_with_sampling()
     test_repeated_brush_bucket_dump_pick_place()
