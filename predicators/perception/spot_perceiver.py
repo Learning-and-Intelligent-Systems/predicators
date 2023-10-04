@@ -9,7 +9,8 @@ from bosdyn.client import math_helpers
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotCubeEnv, _PartialPerceptionState, _SpotObservation
+    SpotCubeEnv, _PartialPerceptionState, _SpotObservation, \
+    tool_in_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
@@ -105,22 +106,11 @@ class SpotPerceiver(BasePerceiver):
                 # be in view to assess whether it was placed correctly.
                 robot, obj = objects[:2]
                 state = self._create_state()
-                in_view_classifier = self._curr_env._tool_in_view_classifier  # pylint: disable=protected-access
-                in_bag_classifier = self._curr_env._inbag_classifier  # pylint: disable=protected-access
-                is_in_view = in_view_classifier(state, [robot, obj])
+                is_in_view = tool_in_view_classifier(state, [robot, obj])
                 if not is_in_view:
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(obj)
-                elif len(objects) == 3:
-                    surface = objects[2]
-                    if surface.type.name == "bag" and in_bag_classifier(
-                            state, [obj, surface]):
-                        # The object is now contained.
-                        if surface not in self._container_to_contained_objects:
-                            self._container_to_contained_objects[
-                                surface] = set()
-                        self._container_to_contained_objects[surface].add(obj)
             else:
                 # Ensure the held object is reset if the hand is empty.
                 prev_held_object = self._held_object
