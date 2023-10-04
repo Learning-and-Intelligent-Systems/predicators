@@ -94,7 +94,6 @@ def navigate_to_absolute_pose(robot: Robot,
     """Move to the absolute SE2 pose."""
     robot_pose = localizer.get_last_robot_pose()
     robot_se2 = robot_pose.get_closest_se2_transform()
-    print("ROBOT SE2:", robot_se2)
     rel_pose = robot_se2.inverse() * target_pose
     return navigate_to_relative_pose(robot, rel_pose, max_xytheta_vel,
                                      min_xytheta_vel, timeout)
@@ -107,7 +106,6 @@ def go_home(robot: Robot,
             timeout: float = 20.0) -> None:
     """Navigate to a known home position (defined in utils.py)."""
     home_pose = get_home_pose(localizer.map_file_dir)
-    print("HOME POSE:", home_pose)
     return navigate_to_absolute_pose(robot,
                                      localizer,
                                      home_pose,

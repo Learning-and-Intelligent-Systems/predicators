@@ -34,6 +34,7 @@ from predicators.spot_utils.perception.perception_structs import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
     LanguageObjectDetectionID, ObjectDetectionID, RGBDImageWithContext, \
     SegmentedBoundingBox
+from predicators.spot_utils.utils import get_april_tag_transform
 from predicators.utils import rotate_point_in_image
 
 # Hack to avoid double image capturing when we want to (1) get object states
