@@ -5,7 +5,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
+from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
 
 import matplotlib
@@ -168,13 +168,8 @@ class SpotEnv(BaseEnv):
         self._strips_operators: Set[STRIPSOperator] = set()
         self._current_task_goal_reached = False
 
-        # Create constant types and objects.
-        self._robot_type = Type("robot", [
-            "gripper_open_percentage", "x", "y", "z", "W_quat", "X_quat",
-            "Y_quat", "Z_quat"
-        ])
-
-        self._spot_object = Object("robot", self._robot_type)
+        # Create constant objects.
+        self._spot_object = Object("robot", _robot_type)
 
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
@@ -422,7 +417,7 @@ class SpotEnv(BaseEnv):
         robot: Optional[Object] = None
         for obj in init:
             assert obj in known_objects
-            if obj.is_instance(self._robot_type):
+            if obj.is_instance(_robot_type):
                 robot = obj
                 continue
             pos = math_helpers.SE3Pose(
@@ -464,367 +459,6 @@ class SpotEnv(BaseEnv):
         goal = base_env_task.goal_description
         return EnvironmentTask(init_obs, goal)
 
-    @property
-    @abc.abstractmethod
-    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
-        """Get an object from a perception detection ID."""
-
-    @abc.abstractmethod
-    def _actively_construct_initial_object_views(
-            self) -> Dict[Object, math_helpers.SE3Pose]:
-        """Take actions and record object poses."""
-
-    @abc.abstractmethod
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        """Get the initial atoms for nonpercept predicates."""
-
-    @abc.abstractmethod
-    def _generate_goal_description(self) -> GoalDescription:
-        """For now, we assume that there's only one goal per environment."""
-
-
-###############################################################################
-#                                Cube Table Env                               #
-###############################################################################
-HANDEMPTY_GRIPPER_THRESHOLD = 5.0
-
-
-class SpotCubeEnv(SpotEnv):
-    """An environment corresponding to the spot cube task where the robot
-    attempts to place an April Tag cube onto a particular table."""
-
-    _ontop_threshold: ClassVar[float] = 0.55
-    _reachable_threshold: ClassVar[float] = 1.7
-    _bucket_center_offset_x: ClassVar[float] = 0.0
-    _bucket_center_offset_y: ClassVar[float] = -0.15
-    _inbag_threshold: ClassVar[float] = 0.25
-    _reachable_yaw_threshold: ClassVar[float] = 0.95  # higher better
-    _handempty_gripper_threshold: ClassVar[float] = HANDEMPTY_GRIPPER_THRESHOLD
-    _robot_on_platform_threshold: ClassVar[float] = 0.18
-    _surface_too_high_threshold: ClassVar[float] = 0.7
-    _ontop_max_height_threshold: ClassVar[float] = 0.25
-
-    def __init__(self, use_gui: bool = True) -> None:
-        super().__init__(use_gui)
-
-        # Types
-        self._tool_type = Type("tool", [
-            "x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat", "held",
-            "lost", "in_view"
-        ])
-        self._surface_type = Type(
-            "flat_surface",
-            ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
-        self._bag_type = Type(
-            "bag", ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
-
-        # Predicates
-        self._On = Predicate("On", [self._tool_type, self._surface_type],
-                             self._ontop_classifier)
-        self._OnFloor = Predicate("OnFloor", [self._tool_type],
-                                  self._onfloor_classifier)
-        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
-                                    self._handempty_classifier)
-        self._notHandEmpty = Predicate("Not-HandEmpty", [self._robot_type],
-                                       self._nothandempty_classifier)
-        self._HoldingTool = Predicate("HoldingTool",
-                                      [self._robot_type, self._tool_type],
-                                      self._holding_tool_classifier)
-        self._InViewTool = Predicate("InViewTool",
-                                     [self._robot_type, self._tool_type],
-                                     self._tool_in_view_classifier)
-        self._ReachableSurface = Predicate(
-            "ReachableSurface", [self._robot_type, self._surface_type],
-            self._reachable_classifier)
-        self._InBag = Predicate("InBag", [self._tool_type, self._bag_type],
-                                self._inbag_classifier)
-
-        # STRIPS Operators (needed for non-percept atom hack)
-
-        # MoveToToolOnSurface
-        spot = Variable("?robot", self._robot_type)
-        tool = Variable("?tool", self._tool_type)
-        surface = Variable("?surface", self._surface_type)
-        preconditions = {
-            LiftedAtom(self._On, [tool, surface]),
-        }
-        add_effs = {LiftedAtom(self._InViewTool, [spot, tool])}
-        ignore_effs = {self._ReachableSurface, self._InViewTool}
-        self._MoveToToolOnSurfaceOp = STRIPSOperator("MoveToToolOnSurface",
-                                                     [spot, tool, surface],
-                                                     preconditions, add_effs,
-                                                     set(), ignore_effs)
-        # MoveToToolOnFloor
-        spot = Variable("?robot", self._robot_type)
-        tool = Variable("?tool", self._tool_type)
-        preconditions = {LiftedAtom(self._OnFloor, [tool])}
-        add_effs = {LiftedAtom(self._InViewTool, [spot, tool])}
-        ignore_effs = {self._ReachableSurface, self._InViewTool}
-        self._MoveToToolOnFloorOp = STRIPSOperator("MoveToToolOnFloor",
-                                                   [spot, tool],
-                                                   preconditions, add_effs,
-                                                   set(), ignore_effs)
-        # MoveToSurface
-        spot = Variable("?robot", self._robot_type)
-        surface = Variable("?surface", self._surface_type)
-        preconditions = set()
-        add_effs = {LiftedAtom(self._ReachableSurface, [spot, surface])}
-        ignore_effs = {self._ReachableSurface, self._InViewTool}
-        self._MoveToSurfaceOp = STRIPSOperator("MoveToSurface",
-                                               [spot, surface], preconditions,
-                                               add_effs, set(), ignore_effs)
-        # GraspToolFromSurface
-        spot = Variable("?robot", self._robot_type)
-        tool = Variable("?tool", self._tool_type)
-        surface = Variable("?surface", self._surface_type)
-        preconds = {
-            LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._InViewTool, [spot, tool])
-        }
-        add_effs = {
-            LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot])
-        }
-        del_effs = {
-            LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._InViewTool, [spot, tool])
-        }
-        self._GraspToolFromSurfaceOp = STRIPSOperator("GraspToolFromSurface",
-                                                      [spot, tool, surface],
-                                                      preconds, add_effs,
-                                                      del_effs, set())
-        # GraspToolFromFloor
-        spot = Variable("?robot", self._robot_type)
-        tool = Variable("?tool", self._tool_type)
-        preconds = {
-            LiftedAtom(self._OnFloor, [tool]),
-            LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._InViewTool, [spot, tool])
-        }
-        add_effs = {
-            LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot])
-        }
-        del_effs = {
-            LiftedAtom(self._OnFloor, [tool]),
-            LiftedAtom(self._HandEmpty, [spot]),
-            LiftedAtom(self._InViewTool, [spot, tool])
-        }
-        self._GraspToolFromFloorOp = STRIPSOperator("GraspToolFromFloor",
-                                                    [spot, tool], preconds,
-                                                    add_effs, del_effs, set())
-        # PlaceToolOnSurface
-        spot = Variable("?robot", self._robot_type)
-        tool = Variable("?tool", self._tool_type)
-        surface = Variable("?surface", self._surface_type)
-        preconds = {
-            LiftedAtom(self._ReachableSurface, [spot, surface]),
-            LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot])
-        }
-        add_effs = {
-            LiftedAtom(self._On, [tool, surface]),
-            LiftedAtom(self._HandEmpty, [spot])
-        }
-        del_effs = {
-            LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot]),
-            LiftedAtom(self._ReachableSurface, [spot, surface]),
-        }
-        self._PlaceToolOnSurfaceOp = STRIPSOperator("PlaceToolOnSurface",
-                                                    [spot, tool, surface],
-                                                    preconds, add_effs,
-                                                    del_effs, set())
-        # PlaceToolOnFloor
-        spot = Variable("?robot", self._robot_type)
-        tool = Variable("?tool", self._tool_type)
-        preconds = {
-            LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot]),
-        }
-        add_effs = {
-            LiftedAtom(self._OnFloor, [tool]),
-        }
-        del_effs = {
-            LiftedAtom(self._HoldingTool, [spot, tool]),
-            LiftedAtom(self._notHandEmpty, [spot]),
-        }
-        self._PlaceToolOnFloorOp = STRIPSOperator("PlaceToolOnFloor",
-                                                  [spot, tool], preconds,
-                                                  add_effs, del_effs, set())
-
-        self._strips_operators = {
-            self._MoveToToolOnSurfaceOp,
-            self._MoveToToolOnFloorOp,
-            self._MoveToSurfaceOp,
-            self._GraspToolFromSurfaceOp,
-            self._GraspToolFromFloorOp,
-            self._PlaceToolOnSurfaceOp,
-            self._PlaceToolOnFloorOp,
-        }
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "spot_cube_env"
-
-    @property
-    def types(self) -> Set[Type]:
-        return {
-            self._robot_type,
-            self._tool_type,
-            self._surface_type,
-        }
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            self._On, self._HandEmpty, self._HoldingTool,
-            self._ReachableSurface, self._notHandEmpty, self._InViewTool,
-            self._OnFloor
-        }
-
-    @property
-    def percept_predicates(self) -> Set[Predicate]:
-        """The predicates that are NOT stored in the simulator state."""
-        return {
-            self._HandEmpty, self._notHandEmpty, self._HoldingTool, self._On,
-            self._InViewTool, self._OnFloor
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return self.predicates
-
-    @classmethod
-    def _handempty_classifier(cls, state: State,
-                              objects: Sequence[Object]) -> bool:
-        spot = objects[0]
-        gripper_open_percentage = state.get(spot, "gripper_open_percentage")
-        return gripper_open_percentage <= cls._handempty_gripper_threshold
-
-    @classmethod
-    def _nothandempty_classifier(cls, state: State,
-                                 objects: Sequence[Object]) -> bool:
-        return not cls._handempty_classifier(state, objects)
-
-    @classmethod
-    def _holding_tool_classifier(cls, state: State,
-                                 objects: Sequence[Object]) -> bool:
-        spot, obj = objects
-        if cls._handempty_classifier(state, [spot]):
-            return False
-        return state.get(obj, "held") > 0.5
-
-    @classmethod
-    def _ontop_classifier(cls, state: State,
-                          objects: Sequence[Object]) -> bool:
-        obj_on, obj_surface = objects
-
-        spot = [o for o in state if o.type.name == "robot"][0]
-        if cls._holding_tool_classifier(state, [spot, obj_on]):
-            return False
-
-        obj_on_pose = [
-            state.get(obj_on, "x"),
-            state.get(obj_on, "y"),
-            state.get(obj_on, "z")
-        ]
-        obj_surface_pose = [
-            state.get(obj_surface, "x"),
-            state.get(obj_surface, "y"),
-            state.get(obj_surface, "z")
-        ]
-        is_x_same = np.sqrt(
-            (obj_on_pose[0] - obj_surface_pose[0])**2) <= cls._ontop_threshold
-        is_y_same = np.sqrt(
-            (obj_on_pose[1] - obj_surface_pose[1])**2) <= cls._ontop_threshold
-        is_above_z = 0.0 < (obj_on_pose[2] - obj_surface_pose[2]
-                            ) < cls._ontop_max_height_threshold
-        return is_x_same and is_y_same and is_above_z
-
-    @staticmethod
-    def _onfloor_classifier(state: State, objects: Sequence[Object]) -> bool:
-        obj_on, = objects
-        return state.get(obj_on, "z") < 0.0
-
-    @classmethod
-    def _inbag_classifier(cls, state: State,
-                          objects: Sequence[Object]) -> bool:
-        obj, bag = objects
-        obj_x = state.get(obj, "x")
-        obj_y = state.get(obj, "y")
-        bag_x = state.get(bag, "x") + cls._bucket_center_offset_x
-        bag_y = state.get(bag, "y") + cls._bucket_center_offset_y
-        dist = np.sqrt((obj_x - bag_x)**2 + (obj_y - bag_y)**2)
-        return dist <= cls._inbag_threshold
-
-    @classmethod
-    def _reachable_classifier(cls, state: State,
-                              objects: Sequence[Object]) -> bool:
-        spot, obj = objects
-        spot_pose = [
-            state.get(spot, "x"),
-            state.get(spot, "y"),
-            state.get(spot, "z"),
-            state.get(spot, "W_quat"),
-            state.get(spot, "X_quat"),
-            state.get(spot, "Y_quat"),
-            state.get(spot, "Z_quat")
-        ]
-        obj_pose = [
-            state.get(obj, "x"),
-            state.get(obj, "y"),
-            state.get(obj, "z")
-        ]
-        is_xy_near = np.sqrt(
-            (spot_pose[0] - obj_pose[0])**2 +
-            (spot_pose[1] - obj_pose[1])**2) <= cls._reachable_threshold
-
-        # Compute angle between spot's forward direction and the line from
-        # spot to the object.
-        spot_yaw = math_helpers.SE3Pose(
-            spot_pose[0], spot_pose[1], spot_pose[2],
-            math_helpers.Quat(spot_pose[3], spot_pose[4], spot_pose[5],
-                              spot_pose[6])).get_closest_se2_transform().angle
-        forward_unit = [np.cos(spot_yaw), np.sin(spot_yaw)]
-        spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
-        spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
-        angle_between_robot_and_obj = np.arccos(
-            np.dot(forward_unit, spot_to_obj_unit))
-        is_yaw_near = abs(
-            angle_between_robot_and_obj) < cls._reachable_yaw_threshold
-
-        return is_xy_near and is_yaw_near
-
-    @staticmethod
-    def _tool_in_view_classifier(state: State,
-                                 objects: Sequence[Object]) -> bool:
-        _, tool = objects
-        return state.get(tool, "in_view") > 0.5
-
-    @property
-    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
-
-        cube = Object("cube", self._tool_type)
-        cube_detection = AprilTagObjectDetectionID(
-            410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
-
-        tool_room_table = Object("tool_room_table", self._surface_type)
-        tool_room_table_detection = AprilTagObjectDetectionID(
-            408, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
-
-        extra_room_table = Object("extra_room_table", self._surface_type)
-        extra_room_table_detection = AprilTagObjectDetectionID(
-            409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
-
-        return {
-            cube_detection: cube,
-            tool_room_table_detection: tool_room_table,
-            extra_room_table_detection: extra_room_table
-        }
-
     def _actively_construct_initial_object_views(
             self) -> Dict[Object, math_helpers.SE3Pose]:
         stow_arm(self._robot)
@@ -838,6 +472,327 @@ class SpotCubeEnv(SpotEnv):
             for (det_id, val) in detections.items()
         }
         return obj_to_se3_pose
+
+    @property
+    @abc.abstractmethod
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+        """Get an object from a perception detection ID."""
+
+    @abc.abstractmethod
+    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
+        """Get the initial atoms for nonpercept predicates."""
+
+    @abc.abstractmethod
+    def _generate_goal_description(self) -> GoalDescription:
+        """For now, we assume that there's only one goal per environment."""
+
+
+###############################################################################
+#                   Shared Types, Predicates, Operators                       #
+###############################################################################
+
+## Constants
+HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
+_ONTOP_THRESHOLD = 0.55
+_ONTOP_MAX_HEIGHT_THRESHOLD = 0.25
+_REACHABLE_THRESHOLD = 1.7
+_REACHABLE_YAW_THRESHOLD = 0.95  # higher better
+
+## Types
+_robot_type = Type("robot", [
+    "gripper_open_percentage", "x", "y", "z", "W_quat", "X_quat", "Y_quat",
+    "Z_quat"
+])
+_tool_type = Type("tool", [
+    "x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat", "held", "lost",
+    "in_view"
+])
+_surface_type = Type("flat_surface",
+                     ["x", "y", "z", "W_quat", "X_quat", "Y_quat", "Z_quat"])
+
+
+## Predicates
+def _handempty_classifier(state: State, objects: Sequence[Object]) -> bool:
+    spot = objects[0]
+    gripper_open_percentage = state.get(spot, "gripper_open_percentage")
+    return gripper_open_percentage <= HANDEMPTY_GRIPPER_THRESHOLD
+
+
+def _nothandempty_classifier(state: State, objects: Sequence[Object]) -> bool:
+    return not _handempty_classifier(state, objects)
+
+
+def _holding_tool_classifier(state: State, objects: Sequence[Object]) -> bool:
+    spot, obj = objects
+    if _handempty_classifier(state, [spot]):
+        return False
+    return state.get(obj, "held") > 0.5
+
+
+def _ontop_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj_on, obj_surface = objects
+
+    spot = [o for o in state if o.type.name == "robot"][0]
+    if _holding_tool_classifier(state, [spot, obj_on]):
+        return False
+
+    obj_on_pose = [
+        state.get(obj_on, "x"),
+        state.get(obj_on, "y"),
+        state.get(obj_on, "z")
+    ]
+    obj_surface_pose = [
+        state.get(obj_surface, "x"),
+        state.get(obj_surface, "y"),
+        state.get(obj_surface, "z")
+    ]
+    is_x_same = np.sqrt(
+        (obj_on_pose[0] - obj_surface_pose[0])**2) <= _ONTOP_THRESHOLD
+    is_y_same = np.sqrt(
+        (obj_on_pose[1] - obj_surface_pose[1])**2) <= _ONTOP_THRESHOLD
+    is_above_z = 0.0 < (obj_on_pose[2] -
+                        obj_surface_pose[2]) < _ONTOP_MAX_HEIGHT_THRESHOLD
+    return is_x_same and is_y_same and is_above_z
+
+
+def _onfloor_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj_on, = objects
+    return state.get(obj_on, "z") < 0.0
+
+
+def tool_in_view_classifier(state: State, objects: Sequence[Object]) -> bool:
+    """Made public for perceiver."""
+    _, tool = objects
+    return state.get(tool, "in_view") > 0.5
+
+
+def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
+    spot, obj = objects
+    spot_pose = [
+        state.get(spot, "x"),
+        state.get(spot, "y"),
+        state.get(spot, "z"),
+        state.get(spot, "W_quat"),
+        state.get(spot, "X_quat"),
+        state.get(spot, "Y_quat"),
+        state.get(spot, "Z_quat")
+    ]
+    obj_pose = [state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z")]
+    is_xy_near = np.sqrt(
+        (spot_pose[0] - obj_pose[0])**2 +
+        (spot_pose[1] - obj_pose[1])**2) <= _REACHABLE_THRESHOLD
+
+    # Compute angle between spot's forward direction and the line from
+    # spot to the object.
+    spot_yaw = math_helpers.SE3Pose(
+        spot_pose[0], spot_pose[1], spot_pose[2],
+        math_helpers.Quat(spot_pose[3], spot_pose[4], spot_pose[5],
+                          spot_pose[6])).get_closest_se2_transform().angle
+    forward_unit = [np.cos(spot_yaw), np.sin(spot_yaw)]
+    spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
+    spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
+    angle_between_robot_and_obj = np.arccos(
+        np.dot(forward_unit, spot_to_obj_unit))
+    is_yaw_near = abs(angle_between_robot_and_obj) < _REACHABLE_YAW_THRESHOLD
+
+    return is_xy_near and is_yaw_near
+
+
+_On = Predicate("On", [_tool_type, _surface_type], _ontop_classifier)
+_OnFloor = Predicate("OnFloor", [_tool_type], _onfloor_classifier)
+_HandEmpty = Predicate("HandEmpty", [_robot_type], _handempty_classifier)
+_notHandEmpty = Predicate("Not-HandEmpty", [_robot_type],
+                          _nothandempty_classifier)
+_HoldingTool = Predicate("HoldingTool", [_robot_type, _tool_type],
+                         _holding_tool_classifier)
+_InViewTool = Predicate("InViewTool", [_robot_type, _tool_type],
+                        tool_in_view_classifier)
+_ReachableSurface = Predicate("ReachableSurface", [_robot_type, _surface_type],
+                              _reachable_classifier)
+
+
+## Operators (needed in the environment for non-percept atom hack)
+def _create_operators() -> Iterator[STRIPSOperator]:
+    """Inside a function to avoid scoping issues."""
+
+    # MoveToToolOnSurface
+    spot = Variable("?robot", _robot_type)
+    tool = Variable("?tool", _tool_type)
+    surface = Variable("?surface", _surface_type)
+    preconditions = {
+        LiftedAtom(_On, [tool, surface]),
+    }
+    add_effs = {LiftedAtom(_InViewTool, [spot, tool])}
+    ignore_effs = {_ReachableSurface, _InViewTool}
+    yield STRIPSOperator("MoveToToolOnSurface", [spot, tool, surface],
+                         preconditions, add_effs, set(), ignore_effs)
+    # MoveToToolOnFloor
+    spot = Variable("?robot", _robot_type)
+    tool = Variable("?tool", _tool_type)
+    preconditions = {LiftedAtom(_OnFloor, [tool])}
+    add_effs = {LiftedAtom(_InViewTool, [spot, tool])}
+    ignore_effs = {_ReachableSurface, _InViewTool}
+    yield STRIPSOperator("MoveToToolOnFloor", [spot, tool], preconditions,
+                         add_effs, set(), ignore_effs)
+    # MoveToSurface
+    spot = Variable("?robot", _robot_type)
+    surface = Variable("?surface", _surface_type)
+    preconditions = set()
+    add_effs = {LiftedAtom(_ReachableSurface, [spot, surface])}
+    ignore_effs = {_ReachableSurface, _InViewTool}
+    yield STRIPSOperator("MoveToSurface", [spot, surface], preconditions,
+                         add_effs, set(), ignore_effs)
+    # GraspToolFromSurface
+    spot = Variable("?robot", _robot_type)
+    tool = Variable("?tool", _tool_type)
+    surface = Variable("?surface", _surface_type)
+    preconds = {
+        LiftedAtom(_On, [tool, surface]),
+        LiftedAtom(_HandEmpty, [spot]),
+        LiftedAtom(_InViewTool, [spot, tool])
+    }
+    add_effs = {
+        LiftedAtom(_HoldingTool, [spot, tool]),
+        LiftedAtom(_notHandEmpty, [spot])
+    }
+    del_effs = {
+        LiftedAtom(_On, [tool, surface]),
+        LiftedAtom(_HandEmpty, [spot]),
+        LiftedAtom(_InViewTool, [spot, tool])
+    }
+    yield STRIPSOperator("GraspToolFromSurface", [spot, tool, surface],
+                         preconds, add_effs, del_effs, set())
+    # GraspToolFromFloor
+    spot = Variable("?robot", _robot_type)
+    tool = Variable("?tool", _tool_type)
+    preconds = {
+        LiftedAtom(_OnFloor, [tool]),
+        LiftedAtom(_HandEmpty, [spot]),
+        LiftedAtom(_InViewTool, [spot, tool])
+    }
+    add_effs = {
+        LiftedAtom(_HoldingTool, [spot, tool]),
+        LiftedAtom(_notHandEmpty, [spot])
+    }
+    del_effs = {
+        LiftedAtom(_OnFloor, [tool]),
+        LiftedAtom(_HandEmpty, [spot]),
+        LiftedAtom(_InViewTool, [spot, tool])
+    }
+    yield STRIPSOperator("GraspToolFromFloor", [spot, tool], preconds,
+                         add_effs, del_effs, set())
+    # PlaceToolOnSurface
+    spot = Variable("?robot", _robot_type)
+    tool = Variable("?tool", _tool_type)
+    surface = Variable("?surface", _surface_type)
+    preconds = {
+        LiftedAtom(_ReachableSurface, [spot, surface]),
+        LiftedAtom(_HoldingTool, [spot, tool]),
+        LiftedAtom(_notHandEmpty, [spot])
+    }
+    add_effs = {
+        LiftedAtom(_On, [tool, surface]),
+        LiftedAtom(_HandEmpty, [spot])
+    }
+    del_effs = {
+        LiftedAtom(_HoldingTool, [spot, tool]),
+        LiftedAtom(_notHandEmpty, [spot]),
+        LiftedAtom(_ReachableSurface, [spot, surface]),
+    }
+    yield STRIPSOperator("PlaceToolOnSurface", [spot, tool, surface], preconds,
+                         add_effs, del_effs, set())
+    # PlaceToolOnFloor
+    spot = Variable("?robot", _robot_type)
+    tool = Variable("?tool", _tool_type)
+    preconds = {
+        LiftedAtom(_HoldingTool, [spot, tool]),
+        LiftedAtom(_notHandEmpty, [spot]),
+    }
+    add_effs = {
+        LiftedAtom(_OnFloor, [tool]),
+    }
+    del_effs = {
+        LiftedAtom(_HoldingTool, [spot, tool]),
+        LiftedAtom(_notHandEmpty, [spot]),
+    }
+    yield STRIPSOperator("PlaceToolOnFloor", [spot, tool], preconds, add_effs,
+                         del_effs, set())
+
+
+###############################################################################
+#                                Cube Table Env                               #
+###############################################################################
+
+
+class SpotCubeEnv(SpotEnv):
+    """An environment corresponding to the spot cube task where the robot
+    attempts to place an April Tag cube onto a particular table."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        op_to_name = {o.name: o for o in _create_operators()}
+        op_names_to_keep = {
+            "MoveToToolOnSurface",
+            "MoveToToolOnFloor",
+            "MoveToSurface",
+            "GraspToolFromSurface",
+            "GraspToolFromFloor",
+            "PlaceToolOnSurface",
+            "PlaceToolOnFloor",
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_cube_env"
+
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            _robot_type,
+            _tool_type,
+            _surface_type,
+        }
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            _On, _HandEmpty, _HoldingTool, _ReachableSurface, _notHandEmpty,
+            _InViewTool, _OnFloor
+        }
+
+    @property
+    def percept_predicates(self) -> Set[Predicate]:
+        """The predicates that are NOT stored in the simulator state."""
+        return {
+            _HandEmpty, _notHandEmpty, _HoldingTool, _On, _InViewTool, _OnFloor
+        }
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return self.predicates
+
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+
+        cube = Object("cube", _tool_type)
+        cube_detection = AprilTagObjectDetectionID(
+            410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+
+        tool_room_table = Object("tool_room_table", _surface_type)
+        tool_room_table_detection = AprilTagObjectDetectionID(
+            408, math_helpers.SE3Pose(0.0, 0.12, 0.0, math_helpers.Quat()))
+
+        extra_room_table = Object("extra_room_table", _surface_type)
+        extra_room_table_detection = AprilTagObjectDetectionID(
+            409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+
+        return {
+            cube_detection: cube,
+            tool_room_table_detection: tool_room_table,
+            extra_room_table_detection: extra_room_table
+        }
 
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
         return set()
