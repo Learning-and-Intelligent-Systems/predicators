@@ -153,57 +153,25 @@ def test_all_find_move_pick_place() -> None:
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
     # Run test with april tag cube.
-    init_surface = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.12, 0.0, math_helpers.Quat()))
-    target_surface = AprilTagObjectDetectionID(
-        409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
-    cube = AprilTagObjectDetectionID(
-        410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+    init_surface = AprilTagObjectDetectionID(408)
+    target_surface = AprilTagObjectDetectionID(409)
+    cube = AprilTagObjectDetectionID(410)
 
-    # Assume that the tables are at the "front" of the room (with the hall
-    # on the left when on the fourth floor).
-    input("Set up the tables and CUBE on the north wall")
+    # Assume that the tables are at the "front" of the room (with respect to
+    # the robot home pose).
+    input("Set up the tables and CUBE in front of the robot")
     test_find_move_pick_place(robot, localizer, cube, init_surface,
                               target_surface)
 
     # Run test with brush.
-    # Assume that the tables are at the "front" of the room (with the hall
-    # on the left when on the fourth floor).
     brush = LanguageObjectDetectionID("brush")
-    input("Set up the tables and BRUSH on the north wall")
+    input("Set up the tables and BRUSH in front of the robot")
     test_find_move_pick_place(robot, localizer, brush, init_surface,
                               target_surface)
 
     # Run test with cube on floor.
     input("Place the cube anywhere on the floor")
     test_find_move_pick_place(robot, localizer, cube, None, target_surface)
-
-    # Run test with tables moved so that the init table is on the wall adjacent
-    # to the hallway and the target table is on the opposite wall.
-    # Note that we need to change the offsets because the april tags are
-    # now rotated.
-    input("Set up the tables and CUBE on opposite walls")
-    init_surface = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.12, 0.0, math_helpers.Quat()))
-    target_surface = AprilTagObjectDetectionID(
-        409, math_helpers.SE3Pose(0.25, 0.0, 0.0, math_helpers.Quat()))
-    test_find_move_pick_place(robot,
-                              localizer,
-                              cube,
-                              init_surface,
-                              target_surface,
-                              pre_pick_nav_angle=0,
-                              pre_place_nav_angle=np.pi)
-
-    drill = LanguageObjectDetectionID("drill")
-    input("Set up the tables and DRILL on opposite walls")
-    test_find_move_pick_place(robot,
-                              localizer,
-                              drill,
-                              init_surface,
-                              target_surface,
-                              pre_pick_nav_angle=0,
-                              pre_place_nav_angle=np.pi)
 
 
 def test_move_with_sampling() -> None:
@@ -240,10 +208,8 @@ def test_move_with_sampling() -> None:
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
     # Run test with april tag cube.
-    surface1 = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.12, 0.0, math_helpers.Quat()))
-    surface2 = AprilTagObjectDetectionID(
-        409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+    surface1 = AprilTagObjectDetectionID(408)
+    surface2 = AprilTagObjectDetectionID(409)
 
     go_home(robot, localizer)
     localizer.localize()

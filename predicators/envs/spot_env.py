@@ -808,16 +808,13 @@ class SpotCubeEnv(SpotEnv):
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         cube = Object("cube", self._tool_type)
-        cube_detection = AprilTagObjectDetectionID(
-            410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+        cube_detection = AprilTagObjectDetectionID(410)
 
         tool_room_table = Object("tool_room_table", self._surface_type)
-        tool_room_table_detection = AprilTagObjectDetectionID(
-            408, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+        tool_room_table_detection = AprilTagObjectDetectionID(408)
 
         extra_room_table = Object("extra_room_table", self._surface_type)
-        extra_room_table_detection = AprilTagObjectDetectionID(
-            409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+        extra_room_table_detection = AprilTagObjectDetectionID(409)
 
         return {
             cube_detection: cube,

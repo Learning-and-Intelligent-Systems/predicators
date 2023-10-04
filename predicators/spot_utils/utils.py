@@ -38,6 +38,27 @@ def get_home_pose(graph_nav_dir: Path) -> math_helpers.SE2Pose:
     return math_helpers.SE2Pose(x, y, angle)
 
 
+@functools.lru_cache(maxsize=None)
+def get_april_tag_transform(april_tag: int,
+                            graph_nav_dir: Path) -> math_helpers.SE3Pose:
+    """Load the world frame transform for an april tag.
+
+    Returns identity if no config is found.
+    """
+    config_filepath = graph_nav_dir / "metadata.yaml"
+    with open(config_filepath, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    transform_dict = config["april-tag-offsets"]
+    try:
+        april_tag_transform_dict = transform_dict[f"tag-{april_tag}"]
+    except KeyError:
+        return math_helpers.SE3Pose(0, 0, 0, rot=math_helpers.Quat())
+    x = april_tag_transform_dict["x"]
+    y = april_tag_transform_dict["y"]
+    z = april_tag_transform_dict["z"]
+    return math_helpers.SE3Pose(x, y, z, rot=math_helpers.Quat())
+
+
 def verify_estop(robot: Robot) -> None:
     """Verify the robot is not estopped."""
 
