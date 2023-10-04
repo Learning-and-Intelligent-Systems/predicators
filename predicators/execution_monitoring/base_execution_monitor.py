@@ -22,6 +22,7 @@ class BaseExecutionMonitor(abc.ABC):
         """Reset after replanning."""
         del task  # unused
         self._curr_plan_timestep = 0
+        self._approach_info = []
 
     @abc.abstractmethod
     def step(self, state: State) -> bool:
