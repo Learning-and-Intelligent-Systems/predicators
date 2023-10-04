@@ -31,8 +31,9 @@ from scipy import ndimage
 
 from predicators.settings import CFG
 from predicators.spot_utils.perception.perception_structs import \
-    AprilTagObjectDetectionID, LanguageObjectDetectionID, ObjectDetectionID, \
-    RGBDImageWithContext, SegmentedBoundingBox
+    AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
+    LanguageObjectDetectionID, ObjectDetectionID, RGBDImageWithContext, \
+    SegmentedBoundingBox
 from predicators.utils import rotate_point_in_image
 
 # Hack to avoid double image capturing when we want to (1) get object states
@@ -64,14 +65,21 @@ def detect_objects(
     # Collect and dispatch.
     april_tag_object_ids: Set[AprilTagObjectDetectionID] = set()
     language_object_ids: Set[LanguageObjectDetectionID] = set()
+    known_static_object_ids: Set[KnownStaticObjectDetectionID] = set()
     for object_id in object_ids:
         if isinstance(object_id, AprilTagObjectDetectionID):
             april_tag_object_ids.add(object_id)
+        elif isinstance(object_id, KnownStaticObjectDetectionID):
+            known_static_object_ids.add(object_id)
         else:
             assert isinstance(object_id, LanguageObjectDetectionID)
             language_object_ids.add(object_id)
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
     artifacts: Dict[str, Any] = {"april": {}, "language": {}}
+
+    # Read off known objects directly.
+    for known_obj_id in known_static_object_ids:
+        detections[known_obj_id] = known_obj_id.pose
 
     # There is no batching over images for april tag detection.
     for rgbd in rgbds.values():
@@ -553,7 +561,11 @@ if __name__ == "__main__":
         language_ids: List[ObjectDetectionID] = [
             LanguageObjectDetectionID(d) for d in TEST_LANGUAGE_DESCRIPTIONS
         ]
-        object_ids: List[ObjectDetectionID] = [april_tag_id] + language_ids
+        known_static_id: ObjectDetectionID = KnownStaticObjectDetectionID(
+            "imaginary_box",
+            math_helpers.SE3Pose(-5, 0, 0, rot=math_helpers.Quat()))
+        object_ids: List[ObjectDetectionID] = [april_tag_id, known_static_id
+                                               ] + language_ids
         detections, artifacts = detect_objects(object_ids, rgbds)
         for obj_id, detection in detections.items():
             print(f"Detected {obj_id} at {detection}")
