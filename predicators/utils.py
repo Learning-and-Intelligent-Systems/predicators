@@ -278,27 +278,51 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
 
     else:
         assert CFG.active_sampler_learning_feature_selection == "oracle"
-        assert CFG.env == "bumpy_cover"
-        if param_option.name == "Pick":
-            # In this case, the x-data should be
-            # [block_bumpy, relative_pick_loc]
-            assert len(objects) == 1
-            block = objects[0]
-            block_pos = state[block][3]
-            block_bumpy = state[block][5]
-            sampler_input_lst.append(block_bumpy)
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - block_pos)
+        if CFG.env == "bumpy_cover":
+            if param_option.name == "Pick":
+                # In this case, the x-data should be
+                # [block_bumpy, relative_pick_loc]
+                assert len(objects) == 1
+                block = objects[0]
+                block_pos = state[block][3]
+                block_bumpy = state[block][5]
+                sampler_input_lst.append(block_bumpy)
+                assert len(params) == 1
+                sampler_input_lst.append(params[0] - block_pos)
+            else:
+                assert param_option.name == "Place"
+                assert len(objects) == 2
+                block, target = objects
+                target_pos = state[target][3]
+                grasp = state[block][4]
+                target_width = state[target][2]
+                sampler_input_lst.extend([grasp, target_width])
+                assert len(params) == 1
+                sampler_input_lst.append(params[0] - target_pos)
+        elif "sticky_table" in CFG.env:
+            if param_option.name == "PlaceOnTable":
+                _, _, table = objects
+                table_y = state.get(table, "y")
+                sticky = state.get(table, "sticky")
+                _, _, param_y = params
+                sampler_input_lst.append(param_y - table_y)
+                sampler_input_lst.append(sticky)
+            elif "NavigateTo" in param_option.name:
+                _, obj = objects
+                obj_x = state.get(obj, "x")
+                obj_y = state.get(obj, "y")
+                if obj.type.name == "table":
+                    size = state.get(obj, "radius")
+                else:
+                    assert obj.type.name == "cube"
+                    size = state.get(obj, "size")
+                _, param_x, param_y = params
+                sampler_input_lst.append(size)
+                sampler_input_lst.append(param_x - obj_x)
+                sampler_input_lst.append(param_y - obj_y)
         else:
-            assert param_option.name == "Place"
-            assert len(objects) == 2
-            block, target = objects
-            target_pos = state[target][3]
-            grasp = state[block][4]
-            target_width = state[target][2]
-            sampler_input_lst.extend([grasp, target_width])
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - target_pos)
+            raise NotImplementedError("Oracle feature selection not "
+                                      f"implemented for {CFG.env}")
 
     return np.array(sampler_input_lst)
 
