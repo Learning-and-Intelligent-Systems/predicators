@@ -118,7 +118,7 @@ class StickyTableEnv(BaseEnv):
                     if self._table_is_sticky(table, state):
                         # Check if placing on the smooth side of the sticky table.
                         table_y = state.get(table, "y")
-                        if self.sticky_surface_mode == "half" and act_y < 0.3 * table_y:
+                        if self.sticky_surface_mode == "half" and act_y < table_y:
                             fall_prob = self._place_smooth_fall_prob
                     if self._noise_rng.uniform() < fall_prob:
                         fall_x, fall_y = self._sample_floor_point_around_table(
@@ -251,7 +251,7 @@ class StickyTableEnv(BaseEnv):
             for i, theta in enumerate(thetas):
                 x = d * np.cos(theta) + origin_x
                 y = d * np.sin(theta) + origin_y
-                if i > 0:
+                if rng.random() > CFG.sticky_table_proportion_of_sticky_tables:
                     prefix = "normal"
                     sticky = 0.0
                 else:
