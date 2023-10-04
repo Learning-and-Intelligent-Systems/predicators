@@ -22,7 +22,7 @@ class BaseSTRIPSLearner(abc.ABC):
                  segmented_trajs: List[List[Segment]],
                  verify_harmlessness: bool,
                  annotations: Optional[List[Any]],
-                 clusters: Optional[Dict[str, List[Segment]]],
+                 clusters: Optional[Dict[str, List[Any]]],
                  verbose: bool = True) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks

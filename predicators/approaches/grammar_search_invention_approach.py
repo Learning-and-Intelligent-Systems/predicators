@@ -1130,12 +1130,41 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 temp.append(traj)
                 print(traj)
 
+            ###
+            # Stuff from oracle learning to test if the stuff is working.
+            ###
+            assert CFG.offline_data_method == "demo+gt_operators"
+            assert dataset.annotations is not None and len(
+                dataset.annotations) == len(dataset.trajectories)
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in atom_dataset
+            ]
+            assert len(segmented_trajs) == len(dataset.annotations)
+            # First, get the set of all ground truth operator names.
+            all_gt_op_names = set(ground_nsrt.parent.name
+                                  for anno_list in dataset.annotations
+                                  for ground_nsrt in anno_list)
+            # Next, make a dictionary mapping operator name to segments
+            # where that operator was used.
+            gt_op_to_segments: Dict[str, List[Segment]] = {
+                op_name: []
+                for op_name in all_gt_op_names
+            }
+            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+                assert len(seg_list) == len(op_list)
+                for ground_nsrt, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
+            final_clusters = list(gt_op_to_segments.values())
+            ###
+
             # operator to preconditions, and add effects
             # filter out an operator that barely ever appears
             ddd = {}
             for i, c in enumerate(final_clusters):
                 op_name = "Op"+str(i)
-                ddd[op_name] = [set(), set(), c] # preconditions, add_effects, segments
+                # preconditions, add effects, delete effects, segments
+                ddd[op_name] = [set(), set(), set(), c]
 
             # For clusters that appear at the end,
             # we can narrow down their add effects as:
@@ -1150,6 +1179,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             add_effects_per_cluster = []
             all_add_effects = set()
             for j, c in enumerate(final_clusters):
+
+                # add effects
                 add_effects_per_segment = [s.add_effects for s in c]
                 ungrounded_add_effects_per_segment = []
                 for add_effects in add_effects_per_segment:
@@ -1157,14 +1188,24 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 add_effects = set.intersection(*ungrounded_add_effects_per_segment)
                 add_effects_per_cluster.append(add_effects)
 
+                # delete effects
+                del_effects_per_segment = [s.delete_effects for s in c]
+                ungrounded_del_effects_per_segment = []
+                for del_effects in del_effects_per_segment:
+                    ungrounded_del_effects_per_segment.append(set(a.predicate for a in del_effects))
+                del_effects = set.intersection(*ungrounded_del_effects_per_segment)
+
+                # preconditions
                 init_atoms_per_segment = [s.init_atoms for s in c]
                 ungrounded_init_atoms_per_segment = []
                 for init_atoms in init_atoms_per_segment:
                     ungrounded_init_atoms_per_segment.append(set(a.predicate for a in init_atoms))
                 init_atoms = set.intersection(*ungrounded_init_atoms_per_segment)
                 op_name = "Op"+str(j)
+
                 ddd[op_name][0] = init_atoms
                 ddd[op_name][1] = add_effects
+                ddd[op_name][2] = del_effects
 
                 print(f"Cluster {j} with option {c[0].get_option().name}, predicates:")
                 for a in add_effects:
@@ -1319,8 +1360,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 print()
                 ddd[op][0] = ddd[op][0].intersection(predicates_to_keep)
                 ddd[op][1] = ddd[op][1].intersection(predicates_to_keep)
+                ddd[op][2] = ddd[op][2].intersection(predicates_to_keep)
 
-                preconditions, add_effects = stuff
+                preconditions, add_effects, delete_effects, _ = stuff
                 print(op + ": ")
                 print("preconditions: ")
                 for p in preconditions:
@@ -1330,7 +1372,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for p in add_effects:
                     print(p)
 
-            import pdb; pdb.set_trace()
+            self._clusters = ddd
+
+            # import pdb; pdb.set_trace()
 
             logging.info(
                 f"\nSelected {len(predicates_to_keep)} predicates out of "
@@ -1358,10 +1402,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 op_name: []
                 for op_name in all_gt_op_names
             }
-
-            ###
-            self.gt_op_to_segments = gt_op_to_segments
-            ###
 
             for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
                 assert len(seg_list) == len(op_list)

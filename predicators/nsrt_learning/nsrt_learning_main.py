@@ -18,7 +18,7 @@ from predicators.structs import NSRT, PNAD, GroundAtomTrajectory, \
     LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task
 
 def learn_nsrts_from_data2(
-    clusters:  Dict[str, List[Set[Predicate], Set[Predicate], List[Segment]]],
+    clusters:  Dict[str, List[Any]],
     trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
     action_space: Box, ground_atom_dataset: List[GroundAtomTrajectory],
@@ -83,8 +83,9 @@ def learn_nsrts_from_data2(
             predicates,
             segmented_trajs,
             verify_harmlessness=True,
-            verbose=(CFG.option_learner != "no_learning"),
-            annotations=annotations)
+            annotations=annotations,
+            clusters=clusters,
+            verbose=(CFG.option_learner != "no_learning"))
 
         # Save least complex learned PNAD set across data orderings.
         pnads_complexity = sum(pnad.op.get_complexity() for pnad in pnads)

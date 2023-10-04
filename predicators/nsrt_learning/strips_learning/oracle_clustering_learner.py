@@ -7,7 +7,8 @@ from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import NSRT, PNAD, Datastore, DummyOption, \
-    LiftedAtom, Predicate, Segment
+    LiftedAtom, Predicate, Segment, STRIPSOperator
+from predicators import utils
 
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
@@ -73,24 +74,26 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
         # env_options = get_gt_options(env.get_name())
         # gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env_options)
         pnads: List[PNAD] = []
+        import pdb; pdb.set_trace()
 
-        for name, v in clusters.items():
-            preconds, add_effects, segments = v
+        for name, v in self._clusters.items():
+            preconds, add_effects, del_effects, segments = v
             seg_0 = segments[0]
             opt_objs = tuple(seg_0.get_option().objects)
-            revelant_add_effects = [a for a in seg_0.add_effects if a.predicate in add_effects]
-            relevant_preconds = [a for a in seg_0.init_atoms if a.predicate in preconds]
-            objects = {o for atom in relevant_add_effects for o in atom.objects} | set(opt_objs)
+            relevant_add_effects = [a for a in seg_0.add_effects if a.predicate in add_effects]
+            relevant_del_effects = [a for a in seg_0.delete_effects if a.predicate in del_effects]
+            objects = {o for atom in relevant_add_effects + relevant_del_effects for o in atom.objects} | set(opt_objs)
             objects_list = sorted(objects)
+            relevant_preconds = [a for a in seg_0.init_atoms if (a.predicate in preconds and set(a.objects).issubset(set(objects_list)))]
             params = utils.create_new_variables([o.type for o in objects_list])
             obj_to_var = dict(zip(objects_list, params))
             var_to_obj = dict(zip(params, objects_list))
             op_add_effects = {atom.lift(obj_to_var) for atom in relevant_add_effects}
-
+            op_del_effects = {atom.lift(obj_to_var) for atom in relevant_del_effects}
             op_preconds = {atom.lift(obj_to_var) for atom in relevant_preconds}
             op_ignore_effects = set()
 
-            op = STRIPSOperator(name, params, op_preconds, op_add_effects, ignore_effects)
+            op = STRIPSOperator(name, params, op_preconds, op_add_effects, op_del_effects, op_ignore_effects)
             datastore = []
             for seg in segments:
                 seg_opt_objs = tuple(seg.get_option().objects)

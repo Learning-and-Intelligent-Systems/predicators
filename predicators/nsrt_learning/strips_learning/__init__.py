@@ -1,6 +1,6 @@
 """This directory contains algorithms for STRIPS operator learning."""
 
-from typing import Any, List, Optional, Set
+from typing import Any, List, Optional, Set, Dict
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
@@ -21,6 +21,7 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
                            segmented_trajs: List[List[Segment]],
                            verify_harmlessness: bool,
                            annotations: Optional[List[Any]],
+                           clusters: Optional[Dict[str, List[Any]]],
                            verbose: bool = True) -> List[PNAD]:
     """Learn strips operators on the given data segments.
 
@@ -31,7 +32,7 @@ def learn_strips_operators(trajectories: List[LowLevelTrajectory],
         if not cls.__abstractmethods__ and \
            cls.get_name() == CFG.strips_learner:
             learner = cls(trajectories, train_tasks, predicates,
-                          segmented_trajs, verify_harmlessness, annotations,
+                          segmented_trajs, verify_harmlessness, annotations, clusters,
                           verbose)
             break
     else:
