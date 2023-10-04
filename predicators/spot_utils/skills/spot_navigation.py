@@ -14,7 +14,7 @@ from bosdyn.client.robot_command import RobotCommandBuilder, RobotCommandClient
 from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.utils import HOME_POSE, get_robot_state
+from predicators.spot_utils.utils import get_home_pose, get_robot_state
 
 
 def navigate_to_relative_pose(robot: Robot,
@@ -105,9 +105,10 @@ def go_home(robot: Robot,
             min_xytheta_vel: Tuple[float, float, float] = (-2.0, -2.0, -1.0),
             timeout: float = 20.0) -> None:
     """Navigate to a known home position (defined in utils.py)."""
+    home_pose = get_home_pose(localizer.map_file_dir)
     return navigate_to_absolute_pose(robot,
                                      localizer,
-                                     HOME_POSE,
+                                     home_pose,
                                      max_xytheta_vel=max_xytheta_vel,
                                      min_xytheta_vel=min_xytheta_vel,
                                      timeout=timeout)

@@ -84,6 +84,11 @@ class SpotLocalizer:
         # Run localize once to start.
         self.localize()
 
+    @property
+    def map_file_dir(self) -> Path:
+        """Exposed for metadata lookup."""
+        return self._upload_path
+
     def _upload_graph_and_snapshots(self) -> None:
         """Upload the graph and snapshots to the robot."""
         # pylint: disable=no-member
