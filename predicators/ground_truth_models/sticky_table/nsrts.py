@@ -177,11 +177,6 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                     objs: Sequence[Object]) -> Array:
             del goal  # not used
             obj = objs[1]
-            if obj.type.name == "cube":
-                size = state.get(obj, "size")
-            else:
-                assert obj.type.name == "table"
-                size = state.get(obj, "radius") * 2
             obj_x = state.get(obj, "x")
             obj_y = state.get(obj, "y")
             max_dist = StickyTableEnv.reachable_thresh

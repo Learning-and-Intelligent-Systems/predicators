@@ -251,7 +251,7 @@ class StickyTableEnv(BaseEnv):
             for i, theta in enumerate(thetas):
                 x = d * np.cos(theta) + origin_x
                 y = d * np.sin(theta) + origin_y
-                if rng.random() > CFG.sticky_table_proportion_of_sticky_tables:
+                if i >= CFG.sticky_table_num_sticky_tables:
                     prefix = "normal"
                     sticky = 0.0
                 else:
