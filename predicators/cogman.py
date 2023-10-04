@@ -145,9 +145,6 @@ class CogMan:
         """Call the approach or use the override policy."""
         if self._override_policy is not None:
             self._current_policy = self._override_policy
-            # HACK! Just need this to get rid of bad execution monitoring
-            # info.
-            self._approach.solve(task, timeout=CFG.timeout)
         else:
             self._current_policy = self._approach.solve(task,
                                                         timeout=CFG.timeout)
