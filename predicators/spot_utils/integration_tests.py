@@ -32,7 +32,7 @@ from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_FLOOR_POSE, get_relative_se2_from_se3, \
+    DEFAULT_HAND_LOOK_FLOOR_POSE, get_home_pose, get_relative_se2_from_se3, \
     sample_move_offset_from_target, spot_pose_to_geom2d, verify_estop
 
 
@@ -45,9 +45,7 @@ def test_find_move_pick_place(
     pre_pick_surface_nav_distance: float = 1.25,
     pre_pick_floor_nav_distance: float = 1.75,
     pre_place_nav_distance: float = 1.0,
-    pre_pick_nav_angle: float = -np.pi / 2,
-    pre_place_nav_angle: float = -np.pi / 2,
-    place_offset_z: float = 0.25,
+    place_offset_z: float = 0.2,
 ) -> None:
     """Find the given object and surfaces, pick the object from the first
     surface, and place it on the second surface.
@@ -59,6 +57,11 @@ def test_find_move_pick_place(
     """
     go_home(robot, localizer)
     localizer.localize()
+
+    # Test assumes that objects are in front of the robot's home position.
+    home_pose = get_home_pose(localizer.map_file_dir)
+    pre_pick_nav_angle = home_pose.angle - np.pi
+    pre_place_nav_angle = pre_pick_nav_angle
 
     # Find objects.
     object_ids = [manipuland_id]
@@ -287,8 +290,6 @@ def test_repeated_brush_bucket_dump_pick_place(
         pre_pick_floor_nav_distance: float = 1.25,
         pre_place_nav_distance: float = 0.75,
         pre_dump_nav_distance: float = 1.25,
-        pre_pick_nav_angle: float = -np.pi / 2,
-        pre_place_nav_angle: float = -np.pi / 2,
         place_offset_x: float = 0.1,
         place_offset_z: float = 0.5,
         post_dump_place_offset_z: float = 0.0,
@@ -319,6 +320,11 @@ def test_repeated_brush_bucket_dump_pick_place(
                                      return_at_exit=True)
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+
+    # Test assumes that objects are in front of the robot's home position.
+    home_pose = get_home_pose(localizer.map_file_dir)
+    pre_pick_nav_angle = home_pose.angle - np.pi
+    pre_place_nav_angle = pre_pick_nav_angle
 
     # Use vision-language model to detect bucket and brush.
     bucket = LanguageObjectDetectionID("large red bucket")
