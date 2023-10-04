@@ -31,9 +31,9 @@ from scipy import ndimage
 
 from predicators.settings import CFG
 from predicators.spot_utils.perception.perception_structs import \
-    AprilTagObjectDetectionID, LanguageObjectDetectionID, ObjectDetectionID, \
-    RGBDImageWithContext, SegmentedBoundingBox
-from predicators.spot_utils.utils import get_april_tag_transform
+    AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
+    LanguageObjectDetectionID, ObjectDetectionID, RGBDImageWithContext, \
+    SegmentedBoundingBox
 from predicators.utils import rotate_point_in_image
 
 # Hack to avoid double image capturing when we want to (1) get object states
@@ -65,14 +65,21 @@ def detect_objects(
     # Collect and dispatch.
     april_tag_object_ids: Set[AprilTagObjectDetectionID] = set()
     language_object_ids: Set[LanguageObjectDetectionID] = set()
+    known_static_object_ids: Set[KnownStaticObjectDetectionID] = set()
     for object_id in object_ids:
         if isinstance(object_id, AprilTagObjectDetectionID):
             april_tag_object_ids.add(object_id)
+        elif isinstance(object_id, KnownStaticObjectDetectionID):
+            known_static_object_ids.add(object_id)
         else:
             assert isinstance(object_id, LanguageObjectDetectionID)
             language_object_ids.add(object_id)
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
     artifacts: Dict[str, Any] = {"april": {}, "language": {}}
+
+    # Read off known objects directly.
+    for known_obj_id in known_static_object_ids:
+        detections[known_obj_id] = known_obj_id.pose
 
     # There is no batching over images for april tag detection.
     for rgbd in rgbds.values():
@@ -496,6 +503,71 @@ def _visualize_all_artifacts(artifacts: Dict[str,
         print(f"Wrote out to {no_detections_outfile}.")
 
 
+def display_camera_detections(artifacts: Dict[str, Any],
+                              axes: plt.Axes) -> None:
+    """Plot per-camera detections on the given axes.
+
+    The axes are given as input because we might want to update the same
+    axes repeatedly, e.g., during object search.
+    """
+
+    # At the moment, only language detection artifacts are visualized.
+    rgbds = artifacts["language"]["rgbds"]
+    detections = artifacts["language"]["object_id_to_img_detections"]
+    # Organize detections by camera.
+    camera_to_rgbd = {rgbd.camera_name: rgbd for rgbd in rgbds.values()}
+    camera_to_detections: Dict[str, List[Tuple[LanguageObjectDetectionID,
+                                               SegmentedBoundingBox]]] = {
+                                                   c: []
+                                                   for c in camera_to_rgbd
+                                               }
+    for obj_id, img_detections in detections.items():
+        for camera, seg_bb in img_detections.items():
+            camera_to_detections[camera].append((obj_id, seg_bb))
+
+    # Plot per-camera.
+    box_colors = ["green", "red", "blue", "purple", "gold", "brown", "black"]
+    camera_order = sorted(camera_to_rgbd)
+    for ax, camera in zip(axes.flat, camera_order):
+        ax.clear()
+        ax.set_title(camera)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        # Display the RGB image.
+        rgbd = camera_to_rgbd[camera]
+        ax.imshow(rgbd.rotated_rgb)
+
+        for i, (obj_id, seg_bb) in enumerate(camera_to_detections[camera]):
+
+            color = box_colors[i % len(box_colors)]
+
+            # Display the bounding box.
+            box = seg_bb.bounding_box
+            # Rotate.
+            image_rot = rgbd.image_rot
+            h, w = rgbd.rgb.shape[:2]
+            box = _rotate_bounding_box(box, image_rot, h, w)
+            x0, y0 = box[0], box[1]
+            w, h = box[2] - box[0], box[3] - box[1]
+            ax.add_patch(
+                plt.Rectangle((x0, y0),
+                              w,
+                              h,
+                              edgecolor=color,
+                              facecolor=(0, 0, 0, 0),
+                              lw=1))
+            # Label with the detection and score.
+            ax.text(
+                -250,  # off to the left side
+                50 + 60 * i,
+                f'{obj_id.language_id}: {seg_bb.score:.2f}',
+                color='white',
+                fontsize=12,
+                fontweight='bold',
+                bbox=dict(facecolor=color, edgecolor=color, alpha=0.5))
+
+
 if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
@@ -556,7 +628,11 @@ if __name__ == "__main__":
         language_ids: List[ObjectDetectionID] = [
             LanguageObjectDetectionID(d) for d in TEST_LANGUAGE_DESCRIPTIONS
         ]
-        object_ids: List[ObjectDetectionID] = [april_tag_id] + language_ids
+        known_static_id: ObjectDetectionID = KnownStaticObjectDetectionID(
+            "imaginary_box",
+            math_helpers.SE3Pose(-5, 0, 0, rot=math_helpers.Quat()))
+        object_ids: List[ObjectDetectionID] = [april_tag_id, known_static_id
+                                               ] + language_ids
         detections, artifacts = detect_objects(object_ids, rgbds)
         for obj_id, detection in detections.items():
             print(f"Detected {obj_id} at {detection}")
