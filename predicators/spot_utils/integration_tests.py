@@ -55,6 +55,7 @@ def test_find_move_pick_place(
     intelligence for choosing these offsets is external to the skills
     (e.g., they might be sampled).
     """
+    localizer.localize()
     go_home(robot, localizer)
     localizer.localize()
 

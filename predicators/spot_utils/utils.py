@@ -25,7 +25,6 @@ DEFAULT_HAND_LOOK_FLOOR_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 3))
 
 
-@functools.lru_cache(maxsize=None)
 def get_home_pose(graph_nav_dir: Path) -> math_helpers.SE2Pose:
     """Load the home pose for the robot."""
     config_filepath = graph_nav_dir / "metadata.yaml"
@@ -38,7 +37,6 @@ def get_home_pose(graph_nav_dir: Path) -> math_helpers.SE2Pose:
     return math_helpers.SE2Pose(x, y, angle)
 
 
-@functools.lru_cache(maxsize=None)
 def get_april_tag_transform(april_tag: int,
                             graph_nav_dir: Path) -> math_helpers.SE3Pose:
     """Load the world frame transform for an april tag.
