@@ -65,7 +65,8 @@ from predicators.third_party.fast_downward_translator.translate import \
 if TYPE_CHECKING:
     from predicators.envs import BaseEnv
 
-matplotlib.use("Agg")
+# NOTE: some spot utilities use plt.show(), which requires a GUI back-end.
+matplotlib.use("TkAgg")
 
 # Unpickling CUDA models errs out if the device isn't recognized because of
 # an unusual name, including in supercloud, but we can set it manually
