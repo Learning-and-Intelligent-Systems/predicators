@@ -552,6 +552,7 @@ def display_camera_detections(artifacts: Dict[str, Any],
                 fontweight='bold',
                 bbox=dict(facecolor=color, edgecolor=color, alpha=0.5))
 
+
 if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
