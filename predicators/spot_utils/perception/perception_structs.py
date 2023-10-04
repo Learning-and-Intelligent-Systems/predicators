@@ -79,6 +79,26 @@ class LanguageObjectDetectionID(ObjectDetectionID):
 
 
 @dataclass(frozen=True)
+class KnownStaticObjectDetectionID(ObjectDetectionID):
+    """An ID for an object with a known, static pose."""
+    obj_name: str
+    pose: math_helpers.SE3Pose
+
+    def __str__(self) -> str:
+        return f"KnownStaticObject({self.obj_name})"
+
+    def __repr__(self) -> str:
+        return f"KnownStaticObject({self.obj_name})"
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __eq__(self, other: Any) -> bool:
+        assert isinstance(other, KnownStaticObjectDetectionID)
+        return self.obj_name == other.obj_name
+
+
+@dataclass(frozen=True)
 class SegmentedBoundingBox:
     """Intermediate return value from vision-language models."""
     bounding_box: Tuple[float, float, float, float]

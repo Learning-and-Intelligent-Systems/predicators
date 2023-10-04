@@ -15,7 +15,7 @@ setup(
         "imageio",
         "imageio-ffmpeg",
         "pandas",
-        "torch",
+        "torch==2.0.1",
         "scipy",
         "tabulate",
         "dill",
