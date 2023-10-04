@@ -17,6 +17,7 @@ def _move_to_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
                                      objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
     del state, goal, objs, rng  # randomization coming soon
+    # TODO here and below, use home pose like in unit test to determine angle
     return np.array([1.20, -np.pi / 2])
 
 

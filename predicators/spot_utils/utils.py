@@ -1,6 +1,5 @@
 """Small utility functions for spot."""
 
-import functools
 import sys
 from pathlib import Path
 from typing import Collection, Optional, Tuple
