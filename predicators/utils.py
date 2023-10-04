@@ -66,7 +66,11 @@ if TYPE_CHECKING:
     from predicators.envs import BaseEnv
 
 # NOTE: some spot utilities use plt.show(), which requires a GUI back-end.
-matplotlib.use("TkAgg")
+# But testing in headless mode requires a non-GUI backend.
+try:
+    matplotlib.use("TkAgg")
+except ImportError:  # pragma: no cover
+    matplotlib.use("Agg")
 
 # Unpickling CUDA models errs out if the device isn't recognized because of
 # an unusual name, including in supercloud, but we can set it manually
