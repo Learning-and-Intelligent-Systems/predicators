@@ -38,17 +38,16 @@ class StickyTableEnv(BaseEnv):
     reachable_thresh: ClassVar[float] = 0.25
     cube_scale: ClassVar[float] = 0.25  # as a function of table radius
     sticky_surface_mode: ClassVar[str] = "half"  # half or whole
+    # Types
+    _cube_type: ClassVar[Type] = Type("cube", ["x", "y", "size", "held"])
+    _table_type: ClassVar[Type] = Type("table", ["x", "y", "radius", "sticky"])
+    _robot_type: ClassVar[Type] = Type("robot", ["x", "y"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # For noisy simulation.
         self._noise_rng = np.random.default_rng(CFG.seed)
-
-        # Types
-        self._cube_type = Type("cube", ["x", "y", "size", "held"])
-        self._table_type = Type("table", ["x", "y", "radius", "sticky"])
-        self._robot_type = Type("robot", ["x", "y"])
 
         # Predicates
         self._OnTable = Predicate("OnTable",
@@ -118,7 +117,7 @@ class StickyTableEnv(BaseEnv):
                     if self._table_is_sticky(table, state):
                         # Check if placing on the smooth side of the sticky table.
                         table_y = state.get(table, "y")
-                        if self.sticky_surface_mode == "half" and act_y < table_y + 0.3 * (state.get(table, "radius") - state.get(cube, "size")):
+                        if self.sticky_surface_mode == "half" and act_y < table_y + 0.3 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
                             fall_prob = self._place_smooth_fall_prob
                     if self._noise_rng.uniform() < fall_prob:
                         fall_x, fall_y = self._sample_floor_point_around_table(
@@ -134,7 +133,7 @@ class StickyTableEnv(BaseEnv):
             pseudo_next_state = state.copy()
             pseudo_next_state.set(robot, "x", act_x)
             pseudo_next_state.set(robot, "y", act_y)
-            if self._exists_robot_collision(pseudo_next_state):
+            if self.exists_robot_collision(pseudo_next_state):
                 return next_state
             next_state.set(robot, "x", act_x)
             next_state.set(robot, "y", act_y)
@@ -177,6 +176,7 @@ class StickyTableEnv(BaseEnv):
         return Box(np.array([0.0, self.x_lb, self.y_lb], dtype=np.float32),
                    np.array([1.0, self.x_ub, self.y_ub], dtype=np.float32))
 
+    @classmethod
     def _object_to_geom(self, obj: Object, state: State) -> utils._Geom2D:
         if obj.is_instance(self._cube_type):
             x = state.get(obj, "x")
@@ -296,7 +296,7 @@ class StickyTableEnv(BaseEnv):
                     "y": y,
                 }
                 state = utils.create_state_from_dict(state_dict)
-                if not self._exists_robot_collision(state):
+                if not self.exists_robot_collision(state):
                     break
 
             goal = {GroundAtom(self._OnTable, [cube, target_table])}
@@ -356,7 +356,8 @@ class StickyTableEnv(BaseEnv):
         theta = rng.uniform(0, 2 * np.pi)
         return (x + dist * np.cos(theta), y + dist * np.sin(theta))
 
-    def _exists_robot_collision(self, state: State) -> bool:
+    @classmethod
+    def exists_robot_collision(self, state: State) -> bool:
         """Return true if there is a collision between the robot and any other
         object in the environment."""
         robot, = state.get_objects(self._robot_type)

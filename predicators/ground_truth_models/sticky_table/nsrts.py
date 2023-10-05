@@ -176,14 +176,29 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                     rng: np.random.Generator,
                                     objs: Sequence[Object]) -> Array:
             del goal  # not used
-            obj = objs[1]
+            robot, obj = objs
+            if obj.type.name == "cube":
+                size = state.get(obj, "size") / 2
+            else:
+                assert obj.type.name == "table"
+                size = state.get(obj, "radius")
             obj_x = state.get(obj, "x")
             obj_y = state.get(obj, "y")
             max_dist = StickyTableEnv.reachable_thresh
-            dist = rng.uniform(0, max_dist)
-            theta = rng.uniform(0, 2 * np.pi)
-            x = obj_x + dist * np.cos(theta)
-            y = obj_y + dist * np.sin(theta)
+            # NOTE: This must terminate for the problem to
+            # be feasible, which it is basically guaranteed to
+            # be, so there should be no worries that this will
+            # loop forever.
+            while True:
+                dist = rng.uniform(size, max_dist)
+                theta = rng.uniform(0, 2 * np.pi)
+                x = obj_x + dist * np.cos(theta)
+                y = obj_y + dist * np.sin(theta)
+                pseudo_next_state = state.copy()
+                pseudo_next_state.set(robot, "x", x)
+                pseudo_next_state.set(robot, "y", y)
+                if not StickyTableEnv.exists_robot_collision(pseudo_next_state):
+                    break
             return np.array([0.0, x, y], dtype=np.float32)
 
         navigatetocube_nsrt = NSRT("NavigateToCube", parameters,
