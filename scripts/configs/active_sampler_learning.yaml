@@ -41,10 +41,10 @@ ENVS:
   sticky_table:
     NAME: "sticky_table"
     FLAGS:
-      sticky_table_place_smooth_fall_prob: 1.0
-      sticky_table_place_sticky_fall_prob: 0.0
+      sticky_table_place_smooth_fall_prob: 0.98
+      sticky_table_place_sticky_fall_prob: 0.02
       sticky_table_pick_success_prob: 1.0
-      active_sampler_learning_explore_length_base: 2
+      active_sampler_learning_explore_length_base: 4
   # sticky_table_tricky_floor:
   #   NAME: "sticky_table_tricky_floor"
   # regional_bumpy_cover:
@@ -80,7 +80,6 @@ FLAGS:
   online_nsrt_learning_requests_per_cycle: 1
   max_num_steps_interaction_request: 50
   num_online_learning_cycles: 10
-  active_sampler_learning_explore_length_base: 100000  # effectively disable
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
   horizon: 4
