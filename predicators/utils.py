@@ -388,6 +388,11 @@ class Circle(_Geom2D):
     def contains_point(self, x: float, y: float) -> bool:
         return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
 
+    def contains_circle(self, other_circle: Circle) -> bool:
+        dist_between_centers = np.sqrt((other_circle.x - self.x)**2 +
+                                       (other_circle.y - self.y)**2)
+        return (dist_between_centers + other_circle.radius) <= self.radius
+
 
 @dataclass(frozen=True)
 class Triangle(_Geom2D):
@@ -923,7 +928,7 @@ class SingletonParameterizedOption(ParameterizedOption):
                        params: Array) -> bool:
             nonlocal name
             if "start_state" in memory:
-    
+
                 # if "Navigate" in name:
                 #     import ipdb; ipdb.set_trace()
 
@@ -1222,10 +1227,10 @@ def option_policy_to_policy(
             except OptionExecutionFailure as e:
                 e.info["last_failed_option"] = last_option
                 raise e
-            
+
             # if "Navigate" in cur_option.name:
             #     import ipdb; ipdb.set_trace()
-            
+
             if not cur_option.initiable(state):
                 raise OptionExecutionFailure(
                     "Unsound option policy.",
