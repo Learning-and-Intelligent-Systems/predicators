@@ -44,7 +44,8 @@ ENVS:
       sticky_table_place_smooth_fall_prob: 0.98
       sticky_table_place_sticky_fall_prob: 0.02
       sticky_table_pick_success_prob: 1.0
-      active_sampler_learning_explore_length_base: 4
+      sticky_table_num_sticky_tables: 2
+      sticky_table_num_tables: 5
   # sticky_table_tricky_floor:
   #   NAME: "sticky_table_tricky_floor"
   # regional_bumpy_cover:
@@ -84,5 +85,6 @@ FLAGS:
   sesame_grounder: "fd_translator"
   horizon: 4
   active_sampler_learning_feature_selection: oracle
+  active_sampler_learning_explore_length_base: 8
 START_SEED: 456
 NUM_SEEDS: 10
