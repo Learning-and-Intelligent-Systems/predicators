@@ -33,7 +33,8 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
     DEFAULT_HAND_LOOK_FLOOR_POSE, get_relative_se2_from_se3, \
-    sample_move_offset_from_target, spot_pose_to_geom2d, verify_estop
+    get_spot_home_pose, sample_move_offset_from_target, spot_pose_to_geom2d, \
+    verify_estop
 
 
 def test_find_move_pick_place(
@@ -45,9 +46,7 @@ def test_find_move_pick_place(
     pre_pick_surface_nav_distance: float = 1.25,
     pre_pick_floor_nav_distance: float = 1.75,
     pre_place_nav_distance: float = 1.0,
-    pre_pick_nav_angle: float = -np.pi / 2,
-    pre_place_nav_angle: float = -np.pi / 2,
-    place_offset_z: float = 0.25,
+    place_offset_z: float = 0.2,
 ) -> None:
     """Find the given object and surfaces, pick the object from the first
     surface, and place it on the second surface.
@@ -57,8 +56,14 @@ def test_find_move_pick_place(
     intelligence for choosing these offsets is external to the skills
     (e.g., they might be sampled).
     """
+    localizer.localize()
     go_home(robot, localizer)
     localizer.localize()
+
+    # Test assumes that objects are in front of the robot's home position.
+    home_pose = get_spot_home_pose()
+    pre_pick_nav_angle = home_pose.angle - np.pi
+    pre_place_nav_angle = pre_pick_nav_angle
 
     # Find objects.
     object_ids = [manipuland_id]
@@ -153,57 +158,25 @@ def test_all_find_move_pick_place() -> None:
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
     # Run test with april tag cube.
-    init_surface = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.12, 0.0, math_helpers.Quat()))
-    target_surface = AprilTagObjectDetectionID(
-        409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
-    cube = AprilTagObjectDetectionID(
-        410, math_helpers.SE3Pose(0.0, 0.0, 0.0, math_helpers.Quat()))
+    init_surface = AprilTagObjectDetectionID(408)
+    target_surface = AprilTagObjectDetectionID(409)
+    cube = AprilTagObjectDetectionID(410)
 
-    # Assume that the tables are at the "front" of the room (with the hall
-    # on the left when on the fourth floor).
-    input("Set up the tables and CUBE on the north wall")
+    # Assume that the tables are at the "front" of the room (with respect to
+    # the robot home pose).
+    input("Set up the tables and CUBE in front of the robot")
     test_find_move_pick_place(robot, localizer, cube, init_surface,
                               target_surface)
 
     # Run test with brush.
-    # Assume that the tables are at the "front" of the room (with the hall
-    # on the left when on the fourth floor).
     brush = LanguageObjectDetectionID("brush")
-    input("Set up the tables and BRUSH on the north wall")
+    input("Set up the tables and BRUSH in front of the robot")
     test_find_move_pick_place(robot, localizer, brush, init_surface,
                               target_surface)
 
     # Run test with cube on floor.
     input("Place the cube anywhere on the floor")
     test_find_move_pick_place(robot, localizer, cube, None, target_surface)
-
-    # Run test with tables moved so that the init table is on the wall adjacent
-    # to the hallway and the target table is on the opposite wall.
-    # Note that we need to change the offsets because the april tags are
-    # now rotated.
-    input("Set up the tables and CUBE on opposite walls")
-    init_surface = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.12, 0.0, math_helpers.Quat()))
-    target_surface = AprilTagObjectDetectionID(
-        409, math_helpers.SE3Pose(0.25, 0.0, 0.0, math_helpers.Quat()))
-    test_find_move_pick_place(robot,
-                              localizer,
-                              cube,
-                              init_surface,
-                              target_surface,
-                              pre_pick_nav_angle=0,
-                              pre_place_nav_angle=np.pi)
-
-    drill = LanguageObjectDetectionID("drill")
-    input("Set up the tables and DRILL on opposite walls")
-    test_find_move_pick_place(robot,
-                              localizer,
-                              drill,
-                              init_surface,
-                              target_surface,
-                              pre_pick_nav_angle=0,
-                              pre_place_nav_angle=np.pi)
 
 
 def test_move_with_sampling() -> None:
@@ -240,10 +213,8 @@ def test_move_with_sampling() -> None:
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
     # Run test with april tag cube.
-    surface1 = AprilTagObjectDetectionID(
-        408, math_helpers.SE3Pose(0.0, 0.12, 0.0, math_helpers.Quat()))
-    surface2 = AprilTagObjectDetectionID(
-        409, math_helpers.SE3Pose(0.0, 0.25, 0.0, math_helpers.Quat()))
+    surface1 = AprilTagObjectDetectionID(408)
+    surface2 = AprilTagObjectDetectionID(409)
 
     go_home(robot, localizer)
     localizer.localize()
@@ -321,8 +292,6 @@ def test_repeated_brush_bucket_dump_pick_place(
         pre_pick_floor_nav_distance: float = 1.25,
         pre_place_nav_distance: float = 0.75,
         pre_dump_nav_distance: float = 1.25,
-        pre_pick_nav_angle: float = -np.pi / 2,
-        pre_place_nav_angle: float = -np.pi / 2,
         place_offset_x: float = 0.1,
         place_offset_z: float = 0.5,
         post_dump_place_offset_z: float = 0.0,
@@ -353,6 +322,11 @@ def test_repeated_brush_bucket_dump_pick_place(
                                      return_at_exit=True)
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+
+    # Test assumes that objects are in front of the robot's home position.
+    home_pose = get_spot_home_pose()
+    pre_pick_nav_angle = home_pose.angle - np.pi
+    pre_place_nav_angle = pre_pick_nav_angle
 
     # Use vision-language model to detect bucket and brush.
     bucket = LanguageObjectDetectionID("large red bucket")

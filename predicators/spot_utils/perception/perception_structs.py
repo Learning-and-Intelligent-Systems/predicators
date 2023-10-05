@@ -43,7 +43,6 @@ class AprilTagObjectDetectionID(ObjectDetectionID):
     offset.
     """
     april_tag_number: int
-    offset_transform: math_helpers.SE3Pose
 
     def __str__(self) -> str:
         return f"AprilTag({self.april_tag_number})"

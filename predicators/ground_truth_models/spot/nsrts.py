@@ -7,6 +7,7 @@ import numpy as np
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
+from predicators.spot_utils.utils import get_spot_home_pose
 from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
     ParameterizedOption, Predicate, State, Type
 from predicators.utils import null_sampler
@@ -17,7 +18,14 @@ def _move_to_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
                                      objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([1.20, -np.pi / 2])
+
+    # Currently assume that the robot is facing the surface in its home pose.
+    # Soon, we will change this to actually sample angles of approach and do
+    # collision detection.
+    home_pose = get_spot_home_pose()
+    approach_angle = home_pose.angle - np.pi
+
+    return np.array([1.20, approach_angle])
 
 
 def _move_to_tool_on_floor_sampler(state: State, goal: Set[GroundAtom],
@@ -25,7 +33,14 @@ def _move_to_tool_on_floor_sampler(state: State, goal: Set[GroundAtom],
                                    objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([1.20, -np.pi / 2])
+
+    # Currently assume that the robot is facing the surface in its home pose.
+    # Soon, we will change this to actually sample angles of approach and do
+    # collision detection.
+    home_pose = get_spot_home_pose()
+    approach_angle = home_pose.angle - np.pi
+
+    return np.array([1.20, approach_angle])
 
 
 def _move_to_surface_sampler(state: State, goal: Set[GroundAtom],
@@ -33,7 +48,14 @@ def _move_to_surface_sampler(state: State, goal: Set[GroundAtom],
                              objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the surface you're moving to).
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([1.20, -np.pi / 2])
+
+    # Currently assume that the robot is facing the surface in its home pose.
+    # Soon, we will change this to actually sample angles of approach and do
+    # collision detection.
+    home_pose = get_spot_home_pose()
+    approach_angle = home_pose.angle - np.pi
+
+    return np.array([1.20, approach_angle])
 
 
 def _grasp_tool_from_surface_sampler(state: State, goal: Set[GroundAtom],

@@ -1,10 +1,12 @@
 """Small utility functions for spot."""
 
 import sys
+from pathlib import Path
 from typing import Collection, Optional, Tuple
 
 import cv2
 import numpy as np
+import yaml
 from bosdyn.api import estop_pb2, robot_state_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.estop import EstopClient
@@ -13,6 +15,7 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
 
+from predicators.settings import CFG
 from predicators.utils import Rectangle, _Geom2D
 
 # Pose for the hand (relative to the body) that looks down in front.
@@ -21,8 +24,39 @@ DEFAULT_HAND_LOOK_DOWN_POSE = math_helpers.SE3Pose(
 DEFAULT_HAND_LOOK_FLOOR_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 3))
 
-# Center of the fourth floor room.
-HOME_POSE = math_helpers.SE2Pose(x=2.0, y=-0.5, angle=np.pi / 2)
+
+def get_spot_home_pose() -> math_helpers.SE2Pose:
+    """Load the home pose for the robot."""
+    upload_dir = Path(__file__).parent / "graph_nav_maps"
+    graph_nav_dir = upload_dir / CFG.spot_graph_nav_map
+    config_filepath = graph_nav_dir / "metadata.yaml"
+    with open(config_filepath, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    home_pose_dict = config["spot-home-pose"]
+    x = home_pose_dict["x"]
+    y = home_pose_dict["y"]
+    angle = home_pose_dict["angle"]
+    return math_helpers.SE2Pose(x, y, angle)
+
+
+def get_april_tag_transform(april_tag: int,
+                            graph_nav_dir: Path) -> math_helpers.SE3Pose:
+    """Load the world frame transform for an april tag.
+
+    Returns identity if no config is found.
+    """
+    config_filepath = graph_nav_dir / "metadata.yaml"
+    with open(config_filepath, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    transform_dict = config["april-tag-offsets"]
+    try:
+        april_tag_transform_dict = transform_dict[f"tag-{april_tag}"]
+    except KeyError:
+        return math_helpers.SE3Pose(0, 0, 0, rot=math_helpers.Quat())
+    x = april_tag_transform_dict["x"]
+    y = april_tag_transform_dict["y"]
+    z = april_tag_transform_dict["z"]
+    return math_helpers.SE3Pose(x, y, z, rot=math_helpers.Quat())
 
 
 def verify_estop(robot: Robot) -> None:
