@@ -1088,7 +1088,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # plt.hist(arr)
                         # plt.savefig("temp.png")
                         # plt.clf()
-                    if all_uniform:
+                    if all_uniform or option_name == "PutOnTable":
                         final_clusters.append(cluster)
                         logging.info(f"STEP 4: generated no further sample-based clusters (uniformly distributed parameter!) for the {j+1}th cluster from STEP 3 involving option {option_name}.")
                     else:
@@ -1117,52 +1117,40 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             logging.info(f"Total {len(final_clusters)} final clusters.")
 
             ####
-            def cluster_to_op_num(segment, clusters):
-                for i, c in enumerate(clusters):
-                    if segment in c:
-                        return f"Op{i}"
-            # Go through demos
-            temp = []
-            for segmented_traj in segmented_trajs:
-                traj = []
-                for seg in segmented_traj:
-                    traj.append(cluster_to_op_num(seg, final_clusters))
-                temp.append(traj)
-                print(traj)
 
-            ###
-            # Stuff from oracle learning to test if the stuff is working.
-            ###
-            assert CFG.offline_data_method == "demo+gt_operators"
-            assert dataset.annotations is not None and len(
-                dataset.annotations) == len(dataset.trajectories)
-            assert CFG.segmenter == "option_changes"
-            segmented_trajs = [
-                segment_trajectory(traj) for traj in atom_dataset
-            ]
-            assert len(segmented_trajs) == len(dataset.annotations)
-            # First, get the set of all ground truth operator names.
-            all_gt_op_names = set(ground_nsrt.parent.name
-                                  for anno_list in dataset.annotations
-                                  for ground_nsrt in anno_list)
-            # Next, make a dictionary mapping operator name to segments
-            # where that operator was used.
-            gt_op_to_segments: Dict[str, List[Segment]] = {
-                op_name: []
-                for op_name in all_gt_op_names
-            }
-            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
-                assert len(seg_list) == len(op_list)
-                for ground_nsrt, segment in zip(op_list, seg_list):
-                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
-            final_clusters = list(gt_op_to_segments.values())
-            ###
+            # ###
+            # # Stuff from oracle learning to test if the stuff is working.
+            # ###
+            # assert CFG.offline_data_method == "demo+gt_operators"
+            # assert dataset.annotations is not None and len(
+            #     dataset.annotations) == len(dataset.trajectories)
+            # assert CFG.segmenter == "option_changes"
+            # segmented_trajs = [
+            #     segment_trajectory(traj) for traj in atom_dataset
+            # ]
+            # assert len(segmented_trajs) == len(dataset.annotations)
+            # # First, get the set of all ground truth operator names.
+            # all_gt_op_names = set(ground_nsrt.parent.name
+            #                       for anno_list in dataset.annotations
+            #                       for ground_nsrt in anno_list)
+            # # Next, make a dictionary mapping operator name to segments
+            # # where that operator was used.
+            # gt_op_to_segments: Dict[str, List[Segment]] = {
+            #     op_name: []
+            #     for op_name in all_gt_op_names
+            # }
+            # for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+            #     assert len(seg_list) == len(op_list)
+            #     for ground_nsrt, segment in zip(op_list, seg_list):
+            #         gt_op_to_segments[ground_nsrt.parent.name].append(segment)
+            # final_clusters = list(gt_op_to_segments.values())
+            # ###
 
             # operator to preconditions, and add effects
             # filter out an operator that barely ever appears
             ddd = {}
             for i, c in enumerate(final_clusters):
-                op_name = "Op"+str(i)
+                op_name = "Op"+str(i)+"-"+str(c[0].get_option().name)
                 # preconditions, add effects, delete effects, segments
                 ddd[op_name] = [set(), set(), set(), c]
 
@@ -1201,8 +1189,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 for init_atoms in init_atoms_per_segment:
                     ungrounded_init_atoms_per_segment.append(set(a.predicate for a in init_atoms))
                 init_atoms = set.intersection(*ungrounded_init_atoms_per_segment)
-                op_name = "Op"+str(j)
 
+                op_name = "Op"+str(j)+"-"+str(c[0].get_option().name)
                 ddd[op_name][0] = init_atoms
                 ddd[op_name][1] = add_effects
                 ddd[op_name][2] = del_effects
@@ -1362,7 +1350,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 ddd[op][1] = ddd[op][1].intersection(predicates_to_keep)
                 ddd[op][2] = ddd[op][2].intersection(predicates_to_keep)
 
-                preconditions, add_effects, delete_effects, _ = stuff
+                preconditions, add_effects, del_effects, _ = stuff
                 print(op + ": ")
                 print("preconditions: ")
                 for p in preconditions:
@@ -1371,6 +1359,70 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 print("add effects: ")
                 for p in add_effects:
                     print(p)
+                print()
+                print("delete effects: ")
+                for p in del_effects:
+                    print(p)
+                print()
+
+            logging.info("Performing backchaining to decide operator definitions.")
+
+            #####################
+            # backchaining
+            #####################
+            def seg_to_op(segment, clusters):
+                for i, c in enumerate(clusters):
+                    if segment in c:
+                        return f"Op{i}-{c[0].get_option().name}"
+            # Go through demos
+            temp = []
+            for segmented_traj in segmented_trajs:
+                traj = []
+                for seg in segmented_traj:
+                    traj.append(seg_to_op(seg, final_clusters))
+                temp.append(traj)
+                print(traj)
+
+            ####
+            # 1.
+            potential_ops = {o: dict() for o in ddd.keys()}
+
+            for i, segmented_traj in enumerate(segmented_trajs):
+                print(f"Trajectory {i}: {temp[0]}")
+
+                # first
+                goal = self._train_tasks[i].goal
+                goal2 = set(g.predicate for g in self._train_tasks[i].goal)
+                last_seg = segmented_traj[-1]
+                name = seg_to_op(last_seg, final_clusters)
+                grounded_relevant_add_effects = set(a for a in last_seg.add_effects if a.predicate in ddd[name][1])
+                sure_add_effects = grounded_relevant_add_effects.intersection(goal)
+                unfulfilled_goal = goal - sure_add_effects
+                potential_ops[name]["add_effects"] = [a.predicate for a in sure_add_effects]
+
+                # second
+                prev_seg = segmented_traj[-1]
+                curr_seg = segmented_traj[-2]
+                prev_name = seg_to_op(prev_seg, final_clusters)
+                name = seg_to_op(curr_seg, final_clusters)
+                grounded_relevant_add_effects = set(a for a in curr_seg.add_effects if a.predicate in ddd[name][1])
+                sure_add_effects = grounded_relevant_add_effects.intersection(unfulfilled_goal)
+                new_unfulfilled_goal = unfulfilled_goal - sure_add_effects
+
+                grounded_relevant_preconditions = set(p for p in prev_seg.init_atoms if p.predicate in ddd[prev_name][0])
+                other_add_effects = grounded_relevant_add_effects.intersection(grounded_relevant_preconditions)
+                unfulfilled_preconditions = grounded_relevant_preconditions - other_add_effects
+                # TODO: need to keep track of unfulfilled preconditions for previous operators!
+                # if no operator adds that atom, then maybe it's not part of the precondition!
+                all_add_effects = sure_add_effects.union(other_add_effects)
+                potential_ops[name]["add_effects"] = [a.predicate for a in sure_add_effects]
+
+                import pdb; pdb.set_trace()
+
+
+
+
+            #####################
 
             self._clusters = ddd
 
