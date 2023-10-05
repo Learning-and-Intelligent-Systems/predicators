@@ -15,6 +15,7 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
 
+from predicators.settings import CFG
 from predicators.utils import Rectangle, _Geom2D
 
 # Pose for the hand (relative to the body) that looks down in front.
@@ -24,8 +25,10 @@ DEFAULT_HAND_LOOK_FLOOR_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 3))
 
 
-def get_home_pose(graph_nav_dir: Path) -> math_helpers.SE2Pose:
+def get_spot_home_pose() -> math_helpers.SE2Pose:
     """Load the home pose for the robot."""
+    upload_dir = Path(__file__).parent / "graph_nav_maps"
+    graph_nav_dir = upload_dir / CFG.spot_graph_nav_map
     config_filepath = graph_nav_dir / "metadata.yaml"
     with open(config_filepath, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
