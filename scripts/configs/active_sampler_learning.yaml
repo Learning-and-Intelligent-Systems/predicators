@@ -6,11 +6,11 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "planning_progress"
-  task_repeat_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_task_strategy: "task_repeat"
+  # task_repeat_explore:
+  #   NAME: "active_sampler_learning"
+  #   FLAGS:
+  #     explorer: "active_sampler"
+  #     active_sampler_explore_task_strategy: "task_repeat"
   success_rate_explore:
     NAME: "active_sampler_learning"
     FLAGS:
@@ -21,10 +21,10 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "random"
-  random_nsrts_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "random_nsrts"
+  # random_nsrts_explore:
+  #   NAME: "active_sampler_learning"
+  #   FLAGS:
+  #     explorer: "random_nsrts"
   # maple_q:
   #   NAME: "maple_q"
   #   FLAGS:
@@ -44,7 +44,7 @@ ENVS:
       sticky_table_place_smooth_fall_prob: 1.00
       sticky_table_place_sticky_fall_prob: 0.00
       sticky_table_pick_success_prob: 1.0
-      sticky_table_num_sticky_tables: 0
+      sticky_table_num_sticky_tables: 1
       sticky_table_num_tables: 5
       sticky_table_place_ball_fall_prob: 1.00
   # sticky_table_tricky_floor:
