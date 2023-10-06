@@ -1174,6 +1174,7 @@ def run_task_plan_once(
         ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
         default_cost: float = 1.0,
         cost_precision: int = 3,
+        max_horizon: int = CFG.horizon,
         **kwargs: Any
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
     """Get a single abstract plan for a task."""
@@ -1243,7 +1244,7 @@ def run_task_plan_once(
 
         plan, atoms_seq, metrics = fd_plan_from_sas_file(
             sas_file, timeout_cmd, timeout, exec_str, alias_flag, start_time,
-            list(objects), init_atoms, nsrts, CFG.horizon)
+            list(objects), init_atoms, nsrts, max_horizon)
     else:
         raise ValueError("Unrecognized sesame_task_planner: "
                          f"{CFG.sesame_task_planner}")

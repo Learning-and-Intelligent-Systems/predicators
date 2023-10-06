@@ -318,7 +318,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             self._seed,
             task_planning_heuristic=task_planning_heuristic,
             ground_op_costs=ground_op_costs,
-            default_cost=self._default_cost)
+            default_cost=self._default_cost,
+            max_horizon=100000000) # set incredibly large horizon, since it doesn't matter here.
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
