@@ -313,7 +313,7 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 _, obj = objects
                 obj_x = state.get(obj, "x")
                 obj_y = state.get(obj, "y")
-                if obj.type.name == "table":
+                if obj.type.name in ["table", "ball", "cup"]:
                     size = state.get(obj, "radius")
                 else:
                     assert obj.type.name == "cube"
