@@ -262,9 +262,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             theta = rng.uniform(0, 2 * np.pi)
             x = table_x + dist * np.cos(theta)
             y = table_y + dist * np.sin(theta)
-            # NOTE: set obj_type_id to 0.0, since it doesn't
-            # matter for placing
-            return np.array([1.0, 0.0, x, y], dtype=np.float32)
+            # NOTE: set obj_type_id to 3.0, since we want to
+            # place onto the table!
+            return np.array([1.0, 3.0, x, y], dtype=np.float32)
 
         placecubeontable_nsrt = NSRT("PlaceCubeOnTable", parameters,
                                      preconditions, add_effects,
@@ -355,9 +355,10 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                       objs: Sequence[Object]) -> Array:
             del goal  # unused
             cup = objs[2]
-            # Just place the ball in the middle of the cup.
+            # Just place the ball in the middle of the cup. Set
+            # the type id to be 2.0 to correspond to the cup
             return np.array(
-                [1.0, 0.0, state.get(cup, "x"),
+                [1.0, 2.0, state.get(cup, "x"),
                  state.get(cup, "y")],
                 dtype=np.float32)
 
