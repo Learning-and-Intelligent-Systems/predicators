@@ -363,7 +363,7 @@ class StickyTableEnv(BaseEnv):
                     "sticky": sticky
                 }
             tables = sorted(state_dict)
-            rng.shuffle(tables)  # type: ignore
+            # rng.shuffle(tables)  # type: ignore
             cube_table, cup_table, target_table = tables[:3]
             # Create cube.
             size = radius * self.objs_scale
