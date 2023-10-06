@@ -47,7 +47,7 @@ class StickyTableEnv(BaseEnv):
     _table_type: ClassVar[Type] = Type("table", ["x", "y", "radius", "sticky"])
     _robot_type: ClassVar[Type] = Type("robot", ["x", "y"])
     _ball_type: ClassVar[Type] = Type("ball", ["x", "y", "radius", "held"])
-    _cup_type: ClassVar[Type] = Type("ball", ["x", "y", "radius", "held"])
+    _cup_type: ClassVar[Type] = Type("cup", ["x", "y", "radius", "held"])
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -75,7 +75,7 @@ class StickyTableEnv(BaseEnv):
                                       self._Holding_holds)
         self._HoldingBall = Predicate("HoldingBall", [self._ball_type],
                                       self._Holding_holds)
-        self._HoldingCup = Predicate("HoldingBall", [self._cup_type],
+        self._HoldingCup = Predicate("HoldingCup", [self._cup_type],
                                      self._Holding_holds)
         self._HandEmpty = Predicate("HandEmpty", [], self._HandEmpty_holds)
         self._IsReachableSurface = Predicate(
@@ -128,9 +128,9 @@ class StickyTableEnv(BaseEnv):
         ball, = state.get_objects(self._ball_type)
         cup, = state.get_objects(self._cup_type)
         robot, = state.get_objects(self._robot_type)
-        cube_held = self._Holding_holds(state, [robot, cube])
-        ball_held = self._Holding_holds(state, [robot, ball])
-        cup_held = self._Holding_holds(state, [robot, cup])
+        cube_held = self._Holding_holds(state, [cube])
+        ball_held = self._Holding_holds(state, [ball])
+        cup_held = self._Holding_holds(state, [cup])
         assert (not (cube_held and cup_held)) and (not (cube_held
                                                         and ball_held))
         ball_in_cup = self._BallInCup_holds(state, [ball, cup])
@@ -408,7 +408,7 @@ class StickyTableEnv(BaseEnv):
                 x = rng.uniform(self.x_lb, self.x_ub)
                 y = rng.uniform(self.y_lb, self.y_ub)
                 ball = Object("ball", self._ball_type)
-                state_dict[robot] = {
+                state_dict[ball] = {
                     "x": x,
                     "y": y,
                     "radius": size -
@@ -471,7 +471,10 @@ class StickyTableEnv(BaseEnv):
                          objects: Sequence[Object]) -> bool:
         assert not objects
         cube, = state.get_objects(self._cube_type)
-        return not self._Holding_holds(state, [cube])
+        ball, = state.get_objects(self._ball_type)
+        cup, = state.get_objects(self._cup_type)
+        return not (self._Holding_holds(state, [cube]) or self._Holding_holds(
+            state, [ball]) or self._Holding_holds(state, [cup]))
 
     def _IsReachable_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
