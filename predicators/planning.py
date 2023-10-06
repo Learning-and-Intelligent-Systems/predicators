@@ -1060,6 +1060,7 @@ def fd_plan_from_sas_file(
     metrics: Metrics = defaultdict(float)
     num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
     num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
+    import ipdb; ipdb.set_trace()
     assert len(num_nodes_expanded) == 1
     assert len(num_nodes_created) == 1
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])

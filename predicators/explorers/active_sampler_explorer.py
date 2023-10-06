@@ -185,6 +185,14 @@ class ActiveSamplerExplorer(BaseExplorer):
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
                         nonlocal next_practice_nsrt
+
+                        for op in sorted(self._ground_op_hist,
+                                         key=self._score_ground_op,
+                                         reverse=True):
+                            print(f"{op.name}{op.objects} score: {self._score_ground_op(op)}")
+                        if "PlaceBallInCup" in str(self._ground_op_hist):
+                            import ipdb; ipdb.set_trace()
+
                         # Generate goals sorted by their descending score.
                         for op in sorted(self._ground_op_hist,
                                          key=self._score_ground_op,
