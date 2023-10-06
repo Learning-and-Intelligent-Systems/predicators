@@ -248,7 +248,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
             del goal  # unused
-            _, obj, table = objs
+            table = objs[-1]
+            obj = objs[-2]
             table_x = state.get(table, "x")
             table_y = state.get(table, "y")
             table_radius = state.get(table, "radius")
@@ -289,7 +290,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             # Just place in the center of the room.
             x = (StickyTableEnv.x_lb + StickyTableEnv.x_ub) / 2
             y = (StickyTableEnv.y_lb + StickyTableEnv.y_ub) / 2
-            return np.array([1.0, x, y], dtype=np.float32)
+            # NOTE: obj_type_id set to 0.0 since it doesn't matter.
+            return np.array([1.0, 0.0, x, y], dtype=np.float32)
 
         placecubeonfloor_nsrt = NSRT("PlaceCubeOnFloor", parameters,
                                      preconditions, add_effects,
