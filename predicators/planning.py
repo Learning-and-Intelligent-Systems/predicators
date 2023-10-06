@@ -1174,7 +1174,7 @@ def run_task_plan_once(
         ground_op_costs: Optional[Dict[_GroundSTRIPSOperator, float]] = None,
         default_cost: float = 1.0,
         cost_precision: int = 3,
-        max_horizon: int = CFG.horizon,
+        max_horizon: int = 1000000,
         **kwargs: Any
 ) -> Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]:
     """Get a single abstract plan for a task."""

@@ -421,7 +421,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                 self._seed,
                 task_planning_heuristic=task_planning_heuristic,
                 ground_op_costs=ground_op_costs,
-                default_cost=self._default_cost)
+                default_cost=self._default_cost,
+                max_horizon=1000000000)
             self._task_plan_cache[task_id] = [n.op for n in plan]
 
         self._task_plan_calls_since_replan[task_id] += 1

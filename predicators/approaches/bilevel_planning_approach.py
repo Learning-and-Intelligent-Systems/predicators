@@ -131,6 +131,7 @@ class BilevelPlanningApproach(BaseApproach):
                 timeout,
                 seed,
                 task_planning_heuristic=self._task_planning_heuristic,
+                max_horizon=CFG.horizon,
                 **kwargs)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
