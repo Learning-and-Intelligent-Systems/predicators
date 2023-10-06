@@ -45,6 +45,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         ReachableBall = predicates["IsReachableBall"]
         ReachableCup = predicates["IsReachableCup"]
         BallInCup = predicates["BallInCup"]
+        BallNotInCup = predicates["BallNotInCup"]
 
         # Options
         PickCubeFromTable = options["PickCubeFromTable"]
@@ -59,14 +60,15 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         PlaceBallOnFloor = options["PlaceBallOnFloor"]
         PickCupFromTable = options["PickCupFromTable"]
         PickCupFromFloor = options["PickCupFromFloor"]
-        PlaceCupOnTable = options["PlaceCupOnTable"]
-        PlaceCupOnFloor = options["PlaceCupOnFloor"]
+        PlaceCupWithBallOnTable = options["PlaceCupWithBallOnTable"]
+        PlaceCupWithoutBallOnTable = options["PlaceCupWithoutBallOnTable"]
+        PlaceCupWithBallOnFloor = options["PlaceCupWithBallOnFloor"]
+        PlaceCupWithoutBallOnFloor = options["PlaceCupWithoutBallOnFloor"]
         PlaceBallInCupOnFloor = options["PlaceBallInCupOnFloor"]
         PlaceBallInCupOnTable = options["PlaceBallInCupOnTable"]
         NavigateToBall = options["NavigateToBall"]
         NavigateToCube = options["NavigateToCube"]
         NavigateToCup = options["NavigateToCup"]
-
 
         nsrts = set()
 
@@ -89,8 +91,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
 
         def pick_obj_sampler(state: State, goal: Set[GroundAtom],
-                         rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
+                             rng: np.random.Generator,
+                             objs: Sequence[Object]) -> Array:
             # Sample within ball around center of the object.
             del goal  # unused
             obj = objs[1]
@@ -113,8 +115,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             return np.array([1.0, obj_type_id, x, y], dtype=np.float32)
 
         pickcubefromtable_nsrt = NSRT("PickCubeFromTable", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, pick_obj_sampler)
+                                      preconditions, add_effects,
+                                      delete_effects, set(), option,
+                                      option_vars, pick_obj_sampler)
         nsrts.add(pickcubefromtable_nsrt)
 
         # PickCubeFromFloor
@@ -133,8 +136,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
 
         pickcubefromfloor_nsrt = NSRT("PickCubeFromFloor", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, pick_obj_sampler)
+                                      preconditions, add_effects,
+                                      delete_effects, set(), option,
+                                      option_vars, pick_obj_sampler)
         nsrts.add(pickcubefromfloor_nsrt)
 
         # PickBallFromTable
@@ -154,9 +158,11 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(BallOnTable, [ball, table]),
             LiftedAtom(HandEmpty, []),
         }
+        ignore_effects = {BallInCup}
         pickballfromtable_nsrt = NSRT("PickBallFromTable", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, pick_obj_sampler)
+                                      preconditions, add_effects,
+                                      delete_effects, ignore_effects, option,
+                                      option_vars, pick_obj_sampler)
         nsrts.add(pickballfromtable_nsrt)
 
         # PickBallFromFloor
@@ -173,10 +179,11 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(BallOnFloor, [ball]),
             LiftedAtom(HandEmpty, []),
         }
-
+        ignore_effects = {BallInCup}
         pickballfromfloor_nsrt = NSRT("PickBallFromFloor", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, pick_obj_sampler)
+                                      preconditions, add_effects,
+                                      delete_effects, ignore_effects, option,
+                                      option_vars, pick_obj_sampler)
         nsrts.add(pickballfromfloor_nsrt)
 
         # PickCupFromTable
@@ -197,8 +204,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, []),
         }
         pickcupfromtable_nsrt = NSRT("PickCupFromTable", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, pick_obj_sampler)
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, pick_obj_sampler)
         nsrts.add(pickcupfromtable_nsrt)
 
         # PickCupFromFloor
@@ -217,8 +225,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
 
         pickcupfromfloor_nsrt = NSRT("PickCupFromFloor", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  set(), option, option_vars, pick_obj_sampler)
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, pick_obj_sampler)
         nsrts.add(pickcupfromfloor_nsrt)
 
         # PlaceCubeOnTable
@@ -257,9 +266,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             return np.array([1.0, 0.0, x, y], dtype=np.float32)
 
         placecubeontable_nsrt = NSRT("PlaceCubeOnTable", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 place_on_table_sampler)
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, place_on_table_sampler)
         nsrts.add(placecubeontable_nsrt)
 
         # PlaceCubeOnFloor
@@ -283,9 +292,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             return np.array([1.0, x, y], dtype=np.float32)
 
         placecubeonfloor_nsrt = NSRT("PlaceCubeOnFloor", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 place_on_floor_sampler)
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, place_on_floor_sampler)
         nsrts.add(placecubeonfloor_nsrt)
 
         # PlaceBallOnTable
@@ -302,9 +311,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(HoldingBall, [ball])}
         placeballontable_nsrt = NSRT("PlaceBallOnTable", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 place_on_table_sampler)
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, place_on_table_sampler)
         nsrts.add(placeballontable_nsrt)
 
         # PlaceBallOnFloor
@@ -318,9 +327,9 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(HoldingBall, [ball])}
         placeballonfloor_nsrt = NSRT("PlaceBallOnFloor", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 place_on_floor_sampler)
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, place_on_floor_sampler)
         nsrts.add(placeballonfloor_nsrt)
 
         # PlaceBallInCupOnFloor
@@ -340,17 +349,21 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         delete_effects = {LiftedAtom(HoldingBall, [ball])}
 
         def place_ball_in_cup_sampler(state: State, goal: Set[GroundAtom],
-                                   rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
+                                      rng: np.random.Generator,
+                                      objs: Sequence[Object]) -> Array:
             del goal  # unused
             cup = objs[2]
             # Just place the ball in the middle of the cup.
-            return np.array([1.0, 0.0, state.get(cup, "x"), state.get(cup, "y")], dtype=np.float32)
+            return np.array(
+                [1.0, 0.0, state.get(cup, "x"),
+                 state.get(cup, "y")],
+                dtype=np.float32)
 
         placeballincuponfloor_nsrt = NSRT("PlaceBallInCupOnFloor", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 place_ball_in_cup_sampler)
+                                          preconditions, add_effects,
+                                          delete_effects, set(), option,
+                                          option_vars,
+                                          place_ball_in_cup_sampler)
         nsrts.add(placeballincuponfloor_nsrt)
 
         # PlaceBallInCupOnTable
@@ -369,45 +382,95 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         }
         delete_effects = {LiftedAtom(HoldingBall, [ball])}
         placeballincupontable_nsrt = NSRT("PlaceBallInCupOnTable", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 place_ball_in_cup_sampler)
+                                          preconditions, add_effects,
+                                          delete_effects, set(), option,
+                                          option_vars,
+                                          place_ball_in_cup_sampler)
         nsrts.add(placeballincupontable_nsrt)
 
-        # PlaceCupOnTableWithoutBall
-        parameters = [robot, cup, table]
+        # PlaceCupWithoutBallOnTable
+        parameters = [robot, ball, cup, table]
         option_vars = parameters
-        option = PlaceCupOnTable
+        option = PlaceCupWithoutBallOnTable
         preconditions = {
             LiftedAtom(ReachableSurface, [robot, table]),
-            LiftedAtom(HoldingCup, [cup])
+            LiftedAtom(HoldingCup, [cup]),
+            LiftedAtom(BallNotInCup(ball, cup))
         }
         add_effects = {
             LiftedAtom(CupOnTable, [cup, table]),
             LiftedAtom(HandEmpty, []),
         }
         delete_effects = {LiftedAtom(HoldingCup, [cup])}
-        placecupontable_nsrt = NSRT("PlaceCupOnTable", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 place_on_table_sampler)
-        nsrts.add(placecupontable_nsrt)
+        placecupwithoutballontable_nsrt = NSRT("PlaceCupWithoutBallOnTable",
+                                               parameters, preconditions,
+                                               add_effects, delete_effects,
+                                               set(), option, option_vars,
+                                               place_on_table_sampler)
+        nsrts.add(placecupwithoutballontable_nsrt)
 
-        # PlaceCupOnFloor
-        parameters = [robot, cup]
+        # PlaceCupWithBallOnTable
+        parameters = [robot, ball, cup, table]
         option_vars = parameters
-        option = PlaceCupOnFloor
-        preconditions = {LiftedAtom(HoldingCup, [cup])}
+        option = PlaceCupWithBallOnTable
+        preconditions = {
+            LiftedAtom(ReachableSurface, [robot, table]),
+            LiftedAtom(HoldingCup, [cup]),
+            LiftedAtom(BallInCup(ball, cup))
+        }
+        add_effects = {
+            LiftedAtom(CupOnTable, [cup, table]),
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(BallOnTable, [cup, ball])
+        }
+        delete_effects = {LiftedAtom(HoldingCup, [cup])}
+        placecupwithballontable_nsrt = NSRT("PlaceCupWithoutBallOnTable",
+                                            parameters, preconditions,
+                                            add_effects, delete_effects, set(),
+                                            option, option_vars,
+                                            place_on_table_sampler)
+        nsrts.add(placecupwithballontable_nsrt)
+
+        # PlaceCupWithoutBallOnFloor
+        parameters = [robot, ball, cup]
+        option_vars = parameters
+        option = PlaceCupWithoutBallOnFloor
+        preconditions = {
+            LiftedAtom(HoldingCup, [cup]),
+            LiftedAtom(BallNotInCup(ball, cup))
+        }
         add_effects = {
             LiftedAtom(CupOnFloor, [cup]),
             LiftedAtom(HandEmpty, []),
         }
         delete_effects = {LiftedAtom(HoldingCup, [cup])}
-        placecuponfloor_nsrt = NSRT("PlaceCupOnFloor", parameters,
-                                 preconditions, add_effects, delete_effects,
-                                 set(), option, option_vars,
-                                 place_on_floor_sampler)
-        nsrts.add(placecuponfloor_nsrt)
+        placecupwithoutballonfloor_nsrt = NSRT("PlaceCupWithoutBallOnFloor",
+                                               parameters, preconditions,
+                                               add_effects, delete_effects,
+                                               set(), option, option_vars,
+                                               place_on_floor_sampler)
+        nsrts.add(placecupwithoutballonfloor_nsrt)
+
+        # PlaceCupWithBallOnFloor
+        parameters = [robot, ball, cup]
+        option_vars = parameters
+        option = PlaceCupWithBallOnFloor
+        preconditions = {
+            LiftedAtom(HoldingCup, [cup]),
+            LiftedAtom(BallInCup, [ball, cup])
+        }
+        add_effects = {
+            LiftedAtom(CupOnFloor, [cup]),
+            LiftedAtom(HandEmpty, []),
+            LiftedAtom(BallOnFloor, [ball])
+        }
+        delete_effects = {LiftedAtom(HoldingCup, [cup])}
+        placecupwithballonfloor_nsrt = NSRT("PlaceCupWithBallOnFloor",
+                                            parameters, preconditions,
+                                            add_effects, delete_effects, set(),
+                                            option, option_vars,
+                                            place_on_floor_sampler)
+        nsrts.add(placecupwithballonfloor_nsrt)
 
         # NavigateToCube
         parameters = [robot, cube]
@@ -472,8 +535,8 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         add_effects = {ReachableCup([robot, cup])}
         ignore_effects = {ReachableSurface, ReachableCup}
         navigatetocup_nsrt = NSRT("NavigateToCup", parameters, preconditions,
-                                   add_effects, set(), ignore_effects, option,
-                                   option_vars, navigate_to_obj_sampler)
+                                  add_effects, set(), ignore_effects, option,
+                                  option_vars, navigate_to_obj_sampler)
         nsrts.add(navigatetocup_nsrt)
 
         # NavigateToTable

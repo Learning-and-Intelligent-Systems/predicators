@@ -93,6 +93,9 @@ class StickyTableEnv(BaseEnv):
         self._BallInCup = Predicate("BallInCup",
                                     [self._ball_type, self._cup_type],
                                     self._BallInCup_holds)
+        self._BallNotInCup = Predicate("BallNotInCup",
+                                       [self._ball_type, self._cup_type],
+                                       self._BallNotInCup_holds)
 
     @classmethod
     def get_name(cls) -> str:
@@ -238,21 +241,12 @@ class StickyTableEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._CubeOnTable,
-            self._CubeOnFloor,
-            self._BallOnTable,
-            self._BallOnFloor,
-            self._CupOnTable,
-            self._CupOnFloor,
-            self._HoldingCube,
-            self._HoldingBall,
-            self._HoldingCup,
-            self._HandEmpty,
-            self._IsReachableSurface,
-            self._IsReachableCube,
-            self._IsReachableBall,
-            self._IsReachableCup,
-            self._BallInCup,
+            self._CubeOnTable, self._CubeOnFloor, self._BallOnTable,
+            self._BallOnFloor, self._CupOnTable, self._CupOnFloor,
+            self._HoldingCube, self._HoldingBall, self._HoldingCup,
+            self._HandEmpty, self._IsReachableSurface, self._IsReachableCube,
+            self._IsReachableBall, self._IsReachableCup, self._BallInCup,
+            self._BallNotInCup
         }
 
     @property
@@ -495,6 +489,10 @@ class StickyTableEnv(BaseEnv):
         assert isinstance(ball_geom, utils.Circle)
         assert isinstance(cup_geom, utils.Circle)
         return cup_geom.contains_circle(ball_geom)
+
+    def _BallNotInCup_holds(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        return not self._BallInCup_holds(state, objects)
 
     def _table_is_sticky(self, table: Object, state: State) -> bool:
         return state.get(table, "sticky") > 0.5
