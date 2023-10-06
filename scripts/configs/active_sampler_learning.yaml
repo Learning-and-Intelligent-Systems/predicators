@@ -84,7 +84,7 @@ FLAGS:
   num_online_learning_cycles: 10
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
-  horizon: 20
+  horizon: 24
   active_sampler_learning_feature_selection: oracle
   active_sampler_learning_explore_length_base: 2
 START_SEED: 456
