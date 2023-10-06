@@ -1118,33 +1118,33 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             ####
 
-            # ###
-            # # Stuff from oracle learning to test if the stuff is working.
-            # ###
-            # assert CFG.offline_data_method == "demo+gt_operators"
-            # assert dataset.annotations is not None and len(
-            #     dataset.annotations) == len(dataset.trajectories)
-            # assert CFG.segmenter == "option_changes"
-            # segmented_trajs = [
-            #     segment_trajectory(traj) for traj in atom_dataset
-            # ]
-            # assert len(segmented_trajs) == len(dataset.annotations)
-            # # First, get the set of all ground truth operator names.
-            # all_gt_op_names = set(ground_nsrt.parent.name
-            #                       for anno_list in dataset.annotations
-            #                       for ground_nsrt in anno_list)
-            # # Next, make a dictionary mapping operator name to segments
-            # # where that operator was used.
-            # gt_op_to_segments: Dict[str, List[Segment]] = {
-            #     op_name: []
-            #     for op_name in all_gt_op_names
-            # }
-            # for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
-            #     assert len(seg_list) == len(op_list)
-            #     for ground_nsrt, segment in zip(op_list, seg_list):
-            #         gt_op_to_segments[ground_nsrt.parent.name].append(segment)
-            # final_clusters = list(gt_op_to_segments.values())
-            # ###
+            ###
+            # Stuff from oracle learning to test if the stuff is working.
+            ###
+            assert CFG.offline_data_method == "demo+gt_operators"
+            assert dataset.annotations is not None and len(
+                dataset.annotations) == len(dataset.trajectories)
+            assert CFG.segmenter == "option_changes"
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in atom_dataset
+            ]
+            assert len(segmented_trajs) == len(dataset.annotations)
+            # First, get the set of all ground truth operator names.
+            all_gt_op_names = set(ground_nsrt.parent.name
+                                  for anno_list in dataset.annotations
+                                  for ground_nsrt in anno_list)
+            # Next, make a dictionary mapping operator name to segments
+            # where that operator was used.
+            gt_op_to_segments: Dict[str, List[Segment]] = {
+                op_name: []
+                for op_name in all_gt_op_names
+            }
+            for op_list, seg_list in zip(dataset.annotations, segmented_trajs):
+                assert len(seg_list) == len(op_list)
+                for ground_nsrt, segment in zip(op_list, seg_list):
+                    gt_op_to_segments[ground_nsrt.parent.name].append(segment)
+            final_clusters = list(gt_op_to_segments.values())
+            ###
 
             # operator to preconditions, and add effects
             # filter out an operator that barely ever appears
@@ -1383,48 +1383,130 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 temp.append(traj)
                 print(traj)
 
+            # ####
+            # # 1.
+            # potential_ops = {o: dict() for o in ddd.keys()}
+            #
+            # for i, segmented_traj in enumerate(segmented_trajs):
+            #     print(f"Trajectory {i}: {temp[0]}")
+            #
+            #     # first
+            #     goal = self._train_tasks[i].goal
+            #     last_seg = segmented_traj[-1]
+            #     name = seg_to_op(last_seg, final_clusters)
+            #     grounded_relevant_add_effects = set(a for a in last_seg.add_effects if a.predicate in ddd[name][1])
+            #     sure_add_effects = grounded_relevant_add_effects.intersection(goal)
+            #     unfulfilled_goal = goal - sure_add_effects
+            #     potential_ops[name]["add_effects"] = [a.predicate for a in sure_add_effects]
+            #
+            #     # second
+            #     prev_seg = segmented_traj[-1]
+            #     curr_seg = segmented_traj[-2]
+            #     prev_name = seg_to_op(prev_seg, final_clusters)
+            #     name = seg_to_op(curr_seg, final_clusters)
+            #     grounded_relevant_add_effects = set(a for a in curr_seg.add_effects if a.predicate in ddd[name][1])
+            #     sure_add_effects = grounded_relevant_add_effects.intersection(unfulfilled_goal)
+            #     new_unfulfilled_goal = unfulfilled_goal - sure_add_effects
+            #
+            #     grounded_relevant_preconditions = set(p for p in prev_seg.init_atoms if p.predicate in ddd[prev_name][0])
+            #     other_add_effects = grounded_relevant_add_effects.intersection(grounded_relevant_preconditions)
+            #     unfulfilled_preconditions = grounded_relevant_preconditions - other_add_effects
+            #     # TODO: need to keep track of unfulfilled preconditions for previous operators!
+            #     # if no operator adds that atom, then maybe it's not part of the precondition!
+            #     all_add_effects = sure_add_effects.union(other_add_effects)
+            #     potential_ops[name]["add_effects"] = [a.predicate for a in sure_add_effects]
+            #
+            #     import pdb; pdb.set_trace()
+
+
             ####
-            # 1.
-            potential_ops = {o: dict() for o in ddd.keys()}
-
+            task_to_ops = {i: dict() for i in range(len(self._train_tasks))}
+            ddd2 = ddd.copy()
             for i, segmented_traj in enumerate(segmented_trajs):
-                print(f"Trajectory {i}: {temp[0]}")
+                seg_traj = list(reversed(segmented_traj))
+                potential_ops = {o: {"preconditions": set(), "add_effects": set(), "delete_effects": set()} for o in ddd.keys()}
 
-                # first
-                goal = self._train_tasks[i].goal
-                goal2 = set(g.predicate for g in self._train_tasks[i].goal)
-                last_seg = segmented_traj[-1]
-                name = seg_to_op(last_seg, final_clusters)
-                grounded_relevant_add_effects = set(a for a in last_seg.add_effects if a.predicate in ddd[name][1])
-                sure_add_effects = grounded_relevant_add_effects.intersection(goal)
-                unfulfilled_goal = goal - sure_add_effects
-                potential_ops[name]["add_effects"] = [a.predicate for a in sure_add_effects]
+                # [goal, last segment's preconditions, second to last segment's preconditions, ...]
+                remaining_atoms = [] # goal and preconditions
+                remaining_atoms.append(self._train_tasks[i].goal)
+                for seg in seg_traj:
+                    seg_name = seg_to_op(seg, final_clusters)
+                    grounded_relevant_preconditions = set(p for p in seg.init_atoms if p.predicate in ddd[seg_name][0])
+                    remaining_atoms.append(grounded_relevant_preconditions)
 
-                # second
-                prev_seg = segmented_traj[-1]
-                curr_seg = segmented_traj[-2]
-                prev_name = seg_to_op(prev_seg, final_clusters)
-                name = seg_to_op(curr_seg, final_clusters)
-                grounded_relevant_add_effects = set(a for a in curr_seg.add_effects if a.predicate in ddd[name][1])
-                sure_add_effects = grounded_relevant_add_effects.intersection(unfulfilled_goal)
-                new_unfulfilled_goal = unfulfilled_goal - sure_add_effects
+                length = len(segmented_traj)
+                for j in range(length):
+                    # traverse backwards
+                    curr_seg = seg_traj[j]
+                    curr_name = seg_to_op(curr_seg, final_clusters)
+                    grounded_relevant_add_effects = set(a for a in curr_seg.add_effects if a.predicate in ddd[curr_name][1])
+                    grounded_relevant_del_effects = set(a for a in curr_seg.delete_effects if a.predicate in ddd[curr_name][2])
+                    to_add = set()
+                    to_del = set()
+                    for k in range(length):
+                        if k <= j: # goal / preconditions that come AFTER this segment
+                            to_fulfill = remaining_atoms[k]
+                            to_add_at_step = grounded_relevant_add_effects.intersection(remaining_atoms[k])
+                            ungrounded_to_add_at_step = set(a.predicate for a in to_add_at_step)
+                            to_add |= ungrounded_to_add_at_step
 
-                grounded_relevant_preconditions = set(p for p in prev_seg.init_atoms if p.predicate in ddd[prev_name][0])
-                other_add_effects = grounded_relevant_add_effects.intersection(grounded_relevant_preconditions)
-                unfulfilled_preconditions = grounded_relevant_preconditions - other_add_effects
-                # TODO: need to keep track of unfulfilled preconditions for previous operators!
-                # if no operator adds that atom, then maybe it's not part of the precondition!
-                all_add_effects = sure_add_effects.union(other_add_effects)
-                potential_ops[name]["add_effects"] = [a.predicate for a in sure_add_effects]
+                            # to_del_at_step = grounded_relevant_del_effects.intersection(remaining_atoms[k])
+                            to_del_at_step = set(d for d in grounded_relevant_del_effects if d not in remaining_atoms[k])
+                            # do we want to check that the NOT version of it IS EXPLICITLY in remaining_atoms? But, won't that always be the case?
+                            ungrounded_to_del_at_step = set(a.predicate for a in to_del_at_step)
+                            to_del |= ungrounded_to_del_at_step
 
-                import pdb; pdb.set_trace()
+                            remaining_atoms[k] = remaining_atoms[k] - to_add_at_step
+                            if k > 0:
+                                # if k is 1, you want the last segment
+                                # if k is 2, you want the second to last segment
+                                # if k is length-1, you want the first segment
+                                prev_seg = seg_traj[k-1]
+                                prev_name = seg_to_op(prev_seg, final_clusters)
+                                potential_ops[prev_name]["preconditions"] |= ungrounded_to_add_at_step
+                                potential_ops[prev_name]["preconditions"] |= ungrounded_to_del_at_step
 
+                    potential_ops[curr_name]["add_effects"] |= to_add
+                    potential_ops[curr_name]["delete_effects"] |= to_del
 
+                    print("J: ", j)
+                    import pdb; pdb.set_trace()
+
+                    if j == length - 1:
+                        # Now what's left is to get the preconditions of the first operator in the trajectory.
+                        first_seg = seg_traj[-1]
+                        first_name = seg_to_op(first_seg, final_clusters)
+                        if len(potential_ops[first_name]["preconditions"]) == 0:
+                            grounded_relevant_preconditions = set(p for p in first_seg.init_atoms if p.predicate in ddd[first_name][0])
+                            ungrounded = set(p.predicate for p in grounded_relevant_preconditions)
+                            potential_ops[first_name]["preconditions"] = ungrounded
+
+                # check that every operator has add effects, delete effects, and preconditions
+                # import pdb; pdb.set_trace()
+                for k, v in potential_ops.items():
+                    add = v["add_effects"]
+                    delete = v["delete_effects"]
+                    prec = v["preconditions"]
+
+                    if len(add) == 0:
+                        import pdb; pdb.set_trace()
+                    if len(delete) == 0:
+                        import pdb; pdb.set_trace()
+                    if len(prec) == 0:
+                        import pdb; pdb.set_trace()
+
+                    import pdb; pdb.set_trace()
+                    ddd2[k][0] = ddd2[k][0].intersection(prec)
+                    ddd2[k][1] = ddd2[k][1].intersection(add)
+                    ddd2[k][2] = ddd2[k][2].intersection(delete)
+                    import pdb; pdb.set_trace()
+
+            import pdb; pdb.set_trace()
 
 
             #####################
 
-            self._clusters = ddd
+            self._clusters = ddd2
 
             # import pdb; pdb.set_trace()
 
