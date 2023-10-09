@@ -1057,9 +1057,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                 each_dim_uniform = False
                                 break
                         if each_dim_uniform:
-                            clusters[option][types][max_num_objs] = [
-                                segments
-                            ]
+                            clusters[option][types][max_num_objs] = [segments]
                             logging.info(
                                 f"STEP 4: generated no further sample-based"
                                 f" clusters (uniformly distributed "
@@ -1074,33 +1072,29 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         # complexity of the model (chosen by BIC here)
                         # are hyperparameters.
                         max_components = min(
-                            len(samples), len(np.unique(samples)), CFG.
-                            grammar_search_clustering_gmm_num_components
-                        )
+                            len(samples), len(np.unique(samples)),
+                            CFG.grammar_search_clustering_gmm_num_components)
                         n_components = np.arange(1, max_components + 1)
                         models = [
-                            GMM(n,
-                                covariance_type="full",
+                            GMM(n, covariance_type="full",
                                 random_state=0).fit(samples)
                             for n in n_components
                         ]
                         bic = [m.bic(samples) for m in models]
                         best = models[np.argmin(bic)]
                         assignments = best.predict(samples)
-                        label_to_segments: Dict[int,
-                                                List[Segment]] = {}
+                        label_to_segments: Dict[int, List[Segment]] = {}
                         for l, assignment in enumerate(assignments):
                             label_to_segments.setdefault(
                                 assignment, []).append(segments[l])
                         clusters[option][types][max_num_objs] = list(
                             label_to_segments.values())
-                        logging.info(
-                            f"STEP 4: generated "
-                            f"{len(label_to_segments.keys())}"
-                            f"sample-based clusters for cluster "
-                            f"{i+j+k+1} from STEP 3 involving option "
-                            f"{option}, type {types}, and max num "
-                            f"objects {max_num_objs}.")
+                        logging.info(f"STEP 4: generated "
+                                     f"{len(label_to_segments.keys())}"
+                                     f"sample-based clusters for cluster "
+                                     f"{i+j+k+1} from STEP 3 involving option "
+                                     f"{option}, type {types}, and max num "
+                                     f"objects {max_num_objs}.")
 
             # We could avoid these loops by creating the final set of clusters
             # as part of STEP 4, but this is not prohibitively slow and serves
@@ -1160,8 +1154,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     if i == j:
                         continue
                     if consistent_shared_add_effects_per_cluster[
-                            i] == consistent_shared_add_effects_per_cluster[
-                                j]:
+                            i] == consistent_shared_add_effects_per_cluster[j]:
                         logging.info(
                             f"Final clusters {i} and {j} cannot be "
                             f"disambiguated after removing the inconsistent"
