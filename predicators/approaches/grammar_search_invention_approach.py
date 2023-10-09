@@ -1135,7 +1135,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # within the PlaceOnTable cluster in painting, but we don't want to
             # remove them, since we had generated them specifically to
             # disambiguate segments in the cluster with the Pick option.
-            # A consistent predicate is is either an add effect, a delete
+            # A consistent predicate is either an add effect, a delete
             # effect, or doesn't change, within each cluster, for all clusters.
             # Note that it is possible that when 2 inconsistent predicates are
             # removed, then two clusters cannot be disambiguated, but if you
