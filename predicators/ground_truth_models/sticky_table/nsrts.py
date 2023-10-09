@@ -228,7 +228,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(HandEmpty, []),
             LiftedAtom(BallOnTable, [ball, table])
         }
-        add_effects = {LiftedAtom(HoldingCup, [cup])}
+        add_effects = {LiftedAtom(HoldingCup, [cup]), LiftedAtom(HoldingBall, [ball])}
         delete_effects = {
             LiftedAtom(CupOnTable, [cup, table]),
             LiftedAtom(HandEmpty, []),
@@ -272,7 +272,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(CupOnFloor, [cup]),
             LiftedAtom(HandEmpty, []),
         }
-        add_effects = {LiftedAtom(HoldingCup, [cup])}
+        add_effects = {LiftedAtom(HoldingCup, [cup]), LiftedAtom(HoldingBall, [ball])}
         delete_effects = {
             LiftedAtom(CupOnFloor, [cup]),
             LiftedAtom(HandEmpty, []),
