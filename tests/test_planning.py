@@ -17,7 +17,7 @@ from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.option_model import _OptionModelBase, _OracleOptionModel, \
     create_option_model
 from predicators.planning import PlanningFailure, PlanningTimeout, \
-    sesame_plan, task_plan, task_plan_grounding
+    run_task_plan_once, sesame_plan, task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, ParameterizedOption, Predicate, \
     State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
@@ -693,3 +693,27 @@ def test_sesame_plan_fast_downward():
             assert "Please follow the instructions" in str(e)
         except ValueError as e:
             assert "Unrecognized sesame_task_planner" in str(e)
+
+    def test_task_planning_only():
+        """Tests for the run_task_plan_once function."""
+        utils.reset_config({
+            "env": "cluttered_table",
+            "num_test_tasks": 50,
+            "sesame_task_planner": sesame_task_planner,
+        })
+        env = ClutteredTableEnv()
+        nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                             get_gt_options(env.get_name()))
+        env_task = env.get_test_tasks()[0]
+        task = env_task.task
+        preds = env.predicates
+        types = env.types
+        with pytest.raises(PlanningFailure) as e:
+            run_task_plan_once(task,
+                               nsrts,
+                               preds,
+                               types,
+                               100000.0,
+                               0,
+                               max_horizon=0.0)
+        assert "exceeds horizon" in str(e)
