@@ -30,6 +30,7 @@ def _find_objects_with_choreographed_moves(
     relative_base_moves: List[math_helpers.SE2Pose],
     relative_hand_moves: Optional[List[math_helpers.SE3Pose]] = None,
     open_and_close_gripper: bool = True,
+    use_gui: bool = False,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Helper for object search with hard-coded relative moves."""
 
@@ -54,23 +55,24 @@ def _find_objects_with_choreographed_moves(
     all_artifacts.update(artifacts)
 
     # Display the detections on screen so that we can follow along.
-    num_cameras = len(rgbds)
-    num_display_rows = int(np.ceil(np.sqrt(num_cameras)))
-    num_display_cols = int(np.ceil(num_cameras / num_display_rows))
-    display_fig_scale = 10
-    fig, display_axes = plt.subplots(
-        num_display_rows,
-        num_display_cols,
-        squeeze=False,
-        figsize=(display_fig_scale * num_display_rows,
-                 display_fig_scale * num_display_cols))
+    if use_gui:
+        num_cameras = len(rgbds)
+        num_display_rows = int(np.ceil(np.sqrt(num_cameras)))
+        num_display_cols = int(np.ceil(num_cameras / num_display_rows))
+        display_fig_scale = 10
+        fig, display_axes = plt.subplots(
+            num_display_rows,
+            num_display_cols,
+            squeeze=False,
+            figsize=(display_fig_scale * num_display_rows,
+                     display_fig_scale * num_display_cols))
 
-    plt.ion()
-    plt.show()
-    plt.pause(0.1)
-    display_camera_detections(artifacts, display_axes)
-    fig.canvas.draw()
-    plt.pause(0.1)
+        plt.ion()
+        plt.show()
+        plt.pause(0.1)
+        display_camera_detections(artifacts, display_axes)
+        fig.canvas.draw()
+        plt.pause(0.1)
 
     for i, relative_pose in enumerate(relative_base_moves):
         remaining_object_ids = set(object_ids) - set(all_detections)
@@ -96,9 +98,10 @@ def _find_objects_with_choreographed_moves(
         all_artifacts.update(artifacts)
 
         # Update the GUI.
-        display_camera_detections(artifacts, display_axes)
-        fig.canvas.draw()
-        plt.pause(0.1)
+        if use_gui:
+            display_camera_detections(artifacts, display_axes)
+            fig.canvas.draw()
+            plt.pause(0.1)
 
     # Stop the display.
     plt.close()
@@ -137,8 +140,11 @@ def init_search_for_objects(
     spin_amount = 2 * np.pi / (num_spins + 1)
     relative_pose = math_helpers.SE2Pose(0, 0, spin_amount)
     base_moves = [relative_pose] * num_spins
-    return _find_objects_with_choreographed_moves(robot, localizer, object_ids,
-                                                  base_moves)
+    return _find_objects_with_choreographed_moves(robot,
+                                                  localizer,
+                                                  object_ids,
+                                                  base_moves,
+                                                  use_gui=True)
 
 
 def find_objects(
@@ -191,8 +197,6 @@ if __name__ == "__main__":
     # This test assumes that the 408, 409, and 410 april tags can be found.
 
     # pylint: disable=ungrouped-imports
-    from pathlib import Path
-
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.lease import LeaseKeepAlive
     from bosdyn.client.util import authenticate
@@ -200,7 +204,7 @@ if __name__ == "__main__":
     from predicators.settings import CFG
     from predicators.spot_utils.perception.object_detection import \
         AprilTagObjectDetectionID
-    from predicators.spot_utils.utils import verify_estop
+    from predicators.spot_utils.utils import get_graph_nav_dir, verify_estop
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.
@@ -211,9 +215,7 @@ if __name__ == "__main__":
 
         # Get constants.
         hostname = CFG.spot_robot_ip
-        upload_dir = Path(__file__).parent.parent / "graph_nav_maps"
-        path = upload_dir / CFG.spot_graph_nav_map
-
+        path = get_graph_nav_dir()
         sdk = create_standard_sdk('FindObjectsTestClient')
         robot = sdk.create_robot(hostname)
         authenticate(robot)

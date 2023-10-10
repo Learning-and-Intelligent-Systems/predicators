@@ -2,7 +2,6 @@
 
 Run with --spot_robot_ip and any other flags.
 """
-from pathlib import Path
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -32,9 +31,9 @@ from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_FLOOR_POSE, get_relative_se2_from_se3, \
-    get_spot_home_pose, sample_move_offset_from_target, spot_pose_to_geom2d, \
-    verify_estop
+    DEFAULT_HAND_LOOK_FLOOR_POSE, get_graph_nav_dir, \
+    get_relative_se2_from_se3, get_spot_home_pose, \
+    sample_move_offset_from_target, spot_pose_to_geom2d, verify_estop
 
 
 def test_find_move_pick_place(
@@ -143,8 +142,7 @@ def test_all_find_move_pick_place() -> None:
 
     # Set up the robot and localizer.
     hostname = CFG.spot_robot_ip
-    upload_dir = Path(__file__).parent / "graph_nav_maps"
-    path = upload_dir / CFG.spot_graph_nav_map
+    path = get_graph_nav_dir()
     sdk = create_standard_sdk("TestClient")
     robot = sdk.create_robot(hostname)
     authenticate(robot)
@@ -198,8 +196,7 @@ def test_move_with_sampling() -> None:
 
     # Set up the robot and localizer.
     hostname = CFG.spot_robot_ip
-    upload_dir = Path(__file__).parent / "graph_nav_maps"
-    path = upload_dir / CFG.spot_graph_nav_map
+    path = get_graph_nav_dir()
     sdk = create_standard_sdk("TestClient")
     robot = sdk.create_robot(hostname)
     authenticate(robot)
@@ -309,8 +306,7 @@ def test_repeated_brush_bucket_dump_pick_place(
 
     # Set up the robot and localizer.
     hostname = CFG.spot_robot_ip
-    upload_dir = Path(__file__).parent / "graph_nav_maps"
-    path = upload_dir / CFG.spot_graph_nav_map
+    path = get_graph_nav_dir()
     sdk = create_standard_sdk("TestClient")
     robot = sdk.create_robot(hostname)
     authenticate(robot)

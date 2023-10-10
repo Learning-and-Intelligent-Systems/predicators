@@ -159,8 +159,6 @@ if __name__ == "__main__":
     # Run this file alone to test manually.
     # Make sure to pass in --spot_robot_ip.
 
-    from pathlib import Path
-
     # pylint: disable=ungrouped-imports
     import imageio.v2 as iio
     from bosdyn.client import create_standard_sdk
@@ -169,7 +167,7 @@ if __name__ == "__main__":
 
     from predicators import utils
     from predicators.settings import CFG
-    from predicators.spot_utils.utils import verify_estop
+    from predicators.spot_utils.utils import get_graph_nav_dir, verify_estop
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.
@@ -180,9 +178,7 @@ if __name__ == "__main__":
 
         # Get constants.
         hostname = CFG.spot_robot_ip
-        upload_dir = Path(__file__).parent.parent / "graph_nav_maps"
-        path = upload_dir / CFG.spot_graph_nav_map
-
+        path = get_graph_nav_dir()
         sdk = create_standard_sdk('SpotCameraTestClient')
         robot = sdk.create_robot(hostname)
         authenticate(robot)

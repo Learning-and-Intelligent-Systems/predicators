@@ -48,8 +48,6 @@ if __name__ == "__main__":
     # NOTE: this test assumes that the robot is facing the bucket.
 
     # pylint: disable=ungrouped-imports
-    from pathlib import Path
-
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
     from bosdyn.client.util import authenticate
@@ -64,7 +62,7 @@ if __name__ == "__main__":
     from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
     from predicators.spot_utils.spot_localization import SpotLocalizer
     from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_FLOOR_POSE, \
-        verify_estop
+        get_graph_nav_dir, verify_estop
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.
@@ -77,8 +75,7 @@ if __name__ == "__main__":
 
         # Get constants.
         hostname = CFG.spot_robot_ip
-        upload_dir = Path(__file__).parent.parent / "graph_nav_maps"
-        path = upload_dir / CFG.spot_graph_nav_map
+        path = get_graph_nav_dir()
 
         sdk = create_standard_sdk('GraspSkillTestClient')
         robot = sdk.create_robot(hostname)

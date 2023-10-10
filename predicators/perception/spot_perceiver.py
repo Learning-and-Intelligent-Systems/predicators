@@ -9,7 +9,7 @@ from bosdyn.client import math_helpers
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotCubeEnv, _PartialPerceptionState, _SpotObservation, \
+    SpotCubeEnv, SpotEnv, _PartialPerceptionState, _SpotObservation, \
     tool_in_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
@@ -34,7 +34,6 @@ class SpotPerceiver(BasePerceiver):
         self._robot_pos: math_helpers.SE3Pose = math_helpers.SE3Pose(
             0, 0, 0, math_helpers.Quat())
         self._lost_objects: Set[Object] = set()
-        assert CFG.env == "spot_cube_env"
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
         # Keep track of objects that are contained (out of view) in another
@@ -49,7 +48,7 @@ class SpotPerceiver(BasePerceiver):
     def reset(self, env_task: EnvironmentTask) -> Task:
         self._waiting_for_observation = True
         self._curr_env = get_or_create_env(CFG.env)
-        assert isinstance(self._curr_env, SpotCubeEnv)
+        assert isinstance(self._curr_env, SpotEnv)
         self._known_object_poses = {}
         self._known_objects_in_hand_view = set()
         self._robot = None
@@ -76,8 +75,7 @@ class SpotPerceiver(BasePerceiver):
     def step(self, observation: Observation) -> State:
         self._update_state_from_observation(observation)
         # Update the curr held item when applicable.
-        assert self._curr_env is not None and isinstance(
-            self._curr_env, SpotCubeEnv)
+        assert self._curr_env is not None
         if self._prev_action is not None:
             assert isinstance(self._prev_action.extra_info, (list, tuple))
             controller_name, objects, _, _ = self._prev_action.extra_info
@@ -230,10 +228,11 @@ class SpotPerceiver(BasePerceiver):
         del state  # not used
         # Unfortunate hack to deal with the fact that the state is actually
         # not yet set. Hopefully one day other cleanups will enable cleaning.
-        assert goal_description == "put the cube on the sticky table"
-        assert isinstance(self._curr_env, SpotCubeEnv)
+        assert self._curr_env is not None
         type_name_to_type = {t.name: t for t in self._curr_env.types}
         pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
+        assert goal_description == "put the cube on the sticky table"
+        assert isinstance(self._curr_env, SpotCubeEnv)
         cube = Object("cube", type_name_to_type["tool"])
         target = Object("extra_room_table", type_name_to_type["flat_surface"])
         On = pred_name_to_pred["On"]
