@@ -694,26 +694,27 @@ def test_sesame_plan_fast_downward():
         except ValueError as e:
             assert "Unrecognized sesame_task_planner" in str(e)
 
-    def test_task_planning_only():
-        """Tests for the run_task_plan_once function."""
-        utils.reset_config({
-            "env": "cluttered_table",
-            "num_test_tasks": 50,
-            "sesame_task_planner": sesame_task_planner,
-        })
-        env = ClutteredTableEnv()
-        nsrts = get_gt_nsrts(env.get_name(), env.predicates,
-                             get_gt_options(env.get_name()))
-        env_task = env.get_test_tasks()[0]
-        task = env_task.task
-        preds = env.predicates
-        types = env.types
-        with pytest.raises(PlanningFailure) as e:
-            run_task_plan_once(task,
-                               nsrts,
-                               preds,
-                               types,
-                               100000.0,
-                               0,
-                               max_horizon=0.0)
-        assert "exceeds horizon" in str(e)
+
+def test_task_planning_only():
+    """Tests for the run_task_plan_once function."""
+    utils.reset_config({
+        "env": "cluttered_table",
+        "num_test_tasks": 50,
+    })
+    env = ClutteredTableEnv()
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+    env_task = env.get_test_tasks()[0]
+    task = env_task.task
+    preds = env.predicates
+    types = env.types
+    with pytest.raises(PlanningFailure) as e:
+        run_task_plan_once(task,
+                           nsrts,
+                           preds,
+                           types,
+                           100000.0,
+                           0,
+                           task_planning_heuristic="lmcut",
+                           max_horizon=0.0)
+    assert "exceeds horizon" in str(e)
