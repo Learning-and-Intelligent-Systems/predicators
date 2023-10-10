@@ -304,6 +304,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             o: -np.log(m.get_current_competence())
             for o, m in self._competence_models.items()
         }
+        # Set large horizon for planning here because we don't want to error
+        # out due to plan exceeding horizon here.
         plan, atoms_seq, _ = run_task_plan_once(
             task,
             self._nsrts,
@@ -313,7 +315,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             self._seed,
             task_planning_heuristic=task_planning_heuristic,
             ground_op_costs=ground_op_costs,
-            default_cost=self._default_cost)
+            default_cost=self._default_cost,
+            max_horizon=np.inf)
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
@@ -415,7 +418,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                 self._seed,
                 task_planning_heuristic=task_planning_heuristic,
                 ground_op_costs=ground_op_costs,
-                default_cost=self._default_cost)
+                default_cost=self._default_cost,
+                max_horizon=np.inf)
             self._task_plan_cache[task_id] = [n.op for n in plan]
 
         self._task_plan_calls_since_replan[task_id] += 1
