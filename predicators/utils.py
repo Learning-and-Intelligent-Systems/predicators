@@ -300,8 +300,8 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 assert len(params) == 1
                 sampler_input_lst.append(params[0] - target_pos)
         elif "sticky_table" in CFG.env:
-            if param_option.name == "PlaceOnTable":
-                _, _, table = objects
+            if "Place" in param_option.name and "Table" in param_option.name:
+                table = objects[-1]
                 table_y = state.get(table, "y")
                 sticky = state.get(table, "sticky")
                 table_radius = state.get(table, "radius")

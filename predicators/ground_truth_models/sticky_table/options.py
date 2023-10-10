@@ -70,7 +70,7 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
             "PickBallFromTable",
             cls._create_pass_through_policy(action_space),
             params_space=params_space,
-            types=[robot_type, ball_type, table_type])
+            types=[robot_type, ball_type, cup_type, table_type])
 
         PickBallFromFloor = utils.SingletonParameterizedOption(
             # variables: [robot, ball]
@@ -78,23 +78,23 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
-            types=[robot_type, ball_type])
+            types=[robot_type, ball_type, cup_type])
 
         PlaceBallOnTable = utils.SingletonParameterizedOption(
-            # variables: [robot, ball, table]
+            # variables: [robot, ball, cup, table]
             "PlaceBallOnTable",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
-            types=[robot_type, ball_type, table_type])
+            types=[robot_type, ball_type, cup_type, table_type])
 
         PlaceBallOnFloor = utils.SingletonParameterizedOption(
-            # variables: [robot, ball]
+            # variables: [robot, cup, ball]
             "PlaceBallOnFloor",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
             params_space=params_space,
-            types=[robot_type, ball_type])
+            types=[robot_type, cup_type, ball_type])
 
         PickCupWithoutBallFromTable = utils.SingletonParameterizedOption(
             # variables: [robot, cup, ball, table]

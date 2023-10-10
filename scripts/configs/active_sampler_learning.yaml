@@ -6,11 +6,11 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "planning_progress"
-  # task_repeat_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "task_repeat"
+  task_repeat_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "task_repeat"
   success_rate_explore:
     NAME: "active_sampler_learning"
     FLAGS:
@@ -47,6 +47,9 @@ ENVS:
       sticky_table_num_sticky_tables: 1
       sticky_table_num_tables: 5
       sticky_table_place_ball_fall_prob: 1.00
+      active_sampler_learning_explore_length_base: 4
+      active_sampler_learning_exploration_epsilon: 0.1
+      skill_competence_model_optimistic_recency_size: 1
   # sticky_table_tricky_floor:
   #   NAME: "sticky_table_tricky_floor"
   # regional_bumpy_cover:
@@ -86,6 +89,5 @@ FLAGS:
   sesame_grounder: "fd_translator"
   horizon: 12
   active_sampler_learning_feature_selection: oracle
-  active_sampler_learning_explore_length_base: 2
 START_SEED: 456
 NUM_SEEDS: 10

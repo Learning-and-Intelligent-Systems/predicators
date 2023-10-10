@@ -66,6 +66,9 @@ class ActiveSamplerExplorer(BaseExplorer):
         c = utils.beta_bernoulli_posterior([], alpha=alpha, beta=beta).mean()
         self._default_cost = -np.log(c)
 
+        # print(self._default_cost)
+        # import ipdb; ipdb.set_trace()
+
         # Tasks created through re-planning.
         n = CFG.active_sampler_explorer_planning_progress_max_replan_tasks
         self._replanning_tasks: deque[Task] = deque([], maxlen=n)
@@ -186,12 +189,13 @@ class ActiveSamplerExplorer(BaseExplorer):
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
                         nonlocal next_practice_nsrt
 
-                        for op in sorted(self._ground_op_hist,
-                                         key=self._score_ground_op,
-                                         reverse=True):
-                            print(f"{op.name}{op.objects} score: {self._score_ground_op(op)}")
-                        if "PlaceBallInCup" in str(self._ground_op_hist):
-                            import ipdb; ipdb.set_trace()
+                        # if "InCup" in str([op.name for op in self._ground_op_hist]) or "CupWithBall" in str([op.name for op in self._ground_op_hist]):
+                        #     for op in sorted(self._ground_op_hist,
+                        #                     key=self._score_ground_op,
+                        #                     reverse=True):
+                        #         print(f"{op.name}{op.objects} score: {self._score_ground_op(op)}")
+
+                        #     import ipdb; ipdb.set_trace()
 
                         # Generate goals sorted by their descending score.
                         for op in sorted(self._ground_op_hist,
@@ -328,6 +332,16 @@ class ActiveSamplerExplorer(BaseExplorer):
             ground_op_costs=ground_op_costs,
             default_cost=self._default_cost,
             max_horizon=100000000) # set incredibly large horizon, since it doesn't matter here.
+
+        # print()
+        # if str(task.goal) == "{CubeOnTable(cube:cube, sticky-table-0:table), BallOnTable(ball:ball, sticky-table-0:table)}":
+        #     for (op, val) in ground_op_costs.items():
+        #         print(op.parent.name, val)
+        #     print()
+        #     print(self._default_cost)
+        #     print()
+        # import ipdb; ipdb.set_trace()
+
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 

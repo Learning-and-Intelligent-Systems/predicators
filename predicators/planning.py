@@ -1060,7 +1060,6 @@ def fd_plan_from_sas_file(
     metrics: Metrics = defaultdict(float)
     num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
     num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
-    import ipdb; ipdb.set_trace()
     assert len(num_nodes_expanded) == 1
     assert len(num_nodes_created) == 1
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
@@ -1234,6 +1233,8 @@ def run_task_plan_once(
         sas_file = generate_sas_file_for_fd(task, nsrts, preds, types, timeout,
                                             timeout_cmd, alias_flag, exec_str,
                                             list(objects), init_atoms)
+
+        # import ipdb; ipdb.set_trace()
 
         if use_costs:
             assert ground_op_costs is not None

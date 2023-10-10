@@ -189,15 +189,15 @@ class StickyTableEnv(BaseEnv):
                         if self._table_is_sticky(table, state):
                             # Check if placing on the smooth side of the sticky table.
                             table_y = state.get(table, "y")
-                            if self.sticky_surface_mode == "half" and act_y < table_y + 0.3 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
+                            if self.sticky_surface_mode == "half" and act_y < table_y: #+ 0.3 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
                                 if obj_being_held in [cube, cup]:
                                     fall_prob = self._place_smooth_fall_prob
                                 else:
                                     assert obj_being_held == ball
                                     fall_prob = 1.0
 
-                        if obj_being_held == cup and fall_prob != 1.0:
-                            import ipdb; ipdb.set_trace()
+                        # if obj_being_held == cube and fall_prob != 0.0:
+                        #     import ipdb; ipdb.set_trace()
 
                         if self._noise_rng.uniform() < fall_prob:
                             fall_x, fall_y = self._sample_floor_point_around_table(
@@ -380,7 +380,8 @@ class StickyTableEnv(BaseEnv):
                 }
             tables = sorted(state_dict)
             # rng.shuffle(tables)  # type: ignore
-            target_table, cube_table, cup_table  = tables[:3]
+            target_table = tables[-1]
+            cube_table, cup_table  = tables[:2]
             # Create cube.
             size = radius * self.objs_scale
             table_x = state_dict[cube_table]["x"]
