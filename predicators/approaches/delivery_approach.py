@@ -35,7 +35,7 @@ def check_option(ground_option: _Option, state: _PDDLEnvState) -> None:
     If not, throws an exception.
     """
     if not ground_option.initiable(state):
-        raise ApproachFailure("Could not execute option") # pragma: no cover
+        raise ApproachFailure("Could not execute option")  # pragma: no cover
 
 
 class DeliverySpecificApproach(BaseApproach):
@@ -86,14 +86,16 @@ class DeliverySpecificApproach(BaseApproach):
         at_locs = filter_predicated_objs(locs, self.pred_at, ground_atoms)
         if len(at_locs) > 1:
             raise ApproachFailure(
-                "Cannot be at multiple locations at the same time") # pragma: no cover
+                "Cannot be at multiple locations at the same time"
+            )  # pragma: no cover
         return min(at_locs, default=None)
 
     def _extract_at_loc(self, locs: Iterable[Object],
                         ground_atoms: Iterable[GroundAtom]) -> Object:
         at_loc = self._extract_at_loc_optional(locs, ground_atoms)
         if at_loc is None:
-            raise ApproachFailure("Expected a concrete location") # pragma: no cover
+            raise ApproachFailure(
+                "Expected a concrete location")  # pragma: no cover
         return at_loc
 
     def _move(self, state: _PDDLEnvState, from_loc: Object,
@@ -148,13 +150,16 @@ class DeliverySpecificApproach(BaseApproach):
         # Sanity checks (satisfies all the "safe" and "home_base" goals)
         if not filter_predicated_objs(obj_locs, self.pred_safe,
                                       task.goal) <= obj_safe_locs:
-            raise ApproachFailure("Cannot make new safe locations") # pragma: no cover
+            raise ApproachFailure(
+                "Cannot make new safe locations")  # pragma: no cover
         if not filter_predicated_objs(obj_locs, self.pred_is_home_base,
                                       task.goal) <= obj_home_bases:
-            raise ApproachFailure("Cannot create new bases") # pragma: no cover
+            raise ApproachFailure(
+                "Cannot create new bases")  # pragma: no cover
         if goal_carrying:
-            raise ApproachFailure("Case not handled when" +
-                                  "robot has to carry papers in the end") # pragma: no cover
+            raise ApproachFailure(
+                "Case not handled when" +
+                "robot has to carry papers in the end")  # pragma: no cover
 
         def _policy(state: State) -> Action:
             state = cast(_PDDLEnvState, state)
@@ -169,7 +174,8 @@ class DeliverySpecificApproach(BaseApproach):
             # Pick up enough satisfying papers
             if len(obj_carried_papers) < len(obj_locs_to_satisfy):
                 if obj_home_base is None:
-                    raise ApproachFailure("Need a home base") # pragma: no cover
+                    raise ApproachFailure(
+                        "Need a home base")  # pragma: no cover
                 if obj_at_loc != obj_home_base:
                     return self._move(state, obj_at_loc, obj_home_base)
 
@@ -178,7 +184,8 @@ class DeliverySpecificApproach(BaseApproach):
                                            default=None)
                 if obj_satisfying_paper is None:
                     raise ApproachFailure(
-                        "Too little paper that can satisfy locations") # pragma: no cover
+                        "Too little paper that can satisfy locations"
+                    )  # pragma: no cover
                 return self._pick_up(state, obj_satisfying_paper,
                                      obj_home_base)
 
@@ -197,6 +204,6 @@ class DeliverySpecificApproach(BaseApproach):
             if goal_at_loc and goal_at_loc != obj_at_loc:
                 return self._move(state, obj_at_loc, goal_at_loc)
 
-            ApproachFailure("Ran out of things to do") # pragma: no cover
+            ApproachFailure("Ran out of things to do")  # pragma: no cover
 
         return _policy
