@@ -2169,7 +2169,7 @@ def all_ground_nsrts_fd_translator(
     prob_str = create_pddl_problem(objects, init_atoms, goal, "mydomain",
                                    "myproblem")
     with nostdout():
-        sas_task = downward_translate(dom_str, prob_str)
+        sas_task = downward_translate(dom_str, prob_str)  # type: ignore
     for operator in sas_task.operators:
         split_name = operator.name[1:-1].split()  # strip out ( and )
         nsrt = nsrt_name_to_nsrt[split_name[0]]
