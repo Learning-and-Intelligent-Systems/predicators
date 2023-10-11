@@ -1,23 +1,22 @@
-from typing import cast
+"""Test cases for the DeliverySpecificApproach class."""
 
-import pytest
+from typing import cast
 
 from predicators import utils
 from predicators.approaches import create_approach
-from predicators.approaches.delivery_approach import DeliverySpecificApproach
 from predicators.envs.pddl_env import ProceduralTasksDeliveryPDDLEnv, \
     _PDDLEnvState
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, Task
+from predicators.structs import GroundAtom
 
 
-def test_delivery_approach():
+def test_delivery_approach() -> None:
     """Tests for DeliverySpecificApproach class."""
 
     utils.reset_config({
         "env": "",
-        "approach": f"delivery_approach",
+        "approach": "delivery_approach",
         "timeout": 1,
     })
 
@@ -31,6 +30,7 @@ def test_delivery_approach():
         # Checks the case when the robot has to end up
         # at some location and start from non-home-base
         if idx == 0:
+            # pylint: disable=cell-var-from-loop
             init_state = cast(_PDDLEnvState, task.init)
             at_pred = next(filter(lambda p: p.name == "at", env.predicates))
             starting_loc_ground_atom = next(
@@ -48,6 +48,8 @@ def test_delivery_approach():
                        task.init.get_objects(loc_type)))
             init_state.get_ground_atoms().remove(starting_loc_ground_atom)
             init_state.get_ground_atoms().add(GroundAtom(at_pred, [loc]))
+
+            # pylint: enable=cell-var-from-loop
 
         policy = approach.solve(task, CFG.timeout)
         traj = utils.run_policy_with_simulator(policy,

@@ -54,16 +54,16 @@ class DeliverySpecificApproach(BaseApproach):
                          train_tasks=train_tasks)
 
         # Extracts domain-specific class instances for the delivery domain
-        types = {t.name: t for t in self._types}
-        self.type_loc = types["loc"]
-        self.type_paper = types["paper"]
+        type_dict = {t.name: t for t in types}
+        self.type_loc = type_dict["loc"]
+        self.type_paper = type_dict["paper"]
 
-        options = {o.name: o for o in self._initial_options}
+        options = {o.name: o for o in initial_options}
         self.opt_pick_up = options["pick-up"]
         self.opt_move = options["move"]
         self.opt_deliver = options["deliver"]
 
-        predicates = {p.name: p for p in self._initial_predicates}
+        predicates = {p.name: p for p in initial_predicates}
         self.pred_is_home_base = predicates["ishomebase"]
         self.pred_safe = predicates["safe"]
         self.pred_at = predicates["at"]
@@ -204,6 +204,7 @@ class DeliverySpecificApproach(BaseApproach):
             if goal_at_loc and goal_at_loc != obj_at_loc:
                 return self._move(state, obj_at_loc, goal_at_loc)
 
-            ApproachFailure("Ran out of things to do")  # pragma: no cover
+            raise ApproachFailure(
+                "Ran out of things to do")  # pragma: no cover
 
         return _policy
