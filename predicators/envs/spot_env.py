@@ -34,7 +34,7 @@ from predicators.spot_utils.skills.spot_navigation import go_home, \
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import get_graph_nav_dir, \
-    get_robot_gripper_open_percentage, verify_estop
+    get_robot_gripper_open_percentage, load_spot_metadata, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, State, \
     STRIPSOperator, Type, Variable
@@ -384,7 +384,11 @@ class SpotRearrangementEnv(BaseEnv):
             }
             for o, pose in objects_in_view.items()
         }
-        # TODO add shape stuff here
+        # Add static object features.
+        metadata = load_spot_metadata()
+        static_object_features = metadata.get("static-object-features", {})
+        for obj_name, obj_feats in static_object_features.items():
+            init_json_dict[obj_name].update(obj_feats)
         for obj in objects_in_view:
             if "lost" in obj.type.feature_names:
                 init_json_dict[obj.name]["lost"] = 0.0
