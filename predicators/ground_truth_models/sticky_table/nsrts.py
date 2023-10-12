@@ -335,7 +335,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    objs: Sequence[Object]) -> Array:
             del goal  # not used
             obj_to_place = objs[-1]
-            if obj_to_place.type == "cube":
+            if obj_to_place.type.name == "cube":
                 size = state.get(obj_to_place, "size") * 2
             else:
                 size = state.get(obj_to_place, "radius") * 2
