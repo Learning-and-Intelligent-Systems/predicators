@@ -611,14 +611,14 @@ def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
     return is_xy_near and is_yaw_near
 
 
-_On = Predicate("On", [_movable_object_type, _immovable_object_type],
+_On = Predicate("On", [_movable_object_type, _base_object_type],
                 _on_classifier)
 _HandEmpty = Predicate("HandEmpty", [_robot_type], _handempty_classifier)
 _Holding = Predicate("Holding", [_robot_type, _movable_object_type],
                      _holding_classifier)
 _InView = Predicate("InView", [_robot_type, _movable_object_type],
                     in_view_classifier)
-_Reachable = Predicate("Reachable", [_robot_type, _immovable_object_type],
+_Reachable = Predicate("Reachable", [_robot_type, _base_object_type],
                        _reachable_classifier)
 
 
@@ -629,16 +629,17 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     # MoveToReachObject
     robot = Variable("?robot", _robot_type)
     obj = Variable("?object", _base_object_type)
+    parameters = [robot, obj]
     preconds: Set[LiftedAtom] = set()
     add_effs = {LiftedAtom(_Reachable, [robot, obj])}
     del_effs: Set[LiftedAtom] = set()
     ignore_effs = {_Reachable, _InView}
-    yield STRIPSOperator("MoveToReachObject", [robot, obj], preconds, add_effs,
+    yield STRIPSOperator("MoveToReachObject", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
     # MoveToViewObject
     robot = Variable("?robot", _robot_type)
-    obj = Variable("?object", _base_object_type)
+    obj = Variable("?object", _movable_object_type)
     parameters = [robot, obj]
     preconds = set()
     add_effs = {LiftedAtom(_InView, [robot, obj])}
@@ -674,14 +675,15 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     surface = Variable("?surface", _base_object_type)
     parameters = [robot, held, surface]
     preconds = {
-        LiftedAtom(_Holding, [robot, obj]),
+        LiftedAtom(_Holding, [robot, held]),
+        LiftedAtom(_Reachable, [robot, surface])
     }
     add_effs = {
-        LiftedAtom(_On, [obj, surface]),
+        LiftedAtom(_On, [held, surface]),
         LiftedAtom(_HandEmpty, [robot]),
     }
     del_effs = {
-        LiftedAtom(_Holding, [robot, obj]),
+        LiftedAtom(_Holding, [robot, held]),
     }
     yield STRIPSOperator("PlaceObjectOnTop", parameters, preconds, add_effs,
                          del_effs, ignore_effs)

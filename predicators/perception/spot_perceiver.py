@@ -9,8 +9,9 @@ from bosdyn.client import math_helpers
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotCubeEnv, SpotRearrangementEnv, _PartialPerceptionState, \
-    _SpotObservation, in_view_classifier
+    SpotCubeEnv, SpotRearrangementEnv, _immovable_object_type, \
+    _movable_object_type, _PartialPerceptionState, _SpotObservation, \
+    in_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
@@ -82,7 +83,7 @@ class SpotPerceiver(BasePerceiver):
             logging.info(f"[Perceiver] Previous action was {controller_name}.")
             # The robot is always the 0th argument of an
             # operator!
-            if "grasp" in controller_name.lower():
+            if "pick" in controller_name.lower():
                 assert self._held_object is None
                 # We know that the object that we attempted to grasp was
                 # the second argument to the controller.
@@ -166,10 +167,10 @@ class SpotPerceiver(BasePerceiver):
                 "x": self._robot_pos.x,
                 "y": self._robot_pos.y,
                 "z": self._robot_pos.z,
-                "W_quat": self._robot_pos.rot.w,
-                "X_quat": self._robot_pos.rot.x,
-                "Y_quat": self._robot_pos.rot.y,
-                "Z_quat": self._robot_pos.rot.z,
+                "qw": self._robot_pos.rot.w,
+                "qx": self._robot_pos.rot.x,
+                "qy": self._robot_pos.rot.y,
+                "qz": self._robot_pos.rot.z,
             },
         }
         for obj, pose in self._known_object_poses.items():
@@ -177,12 +178,12 @@ class SpotPerceiver(BasePerceiver):
                 "x": pose.x,
                 "y": pose.y,
                 "z": pose.z,
-                "W_quat": pose.rot.w,
-                "X_quat": pose.rot.x,
-                "Y_quat": pose.rot.y,
-                "Z_quat": pose.rot.z,
+                "qw": pose.rot.w,
+                "qx": pose.rot.x,
+                "qy": pose.rot.y,
+                "qz": pose.rot.z,
             }
-            if obj.type.name in ("tool", "platform"):
+            if obj.is_instance(_movable_object_type):
                 # Detect if the object is in view currently.
                 if obj in self._known_objects_in_hand_view:
                     in_view_val = 1.0
@@ -229,11 +230,10 @@ class SpotPerceiver(BasePerceiver):
         # Unfortunate hack to deal with the fact that the state is actually
         # not yet set. Hopefully one day other cleanups will enable cleaning.
         assert self._curr_env is not None
-        type_name_to_type = {t.name: t for t in self._curr_env.types}
         pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
         assert goal_description == "put the cube on the sticky table"
         assert isinstance(self._curr_env, SpotCubeEnv)
-        cube = Object("cube", type_name_to_type["tool"])
-        target = Object("extra_room_table", type_name_to_type["flat_surface"])
+        cube = Object("cube", _movable_object_type)
+        target = Object("extra_room_table", _immovable_object_type)
         On = pred_name_to_pred["On"]
         return {GroundAtom(On, [cube, target])}

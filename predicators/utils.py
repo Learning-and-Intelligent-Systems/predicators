@@ -3511,8 +3511,8 @@ def get_se3_pose_from_state(
     """Helper for spot environments."""
     return math_helpers.SE3Pose(
         state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z"),
-        math_helpers.Quat(state.get(obj, "W_quat"), state.get(obj, "X_quat"),
-                          state.get(obj, "Y_quat"), state.get(obj, "Z_quat")))
+        math_helpers.Quat(state.get(obj, "qw"), state.get(obj, "qx"),
+                          state.get(obj, "qy"), state.get(obj, "qz")))
 
 
 def create_spot_env_action(
