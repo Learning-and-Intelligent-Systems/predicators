@@ -540,6 +540,7 @@ _immovable_object_type = Type("immovable",
                               list(_base_object_type.feature_names),
                               parent=_base_object_type)
 
+
 ## Helper functions
 def _object_to_top_down_geom(obj: Object, state: State) -> utils._Geom2D:
     assert obj.is_instance(_base_object_type)
@@ -551,7 +552,8 @@ def _object_to_top_down_geom(obj: Object, state: State) -> utils._Geom2D:
     width = state.get(obj, "width")
     length = state.get(obj, "length")
     if shape_type == _Spot3DShape.CUBOID.value:
-        return utils.Rectangle.from_center(center_x, center_y, width, length, angle)
+        return utils.Rectangle.from_center(center_x, center_y, width, length,
+                                           angle)
     assert shape_type == _Spot3DShape.CYLINDER.value
     assert np.isclose(width, length)
     radius = width / 2
@@ -583,13 +585,13 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     z_diff = state.get(obj_on, "z") - state.get(obj_surface, "z")
     if not 0.0 < z_diff < _ONTOP_MAX_HEIGHT_THRESHOLD:
         return False
-    
+
     # Check that the center of the object is contained within the surface in
     # the xy plane.
     surface_geom = _object_to_top_down_geom(obj_surface, state)
     center_x = state.get(obj_on, "x")
     center_y = state.get(obj_on, "y")
-    
+
     return surface_geom.contains_point(center_x, center_y)
 
 

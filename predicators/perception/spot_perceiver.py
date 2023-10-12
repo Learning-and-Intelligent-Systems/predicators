@@ -230,10 +230,11 @@ class SpotPerceiver(BasePerceiver):
         # Now finish the state.
         state = _PartialPerceptionState(percept_state.data,
                                         simulator_state=simulator_state)
-        
+
         # TODO comment out
         # Uncomment to create a top-down visualization of the state.
         from matplotlib import pyplot as plt
+
         from predicators.envs.spot_env import _object_to_top_down_geom
         fig = plt.figure()
         ax = fig.gca()
@@ -249,19 +250,22 @@ class SpotPerceiver(BasePerceiver):
             if obj.name == "floor":
                 continue
             geom = _object_to_top_down_geom(obj, state)
-            geom.plot(ax, label=obj.name, facecolor=(0.0, 0.0, 0.0, 0.0), edgecolor="black")
+            geom.plot(ax,
+                      label=obj.name,
+                      facecolor=(0.0, 0.0, 0.0, 0.0),
+                      edgecolor="black")
             text_pos = (state.get(obj, "x"), state.get(obj, "y"))
-            ax.text(
-                text_pos[0],
-                text_pos[1],
-                obj.name,
-                color='white',
-                fontsize=12,
-                fontweight='bold',
-                bbox=dict(facecolor="gray", edgecolor="gray", alpha=0.5))
+            ax.text(text_pos[0],
+                    text_pos[1],
+                    obj.name,
+                    color='white',
+                    fontsize=12,
+                    fontweight='bold',
+                    bbox=dict(facecolor="gray", edgecolor="gray", alpha=0.5))
         plt.tight_layout()
         plt.savefig("top-down-state-view.png")
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
         return state
 
