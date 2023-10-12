@@ -10,7 +10,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotRearrangementEnv, \
-    get_detection_id_for_object, get_robot
+    _object_to_top_down_geom, get_detection_id_for_object, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.spot_utils.perception.object_detection import \
     get_last_detected_objects, get_object_center_pixel_from_artifacts
@@ -200,10 +200,10 @@ def _place_object_on_top_policy(state: State, memory: Dict,
     surface_obj = objects[surface_obj_idx]
     surface_pose = utils.get_se3_pose_from_state(state, surface_obj)
 
-    # This is a temporary stop-gap. Very soon, we will introduce "shape" to
-    # objects, and this policy should be updated to realize that the object
-    # can be dropped anywhere (because the floor's shape will be very large).
-    if surface_obj.name == "floor":
+    # Special case: the robot is already on top of the surface (because it is
+    # probably the floor). When this happens, just drop the object.
+    surface_geom = _object_to_top_down_geom(surface_obj, state)
+    if surface_geom.contains_point(robot_pose.x, robot_pose.y):
         return utils.create_spot_env_action(name, objects, _drop_and_stow,
                                             (robot, ))
 

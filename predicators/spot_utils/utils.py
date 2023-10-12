@@ -31,7 +31,7 @@ def get_graph_nav_dir() -> Path:
     return upload_dir / CFG.spot_graph_nav_map
 
 
-def load_graph_nav_metadata() -> Dict:
+def load_spot_metadata() -> Dict:
     """Load from the YAML config."""
     config_filepath = get_graph_nav_dir() / "metadata.yaml"
     with open(config_filepath, "r", encoding="utf-8") as f:
@@ -41,7 +41,7 @@ def load_graph_nav_metadata() -> Dict:
 
 def get_spot_home_pose() -> math_helpers.SE2Pose:
     """Load the home pose for the robot."""
-    metadata = load_graph_nav_metadata()
+    metadata = load_spot_metadata()
     home_pose_dict = metadata["spot-home-pose"]
     x = home_pose_dict["x"]
     y = home_pose_dict["y"]
@@ -54,7 +54,7 @@ def get_april_tag_transform(april_tag: int) -> math_helpers.SE3Pose:
 
     Returns identity if no config is found.
     """
-    metadata = load_graph_nav_metadata()
+    metadata = load_spot_metadata()
     transform_dict = metadata["april-tag-offsets"]
     try:
         april_tag_transform_dict = transform_dict[f"tag-{april_tag}"]

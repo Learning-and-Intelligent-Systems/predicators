@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
@@ -33,7 +34,7 @@ from predicators.spot_utils.skills.spot_navigation import go_home, \
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import get_graph_nav_dir, \
-    get_robot_gripper_open_percentage, verify_estop
+    get_robot_gripper_open_percentage, load_spot_metadata, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, State, \
     STRIPSOperator, Type, Variable
@@ -383,6 +384,11 @@ class SpotRearrangementEnv(BaseEnv):
             }
             for o, pose in objects_in_view.items()
         }
+        # Add static object features.
+        metadata = load_spot_metadata()
+        static_object_features = metadata.get("static-object-features", {})
+        for obj_name, obj_feats in static_object_features.items():
+            init_json_dict[obj_name].update(obj_feats)
         for obj in objects_in_view:
             if "lost" in obj.type.feature_names:
                 init_json_dict[obj.name]["lost"] = 0.0
@@ -508,17 +514,25 @@ class SpotRearrangementEnv(BaseEnv):
 
 ## Constants
 HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
-_ONTOP_THRESHOLD = 0.55
 _ONTOP_MAX_HEIGHT_THRESHOLD = 0.25
+_ONTOP_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 1.7
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
 
+
 ## Types
+class _Spot3DShape(Enum):
+    """Stored as an object 'shape' feature."""
+    CUBOID = 1
+    CYLINDER = 2
+
+
 _robot_type = Type(
     "robot",
     ["gripper_open_percentage", "x", "y", "z", "qw", "qx", "qy", "qz"])
-_base_object_type = Type("base-object",
-                         ["x", "y", "z", "qw", "qx", "qy", "qz"])
+_base_object_type = Type("base-object", [
+    "x", "y", "z", "qw", "qx", "qy", "qz", "shape", "height", "width", "length"
+])
 _movable_object_type = Type("movable",
                             list(_base_object_type.feature_names) +
                             ["held", "lost", "in_view"],
@@ -526,6 +540,27 @@ _movable_object_type = Type("movable",
 _immovable_object_type = Type("immovable",
                               list(_base_object_type.feature_names),
                               parent=_base_object_type)
+
+
+## Helper functions
+def _object_to_top_down_geom(obj: Object,
+                             state: State,
+                             size_buffer: float = 0.0) -> utils._Geom2D:
+    assert obj.is_instance(_base_object_type)
+    shape_type = int(np.round(state.get(obj, "shape")))
+    se3_pose = utils.get_se3_pose_from_state(state, obj)
+    angle = se3_pose.rot.to_yaw()
+    center_x = se3_pose.x
+    center_y = se3_pose.y
+    width = state.get(obj, "width") + size_buffer
+    length = state.get(obj, "length") + size_buffer
+    if shape_type == _Spot3DShape.CUBOID.value:
+        return utils.Rectangle.from_center(center_x, center_y, width, length,
+                                           angle)
+    assert shape_type == _Spot3DShape.CYLINDER.value
+    assert np.isclose(width, length)
+    radius = width / 2
+    return utils.Circle(center_x, center_y, radius)
 
 
 ## Predicates
@@ -549,28 +584,21 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     if _holding_classifier(state, [spot, obj_on]):
         return False
 
-    obj_on_pose = [
-        state.get(obj_on, "x"),
-        state.get(obj_on, "y"),
-        state.get(obj_on, "z")
-    ]
-    obj_surface_pose = [
-        state.get(obj_surface, "x"),
-        state.get(obj_surface, "y"),
-        state.get(obj_surface, "z")
-    ]
+    # Check that the object is above the surface, but not too far above.
+    z_diff = state.get(obj_on, "z") - state.get(obj_surface, "z")
+    if not 0.0 < z_diff < _ONTOP_MAX_HEIGHT_THRESHOLD:
+        return False
 
-    # This is a stop-gap that will be changed very soon once we add shape.
-    if obj_surface.name == "floor":
-        return obj_on_pose[2] < 0.0
+    # Check that the center of the object is contained within the surface in
+    # the xy plane. Add a size buffer to the surface to compensate for small
+    # errors in perception.
+    surface_geom = _object_to_top_down_geom(obj_surface,
+                                            state,
+                                            size_buffer=_ONTOP_SURFACE_BUFFER)
+    center_x = state.get(obj_on, "x")
+    center_y = state.get(obj_on, "y")
 
-    is_x_same = np.sqrt(
-        (obj_on_pose[0] - obj_surface_pose[0])**2) <= _ONTOP_THRESHOLD
-    is_y_same = np.sqrt(
-        (obj_on_pose[1] - obj_surface_pose[1])**2) <= _ONTOP_THRESHOLD
-    is_above_z = 0.0 < (obj_on_pose[2] -
-                        obj_surface_pose[2]) < _ONTOP_MAX_HEIGHT_THRESHOLD
-    return is_x_same and is_y_same and is_above_z
+    return surface_geom.contains_point(center_x, center_y)
 
 
 def in_view_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -752,21 +780,21 @@ class SpotCubeEnv(SpotRearrangementEnv):
         cube = Object("cube", _movable_object_type)
         cube_detection = AprilTagObjectDetectionID(410)
 
-        tool_room_table = Object("tool_room_table", _immovable_object_type)
-        tool_room_table_detection = AprilTagObjectDetectionID(408)
+        smooth_table = Object("smooth_table", _immovable_object_type)
+        smooth_table_detection = AprilTagObjectDetectionID(408)
 
-        extra_room_table = Object("extra_room_table", _immovable_object_type)
-        extra_room_table_detection = AprilTagObjectDetectionID(409)
+        sticky_table = Object("sticky_table", _immovable_object_type)
+        sticky_table_detection = AprilTagObjectDetectionID(409)
 
         floor = Object("floor", _immovable_object_type)
         floor_detection = KnownStaticObjectDetectionID(
             "floor",
-            pose=math_helpers.SE3Pose(0.0, 0.0, -1.0, rot=math_helpers.Quat()))
+            pose=math_helpers.SE3Pose(0.0, 0.0, -0.5, rot=math_helpers.Quat()))
 
         return {
             cube_detection: cube,
-            tool_room_table_detection: tool_room_table,
-            extra_room_table_detection: extra_room_table,
+            smooth_table_detection: smooth_table,
+            sticky_table_detection: sticky_table,
             floor_detection: floor,
         }
 
