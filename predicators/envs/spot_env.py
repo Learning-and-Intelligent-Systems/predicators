@@ -559,6 +559,11 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
         state.get(obj_surface, "y"),
         state.get(obj_surface, "z")
     ]
+
+    # This is a stop-gap that will be changed very soon once we add shape.
+    if obj_surface.name == "floor":
+        return obj_on_pose[2] < 0.0
+
     is_x_same = np.sqrt(
         (obj_on_pose[0] - obj_surface_pose[0])**2) <= _ONTOP_THRESHOLD
     is_y_same = np.sqrt(
@@ -752,7 +757,6 @@ class SpotCubeEnv(SpotRearrangementEnv):
         extra_room_table_detection = AprilTagObjectDetectionID(409)
 
         floor = Object("floor", _immovable_object_type)
-        # TODO verify the pose; load it from YAML.
         floor_detection = KnownStaticObjectDetectionID(
             "floor",
             pose=math_helpers.SE3Pose(0.0, 0.0, -1.0, rot=math_helpers.Quat()))
