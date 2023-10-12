@@ -37,3 +37,8 @@ static-object-features:
     height: 3.25
     length: 3.25
     width: 3.25
+  floor:
+    shape: 1  # cuboid
+    height: 0.1
+    length: 10000000  # effectively infinite
+    width: 10000000
