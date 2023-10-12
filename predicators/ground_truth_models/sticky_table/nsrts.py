@@ -302,7 +302,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             table_y = state.get(table, "y")
             table_radius = state.get(table, "radius")
             if obj.type.name == "cube":
-                size = state.get(obj, "size")
+                size = state.get(obj, "size") * 2
             else:
                 assert obj.type.name in ["ball", "cup"]
                 size = state.get(obj, "radius") * 2

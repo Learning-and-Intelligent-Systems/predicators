@@ -196,7 +196,9 @@ class StickyTableEnv(BaseEnv):
                                     assert obj_being_held == ball
                                     fall_prob = 1.0
 
-                        # if obj_being_held == cube and fall_prob != 0.0:
+                        # if obj_being_held == cup and fall_prob != 0.0:
+                        #     print(f"Act y: {act_y}, table y: {table_y}")
+                        #     print(table_y - 0.3 * (state.get(table, "radius") - (state.get(cube, "size") / 2)))
                         #     import ipdb; ipdb.set_trace()
 
                         if self._noise_rng.uniform() < fall_prob:
@@ -211,6 +213,11 @@ class StickyTableEnv(BaseEnv):
                             next_state = self._handle_placing_object(
                                 act_x, act_y, next_state, obj_being_held, ball,
                                 cup, ball_in_cup)
+                            try:
+                                assert self._OnTable_holds(next_state, [obj_being_held, table])
+                            except AssertionError:
+                                import ipdb; ipdb.set_trace()
+                        assert self._HandEmpty_holds(next_state, [])
                     else:
                         assert obj_type_id == 2.0 # corresponding to placing in cup
                         assert obj_being_held == ball
@@ -243,9 +250,11 @@ class StickyTableEnv(BaseEnv):
         next_state = state.copy()
         next_state.set(obj_being_held, "x", act_x)
         next_state.set(obj_being_held, "y", act_y)
+        next_state.set(obj_being_held, "held", 0.0)
         if ball_in_cup and obj_being_held == cup:
             next_state.set(ball, "x", act_x)
             next_state.set(ball, "y", act_y)
+            next_state.set(ball, "held", 0.0)
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
