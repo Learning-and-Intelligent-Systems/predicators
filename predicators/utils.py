@@ -305,7 +305,7 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 table_y = state.get(table, "y")
                 sticky = state.get(table, "sticky")
                 table_radius = state.get(table, "radius")
-                _, _, _, param_y = params
+                _, _, _, _, param_y = params
                 sampler_input_lst.append(table_radius)
                 sampler_input_lst.append(sticky)
                 sampler_input_lst.append(param_y - table_y)
@@ -318,7 +318,7 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 else:
                     assert obj.type.name == "cube"
                     size = state.get(obj, "size")
-                _, _, param_x, param_y = params
+                _, _, _, param_x, param_y = params
                 sampler_input_lst.append(size)
                 sampler_input_lst.append(param_x - obj_x)
                 sampler_input_lst.append(param_y - obj_y)

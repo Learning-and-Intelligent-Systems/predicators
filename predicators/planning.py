@@ -1180,6 +1180,7 @@ def run_task_plan_once(
     """Get a single abstract plan for a task."""
 
     init_atoms = utils.abstract(task.init, preds)
+    logging.debug(f"Current State: {init_atoms}")
     goal = task.goal
     objects = set(task.init)
 
@@ -1233,8 +1234,6 @@ def run_task_plan_once(
         sas_file = generate_sas_file_for_fd(task, nsrts, preds, types, timeout,
                                             timeout_cmd, alias_flag, exec_str,
                                             list(objects), init_atoms)
-
-        # import ipdb; ipdb.set_trace()
 
         if use_costs:
             assert ground_op_costs is not None

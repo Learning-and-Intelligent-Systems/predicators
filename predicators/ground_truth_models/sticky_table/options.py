@@ -28,10 +28,10 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
         cup_type = types["cup"]
         ball_type = types["ball"]
         table_type = types["table"]
-        # Parameters are move_or_pickplace, obj_type_id, absolute x, y actions.
+        # Parameters are move_or_pickplace, obj_type_id, ball_only, absolute x, y actions.
         params_space = Box(
-            np.array([0.0, 0.0, StickyTableEnv.x_lb, StickyTableEnv.y_lb]),
-            np.array([1.0, 3.0, StickyTableEnv.x_ub, StickyTableEnv.y_ub]))
+            np.array([0.0, 0.0, 0.0, StickyTableEnv.x_lb, StickyTableEnv.y_lb]),
+            np.array([1.0, 3.0, 1.0, StickyTableEnv.x_ub, StickyTableEnv.y_ub]))
         robot_type = types["robot"]
 
         PickCubeFromTable = utils.SingletonParameterizedOption(

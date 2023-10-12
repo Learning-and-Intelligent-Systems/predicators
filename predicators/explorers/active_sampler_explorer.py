@@ -225,6 +225,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                     # crash in case that assumption is not met.
                     except (PlanningFailure,
                             PlanningTimeout):  # pragma: no cover
+                        import ipdb; ipdb.set_trace()
                         continue
                     logging.info("[Explorer] Plan found.")
 
@@ -300,6 +301,13 @@ class ActiveSamplerExplorer(BaseExplorer):
         success = all(a.holds(state) for a in nsrt.add_effects)
         logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
         logging.info(f"[Explorer]   outcome: {success}")
+
+        # if "PlaceBallOnFloor" in nsrt.name and not success:
+        #     for a in nsrt.add_effects:
+        #         if not a.holds(state):
+        #             print(a)
+        #     import ipdb; ipdb.set_trace()
+
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
             self._ground_op_hist[last_executed_op] = []

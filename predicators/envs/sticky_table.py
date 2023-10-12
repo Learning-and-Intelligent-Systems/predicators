@@ -121,7 +121,7 @@ class StickyTableEnv(BaseEnv):
         # NOTE: noise is added here. Two calls to simulate with the same
         # inputs may produce different outputs!
         assert self.action_space.contains(action.arr)
-        move_or_pickplace, obj_type_id, act_x, act_y = action.arr
+        move_or_pickplace, obj_type_id, ball_only, act_x, act_y = action.arr
         next_state = state.copy()
         hand_empty = self._HandEmpty_holds(state, [])
         cube, = state.get_objects(self._cube_type)
@@ -137,7 +137,7 @@ class StickyTableEnv(BaseEnv):
         obj_being_held: Optional[Object] = None
         if cube_held:
             obj_being_held = cube
-        if ball_held and not cup_held:
+        elif (ball_held and not cup_held) or ball_only > 0.5:
             obj_being_held = ball
         elif cup_held:
             obj_being_held = cup
@@ -177,7 +177,9 @@ class StickyTableEnv(BaseEnv):
                     # Put on the floor here.
                     next_state = self._handle_placing_object(
                         act_x, act_y, next_state, obj_being_held, ball, cup,
-                        ball_in_cup)
+                        ball_in_cup, ball_only)
+                    assert self._OnFloor_holds(next_state,
+                                                    [obj_being_held])
                 else:
                     # TODO: we're currently not checking that the robot is reachable to
                     # where it's trying to pick or place at; we probably want to do this!
@@ -189,16 +191,16 @@ class StickyTableEnv(BaseEnv):
                         if self._table_is_sticky(table, state):
                             # Check if placing on the smooth side of the sticky table.
                             table_y = state.get(table, "y")
-                            if self.sticky_surface_mode == "half" and act_y < table_y - 0.3 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
+                            if self.sticky_surface_mode == "half" and act_y < table_y + 0.3 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
                                 if obj_being_held in [cube, cup]:
                                     fall_prob = self._place_smooth_fall_prob
                                 else:
                                     assert obj_being_held == ball
                                     fall_prob = 1.0
 
-                        # if obj_being_held == cup and fall_prob != 0.0:
+                        # if obj_being_held == cup:
                         #     print(f"Act y: {act_y}, table y: {table_y}")
-                        #     print(table_y - 0.3 * (state.get(table, "radius") - (state.get(cube, "size") / 2)))
+                        #     print(table_y + 0.9 * (state.get(table, "radius") - (state.get(cube, "size") / 2)))
                         #     import ipdb; ipdb.set_trace()
 
                         if self._noise_rng.uniform() < fall_prob:
@@ -206,15 +208,14 @@ class StickyTableEnv(BaseEnv):
                                 table, state, self._noise_rng)
                             next_state = self._handle_placing_object(
                                 fall_x, fall_y, next_state, obj_being_held, ball,
-                                cup, ball_in_cup)
+                                cup, ball_in_cup, ball_only)
                             assert self._OnFloor_holds(next_state,
                                                     [obj_being_held])
                         else:
                             next_state = self._handle_placing_object(
                                 act_x, act_y, next_state, obj_being_held, ball,
-                                cup, ball_in_cup)
+                                cup, ball_in_cup, ball_only)
                             assert self._OnTable_holds(next_state, [obj_being_held, table])
-                        assert self._HandEmpty_holds(next_state, [])
                     else:
                         assert obj_type_id == 2.0 # corresponding to placing in cup
                         assert obj_being_held == ball
@@ -222,7 +223,8 @@ class StickyTableEnv(BaseEnv):
                         next_state.set(ball, "y", act_y)
                         next_state.set(ball, "held", 0.0)
                         assert self._BallInCup_holds(next_state, [ball, cup])
-                        assert self._HandEmpty_holds(next_state, [])
+                if ball_only < 0.5:
+                    assert self._HandEmpty_holds(next_state, [])
         else:
             # Navigation logic.
             pseudo_next_state = state.copy()
@@ -241,14 +243,14 @@ class StickyTableEnv(BaseEnv):
 
     def _handle_placing_object(self, act_x: float, act_y: float, state: State,
                                obj_being_held: Object, ball: Object,
-                               cup: Object, ball_in_cup: bool) -> State:
+                               cup: Object, ball_in_cup: bool, ball_only: float) -> State:
         assert ball.type == self._ball_type
         assert cup.type == self._cup_type
         next_state = state.copy()
         next_state.set(obj_being_held, "x", act_x)
         next_state.set(obj_being_held, "y", act_y)
         next_state.set(obj_being_held, "held", 0.0)
-        if ball_in_cup and obj_being_held == cup:
+        if ball_in_cup and obj_being_held == cup and ball_only < 0.5:
             next_state.set(ball, "x", act_x)
             next_state.set(ball, "y", act_y)
             next_state.set(ball, "held", 0.0)
@@ -284,15 +286,17 @@ class StickyTableEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # Action space is [move_or_pickplace, obj_type_id, x, y].
+        # Action space is [move_or_pickplace, obj_type_id, ball_only, x, y].
         # If move_or_pickplace is 0, robot will move to the indicated
         # x, y location.
         # Otherwise, if move_or_pickplace is 1, it will either pick or place
         # the object with obj_type_id the x, y location.
         # obj_type_id 0.0 = cube, 1.0 = ball, 2.0 = cup, 3.0 table
+        # The ball_only var is used to handle the case where we're holding the
+        # ball and cup and want to only place the ball somewhere.
         return Box(
-            np.array([0.0, 0.0, self.x_lb, self.y_lb], dtype=np.float32),
-            np.array([1.0, 3.0, self.x_ub, self.y_ub], dtype=np.float32))
+            np.array([0.0, 0.0, 0.0, self.x_lb, self.y_lb], dtype=np.float32),
+            np.array([1.0, 3.0, 1.0, self.x_ub, self.y_ub], dtype=np.float32))
 
     @classmethod
     def _object_to_geom(self, obj: Object, state: State) -> utils._Geom2D:
