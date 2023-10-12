@@ -9,8 +9,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.envs.spot_env import SpotEnv, get_detection_id_for_object, \
-    get_robot
+from predicators.envs.spot_env import SpotRearrangementEnv, \
+    get_detection_id_for_object, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.spot_utils.perception.object_detection import \
     get_last_detected_objects, get_object_center_pixel_from_artifacts
@@ -133,38 +133,36 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
 ###############################################################################
 
 
-def _move_to_tool_on_surface_policy(state: State, memory: Dict,
-                                    objects: Sequence[Object],
-                                    params: Array) -> Action:
-    name = "MoveToToolOnSurface"
+def _move_to_view_object_policy(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+    name = "MoveToViewObject"
     distance_param_idx = 0
     yaw_param_idx = 1
     robot_obj_idx = 0
     target_obj_idx = 1
-    hand_pose = DEFAULT_HAND_LOOK_DOWN_POSE
+
+    # Determine hand pose based on whether the object is on the floor or not.
+    # In the future, we might want to generalize this to compute the angle
+    # between the target object and the robot hand, rather than doing this
+    # case-based logic.
+    target_obj = objects[target_obj_idx]
+    if state.get(target_obj, "z") < 0.0:
+        # Object is on the floor.
+        hand_pose = DEFAULT_HAND_LOOK_FLOOR_POSE
+    else:
+        # Object is on the table.
+        hand_pose = DEFAULT_HAND_LOOK_DOWN_POSE
+
     return _move_to_target_policy(name, distance_param_idx, yaw_param_idx,
                                   robot_obj_idx, target_obj_idx, hand_pose,
                                   state, memory, objects, params)
 
 
-def _move_to_tool_on_floor_policy(state: State, memory: Dict,
-                                  objects: Sequence[Object],
-                                  params: Array) -> Action:
-    name = "MoveToToolOnFloor"
-    distance_param_idx = 0
-    yaw_param_idx = 1
-    robot_obj_idx = 0
-    target_obj_idx = 1
-    hand_pose = DEFAULT_HAND_LOOK_FLOOR_POSE
-    return _move_to_target_policy(name, distance_param_idx, yaw_param_idx,
-                                  robot_obj_idx, target_obj_idx, hand_pose,
-                                  state, memory, objects, params)
-
-
-def _move_to_surface_policy(state: State, memory: Dict,
-                            objects: Sequence[Object],
-                            params: Array) -> Action:
-    name = "MoveToSurface"
+def _move_to_reach_object_policy(state: State, memory: Dict,
+                                 objects: Sequence[Object],
+                                 params: Array) -> Action:
+    name = "MoveToReachObject"
     distance_param_idx = 0
     yaw_param_idx = 1
     robot_obj_idx = 0
@@ -175,28 +173,20 @@ def _move_to_surface_policy(state: State, memory: Dict,
                                   state, memory, objects, params)
 
 
-def _grasp_tool_from_surface_policy(state: State, memory: Dict,
-                                    objects: Sequence[Object],
-                                    params: Array) -> Action:
-    name = "GraspToolFromSurface"
+def _pick_object_from_top_policy(state: State, memory: Dict,
+                                 objects: Sequence[Object],
+                                 params: Array) -> Action:
+    name = "PickObjectFromTop"
     target_obj_idx = 1
     return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
 
 
-def _grasp_tool_from_floor_policy(state: State, memory: Dict,
-                                  objects: Sequence[Object],
-                                  params: Array) -> Action:
-    name = "GraspToolFromFloor"
-    target_obj_idx = 1
-    return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
-
-
-def _place_tool_on_surface_policy(state: State, memory: Dict,
-                                  objects: Sequence[Object],
-                                  params: Array) -> Action:
+def _place_object_on_top_policy(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
     del memory  # not used
 
-    name = "PlaceToolOnSurface"
+    name = "PlaceObjectOnTop"
     robot_obj_idx = 0
     surface_obj_idx = 2
 
@@ -210,6 +200,13 @@ def _place_tool_on_surface_policy(state: State, memory: Dict,
     surface_obj = objects[surface_obj_idx]
     surface_pose = utils.get_se3_pose_from_state(state, surface_obj)
 
+    # This is a temporary stop-gap. Very soon, we will introduce "shape" to
+    # objects, and this policy should be updated to realize that the object
+    # can be dropped anywhere (because the floor's shape will be very large).
+    if surface_obj.name == "floor":
+        return utils.create_spot_env_action(name, objects, _drop_and_stow,
+                                            (robot, ))
+
     surface_rel_pose = robot_pose.inverse() * surface_pose
     place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x + dx,
                                       y=surface_rel_pose.y + dy,
@@ -220,38 +217,22 @@ def _place_tool_on_surface_policy(state: State, memory: Dict,
                                         (robot, place_rel_pos))
 
 
-def _place_tool_on_floor_policy(state: State, memory: Dict,
-                                objects: Sequence[Object],
-                                params: Array) -> Action:
-    del state, memory, params  # not used
-    name = "PlaceToolOnFloor"
-    robot, _, _ = get_robot()
-    return utils.create_spot_env_action(name, objects, _drop_and_stow,
-                                        (robot, ))
-
-
 ###############################################################################
 #                       Parameterized option factory                          #
 ###############################################################################
 
 _OPERATOR_NAME_TO_PARAM_SPACE = {
-    "MoveToToolOnSurface": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
-    "MoveToToolOnFloor": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
-    "MoveToSurface": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
-    "GraspToolFromSurface": Box(0, 1, (0, )),
-    "GraspToolFromFloor": Box(0, 1, (0, )),
-    "PlaceToolOnSurface": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
-    "PlaceToolOnFloor": Box(0, 1, (0, )),
+    "MoveToReachObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
+    "MoveToViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
+    "PickObjectFromTop": Box(0, 1, (0, )),
+    "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
 }
 
 _OPERATOR_NAME_TO_POLICY = {
-    "MoveToToolOnSurface": _move_to_tool_on_surface_policy,
-    "MoveToToolOnFloor": _move_to_tool_on_floor_policy,
-    "MoveToSurface": _move_to_surface_policy,
-    "GraspToolFromSurface": _grasp_tool_from_surface_policy,
-    "GraspToolFromFloor": _grasp_tool_from_floor_policy,
-    "PlaceToolOnSurface": _place_tool_on_surface_policy,
-    "PlaceToolOnFloor": _place_tool_on_floor_policy,
+    "MoveToReachObject": _move_to_reach_object_policy,
+    "MoveToViewObject": _move_to_view_object_policy,
+    "PickObjectFromTop": _pick_object_from_top_policy,
+    "PlaceObjectOnTop": _place_object_on_top_policy,
 }
 
 
@@ -292,7 +273,7 @@ class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
                     action_space: Box) -> Set[ParameterizedOption]:
         # Note that these are 1:1 with the operators.
         env = get_or_create_env(env_name)
-        assert isinstance(env, SpotEnv)
+        assert isinstance(env, SpotRearrangementEnv)
 
         options: Set[ParameterizedOption] = set()
         for operator in env.strips_operators:

@@ -5,7 +5,7 @@ from typing import Dict, Sequence, Set
 import numpy as np
 
 from predicators.envs import get_or_create_env
-from predicators.envs.spot_env import SpotEnv
+from predicators.envs.spot_env import SpotRearrangementEnv
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.spot_utils.utils import get_spot_home_pose
 from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
@@ -13,9 +13,9 @@ from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
 from predicators.utils import null_sampler
 
 
-def _move_to_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
-                                     rng: np.random.Generator,
-                                     objs: Sequence[Object]) -> Array:
+def _move_to_object_sampler(state: State, goal: Set[GroundAtom],
+                            rng: np.random.Generator,
+                            objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
     del state, goal, objs, rng  # randomization coming soon
 
@@ -28,63 +28,19 @@ def _move_to_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
     return np.array([1.20, approach_angle])
 
 
-def _move_to_tool_on_floor_sampler(state: State, goal: Set[GroundAtom],
-                                   rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
-    # Parameters are relative distance, dyaw (to the object you're moving to).
-    del state, goal, objs, rng  # randomization coming soon
-
-    # Currently assume that the robot is facing the surface in its home pose.
-    # Soon, we will change this to actually sample angles of approach and do
-    # collision detection.
-    home_pose = get_spot_home_pose()
-    approach_angle = home_pose.angle - np.pi
-
-    return np.array([1.20, approach_angle])
-
-
-def _move_to_surface_sampler(state: State, goal: Set[GroundAtom],
-                             rng: np.random.Generator,
-                             objs: Sequence[Object]) -> Array:
-    # Parameters are relative distance, dyaw (to the surface you're moving to).
-    del state, goal, objs, rng  # randomization coming soon
-
-    # Currently assume that the robot is facing the surface in its home pose.
-    # Soon, we will change this to actually sample angles of approach and do
-    # collision detection.
-    home_pose = get_spot_home_pose()
-    approach_angle = home_pose.angle - np.pi
-
-    return np.array([1.20, approach_angle])
-
-
-def _grasp_tool_from_surface_sampler(state: State, goal: Set[GroundAtom],
-                                     rng: np.random.Generator,
-                                     objs: Sequence[Object]) -> Array:
+def _pick_object_from_top_sampler(state: State, goal: Set[GroundAtom],
+                                  rng: np.random.Generator,
+                                  objs: Sequence[Object]) -> Array:
     # Not parameterized; may change in the future.
     return null_sampler(state, goal, rng, objs)
 
 
-def _grasp_tool_from_floor_sampler(state: State, goal: Set[GroundAtom],
-                                   rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
-    # Not parameterized; may change in the future.
-    return null_sampler(state, goal, rng, objs)
-
-
-def _place_tool_on_surface_sampler(state: State, goal: Set[GroundAtom],
-                                   rng: np.random.Generator,
-                                   objs: Sequence[Object]) -> Array:
+def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
+                                 objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dz (to surface objects center).
     del state, goal, objs, rng  # randomization coming soon
     return np.array([0.0, 0.0, 0.25])
-
-
-def _place_tool_on_floor_sampler(state: State, goal: Set[GroundAtom],
-                                 rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
-    # Not parameterized; may change in the future.
-    return null_sampler(state, goal, rng, objs)
 
 
 class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
@@ -100,18 +56,15 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                   options: Dict[str, ParameterizedOption]) -> Set[NSRT]:
 
         env = get_or_create_env(env_name)
-        assert isinstance(env, SpotEnv)
+        assert isinstance(env, SpotRearrangementEnv)
 
         nsrts = set()
 
         operator_name_to_sampler: Dict[str, NSRTSampler] = {
-            "MoveToToolOnSurface": _move_to_tool_on_surface_sampler,
-            "MoveToToolOnFloor": _move_to_tool_on_floor_sampler,
-            "MoveToSurface": _move_to_surface_sampler,
-            "GraspToolFromSurface": _grasp_tool_from_surface_sampler,
-            "GraspToolFromFloor": _grasp_tool_from_floor_sampler,
-            "PlaceToolOnSurface": _place_tool_on_surface_sampler,
-            "PlaceToolOnFloor": _place_tool_on_floor_sampler,
+            "MoveToReachObject": _move_to_object_sampler,
+            "MoveToViewObject": _move_to_object_sampler,
+            "PickObjectFromTop": _pick_object_from_top_sampler,
+            "PlaceObjectOnTop": _place_object_on_top_sampler,
         }
 
         for strips_op in env.strips_operators:
