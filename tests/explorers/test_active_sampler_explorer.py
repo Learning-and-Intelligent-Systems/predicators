@@ -234,6 +234,34 @@ def test_active_sampler_explorer():
         state = env.simulate(state, policy(state))
     assert len(ground_op_hist) > 0
 
+    # Test the case where we make one of the NSRTs have an empty
+    # precondition.
+    specific_nsrt = sorted(nsrts)[0]
+    new_specific_nsrt = NSRT(specific_nsrt.name, specific_nsrt.parameters, set(), specific_nsrt.add_effects, specific_nsrt.delete_effects, specific_nsrt.ignore_effects, specific_nsrt.option, specific_nsrt.option_vars, specific_nsrt._sampler)
+    nsrts_list = sorted(nsrts)
+    nsrts_list[0] = new_specific_nsrt
+    nsrt_to_explorer_sampler[new_specific_nsrt] = nsrt_to_explorer_sampler[specific_nsrt]
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        set(nsrts_list),
+        option_model,
+        ground_op_hist=ground_op_hist,
+        competence_models=competence_models,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs)
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
+    for _ in range(25):
+        assert not term_fn(state)
+        state = env.simulate(state, policy(state))
+    assert len(ground_op_hist) > 0
+    import ipdb; ipdb.set_trace()
+
     # Test planning progress scoring (but keep it short).
     utils.reset_config({
         "explorer":

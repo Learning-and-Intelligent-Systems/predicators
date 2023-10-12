@@ -189,9 +189,12 @@ class ActiveSamplerExplorer(BaseExplorer):
                         for op in sorted(self._ground_op_hist,
                                          key=self._score_ground_op,
                                          reverse=True):
-                            nsrt = [
-                                n for n in self._nsrts if n.op == op.parent
-                            ][0]
+                            try:
+                                nsrt = [
+                                    n for n in self._nsrts if n.op == op.parent
+                                ][0]
+                            except IndexError:
+                                import ipdb; ipdb.set_trace()
                             # NOTE: setting nonlocal variable.
                             next_practice_nsrt = nsrt.ground(op.objects)
                             yield next_practice_nsrt.preconditions
