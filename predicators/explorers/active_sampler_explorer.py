@@ -193,7 +193,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                         for op in sorted(self._ground_op_hist,
                                         key=self._score_ground_op,
                                         reverse=True):
-                            print(f"{op.name}{op.objects} score: {self._score_ground_op(op)}")
+                            logging.info(f"{op.name}{op.objects} score: {self._score_ground_op(op)}")
 
                         # import ipdb; ipdb.set_trace()
 
