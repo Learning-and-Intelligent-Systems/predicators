@@ -176,7 +176,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(BallOnFloor, [ball]),
             LiftedAtom(HandEmpty, []),
         }
-        add_effects = {LiftedAtom(HoldingBall, [ball])}
+        add_effects = {LiftedAtom(HoldingBall, [ball]), LiftedAtom(BallNotInCup, [ball, cup])}
         delete_effects = {
             LiftedAtom(BallOnFloor, [ball]),
             LiftedAtom(HandEmpty, []),
@@ -261,7 +261,6 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         preconditions = {
             LiftedAtom(BallOnFloor, [ball]),
             LiftedAtom(BallInCup, [ball, cup]),
-            LiftedAtom(ReachableCup, [robot, cup]),
             LiftedAtom(ReachableBall, [robot, ball]),
             LiftedAtom(CupOnFloor, [cup]),
             LiftedAtom(HandEmpty, []),

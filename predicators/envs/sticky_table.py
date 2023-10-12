@@ -518,7 +518,10 @@ class StickyTableEnv(BaseEnv):
         cup_geom = self._object_to_geom(cup, state)
         assert isinstance(ball_geom, utils.Circle)
         assert isinstance(cup_geom, utils.Circle)
-        return cup_geom.contains_circle(ball_geom)
+        ball_and_cup_at_same_pos = cup_geom.contains_circle(ball_geom)
+        holding_ball = self._Holding_holds(state, [ball])
+        holding_cup = self._Holding_holds(state, [cup])
+        return ball_and_cup_at_same_pos and ((holding_ball and holding_cup) or (not holding_ball and not holding_cup))
 
     def _BallNotInCup_holds(self, state: State,
                             objects: Sequence[Object]) -> bool:

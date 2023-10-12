@@ -217,16 +217,16 @@ class ActiveSamplerExplorer(BaseExplorer):
                     # anything.
                     if len(goal) == 0:
                         return _option_policy(state)
-                    try:
-                        current_policy = self._get_option_policy_for_task(task)
-                    # Not covering this case because the intention of this
-                    # explorer is to be used in environments where any goal can
-                    # be reached from anywhere, but we still don't want to
-                    # crash in case that assumption is not met.
-                    except (PlanningFailure,
-                            PlanningTimeout):  # pragma: no cover
-                        import ipdb; ipdb.set_trace()
-                        continue
+                    # try:
+                    current_policy = self._get_option_policy_for_task(task)
+                    # # Not covering this case because the intention of this
+                    # # explorer is to be used in environments where any goal can
+                    # # be reached from anywhere, but we still don't want to
+                    # # crash in case that assumption is not met.
+                    # except (PlanningFailure,
+                    #         PlanningTimeout):  # pragma: no cover
+                        
+                    #     continue
                     logging.info("[Explorer] Plan found.")
 
                     # Add this task to the re-planning task queue.
