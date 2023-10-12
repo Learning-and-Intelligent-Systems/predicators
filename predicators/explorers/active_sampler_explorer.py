@@ -190,12 +190,12 @@ class ActiveSamplerExplorer(BaseExplorer):
                         nonlocal next_practice_nsrt
 
                         # if "InCup" in str([op.name for op in self._ground_op_hist]) or "CupWithBall" in str([op.name for op in self._ground_op_hist]):
-                        #     for op in sorted(self._ground_op_hist,
-                        #                     key=self._score_ground_op,
-                        #                     reverse=True):
-                        #         print(f"{op.name}{op.objects} score: {self._score_ground_op(op)}")
+                        for op in sorted(self._ground_op_hist,
+                                        key=self._score_ground_op,
+                                        reverse=True):
+                            print(f"{op.name}{op.objects} score: {self._score_ground_op(op)}")
 
-                        #     import ipdb; ipdb.set_trace()
+                        # import ipdb; ipdb.set_trace()
 
                         # Generate goals sorted by their descending score.
                         for op in sorted(self._ground_op_hist,
