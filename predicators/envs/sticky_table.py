@@ -213,10 +213,7 @@ class StickyTableEnv(BaseEnv):
                             next_state = self._handle_placing_object(
                                 act_x, act_y, next_state, obj_being_held, ball,
                                 cup, ball_in_cup)
-                            try:
-                                assert self._OnTable_holds(next_state, [obj_being_held, table])
-                            except AssertionError:
-                                import ipdb; ipdb.set_trace()
+                            assert self._OnTable_holds(next_state, [obj_being_held, table])
                         assert self._HandEmpty_holds(next_state, [])
                     else:
                         assert obj_type_id == 2.0 # corresponding to placing in cup
