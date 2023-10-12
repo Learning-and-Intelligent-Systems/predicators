@@ -789,7 +789,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
         floor = Object("floor", _immovable_object_type)
         floor_detection = KnownStaticObjectDetectionID(
             "floor",
-            pose=math_helpers.SE3Pose(0.0, 0.0, -1.0, rot=math_helpers.Quat()))
+            pose=math_helpers.SE3Pose(0.0, 0.0, -0.5, rot=math_helpers.Quat()))
 
         return {
             cube_detection: cube,
