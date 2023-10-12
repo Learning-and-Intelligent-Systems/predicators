@@ -203,6 +203,7 @@ def _place_object_on_top_policy(state: State, memory: Dict,
     # This is a temporary stop-gap. Very soon, we will introduce "shape" to
     # objects, and this policy should be updated to realize that the object
     # can be dropped anywhere (because the floor's shape will be very large).
+    # TODO: do this.
     if surface_obj.name == "floor":
         return utils.create_spot_env_action(name, objects, _drop_and_stow,
                                             (robot, ))

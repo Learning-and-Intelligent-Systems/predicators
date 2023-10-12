@@ -571,6 +571,7 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     ]
 
     # This is a stop-gap that will be changed very soon once we add shape.
+    # TODO: do this.
     if obj_surface.name == "floor":
         return obj_on_pose[2] < 0.0
 
