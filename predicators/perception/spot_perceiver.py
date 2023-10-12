@@ -9,8 +9,8 @@ from bosdyn.client import math_helpers
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotCubeEnv, SpotEnv, _PartialPerceptionState, _SpotObservation, \
-    tool_in_view_classifier
+    SpotCubeEnv, SpotRearrangementEnv, _PartialPerceptionState, \
+    _SpotObservation, in_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
@@ -48,7 +48,7 @@ class SpotPerceiver(BasePerceiver):
     def reset(self, env_task: EnvironmentTask) -> Task:
         self._waiting_for_observation = True
         self._curr_env = get_or_create_env(CFG.env)
-        assert isinstance(self._curr_env, SpotEnv)
+        assert isinstance(self._curr_env, SpotRearrangementEnv)
         self._known_object_poses = {}
         self._known_objects_in_hand_view = set()
         self._robot = None
@@ -104,7 +104,7 @@ class SpotPerceiver(BasePerceiver):
                 # be in view to assess whether it was placed correctly.
                 robot, obj = objects[:2]
                 state = self._create_state()
-                is_in_view = tool_in_view_classifier(state, [robot, obj])
+                is_in_view = in_view_classifier(state, [robot, obj])
                 if not is_in_view:
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
