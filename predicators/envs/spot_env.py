@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
@@ -383,6 +384,7 @@ class SpotRearrangementEnv(BaseEnv):
             }
             for o, pose in objects_in_view.items()
         }
+        # TODO add shape stuff here
         for obj in objects_in_view:
             if "lost" in obj.type.feature_names:
                 init_json_dict[obj.name]["lost"] = 0.0
@@ -513,12 +515,20 @@ _ONTOP_MAX_HEIGHT_THRESHOLD = 0.25
 _REACHABLE_THRESHOLD = 1.7
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
 
+
 ## Types
+class _Spot3DShape(Enum):
+    """Stored as an object 'shape' feature."""
+    CUBOID = 1
+    CYLINDER = 2
+
+
 _robot_type = Type(
     "robot",
     ["gripper_open_percentage", "x", "y", "z", "qw", "qx", "qy", "qz"])
-_base_object_type = Type("base-object",
-                         ["x", "y", "z", "qw", "qx", "qy", "qz"])
+_base_object_type = Type("base-object", [
+    "x", "y", "z", "qw", "qx", "qy", "qz", "shape", "height", "width", "length"
+])
 _movable_object_type = Type("movable",
                             list(_base_object_type.feature_names) +
                             ["held", "lost", "in_view"],
@@ -752,11 +762,11 @@ class SpotCubeEnv(SpotRearrangementEnv):
         cube = Object("cube", _movable_object_type)
         cube_detection = AprilTagObjectDetectionID(410)
 
-        tool_room_table = Object("tool_room_table", _immovable_object_type)
-        tool_room_table_detection = AprilTagObjectDetectionID(408)
+        smooth_table = Object("smooth_table", _immovable_object_type)
+        smooth_table_detection = AprilTagObjectDetectionID(408)
 
-        extra_room_table = Object("extra_room_table", _immovable_object_type)
-        extra_room_table_detection = AprilTagObjectDetectionID(409)
+        sticky_table = Object("sticky_table", _immovable_object_type)
+        sticky_table_detection = AprilTagObjectDetectionID(409)
 
         floor = Object("floor", _immovable_object_type)
         floor_detection = KnownStaticObjectDetectionID(
@@ -765,8 +775,8 @@ class SpotCubeEnv(SpotRearrangementEnv):
 
         return {
             cube_detection: cube,
-            tool_room_table_detection: tool_room_table,
-            extra_room_table_detection: extra_room_table,
+            smooth_table_detection: smooth_table,
+            sticky_table_detection: sticky_table,
             floor_detection: floor,
         }
 

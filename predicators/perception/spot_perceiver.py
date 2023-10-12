@@ -14,6 +14,7 @@ from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     in_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
+from predicators.spot_utils.utils import load_spot_metadata
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, State, Task
 
@@ -41,6 +42,9 @@ class SpotPerceiver(BasePerceiver):
         # object, like a bag or bucket. This is important not only for gremlins
         # but also for small changes in the container's perceived pose.
         self._container_to_contained_objects: Dict[Object, Set[Object]] = {}
+        # Load static, hard-coded features of objects, like their shapes.
+        meta = load_spot_metadata()
+        self._static_object_features = meta.get("static-object-features", {})
 
     @classmethod
     def get_name(cls) -> str:
@@ -183,6 +187,10 @@ class SpotPerceiver(BasePerceiver):
                 "qy": pose.rot.y,
                 "qz": pose.rot.z,
             }
+            # Add static object features.
+            static_feats = self._static_object_features.get(obj.name, {})
+            state_dict[obj].update(static_feats)
+            # Add initial features for movable objects.
             if obj.is_instance(_movable_object_type):
                 # Detect if the object is in view currently.
                 if obj in self._known_objects_in_hand_view:
@@ -234,6 +242,6 @@ class SpotPerceiver(BasePerceiver):
         assert goal_description == "put the cube on the sticky table"
         assert isinstance(self._curr_env, SpotCubeEnv)
         cube = Object("cube", _movable_object_type)
-        target = Object("extra_room_table", _immovable_object_type)
+        target = Object("sticky_table", _immovable_object_type)
         On = pred_name_to_pred["On"]
         return {GroundAtom(On, [cube, target])}
