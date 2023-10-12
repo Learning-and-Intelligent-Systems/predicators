@@ -514,7 +514,6 @@ class SpotRearrangementEnv(BaseEnv):
 
 ## Constants
 HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
-_ONTOP_THRESHOLD = 0.55
 _ONTOP_MAX_HEIGHT_THRESHOLD = 0.25
 _REACHABLE_THRESHOLD = 1.7
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
@@ -541,6 +540,23 @@ _immovable_object_type = Type("immovable",
                               list(_base_object_type.feature_names),
                               parent=_base_object_type)
 
+## Helper functions
+def _object_to_top_down_geom(obj: Object, state: State) -> utils._Geom2D:
+    assert obj.is_instance(_base_object_type)
+    shape_type = int(np.round(state.get(obj, "shape")))
+    se3_pose = utils.get_se3_pose_from_state(state, obj)
+    angle = se3_pose.rot.to_yaw()
+    center_x = se3_pose.x
+    center_y = se3_pose.y
+    width = state.get(obj, "width")
+    length = state.get(obj, "length")
+    if shape_type == _Spot3DShape.CUBOID.value:
+        return utils.Rectangle.from_center(center_x, center_y, width, length, angle)
+    assert shape_type == _Spot3DShape.CYLINDER.value
+    assert np.isclose(width, length)
+    radius = width / 2
+    return utils.Circle(center_x, center_y, radius)
+
 
 ## Predicates
 def _handempty_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -563,29 +579,18 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     if _holding_classifier(state, [spot, obj_on]):
         return False
 
-    obj_on_pose = [
-        state.get(obj_on, "x"),
-        state.get(obj_on, "y"),
-        state.get(obj_on, "z")
-    ]
-    obj_surface_pose = [
-        state.get(obj_surface, "x"),
-        state.get(obj_surface, "y"),
-        state.get(obj_surface, "z")
-    ]
-
-    # This is a stop-gap that will be changed very soon once we add shape.
-    # TODO: do this.
-    if obj_surface.name == "floor":
-        return obj_on_pose[2] < 0.0
-
-    is_x_same = np.sqrt(
-        (obj_on_pose[0] - obj_surface_pose[0])**2) <= _ONTOP_THRESHOLD
-    is_y_same = np.sqrt(
-        (obj_on_pose[1] - obj_surface_pose[1])**2) <= _ONTOP_THRESHOLD
-    is_above_z = 0.0 < (obj_on_pose[2] -
-                        obj_surface_pose[2]) < _ONTOP_MAX_HEIGHT_THRESHOLD
-    return is_x_same and is_y_same and is_above_z
+    # Check that the object is above the surface, but not too far above.
+    z_diff = state.get(obj_on, "z") - state.get(obj_surface, "z")
+    if not 0.0 < z_diff < _ONTOP_MAX_HEIGHT_THRESHOLD:
+        return False
+    
+    # Check that the center of the object is contained within the surface in
+    # the xy plane.
+    surface_geom = _object_to_top_down_geom(obj_surface, state)
+    center_x = state.get(obj_on, "x")
+    center_y = state.get(obj_on, "y")
+    
+    return surface_geom.contains_point(center_x, center_y)
 
 
 def in_view_classifier(state: State, objects: Sequence[Object]) -> bool:
