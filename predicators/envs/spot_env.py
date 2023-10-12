@@ -515,6 +515,7 @@ class SpotRearrangementEnv(BaseEnv):
 ## Constants
 HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
 _ONTOP_MAX_HEIGHT_THRESHOLD = 0.25
+_ONTOP_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 1.7
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
 
@@ -542,15 +543,17 @@ _immovable_object_type = Type("immovable",
 
 
 ## Helper functions
-def _object_to_top_down_geom(obj: Object, state: State) -> utils._Geom2D:
+def _object_to_top_down_geom(obj: Object,
+                             state: State,
+                             size_buffer: float = 0.0) -> utils._Geom2D:
     assert obj.is_instance(_base_object_type)
     shape_type = int(np.round(state.get(obj, "shape")))
     se3_pose = utils.get_se3_pose_from_state(state, obj)
     angle = se3_pose.rot.to_yaw()
     center_x = se3_pose.x
     center_y = se3_pose.y
-    width = state.get(obj, "width")
-    length = state.get(obj, "length")
+    width = state.get(obj, "width") + size_buffer
+    length = state.get(obj, "length") + size_buffer
     if shape_type == _Spot3DShape.CUBOID.value:
         return utils.Rectangle.from_center(center_x, center_y, width, length,
                                            angle)
@@ -587,8 +590,11 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
         return False
 
     # Check that the center of the object is contained within the surface in
-    # the xy plane.
-    surface_geom = _object_to_top_down_geom(obj_surface, state)
+    # the xy plane. Add a size buffer to the surface to compensate for small
+    # errors in perception.
+    surface_geom = _object_to_top_down_geom(obj_surface,
+                                            state,
+                                            size_buffer=_ONTOP_SURFACE_BUFFER)
     center_x = state.get(obj_on, "x")
     center_y = state.get(obj_on, "y")
 
