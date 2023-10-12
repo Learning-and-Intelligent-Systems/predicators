@@ -834,9 +834,9 @@ class SpotCubeEnv(SpotRearrangementEnv):
 ###############################################################################
 
 
-class SodaBowlTableEnv(SpotRearrangementEnv):
-    """An environment where a soda can and a paper bowl need to be moved from a
-    white table to the side tables."""
+class SodaTableEnv(SpotRearrangementEnv):
+    """An environment where a soda can needs to be moved from a white table to
+    the side tables."""
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -852,7 +852,7 @@ class SodaBowlTableEnv(SpotRearrangementEnv):
 
     @classmethod
     def get_name(cls) -> str:
-        return "spot_soda_bowl_table_env"
+        return "spot_soda_table_env"
 
     @property
     def types(self) -> Set[Type]:
@@ -895,17 +895,9 @@ class SodaBowlTableEnv(SpotRearrangementEnv):
         smooth_table_detection = AprilTagObjectDetectionID(408)
         detection_id_to_obj[smooth_table_detection] = smooth_table
 
-        sticky_table = Object("sticky_table", _immovable_object_type)
-        sticky_table_detection = AprilTagObjectDetectionID(409)
-        detection_id_to_obj[sticky_table_detection] = sticky_table
-
         soda_can = Object("soda_can", _movable_object_type)
         soda_can_detection = LanguageObjectDetectionID("soda can")
         detection_id_to_obj[soda_can_detection] = soda_can
-
-        paper_bowl = Object("paper_bowl", _movable_object_type)
-        paper_bowl_detection = LanguageObjectDetectionID("paper bowl")
-        detection_id_to_obj[paper_bowl_detection] = paper_bowl
 
         known_immovables = load_spot_metadata()["known-immovable-objects"]
         for obj_name, obj_pos in known_immovables.items():
@@ -923,4 +915,4 @@ class SodaBowlTableEnv(SpotRearrangementEnv):
         return set()
 
     def _generate_goal_description(self) -> GoalDescription:
-        return "put the soda on the sticky and the bowl on the smooth table"
+        return "put the soda on the smooth table"

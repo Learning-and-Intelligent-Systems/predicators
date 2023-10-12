@@ -310,11 +310,8 @@ class SpotPerceiver(BasePerceiver):
             target = Object("sticky_table", _immovable_object_type)
             On = pred_name_to_pred["On"]
             return {GroundAtom(On, [cube, target])}
-        assert goal_description == "put the soda on the sticky and the " + \
-            "bowl on the smooth table"
+        assert goal_description == "put the soda on the smooth table"
         can = Object("soda_can", _movable_object_type)
-        bowl = Object("paper_bowl", _movable_object_type)
-        sticky = Object("sticky_table", _immovable_object_type)
         smooth = Object("smooth_table", _immovable_object_type)
         On = pred_name_to_pred["On"]
-        return {GroundAtom(On, [can, sticky]), GroundAtom(On, [bowl, smooth])}
+        return {GroundAtom(On, [can, smooth])}
