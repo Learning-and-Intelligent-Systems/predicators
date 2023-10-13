@@ -303,12 +303,14 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
             if "Place" in param_option.name and "Table" in param_option.name:
                 table = objects[-1]
                 table_y = state.get(table, "y")
+                table_x = state.get(table, "x")
                 sticky = state.get(table, "sticky")
                 table_radius = state.get(table, "radius")
-                _, _, _, _, param_y = params
+                _, _, _, param_x, param_y = params
                 sampler_input_lst.append(table_radius)
                 sampler_input_lst.append(sticky)
                 sampler_input_lst.append(param_y - table_y)
+                sampler_input_lst.append(param_x - table_x)
             elif "NavigateTo" in param_option.name:
                 _, obj = objects
                 obj_x = state.get(obj, "x")
