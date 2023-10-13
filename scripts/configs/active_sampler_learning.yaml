@@ -45,7 +45,7 @@ ENVS:
       sticky_table_place_smooth_fall_prob: 1.00
       sticky_table_place_sticky_fall_prob: 0.00
       sticky_table_pick_success_prob: 1.0
-      sticky_table_num_sticky_tables: 4
+      sticky_table_num_sticky_tables: 3
       sticky_table_num_tables: 5
       sticky_table_place_ball_fall_prob: 1.00
       active_sampler_learning_explore_length_base: 4
@@ -85,7 +85,7 @@ FLAGS:
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 1
   max_num_steps_interaction_request: 64
-  num_online_learning_cycles: 10
+  num_online_learning_cycles: 20
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
   horizon: 12
