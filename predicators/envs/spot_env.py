@@ -742,7 +742,7 @@ _Reachable = Predicate("Reachable", [_robot_type, _base_object_type],
                        _reachable_classifier)
 _Blocking = Predicate("Blocking", [_base_object_type, _movable_object_type],
                       _blocking_classifier)
-_NotBlocked = Predicate("NotBlocked", [_movable_object_type],
+_NotBlocked = Predicate("NotBlocked", [_base_object_type],
                         _not_blocked_classifier)
 
 
