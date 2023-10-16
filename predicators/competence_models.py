@@ -114,6 +114,9 @@ class OptimisticSkillCompetenceModel(SkillCompetenceModel):
             competences.append(competence)
         best_change = max(competences) - min(competences)
         gain = best_change * num_additional_data
+        # if "PlaceCup" in self._skill_name:
+        #     print(competences)
+        #     import ipdb; ipdb.set_trace()
         return np.clip(current_competence + gain, 1e-6, 1.0)
 
 

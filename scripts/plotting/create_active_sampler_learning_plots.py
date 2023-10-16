@@ -122,10 +122,10 @@ PLOT_GROUPS = {
             lambda v: "sticky_table-planning_progress_explore" in v)),
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-task_repeat_explore" in v)),
-        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table-success_rate_explore" in v)),
-        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table-random_score_explore" in v)),
+        # ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
+        #     lambda v: "sticky_table-success_rate_explore" in v)),
+        # ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+        #     lambda v: "sticky_table-random_score_explore" in v)),
         # ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
         #     lambda v: "sticky_table-random_nsrts_explore" in v)),
         # ("Maple Q", "gray", lambda df: df["EXPERIMENT_ID"].apply(
