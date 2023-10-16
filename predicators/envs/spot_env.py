@@ -696,6 +696,9 @@ def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
     return is_xy_near and is_yaw_near
 
 
+def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
+    import ipdb; ipdb.set_trace()
+
 _On = Predicate("On", [_movable_object_type, _base_object_type],
                 _on_classifier)
 _Inside = Predicate("Inside", [_movable_object_type, _base_object_type],
