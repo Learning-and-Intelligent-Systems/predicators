@@ -89,12 +89,6 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             for o, m in self._competence_models.items()
         }
 
-        print()
-        if len(ground_op_costs) > 0:
-            for k, v in ground_op_costs.items():
-                print(k.parent.name, v)
-        print()
-
         return super()._run_task_plan(task,
                                       nsrts,
                                       preds,
