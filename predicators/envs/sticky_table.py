@@ -455,7 +455,7 @@ class StickyTableEnv(BaseEnv):
                     "y": y,
                 }
                 state = utils.create_state_from_dict(state_dict)
-                if not self.exists_robot_collision(state):
+                if not self._invalid_robot_init_pos(state):
                     break
 
             goal = {
@@ -553,6 +553,23 @@ class StickyTableEnv(BaseEnv):
                                        state.get(robot, "y")):
                 return True
         return False
+
+    def _invalid_robot_init_pos(self, state: State) -> bool:
+        """Return true if the robot position either (1) is in collision
+        or (2) is reachable to either no objects, or more than one object
+        (important for reversibility of domain)."""
+        robot, = state.get_objects(self._robot_type)
+        all_possible_collision_objs = state.get_objects(
+            self._cube_type) + state.get_objects(self._table_type) + state.get_objects(self._cup_type) + state.get_objects(self._ball_type)
+        num_objs_reachable = 0
+        for obj in all_possible_collision_objs:
+            if self._IsReachable_holds(state, [robot, obj]):
+                num_objs_reachable += 1
+            if num_objs_reachable > 1:
+                return True
+        if num_objs_reachable != 1:
+            return True
+        return self.exists_robot_collision(state)
 
 
 class StickyTableTrickyFloorEnv(StickyTableEnv):
