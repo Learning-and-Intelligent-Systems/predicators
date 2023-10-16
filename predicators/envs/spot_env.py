@@ -893,7 +893,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
 ###############################################################################
 
 
-class SodaTableEnv(SpotRearrangementEnv):
+class SpotSodaTableEnv(SpotRearrangementEnv):
     """An environment where a soda can needs to be moved from a white table to
     the side tables."""
 
@@ -983,7 +983,7 @@ class SodaTableEnv(SpotRearrangementEnv):
 ###############################################################################
 
 
-class SodaSodaBucketEnv(SpotRearrangementEnv):
+class SpotSodaBucketEnv(SpotRearrangementEnv):
     """An environment where a soda can needs to be put in a bucket."""
 
     def __init__(self, use_gui: bool = True) -> None:
