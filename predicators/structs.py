@@ -134,7 +134,7 @@ class State:
 
     def get_objects(self, object_type: Type) -> List[Object]:
         """Return objects of the given type in the order of __iter__()."""
-        return [o for o in self if o.type == object_type]
+        return [o for o in self if o.is_instance(object_type)]
 
     def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the given
