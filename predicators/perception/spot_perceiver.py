@@ -9,9 +9,9 @@ from bosdyn.client import math_helpers
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotCubeEnv, SpotRearrangementEnv, _immovable_object_type, \
-    _movable_object_type, _PartialPerceptionState, _SpotObservation, \
-    in_view_classifier
+    SpotCubeEnv, SpotRearrangementEnv, _container_type, \
+    _immovable_object_type, _movable_object_type, _PartialPerceptionState, \
+    _SpotObservation, in_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.utils import load_spot_metadata
@@ -310,8 +310,14 @@ class SpotPerceiver(BasePerceiver):
             target = Object("sticky_table", _immovable_object_type)
             On = pred_name_to_pred["On"]
             return {GroundAtom(On, [cube, target])}
-        assert goal_description == "put the soda on the smooth table"
-        can = Object("soda_can", _movable_object_type)
-        smooth = Object("smooth_table", _immovable_object_type)
-        On = pred_name_to_pred["On"]
-        return {GroundAtom(On, [can, smooth])}
+        if goal_description == "put the soda on the smooth table":
+            can = Object("soda_can", _movable_object_type)
+            smooth = Object("smooth", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {GroundAtom(On, [can, smooth])}
+        if goal_description == "put the soda in the bucket":
+            can = Object("soda_can", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            Inside = pred_name_to_pred["Inside"]
+            return {GroundAtom(Inside, [can, bucket])}
+        raise NotImplementedError("Unrecognized goal description")

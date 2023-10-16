@@ -217,6 +217,38 @@ def _place_object_on_top_policy(state: State, memory: Dict,
                                         (robot, place_rel_pos))
 
 
+def _drop_object_inside_policy(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> Action:
+    del memory  # not used
+
+    name = "DropObjectInside"
+    robot_obj_idx = 0
+    container_obj_idx = 2
+
+    robot, _, _ = get_robot()
+
+    dx, dy, dz = params
+
+    robot_obj = objects[robot_obj_idx]
+    robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
+
+    container_obj = objects[container_obj_idx]
+    container_pose = utils.get_se3_pose_from_state(state, container_obj)
+    # The dz parameter is with respect to the top of the container.
+    container_half_height = state.get(container_obj, "height") / 2
+
+    container_rel_pose = robot_pose.inverse() * container_pose
+    place_z = container_rel_pose.z + container_half_height + dz
+    place_rel_pos = math_helpers.Vec3(x=container_rel_pose.x + dx,
+                                      y=container_rel_pose.y + dy,
+                                      z=place_z)
+
+    return utils.create_spot_env_action(name, objects,
+                                        _place_at_relative_position_and_stow,
+                                        (robot, place_rel_pos))
+
+
 ###############################################################################
 #                       Parameterized option factory                          #
 ###############################################################################
@@ -226,6 +258,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "MoveToViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "PickObjectFromTop": Box(0, 1, (0, )),
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
+    "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
 }
 
 _OPERATOR_NAME_TO_POLICY = {
@@ -233,6 +266,7 @@ _OPERATOR_NAME_TO_POLICY = {
     "MoveToViewObject": _move_to_view_object_policy,
     "PickObjectFromTop": _pick_object_from_top_policy,
     "PlaceObjectOnTop": _place_object_on_top_policy,
+    "DropObjectInside": _drop_object_inside_policy,
 }
 
 
@@ -265,7 +299,7 @@ class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"spot_cube_env", "spot_soda_table_env"}
+        return {"spot_cube_env", "spot_soda_table_env", "spot_soda_bucket_env"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],

@@ -518,6 +518,7 @@ class SpotRearrangementEnv(BaseEnv):
 HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
 _ONTOP_Z_THRESHOLD = 0.25
 _ONTOP_SURFACE_BUFFER = 0.1
+_INSIDE_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 1.7
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
 
@@ -542,6 +543,9 @@ _movable_object_type = Type("movable",
 _immovable_object_type = Type("immovable",
                               list(_base_object_type.feature_names),
                               parent=_base_object_type)
+_container_type = Type("container",
+                       list(_movable_object_type.feature_names),
+                       parent=_movable_object_type)
 
 
 ## Helper functions
@@ -592,26 +596,35 @@ def _holding_classifier(state: State, objects: Sequence[Object]) -> bool:
     return state.get(obj, "held") > 0.5
 
 
-def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
-    obj_on, obj_surface = objects
-
-    if obj_on == obj_surface:
+def _object_in_xy_classifier(state: State,
+                             obj1: Object,
+                             obj2: Object,
+                             buffer: float = 0.0) -> bool:
+    """Helper for _on_classifier and _inside_classifier."""
+    if obj1 == obj2:
         return False
 
-    spot = [o for o in state if o.type.name == "robot"][0]
-    if _holding_classifier(state, [spot, obj_on]):
+    spot, = state.get_objects(_robot_type)
+    if _holding_classifier(state, [spot, obj1]):
         return False
 
     # Check that the center of the object is contained within the surface in
     # the xy plane. Add a size buffer to the surface to compensate for small
     # errors in perception.
-    surface_geom = _object_to_top_down_geom(obj_surface,
+    surface_geom = _object_to_top_down_geom(obj2,
                                             state,
-                                            size_buffer=_ONTOP_SURFACE_BUFFER)
-    center_x = state.get(obj_on, "x")
-    center_y = state.get(obj_on, "y")
+                                            size_buffer=buffer)
+    center_x = state.get(obj1, "x")
+    center_y = state.get(obj1, "y")
 
-    if not surface_geom.contains_point(center_x, center_y):
+    return surface_geom.contains_point(center_x, center_y)
+
+
+def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj_on, obj_surface = objects
+
+    if not _object_in_xy_classifier(
+            state, obj_on, obj_surface, buffer=_ONTOP_SURFACE_BUFFER):
         return False
 
     # Check that the bottom of the object is close to the top of the surface.
@@ -619,6 +632,23 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     actual = state.get(obj_on, "z") - state.get(obj_on, "height") / 2
 
     return abs(actual - expect) < _ONTOP_Z_THRESHOLD
+
+
+def _inside_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj_in, obj_container = objects
+
+    if not _object_in_xy_classifier(
+            state, obj_in, obj_container, buffer=_INSIDE_SURFACE_BUFFER):
+        return False
+
+    # Check that the z middle of the object is within the container.
+    container_z = state.get(obj_container, "z")
+    container_half_height = state.get(obj_container, "height") / 2
+    z_min = container_z - container_half_height
+    z_max = container_z + container_half_height
+    obj_in_z = state.get(obj_in, "z")
+
+    return z_min < obj_in_z < z_max
 
 
 def in_view_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -661,6 +691,8 @@ def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
 
 _On = Predicate("On", [_movable_object_type, _base_object_type],
                 _on_classifier)
+_Inside = Predicate("Inside", [_movable_object_type, _base_object_type],
+                    _inside_classifier)
 _HandEmpty = Predicate("HandEmpty", [_robot_type], _handempty_classifier)
 _Holding = Predicate("Holding", [_robot_type, _movable_object_type],
                      _holding_classifier)
@@ -734,6 +766,25 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Holding, [robot, held]),
     }
     yield STRIPSOperator("PlaceObjectOnTop", parameters, preconds, add_effs,
+                         del_effs, ignore_effs)
+
+    # DropObjectInside
+    robot = Variable("?robot", _robot_type)
+    held = Variable("?held", _movable_object_type)
+    container = Variable("?container", _container_type)
+    parameters = [robot, held, container]
+    preconds = {
+        LiftedAtom(_Holding, [robot, held]),
+        LiftedAtom(_Reachable, [robot, container])
+    }
+    add_effs = {
+        LiftedAtom(_Inside, [held, container]),
+        LiftedAtom(_HandEmpty, [robot]),
+    }
+    del_effs = {
+        LiftedAtom(_Holding, [robot, held]),
+    }
+    yield STRIPSOperator("DropObjectInside", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
 
@@ -916,3 +967,95 @@ class SodaTableEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda on the smooth table"
+
+
+###############################################################################
+#                               Soda Bucket Env                               #
+###############################################################################
+
+
+class SodaSodaBucketEnv(SpotRearrangementEnv):
+    """An environment where a soda can needs to be put in a bucket."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        op_to_name = {o.name: o for o in _create_operators()}
+        op_names_to_keep = {
+            "MoveToReachObject",
+            "MoveToViewObject",
+            "PickObjectFromTop",
+            "PlaceObjectOnTop",
+            "DropObjectInside",
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_soda_bucket_env"
+
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            _robot_type,
+            _movable_object_type,
+            _immovable_object_type,
+            _container_type,
+        }
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            _On,
+            _HandEmpty,
+            _Holding,
+            _Reachable,
+            _InView,
+            _Inside,
+        }
+
+    @property
+    def percept_predicates(self) -> Set[Predicate]:
+        """The predicates that are NOT stored in the simulator state."""
+        return {
+            _HandEmpty,
+            _Holding,
+            _On,
+            _InView,
+            _Inside,
+        }
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return self.predicates
+
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+
+        detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
+
+        soda_can = Object("soda_can", _movable_object_type)
+        soda_can_detection = LanguageObjectDetectionID("soda can")
+        detection_id_to_obj[soda_can_detection] = soda_can
+
+        bucket = Object("bucket", _container_type)
+        bucket_detection = LanguageObjectDetectionID("bucket")
+        detection_id_to_obj[bucket_detection] = bucket
+
+        known_immovables = load_spot_metadata()["known-immovable-objects"]
+        for obj_name, obj_pos in known_immovables.items():
+            obj = Object(obj_name, _immovable_object_type)
+            pose = math_helpers.SE3Pose(obj_pos["x"],
+                                        obj_pos["y"],
+                                        obj_pos["z"],
+                                        rot=math_helpers.Quat())
+            detection_id = KnownStaticObjectDetectionID(obj_name, pose)
+            detection_id_to_obj[detection_id] = obj
+
+        return detection_id_to_obj
+
+    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
+        return set()
+
+    def _generate_goal_description(self) -> GoalDescription:
+        return "put the soda in the bucket"
