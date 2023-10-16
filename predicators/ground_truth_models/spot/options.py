@@ -19,14 +19,15 @@ from predicators.spot_utils.perception.perception_structs import \
 from predicators.spot_utils.perception.spot_cameras import \
     get_last_captured_images
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
-from predicators.spot_utils.skills.spot_hand_move import \
+from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
     move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_FLOOR_POSE, get_relative_se2_from_se3
+    DEFAULT_HAND_LOOK_FLOOR_POSE, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, \
+    get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, Type
 
@@ -45,9 +46,10 @@ def _navigate_to_relative_pose_and_move_hand(
 
 
 def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
-                             pixel: Tuple[int, int]) -> None:
+                             pixel: Tuple[int, int],
+                             grasp_rot: Optional[math_helpers.Quat]) -> None:
     # Grasp.
-    grasp_at_pixel(robot, img, pixel)
+    grasp_at_pixel(robot, img, pixel, grasp_rot=grasp_rot)
     # Stow.
     stow_arm(robot)
 
@@ -67,6 +69,16 @@ def _drop_and_stow(robot: Robot) -> None:
     open_gripper(robot)
     # Stow.
     stow_arm(robot)
+
+
+def _drop_at_relative_position_and_look(
+        robot: Robot, rel_pose: math_helpers.SE3Pose) -> None:
+    # Place.
+    place_at_relative_position(robot, rel_pose)
+    # Close the gripper.
+    close_gripper(robot)
+    # Look straight down.
+    move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE)
 
 
 ###############################################################################
@@ -123,9 +135,12 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
                                                    target_detection_id,
                                                    hand_camera)
 
+    # Grasp from the top-down.
+    top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
+
     return utils.create_spot_env_action(name, objects,
                                         _grasp_at_pixel_and_stow,
-                                        (robot, img, pixel))
+                                        (robot, img, pixel, top_down_rot))
 
 
 ###############################################################################
@@ -217,6 +232,38 @@ def _place_object_on_top_policy(state: State, memory: Dict,
                                         (robot, place_rel_pos))
 
 
+def _drop_object_inside_policy(state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> Action:
+    del memory  # not used
+
+    name = "DropObjectInside"
+    robot_obj_idx = 0
+    container_obj_idx = 2
+
+    robot, _, _ = get_robot()
+
+    dx, dy, dz = params
+
+    robot_obj = objects[robot_obj_idx]
+    robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
+
+    container_obj = objects[container_obj_idx]
+    container_pose = utils.get_se3_pose_from_state(state, container_obj)
+    # The dz parameter is with respect to the top of the container.
+    container_half_height = state.get(container_obj, "height") / 2
+
+    container_rel_pose = robot_pose.inverse() * container_pose
+    place_z = container_rel_pose.z + container_half_height + dz
+    place_rel_pos = math_helpers.Vec3(x=container_rel_pose.x + dx,
+                                      y=container_rel_pose.y + dy,
+                                      z=place_z)
+
+    return utils.create_spot_env_action(name, objects,
+                                        _drop_at_relative_position_and_look,
+                                        (robot, place_rel_pos))
+
+
 ###############################################################################
 #                       Parameterized option factory                          #
 ###############################################################################
@@ -226,6 +273,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "MoveToViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "PickObjectFromTop": Box(0, 1, (0, )),
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
+    "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
 }
 
 _OPERATOR_NAME_TO_POLICY = {
@@ -233,6 +281,7 @@ _OPERATOR_NAME_TO_POLICY = {
     "MoveToViewObject": _move_to_view_object_policy,
     "PickObjectFromTop": _pick_object_from_top_policy,
     "PlaceObjectOnTop": _place_object_on_top_policy,
+    "DropObjectInside": _drop_object_inside_policy,
 }
 
 
@@ -265,7 +314,7 @@ class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"spot_cube_env", "spot_soda_table_env"}
+        return {"spot_cube_env", "spot_soda_table_env", "spot_soda_bucket_env"}
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],
