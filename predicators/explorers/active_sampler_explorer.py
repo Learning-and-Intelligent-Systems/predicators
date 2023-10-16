@@ -195,7 +195,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                                         reverse=True):
                             logging.info(f"{op.name}{op.objects} score: {self._score_ground_op(op)}")
 
-                        import ipdb; ipdb.set_trace()
+                        # import ipdb; ipdb.set_trace()
 
                         # Generate goals sorted by their descending score.
                         for op in sorted(self._ground_op_hist,
