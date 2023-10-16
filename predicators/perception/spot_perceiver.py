@@ -231,7 +231,7 @@ class SpotPerceiver(BasePerceiver):
         state = _PartialPerceptionState(percept_state.data,
                                         simulator_state=simulator_state)
 
-        # Uncomment to create a top-down visualization of the state.
+        # Uncomment to create visualizations of the state.
         # from matplotlib import pyplot as plt
 
         # from predicators.envs.spot_env import _object_to_top_down_geom
@@ -264,6 +264,37 @@ class SpotPerceiver(BasePerceiver):
         # plt.tight_layout()
         # plt.savefig("top-down-state-view.png")
 
+        # from predicators.envs.spot_env import _object_to_side_view_geom
+        # fig = plt.figure()
+        # ax = fig.gca()
+        # # Draw the robot as a point.
+        # robot_y = state.get(self._robot, "y")
+        # robot_z = state.get(self._robot, "z")
+        # plt.plot([robot_y], [robot_z], color="red", marker="o")
+        # # Draw the other objects.
+        # for obj in state:
+        #     if obj == self._robot:
+        #         continue
+        #     # Don't plot the floor because it's enormous.
+        #     if obj.name == "floor":
+        #         continue
+        #     geom = _object_to_side_view_geom(obj, state)
+        #     geom.plot(ax,
+        #               label=obj.name,
+        #               facecolor=(0.0, 0.0, 0.0, 0.0),
+        #               edgecolor="black")
+        #     text_pos = (state.get(obj, "y"), state.get(obj, "z"))
+        #     ax.text(text_pos[0],
+        #             text_pos[1],
+        #             obj.name,
+        #             color='white',
+        #             fontsize=12,
+        #             fontweight='bold',
+        #             bbox=dict(facecolor="gray", edgecolor="gray", alpha=0.5))
+        # plt.tight_layout()
+        # plt.savefig("side-state-view.png")
+        # import ipdb; ipdb.set_trace()
+
         return state
 
     def _create_goal(self, state: State,
@@ -273,9 +304,14 @@ class SpotPerceiver(BasePerceiver):
         # not yet set. Hopefully one day other cleanups will enable cleaning.
         assert self._curr_env is not None
         pred_name_to_pred = {p.name: p for p in self._curr_env.predicates}
-        assert goal_description == "put the cube on the sticky table"
-        assert isinstance(self._curr_env, SpotCubeEnv)
-        cube = Object("cube", _movable_object_type)
-        target = Object("sticky_table", _immovable_object_type)
+        if goal_description == "put the cube on the sticky table":
+            assert isinstance(self._curr_env, SpotCubeEnv)
+            cube = Object("cube", _movable_object_type)
+            target = Object("sticky_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {GroundAtom(On, [cube, target])}
+        assert goal_description == "put the soda on the smooth table"
+        can = Object("soda_can", _movable_object_type)
+        smooth = Object("smooth_table", _immovable_object_type)
         On = pred_name_to_pred["On"]
-        return {GroundAtom(On, [cube, target])}
+        return {GroundAtom(On, [can, smooth])}

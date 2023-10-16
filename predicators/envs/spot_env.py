@@ -23,7 +23,8 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
-    ObjectDetectionID, detect_objects, visualize_all_artifacts
+    LanguageObjectDetectionID, ObjectDetectionID, detect_objects, \
+    visualize_all_artifacts
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -388,7 +389,8 @@ class SpotRearrangementEnv(BaseEnv):
         metadata = load_spot_metadata()
         static_object_features = metadata.get("static-object-features", {})
         for obj_name, obj_feats in static_object_features.items():
-            init_json_dict[obj_name].update(obj_feats)
+            if obj_name in init_json_dict:
+                init_json_dict[obj_name].update(obj_feats)
         for obj in objects_in_view:
             if "lost" in obj.type.feature_names:
                 init_json_dict[obj.name]["lost"] = 0.0
@@ -514,7 +516,7 @@ class SpotRearrangementEnv(BaseEnv):
 
 ## Constants
 HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
-_ONTOP_MAX_HEIGHT_THRESHOLD = 0.25
+_ONTOP_Z_THRESHOLD = 0.25
 _ONTOP_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 1.7
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
@@ -563,6 +565,19 @@ def _object_to_top_down_geom(obj: Object,
     return utils.Circle(center_x, center_y, radius)
 
 
+def _object_to_side_view_geom(obj: Object,
+                              state: State,
+                              size_buffer: float = 0.0) -> utils._Geom2D:
+    assert obj.is_instance(_base_object_type)
+    # The shape doesn't matter because all shapes are rectangles from the side.
+    se3_pose = utils.get_se3_pose_from_state(state, obj)
+    center_y = se3_pose.y
+    center_z = se3_pose.z
+    length = state.get(obj, "length") + size_buffer
+    height = state.get(obj, "height") + size_buffer
+    return utils.Rectangle.from_center(center_y, center_z, length, height, 0.0)
+
+
 ## Predicates
 def _handempty_classifier(state: State, objects: Sequence[Object]) -> bool:
     spot = objects[0]
@@ -580,13 +595,11 @@ def _holding_classifier(state: State, objects: Sequence[Object]) -> bool:
 def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     obj_on, obj_surface = objects
 
-    spot = [o for o in state if o.type.name == "robot"][0]
-    if _holding_classifier(state, [spot, obj_on]):
+    if obj_on == obj_surface:
         return False
 
-    # Check that the object is above the surface, but not too far above.
-    z_diff = state.get(obj_on, "z") - state.get(obj_surface, "z")
-    if not 0.0 < z_diff < _ONTOP_MAX_HEIGHT_THRESHOLD:
+    spot = [o for o in state if o.type.name == "robot"][0]
+    if _holding_classifier(state, [spot, obj_on]):
         return False
 
     # Check that the center of the object is contained within the surface in
@@ -598,7 +611,14 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     center_x = state.get(obj_on, "x")
     center_y = state.get(obj_on, "y")
 
-    return surface_geom.contains_point(center_x, center_y)
+    if not surface_geom.contains_point(center_x, center_y):
+        return False
+
+    # Check that the bottom of the object is close to the top of the surface.
+    expect = state.get(obj_surface, "z") + state.get(obj_surface, "height") / 2
+    actual = state.get(obj_on, "z") - state.get(obj_on, "height") / 2
+
+    return abs(actual - expect) < _ONTOP_Z_THRESHOLD
 
 
 def in_view_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -787,9 +807,13 @@ class SpotCubeEnv(SpotRearrangementEnv):
         sticky_table_detection = AprilTagObjectDetectionID(409)
 
         floor = Object("floor", _immovable_object_type)
+        floor_feats = load_spot_metadata()["known-immovable-objects"]["floor"]
+        x = floor_feats["x"]
+        y = floor_feats["y"]
+        z = floor_feats["z"]
         floor_detection = KnownStaticObjectDetectionID(
             "floor",
-            pose=math_helpers.SE3Pose(0.0, 0.0, -0.5, rot=math_helpers.Quat()))
+            pose=math_helpers.SE3Pose(x, y, z, rot=math_helpers.Quat()))
 
         return {
             cube_detection: cube,
@@ -803,3 +827,92 @@ class SpotCubeEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the cube on the sticky table"
+
+
+###############################################################################
+#                                Soda Table Env                               #
+###############################################################################
+
+
+class SodaTableEnv(SpotRearrangementEnv):
+    """An environment where a soda can needs to be moved from a white table to
+    the side tables."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        op_to_name = {o.name: o for o in _create_operators()}
+        op_names_to_keep = {
+            "MoveToReachObject",
+            "MoveToViewObject",
+            "PickObjectFromTop",
+            "PlaceObjectOnTop",
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_soda_table_env"
+
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            _robot_type,
+            _movable_object_type,
+            _immovable_object_type,
+        }
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            _On,
+            _HandEmpty,
+            _Holding,
+            _Reachable,
+            _InView,
+        }
+
+    @property
+    def percept_predicates(self) -> Set[Predicate]:
+        """The predicates that are NOT stored in the simulator state."""
+        return {
+            _HandEmpty,
+            _Holding,
+            _On,
+            _InView,
+        }
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return self.predicates
+
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+
+        detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
+
+        smooth_table = Object("smooth_table", _immovable_object_type)
+        smooth_table_detection = AprilTagObjectDetectionID(408)
+        detection_id_to_obj[smooth_table_detection] = smooth_table
+
+        soda_can = Object("soda_can", _movable_object_type)
+        soda_can_detection = LanguageObjectDetectionID("soda can")
+        detection_id_to_obj[soda_can_detection] = soda_can
+
+        known_immovables = load_spot_metadata()["known-immovable-objects"]
+        for obj_name, obj_pos in known_immovables.items():
+            obj = Object(obj_name, _immovable_object_type)
+            pose = math_helpers.SE3Pose(obj_pos["x"],
+                                        obj_pos["y"],
+                                        obj_pos["z"],
+                                        rot=math_helpers.Quat())
+            detection_id = KnownStaticObjectDetectionID(obj_name, pose)
+            detection_id_to_obj[detection_id] = obj
+
+        return detection_id_to_obj
+
+    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
+        return set()
+
+    def _generate_goal_description(self) -> GoalDescription:
+        return "put the soda on the smooth table"
