@@ -45,9 +45,10 @@ def _navigate_to_relative_pose_and_move_hand(
 
 
 def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
-                             pixel: Tuple[int, int]) -> None:
+                             pixel: Tuple[int, int],
+                             grasp_rot: Optional[math_helpers.Quat]) -> None:
     # Grasp.
-    grasp_at_pixel(robot, img, pixel)
+    grasp_at_pixel(robot, img, pixel, grasp_rot=grasp_rot)
     # Stow.
     stow_arm(robot)
 
@@ -123,9 +124,12 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
                                                    target_detection_id,
                                                    hand_camera)
 
+    # Grasp from the top-down.
+    top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
+
     return utils.create_spot_env_action(name, objects,
                                         _grasp_at_pixel_and_stow,
-                                        (robot, img, pixel))
+                                        (robot, img, pixel, top_down_rot))
 
 
 ###############################################################################

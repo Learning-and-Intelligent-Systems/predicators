@@ -611,9 +611,7 @@ def _object_in_xy_classifier(state: State,
     # Check that the center of the object is contained within the surface in
     # the xy plane. Add a size buffer to the surface to compensate for small
     # errors in perception.
-    surface_geom = _object_to_top_down_geom(obj2,
-                                            state,
-                                            size_buffer=buffer)
+    surface_geom = _object_to_top_down_geom(obj2, state, size_buffer=buffer)
     center_x = state.get(obj1, "x")
     center_y = state.get(obj1, "y")
 
