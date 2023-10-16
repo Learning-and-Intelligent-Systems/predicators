@@ -30,12 +30,15 @@ from predicators.spot_utils.perception.perception_structs import \
 from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_find_objects import \
     init_search_for_objects
+from predicators.spot_utils.skills.spot_hand_move import \
+    move_hand_to_relative_pose
 from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_absolute_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import get_graph_nav_dir, \
-    get_robot_gripper_open_percentage, load_spot_metadata, verify_estop
+    get_robot_gripper_open_percentage, get_spot_home_pose, \
+    load_spot_metadata, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, State, \
     STRIPSOperator, Type, Variable
@@ -488,13 +491,20 @@ class SpotRearrangementEnv(BaseEnv):
         go_home(self._robot, self._localizer)
         self._localizer.localize()
         detection_ids = self._detection_id_to_obj.keys()
-        detections, _ = init_search_for_objects(self._robot, self._localizer,
-                                                detection_ids)
+        detections = self._run_init_search_for_objects(set(detection_ids))
+        stow_arm(self._robot)
         obj_to_se3_pose = {
             self._detection_id_to_obj[det_id]: val
             for (det_id, val) in detections.items()
         }
         return obj_to_se3_pose
+
+    def _run_init_search_for_objects(
+        self, detection_ids: Set[ObjectDetectionID]
+    ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
+        detections, _ = init_search_for_objects(self._robot, self._localizer,
+                                                detection_ids)
+        return detections
 
     @property
     @abc.abstractmethod
@@ -606,7 +616,8 @@ def _object_in_xy_classifier(state: State,
         return False
 
     spot, = state.get_objects(_robot_type)
-    if _holding_classifier(state, [spot, obj1]):
+    if obj1.is_instance(_movable_object_type) and \
+        _holding_classifier(state, [spot, obj1]):
         return False
 
     # Check that the center of the object is contained within the surface in
@@ -696,6 +707,52 @@ def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
     return is_xy_near and is_yaw_near
 
 
+def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
+    """This is not a very good classifier for blocking because it only looks at
+    the relationship between the objects and the robot's home pose.
+
+    It's possible that objects will appear blocked under this
+    classifier, but could actually be accessed from another angle. Doing
+    this in a better way is hard, but hopefully something we can do in
+    the future.
+    """
+    blocker_obj, blocked_obj = objects
+
+    if blocker_obj == blocked_obj:
+        return False
+
+    if _object_in_xy_classifier(state, blocked_obj, blocker_obj):
+        return False
+
+    if _object_in_xy_classifier(state, blocker_obj, blocked_obj):
+        return False
+
+    # Draw a line between blocked and the robot’s home pose.
+    # Check if blocker intersects that line.
+    robot_home_pose = get_spot_home_pose()
+    robot_home_x = robot_home_pose.x
+    robot_home_y = robot_home_pose.y
+
+    blocked_x = state.get(blocked_obj, "x")
+    blocked_y = state.get(blocked_obj, "y")
+
+    blocked_robot_line = utils.LineSegment(robot_home_x, robot_home_y,
+                                           blocked_x, blocked_y)
+
+    blocker_geom = _object_to_top_down_geom(blocker_obj, state)
+
+    return blocker_geom.intersects(blocked_robot_line)
+
+
+def _not_blocked_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj, = objects
+    blocker_type, _ = _Blocking.types
+    for blocker in state.get_objects(blocker_type):
+        if _blocking_classifier(state, [blocker, obj]):
+            return False
+    return True
+
+
 _On = Predicate("On", [_movable_object_type, _base_object_type],
                 _on_classifier)
 _Inside = Predicate("Inside", [_movable_object_type, _base_object_type],
@@ -707,6 +764,10 @@ _InView = Predicate("InView", [_robot_type, _movable_object_type],
                     in_view_classifier)
 _Reachable = Predicate("Reachable", [_robot_type, _base_object_type],
                        _reachable_classifier)
+_Blocking = Predicate("Blocking", [_base_object_type, _base_object_type],
+                      _blocking_classifier)
+_NotBlocked = Predicate("NotBlocked", [_base_object_type],
+                        _not_blocked_classifier)
 
 
 ## Operators (needed in the environment for non-percept atom hack)
@@ -717,7 +778,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     obj = Variable("?object", _base_object_type)
     parameters = [robot, obj]
-    preconds: Set[LiftedAtom] = set()
+    preconds = {LiftedAtom(_NotBlocked, [obj])}
     add_effs = {LiftedAtom(_Reachable, [robot, obj])}
     del_effs: Set[LiftedAtom] = set()
     ignore_effs = {_Reachable, _InView}
@@ -728,7 +789,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     obj = Variable("?object", _movable_object_type)
     parameters = [robot, obj]
-    preconds = set()
+    preconds = {LiftedAtom(_NotBlocked, [obj])}
     add_effs = {LiftedAtom(_InView, [robot, obj])}
     del_effs = set()
     ignore_effs = {_Reachable, _InView}
@@ -836,6 +897,8 @@ class SpotCubeEnv(SpotRearrangementEnv):
             _Holding,
             _Reachable,
             _InView,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -847,6 +910,8 @@ class SpotCubeEnv(SpotRearrangementEnv):
             _On,
             _InView,
             _Reachable,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -929,6 +994,8 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
             _Holding,
             _Reachable,
             _InView,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -940,6 +1007,8 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
             _On,
             _InView,
             _Reachable,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -1021,6 +1090,8 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
             _Reachable,
             _InView,
             _Inside,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -1033,6 +1104,8 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
             _Reachable,
             _InView,
             _Inside,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -1069,3 +1142,109 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket"
+
+
+###############################################################################
+#                               Soda Chair Env                                #
+###############################################################################
+
+
+class SpotSodaChairEnv(SpotRearrangementEnv):
+    """An environment where a soda can needs to be grasped, and a chair might
+    need to be moved out of the way in order to grasp it."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        op_to_name = {o.name: o for o in _create_operators()}
+        op_names_to_keep = {
+            "MoveToReachObject",
+            "MoveToViewObject",
+            "PickObjectFromTop",
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_soda_chair_env"
+
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            _robot_type,
+            _movable_object_type,
+            _immovable_object_type,
+            _container_type,
+        }
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            _On,
+            _HandEmpty,
+            _Holding,
+            _Reachable,
+            _InView,
+            _Blocking,
+            _NotBlocked,
+        }
+
+    @property
+    def percept_predicates(self) -> Set[Predicate]:
+        """The predicates that are NOT stored in the simulator state."""
+        return {
+            _HandEmpty,
+            _Holding,
+            _On,
+            _Reachable,
+            _InView,
+            _Blocking,
+            _NotBlocked,
+        }
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return self.predicates
+
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+
+        detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
+
+        soda_can = Object("soda_can", _movable_object_type)
+        soda_can_detection = LanguageObjectDetectionID("soda can")
+        detection_id_to_obj[soda_can_detection] = soda_can
+
+        chair = Object("chair", _container_type)
+        chair_detection = LanguageObjectDetectionID("chair")
+        detection_id_to_obj[chair_detection] = chair
+
+        known_immovables = load_spot_metadata()["known-immovable-objects"]
+        for obj_name, obj_pos in known_immovables.items():
+            obj = Object(obj_name, _immovable_object_type)
+            pose = math_helpers.SE3Pose(obj_pos["x"],
+                                        obj_pos["y"],
+                                        obj_pos["z"],
+                                        rot=math_helpers.Quat())
+            detection_id = KnownStaticObjectDetectionID(obj_name, pose)
+            detection_id_to_obj[detection_id] = obj
+
+        return detection_id_to_obj
+
+    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
+        return set()
+
+    def _generate_goal_description(self) -> GoalDescription:
+        return "pick up the soda can"
+
+    def _run_init_search_for_objects(
+        self, detection_ids: Set[ObjectDetectionID]
+    ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
+        """Override to have the hand look down at the table at first."""
+        hand_pose = math_helpers.SE3Pose(x=0.80,
+                                         y=0.0,
+                                         z=0.75,
+                                         rot=math_helpers.Quat.from_pitch(
+                                             np.pi / 4))
+        move_hand_to_relative_pose(self._robot, hand_pose)
+        return super()._run_init_search_for_objects(detection_ids)
