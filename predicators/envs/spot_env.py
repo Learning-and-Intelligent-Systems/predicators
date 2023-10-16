@@ -702,6 +702,12 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
 
     if blocker_obj == blocked_obj:
         return False
+    
+    if _object_in_xy_classifier(state, blocked_obj, blocker_obj):
+        return False
+    
+    if _object_in_xy_classifier(state, blocker_obj, blocked_obj):
+        return False
 
     # Draw a line between blocked and the robot’s home pose.
     # Check if blocker intersects that line.
