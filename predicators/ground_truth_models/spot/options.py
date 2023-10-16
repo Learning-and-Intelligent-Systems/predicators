@@ -314,7 +314,10 @@ class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def get_env_names(cls) -> Set[str]:
-        return {"spot_cube_env", "spot_soda_table_env", "spot_soda_bucket_env"}
+        return {
+            "spot_cube_env", "spot_soda_table_env", "spot_soda_bucket_env",
+            "spot_soda_chair_env"
+        }
 
     @classmethod
     def get_options(cls, env_name: str, types: Dict[str, Type],

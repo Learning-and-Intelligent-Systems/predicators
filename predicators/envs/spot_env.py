@@ -1069,3 +1069,93 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket"
+
+
+###############################################################################
+#                               Soda Chair Env                                #
+###############################################################################
+
+
+class SpotSodaChairEnv(SpotRearrangementEnv):
+    """An environment where a soda can needs to be grasped, and a chair might
+    need to be moved out of the way in order to grasp it."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        op_to_name = {o.name: o for o in _create_operators()}
+        op_names_to_keep = {
+            "MoveToReachObject",
+            "MoveToViewObject",
+            "PickObjectFromTop",
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_soda_chair_env"
+
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            _robot_type,
+            _movable_object_type,
+            _immovable_object_type,
+            _container_type,
+        }
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            _On,
+            _HandEmpty,
+            _Holding,
+            _Reachable,
+            _InView,
+        }
+
+    @property
+    def percept_predicates(self) -> Set[Predicate]:
+        """The predicates that are NOT stored in the simulator state."""
+        return {
+            _HandEmpty,
+            _Holding,
+            _On,
+            _Reachable,
+            _InView,
+        }
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return self.predicates
+
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+
+        detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
+
+        soda_can = Object("soda_can", _movable_object_type)
+        soda_can_detection = LanguageObjectDetectionID("soda can")
+        detection_id_to_obj[soda_can_detection] = soda_can
+
+        chair = Object("chair", _container_type)
+        chair_detection = LanguageObjectDetectionID("chair")
+        detection_id_to_obj[chair_detection] = chair
+
+        known_immovables = load_spot_metadata()["known-immovable-objects"]
+        for obj_name, obj_pos in known_immovables.items():
+            obj = Object(obj_name, _immovable_object_type)
+            pose = math_helpers.SE3Pose(obj_pos["x"],
+                                        obj_pos["y"],
+                                        obj_pos["z"],
+                                        rot=math_helpers.Quat())
+            detection_id = KnownStaticObjectDetectionID(obj_name, pose)
+            detection_id_to_obj[detection_id] = obj
+
+        return detection_id_to_obj
+
+    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
+        return set()
+
+    def _generate_goal_description(self) -> GoalDescription:
+        return "pick up the soda can"
