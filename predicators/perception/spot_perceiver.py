@@ -103,7 +103,8 @@ class SpotPerceiver(BasePerceiver):
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(object_attempted_to_grasp)
-            elif "place" in controller_name.lower():
+            elif "place" in controller_name.lower() or \
+                "drop" in controller_name.lower():
                 self._held_object = None
                 # Check if the item we just placed is in view. It needs to
                 # be in view to assess whether it was placed correctly.

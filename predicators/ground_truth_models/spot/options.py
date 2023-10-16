@@ -19,14 +19,14 @@ from predicators.spot_utils.perception.perception_structs import \
 from predicators.spot_utils.perception.spot_cameras import \
     get_last_captured_images
 from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
-from predicators.spot_utils.skills.spot_hand_move import \
+from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
     move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_FLOOR_POSE, get_relative_se2_from_se3
+    DEFAULT_HAND_LOOK_FLOOR_POSE, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, Type
 
@@ -68,6 +68,16 @@ def _drop_and_stow(robot: Robot) -> None:
     open_gripper(robot)
     # Stow.
     stow_arm(robot)
+
+
+def _drop_at_relative_position_and_look(
+        robot: Robot, rel_pose: math_helpers.SE3Pose) -> None:
+    # Place.
+    place_at_relative_position(robot, rel_pose)
+    # Close the gripper.
+    close_gripper(robot)
+    # Look straight down.
+    move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE)
 
 
 ###############################################################################
@@ -249,7 +259,7 @@ def _drop_object_inside_policy(state: State, memory: Dict,
                                       z=place_z)
 
     return utils.create_spot_env_action(name, objects,
-                                        _place_at_relative_position_and_stow,
+                                        _drop_at_relative_position_and_look,
                                         (robot, place_rel_pos))
 
 

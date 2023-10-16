@@ -517,6 +517,7 @@ class SpotRearrangementEnv(BaseEnv):
 ## Constants
 HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
 _ONTOP_Z_THRESHOLD = 0.25
+_INSIDE_Z_THRESHOLD = 0.25
 _ONTOP_SURFACE_BUFFER = 0.1
 _INSIDE_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 1.7
@@ -639,14 +640,22 @@ def _inside_classifier(state: State, objects: Sequence[Object]) -> bool:
             state, obj_in, obj_container, buffer=_INSIDE_SURFACE_BUFFER):
         return False
 
-    # Check that the z middle of the object is within the container.
+    obj_z = state.get(obj_in, "z")
+    obj_half_height = state.get(obj_in, "height") / 2
+    obj_bottom = obj_z - obj_half_height
+    obj_top = obj_z + obj_half_height
+
     container_z = state.get(obj_container, "z")
     container_half_height = state.get(obj_container, "height") / 2
-    z_min = container_z - container_half_height
-    z_max = container_z + container_half_height
-    obj_in_z = state.get(obj_in, "z")
+    container_bottom = container_z - container_half_height
+    container_top = container_z + container_half_height
 
-    return z_min < obj_in_z < z_max
+    # Check that the bottom is "above" the bottom of the container.
+    if obj_bottom < container_bottom - _INSIDE_Z_THRESHOLD:
+        return False
+
+    # Check that the top is "below" the top of the container.
+    return obj_top < container_top + _INSIDE_Z_THRESHOLD
 
 
 def in_view_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -837,6 +846,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
             _Holding,
             _On,
             _InView,
+            _Reachable,
         }
 
     @property
@@ -929,6 +939,7 @@ class SodaTableEnv(SpotRearrangementEnv):
             _Holding,
             _On,
             _InView,
+            _Reachable,
         }
 
     @property
@@ -1019,6 +1030,7 @@ class SodaSodaBucketEnv(SpotRearrangementEnv):
             _HandEmpty,
             _Holding,
             _On,
+            _Reachable,
             _InView,
             _Inside,
         }
