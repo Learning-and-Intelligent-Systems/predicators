@@ -26,7 +26,8 @@ from predicators.spot_utils.skills.spot_navigation import \
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_FLOOR_POSE, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, get_relative_se2_from_se3
+    DEFAULT_HAND_LOOK_FLOOR_POSE, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, \
+    get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, Type
 
