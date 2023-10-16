@@ -30,6 +30,8 @@ from predicators.spot_utils.perception.perception_structs import \
 from predicators.spot_utils.perception.spot_cameras import capture_images
 from predicators.spot_utils.skills.spot_find_objects import \
     init_search_for_objects
+from predicators.spot_utils.skills.spot_hand_move import \
+    move_hand_to_relative_pose
 from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_absolute_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
@@ -489,13 +491,20 @@ class SpotRearrangementEnv(BaseEnv):
         go_home(self._robot, self._localizer)
         self._localizer.localize()
         detection_ids = self._detection_id_to_obj.keys()
-        detections, _ = init_search_for_objects(self._robot, self._localizer,
-                                                detection_ids)
+        detections = self._run_init_search_for_objects(detection_ids)
+        stow_arm(self._robot)
         obj_to_se3_pose = {
             self._detection_id_to_obj[det_id]: val
             for (det_id, val) in detections.items()
         }
         return obj_to_se3_pose
+
+    def _run_init_search_for_objects(
+        self, detection_ids: Set[ObjectDetectionID]
+    ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
+        detections, _ = init_search_for_objects(self._robot, self._localizer,
+                                                detection_ids)
+        return detections
 
     @property
     @abc.abstractmethod
@@ -702,10 +711,10 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
 
     if blocker_obj == blocked_obj:
         return False
-    
+
     if _object_in_xy_classifier(state, blocked_obj, blocker_obj):
         return False
-    
+
     if _object_in_xy_classifier(state, blocker_obj, blocked_obj):
         return False
 
@@ -1218,3 +1227,15 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "pick up the soda can"
+
+    def _run_init_search_for_objects(
+        self, detection_ids: Set[ObjectDetectionID]
+    ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
+        """Override to have the hand look down at the table at first."""
+        hand_pose = math_helpers.SE3Pose(x=0.80,
+                                         y=0.0,
+                                         z=0.75,
+                                         rot=math_helpers.Quat.from_pitch(
+                                             np.pi / 4))
+        move_hand_to_relative_pose(self._robot, hand_pose)
+        return super()._run_init_search_for_objects(detection_ids)

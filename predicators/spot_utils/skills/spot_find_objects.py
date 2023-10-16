@@ -131,7 +131,8 @@ def init_search_for_objects(
     robot: Robot,
     localizer: SpotLocalizer,
     object_ids: Collection[ObjectDetectionID],
-    num_spins: int = 8
+    num_spins: int = 8,
+    relative_hand_moves: Optional[List[math_helpers.SE3Pose]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Spin around in place looking for objects.
 
@@ -140,11 +141,13 @@ def init_search_for_objects(
     spin_amount = 2 * np.pi / (num_spins + 1)
     relative_pose = math_helpers.SE2Pose(0, 0, spin_amount)
     base_moves = [relative_pose] * num_spins
-    return _find_objects_with_choreographed_moves(robot,
-                                                  localizer,
-                                                  object_ids,
-                                                  base_moves,
-                                                  use_gui=True)
+    return _find_objects_with_choreographed_moves(
+        robot,
+        localizer,
+        object_ids,
+        base_moves,
+        relative_hand_moves=relative_hand_moves,
+        use_gui=True)
 
 
 def find_objects(
