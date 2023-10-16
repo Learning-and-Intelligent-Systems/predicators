@@ -35,7 +35,8 @@ from predicators.spot_utils.skills.spot_navigation import go_home, \
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import get_graph_nav_dir, \
-    get_robot_gripper_open_percentage, load_spot_metadata, verify_estop
+    get_robot_gripper_open_percentage, get_spot_home_pose, \
+    load_spot_metadata, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, State, \
     STRIPSOperator, Type, Variable
@@ -697,7 +698,36 @@ def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
 
 
 def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
-    import ipdb; ipdb.set_trace()
+    blocker_obj, blocked_obj = objects
+
+    if blocker_obj == blocked_obj:
+        return False
+
+    # Draw a line between blocked and the robot’s home pose.
+    # Check if blocker intersects that line.
+    robot_home_pose = get_spot_home_pose()
+    robot_home_x = robot_home_pose.x
+    robot_home_y = robot_home_pose.y
+
+    blocked_x = state.get(blocked_obj, "x")
+    blocked_y = state.get(blocked_obj, "y")
+
+    blocked_robot_line = utils.LineSegment(robot_home_x, robot_home_y,
+                                           blocked_x, blocked_y)
+
+    blocker_geom = _object_to_top_down_geom(blocker_obj, state)
+
+    return blocker_geom.intersects(blocked_robot_line)
+
+
+def _not_blocked_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj, = objects
+    _, blocker_type = _Blocking.types
+    for blocker in state.get_objects(blocker_type):
+        if _blocking_classifier(state, [blocker, obj]):
+            return False
+    return True
+
 
 _On = Predicate("On", [_movable_object_type, _base_object_type],
                 _on_classifier)
@@ -710,6 +740,10 @@ _InView = Predicate("InView", [_robot_type, _movable_object_type],
                     in_view_classifier)
 _Reachable = Predicate("Reachable", [_robot_type, _base_object_type],
                        _reachable_classifier)
+_Blocking = Predicate("Blocking", [_base_object_type, _movable_object_type],
+                      _blocking_classifier)
+_NotBlocked = Predicate("NotBlocked", [_movable_object_type],
+                        _not_blocked_classifier)
 
 
 ## Operators (needed in the environment for non-percept atom hack)
@@ -720,7 +754,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     obj = Variable("?object", _base_object_type)
     parameters = [robot, obj]
-    preconds: Set[LiftedAtom] = set()
+    preconds = {LiftedAtom(_NotBlocked, [obj])}
     add_effs = {LiftedAtom(_Reachable, [robot, obj])}
     del_effs: Set[LiftedAtom] = set()
     ignore_effs = {_Reachable, _InView}
@@ -731,7 +765,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     obj = Variable("?object", _movable_object_type)
     parameters = [robot, obj]
-    preconds = set()
+    preconds = {LiftedAtom(_NotBlocked, [obj])}
     add_effs = {LiftedAtom(_InView, [robot, obj])}
     del_effs = set()
     ignore_effs = {_Reachable, _InView}
@@ -839,6 +873,8 @@ class SpotCubeEnv(SpotRearrangementEnv):
             _Holding,
             _Reachable,
             _InView,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -850,6 +886,8 @@ class SpotCubeEnv(SpotRearrangementEnv):
             _On,
             _InView,
             _Reachable,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -932,6 +970,8 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
             _Holding,
             _Reachable,
             _InView,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -943,6 +983,8 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
             _On,
             _InView,
             _Reachable,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -1024,6 +1066,8 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
             _Reachable,
             _InView,
             _Inside,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -1036,6 +1080,8 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
             _Reachable,
             _InView,
             _Inside,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -1115,6 +1161,8 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             _Holding,
             _Reachable,
             _InView,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
@@ -1126,6 +1174,8 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             _On,
             _Reachable,
             _InView,
+            _Blocking,
+            _NotBlocked,
         }
 
     @property
