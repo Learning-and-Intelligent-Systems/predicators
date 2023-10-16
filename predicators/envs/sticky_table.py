@@ -390,8 +390,13 @@ class StickyTableEnv(BaseEnv):
                 }
             tables = sorted(state_dict)
             # rng.shuffle(tables)  # type: ignore
-            target_table = tables[-1]
-            cube_table, cup_table  = tables[:2]
+            # 50-50 probability that goal is one table
+            # or another.
+            if rng.random() < 0.5:
+                target_table = tables[-1]
+            else:
+                target_table = tables[0]
+            cube_table, cup_table  = tables[-3:-1]
             # Create cube.
             size = radius * self.objs_scale
             table_x = state_dict[cube_table]["x"]
