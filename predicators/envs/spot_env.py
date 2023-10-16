@@ -491,7 +491,7 @@ class SpotRearrangementEnv(BaseEnv):
         go_home(self._robot, self._localizer)
         self._localizer.localize()
         detection_ids = self._detection_id_to_obj.keys()
-        detections = self._run_init_search_for_objects(detection_ids)
+        detections = self._run_init_search_for_objects(set(detection_ids))
         stow_arm(self._robot)
         obj_to_se3_pose = {
             self._detection_id_to_obj[det_id]: val
@@ -616,7 +616,8 @@ def _object_in_xy_classifier(state: State,
         return False
 
     spot, = state.get_objects(_robot_type)
-    if _holding_classifier(state, [spot, obj1]):
+    if obj1.is_instance(_movable_object_type) and \
+        _holding_classifier(state, [spot, obj1]):
         return False
 
     # Check that the center of the object is contained within the surface in

@@ -64,7 +64,7 @@ static-object-features:
     width: 0.23
     length: 0.23
   chair:
-    shape: 1
+    shape: 2
     height: 0.8
-    length: 0.6
-    width: 0.6
+    length: 0.5
+    width: 0.5
