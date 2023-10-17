@@ -313,7 +313,7 @@ class SpotPerceiver(BasePerceiver):
             return {GroundAtom(On, [cube, target])}
         if goal_description == "put the soda on the smooth table":
             can = Object("soda_can", _movable_object_type)
-            smooth = Object("smooth", _immovable_object_type)
+            smooth = Object("smooth_table", _immovable_object_type)
             On = pred_name_to_pred["On"]
             return {GroundAtom(On, [can, smooth])}
         if goal_description == "put the soda in the bucket":
