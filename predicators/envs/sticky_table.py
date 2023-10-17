@@ -191,7 +191,7 @@ class StickyTableEnv(BaseEnv):
                         if self._table_is_sticky(table, state):
                             # Check if placing on the smooth side of the sticky table.
                             table_y = state.get(table, "y")
-                            if self.sticky_surface_mode == "half" and act_y < table_y + 0.3 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
+                            if self.sticky_surface_mode == "half" and act_y < table_y + 0.35 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
                                 if obj_being_held in [cube, cup]:
                                     fall_prob = self._place_smooth_fall_prob
                                 else:
@@ -392,11 +392,11 @@ class StickyTableEnv(BaseEnv):
             # rng.shuffle(tables)  # type: ignore
             # 33-66 probability that goal is one table
             # or another.
-            if rng.random() < 0.3333:
-                target_table = tables[-1]
-            else:
-                target_table = tables[0]
-            cube_table, cup_table  = tables[-3:-1]
+            # if rng.random() < 0.3333:
+            target_table = tables[-1]
+            # else:
+            #     target_table = tables[0]
+            cube_table, cup_table, ball_table  = tables[-4:-1]
             # Create cube.
             size = radius * self.objs_scale
             table_x = state_dict[cube_table]["x"]
@@ -436,9 +436,13 @@ class StickyTableEnv(BaseEnv):
                 if self._OnTable_holds(state, [cup, cup_table]):
                     break
             # Create ball.
+            table_x = state_dict[ball_table]["x"]
+            table_y = state_dict[ball_table]["y"]
             while True:
-                x = rng.uniform(self.x_lb, self.x_ub)
-                y = rng.uniform(self.y_lb, self.y_ub)
+                theta = rng.uniform(0, 2 * np.pi)
+                dist = rng.uniform(0, radius)
+                x = table_x + dist * np.cos(theta)
+                y = table_y + dist * np.sin(theta)
                 ball = Object("ball", self._ball_type)
                 state_dict[ball] = {
                     "x": x,
@@ -448,7 +452,7 @@ class StickyTableEnv(BaseEnv):
                     "held": 0.0
                 }
                 state = utils.create_state_from_dict(state_dict)
-                if self._OnFloor_holds(state, [ball]):
+                if self._OnTable_holds(state, [ball, ball_table]):
                     break
             # Create robot.
             while True:

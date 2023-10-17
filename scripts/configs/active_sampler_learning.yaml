@@ -84,8 +84,8 @@ FLAGS:
   active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 20
-  num_online_learning_cycles: 13
+  max_num_steps_interaction_request: 24
+  num_online_learning_cycles: 10
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
   horizon: 12
