@@ -855,6 +855,26 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("DropObjectInside", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
+    # DragToUnblockObject
+    robot = Variable("?robot", _robot_type)
+    blocked = Variable("?blocked", _base_object_type)
+    blocker = Variable("?blocker", _movable_object_type)
+    parameters = [robot, blocked, blocker]
+    preconds = {
+        LiftedAtom(_Blocking, [blocker, blocked]),
+        LiftedAtom(_Holding, [robot, blocker]),
+    }
+    add_effs = {
+        LiftedAtom(_NotBlocked, [blocked]),
+        LiftedAtom(_HandEmpty, [robot]),
+    }
+    del_effs = {
+        LiftedAtom(_Blocking, [blocker, blocked]),
+        LiftedAtom(_Holding, [robot, blocker]),
+    }
+    yield STRIPSOperator("DragToUnblockObject", parameters, preconds, add_effs,
+                         del_effs, ignore_effs)
+
 
 ###############################################################################
 #                                Cube Table Env                               #
@@ -885,6 +905,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
     def types(self) -> Set[Type]:
         return {
             _robot_type,
+            _base_object_type,
             _movable_object_type,
             _immovable_object_type,
         }
@@ -982,6 +1003,7 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
     def types(self) -> Set[Type]:
         return {
             _robot_type,
+            _base_object_type,
             _movable_object_type,
             _immovable_object_type,
         }
@@ -1076,6 +1098,7 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
     def types(self) -> Set[Type]:
         return {
             _robot_type,
+            _base_object_type,
             _movable_object_type,
             _immovable_object_type,
             _container_type,
@@ -1161,6 +1184,9 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             "MoveToReachObject",
             "MoveToViewObject",
             "PickObjectFromTop",
+            "PlaceObjectOnTop",
+            "DropObjectInside",
+            "DragToUnblockObject",
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
 
@@ -1172,6 +1198,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
     def types(self) -> Set[Type]:
         return {
             _robot_type,
+            _base_object_type,
             _movable_object_type,
             _immovable_object_type,
             _container_type,
@@ -1185,6 +1212,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             _Holding,
             _Reachable,
             _InView,
+            _Inside,
             _Blocking,
             _NotBlocked,
         }
@@ -1198,6 +1226,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             _On,
             _Reachable,
             _InView,
+            _Inside,
             _Blocking,
             _NotBlocked,
         }
@@ -1215,9 +1244,13 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
         soda_can_detection = LanguageObjectDetectionID("soda can")
         detection_id_to_obj[soda_can_detection] = soda_can
 
-        chair = Object("chair", _container_type)
+        chair = Object("chair", _movable_object_type)
         chair_detection = LanguageObjectDetectionID("chair")
         detection_id_to_obj[chair_detection] = chair
+
+        bucket = Object("bucket", _container_type)
+        bucket_detection = LanguageObjectDetectionID("bucket")
+        detection_id_to_obj[bucket_detection] = bucket
 
         known_immovables = load_spot_metadata()["known-immovable-objects"]
         for obj_name, obj_pos in known_immovables.items():
@@ -1235,7 +1268,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
         return set()
 
     def _generate_goal_description(self) -> GoalDescription:
-        return "pick up the soda can"
+        return "put the soda in the bucket"
 
     def _run_init_search_for_objects(
         self, detection_ids: Set[ObjectDetectionID]

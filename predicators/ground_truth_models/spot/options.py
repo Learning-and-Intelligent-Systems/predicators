@@ -12,6 +12,7 @@ from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotRearrangementEnv, \
     _object_to_top_down_geom, get_detection_id_for_object, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
+from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     get_last_detected_objects, get_object_center_pixel_from_artifacts
 from predicators.spot_utils.perception.perception_structs import \
@@ -89,6 +90,19 @@ def _drop_at_relative_position_and_look(
     move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE)
 
 
+def _drag_and_release(robot: Robot, rel_pose: math_helpers.SE2Pose) -> None:
+    # First navigate to the pose.
+    navigate_to_relative_pose(robot, rel_pose)
+    # Open the gripper.
+    open_gripper(robot)
+    # Move the gripper up a little bit.
+    move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE)
+    # Stow the arm.
+    stow_arm(robot)
+    # Move backward to avoid hitting the chair subsequently.
+    navigate_to_relative_pose(robot, math_helpers.SE2Pose(0.0, -0.5, 0.0))
+
+
 ###############################################################################
 #                    Helper parameterized option policies                     #
 ###############################################################################
@@ -115,8 +129,9 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
 
     rel_pose = get_relative_se2_from_se3(robot_pose, target_pose, distance,
                                          yaw)
+    target_height = state.get(target_obj, "height")
     gaze_target = math_helpers.Vec3(target_pose.x, target_pose.y,
-                                    target_pose.z)
+                                    target_pose.z + target_height / 2)
 
     if not do_gaze:
         fn: Callable = navigate_to_relative_pose
@@ -130,7 +145,7 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
 
 def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
                   objects: Sequence[Object], params: Array) -> Action:
-    del state, memory, params  # not used
+    del memory, params  # not used
 
     robot, _, _ = get_robot()
 
@@ -147,8 +162,15 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
     # Grasp from the top-down.
     top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
 
-    return utils.create_spot_env_action(name, objects,
-                                        _grasp_at_pixel_and_stow,
+    # If the target object is reasonably large, don't try to stow!
+    target_obj_volume = state.get(target_obj, "height") * \
+        state.get(target_obj, "length") * state.get(target_obj, "width")
+    if target_obj_volume > CFG.spot_grasp_stow_volume_threshold:
+        fn: Callable = grasp_at_pixel
+    else:
+        fn = _grasp_at_pixel_and_stow
+
+    return utils.create_spot_env_action(name, objects, fn,
                                         (robot, img, pixel, top_down_rot))
 
 
@@ -261,6 +283,20 @@ def _drop_object_inside_policy(state: State, memory: Dict,
                                         (robot, place_rel_pos))
 
 
+def _drag_to_unblock_object_policy(state: State, memory: Dict,
+                                   objects: Sequence[Object],
+                                   params: Array) -> Action:
+    del state, memory  # not used
+
+    name = "DragToUnblockObject"
+    robot, _, _ = get_robot()
+    dx, dy, dyaw = params
+    move_rel_pos = math_helpers.SE2Pose(dx, dy, angle=dyaw)
+
+    return utils.create_spot_env_action(name, objects, _drag_and_release,
+                                        (robot, move_rel_pos))
+
+
 ###############################################################################
 #                       Parameterized option factory                          #
 ###############################################################################
@@ -271,6 +307,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "PickObjectFromTop": Box(0, 1, (0, )),
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
+    "DragToUnblockObject": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dyaw
 }
 
 _OPERATOR_NAME_TO_POLICY = {
@@ -279,6 +316,7 @@ _OPERATOR_NAME_TO_POLICY = {
     "PickObjectFromTop": _pick_object_from_top_policy,
     "PlaceObjectOnTop": _place_object_on_top_policy,
     "DropObjectInside": _drop_object_inside_policy,
+    "DragToUnblockObject": _drag_to_unblock_object_policy,
 }
 
 

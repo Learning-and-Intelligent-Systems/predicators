@@ -172,6 +172,7 @@ class GlobalSettings:
     spot_vision_detection_threshold = 0.3
     spot_perception_outdir = "spot_perception_outputs"
     spot_graph_nav_map = "floor8-v2"
+    spot_grasp_stow_volume_threshold = 0.1
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3

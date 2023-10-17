@@ -68,6 +68,14 @@ def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
     return np.array([0.0, 0.0, 0.5])
 
 
+def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],
+                                    rng: np.random.Generator,
+                                    objs: Sequence[Object]) -> Array:
+    # Parameters are relative dx, dy, dyaw to move while holding.
+    del state, goal, objs, rng  # randomization coming soon
+    return np.array([-1.0, 0.5, np.pi / 3])
+
+
 class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the Spot Env."""
 
@@ -94,6 +102,7 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "PickObjectFromTop": _pick_object_from_top_sampler,
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
+            "DragToUnblockObject": _drag_to_unblock_object_sampler,
         }
 
         for strips_op in env.strips_operators:
