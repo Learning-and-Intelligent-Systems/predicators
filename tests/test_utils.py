@@ -2318,12 +2318,16 @@ def test_create_pddl():
     env = ProceduralTasksSpannerPDDLEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
+    # Test case where there is a special type with no parents or children.
+    monkey_type = Type("monkey", [])
+    types = env.types | {monkey_type}
+    domain_str = utils.create_pddl_domain(nsrts, env.predicates, types,
                                           "spanner")
     assert domain_str == """(define (domain spanner)
   (:requirements :typing)
   (:types 
     man nut spanner - locatable
+    monkey
     locatable location - object)
 
   (:predicates
