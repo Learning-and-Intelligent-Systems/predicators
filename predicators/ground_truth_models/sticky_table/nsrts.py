@@ -394,7 +394,7 @@ class StickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             LiftedAtom(BallOnFloor, [ball]),
         }
         delete_effects = {LiftedAtom(HoldingBall, [ball])}
-        ignore_effects = {BallInCup}
+        ignore_effects = {BallInCup, ReachableBall}
         placeballonfloor_nsrt = NSRT("PlaceBallOnFloor", parameters,
                                      preconditions, add_effects,
                                      delete_effects, ignore_effects, option,

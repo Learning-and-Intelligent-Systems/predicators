@@ -1297,8 +1297,9 @@ def nsrt_plan_to_greedy_option_policy(
             raise OptionExecutionFailure("NSRT plan exhausted.")
         expected_atoms = necessary_atoms_queue.pop(0)
         if not all(a.holds(state) for a in expected_atoms):
+            offending_atoms = [a for a in expected_atoms if not a.holds(state)]
             raise OptionExecutionFailure(
-                "Executing the NSRT failed to achieve the necessary atoms.")
+                f"Executing the NSRT failed to achieve the necessary atoms. Offending atoms: {offending_atoms}")
         cur_nsrt = nsrt_queue.pop(0)
         cur_option = cur_nsrt.sample_option(state, goal, rng)
         logging.debug(f"Using option {cur_option.name}{cur_option.objects} "

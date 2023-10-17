@@ -101,6 +101,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None
         using_random = False
+        current_goal_being_pursued: Optional[Set[GroundAtom]] = None
 
         def _option_policy(state: State) -> _Option:
             logging.info("[Explorer] Option policy called.")
@@ -165,6 +166,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                     logging.info("[Explorer] Pursuing repeat task")
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
+                        nonlocal current_goal_being_pursued
                         # Loop through seen tasks in random order. Propose
                         # their initial abstract states and their goals until
                         # one is found that is not already achieved.
@@ -174,12 +176,20 @@ class ActiveSamplerExplorer(BaseExplorer):
                             task = self._train_tasks[train_task_idx]
                             # Can only practice the task if the objects match.
                             if set(task.init) == set(state):
+                                # If we've already been trying to achieve a particular
+                                # goal, then keep trying to achieve it.
+                                if current_goal_being_pursued is not None:
+                                    current_pursuit_goal_achieved = all(a.holds(state) for a in current_goal_being_pursued)
+                                    if not current_pursuit_goal_achieved:
+                                        yield current_goal_being_pursued
+                                # Else, figure out the next goal to plan to!
                                 possible_goals = [
                                     task.goal,
                                     utils.abstract(task.init, self._predicates)
                                 ]
                                 for goal in possible_goals:
                                     if any(not a.holds(state) for a in goal):
+                                        current_goal_being_pursued = goal
                                         yield goal
 
                 # Otherwise, practice.
@@ -244,8 +254,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             try:
                 act = current_policy(state)
                 return act
-            except utils.OptionExecutionFailure:
-                logging.info("[Explorer] Option execution failure!")
+            except utils.OptionExecutionFailure as e:
+                logging.info(f"[Explorer] Option execution failure! {e}")
                 current_policy = None
             # Call recursively to trigger re-planning.
             return _option_policy(state)
