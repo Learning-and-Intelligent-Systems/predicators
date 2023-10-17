@@ -392,7 +392,7 @@ class StickyTableEnv(BaseEnv):
             # rng.shuffle(tables)  # type: ignore
             # 50-50 probability that goal is one table
             # or another.
-            if rng.random() < 0.5:
+            if rng.random() < 0.3333:
                 target_table = tables[-1]
             else:
                 target_table = tables[0]
