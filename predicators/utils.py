@@ -2806,7 +2806,14 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
         for parent_type in sorted(parent_to_children_types):
             child_types = parent_to_children_types[parent_type]
             if not child_types:
-                types_str += f"\n    {parent_type.name}"
+                # Special case: type has no children and also does not appear as a
+                # child of another type.
+                is_child_type = any(
+                    parent_type in children
+                    for children in parent_to_children_types.values())
+                if not is_child_type:
+                    types_str += f"\n    {parent_type.name}"
+                # Otherwise, the type will appear as a child elsewhere.
             else:
                 child_type_str = " ".join(t.name for t in child_types)
                 types_str += f"\n    {child_type_str} - {parent_type.name}"
