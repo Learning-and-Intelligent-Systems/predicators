@@ -231,8 +231,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                             "assumption of our active sampler learning "
                             "framework; ensure you DO NOT see this message "
                             "if you're running experiments comparing"
-                            "different active sampler learning approaches."
-                        )
+                            "different active sampler learning approaches.")
                         continue
                     logging.info("[Explorer] Plan found.")
                     break
