@@ -2806,8 +2806,8 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
         for parent_type in sorted(parent_to_children_types):
             child_types = parent_to_children_types[parent_type]
             if not child_types:
-                # Special case: type has no children and also does not appear as a
-                # child of another type.
+                # Special case: type has no children and also does not appear
+                # as a child of another type.
                 is_child_type = any(
                     parent_type in children
                     for children in parent_to_children_types.values())
