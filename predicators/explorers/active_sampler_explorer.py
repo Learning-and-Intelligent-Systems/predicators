@@ -97,7 +97,7 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         assigned_task = self._train_tasks[train_task_idx]
         assigned_task_finished = False
-        assigned_task_horizon = CFG.horizon
+        assigned_task_horizon = CFG.horizon * 1.5
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None
         using_random = False
