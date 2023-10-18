@@ -191,7 +191,7 @@ class StickyTableEnv(BaseEnv):
                         if self._table_is_sticky(table, state):
                             # Check if placing on the smooth side of the sticky table.
                             table_y = state.get(table, "y")
-                            if self.sticky_surface_mode == "half" and act_y < table_y + 0.35 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
+                            if self.sticky_surface_mode == "half" and act_y < table_y + 0.4 * (state.get(table, "radius") - (state.get(cube, "size") / 2)):
                                 if obj_being_held in [cube, cup]:
                                     fall_prob = self._place_smooth_fall_prob
                                 else:
