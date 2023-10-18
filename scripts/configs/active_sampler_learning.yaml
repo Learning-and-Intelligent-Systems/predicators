@@ -1,12 +1,12 @@
 # Final active sampler learning experiments.
 ---
 APPROACHES:
-  planning_progress_explore-oracle:
+  planning_progress_explore-all:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "planning_progress"
-  task_repeat_explore-oracle:
+  task_repeat_explore-all:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
@@ -90,6 +90,6 @@ FLAGS:
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
   horizon: 8
-  active_sampler_learning_feature_selection: oracle
+  active_sampler_learning_feature_selection: all
 START_SEED: 456
 NUM_SEEDS: 10
