@@ -593,6 +593,12 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
                 # Randomly select a sample to pick, following the epsilon
                 # greedy strategy!
                 idx = rng.integers(0, len(scores))
+            # logging.info("\n")
+            # logging.info(samples)
+            # logging.info(scores)
+            # logging.info("\n")
+            # if len(set(scores)) > 1:
+            #     import ipdb; ipdb.set_trace()
         else:
             raise NotImplementedError('Exploration strategy ' +
                                       f'{strategy} ' + 'is not implemented.')

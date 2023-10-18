@@ -143,7 +143,7 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[robot_type, ball_type, cup_type, table_type])
 
         PlaceCupWithBallOnFloor = utils.SingletonParameterizedOption(
-            # variables: [robot, ball, cup, floor]
+            # variables: [robot, ball, cup]
             "PlaceCupWithBallOnFloor",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.
@@ -151,7 +151,7 @@ class StickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[robot_type, ball_type, cup_type])
 
         PlaceCupWithoutBallOnFloor = utils.SingletonParameterizedOption(
-            # variables: [robot, ball, cup, floor]
+            # variables: [robot, ball, cup]
             "PlaceCupWithoutBallOnFloor",
             cls._create_pass_through_policy(action_space),
             # Parameters are absolute x, y actions.

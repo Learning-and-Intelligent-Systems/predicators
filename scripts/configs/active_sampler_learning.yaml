@@ -48,9 +48,10 @@ ENVS:
       sticky_table_num_sticky_tables: 1
       sticky_table_num_tables: 5
       sticky_table_place_ball_fall_prob: 1.00
-      active_sampler_learning_explore_length_base: 12
+      active_sampler_learning_explore_length_base: 20
       active_sampler_learning_exploration_epsilon: 0.1
       skill_competence_model_optimistic_recency_size: 2
+      skill_competence_model_optimistic_window_size: 2
   # sticky_table_tricky_floor:
   #   NAME: "sticky_table_tricky_floor"
   # regional_bumpy_cover:
@@ -84,11 +85,11 @@ FLAGS:
   active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 24
-  num_online_learning_cycles: 10
+  max_num_steps_interaction_request: 100
+  num_online_learning_cycles: 5
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
-  horizon: 12
+  horizon: 8
   active_sampler_learning_feature_selection: oracle
 START_SEED: 456
 NUM_SEEDS: 10

@@ -275,7 +275,6 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
         for obj in objects:
             sampler_input_lst.extend(state[obj])
         sampler_input_lst.extend(params)
-
     else:
         assert CFG.active_sampler_learning_feature_selection == "oracle"
         if CFG.env == "bumpy_cover":
@@ -300,22 +299,48 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 assert len(params) == 1
                 sampler_input_lst.append(params[0] - target_pos)
         elif "sticky_table" in CFG.env:
-            if "Place" in param_option.name and "Table" in param_option.name:
-                table = objects[-1]
-                robot = objects[0]
+            if "PlaceCup" in param_option.name and "Table" in param_option.name:
+                robot, ball, cup, table = objects
                 robot_y = state.get(robot, "y")
                 robot_x = state.get(robot, "x")
                 table_y = state.get(table, "y")
                 table_x = state.get(table, "x")
                 sticky = state.get(table, "sticky")
                 table_radius = state.get(table, "radius")
-                _, _, _, param_x, param_y = params
-                sampler_input_lst.append(robot_x - table_x)
-                sampler_input_lst.append(robot_y - table_y)
+                a, b, c, param_x, param_y = params
                 sampler_input_lst.append(table_radius)
                 sampler_input_lst.append(sticky)
-                sampler_input_lst.append(param_x - table_x)
-                sampler_input_lst.append(param_y - table_y)
+                sampler_input_lst.append(robot_x)
+                sampler_input_lst.append(robot_y)
+                sampler_input_lst.append(table_x)
+                sampler_input_lst.append(table_y)
+                sampler_input_lst.append(a)
+                sampler_input_lst.append(b)
+                sampler_input_lst.append(c)
+                sampler_input_lst.append(param_x)
+                sampler_input_lst.append(param_y)
+            # if "Place" in param_option.name and "Table" in param_option.name:
+            #     table = objects[-1]
+            #     robot = objects[0]
+            #     robot_y = state.get(robot, "y")
+            #     robot_x = state.get(robot, "x")
+            #     table_y = state.get(table, "y")
+            #     table_x = state.get(table, "x")
+            #     sticky = state.get(table, "sticky")
+            #     table_radius = state.get(table, "radius")
+            #     _, _, _, param_x, param_y = params
+            #     # sampler_input_lst.append(robot_x - table_x)
+            #     # sampler_input_lst.append(robot_y - table_y)
+            #     sampler_input_lst.append(table_radius)
+            #     sampler_input_lst.append(sticky)
+            #     sampler_input_lst.append(robot_x)
+            #     sampler_input_lst.append(robot_y)
+            #     sampler_input_lst.append(table_x)
+            #     sampler_input_lst.append(table_y)
+            #     sampler_input_lst.append(param_x)
+            #     sampler_input_lst.append(param_y)
+            #     # sampler_input_lst.append(param_x - table_x)
+            #     # sampler_input_lst.append(param_y - table_y)
             elif "NavigateTo" in param_option.name:
                 _, obj = objects
                 obj_x = state.get(obj, "x")
