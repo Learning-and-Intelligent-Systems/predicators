@@ -356,9 +356,9 @@ class StickyTableEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
-            # The goal is to move the cube to some table.
-            # The table positions are static
-            # The initial location of the cube, the goal
+            # The table positions are randomized to one of a few positions
+            # in a ring around the center of the room.
+            # The initial location of the cube, the goal.
             # and the robot are randomized.
             num_tables = CFG.sticky_table_num_tables
             assert num_tables >= 2
@@ -367,11 +367,14 @@ class StickyTableEnv(BaseEnv):
             origin_x = (self.x_ub - self.x_lb) / 2
             origin_y = (self.y_ub - self.y_lb) / 2
             d = min(self.x_ub - self.x_lb, self.y_ub - self.y_lb) / 3
-            thetas = np.linspace(0, 2 * np.pi, num=num_tables, endpoint=False)
+            thetas = np.linspace(0, 2 * np.pi, num=num_tables * 2, endpoint=False)
             # Select the radius to prevent any overlap. Exact would be
             # d * sin(theta / 2). Divide by 2 to be conservative.
             angle_diff = thetas[1] - thetas[0]
             radius = d * np.sin(angle_diff / 2) / 2
+            # Select the location of the table randomly from the
+            # previously-generated ring.
+            rng.shuffle(thetas)
             for i, theta in enumerate(thetas):
                 x = d * np.cos(theta) + origin_x
                 y = d * np.sin(theta) + origin_y
@@ -417,13 +420,15 @@ class StickyTableEnv(BaseEnv):
                 if self._OnTable_holds(state, [cube, cube_table]):
                     break
             # Create cup.
-            table_x = state_dict[cup_table]["x"]
-            table_y = state_dict[cup_table]["y"]
+            # table_x = state_dict[cup_table]["x"]
+            # table_y = state_dict[cup_table]["y"]
             while True:
-                theta = rng.uniform(0, 2 * np.pi)
-                dist = rng.uniform(0, radius)
-                x = table_x + dist * np.cos(theta)
-                y = table_y + dist * np.sin(theta)
+                # theta = rng.uniform(0, 2 * np.pi)
+                # dist = rng.uniform(0, radius)
+                # x = table_x + dist * np.cos(theta)
+                # y = table_y + dist * np.sin(theta)
+                x = rng.uniform(self.x_lb, self.x_ub)
+                y = rng.uniform(self.y_lb, self.y_ub)
                 cup = Object("cup", self._cup_type)
                 state_dict[cup] = {
                     "x": x,
@@ -433,7 +438,7 @@ class StickyTableEnv(BaseEnv):
                     "held": 0.0,
                 }
                 state = utils.create_state_from_dict(state_dict)
-                if self._OnTable_holds(state, [cup, cup_table]):
+                if self._OnFloor_holds(state, [cup]):
                     break
             # Create ball.
             table_x = state_dict[ball_table]["x"]
