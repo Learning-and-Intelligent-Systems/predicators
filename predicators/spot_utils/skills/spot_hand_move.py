@@ -1,9 +1,11 @@
 """Interface for moving the spot hand."""
 
 from bosdyn.client import math_helpers
-from bosdyn.client.frame_helpers import BODY_FRAME_NAME
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME, ODOM_FRAME_NAME, \
+    get_a_tform_b
 from bosdyn.client.robot_command import RobotCommandBuilder, \
     RobotCommandClient, block_until_arm_arrives
+from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 
 
@@ -37,9 +39,18 @@ def gaze_at_relative_pose(
     """Gaze at a point relative to the robot's body frame."""
     robot_command_client = robot.ensure_client(
         RobotCommandClient.default_service_name)
+    # Transform the gaze target from the body frame to the odom frame because
+    # the gaze command results in shaking in the body frame.
+    robot_state_client = robot.ensure_client(
+        RobotStateClient.default_service_name)
+    robot_state = robot_state_client.get_robot_state()
+    odom_tform_body = get_a_tform_b(
+        robot_state.kinematic_state.transforms_snapshot, ODOM_FRAME_NAME,
+        BODY_FRAME_NAME)
+    gaze_target = odom_tform_body.transform_vec3(gaze_target)
     # Build the arm command.
-    cmd = RobotCommandBuilder.arm_gaze_command(gaze_target[0], gaze_target[1],
-                                               gaze_target[2], BODY_FRAME_NAME)
+    cmd = RobotCommandBuilder.arm_gaze_command(gaze_target.x, gaze_target.y,
+                                               gaze_target.z, ODOM_FRAME_NAME)
     # Send the request.
     cmd_id = robot_command_client.robot_command(cmd)
     # Wait until the arm arrives at the goal.
