@@ -415,6 +415,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Make plans on some of the training tasks we've seen so far and record
         # the total plan costs.
         plan_costs: List[float] = []
+        plans = []
         # Select an arbitrary but constant subset of the training tasks.
         # Don't randomize: would lead to noisy estimates that artificially
         # favor some operators over others.
@@ -434,6 +435,21 @@ class ActiveSamplerExplorer(BaseExplorer):
                 op_cost = ground_op_costs.get(op, self._default_cost)
                 task_plan_costs.append(op_cost)
             plan_costs.append(sum(task_plan_costs))
+            plans.append(plan)
+
+        # if "Place" in ground_op.name:
+        #     logging.info("\n")
+        #     logging.info(f"Ground op name: {ground_op.name}")
+        #     for g_op, cost in ground_op_costs.items():
+        #         logging.info(f"{g_op.name, cost}")            
+        #     logging.info("\n")
+        #     for i in range(len(plan_costs)):
+        #         logging.info(f"{[op.name for op in plans[i]]}")
+        #         logging.info(f"{plan_costs[i]}")
+
+        # if "PlaceCup" in ground_op.name and "Table" in ground_op.name:
+        #     import ipdb; ipdb.set_trace()
+
         return -sum(plan_costs)  # higher scores are better
 
     def _get_task_plan_for_task(
