@@ -396,15 +396,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
                         assert self._Holding_holds(next_state, [cup])
             # Placing logic.
             else:
-                # First, check that we are only attempting to place
-                # within our reachable radius.
-                if self._euclidean_reachability_check(state.get(robot, "x"),
-                                                      state.get(robot, "y"),
-                                                      act_x, act_y):
-                    # No matter what, we will release the object
-                    # being held.
-                    if obj_being_held is not None:
-                        next_state.set(obj_being_held, "held", 0.0)
+                if not hand_empty:
                     # Find the table for placing, if any.
                     table: Optional[Object] = None
                     for target in state.get_objects(self._table_type):
@@ -417,51 +409,64 @@ class BallAndCupStickyTableEnv(BaseEnv):
                         next_state = self._handle_placing_object(
                             act_x, act_y, next_state, obj_being_held, ball,
                             cup, ball_in_cup, ball_only)
+                        # Release object being held.
+                        if obj_being_held is not None:
+                            next_state.set(obj_being_held, "held", 0.0)
                         assert self._OnFloor_holds(next_state,
-                                                   [obj_being_held])
+                                                    [obj_being_held])
                     else:
-                        if obj_type_id == 3.0:
-                            # Possibly put on the table, or have it fall somewhere near.
-                            fall_prob = self._place_sticky_fall_prob
-                            if obj_being_held == ball:
-                                fall_prob = self._place_ball_fall_prob
-                            if self._table_is_sticky(table, state):
-                                # Check if placing on the smooth side of the sticky table,
-                                # and set fall prob accordingly.
-                                table_y = state.get(table, "y")
-                                if self.sticky_surface_mode == "half" and act_y < table_y:
-                                    if obj_being_held == cup:
-                                        fall_prob = self._place_smooth_fall_prob
-                                    else:
-                                        assert obj_being_held == ball
-                                        fall_prob = 1.0
-                            # Handle object falling or placing on table surface.
-                            if self._noise_rng.uniform() < fall_prob:
-                                fall_x, fall_y = self._sample_floor_point_around_table(
-                                    table, state, self._noise_rng)
-                                next_state = self._handle_placing_object(
-                                    fall_x, fall_y, next_state, obj_being_held,
-                                    ball, cup, ball_in_cup, ball_only)
-                                assert self._OnFloor_holds(
-                                    next_state, [obj_being_held])
+                        # Check that we are only attempting to place
+                        # within our reachable radius. Note that we don't
+                        # check this for placing on the floor, because the
+                        # robot is allowed to 'throw' things onto the floor.
+                        if self._euclidean_reachability_check(state.get(robot, "x"),
+                                                            state.get(robot, "y"),
+                                                            act_x, act_y):
+                            # Release object being held.
+                            if obj_being_held is not None:
+                                next_state.set(obj_being_held, "held", 0.0)
+                            if obj_type_id == 3.0:
+                                # Possibly put on the table, or have it fall somewhere near.
+                                fall_prob = self._place_sticky_fall_prob
+                                if obj_being_held == ball:
+                                    fall_prob = self._place_ball_fall_prob
+                                if self._table_is_sticky(table, state):
+                                    # Check if placing on the smooth side of the sticky table,
+                                    # and set fall prob accordingly.
+                                    table_y = state.get(table, "y")
+                                    if self.sticky_surface_mode == "half" and act_y < table_y:
+                                        if obj_being_held == cup:
+                                            fall_prob = self._place_smooth_fall_prob
+                                        else:
+                                            assert obj_being_held == ball
+                                            fall_prob = 1.0
+                                # Handle object falling or placing on table surface.
+                                if self._noise_rng.uniform() < fall_prob:
+                                    fall_x, fall_y = self._sample_floor_point_around_table(
+                                        table, state, self._noise_rng)
+                                    next_state = self._handle_placing_object(
+                                        fall_x, fall_y, next_state, obj_being_held,
+                                        ball, cup, ball_in_cup, ball_only)
+                                    assert self._OnFloor_holds(
+                                        next_state, [obj_being_held])
+                                else:
+                                    next_state = self._handle_placing_object(
+                                        act_x, act_y, next_state, obj_being_held,
+                                        ball, cup, ball_in_cup, ball_only)
+                                    assert self._OnTable_holds(
+                                        next_state, [obj_being_held, table])
                             else:
-                                next_state = self._handle_placing_object(
-                                    act_x, act_y, next_state, obj_being_held,
-                                    ball, cup, ball_in_cup, ball_only)
-                                assert self._OnTable_holds(
-                                    next_state, [obj_being_held, table])
-                        else:
-                            assert obj_type_id == 2.0  # corresponding to placing in cup
-                            assert obj_being_held == ball
-                            next_state.set(ball, "x", act_x)
-                            next_state.set(ball, "y", act_y)
-                            next_state.set(ball, "held", 0.0)
-                            assert self._BallInCup_holds(
-                                next_state, [ball, cup])
-                            if self._OnFloor_holds(next_state, [cup]):
-                                assert self._OnFloor_holds(next_state, [ball])
-                    if ball_only < 0.5:
-                        assert self._HandEmpty_holds(next_state, [])
+                                assert obj_type_id == 2.0  # corresponding to placing in cup
+                                assert obj_being_held == ball
+                                next_state.set(ball, "x", act_x)
+                                next_state.set(ball, "y", act_y)
+                                next_state.set(ball, "held", 0.0)
+                                assert self._BallInCup_holds(
+                                    next_state, [ball, cup])
+                                if self._OnFloor_holds(next_state, [cup]):
+                                    assert self._OnFloor_holds(next_state, [ball])
+                            if ball_only < 0.5:
+                                assert self._HandEmpty_holds(next_state, [])
         else:
             # Navigation logic.
             pseudo_next_state = state.copy()
