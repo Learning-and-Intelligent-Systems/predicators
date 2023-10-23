@@ -981,6 +981,7 @@ class _GroundNSRT:
         """
         # Note that the sampler takes in ALL self.objects, not just the subset
         # self.option_objs of objects that are passed into the option.
+
         params = self._sampler(state, goal, rng, self.objects)
         # Clip the params into the params_space of self.option, for safety.
         low = self.option.params_space.low

@@ -257,10 +257,10 @@ class StickyTableEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng, train_or_test=True)
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng, train_or_test=False)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -353,7 +353,7 @@ class StickyTableEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[EnvironmentTask]:
+                   rng: np.random.Generator, train_or_test: bool) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
             # The table positions are randomized to one of a few positions
@@ -361,20 +361,25 @@ class StickyTableEnv(BaseEnv):
             # The initial location of the cube, the goal.
             # and the robot are randomized.
             num_tables = CFG.sticky_table_num_tables
+            if train_or_test:
+                theta_linspace = num_tables
+            else:
+                theta_linspace = num_tables * 3
             assert num_tables >= 2
             state_dict: Dict[Object, Dict[str, float]] = {}
             # Generate the tables in a ring around the center of the room.
             origin_x = (self.x_ub - self.x_lb) / 2
             origin_y = (self.y_ub - self.y_lb) / 2
             d = min(self.x_ub - self.x_lb, self.y_ub - self.y_lb) / 3
-            thetas = np.linspace(0, 2 * np.pi, num=num_tables * 2, endpoint=False)
+            # thetas = np.linspace(0, 2 * np.pi, num=theta_linspace, endpoint=False)
+            thetas = np.linspace(0, 2 * np.pi, num=num_tables, endpoint=False)
             # Select the radius to prevent any overlap. Exact would be
             # d * sin(theta / 2). Divide by 2 to be conservative.
             angle_diff = thetas[1] - thetas[0]
             radius = d * np.sin(angle_diff / 2) / 2
             # Select the location of the table randomly from the
             # previously-generated ring.
-            rng.shuffle(thetas)
+            # rng.shuffle(thetas)
             for i, theta in enumerate(thetas):
                 x = d * np.cos(theta) + origin_x
                 y = d * np.sin(theta) + origin_y

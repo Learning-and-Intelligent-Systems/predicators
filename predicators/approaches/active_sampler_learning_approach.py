@@ -270,6 +270,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             new_test_nsrts.add(new_test_nsrt)
             # Update the dictionary mapping NSRTs to exploration samplers.
             self._nsrt_to_explorer_sampler[nsrt] = explore_sampler
+
         # Special case, especially on the first iteration: if there was no
         # data for the sampler, then we didn't learn a wrapped sampler, so
         # we should just use the original NSRT.
@@ -338,6 +339,15 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         X_arr_classifier = np.array(X_classifier)
         # output is binary signal
         y_arr_classifier = np.array(y_classifier)
+
+        # if "PlaceCup" in nsrt.name and "Table" in nsrt.name:
+        #     print(nsrt.name)
+        #     print(X_arr_classifier)
+        #     print(y_arr_classifier)
+        #     print()
+        #     import ipdb; ipdb.set_trace()
+
+
         if CFG.active_sampler_learning_model.endswith("mlp"):
             classifier: BinaryClassifier = MLPBinaryClassifier(
                 seed=CFG.seed,
@@ -378,7 +388,7 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         score_fn = _classifier_to_score_fn(classifier, nsrt)
         wrapped_sampler_test = _wrap_sampler(base_sampler,
                                              score_fn,
-                                             strategy="greedy")
+                                             strategy="greedy",option=nsrt.option)
         wrapped_sampler_exploration = _wrap_sampler(
             base_sampler,
             score_fn,
@@ -437,14 +447,14 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
                                                          test_time=True)
         wrapped_sampler_test = _wrap_sampler(base_sampler,
                                              test_score_fn,
-                                             strategy="greedy")
+                                             strategy="greedy", option=nsrt.option)
         explore_score_fn = _classifier_ensemble_to_score_fn(classifier,
                                                             nsrt,
                                                             test_time=False)
         wrapped_sampler_exploration = _wrap_sampler(
             base_sampler,
             explore_score_fn,
-            strategy=CFG.active_sampler_learning_exploration_sample_strategy)
+            strategy=CFG.active_sampler_learning_exploration_sample_strategy,option=nsrt.option)
 
         return (wrapped_sampler_test, wrapped_sampler_exploration)
 
@@ -500,11 +510,11 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         self._next_nsrt_score_fns[nsrt] = score_fn
         wrapped_sampler_test = _wrap_sampler(base_sampler,
                                              score_fn,
-                                             strategy="greedy")
+                                             strategy="greedy", option=nsrt.option)
         wrapped_sampler_exploration = _wrap_sampler(
             base_sampler,
             score_fn,
-            strategy=CFG.active_sampler_learning_exploration_sample_strategy)
+            strategy=CFG.active_sampler_learning_exploration_sample_strategy, option=nsrt.option)
         return (wrapped_sampler_test, wrapped_sampler_exploration)
 
     def _predict(self, state: State, option: _Option) -> float:
@@ -575,9 +585,13 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
 
 # Helper functions.
 def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
-                  strategy: str) -> NSRTSampler:
+                  strategy: str, option:Optional[ParameterizedOption]=None) -> NSRTSampler:
     """Create a wrapped sampler that uses a score function to select among
     candidates from a base sampler."""
+
+    def _check_whether_sample_will_work(sample, table_x, table_y, table_rad, cube_size):
+        return sample[-1] > table_y + 0.25 * (table_rad - (cube_size / 2))
+
 
     def _sample(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
                 objects: Sequence[Object]) -> Array:
@@ -586,6 +600,25 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
             for _ in range(CFG.active_sampler_learning_num_samples)
         ]
         scores = score_fn(state, objects, samples)
+        # if "robot" in str(objects) and "ball" in str(objects) and "cup" in str(objects) and "sticky-table-0:table" in str(objects) and samples[0][1] == 3.0 and option is not None:
+        if option is not None and "PlaceCup" in option.name:
+            # print(samples)
+            # print(scores)
+            # print(np.max(scores))
+            # print(samples[np.argmax(scores)])
+            best_sample = samples[np.argmax(scores)]
+            table_x = state.get(objects[-1], 'x')
+            table_y = state.get(objects[-1], 'y')
+            table_rad = state.get(objects[-1], 'radius')
+            sample_successes = [_check_whether_sample_will_work(sample, table_x, table_y, table_rad, 0.00866299) for sample in samples]
+            learned_sampler_input = utils.construct_active_sampler_input(state, objects, best_sample,
+                                                 option)
+            print(f"Base Sampler Success Rate: {sum(sample_successes)/len(sample_successes)}")
+            best_sample_will_work = _check_whether_sample_will_work(best_sample, table_x, table_y, table_rad, 0.00866299)
+            print(best_sample_will_work)
+            print(learned_sampler_input)
+            print(option.name)
+            import ipdb; ipdb.set_trace()
         if strategy in ["greedy", "epsilon_greedy"]:
             idx = int(np.argmax(scores))
             if strategy == "epsilon_greedy" and rng.uniform(
