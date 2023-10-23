@@ -618,7 +618,7 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
             print(best_sample_will_work)
             print(learned_sampler_input)
             print(option.name)
-            import ipdb; ipdb.set_trace()
+            # import ipdb; ipdb.set_trace()
         if strategy in ["greedy", "epsilon_greedy"]:
             idx = int(np.argmax(scores))
             if strategy == "epsilon_greedy" and rng.uniform(

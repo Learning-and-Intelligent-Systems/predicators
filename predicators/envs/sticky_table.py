@@ -39,7 +39,7 @@ class StickyTableEnv(BaseEnv):
     x_ub: ClassVar[float] = 1.0
     y_lb: ClassVar[float] = 0.0
     y_ub: ClassVar[float] = 1.0
-    reachable_thresh: ClassVar[float] = 0.25
+    reachable_thresh: ClassVar[float] = 0.1
     objs_scale: ClassVar[float] = 0.25  # as a function of table radius
     sticky_surface_mode: ClassVar[str] = "half"  # half or whole
     # Types
@@ -151,10 +151,12 @@ class StickyTableEnv(BaseEnv):
                         if self._action_grasps_object(act_x, act_y, cube,
                                                       state):
                             next_state.set(cube, "held", 1.0)
+                        assert self._Holding_holds(next_state, [cube])
                     elif obj_type_id == 1.0:
                         if self._action_grasps_object(act_x, act_y, ball,
                                                       state):
                             next_state.set(ball, "held", 1.0)
+                        assert self._Holding_holds(next_state, [ball])
                     else:
                         assert obj_type_id == 2.0
                         if self._action_grasps_object(act_x, act_y, cup,
@@ -162,6 +164,8 @@ class StickyTableEnv(BaseEnv):
                             next_state.set(cup, "held", 1.0)
                             if ball_in_cup:
                                 next_state.set(ball, "held", 1.0)
+                                assert self._Holding_holds(next_state, [ball])
+                        assert self._Holding_holds(next_state, [cup])
             # Placing logic.
             else:
                 if obj_being_held is not None:
@@ -223,6 +227,8 @@ class StickyTableEnv(BaseEnv):
                         next_state.set(ball, "y", act_y)
                         next_state.set(ball, "held", 0.0)
                         assert self._BallInCup_holds(next_state, [ball, cup])
+                        if self._OnFloor_holds(next_state, [cup]):
+                            assert self._OnFloor_holds(next_state, [ball])
                 if ball_only < 0.5:
                     assert self._HandEmpty_holds(next_state, [])
         else:
@@ -555,9 +561,17 @@ class StickyTableEnv(BaseEnv):
         x = state.get(table, "x")
         y = state.get(table, "y")
         radius = state.get(table, "radius")
-        dist = radius + rng.uniform(radius / 10, radius / 4)
+        dist_from_table = self.objs_scale * radius
+        dist = radius + rng.uniform(radius + dist_from_table, radius + (1.15 * dist_from_table))
         theta = rng.uniform(0, 2 * np.pi)
-        return (x + dist * np.cos(theta), y + dist * np.sin(theta))
+        sampled_x = x + dist * np.cos(theta)
+        sampled_y = y + dist * np.sin(theta)
+        while sampled_x < self.x_lb or sampled_x > self.x_ub or sampled_y < self.y_lb or sampled_y > self.y_ub:
+            dist = radius + rng.uniform(radius + dist_from_table, radius + (1.15 * dist_from_table))
+            theta = rng.uniform(0, 2 * np.pi)
+            sampled_x = x + dist * np.cos(theta)
+            sampled_y = y + dist * np.sin(theta)
+        return (sampled_x, sampled_y)
 
     @classmethod
     def exists_robot_collision(self, state: State) -> bool:
