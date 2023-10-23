@@ -362,6 +362,11 @@ class Circle(_Geom2D):
     def contains_point(self, x: float, y: float) -> bool:
         return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
 
+    def contains_circle(self, other_circle: Circle) -> bool:
+        dist_between_centers = np.sqrt((other_circle.x - self.x)**2 +
+                                       (other_circle.y - self.y)**2)
+        return (dist_between_centers + other_circle.radius) <= self.radius
+
 
 @dataclass(frozen=True)
 class Triangle(_Geom2D):
