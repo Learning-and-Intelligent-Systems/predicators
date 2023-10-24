@@ -278,27 +278,61 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
 
     else:
         assert CFG.active_sampler_learning_feature_selection == "oracle"
-        assert CFG.env == "bumpy_cover"
-        if param_option.name == "Pick":
-            # In this case, the x-data should be
-            # [block_bumpy, relative_pick_loc]
-            assert len(objects) == 1
-            block = objects[0]
-            block_pos = state[block][3]
-            block_bumpy = state[block][5]
-            sampler_input_lst.append(block_bumpy)
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - block_pos)
+        if CFG.env == "bumpy_cover":
+            if param_option.name == "Pick":
+                # In this case, the x-data should be
+                # [block_bumpy, relative_pick_loc]
+                assert len(objects) == 1
+                block = objects[0]
+                block_pos = state[block][3]
+                block_bumpy = state[block][5]
+                sampler_input_lst.append(block_bumpy)
+                assert len(params) == 1
+                sampler_input_lst.append(params[0] - block_pos)
+            else:
+                assert param_option.name == "Place"
+                assert len(objects) == 2
+                block, target = objects
+                target_pos = state[target][3]
+                grasp = state[block][4]
+                target_width = state[target][2]
+                sampler_input_lst.extend([grasp, target_width])
+                assert len(params) == 1
+                sampler_input_lst.append(params[0] - target_pos)
+        elif CFG.env == "ball_and_cup_sticky_table":
+            if "PlaceCup" in param_option.name and "Table" in param_option.name:
+                robot, ball, cup, table = objects
+                robot_y = state.get(robot, "y")
+                robot_x = state.get(robot, "x")
+                table_y = state.get(table, "y")
+                table_x = state.get(table, "x")
+                ball_x = state.get(ball, "x")
+                ball_y = state.get(ball, "y")
+                cup_x = state.get(cup, "x")
+                cup_y = state.get(cup, "y")
+                sticky = state.get(table, "sticky")
+                table_radius = state.get(table, "radius")
+                a, b, c, param_x, param_y = params
+                sampler_input_lst.append(table_radius)
+                sampler_input_lst.append(sticky)
+                # sampler_input_lst.append(ball_x)
+                # sampler_input_lst.append(ball_y)
+                # sampler_input_lst.append(cup_x)
+                # sampler_input_lst.append(cup_y)
+                # sampler_input_lst.append(robot_x)
+                # sampler_input_lst.append(robot_y)
+                # sampler_input_lst.append(table_x)
+                # sampler_input_lst.append(table_y)
+                # sampler_input_lst.append(a)
+                # sampler_input_lst.append(b)
+                # sampler_input_lst.append(c)
+                # sampler_input_lst.append(param_x)
+                # sampler_input_lst.append(param_y)
+                sampler_input_lst.append(param_x - table_x)
+                sampler_input_lst.append(param_y - table_y)
         else:
-            assert param_option.name == "Place"
-            assert len(objects) == 2
-            block, target = objects
-            target_pos = state[target][3]
-            grasp = state[block][4]
-            target_width = state[target][2]
-            sampler_input_lst.extend([grasp, target_width])
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - target_pos)
+            raise NotImplementedError("Oracle feature selection not "
+                                        f"implemented for {CFG.env}")
 
     return np.array(sampler_input_lst)
 
