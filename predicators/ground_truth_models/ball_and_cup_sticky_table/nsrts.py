@@ -268,9 +268,9 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             return np.array([1.0, 3.0, 0.0, x, y], dtype=np.float32)
 
         placeballontable_nsrt = NSRT("PlaceBallOnTable", parameters,
-                                preconditions, add_effects,
-                                delete_effects, set(), option,
-                                option_vars, place_on_table_sampler)
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, place_on_table_sampler)
         nsrts.add(placeballontable_nsrt)
 
         # PlaceBallOnFloor
@@ -510,11 +510,14 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 if not BallAndCupStickyTableEnv.exists_robot_collision(
                         pseudo_next_state):
                     if obj.is_instance(cup_type):
-                        assert ReachableCup.holds(pseudo_next_state, [robot, obj])
+                        assert ReachableCup.holds(pseudo_next_state,
+                                                  [robot, obj])
                     elif obj.is_instance(ball_type):
-                        assert ReachableBall.holds(pseudo_next_state, [robot, obj])
+                        assert ReachableBall.holds(pseudo_next_state,
+                                                   [robot, obj])
                     elif obj.is_instance(table_type):
-                        assert ReachableSurface.holds(pseudo_next_state, [robot, obj])
+                        assert ReachableSurface.holds(pseudo_next_state,
+                                                      [robot, obj])
                     break
             # NOTE: obj_type_id set to 0.0 since it doesn't matter.
             return np.array([0.0, 0.0, 0.0, x, y], dtype=np.float32)

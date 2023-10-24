@@ -3458,18 +3458,26 @@ def beta_from_mean_and_variance(mean: float,
     assert abs(rv.mean() - mean) < 1e-6
     return rv
 
+
 def _obs_to_state_pass_through(obs: Observation) -> State:
     assert isinstance(obs, State)
     return obs
 
+
 def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
-                         state: State,
-                         env: BaseEnv, rng: np.random.Generator,
-                         override_params: Optional[Array]=None,
-                         obs_to_state: Callable[[Observation], State] = _obs_to_state_pass_through,
-                         assert_effects: bool =True,
-                         max_steps: int =400) -> State:
-    """Utility for tests."""
+                                    state: State,
+                                    env: BaseEnv,
+                                    rng: np.random.Generator,
+                                    override_params: Optional[Array] = None,
+                                    obs_to_state: Callable[
+                                        [Observation],
+                                        State] = _obs_to_state_pass_through,
+                                    assert_effects: bool = True,
+                                    max_steps: int = 400) -> State:
+    """Utility for tests.
+
+    TODO add note about env internal state being state
+    """
     ground_nsrt_str = f"{ground_nsrt.name}{ground_nsrt.objects}"
     for atom in ground_nsrt.preconditions:
         assert atom.holds(state), \

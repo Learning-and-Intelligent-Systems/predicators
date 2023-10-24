@@ -122,8 +122,11 @@ def test_kitchen():
                          override_params=None,
                          assert_effects=True):
         obs_to_state = lambda obs: env.state_info_to_state(obs["state_info"])
-        return utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env, rng, obs_to_state, override_params, assert_effects)
-    
+        return utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
+                                                     rng, obs_to_state,
+                                                     override_params,
+                                                     assert_effects)
+
     # Set up all the NSRTs for the following tests.
     move_to_light_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, light])
     turn_on_light_nsrt = TurnOnSwitch.ground([gripper, light])
