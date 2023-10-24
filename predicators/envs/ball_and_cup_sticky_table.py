@@ -160,8 +160,6 @@ class BallAndCupStickyTableEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
-            # The table positions are randomized to one of a few positions
-            # in a ring around the center of the room.
             # The initial location of the the robot is randomized.
             num_tables = CFG.sticky_table_num_tables
             assert num_tables >= 2
