@@ -92,9 +92,9 @@ def test_sticky_table():
         ground_nsrt_plan.append(NavigateToTable.ground([robot, next_table]))
         ground_nsrt_plan.append(
             PlaceCupWithoutBallOnTable.ground([robot, ball, cup, next_table]))
-        ground_nsrt_plan.append(
-            PickCupWithoutBallFromTable.ground(
-                [robot, cup, ball, normal_tables[-1]]))
+    ground_nsrt_plan.append(
+        PickCupWithoutBallFromTable.ground(
+            [robot, cup, ball, normal_tables[-1]]))
     ground_nsrt_plan.append(
         PlaceCupWithoutBallOnFloor.ground([robot, ball, cup]))
     state = env.reset("test", 0)
