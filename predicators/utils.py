@@ -3457,3 +3457,39 @@ def beta_from_mean_and_variance(mean: float,
     rv = BetaRV(alpha, beta)
     assert abs(rv.mean() - mean) < 1e-6
     return rv
+
+def _obs_to_state_pass_through(obs: Observation) -> State:
+    assert isinstance(obs, State)
+    return obs
+
+def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
+                         state: State,
+                         env: BaseEnv, rng: np.random.Generator,
+                         override_params: Optional[Array]=None,
+                         obs_to_state: Callable[[Observation], State] = _obs_to_state_pass_through,
+                         assert_effects: bool =True,
+                         max_steps: int =400) -> State:
+    """Utility for tests."""
+    ground_nsrt_str = f"{ground_nsrt.name}{ground_nsrt.objects}"
+    import ipdb; ipdb.set_trace()
+    for atom in ground_nsrt.preconditions:
+        assert atom.holds(state), \
+            f"Precondition for {ground_nsrt_str} failed: {atom}"
+    option = ground_nsrt.sample_option(state, set(), rng)
+    if override_params is not None:
+        option = option.parent.ground(option.objects, override_params)
+    assert option.initiable(state)
+    for _ in range(max_steps):
+        act = option.policy(state)
+        obs = env.step(act)
+        state = _obs_to_state_pass_through(obs)
+        if option.terminal(state):
+            break
+    if assert_effects:
+        for atom in ground_nsrt.add_effects:
+            assert atom.holds(state), \
+                f"Add effect for {ground_nsrt_str} failed: {atom}"
+        for atom in ground_nsrt.delete_effects:
+            assert not atom.holds(state), \
+                f"Delete effect for {ground_nsrt_str} failed: {atom}"
+    return state
