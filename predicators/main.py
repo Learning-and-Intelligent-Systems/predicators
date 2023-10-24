@@ -90,6 +90,8 @@ def main() -> None:
     os.makedirs(CFG.results_dir, exist_ok=True)
     # Create the eval trajectories directory.
     os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
+    # Create the spot perception debug directory.
+    os.makedirs(CFG.spot_perception_outdir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
     # The action space needs to be seeded externally, because env.action_space

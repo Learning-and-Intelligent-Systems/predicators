@@ -279,8 +279,7 @@ class SpotRearrangementEnv(BaseEnv):
         all_detections, all_artifacts = detect_objects(
             all_object_detection_ids, rgbds)
 
-        root_dir = Path(__file__).parent.parent.parent
-        outdir = root_dir / CFG.spot_perception_outdir
+        outdir = Path(CFG.spot_perception_outdir)
         time_str = time.strftime("%Y%m%d-%H%M%S")
         detections_outfile = outdir / f"detections_{time_str}.png"
         no_detections_outfile = outdir / f"no_detections_{time_str}.png"
