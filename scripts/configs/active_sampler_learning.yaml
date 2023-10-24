@@ -90,6 +90,7 @@ FLAGS:
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
   horizon: 8
-  active_sampler_learning_feature_selection: all
+  active_sampler_learning_feature_selection: oracle
+  active_sampler_learning_n_iter_no_change: 20000
 START_SEED: 456
 NUM_SEEDS: 10

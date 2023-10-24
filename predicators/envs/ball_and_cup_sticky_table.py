@@ -391,7 +391,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                 # Pick both ball and cup simultaneously.
                                 next_state.set(ball, "held", 1.0)
                                 assert self._Holding_holds(next_state, [ball])
-                        assert self._Holding_holds(next_state, [cup])
+                            assert self._Holding_holds(next_state, [cup])
             # Placing logic.
             else:
                 if not hand_empty:
