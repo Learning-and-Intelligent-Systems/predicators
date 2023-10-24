@@ -52,7 +52,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         PickCupWithBallFromTable = options["PickCupWithBallFromTable"]
         PickCupWithoutBallFromFloor = options["PickCupWithoutBallFromFloor"]
         PickCupWithBallFromFloor = options["PickCupWithBallFromFloor"]
-        PlaceCupWithBallOnTable = options["PlaceCupWithBallOnTable"]
+        # PlaceCupWithBallOnTable = options["PlaceCupWithBallOnTable"]
         PlaceCupWithoutBallOnTable = options["PlaceCupWithoutBallOnTable"]
         PlaceCupWithBallOnFloor = options["PlaceCupWithBallOnFloor"]
         PlaceCupWithoutBallOnFloor = options["PlaceCupWithoutBallOnFloor"]
@@ -408,30 +408,30 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                                place_on_table_sampler)
         nsrts.add(placecupwithoutballontable_nsrt)
 
-        # PlaceCupWithBallOnTable
-        parameters = [robot, ball, cup, table]
-        option_vars = parameters
-        option = PlaceCupWithBallOnTable
-        preconditions = {
-            LiftedAtom(ReachableSurface, [robot, table]),
-            LiftedAtom(HoldingCup, [cup]),
-            LiftedAtom(BallInCup, [ball, cup])
-        }
-        add_effects = {
-            LiftedAtom(CupOnTable, [cup, table]),
-            LiftedAtom(HandEmpty, []),
-            LiftedAtom(BallOnTable, [ball, table])
-        }
-        delete_effects = {
-            LiftedAtom(HoldingCup, [cup]),
-            LiftedAtom(HoldingBall, [ball])
-        }
-        placecupwithballontable_nsrt = NSRT("PlaceCupWithBallOnTable",
-                                            parameters, preconditions,
-                                            add_effects, delete_effects, set(),
-                                            option, option_vars,
-                                            place_on_table_sampler)
-        nsrts.add(placecupwithballontable_nsrt)
+        # # PlaceCupWithBallOnTable
+        # parameters = [robot, ball, cup, table]
+        # option_vars = parameters
+        # option = PlaceCupWithBallOnTable
+        # preconditions = {
+        #     LiftedAtom(ReachableSurface, [robot, table]),
+        #     LiftedAtom(HoldingCup, [cup]),
+        #     LiftedAtom(BallInCup, [ball, cup])
+        # }
+        # add_effects = {
+        #     LiftedAtom(CupOnTable, [cup, table]),
+        #     LiftedAtom(HandEmpty, []),
+        #     LiftedAtom(BallOnTable, [ball, table])
+        # }
+        # delete_effects = {
+        #     LiftedAtom(HoldingCup, [cup]),
+        #     LiftedAtom(HoldingBall, [ball])
+        # }
+        # placecupwithballontable_nsrt = NSRT("PlaceCupWithBallOnTable",
+        #                                     parameters, preconditions,
+        #                                     add_effects, delete_effects, set(),
+        #                                     option, option_vars,
+        #                                     place_on_table_sampler)
+        # nsrts.add(placecupwithballontable_nsrt)
 
         # PlaceCupWithoutBallOnFloor
         parameters = [robot, ball, cup]
