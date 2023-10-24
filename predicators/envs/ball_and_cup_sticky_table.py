@@ -160,7 +160,8 @@ class BallAndCupStickyTableEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
-            # The initial location of the the robot is randomized.
+            # The initial location of the the robot and tables
+            # are both randomized.
             num_tables = CFG.sticky_table_num_tables
             assert num_tables >= 2
             state_dict: Dict[Object, Dict[str, float]] = {}
@@ -174,10 +175,14 @@ class BallAndCupStickyTableEnv(BaseEnv):
             angle_diff = thetas[1] - thetas[0]
             radius = d * np.sin(angle_diff / 2) / 2
             size = radius * self.objs_scale
+            # Add a random spin to offset the circle. This is to ensure
+            # the tables are in different positions along the circle every
+            # time.
+            theta_offset = rng.uniform(0, 2 * np.pi)
             # Now, actually instantiate the tables.
             for i, theta in enumerate(thetas):
-                x = d * np.cos(theta) + origin_x
-                y = d * np.sin(theta) + origin_y
+                x = d * np.cos(theta + theta_offset) + origin_x
+                y = d * np.sin(theta + theta_offset) + origin_y
                 if i >= CFG.sticky_table_num_sticky_tables:
                     prefix = "normal"
                     sticky = 0.0
