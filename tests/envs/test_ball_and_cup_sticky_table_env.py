@@ -57,7 +57,6 @@ def test_sticky_table():
     env_test_tasks = env.get_test_tasks()
     assert len(env_test_tasks) == 2
     env_task = env_test_tasks[1]
-    env.reset("test", 1)
 
     # Extract objects for NSRT testing.
     init_state = env_test_tasks[0].task.init
@@ -89,7 +88,7 @@ def test_sticky_table():
         ground_nsrt_plan.append(PlaceCupWithoutBallOnTable.ground([robot, ball, cup, next_table]))
         ground_nsrt_plan.append(PickCupWithoutBallFromTable.ground([robot, cup, ball, normal_tables[-1]]))
     ground_nsrt_plan.append(PlaceCupWithoutBallOnFloor.ground([robot, ball, cup]))
-    state = init_state.copy()
+    state = env.reset("test", 0)
     for ground_nsrt in ground_nsrt_plan:
         state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env, rng)
 
