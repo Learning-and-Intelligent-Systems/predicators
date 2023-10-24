@@ -268,9 +268,9 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             return np.array([1.0, 3.0, 0.0, x, y], dtype=np.float32)
 
         placeballontable_nsrt = NSRT("PlaceBallOnTable", parameters,
-                                preconditions, add_effects,
-                                delete_effects, set(), option,
-                                option_vars, place_on_table_sampler)
+                                     preconditions, add_effects,
+                                     delete_effects, set(), option,
+                                     option_vars, place_on_table_sampler)
         nsrts.add(placeballontable_nsrt)
 
         # PlaceBallOnFloor

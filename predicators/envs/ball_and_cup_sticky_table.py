@@ -391,7 +391,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                 # Pick both ball and cup simultaneously.
                                 next_state.set(ball, "held", 1.0)
                                 assert self._Holding_holds(next_state, [ball])
-                        assert self._Holding_holds(next_state, [cup])
+                            assert self._Holding_holds(next_state, [cup])
             # Placing logic.
             else:
                 if not hand_empty:
@@ -411,15 +411,15 @@ class BallAndCupStickyTableEnv(BaseEnv):
                         if obj_being_held is not None:
                             next_state.set(obj_being_held, "held", 0.0)
                         assert self._OnFloor_holds(next_state,
-                                                    [obj_being_held])
+                                                   [obj_being_held])
                     else:
                         # Check that we are only attempting to place
                         # within our reachable radius. Note that we don't
                         # check this for placing on the floor, because the
                         # robot is allowed to 'throw' things onto the floor.
-                        if self._euclidean_reachability_check(state.get(robot, "x"),
-                                                            state.get(robot, "y"),
-                                                            act_x, act_y):
+                        if self._euclidean_reachability_check(
+                                state.get(robot, "x"), state.get(robot, "y"),
+                                act_x, act_y):
                             # Release object being held.
                             if obj_being_held is not None:
                                 next_state.set(obj_being_held, "held", 0.0)
@@ -443,14 +443,16 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                     fall_x, fall_y = self._sample_floor_point_around_table(
                                         table, state, self._noise_rng)
                                     next_state = self._handle_placing_object(
-                                        fall_x, fall_y, next_state, obj_being_held,
-                                        ball, cup, ball_in_cup, ball_only)
+                                        fall_x, fall_y, next_state,
+                                        obj_being_held, ball, cup, ball_in_cup,
+                                        ball_only)
                                     assert self._OnFloor_holds(
                                         next_state, [obj_being_held])
                                 else:
                                     next_state = self._handle_placing_object(
-                                        act_x, act_y, next_state, obj_being_held,
-                                        ball, cup, ball_in_cup, ball_only)
+                                        act_x, act_y, next_state,
+                                        obj_being_held, ball, cup, ball_in_cup,
+                                        ball_only)
                                     assert self._OnTable_holds(
                                         next_state, [obj_being_held, table])
                             else:
@@ -462,7 +464,8 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                 assert self._BallInCup_holds(
                                     next_state, [ball, cup])
                                 if self._OnFloor_holds(next_state, [cup]):
-                                    assert self._OnFloor_holds(next_state, [ball])
+                                    assert self._OnFloor_holds(
+                                        next_state, [ball])
                             if ball_only < 0.5:
                                 assert self._HandEmpty_holds(next_state, [])
         else:

@@ -332,7 +332,7 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 sampler_input_lst.append(param_y - table_y)
         else:
             raise NotImplementedError("Oracle feature selection not "
-                                        f"implemented for {CFG.env}")
+                                      f"implemented for {CFG.env}")
 
     return np.array(sampler_input_lst)
 
