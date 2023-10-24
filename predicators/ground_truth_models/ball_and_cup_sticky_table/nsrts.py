@@ -366,7 +366,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = parameters
         option = PlaceBallInCupOnTable
         preconditions = {
-            LiftedAtom(ReachableCup, [robot, cup]),
+            LiftedAtom(ReachableSurface, [robot, table]),
             LiftedAtom(CupOnTable, [cup, table]),
             LiftedAtom(HoldingBall, [ball]),
             LiftedAtom(BallNotInCup, [ball, cup]),
