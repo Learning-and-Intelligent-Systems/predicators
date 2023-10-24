@@ -504,6 +504,13 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 theta = rng.uniform(0, 2 * np.pi)
                 x = obj_x + dist * np.cos(theta)
                 y = obj_y + dist * np.sin(theta)
+                # If this x and y is not in the env bounds,
+                # continue.
+                if x < BallAndCupStickyTableEnv.x_lb or \
+                    x > BallAndCupStickyTableEnv.x_ub or \
+                    y < BallAndCupStickyTableEnv.y_lb or \
+                    y > BallAndCupStickyTableEnv.y_ub:
+                    continue
                 pseudo_next_state = state.copy()
                 pseudo_next_state.set(robot, "x", x)
                 pseudo_next_state.set(robot, "y", y)
