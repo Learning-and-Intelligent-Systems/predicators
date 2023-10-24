@@ -17,6 +17,7 @@ def test_sticky_table():
         "sticky_table_place_smooth_fall_prob": 1.0,
         "sticky_table_place_sticky_fall_prob": 0.0,
         "sticky_table_pick_success_prob": 1.0,
+        "sticky_table_place_ball_fall_prob": 0.0,
     })
     env = BallAndCupStickyTableEnv()
     assert env.get_name() == "ball_and_cup_sticky_table"
@@ -54,6 +55,11 @@ def test_sticky_table():
         "PickCupWithoutBallFromTable"]
     PlaceCupWithoutBallOnFloor = nsrt_name_to_nsrt[
         "PlaceCupWithoutBallOnFloor"]
+    PickBallFromTable = nsrt_name_to_nsrt["PickBallFromTable"]
+    PlaceBallOnTable = nsrt_name_to_nsrt["PlaceBallOnTable"]
+    PlaceBallOnFloor = nsrt_name_to_nsrt["PlaceBallOnFloor"]
+    PickBallFromFloor = nsrt_name_to_nsrt["PickBallFromFloor"]
+    NavigateToBall = nsrt_name_to_nsrt["NavigateToBall"]
 
     assert len(options) == len(nsrts) == 17
     env_train_tasks = env.get_train_tasks()
@@ -77,8 +83,14 @@ def test_sticky_table():
     # The cup starts out on the floor.
     assert CupOnFloor([cup]).holds(init_state)
     assert not any(CupOnTable([cup, t]).holds(init_state) for t in tables)
+    # The ball starts out on some table.
+    ball_init_tables = [
+        t for t in tables if BallOnTable([ball, t]).holds(init_state)
+    ]
+    assert len(ball_init_tables) == 1
+    ball_init_table = ball_init_tables[0]
 
-    # Test noise-free cup picking and placing on the floor and normal tables.
+    # Test noise-free CUP picking and placing on the floor and normal tables.
     first_table = normal_tables[0]
     ground_nsrt_plan = [
         NavigateToCup.ground([robot, cup]),
@@ -97,6 +109,26 @@ def test_sticky_table():
             [robot, cup, ball, normal_tables[-1]]))
     ground_nsrt_plan.append(
         PlaceCupWithoutBallOnFloor.ground([robot, ball, cup]))
+    state = env.reset("test", 0)
+    for ground_nsrt in ground_nsrt_plan:
+        state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
+                                                      rng)
+
+    # Test noise-free BALL picking and placing on the floor and normal tables.
+    table_order = [ball_init_table
+                   ] + [t for t in normal_tables if t != ball_init_table]
+    ground_nsrt_plan = [NavigateToTable.ground([robot, ball_init_table])]
+    for table, next_table in zip(table_order[:-1], table_order[1:]):
+        ground_nsrt_plan.append(
+            PickBallFromTable.ground([robot, ball, cup, table]))
+        ground_nsrt_plan.append(NavigateToTable.ground([robot, next_table]))
+        ground_nsrt_plan.append(
+            PlaceBallOnTable.ground([robot, ball, cup, next_table]))
+    ground_nsrt_plan.append(
+        PickBallFromTable.ground([robot, ball, cup, normal_tables[-1]]))
+    ground_nsrt_plan.append(PlaceBallOnFloor.ground([robot, cup, ball]))
+    ground_nsrt_plan.append(NavigateToBall.ground([robot, ball]))
+    ground_nsrt_plan.append(PickBallFromFloor.ground([robot, ball, cup]))
     state = env.reset("test", 0)
     for ground_nsrt in ground_nsrt_plan:
         state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
