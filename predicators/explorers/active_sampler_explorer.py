@@ -213,7 +213,11 @@ class ActiveSamplerExplorer(BaseExplorer):
                 for goal in generate_goals():
                     task = Task(state, goal)
                     logging.info(f"[Explorer] Replanning to {task.goal}")
-
+                    # If the goal is empty, then we can just recursively
+                    # call the policy, since we don't need to execute
+                    # anything.
+                    if len(goal) == 0:
+                        return _option_policy(state)
                     # Add this task to the re-planning task queue.
                     self._replanning_tasks.append(task)
 
