@@ -439,7 +439,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                     # Check if placing on the smooth side of the sticky table,
                                     # and set fall prob accordingly.
                                     table_y = state.get(table, "y")
-                                    if self.sticky_surface_mode == "half" and act_y < table_y:
+                                    if self.sticky_surface_mode == "half" and act_y < table_y + 0.25 * (state.get(table, "radius") - (state.get(ball, "size"))):
                                         if obj_being_held == cup:
                                             fall_prob = self._place_smooth_fall_prob
                                         else:
