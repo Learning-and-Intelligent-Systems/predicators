@@ -38,7 +38,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
     reachable_thresh: ClassVar[float] = 0.1
     objs_scale: ClassVar[float] = 0.25  # as a function of table radius
     sticky_surface_mode: ClassVar[str] = "half"  # half or whole
-    sticky_region_radius_scale: ClassVar[float] = 0.25
+    sticky_region_radius_scale: ClassVar[float] = 0.35
     # Types
     _table_type: ClassVar[Type] = Type("table", [
         "x", "y", "radius", "sticky", "sticky_region_x_offset",
