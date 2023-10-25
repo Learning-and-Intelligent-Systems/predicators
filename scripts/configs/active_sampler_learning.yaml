@@ -1,16 +1,16 @@
 # Final active sampler learning experiments.
 ---
 APPROACHES:
-  planning_progress_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_task_strategy: "planning_progress"
   task_repeat_explore:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "task_repeat"
+  planning_progress_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "planning_progress"
   # success_rate_explore:
   #   NAME: "active_sampler_learning"
   #   FLAGS:
