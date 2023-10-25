@@ -38,8 +38,13 @@ class BallAndCupStickyTableEnv(BaseEnv):
     reachable_thresh: ClassVar[float] = 0.1
     objs_scale: ClassVar[float] = 0.25  # as a function of table radius
     sticky_surface_mode: ClassVar[str] = "half"  # half or whole
+    num_possible_sectors: ClassVar[
+        int] = 4  # number of sectors we're going to cut up the circular table into
     # Types
-    _table_type: ClassVar[Type] = Type("table", ["x", "y", "radius", "sticky", "sticky_radius"])
+    _table_type: ClassVar[Type] = Type("table", [
+        "x", "y", "radius", "sticky", "sticky_region_start_angle",
+        "sticky_region_end_angle"
+    ])
     _robot_type: ClassVar[Type] = Type("robot", ["x", "y"])
     _ball_type: ClassVar[Type] = Type("ball", ["x", "y", "radius", "held"])
     _cup_type: ClassVar[Type] = Type("cup", ["x", "y", "radius", "held"])
@@ -179,9 +184,10 @@ class BallAndCupStickyTableEnv(BaseEnv):
             # the tables are in different positions along the circle every
             # time.
             theta_offset = 0.0 #rng.uniform(0, 2 * np.pi)
+            start_angle_choices = np.linspace(0.0, 2 * np.pi,
+                                              self.num_possible_sectors + 1)
             # Now, actually instantiate the tables.
             for i, theta in enumerate(thetas):
-                sticky_radius_factor = rng.uniform(0.05, 0.25)
                 x = d * np.cos(theta + theta_offset) + origin_x
                 y = d * np.sin(theta + theta_offset) + origin_y
                 if i >= CFG.sticky_table_num_sticky_tables:
@@ -191,12 +197,16 @@ class BallAndCupStickyTableEnv(BaseEnv):
                     prefix = "sticky"
                     sticky = 1.0
                 obj = Object(f"{prefix}-table-{i}", self._table_type)
+                start_angle = rng.choice(start_angle_choices)
+                end_angle = start_angle + (2 * np.pi /
+                                           self.num_possible_sectors)
                 state_dict[obj] = {
                     "x": x,
                     "y": y,
                     "radius": radius,
                     "sticky": sticky,
-                    "sticky_radius": radius * sticky_radius_factor
+                    "sticky_region_start_angle": start_angle,
+                    "sticky_region_end_angle": end_angle,
                 }
             tables = sorted(state_dict)
             target_table = tables[-1]
@@ -442,10 +452,18 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                     # and set fall prob accordingly.
                                     table_x = state.get(table, "x")
                                     table_y = state.get(table, "y")
-                                    sticky_radius = state.get(table, "sticky_radius")
-                                    sticky_obj_geom = utils.Circle(table_x, table_y, sticky_radius)
-                                    if not sticky_obj_geom.contains_point(act_x, act_y):
-                                    # if self.sticky_surface_mode == "half" and act_y < table_y + 0.25 * (state.get(table, "radius") - (state.get(ball, "radius"))):
+                                    table_geom = self._object_to_geom(
+                                        table, state)
+                                    assert isinstance(table_geom, utils.Circle)
+                                    if not table_geom.sector_contains_point(
+                                            act_x, act_y,
+                                            state.get(
+                                                table,
+                                                "sticky_region_start_angle"),
+                                            state.get(
+                                                table,
+                                                "sticky_region_end_angle")):
+                                        # if self.sticky_surface_mode == "half" and act_y < table_y + 0.25 * (state.get(table, "radius") - (state.get(ball, "radius"))):
                                         if obj_being_held == cup:
                                             fall_prob = self._place_smooth_fall_prob
                                         else:

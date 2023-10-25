@@ -173,13 +173,22 @@ class BallAndCupStickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
             types=[robot_type, cup_type])
 
         return {
-            NavigateToTable, PickBallFromTable, PickBallFromFloor,
-            PlaceBallOnTable, PlaceBallOnFloor, PickCupWithoutBallFromTable,
-            PickCupWithBallFromTable, PickCupWithoutBallFromFloor,
-            PickCupWithBallFromFloor, #PlaceCupWithBallOnTable,
-            PlaceCupWithoutBallOnTable, PlaceCupWithBallOnFloor,
-            PlaceCupWithoutBallOnFloor, PlaceBallInCupOnFloor,
-            PlaceBallInCupOnTable, NavigateToBall, NavigateToCup
+            NavigateToTable,
+            PickBallFromTable,
+            PickBallFromFloor,
+            PlaceBallOnTable,
+            PlaceBallOnFloor,
+            PickCupWithoutBallFromTable,
+            PickCupWithBallFromTable,
+            PickCupWithoutBallFromFloor,
+            PickCupWithBallFromFloor,  #PlaceCupWithBallOnTable,
+            PlaceCupWithoutBallOnTable,
+            PlaceCupWithBallOnFloor,
+            PlaceCupWithoutBallOnFloor,
+            PlaceBallInCupOnFloor,
+            PlaceBallInCupOnTable,
+            NavigateToBall,
+            NavigateToCup
         }
 
     @classmethod
