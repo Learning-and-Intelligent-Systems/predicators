@@ -39,7 +39,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
     objs_scale: ClassVar[float] = 0.25  # as a function of table radius
     sticky_surface_mode: ClassVar[str] = "half"  # half or whole
     num_possible_sectors: ClassVar[
-        int] = 4  # number of sectors we're going to cut up the circular table into
+        int] = 2  # number of sectors we're going to cut up the circular table into
     # Types
     _table_type: ClassVar[Type] = Type("table", [
         "x", "y", "radius", "sticky", "sticky_region_start_angle",
