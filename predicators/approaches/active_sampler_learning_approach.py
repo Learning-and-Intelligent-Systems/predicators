@@ -595,6 +595,10 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
         else:
             raise NotImplementedError('Exploration strategy ' +
                                       f'{strategy} ' + 'is not implemented.')
+        
+        logging.info(f"State: {state}")
+        logging.info(f"Best Sample: {samples[idx]}")
+        
         return samples[idx]
 
     return _sample

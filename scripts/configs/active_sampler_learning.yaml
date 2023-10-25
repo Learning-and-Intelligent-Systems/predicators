@@ -49,7 +49,7 @@ ENVS:
       sticky_table_num_tables: 5
       sticky_table_place_ball_fall_prob: 1.00
       active_sampler_learning_explore_length_base: 25
-      active_sampler_learning_exploration_epsilon: 0.1
+      active_sampler_learning_exploration_epsilon: 0.5
       skill_competence_model_optimistic_recency_size: 2
       skill_competence_model_optimistic_window_size: 2
   # sticky_table_tricky_floor:
