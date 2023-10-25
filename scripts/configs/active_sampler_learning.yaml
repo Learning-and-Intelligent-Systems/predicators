@@ -1,31 +1,31 @@
 # Final active sampler learning experiments.
 ---
 APPROACHES:
-  task_repeat_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_task_strategy: "task_repeat"
-  planning_progress_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_task_strategy: "planning_progress"
-  # success_rate_explore:
+  # task_repeat_explore:
   #   NAME: "active_sampler_learning"
   #   FLAGS:
   #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "success_rate"
-  #     active_sampler_explore_bonus: 0.01
-  # random_score_explore:
+  #     active_sampler_explore_task_strategy: "task_repeat"
+  # planning_progress_explore:
   #   NAME: "active_sampler_learning"
   #   FLAGS:
   #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "random"
-  # random_nsrts_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "random_nsrts"
+  #     active_sampler_explore_task_strategy: "planning_progress"
+  success_rate_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "success_rate"
+      active_sampler_explore_bonus: 0.01
+  random_score_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "random"
+  random_nsrts_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "random_nsrts"
   # maple_q:
   #   NAME: "maple_q"
   #   FLAGS:
