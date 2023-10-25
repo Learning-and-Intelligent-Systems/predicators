@@ -39,7 +39,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
     objs_scale: ClassVar[float] = 0.25  # as a function of table radius
     sticky_surface_mode: ClassVar[str] = "half"  # half or whole
     # Types
-    _table_type: ClassVar[Type] = Type("table", ["x", "y", "radius", "sticky"])
+    _table_type: ClassVar[Type] = Type("table", ["x", "y", "radius", "sticky", "sticky_radius"])
     _robot_type: ClassVar[Type] = Type("robot", ["x", "y"])
     _ball_type: ClassVar[Type] = Type("ball", ["x", "y", "radius", "held"])
     _cup_type: ClassVar[Type] = Type("cup", ["x", "y", "radius", "held"])
@@ -178,9 +178,10 @@ class BallAndCupStickyTableEnv(BaseEnv):
             # Add a random spin to offset the circle. This is to ensure
             # the tables are in different positions along the circle every
             # time.
-            theta_offset = rng.uniform(0, 2 * np.pi)
+            theta_offset = 0.0 #rng.uniform(0, 2 * np.pi)
             # Now, actually instantiate the tables.
             for i, theta in enumerate(thetas):
+                sticky_radius_factor = rng.uniform(0.05, 0.25)
                 x = d * np.cos(theta + theta_offset) + origin_x
                 y = d * np.sin(theta + theta_offset) + origin_y
                 if i >= CFG.sticky_table_num_sticky_tables:
@@ -194,7 +195,8 @@ class BallAndCupStickyTableEnv(BaseEnv):
                     "x": x,
                     "y": y,
                     "radius": radius,
-                    "sticky": sticky
+                    "sticky": sticky,
+                    "sticky_radius": radius * sticky_radius_factor
                 }
             tables = sorted(state_dict)
             target_table = tables[-1]
@@ -438,8 +440,12 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                 if self._table_is_sticky(table, state):
                                     # Check if placing on the smooth side of the sticky table,
                                     # and set fall prob accordingly.
+                                    table_x = state.get(table, "x")
                                     table_y = state.get(table, "y")
-                                    if self.sticky_surface_mode == "half" and act_y < table_y + 0.25 * (state.get(table, "radius") - (state.get(ball, "radius"))):
+                                    sticky_radius = state.get(table, "sticky_radius")
+                                    sticky_obj_geom = utils.Circle(table_x, table_y, sticky_radius)
+                                    if not sticky_obj_geom.contains_point(act_x, act_y):
+                                    # if self.sticky_surface_mode == "half" and act_y < table_y + 0.25 * (state.get(table, "radius") - (state.get(ball, "radius"))):
                                         if obj_being_held == cup:
                                             fall_prob = self._place_smooth_fall_prob
                                         else:

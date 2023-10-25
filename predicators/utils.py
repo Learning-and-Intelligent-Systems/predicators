@@ -311,10 +311,12 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 cup_x = state.get(cup, "x")
                 cup_y = state.get(cup, "y")
                 sticky = state.get(table, "sticky")
+                sticky_radius = state.get(table, "sticky_radius")
                 table_radius = state.get(table, "radius")
                 a, b, c, param_x, param_y = params
                 sampler_input_lst.append(table_radius)
                 sampler_input_lst.append(sticky)
+                sampler_input_lst.append(sticky_radius)
                 # sampler_input_lst.append(ball_x)
                 # sampler_input_lst.append(ball_y)
                 # sampler_input_lst.append(cup_x)

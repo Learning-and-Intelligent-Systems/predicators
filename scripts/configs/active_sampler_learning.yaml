@@ -73,7 +73,7 @@ ENVS:
 ARGS:
   - "debug"
 FLAGS:
-  num_test_tasks: 50
+  num_test_tasks: 10
   strips_learner: "oracle"
   sampler_learner: "oracle"
   bilevel_plan_without_sim: "True"
