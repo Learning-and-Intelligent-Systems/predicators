@@ -38,11 +38,15 @@ ENVS:
   #     grid_row_num_cells: 3
   #     max_num_steps_interaction_request: 500
   #     active_sampler_learning_explore_length_base: 100000  # effectively disable
+  #     active_sampler_learning_feature_selection: all
+
   grid_row:
     NAME: "grid_row"
     FLAGS:
       max_num_steps_interaction_request: 500
       active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: all
+ 
   # ball_and_cup_sticky_table:
   #   NAME: "ball_and_cup_sticky_table"
   #   FLAGS:
@@ -58,6 +62,7 @@ ENVS:
   #     skill_competence_model_optimistic_window_size: 2
   #     horizon: 8
   #     active_sampler_learning_explore_length_base: 100000  # effectively disable
+  #     active_sampler_learning_feature_selection: oracle
   # regional_bumpy_cover:
   #   NAME: "regional_bumpy_cover"
   #   FLAGS:
@@ -69,11 +74,13 @@ ENVS:
   #     cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
   #     cover_num_targets: 10
   #     cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
+  #     active_sampler_learning_feature_selection: all
   # kitchen:
   #   NAME: "kitchen"
   #   FLAGS:
   #     num_train_tasks: 100
   #     max_num_steps_option_rollout: 250
+  #     active_sampler_learning_feature_selection: all
 ARGS:
   - "debug"
 FLAGS:
@@ -93,7 +100,6 @@ FLAGS:
   num_online_learning_cycles: 10
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
-  active_sampler_learning_feature_selection: oracle
   active_sampler_learning_n_iter_no_change: 5000
 START_SEED: 456
 NUM_SEEDS: 10
