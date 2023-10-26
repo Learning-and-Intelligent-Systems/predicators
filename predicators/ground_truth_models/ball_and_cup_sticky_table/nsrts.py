@@ -539,7 +539,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = parameters
         option = NavigateToCup
         preconditions = set()
-        add_effects = {LiftedAtom(ReachableSurface, [robot, table])}
+        add_effects = {LiftedAtom(ReachableCup, [robot, cup])}
         ignore_effects = {ReachableSurface, ReachableBall, ReachableCup}
         navigatetocup_nsrt = NSRT("NavigateToCup", parameters, preconditions,
                                   add_effects, set(), ignore_effects, option,

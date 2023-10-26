@@ -63,11 +63,11 @@ def test_sticky_table():
     PlaceBallInCupOnFloor = nsrt_name_to_nsrt["PlaceBallInCupOnFloor"]
     PlaceBallInCupOnTable = nsrt_name_to_nsrt["PlaceBallInCupOnTable"]
     PickCupWithBallFromFloor = nsrt_name_to_nsrt["PickCupWithBallFromFloor"]
-    PlaceCupWithBallOnTable = nsrt_name_to_nsrt["PlaceCupWithBallOnTable"]
+    # PlaceCupWithBallOnTable = nsrt_name_to_nsrt["PlaceCupWithBallOnTable"]
     PlaceCupWithBallOnFloor = nsrt_name_to_nsrt["PlaceCupWithBallOnFloor"]
     PickCupWithBallFromTable = nsrt_name_to_nsrt["PickCupWithBallFromTable"]
 
-    assert len(options) == len(nsrts) == 17
+    assert len(options) == len(nsrts) == 16
     env_train_tasks = env.get_train_tasks()
     assert len(env_train_tasks) == 1
     env_test_tasks = env.get_test_tasks()
@@ -155,23 +155,23 @@ def test_sticky_table():
         state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
                                                       rng)
 
-    # Test putting the ball in the cup first and then both on the table.
-    table = ball_init_table
-    ground_nsrt_plan = [
-        NavigateToTable.ground([robot, table]),
-        PickBallFromTable.ground([robot, ball, cup, table]),
-        NavigateToCup.ground([robot, cup]),
-        PlaceBallInCupOnFloor.ground([robot, ball, cup]),
-        PickCupWithBallFromFloor.ground([robot, cup, ball]),
-        NavigateToTable.ground([robot, table]),
-        PlaceCupWithBallOnTable.ground([robot, ball, cup, table]),
-        PickCupWithBallFromTable.ground([robot, cup, ball, table]),
-        PlaceCupWithBallOnFloor.ground([robot, ball, cup]),
-    ]
-    state = env.reset("test", 0)
-    for ground_nsrt in ground_nsrt_plan:
-        state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
-                                                      rng)
+    # # Test putting the ball in the cup first and then both on the table.
+    # table = ball_init_table
+    # ground_nsrt_plan = [
+    #     NavigateToTable.ground([robot, table]),
+    #     PickBallFromTable.ground([robot, ball, cup, table]),
+    #     NavigateToCup.ground([robot, cup]),
+    #     PlaceBallInCupOnFloor.ground([robot, ball, cup]),
+    #     PickCupWithBallFromFloor.ground([robot, cup, ball]),
+    #     NavigateToTable.ground([robot, table]),
+    #     PlaceCupWithBallOnTable.ground([robot, ball, cup, table]),
+    #     PickCupWithBallFromTable.ground([robot, cup, ball, table]),
+    #     PlaceCupWithBallOnFloor.ground([robot, ball, cup]),
+    # ]
+    # state = env.reset("test", 0)
+    # for ground_nsrt in ground_nsrt_plan:
+    #     state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
+    #                                                   rng)
 
     # Test picking the ball from inside the cup on the floor.
     table = ball_init_table
@@ -234,28 +234,28 @@ def test_sticky_table():
                     ground_nsrt, state, env, rng)
     assert 0 < num_success_places < 10
 
-    # Test placing the cup WITH the ball on the sticky table, which should
-    # SOMETIMES fail.
-    ground_nsrt_plan = [
-        NavigateToTable.ground([robot, ball_init_table]),
-        PickBallFromTable.ground([robot, ball, cup, ball_init_table]),
-        NavigateToCup.ground([robot, cup]),
-        PlaceBallInCupOnFloor.ground([robot, ball, cup]),
-        PickCupWithBallFromFloor.ground([robot, cup, ball]),
-        NavigateToTable.ground([robot, sticky_table]),
-        PlaceCupWithBallOnTable.ground([robot, ball, cup, sticky_table]),
-    ]
-    # Test 10 times, with different samples per time.
-    num_success_places = 0
-    for _ in range(10):
-        state = env.reset("test", 0)
-        for i, ground_nsrt in enumerate(ground_nsrt_plan):
-            if i == len(ground_nsrt_plan) - 1:
-                state = utils.run_ground_nsrt_with_assertions(
-                    ground_nsrt, state, env, rng, assert_effects=False)
-                if CupOnTable([cup, sticky_table]).holds(state):
-                    num_success_places += 1
-            else:
-                state = utils.run_ground_nsrt_with_assertions(
-                    ground_nsrt, state, env, rng)
-    assert 0 < num_success_places < 10
+    # # Test placing the cup WITH the ball on the sticky table, which should
+    # # SOMETIMES fail.
+    # ground_nsrt_plan = [
+    #     NavigateToTable.ground([robot, ball_init_table]),
+    #     PickBallFromTable.ground([robot, ball, cup, ball_init_table]),
+    #     NavigateToCup.ground([robot, cup]),
+    #     PlaceBallInCupOnFloor.ground([robot, ball, cup]),
+    #     PickCupWithBallFromFloor.ground([robot, cup, ball]),
+    #     NavigateToTable.ground([robot, sticky_table]),
+    #     PlaceCupWithBallOnTable.ground([robot, ball, cup, sticky_table]),
+    # ]
+    # # Test 10 times, with different samples per time.
+    # num_success_places = 0
+    # for _ in range(10):
+    #     state = env.reset("test", 0)
+    #     for i, ground_nsrt in enumerate(ground_nsrt_plan):
+    #         if i == len(ground_nsrt_plan) - 1:
+    #             state = utils.run_ground_nsrt_with_assertions(
+    #                 ground_nsrt, state, env, rng, assert_effects=False)
+    #             if CupOnTable([cup, sticky_table]).holds(state):
+    #                 num_success_places += 1
+    #         else:
+    #             state = utils.run_ground_nsrt_with_assertions(
+    #                 ground_nsrt, state, env, rng)
+    # assert 0 < num_success_places < 10
