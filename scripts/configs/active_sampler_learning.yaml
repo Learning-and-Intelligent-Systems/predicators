@@ -1,22 +1,21 @@
 # Final active sampler learning experiments.
 ---
 APPROACHES:
-  # task_repeat_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "task_repeat"
-  # planning_progress_explore:
-  #   NAME: "active_sampler_learning"
-  #   FLAGS:
-  #     explorer: "active_sampler"
-  #     active_sampler_explore_task_strategy: "planning_progress"
+  planning_progress_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "planning_progress"
+  task_repeat_explore:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "task_repeat"
   success_rate_explore:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "success_rate"
-      active_sampler_explore_bonus: 0.01
   random_score_explore:
     NAME: "active_sampler_learning"
     FLAGS:
@@ -37,23 +36,28 @@ ENVS:
   #   NAME: "grid_row"
   #   FLAGS:
   #     grid_row_num_cells: 3
-  # grid_row:
-  #   NAME: "grid_row"
-  ball_and_cup_sticky_table:
-    NAME: "ball_and_cup_sticky_table"
+  #     max_num_steps_interaction_request: 500
+  #     active_sampler_learning_explore_length_base: 100000  # effectively disable
+  grid_row:
+    NAME: "grid_row"
     FLAGS:
-      sticky_table_place_smooth_fall_prob: 1.00
-      sticky_table_place_sticky_fall_prob: 0.00
-      sticky_table_pick_success_prob: 1.0
-      sticky_table_num_sticky_tables: 1
-      sticky_table_num_tables: 5
-      sticky_table_place_ball_fall_prob: 1.00
-      active_sampler_learning_explore_length_base: 25
-      active_sampler_learning_exploration_epsilon: 0.5
-      skill_competence_model_optimistic_recency_size: 2
-      skill_competence_model_optimistic_window_size: 2
-  # sticky_table_tricky_floor:
-  #   NAME: "sticky_table_tricky_floor"
+      max_num_steps_interaction_request: 500
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+  # ball_and_cup_sticky_table:
+  #   NAME: "ball_and_cup_sticky_table"
+  #   FLAGS:
+  #     sticky_table_place_smooth_fall_prob: 1.00
+  #     sticky_table_place_sticky_fall_prob: 0.00
+  #     sticky_table_pick_success_prob: 1.0
+  #     sticky_table_num_sticky_tables: 1
+  #     sticky_table_num_tables: 5
+  #     sticky_table_place_ball_fall_prob: 1.00
+  #     active_sampler_learning_explore_length_base: 25
+  #     active_sampler_learning_exploration_epsilon: 0.5
+  #     skill_competence_model_optimistic_recency_size: 2
+  #     skill_competence_model_optimistic_window_size: 2
+  #     horizon: 8
+  #     active_sampler_learning_explore_length_base: 100000  # effectively disable
   # regional_bumpy_cover:
   #   NAME: "regional_bumpy_cover"
   #   FLAGS:
@@ -89,7 +93,6 @@ FLAGS:
   num_online_learning_cycles: 10
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
-  horizon: 8
   active_sampler_learning_feature_selection: oracle
   active_sampler_learning_n_iter_no_change: 5000
 START_SEED: 456
