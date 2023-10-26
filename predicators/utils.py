@@ -301,42 +301,24 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 sampler_input_lst.append(params[0] - target_pos)
         elif CFG.env == "ball_and_cup_sticky_table":
             if "PlaceCup" in param_option.name and "Table" in param_option.name:
-                robot, ball, cup, table = objects
-                robot_y = state.get(robot, "y")
-                robot_x = state.get(robot, "x")
+                _, _, _, table = objects
                 table_y = state.get(table, "y")
                 table_x = state.get(table, "x")
-                ball_x = state.get(ball, "x")
-                ball_y = state.get(ball, "y")
-                cup_x = state.get(cup, "x")
-                cup_y = state.get(cup, "y")
                 sticky = state.get(table, "sticky")
-                # sticky_radius = state.get(table, "sticky_radius")
                 sticky_region_x = state.get(table, "sticky_region_x_offset")
                 sticky_region_y = state.get(table, "sticky_region_y_offset")
                 sticky_region_radius = state.get(table, "sticky_region_radius")
                 table_radius = state.get(table, "radius")
-                a, b, c, param_x, param_y = params
+                _, _, _, param_x, param_y = params
                 sampler_input_lst.append(table_radius)
                 sampler_input_lst.append(sticky)
                 sampler_input_lst.append(sticky_region_x)
                 sampler_input_lst.append(sticky_region_y)
                 sampler_input_lst.append(sticky_region_radius)
-                # sampler_input_lst.append(ball_x)
-                # sampler_input_lst.append(ball_y)
-                # sampler_input_lst.append(cup_x)
-                # sampler_input_lst.append(cup_y)
-                # sampler_input_lst.append(robot_x)
-                # sampler_input_lst.append(robot_y)
                 sampler_input_lst.append(table_x)
                 sampler_input_lst.append(table_y)
-                # sampler_input_lst.append(a)
-                # sampler_input_lst.append(b)
-                # sampler_input_lst.append(c)
                 sampler_input_lst.append(param_x)
                 sampler_input_lst.append(param_y)
-                # sampler_input_lst.append(param_x - table_x)
-                # sampler_input_lst.append(param_y - table_y)
         else:
             raise NotImplementedError("Oracle feature selection not "
                                       f"implemented for {CFG.env}")
@@ -403,25 +385,8 @@ class Circle(_Geom2D):
     def contains_point(self, x: float, y: float) -> bool:
         return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
 
-    def sector_contains_point(self, x: float, y: float,
-                              sector_start_angle: float,
-                              sector_end_angle: float) -> bool:
-        """Returns true if the point x, y is contained within the sector
-        starting at sector_start_angle radians and ending at sector_end_angle
-        radians."""
-        # First, check that the point is even on the circle.
-        if not self.contains_point(x, y):
-            return False
-        # Next, convert (x, y) relative to the table's center
-        # to polar coordinates.
-        relative_x = x - self.x
-        relative_y = y - self.y
-        theta = np.arctan2(relative_y, relative_x)
-        if theta < 0:
-            theta = np.pi - theta
-        return sector_start_angle <= theta <= sector_end_angle
-
     def contains_circle(self, other_circle: Circle) -> bool:
+        """Check whether this circle wholly contains another one."""
         dist_between_centers = np.sqrt((other_circle.x - self.x)**2 +
                                        (other_circle.y - self.y)**2)
         return (dist_between_centers + other_circle.radius) <= self.radius

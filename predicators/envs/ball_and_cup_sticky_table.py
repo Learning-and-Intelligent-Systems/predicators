@@ -18,12 +18,13 @@ class BallAndCupStickyTableEnv(BaseEnv):
     tables. This environment is a more-complex (but significantly different)
     version of the sticky-table environment.
 
-    Most of the tables are completely flat, but one is half is smooth and half
-    is sticky. If the agent tries to place the ball directly on any table,
-    it will roll off with high probability. If it tries to place it on a
-    half-flat half-smooth table, the ball will *certainly* roll off. However,
-    if the ball is placed inside a cup first, then the ball + cup system stays
-    on the sticky and normal table surfaces with high probability.
+    Most of the tables are completely flat, but one is half is mostly smooth
+    sticky in a particular circular region on the table. If the agent tries
+    to place the ball directly on any table, it will roll off with high
+    probability. If it tries to place it on a special table,
+    the ball will *certainly* roll off. However, if the ball is placed inside
+    a cup first, then the ball + cup system stays on the sticky and normal
+    table surfaces with high probability.
 
     Note that unlike almost all of our other environments, there is real
     stochasticity in the outcomes of placing.
@@ -148,7 +149,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
         return CFG.sticky_table_place_smooth_fall_prob
 
     @classmethod
-    def _object_to_geom(self, obj: Object, state: State) -> utils._Geom2D:
+    def _object_to_geom(cls, obj: Object, state: State) -> utils._Geom2D:
         x = state.get(obj, "x")
         y = state.get(obj, "y")
         radius = state.get(obj, "radius")
@@ -182,7 +183,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
             # Add a random spin to offset the circle. This is to ensure
             # the tables are in different positions along the circle every
             # time.
-            theta_offset = 0.0 #rng.uniform(0, 2 * np.pi)
+            theta_offset = 0.0  #rng.uniform(0, 2 * np.pi)
             sticky_region_radius = radius * self.sticky_region_radius_scale
             # Now, actually instantiate the tables.
             for i, theta in enumerate(thetas):
@@ -195,16 +196,26 @@ class BallAndCupStickyTableEnv(BaseEnv):
                     prefix = "sticky"
                     sticky = 1.0
                 obj = Object(f"{prefix}-table-{i}", self._table_type)
-                sticky_region_dist_from_center = rng.uniform(0.0, radius - sticky_region_radius)
+                sticky_region_dist_from_center = rng.uniform(
+                    0.0, radius - sticky_region_radius)
                 sticky_region_theta_from_center = rng.uniform(0.0, 2 * np.pi)
                 state_dict[obj] = {
-                    "x": x,
-                    "y": y,
-                    "radius": radius,
-                    "sticky": sticky,
-                    "sticky_region_x_offset": sticky_region_dist_from_center * np.cos(sticky_region_theta_from_center),
-                    "sticky_region_y_offset": sticky_region_dist_from_center * np.sin(sticky_region_theta_from_center),
-                    "sticky_region_radius": sticky_region_radius
+                    "x":
+                    x,
+                    "y":
+                    y,
+                    "radius":
+                    radius,
+                    "sticky":
+                    sticky,
+                    "sticky_region_x_offset":
+                    sticky_region_dist_from_center *
+                    np.cos(sticky_region_theta_from_center),
+                    "sticky_region_y_offset":
+                    sticky_region_dist_from_center *
+                    np.sin(sticky_region_theta_from_center),
+                    "sticky_region_radius":
+                    sticky_region_radius
                 }
             tables = sorted(state_dict)
             target_table = tables[-1]
@@ -270,15 +281,15 @@ class BallAndCupStickyTableEnv(BaseEnv):
         return tasks
 
     @classmethod
-    def exists_robot_collision(self, state: State) -> bool:
+    def exists_robot_collision(cls, state: State) -> bool:
         """Return true if there is a collision between the robot and any other
         object in the environment."""
-        robot, = state.get_objects(self._robot_type)
+        robot, = state.get_objects(cls._robot_type)
         all_possible_collision_objs = state.get_objects(
-            self._table_type) + state.get_objects(
-                self._cup_type) + state.get_objects(self._ball_type)
+            cls._table_type) + state.get_objects(
+                cls._cup_type) + state.get_objects(cls._ball_type)
         for obj in all_possible_collision_objs:
-            obj_geom = self._object_to_geom(obj, state)
+            obj_geom = cls._object_to_geom(obj, state)
             if obj_geom.contains_point(state.get(robot, "x"),
                                        state.get(robot, "y")):
                 return True
@@ -410,6 +421,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
             # Placing logic.
             else:
                 if not hand_empty:
+                    assert obj_being_held is not None
                     # Find the table for placing, if any.
                     table: Optional[Object] = None
                     for target in state.get_objects(self._table_type):
@@ -441,26 +453,38 @@ class BallAndCupStickyTableEnv(BaseEnv):
                             if obj_being_held is not None:
                                 next_state.set(obj_being_held, "held", 0.0)
                             if obj_type_id == 3.0:
-                                # Possibly put on the table, or have it fall somewhere near.
+                                # Possibly put on the table, or have it fall
+                                # somewhere near.
                                 fall_prob = self._place_sticky_fall_prob
                                 if obj_being_held == ball:
                                     fall_prob = self._place_ball_fall_prob
                                 if self._table_is_sticky(table, state):
-                                    # Check if placing on the smooth side of the sticky table,
-                                    # and set fall prob accordingly.
-                                    sticky_region_x = state.get(table, "sticky_region_x_offset") + table_x
-                                    sticky_region_y = state.get(table, "sticky_region_y_offset") + table_y
-                                    sticky_region = utils.Circle(sticky_region_x, sticky_region_y, state.get(table, "sticky_region_radius"))
+                                    # Check if placing on the smooth part of
+                                    # the sticky table, and set fall prob
+                                    # accordingly.
+                                    sticky_region_x = state.get(
+                                        table,
+                                        "sticky_region_x_offset") + table_x
+                                    sticky_region_y = state.get(
+                                        table,
+                                        "sticky_region_y_offset") + table_y
+                                    sticky_region = utils.Circle(
+                                        sticky_region_x, sticky_region_y,
+                                        state.get(table,
+                                                  "sticky_region_radius"))
                                     if not sticky_region.contains_point(
                                             act_x, act_y):
                                         if obj_being_held == cup:
-                                            fall_prob = self._place_smooth_fall_prob
+                                            fall_prob = \
+                                                self._place_smooth_fall_prob
                                         else:
                                             assert obj_being_held == ball
                                             fall_prob = 1.0
-                                # Handle object falling or placing on table surface.
+                                # Handle object falling or placing on table
+                                # surface.
                                 if self._noise_rng.uniform() < fall_prob:
-                                    fall_x, fall_y = self._sample_floor_point_around_table(
+                                    fall_x, fall_y = \
+                                        self._sample_floor_point_around_table(
                                         table, state, self._noise_rng)
                                     next_state = self._handle_placing_object(
                                         fall_x, fall_y, next_state,
@@ -476,7 +500,8 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                     assert self._OnTable_holds(
                                         next_state, [obj_being_held, table])
                             else:
-                                assert obj_type_id == 2.0  # corresponding to placing in cup
+                                # corresponding to placing in cup
+                                assert obj_type_id == 2.0
                                 assert obj_being_held == ball
                                 next_state.set(ball, "x", act_x)
                                 next_state.set(ball, "y", act_y)

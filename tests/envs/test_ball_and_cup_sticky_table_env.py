@@ -5,7 +5,6 @@ import numpy as np
 from predicators import utils
 from predicators.envs.ball_and_cup_sticky_table import BallAndCupStickyTableEnv
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
-from predicators.structs import Action
 
 
 def test_sticky_table():

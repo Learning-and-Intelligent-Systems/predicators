@@ -344,7 +344,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         def place_ball_in_cup_sampler(state: State, goal: Set[GroundAtom],
                                       rng: np.random.Generator,
                                       objs: Sequence[Object]) -> Array:
-            del goal  # unused
+            del rng, goal  # unused
             cup = objs[2]
             # Just place the ball in the middle of the cup. Set
             # the type id to be 2.0 to correspond to the cup
@@ -427,10 +427,10 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         #     LiftedAtom(HoldingBall, [ball])
         # }
         # placecupwithballontable_nsrt = NSRT("PlaceCupWithBallOnTable",
-        #                                     parameters, preconditions,
-        #                                     add_effects, delete_effects, set(),
-        #                                     option, option_vars,
-        #                                     place_on_table_sampler)
+        #                                   parameters, preconditions,
+        #                                   add_effects, delete_effects, set(),
+        #                                   option, option_vars,
+        #                                   place_on_table_sampler)
         # nsrts.add(placecupwithballontable_nsrt)
 
         # PlaceCupWithoutBallOnFloor
@@ -482,7 +482,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = parameters
         option = NavigateToBall
         preconditions = set()
-        add_effects = {ReachableBall([robot, ball])}
+        add_effects = {LiftedAtom(ReachableBall, [robot, ball])}
         ignore_effects = {ReachableSurface, ReachableBall, ReachableCup}
 
         def navigate_to_obj_sampler(state: State, goal: Set[GroundAtom],
@@ -539,7 +539,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = parameters
         option = NavigateToCup
         preconditions = set()
-        add_effects = {ReachableCup([robot, cup])}
+        add_effects = {LiftedAtom(ReachableSurface, [robot, table])}
         ignore_effects = {ReachableSurface, ReachableBall, ReachableCup}
         navigatetocup_nsrt = NSRT("NavigateToCup", parameters, preconditions,
                                   add_effects, set(), ignore_effects, option,
@@ -551,7 +551,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         option_vars = parameters
         option = NavigateToTable
         preconditions = set()
-        add_effects = {ReachableSurface([robot, table])}
+        add_effects = {LiftedAtom(ReachableSurface, [robot, table])}
         ignore_effects = {ReachableSurface, ReachableBall, ReachableCup}
         navigatetotable_nsrt = NSRT("NavigateToTable",
                                     parameters, preconditions, add_effects,

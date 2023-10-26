@@ -27,7 +27,8 @@ class BallAndCupStickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
         cup_type = types["cup"]
         ball_type = types["ball"]
         table_type = types["table"]
-        # Parameters are move_or_pickplace, obj_type_id, ball_only, absolute x, y actions.
+        # Parameters are move_or_pickplace, obj_type_id, ball_only,
+        # absolute x, y actions.
         params_space = Box(
             np.array([
                 0.0, 0.0, 0.0, BallAndCupStickyTableEnv.x_lb,
