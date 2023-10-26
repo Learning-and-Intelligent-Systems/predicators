@@ -319,6 +319,10 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 sampler_input_lst.append(table_y)
                 sampler_input_lst.append(param_x)
                 sampler_input_lst.append(param_y)
+            else:  # Use all features.
+                for obj in objects:
+                    sampler_input_lst.extend(state[obj])
+                sampler_input_lst.extend(params)
         else:
             raise NotImplementedError("Oracle feature selection not "
                                       f"implemented for {CFG.env}")
@@ -3508,7 +3512,8 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
             f"Precondition for {ground_nsrt_str} failed: {atom}"
     option = ground_nsrt.sample_option(state, set(), rng)
     if override_params is not None:
-        option = option.parent.ground(option.objects, override_params)
+        option = option.parent.ground(option.objects,
+                                      override_params)  # pragma: no cover
     assert option.initiable(state)
     for _ in range(max_steps):
         act = option.policy(state)

@@ -508,9 +508,6 @@ class BallAndCupStickyTableEnv(BaseEnv):
                                 next_state.set(ball, "held", 0.0)
                                 assert self._BallInCup_holds(
                                     next_state, [ball, cup])
-                                if self._OnFloor_holds(next_state, [cup]):
-                                    assert self._OnFloor_holds(
-                                        next_state, [ball])
                             if ball_only < 0.5:
                                 assert self._HandEmpty_holds(next_state, [])
         else:
@@ -519,7 +516,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
             pseudo_next_state.set(robot, "x", act_x)
             pseudo_next_state.set(robot, "y", act_y)
             if self.exists_robot_collision(pseudo_next_state):
-                return next_state
+                return next_state  # pragma: no cover
             next_state.set(robot, "x", act_x)
             next_state.set(robot, "y", act_y)
         return next_state

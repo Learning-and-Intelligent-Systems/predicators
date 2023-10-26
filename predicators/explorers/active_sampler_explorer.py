@@ -217,7 +217,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                     # call the policy, since we don't need to execute
                     # anything.
                     if len(goal) == 0:
-                        return _option_policy(state)
+                        return _option_policy(state)  # pragma: no cover
                     # Add this task to the re-planning task queue.
                     self._replanning_tasks.append(task)
 

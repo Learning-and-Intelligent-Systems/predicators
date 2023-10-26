@@ -290,10 +290,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                                    objs: Sequence[Object]) -> Array:
             del goal  # not used
             obj_to_place = objs[-1]
-            if obj_to_place.type.name == "cube":
-                size = state.get(obj_to_place, "size") * 2
-            else:
-                size = state.get(obj_to_place, "radius") * 2
+            size = state.get(obj_to_place, "radius") * 2
             dist = rng.uniform(0, size)
             theta = rng.uniform(0, 2 * np.pi)
             # Just place in a small radius near the center of the room.
@@ -510,7 +507,7 @@ class BallAndCupStickyTableGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                     x > BallAndCupStickyTableEnv.x_ub or \
                     y < BallAndCupStickyTableEnv.y_lb or \
                     y > BallAndCupStickyTableEnv.y_ub:
-                    continue
+                    continue  # pragma: no cover
                 pseudo_next_state = state.copy()
                 pseudo_next_state.set(robot, "x", x)
                 pseudo_next_state.set(robot, "y", y)

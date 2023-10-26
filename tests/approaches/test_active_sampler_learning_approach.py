@@ -91,6 +91,3 @@ def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
         # an action.
         action = policy(task.init)
         assert env.action_space.contains(action.arr)
-
-# TODO: test the ball and cup sticky table env here, and also test the case
-# where the we try to use oracle feature selection for a non-existent env.

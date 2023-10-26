@@ -1,6 +1,7 @@
 """Test cases for the Ball and Cup Sticky Table environment."""
 
 import numpy as np
+import pytest
 
 from predicators import utils
 from predicators.envs.ball_and_cup_sticky_table import BallAndCupStickyTableEnv
@@ -74,6 +75,11 @@ def test_sticky_table():
     assert len(env_test_tasks) == 2
     env_task = env_test_tasks[1]
 
+    # Test rendering.
+    env.reset("test", 1)
+    with pytest.raises(NotImplementedError):
+        env.render(caption="Test")
+
     # Extract objects for NSRT testing.
     init_state = env_test_tasks[0].task.init
     rng = np.random.default_rng(123)
@@ -97,6 +103,7 @@ def test_sticky_table():
     ball_init_table = ball_init_tables[0]
 
     # Test noise-free CUP picking and placing on the floor and normal tables.
+    # Also test placing the ball into the cup on the floor.
     first_table = normal_tables[0]
     ground_nsrt_plan = [
         NavigateToCup.ground([robot, cup]),
@@ -115,6 +122,11 @@ def test_sticky_table():
             [robot, cup, ball, normal_tables[-1]]))
     ground_nsrt_plan.append(
         PlaceCupWithoutBallOnFloor.ground([robot, ball, cup]))
+    ground_nsrt_plan.append(NavigateToTable.ground([robot, ball_init_table]))
+    ground_nsrt_plan.append(
+        PickBallFromTable.ground([robot, ball, cup, ball_init_table]))
+    ground_nsrt_plan.append(NavigateToCup.ground([robot, cup]))
+    ground_nsrt_plan.append(PlaceBallInCupOnFloor.ground([robot, ball, cup]))
     state = env.reset("test", 0)
     for ground_nsrt in ground_nsrt_plan:
         state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
@@ -155,23 +167,24 @@ def test_sticky_table():
         state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
                                                       rng)
 
-    # # Test putting the ball in the cup first and then both on the table.
-    # table = ball_init_table
-    # ground_nsrt_plan = [
-    #     NavigateToTable.ground([robot, table]),
-    #     PickBallFromTable.ground([robot, ball, cup, table]),
-    #     NavigateToCup.ground([robot, cup]),
-    #     PlaceBallInCupOnFloor.ground([robot, ball, cup]),
-    #     PickCupWithBallFromFloor.ground([robot, cup, ball]),
-    #     NavigateToTable.ground([robot, table]),
-    #     PlaceCupWithBallOnTable.ground([robot, ball, cup, table]),
-    #     PickCupWithBallFromTable.ground([robot, cup, ball, table]),
-    #     PlaceCupWithBallOnFloor.ground([robot, ball, cup]),
-    # ]
-    # state = env.reset("test", 0)
-    # for ground_nsrt in ground_nsrt_plan:
-    #     state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
-    #                                                   rng)
+    # Test putting the ball in the cup first and then going to the table,
+    # then placing back onto the floor.
+    table = ball_init_table
+    ground_nsrt_plan = [
+        NavigateToTable.ground([robot, table]),
+        PickBallFromTable.ground([robot, ball, cup, table]),
+        NavigateToCup.ground([robot, cup]),
+        PlaceBallInCupOnFloor.ground([robot, ball, cup]),
+        PickCupWithBallFromFloor.ground([robot, cup, ball]),
+        NavigateToTable.ground([robot, table]),
+        # PlaceCupWithBallOnTable.ground([robot, ball, cup, table]),
+        # PickCupWithBallFromTable.ground([robot, cup, ball, table]),
+        PlaceCupWithBallOnFloor.ground([robot, ball, cup]),
+    ]
+    state = env.reset("test", 0)
+    for ground_nsrt in ground_nsrt_plan:
+        state = utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
+                                                      rng)
 
     # Test picking the ball from inside the cup on the floor.
     table = ball_init_table
