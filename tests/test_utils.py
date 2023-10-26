@@ -3280,6 +3280,7 @@ def test_oracle_feature_selection():
             NavigateToCup = opt
     assert PlaceCupWithoutBallOnTable is not None
     params = [0.0, 0.0, 0.0, 0.0, 0.0]
+    # pylint:disable=protected-access
     cup = state.get_objects(env._cup_type)[0]
     robot = state.get_objects(env._robot_type)[0]
     ball = state.get_objects(env._ball_type)[0]

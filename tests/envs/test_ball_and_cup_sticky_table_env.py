@@ -66,7 +66,7 @@ def test_sticky_table():
     PickCupWithBallFromFloor = nsrt_name_to_nsrt["PickCupWithBallFromFloor"]
     # PlaceCupWithBallOnTable = nsrt_name_to_nsrt["PlaceCupWithBallOnTable"]
     PlaceCupWithBallOnFloor = nsrt_name_to_nsrt["PlaceCupWithBallOnFloor"]
-    PickCupWithBallFromTable = nsrt_name_to_nsrt["PickCupWithBallFromTable"]
+    # PickCupWithBallFromTable = nsrt_name_to_nsrt["PickCupWithBallFromTable"]
 
     assert len(options) == len(nsrts) == 16
     env_train_tasks = env.get_train_tasks()
