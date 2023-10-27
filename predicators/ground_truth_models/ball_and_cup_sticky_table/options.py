@@ -1,4 +1,4 @@
-"""Ground-truth options for the sticky table environment."""
+"""Ground-truth options for the ball and cup sticky table environment."""
 
 from typing import Dict, Sequence, Set
 
@@ -100,14 +100,6 @@ class BallAndCupStickyTableGroundTruthOptionFactory(GroundTruthOptionFactory):
             # Parameters are absolute x, y actions.
             params_space=params_space,
             types=[robot_type, cup_type, ball_type])
-
-        # PlaceCupWithBallOnTable = utils.SingletonParameterizedOption(
-        #     # variables: [robot, ball, cup, table]
-        #     "PlaceCupWithBallOnTable",
-        #     cls._create_pass_through_policy(action_space),
-        #     # Parameters are absolute x, y actions.
-        #     params_space=params_space,
-        #     types=[robot_type, ball_type, cup_type, table_type])
 
         PlaceCupWithoutBallOnTable = utils.SingletonParameterizedOption(
             # variables: [robot, ball, cup, table]

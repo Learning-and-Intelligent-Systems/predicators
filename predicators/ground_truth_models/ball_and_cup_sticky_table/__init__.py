@@ -1,4 +1,4 @@
-"""Ground-truth models for sticky table environment and variants."""
+"""Ground-truth models for ball and cup sticky table environment."""
 
 from .nsrts import BallAndCupStickyTableGroundTruthNSRTFactory
 from .options import BallAndCupStickyTableGroundTruthOptionFactory

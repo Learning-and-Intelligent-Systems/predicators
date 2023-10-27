@@ -3488,6 +3488,7 @@ def beta_from_mean_and_variance(mean: float,
 
 
 def _obs_to_state_pass_through(obs: Observation) -> State:
+    """Helper for run_ground_nsrt_with_assertions."""
     assert isinstance(obs, State)
     return obs
 
@@ -3504,7 +3505,7 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
                                     max_steps: int = 400) -> State:
     """Utility for tests.
 
-    TODO add note about env internal state being state
+    NOTE: assumes that the internal state of env corresponds to state.
     """
     ground_nsrt_str = f"{ground_nsrt.name}{ground_nsrt.objects}"
     for atom in ground_nsrt.preconditions:

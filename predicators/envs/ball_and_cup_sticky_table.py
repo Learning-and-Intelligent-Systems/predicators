@@ -38,7 +38,6 @@ class BallAndCupStickyTableEnv(BaseEnv):
     y_ub: ClassVar[float] = 1.0
     reachable_thresh: ClassVar[float] = 0.1
     objs_scale: ClassVar[float] = 0.25  # as a function of table radius
-    sticky_surface_mode: ClassVar[str] = "half"  # half or whole
     sticky_region_radius_scale: ClassVar[float] = 0.35
     # Types
     _table_type: ClassVar[Type] = Type("table", [
@@ -165,8 +164,7 @@ class BallAndCupStickyTableEnv(BaseEnv):
                    rng: np.random.Generator) -> List[EnvironmentTask]:
         tasks: List[EnvironmentTask] = []
         while len(tasks) < num:
-            # The initial location of the the robot and tables
-            # are both randomized.
+            # The initial location of the the robot is randomized.
             num_tables = CFG.sticky_table_num_tables
             assert num_tables >= 2
             state_dict: Dict[Object, Dict[str, float]] = {}
@@ -183,12 +181,11 @@ class BallAndCupStickyTableEnv(BaseEnv):
             # Add a random spin to offset the circle. This is to ensure
             # the tables are in different positions along the circle every
             # time.
-            theta_offset = 0.0  #rng.uniform(0, 2 * np.pi)
             sticky_region_radius = radius * self.sticky_region_radius_scale
             # Now, actually instantiate the tables.
             for i, theta in enumerate(thetas):
-                x = d * np.cos(theta + theta_offset) + origin_x
-                y = d * np.sin(theta + theta_offset) + origin_y
+                x = d * np.cos(theta) + origin_x
+                y = d * np.sin(theta) + origin_y
                 if i >= CFG.sticky_table_num_sticky_tables:
                     prefix = "normal"
                     sticky = 0.0
