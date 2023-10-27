@@ -36,12 +36,31 @@ ENVS:
     NAME: "grid_row"
     FLAGS:
       grid_row_num_cells: 3
+      max_num_steps_interaction_request: 500
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: all
   grid_row:
     NAME: "grid_row"
-  sticky_table:
-    NAME: "sticky_table"
-  sticky_table_tricky_floor:
-    NAME: "sticky_table_tricky_floor"
+    FLAGS:
+      max_num_steps_interaction_request: 500
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: all
+  ball_and_cup_sticky_table:
+    NAME: "ball_and_cup_sticky_table"
+    FLAGS:
+      sticky_table_place_smooth_fall_prob: 1.00
+      sticky_table_place_sticky_fall_prob: 0.00
+      sticky_table_pick_success_prob: 1.0
+      sticky_table_num_sticky_tables: 1
+      sticky_table_num_tables: 5
+      sticky_table_place_ball_fall_prob: 1.00
+      active_sampler_learning_explore_length_base: 25
+      active_sampler_learning_exploration_epsilon: 0.5
+      skill_competence_model_optimistic_recency_size: 2
+      skill_competence_model_optimistic_window_size: 2
+      horizon: 8
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: oracle
   regional_bumpy_cover:
     NAME: "regional_bumpy_cover"
     FLAGS:
@@ -53,11 +72,13 @@ ENVS:
       cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
       cover_num_targets: 10
       cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
+      active_sampler_learning_feature_selection: all
   kitchen:
     NAME: "kitchen"
     FLAGS:
       num_train_tasks: 100
       max_num_steps_option_rollout: 250
+      active_sampler_learning_feature_selection: all
 ARGS:
   - "debug"
 FLAGS:
@@ -73,10 +94,10 @@ FLAGS:
   active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 500
+  max_num_steps_interaction_request: 100
   num_online_learning_cycles: 10
-  active_sampler_learning_explore_length_base: 100000  # effectively disable
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"
+  active_sampler_learning_n_iter_no_change: 5000
 START_SEED: 456
 NUM_SEEDS: 10

@@ -117,7 +117,7 @@ PLOT_GROUPS = {
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-random_nsrts_explore" in v)),
     ],
-    "Sticky Table": [
+    "Ball and Cup Sticky Table": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-planning_progress_explore" in v)),
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
@@ -128,19 +128,6 @@ PLOT_GROUPS = {
             lambda v: "sticky_table-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-random_nsrts_explore" in v)),
-    ],
-    "Sticky Table Tricky Floor": [
-        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "sticky_table_tricky_floor-planning_progress_explore"
-               in v)),
-        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table_tricky_floor-task_repeat_explore" in v)),
-        ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table_tricky_floor-success_rate_explore" in v)),
-        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table_tricky_floor-random_score_explore" in v)),
-        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "sticky_table_tricky_floor-random_nsrts_explore" in v)),
     ],
 }
 
