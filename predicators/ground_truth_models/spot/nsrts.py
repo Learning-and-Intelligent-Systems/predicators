@@ -73,7 +73,29 @@ def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],
                                     objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dyaw to move while holding.
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([-1.0, 0.5, np.pi / 3])
+    return np.array([-1.25, 0.0, np.pi / 3])
+
+
+def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
+                                  rng: np.random.Generator,
+                                  objs: Sequence[Object]) -> Array:
+    # Parameters are start dx, start dy.
+    del state, goal, objs, rng  # randomization coming soon
+    return np.array([0.0, 0.25])
+
+
+def _prepare_sweeping_sampler(state: State, goal: Set[GroundAtom],
+                              rng: np.random.Generator,
+                              objs: Sequence[Object]) -> Array:
+    # Parameters are dx, dy, yaw w.r.t. the target object.
+    del state, goal, objs, rng  # randomization coming soon
+
+    # Currently assume that the robot is facing the surface in its home pose.
+    # Soon, we will change this to actually sample angles of approach and do
+    # collision detection.
+    home_pose = get_spot_home_pose()
+
+    return np.array([-0.8, -0.4, home_pose.angle])
 
 
 class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
@@ -82,8 +104,11 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {
-            "spot_cube_env", "spot_soda_table_env", "spot_soda_bucket_env",
-            "spot_soda_chair_env"
+            "spot_cube_env",
+            "spot_soda_table_env",
+            "spot_soda_bucket_env",
+            "spot_soda_chair_env",
+            "spot_soda_sweep_env",
         }
 
     @staticmethod
@@ -103,6 +128,8 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
             "DragToUnblockObject": _drag_to_unblock_object_sampler,
+            "SweepIntoContainer": _sweep_into_container_sampler,
+            "PrepareContainerForSweeping": _prepare_sweeping_sampler,
         }
 
         for strips_op in env.strips_operators:

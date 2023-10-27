@@ -23,9 +23,10 @@ from predicators.spot_utils.skills.spot_grasp import grasp_at_pixel
 from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
     gaze_at_relative_pose, move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import \
-    navigate_to_relative_pose
+    navigate_to_absolute_pose, navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_place import place_at_relative_position
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
+from predicators.spot_utils.skills.spot_sweep import sweep
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
     DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, get_relative_se2_from_se3
@@ -40,6 +41,8 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
 def _navigate_to_relative_pose_and_gaze(
         robot: Robot, rel_pose: math_helpers.SE2Pose, localizer: SpotLocalizer,
         gaze_target: math_helpers.Vec3) -> None:
+    # Stow first.
+    stow_arm(robot)
     # First navigate to the pose.
     navigate_to_relative_pose(robot, rel_pose)
     # Get the relative gaze target based on the new robot pose.
@@ -101,6 +104,20 @@ def _drag_and_release(robot: Robot, rel_pose: math_helpers.SE2Pose) -> None:
     stow_arm(robot)
     # Move backward to avoid hitting the chair subsequently.
     navigate_to_relative_pose(robot, math_helpers.SE2Pose(0.0, -0.5, 0.0))
+
+
+def _move_to_absolute_pose_and_place_stow(
+        robot: Robot, localizer: SpotLocalizer,
+        absolute_pose: math_helpers.SE2Pose) -> None:
+    # Move to the absolute pose.
+    navigate_to_absolute_pose(robot, localizer, absolute_pose)
+    # Place in front.
+    place_rel_pose = math_helpers.SE3Pose(x=0.80,
+                                          y=0.0,
+                                          z=0.0,
+                                          rot=math_helpers.Quat.from_pitch(
+                                              np.pi / 2))
+    _place_at_relative_position_and_stow(robot, place_rel_pose)
 
 
 ###############################################################################
@@ -297,6 +314,65 @@ def _drag_to_unblock_object_policy(state: State, memory: Dict,
                                         (robot, move_rel_pos))
 
 
+def _sweep_into_container_policy(state: State, memory: Dict,
+                                 objects: Sequence[Object],
+                                 params: Array) -> Action:
+    del memory  # not used
+
+    name = "SweepIntoContainer"
+    robot_obj_idx = 0
+    target_obj_idx = 2
+
+    robot, _, _ = get_robot()
+
+    start_dx, start_dy = params
+
+    robot_obj = objects[robot_obj_idx]
+    robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
+
+    target_obj = objects[target_obj_idx]
+    target_pose = utils.get_se3_pose_from_state(state, target_obj)
+    start_dz = 0.0
+    start_x = target_pose.x - robot_pose.x + start_dx
+    start_y = target_pose.y - robot_pose.y + start_dy
+    start_z = target_pose.z - robot_pose.z + start_dz
+    sweep_start_pose = math_helpers.SE3Pose(x=start_x,
+                                            y=start_y,
+                                            z=start_z,
+                                            rot=math_helpers.Quat.from_yaw(
+                                                -np.pi / 2))
+    # Calculate the yaw and distance for the sweep.
+    sweep_move_dx = start_dx
+    sweep_move_dy = -(2 * start_dy)
+
+    # Execute the sweep.
+    return utils.create_spot_env_action(
+        name, objects, sweep,
+        (robot, sweep_start_pose, sweep_move_dx, sweep_move_dy))
+
+
+def _prepare_container_for_sweeping_policy(state: State, memory: Dict,
+                                           objects: Sequence[Object],
+                                           params: Array) -> Action:
+    del memory  # not used
+
+    name = "PrepareContainerForSweeping"
+    target_obj_idx = 2
+
+    robot, localizer, _ = get_robot()
+
+    dx, dy, dyaw = params
+
+    target_obj = objects[target_obj_idx]
+    target_pose = utils.get_se3_pose_from_state(state, target_obj)
+    absolute_move_pose = math_helpers.SE2Pose(target_pose.x + dx,
+                                              target_pose.y + dy, dyaw)
+
+    return utils.create_spot_env_action(name, objects,
+                                        _move_to_absolute_pose_and_place_stow,
+                                        (robot, localizer, absolute_move_pose))
+
+
 ###############################################################################
 #                       Parameterized option factory                          #
 ###############################################################################
@@ -308,6 +384,8 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DragToUnblockObject": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dyaw
+    "SweepIntoContainer": Box(-np.inf, np.inf, (2, )),  # rel dx, dy
+    "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
 }
 
 _OPERATOR_NAME_TO_POLICY = {
@@ -317,6 +395,8 @@ _OPERATOR_NAME_TO_POLICY = {
     "PlaceObjectOnTop": _place_object_on_top_policy,
     "DropObjectInside": _drop_object_inside_policy,
     "DragToUnblockObject": _drag_to_unblock_object_policy,
+    "SweepIntoContainer": _sweep_into_container_policy,
+    "PrepareContainerForSweeping": _prepare_container_for_sweeping_policy,
 }
 
 
@@ -351,7 +431,7 @@ class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_env_names(cls) -> Set[str]:
         return {
             "spot_cube_env", "spot_soda_table_env", "spot_soda_bucket_env",
-            "spot_soda_chair_env"
+            "spot_soda_chair_env", "spot_soda_sweep_env"
         }
 
     @classmethod

@@ -6,6 +6,7 @@ from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.skills.spot_hand_move import \
     move_hand_to_relative_pose
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 
 
 def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
@@ -21,6 +22,8 @@ def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
     sweep_end_pose = relative_hand_move * sweep_start_pose
     # Move the hand to the end pose.
     move_hand_to_relative_pose(robot, sweep_end_pose)
+    # Stow arm to finish.
+    stow_arm(robot)
 
 
 if __name__ == "__main__":
@@ -48,7 +51,6 @@ if __name__ == "__main__":
         open_gripper
     from predicators.spot_utils.skills.spot_navigation import go_home, \
         navigate_to_relative_pose
-    from predicators.spot_utils.skills.spot_stow_arm import stow_arm
     from predicators.spot_utils.spot_localization import SpotLocalizer
     from predicators.spot_utils.utils import get_graph_nav_dir, \
         get_relative_se2_from_se3, get_spot_home_pose, verify_estop
@@ -114,7 +116,6 @@ if __name__ == "__main__":
         localizer.localize()
 
         # Calculate sweep parameters.
-        # Get angle between robot and soda can.
         robot_pose = localizer.get_last_robot_pose()
         start_dx = 0.0
         start_dy = 0.25
