@@ -653,7 +653,7 @@ class GlobalSettings:
                     # the horizon to be shorter.
                     "touch_point": 15,
                     # Ditto for the simple grid row environment.
-                    "grid_row": cls.grid_row_num_cells + 5,
+                    "grid_row": cls.grid_row_num_cells + 2,
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
