@@ -740,7 +740,7 @@ def test_external_oracle_approach():
             original_space = super().action_space
             return Box(original_space.low[::-1],
                        original_space.high[::-1],
-                       dtype=original_space.dtype)
+                       dtype=np.float32)
 
         def simulate(self, state, action):
             # Need to rewrite these lines here to avoid assertion in simulate
