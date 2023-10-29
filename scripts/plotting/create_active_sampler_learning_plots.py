@@ -86,7 +86,7 @@ PLOT_GROUPS = {
             lambda v: "kitchen-planning_progress_explore" in v)),
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-task_repeat_explore" in v)),
-        ("Fail Focus Non-UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Fail Focus Non-UCB", "brown", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-success_rate_explore_no_ucb" in v)),
         ("Fail Focus UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "kitchen-success_rate_explore_ucb" in v)),
@@ -100,7 +100,7 @@ PLOT_GROUPS = {
             lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
-        ("Fail Focus Non-UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Fail Focus Non-UCB", "brown", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-success_rate_explore_no_ucb" in v)),
         ("Fail Focus UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-success_rate_explore_ucb" in v)),
@@ -114,7 +114,7 @@ PLOT_GROUPS = {
             lambda v: "grid_row-planning_progress_explore" in v)),
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-task_repeat_explore" in v)),
-        ("Fail Focus Non-UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Fail Focus Non-UCB", "brown", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-success_rate_explore_no_ucb" in v)),
         ("Fail Focus UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-success_rate_explore_ucb" in v)),
@@ -128,7 +128,7 @@ PLOT_GROUPS = {
             lambda v: "sticky_table-planning_progress_explore" in v)),
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-task_repeat_explore" in v)),
-        ("Fail Focus Non-UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
+        ("Fail Focus Non-UCB", "brown", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-success_rate_explore_no_ucb" in v)),
         ("Fail Focus UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "sticky_table-success_rate_explore_ucb" in v)),
