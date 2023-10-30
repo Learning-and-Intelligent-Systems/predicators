@@ -1383,6 +1383,64 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 temp.append(traj)
                 print(traj)
 
+            ttt = list(predicates_to_keep)
+            for p in ttt:
+                print(p)
+
+            # hard-coded test
+            op1_pre = [
+                "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
+            ]
+            op1_add = [
+                "NOT-((0:block).grasp<=[idx 0]-0.486)",
+                "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]"
+            ]
+            op1_del = [
+                "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]"
+            ]
+
+            op0_pre = [
+                "NOT-((0:block).grasp<=[idx 0]-0.486)",
+                "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
+            ]
+            op0_add = [
+                "Covers",
+                "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]"
+            ]
+            op0_del = [
+                "NOT-((0:block).grasp<=[idx 0]-0.486)",
+                "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]"
+            ]
+
+            # filter
+            fff = {}
+            fff['Op1-PickPlace'] = []
+            fff['Op0-PickPlace'] = []
+            fff['Op1-PickPlace'].append(
+                set(p for p in ddd['Op1-PickPlace'][0] if p.name in op0_pre)
+                )
+            fff['Op1-PickPlace'].append(
+                set(p for p in ddd['Op1-PickPlace'][1] if p.name in op0_add)
+                )
+            fff['Op1-PickPlace'].append(
+                set(p for p in ddd['Op1-PickPlace'][2] if p.name in op0_del)
+                )
+            fff['Op1-PickPlace'].append(ddd['Op1-PickPlace'][3])
+
+            fff['Op0-PickPlace'].append(
+                set(p for p in ddd['Op0-PickPlace'][0] if p.name in op1_pre)
+                )
+            fff['Op0-PickPlace'].append(
+                set(p for p in ddd['Op0-PickPlace'][1] if p.name in op1_add)
+                )
+            fff['Op0-PickPlace'].append(
+                set(p for p in ddd['Op0-PickPlace'][2] if p.name in op1_del)
+                )
+            fff['Op0-PickPlace'].append(ddd['Op0-PickPlace'][3])
+            self._clusters = fff
+            import pdb; pdb.set_trace()
+            return predicates_to_keep
+
             # ####
             # # 1.
             # potential_ops = {o: dict() for o in ddd.keys()}
@@ -1422,6 +1480,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             ####
             task_to_ops = {i: dict() for i in range(len(self._train_tasks))}
             ddd2 = ddd.copy()
+            def nice_print(s):
+                for a in sorted(list(s)):
+                    print(a)
             for i, segmented_traj in enumerate(segmented_trajs):
                 seg_traj = list(reversed(segmented_traj))
                 potential_ops = {o: {"preconditions": set(), "add_effects": set(), "delete_effects": set()} for o in ddd.keys()}
@@ -1441,6 +1502,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     curr_name = seg_to_op(curr_seg, final_clusters)
                     grounded_relevant_add_effects = set(a for a in curr_seg.add_effects if a.predicate in ddd[curr_name][1])
                     grounded_relevant_del_effects = set(a for a in curr_seg.delete_effects if a.predicate in ddd[curr_name][2])
+                    grounded_relevant_preconds = set(a for a in curr_seg.init_atoms if a.predicate in ddd[curr_name][0])
                     to_add = set()
                     to_del = set()
                     for k in range(length):
