@@ -10,6 +10,7 @@ setup(
     install_requires=[
         "numpy>=1.22.3",
         "pytest",
+        "mypy",
         "gym==0.26.2",
         "matplotlib",
         "imageio",
@@ -48,7 +49,5 @@ setup(
             "yapf==0.32.0",
             "docformatter==1.4",
             "isort==5.10.1",
-            "mypy@git+https://github.com/python/mypy.git@9bd651758e8ea2494" +
-            "837814092af70f8d9e6f7a1",
         ]
     })

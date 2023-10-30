@@ -336,6 +336,12 @@ class GlobalSettings:
     sticky_table_place_sticky_fall_prob = 0.05
     sticky_table_pick_success_prob = 0.9
     sticky_table_tricky_floor_place_sticky_fall_prob = 0.5
+    sticky_table_num_tables = 5  # cannot be less than 3
+    sticky_table_place_smooth_fall_prob = 0.6
+    sticky_table_place_sticky_fall_prob = 0.00
+    sticky_table_place_ball_fall_prob = 1.00
+    sticky_table_pick_success_prob = 1.00
+    sticky_table_num_sticky_tables = 1  # must be less than the num_tables
 
     # grid row env parameters
     grid_row_num_cells = 100

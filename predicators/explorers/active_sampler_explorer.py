@@ -105,6 +105,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         assigned_task_horizon = CFG.horizon
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None
+        current_task_repeat_goal: Optional[Set[GroundAtom]] = None
         using_random = False
 
         def _option_policy(state: State) -> _Option:
@@ -176,6 +177,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                     logging.info("[Explorer] Pursuing repeat task")
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
+                        nonlocal current_task_repeat_goal
                         # Loop through seen tasks in random order. Propose
                         # their initial abstract states and their goals until
                         # one is found that is not already achieved.
@@ -185,12 +187,23 @@ class ActiveSamplerExplorer(BaseExplorer):
                             task = self._train_tasks[train_task_idx]
                             # Can only practice the task if the objects match.
                             if set(task.init) == set(state):
+                                # If we've already been trying to achieve a
+                                # particular goal, then keep trying to achieve
+                                # it.
+                                if current_task_repeat_goal is not None:
+                                    current_pursuit_goal_achieved = all(
+                                        a.holds(state)
+                                        for a in current_task_repeat_goal)
+                                    if not current_pursuit_goal_achieved:
+                                        yield current_task_repeat_goal
+                                # Else, figure out the next goal to plan to!
                                 possible_goals = [
                                     task.goal,
                                     utils.abstract(task.init, self._predicates)
                                 ]
                                 for goal in possible_goals:
                                     if any(not a.holds(state) for a in goal):
+                                        current_task_repeat_goal = goal
                                         yield goal
 
                 # Otherwise, practice.
@@ -214,7 +227,11 @@ class ActiveSamplerExplorer(BaseExplorer):
                 for goal in generate_goals():
                     task = Task(state, goal)
                     logging.info(f"[Explorer] Replanning to {task.goal}")
-
+                    # If the goal is empty, then we can just recursively
+                    # call the policy, since we don't need to execute
+                    # anything.
+                    if len(goal) == 0:
+                        return _option_policy(state)  # pragma: no cover
                     # Add this task to the re-planning task queue.
                     self._replanning_tasks.append(task)
 
@@ -226,6 +243,13 @@ class ActiveSamplerExplorer(BaseExplorer):
                     # crash in case that assumption is not met.
                     except (PlanningFailure,
                             PlanningTimeout):  # pragma: no cover
+                        logging.info(
+                            "WARNING: Planning graph is not "
+                            "fully-connected! This violates a key "
+                            "assumption of our active sampler learning "
+                            "framework; ensure you DO NOT see this message "
+                            "if you're running experiments comparing"
+                            "different active sampler learning approaches.")
                         continue
                     logging.info("[Explorer] Plan found.")
                     break
@@ -353,6 +377,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             o: -np.log(m.get_current_competence())
             for o, m in self._competence_models.items()
         }
+        # Set large horizon for planning here because we don't want to error
+        # out due to plan exceeding horizon here.
         plan, atoms_seq, _ = run_task_plan_once(
             task,
             self._nsrts,
@@ -362,7 +388,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             self._seed,
             task_planning_heuristic=task_planning_heuristic,
             ground_op_costs=ground_op_costs,
-            default_cost=self._default_cost)
+            default_cost=self._default_cost,
+            max_horizon=np.inf)
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 
@@ -465,7 +492,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                 self._seed,
                 task_planning_heuristic=task_planning_heuristic,
                 ground_op_costs=ground_op_costs,
-                default_cost=self._default_cost)
+                default_cost=self._default_cost,
+                max_horizon=np.inf)
             self._task_plan_cache[task_id] = [n.op for n in plan]
 
         self._task_plan_calls_since_replan[task_id] += 1

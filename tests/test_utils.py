@@ -1,7 +1,7 @@
 """Test cases for utils."""
 import os
 import time
-from typing import Iterator, Tuple
+from typing import Iterator, Optional, Tuple
 from typing import Type as TypingType
 
 import matplotlib.pyplot as plt
@@ -10,6 +10,7 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.envs.ball_and_cup_sticky_table import BallAndCupStickyTableEnv
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.envs.pddl_env import ProceduralTasksGripperPDDLEnv, \
     ProceduralTasksSpannerPDDLEnv
@@ -2325,12 +2326,16 @@ def test_create_pddl():
     env = ProceduralTasksSpannerPDDLEnv()
     nsrts = get_gt_nsrts(env.get_name(), env.predicates,
                          get_gt_options(env.get_name()))
-    domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
+    # Test case where there is a special type with no parents or children.
+    monkey_type = Type("monkey", [])
+    types = env.types | {monkey_type}
+    domain_str = utils.create_pddl_domain(nsrts, env.predicates, types,
                                           "spanner")
     assert domain_str == """(define (domain spanner)
   (:requirements :typing)
   (:types 
     man nut spanner - locatable
+    monkey
     locatable location - object)
 
   (:predicates
@@ -3270,3 +3275,49 @@ def test_rotate_point_in_image():
     assert np.allclose(utils.rotate_point_in_image(0, 0, 90, 5, 5), (4, 0))
     assert np.allclose(utils.rotate_point_in_image(0, 0, -90, 5, 5), (0, 4))
     assert np.allclose(utils.rotate_point_in_image(0, 0, 180, 5, 5), (4, 4))
+
+
+def test_oracle_feature_selection():
+    """Test the oracle feature selection code."""
+    utils.reset_config({
+        "env": "ball_and_cup_sticky_table",
+        "active_sampler_learning_feature_selection": "oracle"
+    })
+    env = BallAndCupStickyTableEnv()
+    train_tasks = [t.task for t in env.get_train_tasks()]
+    state = train_tasks[0].init
+    options = get_gt_options(env.get_name())
+    PlaceCupWithoutBallOnTable: Optional[ParameterizedOption] = None
+    NavigateToCup: Optional[ParameterizedOption] = None
+    for opt in options:
+        if "PlaceCupWithoutBallOnTable" in opt.name:
+            PlaceCupWithoutBallOnTable = opt
+        elif "NavigateToCup" in opt.name:
+            NavigateToCup = opt
+    assert PlaceCupWithoutBallOnTable is not None
+    params = [0.0, 0.0, 0.0, 0.0, 0.0]
+    # pylint:disable=protected-access
+    cup = state.get_objects(env._cup_type)[0]
+    robot = state.get_objects(env._robot_type)[0]
+    ball = state.get_objects(env._ball_type)[0]
+    table = state.get_objects(env._table_type)[0]
+    # Construct input for special place skill and test that it has only
+    # 10 features.
+    sampler_input = utils.construct_active_sampler_input(
+        state, [cup, robot, ball, table], params, PlaceCupWithoutBallOnTable)
+    assert len(sampler_input) == 10
+    # Construct input for navigation skill and test that it has 12
+    # features.
+    sampler_input = utils.construct_active_sampler_input(
+        state, [robot, cup], params, NavigateToCup)
+    assert len(sampler_input) == 12
+    # Try a non-existent feature selection method and test that an
+    # error is raised.
+    utils.reset_config({
+        "env": "not-a-real-env",
+        "active_sampler_learning_feature_selection": "oracle"
+    })
+    with pytest.raises(NotImplementedError) as e:
+        utils.construct_active_sampler_input(state, [robot, cup], params,
+                                             NavigateToCup)
+    assert "Oracle feature selection" in str(e)

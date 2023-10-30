@@ -67,7 +67,11 @@ class CogMan:
             self._exec_monitor.reset(task)
             self._exec_monitor.update_approach_info(
                 self._approach.get_execution_monitoring_info())
-            assert not self._exec_monitor.step(state)
+            # We only reset the approach if the override policy is
+            # None, so this below assertion only works in this
+            # case.
+            if self._override_policy is None:
+                assert not self._exec_monitor.step(state)
         assert self._current_policy is not None
         act = self._current_policy(state)
         self._perceiver.update_perceiver_with_action(act)

@@ -301,27 +301,54 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
 
     else:
         assert CFG.active_sampler_learning_feature_selection == "oracle"
-        assert CFG.env == "bumpy_cover"
-        if param_option.name == "Pick":
-            # In this case, the x-data should be
-            # [block_bumpy, relative_pick_loc]
-            assert len(objects) == 1
-            block = objects[0]
-            block_pos = state[block][3]
-            block_bumpy = state[block][5]
-            sampler_input_lst.append(block_bumpy)
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - block_pos)
+        if CFG.env == "bumpy_cover":
+            if param_option.name == "Pick":
+                # In this case, the x-data should be
+                # [block_bumpy, relative_pick_loc]
+                assert len(objects) == 1
+                block = objects[0]
+                block_pos = state[block][3]
+                block_bumpy = state[block][5]
+                sampler_input_lst.append(block_bumpy)
+                assert len(params) == 1
+                sampler_input_lst.append(params[0] - block_pos)
+            else:
+                assert param_option.name == "Place"
+                assert len(objects) == 2
+                block, target = objects
+                target_pos = state[target][3]
+                grasp = state[block][4]
+                target_width = state[target][2]
+                sampler_input_lst.extend([grasp, target_width])
+                assert len(params) == 1
+                sampler_input_lst.append(params[0] - target_pos)
+        elif CFG.env == "ball_and_cup_sticky_table":
+            if "PlaceCup" in param_option.name and "Table" in param_option.name:
+                _, _, _, table = objects
+                table_y = state.get(table, "y")
+                table_x = state.get(table, "x")
+                sticky = state.get(table, "sticky")
+                sticky_region_x = state.get(table, "sticky_region_x_offset")
+                sticky_region_y = state.get(table, "sticky_region_y_offset")
+                sticky_region_radius = state.get(table, "sticky_region_radius")
+                table_radius = state.get(table, "radius")
+                _, _, _, param_x, param_y = params
+                sampler_input_lst.append(table_radius)
+                sampler_input_lst.append(sticky)
+                sampler_input_lst.append(sticky_region_x)
+                sampler_input_lst.append(sticky_region_y)
+                sampler_input_lst.append(sticky_region_radius)
+                sampler_input_lst.append(table_x)
+                sampler_input_lst.append(table_y)
+                sampler_input_lst.append(param_x)
+                sampler_input_lst.append(param_y)
+            else:  # Use all features.
+                for obj in objects:
+                    sampler_input_lst.extend(state[obj])
+                sampler_input_lst.extend(params)
         else:
-            assert param_option.name == "Place"
-            assert len(objects) == 2
-            block, target = objects
-            target_pos = state[target][3]
-            grasp = state[block][4]
-            target_width = state[target][2]
-            sampler_input_lst.extend([grasp, target_width])
-            assert len(params) == 1
-            sampler_input_lst.append(params[0] - target_pos)
+            raise NotImplementedError("Oracle feature selection not "
+                                      f"implemented for {CFG.env}")
 
     return np.array(sampler_input_lst)
 
@@ -384,6 +411,12 @@ class Circle(_Geom2D):
 
     def contains_point(self, x: float, y: float) -> bool:
         return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
+
+    def contains_circle(self, other_circle: Circle) -> bool:
+        """Check whether this circle wholly contains another one."""
+        dist_between_centers = np.sqrt((other_circle.x - self.x)**2 +
+                                       (other_circle.y - self.y)**2)
+        return (dist_between_centers + other_circle.radius) <= self.radius
 
 
 @dataclass(frozen=True)
@@ -2205,7 +2238,7 @@ def all_ground_nsrts_fd_translator(
     prob_str = create_pddl_problem(objects, init_atoms, goal, "mydomain",
                                    "myproblem")
     with nostdout():
-        sas_task = downward_translate(dom_str, prob_str)
+        sas_task = downward_translate(dom_str, prob_str)  # type: ignore
     for operator in sas_task.operators:
         split_name = operator.name[1:-1].split()  # strip out ( and )
         nsrt = nsrt_name_to_nsrt[split_name[0]]
@@ -2842,9 +2875,17 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
         for parent_type in sorted(parent_to_children_types):
             child_types = parent_to_children_types[parent_type]
             if not child_types:
-                continue
-            child_type_str = " ".join(t.name for t in child_types)
-            types_str += f"\n    {child_type_str} - {parent_type.name}"
+                # Special case: type has no children and also does not appear
+                # as a child of another type.
+                is_child_type = any(
+                    parent_type in children
+                    for children in parent_to_children_types.values())
+                if not is_child_type:
+                    types_str += f"\n    {parent_type.name}"
+                # Otherwise, the type will appear as a child elsewhere.
+            else:
+                child_type_str = " ".join(t.name for t in child_types)
+                types_str += f"\n    {child_type_str} - {parent_type.name}"
     ops_lst = sorted(operators)
     preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
     ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
@@ -3525,3 +3566,48 @@ def create_spot_env_action(
     return SpotAction(np.array([], dtype=np.float32),
                       extra_info=(action_name, tuple(operator_objects), fn,
                                   tuple(fn_args)))
+
+
+def _obs_to_state_pass_through(obs: Observation) -> State:
+    """Helper for run_ground_nsrt_with_assertions."""
+    assert isinstance(obs, State)
+    return obs
+
+
+def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
+                                    state: State,
+                                    env: BaseEnv,
+                                    rng: np.random.Generator,
+                                    override_params: Optional[Array] = None,
+                                    obs_to_state: Callable[
+                                        [Observation],
+                                        State] = _obs_to_state_pass_through,
+                                    assert_effects: bool = True,
+                                    max_steps: int = 400) -> State:
+    """Utility for tests.
+
+    NOTE: assumes that the internal state of env corresponds to state.
+    """
+    ground_nsrt_str = f"{ground_nsrt.name}{ground_nsrt.objects}"
+    for atom in ground_nsrt.preconditions:
+        assert atom.holds(state), \
+            f"Precondition for {ground_nsrt_str} failed: {atom}"
+    option = ground_nsrt.sample_option(state, set(), rng)
+    if override_params is not None:
+        option = option.parent.ground(option.objects,
+                                      override_params)  # pragma: no cover
+    assert option.initiable(state)
+    for _ in range(max_steps):
+        act = option.policy(state)
+        obs = env.step(act)
+        state = obs_to_state(obs)
+        if option.terminal(state):
+            break
+    if assert_effects:
+        for atom in ground_nsrt.add_effects:
+            assert atom.holds(state), \
+                f"Add effect for {ground_nsrt_str} failed: {atom}"
+        for atom in ground_nsrt.delete_effects:
+            assert not atom.holds(state), \
+                f"Delete effect for {ground_nsrt_str} failed: {atom}"
+    return state
