@@ -410,14 +410,8 @@ def test_planning_determinism():
                 next_state[robby][1] = 1
             return next_state
 
-    class _MockOracleOptionModel(_OracleOptionModel):
-
-        def __init__(self, env) -> None:  # pylint: disable=super-init-not-called
-            self._name_to_parameterized_option = {o.name: o for o in options}
-            self._simulator = env.simulate
-
     env = _MockEnv()
-    option_model = _MockOracleOptionModel(env)
+    option_model = _OracleOptionModel(options, env.simulate)
     # Check that sesame_plan is deterministic, over both NSRTs and objects.
     plan1 = [
         (act.name, act.objects) for act in sesame_plan(

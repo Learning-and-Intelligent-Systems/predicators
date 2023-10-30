@@ -7,15 +7,16 @@ option in the environment.
 from __future__ import annotations
 
 import abc
-from typing import Tuple
+from typing import Callable, Set, Tuple
 
 import numpy as np
 
 from predicators import utils
-from predicators.envs import BaseEnv, create_new_env
+from predicators.envs import create_new_env
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
-from predicators.structs import DefaultState, State, _Option
+from predicators.structs import Action, DefaultState, ParameterizedOption, \
+    State, _Option
 
 
 def create_option_model(name: str) -> _OptionModelBase:
@@ -24,13 +25,15 @@ def create_option_model(name: str) -> _OptionModelBase:
         env = create_new_env(CFG.env,
                              do_cache=False,
                              use_gui=CFG.option_model_use_gui)
-        return _OracleOptionModel(env)
+        options = get_gt_options(env.get_name())
+        return _OracleOptionModel(options, env.simulate)
     if name.startswith("oracle"):
         env_name = name[name.index("_") + 1:]
         env = create_new_env(env_name,
                              do_cache=False,
                              use_gui=CFG.option_model_use_gui)
-        return _OracleOptionModel(env)
+        options = get_gt_options(env.get_name())
+        return _OracleOptionModel(options, env.simulate)
     raise NotImplementedError(f"Unknown option model: {name}")
 
 
@@ -55,11 +58,11 @@ class _OracleOptionModel(_OptionModelBase):
     Runs options through this simulator to figure out the next state.
     """
 
-    def __init__(self, env: BaseEnv) -> None:
+    def __init__(self, options: Set[ParameterizedOption],
+                 simulator: Callable[[State, Action], State]) -> None:
         super().__init__()
-        gt_options = get_gt_options(env.get_name())
-        self._name_to_parameterized_option = {o.name: o for o in gt_options}
-        self._simulator = env.simulate
+        self._name_to_parameterized_option = {o.name: o for o in options}
+        self._simulator = simulator
 
     def get_next_state_and_num_actions(self, state: State,
                                        option: _Option) -> Tuple[State, int]:
