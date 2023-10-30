@@ -25,9 +25,9 @@ def test_active_sampler_explorer():
         "sampler_learner": "oracle",
     })
     env = RegionalBumpyCoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
-                         get_gt_options(env.get_name()))
-    option_model = _OracleOptionModel(env)
+    options = get_gt_options(env.get_name())
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    option_model = _OracleOptionModel(options, env.simulate)
     train_tasks = [t.task for t in env.get_train_tasks()]
     ground_op_hist = {}
     competence_models = {}
@@ -168,9 +168,9 @@ def test_active_sampler_explorer():
         "active_sampler_explore_task_strategy": "success_rate",
     })
     env = RegionalBumpyCoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
-                         get_gt_options(env.get_name()))
-    option_model = _OracleOptionModel(env)
+    options = get_gt_options(env.get_name())
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    option_model = _OracleOptionModel(options, env.simulate)
     train_tasks = [t.task for t in env.get_train_tasks()]
     ground_op_hist = {}
     competence_models = {}
