@@ -974,14 +974,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     types_in_effects = [
                         set(a.predicate.types) for a in seg.add_effects
                     ]
-                    if len(types_in_effects) == 0 or len(
-                            set.union(*types_in_effects)) == 0:
-                        # If there are no add effects or if the object
-                        # arguments for all add effects are empty (which would
-                        # happen if the add effects only involved Forall
-                        # predicates that have no object arguments, e.g. in
-                        # repeated_nextto), then don't cluster further.
-                        continue
+                    # To cluster on type, there must be types. That is, there
+                    # must be add effects in the segment and the object
+                    # arguments for at least one add effect must be nonempty.
+                    assert len(types_in_effects) > 0 and len(
+                        set.union(*types_in_effects)) > 0
                     types = tuple(sorted(list(set.union(*types_in_effects))))
                     types_to_segments.setdefault(types, []).append(seg)
                 logging.info(
