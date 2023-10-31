@@ -18,9 +18,9 @@ def test_greedy_lookahead_explorer(target_predicate):
         "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
-                         get_gt_options(env.get_name()))
-    option_model = _OracleOptionModel(env)
+    options = get_gt_options(env.get_name())
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    option_model = _OracleOptionModel(options, env.simulate)
     train_tasks = [t.task for t in env.get_train_tasks()]
     # For testing purposes, score everything except target predicate low.
     score_fn = lambda atoms, _: target_predicate in str(atoms)
@@ -63,9 +63,9 @@ def test_greedy_lookahead_explorer_failure_cases():
         "explorer": "greedy_lookahead",
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
-                         get_gt_options(env.get_name()))
-    option_model = _OracleOptionModel(env)
+    options = get_gt_options(env.get_name())
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    option_model = _OracleOptionModel(options, env.simulate)
     train_tasks = [t.task for t in env.get_train_tasks()]
     state_score_fn = lambda _1, _2: 0.0
     task_idx = 0

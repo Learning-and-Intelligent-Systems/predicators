@@ -121,24 +121,11 @@ def test_kitchen():
                          state,
                          override_params=None,
                          assert_effects=True):
-        for atom in ground_nsrt.preconditions:
-            assert atom.holds(state)
-        option = ground_nsrt.sample_option(state, set(), rng)
-        if override_params is not None:
-            option = option.parent.ground(option.objects, override_params)
-        assert option.initiable(state)
-        for _ in range(400):
-            act = option.policy(state)
-            obs = env.step(act)
-            state = env.state_info_to_state(obs["state_info"])
-            if option.terminal(state):
-                break
-        if assert_effects:
-            for atom in ground_nsrt.add_effects:
-                assert atom.holds(state)
-            for atom in ground_nsrt.delete_effects:
-                assert not atom.holds(state)
-        return state
+        obs_to_state = lambda obs: env.state_info_to_state(obs["state_info"])
+        return utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
+                                                     rng, obs_to_state,
+                                                     override_params,
+                                                     assert_effects)
 
     # Set up all the NSRTs for the following tests.
     move_to_light_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, light])
