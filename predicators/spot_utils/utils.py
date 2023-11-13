@@ -25,6 +25,8 @@ DEFAULT_HAND_LOOK_FLOOR_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 3))
 DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 2))
+DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE_HIGH = math_helpers.SE3Pose(
+    x=0.65, y=0.0, z=0.32, rot=math_helpers.Quat.from_pitch(np.pi / 2.5))
 
 
 def get_graph_nav_dir() -> Path:

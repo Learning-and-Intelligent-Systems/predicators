@@ -11,7 +11,7 @@ from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     SpotCubeEnv, SpotRearrangementEnv, _container_type, \
     _immovable_object_type, _movable_object_type, _PartialPerceptionState, \
-    _robot_type, _SpotObservation, in_view_classifier
+    _robot_type, _SpotObservation, in_hand_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.utils import load_spot_metadata
@@ -110,7 +110,7 @@ class SpotPerceiver(BasePerceiver):
                 # be in view to assess whether it was placed correctly.
                 robot, obj = objects[:2]
                 state = self._create_state()
-                is_in_view = in_view_classifier(state, [robot, obj])
+                is_in_view = in_hand_view_classifier(state, [robot, obj])
                 if not is_in_view:
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
@@ -195,10 +195,13 @@ class SpotPerceiver(BasePerceiver):
             if obj.is_instance(_movable_object_type):
                 # Detect if the object is in view currently.
                 if obj in self._known_objects_in_hand_view:
-                    in_view_val = 1.0
+                    in_hand_view_val = 1.0
                 else:
-                    in_view_val = 0.0
-                state_dict[obj]["in_view"] = in_view_val
+                    in_hand_view_val = 0.0
+                state_dict[obj]["in_hand_view"] = in_hand_view_val
+                # All objects that we know the pose of are
+                # in view!
+                state_dict[obj]["in_view"] = 1.0
                 # Detect if we have lost the tool.
                 if obj in self._lost_objects:
                     lost_val = 1.0
@@ -268,7 +271,7 @@ class SpotPerceiver(BasePerceiver):
         # from predicators.envs.spot_env import _object_to_side_view_geom
         # fig = plt.figure()
         # ax = fig.gca()
-        # # Draw the robot as a point.
+        # Draw the robot as a point.
         # robot_y = state.get(self._robot, "y")
         # robot_z = state.get(self._robot, "z")
         # plt.plot([robot_y], [robot_z], color="red", marker="o")
@@ -294,7 +297,6 @@ class SpotPerceiver(BasePerceiver):
         #             bbox=dict(facecolor="gray", edgecolor="gray", alpha=0.5))
         # plt.tight_layout()
         # plt.savefig("side-state-view.png")
-        # import ipdb; ipdb.set_trace()
 
         return state
 
@@ -336,5 +338,16 @@ class SpotPerceiver(BasePerceiver):
             return {
                 GroundAtom(Inside, [can, bucket]),
                 GroundAtom(Holding, [robot, plunger])
+            }
+        if goal_description == "put the ball on the table":
+            ball = Object("ball", _movable_object_type)
+            cup = Object("cup", _container_type)
+            drafting_table = Object("drafting_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            Inside = pred_name_to_pred["Inside"]
+            return {
+                GroundAtom(On, [ball, drafting_table]),
+                GroundAtom(On, [cup, drafting_table]),
+                GroundAtom(Inside, [ball, cup])
             }
         raise NotImplementedError("Unrecognized goal description")

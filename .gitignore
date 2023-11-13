@@ -28,6 +28,8 @@ predicators/envs/assets/task_jsons/spot/last.json
 spot_perception_outputs
 spot_perception_debug_dir/
 sas_plan
+side-state-view.png
+top-down-state-view.png
 
 # Jetbrains IDEs
 .idea/

@@ -13,32 +13,58 @@ from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
 from predicators.utils import null_sampler
 
 
-def _move_to_view_object_sampler(state: State, goal: Set[GroundAtom],
-                                 rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
+def _move_to_body_view_object_sampler(state: State, goal: Set[GroundAtom],
+                                      rng: np.random.Generator,
+                                      objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
-    del state, goal, objs, rng  # randomization coming soon
+    del state, goal, rng  # randomization coming soon
 
+    home_pose = get_spot_home_pose()
     # Currently assume that the robot is facing the surface in its home pose.
     # Soon, we will change this to actually sample angles of approach and do
     # collision detection.
-    home_pose = get_spot_home_pose()
     approach_angle = home_pose.angle - np.pi
+    approach_dist = 1.2
 
-    return np.array([1.20, approach_angle])
+    # For the cup on the table, we need to be further back to actually
+    # view it.
+    if len(objs) == 2 and objs[1].name == "cup":
+        approach_dist = 1.75
+        approach_angle = home_pose.angle - (np.pi / 2)
+
+    return np.array([approach_dist, approach_angle])
+
+
+def _move_to_hand_view_object_sampler(state: State, goal: Set[GroundAtom],
+                                      rng: np.random.Generator,
+                                      objs: Sequence[Object]) -> Array:
+    # Parameters are relative distance, dyaw (to the object you're moving to).
+    del state, goal, objs, rng  # randomization coming soon
+
+    home_pose = get_spot_home_pose()
+    # Currently assume that the robot is facing the surface in its home pose.
+    # Soon, we will change this to actually sample angles of approach and do
+    # collision detection.
+    approach_angle = home_pose.angle - np.pi
+    approach_dist = 1.2
+    return np.array([approach_dist, approach_angle])
 
 
 def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
                                   objs: Sequence[Object]) -> Array:
     # Parameters are relative distance, dyaw (to the object you're moving to).
-    del state, goal, objs, rng  # randomization coming soon
+    del state, goal, rng  # randomization coming soon
+
+    home_pose = get_spot_home_pose()
 
     # Currently assume that the robot is facing the surface in its home pose.
     # Soon, we will change this to actually sample angles of approach and do
     # collision detection.
-    home_pose = get_spot_home_pose()
     approach_angle = home_pose.angle - np.pi
+
+    if len(objs) == 2 and objs[1].name == "cup":
+        approach_angle = home_pose.angle - (np.pi / 2)
 
     # NOTE: closer than move_to_view. Important for placing.
     return np.array([0.8, approach_angle])
@@ -56,7 +82,7 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
                                  objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dz (to surface objects center).
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([0.0, 0.0, 0.25])
+    return np.array([0.0, 0.0, 0.05])
 
 
 def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
@@ -64,8 +90,15 @@ def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
                                 objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dz to the center of the top of the
     # container.
-    del state, goal, objs, rng  # randomization coming soon
-    return np.array([0.0, 0.0, 0.5])
+    del state, goal, rng  # randomization coming soon
+
+    drop_height = 0.5
+    dx = 0.0
+    if len(objs) == 4 and objs[2].name == "cup":
+        drop_height = 0.15
+        dx = 0.08  # we benefit from dropping more forward in the x!
+
+    return np.array([dx, 0.0, drop_height])
 
 
 def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],
@@ -104,11 +137,9 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {
-            "spot_cube_env",
-            "spot_soda_table_env",
-            "spot_soda_bucket_env",
-            "spot_soda_chair_env",
-            "spot_soda_sweep_env",
+            "spot_cube_env", "spot_soda_table_env", "spot_soda_bucket_env",
+            "spot_soda_chair_env", "spot_soda_sweep_env",
+            "spot_ball_and_cup_sticky_table_env"
         }
 
     @staticmethod
@@ -122,11 +153,13 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         nsrts = set()
 
         operator_name_to_sampler: Dict[str, NSRTSampler] = {
-            "MoveToViewObject": _move_to_view_object_sampler,
+            "MoveToHandViewObject": _move_to_hand_view_object_sampler,
+            "MoveToBodyViewObject": _move_to_body_view_object_sampler,
             "MoveToReachObject": _move_to_reach_object_sampler,
             "PickObjectFromTop": _pick_object_from_top_sampler,
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
+            "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
             "DragToUnblockObject": _drag_to_unblock_object_sampler,
             "SweepIntoContainer": _sweep_into_container_sampler,
             "PrepareContainerForSweeping": _prepare_sweeping_sampler,

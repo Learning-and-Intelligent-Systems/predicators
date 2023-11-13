@@ -275,6 +275,7 @@ class SpotRearrangementEnv(BaseEnv):
         # Get the universe of all object detections.
         all_object_detection_ids = set(self._detection_id_to_obj)
         # Get the camera images.
+        time.sleep(0.5)
         rgbds = capture_images(self._robot, self._localizer)
         all_detections, all_artifacts = detect_objects(
             all_object_detection_ids, rgbds)
@@ -359,7 +360,7 @@ class SpotRearrangementEnv(BaseEnv):
         # Have the spot walk around the environment once to construct
         # an initial observation.
         objects_in_view = self._actively_construct_initial_object_views()
-        rgb_images = capture_images(self._robot, self._localizer)
+        rgbd_images = capture_images(self._robot, self._localizer)
         gripper_open_percentage = get_robot_gripper_open_percentage(
             self._robot)
         self._localizer.localize()
@@ -367,7 +368,7 @@ class SpotRearrangementEnv(BaseEnv):
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
-        obs = _SpotObservation(rgb_images, objects_in_view, set(),
+        obs = _SpotObservation(rgbd_images, objects_in_view, set(),
                                self._spot_object, gripper_open_percentage,
                                robot_pos, nonpercept_atoms, nonpercept_preds)
         goal_description = self._generate_goal_description()
@@ -396,6 +397,8 @@ class SpotRearrangementEnv(BaseEnv):
         for obj in objects_in_view:
             if "lost" in obj.type.feature_names:
                 init_json_dict[obj.name]["lost"] = 0.0
+            if "in_hand_view" in obj.type.feature_names:
+                init_json_dict[obj.name]["in_hand_view"] = 1.0
             if "in_view" in obj.type.feature_names:
                 init_json_dict[obj.name]["in_view"] = 1.0
             if "held" in obj.type.feature_names:
@@ -501,8 +504,14 @@ class SpotRearrangementEnv(BaseEnv):
     def _run_init_search_for_objects(
         self, detection_ids: Set[ObjectDetectionID]
     ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
-        detections, _ = init_search_for_objects(self._robot, self._localizer,
-                                                detection_ids)
+        detections, artifacts = init_search_for_objects(
+            self._robot, self._localizer, detection_ids)
+        outdir = Path(CFG.spot_perception_outdir)
+        time_str = time.strftime("%Y%m%d-%H%M%S")
+        detections_outfile = outdir / f"detections_{time_str}.png"
+        no_detections_outfile = outdir / f"no_detections_{time_str}.png"
+        visualize_all_artifacts(artifacts, detections_outfile,
+                                no_detections_outfile)
         return detections
 
     @property
@@ -529,7 +538,7 @@ _ONTOP_Z_THRESHOLD = 0.25
 _INSIDE_Z_THRESHOLD = 0.25
 _ONTOP_SURFACE_BUFFER = 0.1
 _INSIDE_SURFACE_BUFFER = 0.1
-_REACHABLE_THRESHOLD = 1.7
+_REACHABLE_THRESHOLD = 1.85
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
 _CONTAINER_SWEEP_XY_BUFFER = 1.5
 
@@ -549,7 +558,7 @@ _base_object_type = Type("base-object", [
 ])
 _movable_object_type = Type("movable",
                             list(_base_object_type.feature_names) +
-                            ["held", "lost", "in_view"],
+                            ["held", "lost", "in_hand_view", "in_view"],
                             parent=_base_object_type)
 _immovable_object_type = Type("immovable",
                               list(_base_object_type.feature_names),
@@ -641,7 +650,8 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     expect = state.get(obj_surface, "z") + state.get(obj_surface, "height") / 2
     actual = state.get(obj_on, "z") - state.get(obj_on, "height") / 2
 
-    return abs(actual - expect) < _ONTOP_Z_THRESHOLD
+    classification_val = abs(actual - expect) < _ONTOP_Z_THRESHOLD
+    return classification_val
 
 
 def _inside_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -669,7 +679,14 @@ def _inside_classifier(state: State, objects: Sequence[Object]) -> bool:
     return obj_top < container_top + _INSIDE_Z_THRESHOLD
 
 
-def in_view_classifier(state: State, objects: Sequence[Object]) -> bool:
+def in_hand_view_classifier(state: State, objects: Sequence[Object]) -> bool:
+    """Made public for perceiver."""
+    _, tool = objects
+    return state.get(tool, "in_hand_view") > 0.5
+
+
+def in_general_view_classifier(state: State,
+                               objects: Sequence[Object]) -> bool:
     """Made public for perceiver."""
     _, tool = objects
     return state.get(tool, "in_view") > 0.5
@@ -785,13 +802,15 @@ _Inside = Predicate("Inside", [_movable_object_type, _base_object_type],
                     _inside_classifier)
 # NOTE: currently disabling inside predicate check because we don't have a good
 # way to do the check, especially after sweeping.
-_Inside = Predicate(_Inside.name, _Inside.types,
-                    _create_dummy_predicate_classifier(_Inside))
+_FakeInside = Predicate(_Inside.name, _Inside.types,
+                        _create_dummy_predicate_classifier(_Inside))
 _HandEmpty = Predicate("HandEmpty", [_robot_type], _handempty_classifier)
 _Holding = Predicate("Holding", [_robot_type, _movable_object_type],
                      _holding_classifier)
+_InHandView = Predicate("InHandView", [_robot_type, _movable_object_type],
+                        in_hand_view_classifier)
 _InView = Predicate("InView", [_robot_type, _movable_object_type],
-                    in_view_classifier)
+                    in_general_view_classifier)
 _Reachable = Predicate("Reachable", [_robot_type, _base_object_type],
                        _reachable_classifier)
 _Blocking = Predicate("Blocking", [_base_object_type, _base_object_type],
@@ -814,20 +833,34 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     preconds = {LiftedAtom(_NotBlocked, [obj])}
     add_effs = {LiftedAtom(_Reachable, [robot, obj])}
     del_effs: Set[LiftedAtom] = set()
-    ignore_effs = {_Reachable, _InView}
+    ignore_effs = {_Reachable, _InHandView, _InView}
     yield STRIPSOperator("MoveToReachObject", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
-    # MoveToViewObject
+    # MoveToHandViewObject
     robot = Variable("?robot", _robot_type)
     obj = Variable("?object", _movable_object_type)
     parameters = [robot, obj]
     preconds = {LiftedAtom(_NotBlocked, [obj])}
-    add_effs = {LiftedAtom(_InView, [robot, obj])}
+    add_effs = {LiftedAtom(_InHandView, [robot, obj])}
     del_effs = set()
-    ignore_effs = {_Reachable, _InView}
-    yield STRIPSOperator("MoveToViewObject", parameters, preconds, add_effs,
-                         del_effs, ignore_effs)
+    ignore_effs = {_Reachable, _InHandView, _InView}
+    yield STRIPSOperator("MoveToHandViewObject", parameters, preconds,
+                         add_effs, del_effs, ignore_effs)
+
+    # MoveToBodyViewObject
+    robot = Variable("?robot", _robot_type)
+    obj = Variable("?object", _movable_object_type)
+    parameters = [robot, obj]
+    preconds = {LiftedAtom(_NotBlocked, [obj])}
+    add_effs = {
+        LiftedAtom(_InView, [robot, obj]),
+        LiftedAtom(_Reachable, [robot, obj])
+    }
+    del_effs = set()
+    ignore_effs = {_Reachable, _InHandView, _InView}
+    yield STRIPSOperator("MoveToBodyViewObject", parameters, preconds,
+                         add_effs, del_effs, ignore_effs)
 
     # PickObjectFromTop
     robot = Variable("?robot", _robot_type)
@@ -837,7 +870,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     preconds = {
         LiftedAtom(_On, [obj, surface]),
         LiftedAtom(_HandEmpty, [robot]),
-        LiftedAtom(_InView, [robot, obj])
+        LiftedAtom(_InHandView, [robot, obj])
     }
     add_effs = {
         LiftedAtom(_Holding, [robot, obj]),
@@ -845,9 +878,9 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     del_effs = {
         LiftedAtom(_On, [obj, surface]),
         LiftedAtom(_HandEmpty, [robot]),
-        LiftedAtom(_InView, [robot, obj])
+        LiftedAtom(_InHandView, [robot, obj])
     }
-    ignore_effs = set()
+    ignore_effs = {_Inside}
     yield STRIPSOperator("PickObjectFromTop", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
@@ -891,6 +924,30 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("DropObjectInside", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
+    # DropObjectInsideContainerOnTop
+    robot = Variable("?robot", _robot_type)
+    held = Variable("?held", _movable_object_type)
+    container = Variable("?container", _container_type)
+    surface = Variable("?surface", _immovable_object_type)
+    parameters = [robot, held, container, surface]
+    preconds = {
+        LiftedAtom(_Holding, [robot, held]),
+        LiftedAtom(_Reachable, [robot, container]),
+        LiftedAtom(_InView, [robot, container]),
+        LiftedAtom(_On, [container, surface]),
+    }
+    add_effs = {
+        LiftedAtom(_Inside, [held, container]),
+        LiftedAtom(_HandEmpty, [robot]),
+        LiftedAtom(_On, [held, surface])
+    }
+    del_effs = {
+        LiftedAtom(_Holding, [robot, held]),
+    }
+    ignore_effs = set()
+    yield STRIPSOperator("DropObjectInsideContainerOnTop", parameters,
+                         preconds, add_effs, del_effs, ignore_effs)
+
     # DragToUnblockObject
     robot = Variable("?robot", _robot_type)
     blocked = Variable("?blocked", _base_object_type)
@@ -908,7 +965,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Blocking, [blocker, blocked]),
         LiftedAtom(_Holding, [robot, blocker]),
     }
-    ignore_effs = {_InView, _Reachable}
+    ignore_effs = {_InHandView, _Reachable}
     yield STRIPSOperator("DragToUnblockObject", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
@@ -953,7 +1010,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     del_effs = {
         LiftedAtom(_Holding, [robot, container]),
     }
-    ignore_effs = {_Reachable, _InView}
+    ignore_effs = {_Reachable, _InHandView}
     yield STRIPSOperator("PrepareContainerForSweeping", parameters, preconds,
                          add_effs, del_effs, ignore_effs)
 
@@ -973,7 +1030,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
         op_to_name = {o.name: o for o in _create_operators()}
         op_names_to_keep = {
             "MoveToReachObject",
-            "MoveToViewObject",
+            "MoveToHandViewObject",
             "PickObjectFromTop",
             "PlaceObjectOnTop",
         }
@@ -999,7 +1056,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
             _HandEmpty,
             _Holding,
             _Reachable,
-            _InView,
+            _InHandView,
             _Blocking,
             _NotBlocked,
         }
@@ -1011,7 +1068,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
             _HandEmpty,
             _Holding,
             _On,
-            _InView,
+            _InHandView,
             _Reachable,
             _Blocking,
             _NotBlocked,
@@ -1071,7 +1128,7 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
         op_to_name = {o.name: o for o in _create_operators()}
         op_names_to_keep = {
             "MoveToReachObject",
-            "MoveToViewObject",
+            "MoveToHandViewObject",
             "PickObjectFromTop",
             "PlaceObjectOnTop",
         }
@@ -1097,7 +1154,7 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
             _HandEmpty,
             _Holding,
             _Reachable,
-            _InView,
+            _InHandView,
             _Blocking,
             _NotBlocked,
         }
@@ -1109,7 +1166,7 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
             _HandEmpty,
             _Holding,
             _On,
-            _InView,
+            _InHandView,
             _Reachable,
             _Blocking,
             _NotBlocked,
@@ -1165,7 +1222,7 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
         op_to_name = {o.name: o for o in _create_operators()}
         op_names_to_keep = {
             "MoveToReachObject",
-            "MoveToViewObject",
+            "MoveToHandViewObject",
             "PickObjectFromTop",
             "PlaceObjectOnTop",
             "DropObjectInside",
@@ -1193,7 +1250,7 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
             _HandEmpty,
             _Holding,
             _Reachable,
-            _InView,
+            _InHandView,
             _Inside,
             _Blocking,
             _NotBlocked,
@@ -1207,7 +1264,7 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
             _Holding,
             _On,
             _Reachable,
-            _InView,
+            _InHandView,
             _Blocking,
             _NotBlocked,
         }
@@ -1263,7 +1320,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
         op_to_name = {o.name: o for o in _create_operators()}
         op_names_to_keep = {
             "MoveToReachObject",
-            "MoveToViewObject",
+            "MoveToHandViewObject",
             "PickObjectFromTop",
             "PlaceObjectOnTop",
             "DropObjectInside",
@@ -1292,7 +1349,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             _HandEmpty,
             _Holding,
             _Reachable,
-            _InView,
+            _InHandView,
             _Inside,
             _Blocking,
             _NotBlocked,
@@ -1306,7 +1363,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             _Holding,
             _On,
             _Reachable,
-            _InView,
+            _InHandView,
             _Blocking,
             _NotBlocked,
         }
@@ -1380,7 +1437,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         op_to_name = {o.name: o for o in _create_operators()}
         op_names_to_keep = {
             "MoveToReachObject",
-            "MoveToViewObject",
+            "MoveToHandViewObject",
             "PickObjectFromTop",
             "PlaceObjectOnTop",
             "DragToUnblockObject",
@@ -1410,7 +1467,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
             _HandEmpty,
             _Holding,
             _Reachable,
-            _InView,
+            _InHandView,
             _Inside,
             _Blocking,
             _NotBlocked,
@@ -1425,7 +1482,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
             _Holding,
             _On,
             _Reachable,
-            _InView,
+            _InHandView,
             # NOTE: we can't easily check that an object is inside a container
             # after sweeping, because the robot is holding a sweeper, blocking
             # the hand camera that we'd usually use to check containment.
@@ -1477,3 +1534,100 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket and hold the brush"
+
+
+###############################################################################
+#                Real-World Ball and Cup Sticky Table Env                     #
+###############################################################################
+
+
+class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
+    """A real-world version of the ball and cup sticky table environment."""
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        op_to_name = {o.name: o for o in _create_operators()}
+        # NOTE: we do not yet have planning operators sufficient enough
+        # to make the planning graph fully-connected. These are
+        # forthcoming.
+        op_names_to_keep = {
+            "MoveToReachObject", "MoveToHandViewObject",
+            "MoveToBodyViewObject", "PickObjectFromTop", "PlaceObjectOnTop",
+            "DropObjectInsideContainerOnTop"
+        }
+        self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "spot_ball_and_cup_sticky_table_env"
+
+    @property
+    def types(self) -> Set[Type]:
+        return {
+            _robot_type,
+            _base_object_type,
+            _movable_object_type,
+            _immovable_object_type,
+            _container_type,
+        }
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {
+            _On,
+            _HandEmpty,
+            _Holding,
+            _Reachable,
+            _InView,
+            _InHandView,
+            _Inside,
+        }
+
+    @property
+    def percept_predicates(self) -> Set[Predicate]:
+        """The predicates that are NOT stored in the simulator state."""
+        return {
+            _HandEmpty,
+            _Holding,
+            _On,
+            _Reachable,
+            _InView,
+            _InHandView,
+            _Inside,
+        }
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {_On}
+
+    @property
+    def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
+
+        detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
+
+        ball = Object("ball", _movable_object_type)
+        ball_detection = LanguageObjectDetectionID("small white ball")
+        detection_id_to_obj[ball_detection] = ball
+
+        cup = Object("cup", _container_type)
+        cup_detection = LanguageObjectDetectionID("white bowl")
+        detection_id_to_obj[cup_detection] = cup
+
+        known_immovables = load_spot_metadata()["known-immovable-objects"]
+        for obj_name, obj_pos in known_immovables.items():
+            obj = Object(obj_name, _immovable_object_type)
+            pose = math_helpers.SE3Pose(obj_pos["x"],
+                                        obj_pos["y"],
+                                        obj_pos["z"],
+                                        rot=math_helpers.Quat())
+            detection_id = KnownStaticObjectDetectionID(obj_name, pose)
+            detection_id_to_obj[detection_id] = obj
+
+        return detection_id_to_obj
+
+    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
+        return set()
+
+    def _generate_goal_description(self) -> GoalDescription:
+        return "put the ball on the table"
