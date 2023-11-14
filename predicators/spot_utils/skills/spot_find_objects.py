@@ -1,6 +1,6 @@
 """Interface for finding objects by moving around and running detection."""
 
-from typing import Any, Collection, Dict, List, Optional, Tuple
+from typing import Any, Collection, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from bosdyn.client import math_helpers
@@ -25,8 +25,8 @@ def _find_objects_with_choreographed_moves(
     robot: Robot,
     localizer: SpotLocalizer,
     object_ids: Collection[ObjectDetectionID],
-    relative_base_moves: List[math_helpers.SE2Pose],
-    relative_hand_moves: Optional[List[math_helpers.SE3Pose]] = None,
+    relative_base_moves: Sequence[math_helpers.SE2Pose],
+    relative_hand_moves: Optional[Sequence[math_helpers.SE3Pose]] = None,
     open_and_close_gripper: bool = True,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Helper for object search with hard-coded relative moves."""

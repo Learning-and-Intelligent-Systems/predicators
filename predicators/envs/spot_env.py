@@ -121,8 +121,14 @@ def _create_dummy_predicate_classifier(
 
 
 @functools.lru_cache(maxsize=None)
-def get_robot() -> Tuple[Robot, SpotLocalizer, LeaseClient]:
-    """Create the robot only once."""
+def get_robot(
+) -> Tuple[Optional[Robot], Optional[SpotLocalizer], Optional[LeaseClient]]:
+    """Create the robot only once.
+
+    If we are doing a dry run, return dummy Nones for each component.
+    """
+    if CFG.spot_run_dry:
+        return None, None, None
     setup_logging(False)
     hostname = CFG.spot_robot_ip
     path = get_graph_nav_dir()
@@ -193,13 +199,27 @@ class SpotRearrangementEnv(BaseEnv):
         # part of actions are used.
         return Box(0, 1, (0, ))
 
+    @abc.abstractmethod
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        """Environment-specific task generation for spot dry runs."""
+
+    @abc.abstractmethod
+    def _get_next_dry_observation(
+            self, action: Action,
+            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+        """Environment-specific step-like function for spot dry runs."""
+
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         # NOTE: task_idx and train_or_test ignored unless loading from JSON!
         if CFG.test_task_json_dir is not None and train_or_test == "test":
             self._current_task = self._test_tasks[task_idx]
+        elif CFG.spot_run_dry:
+            self._current_task = self._get_dry_task(train_or_test, task_idx)
         else:
             prompt = f"Please set up {train_or_test} task {task_idx}!"
             utils.prompt_user(prompt)
+            assert self._lease_client is not None
             self._lease_client.take()
             self._current_task = self._actively_construct_env_task()
         self._current_observation = self._current_task.init_obs
@@ -221,6 +241,13 @@ class SpotRearrangementEnv(BaseEnv):
         # Special case: the action is "done", indicating that the robot
         # believes it has finished the task. Used for goal checking.
         if action_name == "done":
+
+            # During a dry run, trust that the goal is accomplished if the
+            # done action is returned, since we don't want a human in the loop.
+            if CFG.spot_run_dry:
+                self._current_task_goal_reached = True
+                return self._current_observation
+
             while True:
                 goal_description = self._current_task.goal_description
                 logging.info(f"The goal is: {goal_description}")
@@ -249,12 +276,18 @@ class SpotRearrangementEnv(BaseEnv):
         else:
             next_nonpercept = obs.nonpercept_atoms
 
-        # Execute the action in the real environment.
-        action_fn(*action_fn_args)  # type: ignore
+        if CFG.spot_run_dry:
+            # Simulate the effect of the action.
+            next_obs = self._get_next_dry_observation(action, next_nonpercept)
 
-        # Get the new observation.
-        self._current_observation = self._build_observation(next_nonpercept)
+        else:
+            # Execute the action in the real environment.
+            action_fn(*action_fn_args)  # type: ignore
 
+            # Get the new observation.
+            next_obs = self._build_observation(next_nonpercept)
+
+        self._current_observation = next_obs
         return self._current_observation
 
     def get_observation(self) -> Observation:
@@ -271,6 +304,8 @@ class SpotRearrangementEnv(BaseEnv):
         may vary per environment.
         """
         # Make sure the robot pose is up to date.
+        assert self._robot is not None
+        assert self._localizer is not None
         self._localizer.localize()
         # Get the universe of all object detections.
         all_object_detection_ids = set(self._detection_id_to_obj)
@@ -359,6 +394,8 @@ class SpotRearrangementEnv(BaseEnv):
     def _actively_construct_env_task(self) -> EnvironmentTask:
         # Have the spot walk around the environment once to construct
         # an initial observation.
+        assert self._robot is not None
+        assert self._localizer is not None
         objects_in_view = self._actively_construct_initial_object_views()
         rgbd_images = capture_images(self._robot, self._localizer)
         gripper_open_percentage = get_robot_gripper_open_percentage(
@@ -466,9 +503,11 @@ class SpotRearrangementEnv(BaseEnv):
                               init.get(robot, "qy"), init.get(robot, "qz")))
 
         # Reset the robot to the given position.
-        self._localizer.localize()
-        navigate_to_absolute_pose(self._robot, self._localizer,
-                                  robot_pos.get_closest_se2_transform())
+        if self._robot is not None:
+            assert self._localizer is not None
+            self._localizer.localize()
+            navigate_to_absolute_pose(self._robot, self._localizer,
+                                      robot_pos.get_closest_se2_transform())
 
         # Prepare the non-percepts.
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
@@ -489,6 +528,8 @@ class SpotRearrangementEnv(BaseEnv):
 
     def _actively_construct_initial_object_views(
             self) -> Dict[Object, math_helpers.SE3Pose]:
+        assert self._robot is not None
+        assert self._localizer is not None
         stow_arm(self._robot)
         go_home(self._robot, self._localizer)
         self._localizer.localize()
@@ -504,6 +545,8 @@ class SpotRearrangementEnv(BaseEnv):
     def _run_init_search_for_objects(
         self, detection_ids: Set[ObjectDetectionID]
     ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
+        assert self._robot is not None
+        assert self._localizer is not None
         detections, artifacts = init_search_for_objects(
             self._robot, self._localizer, detection_ids)
         outdir = Path(CFG.spot_perception_outdir)
@@ -1112,6 +1155,148 @@ class SpotCubeEnv(SpotRearrangementEnv):
     def _generate_goal_description(self) -> GoalDescription:
         return "put the cube on the sticky table"
 
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        del train_or_test, task_idx  # task always the same for this simple env
+
+        # Create the objects and their initial poses.
+        objects_in_view: Dict[Object, math_helpers.SE3Pose] = {}
+
+        # Make up some poses for the cube and tables, with the cube starting
+        # on the smooth table.
+        static_object_feats = load_spot_metadata()["static-object-features"]
+        cube = Object("cube", _movable_object_type)
+        table_height = static_object_feats["smooth_table"]["height"]
+        cube_height = static_object_feats["cube"]["height"]
+        x = 0.0
+        y = 0.0
+        z = table_height + cube_height / 2
+        cube_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+        objects_in_view[cube] = cube_pose
+
+        smooth_table = Object("smooth_table", _immovable_object_type)
+        r = static_object_feats["smooth_table"]["length"] / 2
+        x = x - r / 2
+        y = y - r / 2
+        z = table_height / 2
+        smooth_table_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+        objects_in_view[smooth_table] = smooth_table_pose
+
+        sticky_table = Object("sticky_table", _immovable_object_type)
+        x = x + _REACHABLE_THRESHOLD / 2
+        sticky_table_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+        objects_in_view[sticky_table] = sticky_table_pose
+
+        # The floor is loaded directly from metadata.
+        floor = Object("floor", _immovable_object_type)
+        floor_feats = load_spot_metadata()["known-immovable-objects"]["floor"]
+        x = floor_feats["x"]
+        y = floor_feats["y"]
+        z = floor_feats["z"]
+        floor_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+        objects_in_view[floor] = floor_pose
+
+        # Create robot pose.
+        robot_se2 = get_spot_home_pose()
+        robot_pose = robot_se2.get_closest_se3_transform()
+
+        # Create the initial observation.
+        init_obs = _SpotObservation(
+            images={},
+            objects_in_view=objects_in_view,
+            objects_in_hand_view=set(),
+            robot=self._spot_object,
+            gripper_open_percentage=0.0,
+            robot_pos=robot_pose,
+            nonpercept_atoms=self._get_initial_nonpercept_atoms(),
+            nonpercept_predicates=(self.predicates - self.percept_predicates),
+        )
+
+        # Finish the task.
+        goal_description = self._generate_goal_description()
+        return EnvironmentTask(init_obs, goal_description)
+
+    def _get_next_dry_observation(
+            self, action: Action,
+            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+        assert isinstance(action.extra_info, (list, tuple))
+        action_name, action_objs, _, _ = action.extra_info
+
+        # Initialize values based on the current observation.
+        obs = self._current_observation
+        assert isinstance(obs, _SpotObservation)
+        objects_in_view = obs.objects_in_view.copy()
+        objects_in_hand_view = set(obs.objects_in_hand_view)
+        gripper_open_percentage = obs.gripper_open_percentage
+        robot_pose = obs.robot_pos
+
+        if action_name == "MoveToHandViewObject":
+            _, target_obj = action_objs
+
+            # Add the target object to the set of objects in hand view.
+            objects_in_hand_view.add(target_obj)
+
+            # Update the robot position to be looking at the object, roughly.
+            target_obj_pose = objects_in_view[target_obj]
+            robot_pose = math_helpers.SE3Pose(
+                x=target_obj_pose.x + _REACHABLE_THRESHOLD / 2,
+                y=target_obj_pose.y,
+                z=robot_pose.z,
+                rot=robot_pose.rot,
+            )
+
+        elif action_name == "PickObjectFromTop":
+            # Can't see anything in the hand because it's occluded now.
+            objects_in_hand_view = set()
+            # Gripper is now open.
+            gripper_open_percentage = 100.0
+
+        elif action_name == "MoveToReachObject":
+            _, target_obj = action_objs
+
+            # Update the robot position to be looking at the object, roughly.
+            target_obj_pose = objects_in_view[target_obj]
+            robot_pose = math_helpers.SE3Pose(
+                x=target_obj_pose.x - _REACHABLE_THRESHOLD / 2,
+                y=target_obj_pose.y,
+                z=robot_pose.z,
+                rot=robot_pose.rot,
+            )
+
+        elif action_name == "PlaceObjectOnTop":
+
+            # NOTE: there is no randomness right now, since there's no
+            # randomness in the sampler. We can add some later. This is just
+            # a proof-of-concept for dry running spot environments.
+
+            _, held_obj, target_surface = action_objs
+            static_feats = load_spot_metadata()["static-object-features"]
+            surface_radius = static_feats[target_surface.name]["length"] / 2
+            surface_height = static_feats[target_surface.name]["height"]
+            held_obj_height = static_feats[held_obj.name]["height"]
+            surface_pose = objects_in_view[target_surface]
+            x = surface_pose.x + surface_radius / 2
+            y = surface_pose.y + surface_radius / 2
+            z = surface_pose.z + surface_height / 2 + held_obj_height
+            held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+            objects_in_view[held_obj] = held_obj_pose
+
+            # Gripper is now closed.
+            gripper_open_percentage = 0.0
+
+        next_obs = _SpotObservation(
+            images={},
+            objects_in_view=objects_in_view,
+            objects_in_hand_view=objects_in_hand_view,
+            robot=self._spot_object,
+            gripper_open_percentage=gripper_open_percentage,
+            robot_pos=robot_pose,
+            nonpercept_atoms=nonpercept_atoms,
+            nonpercept_predicates=(self.predicates - self.percept_predicates),
+        )
+
+        return next_obs
+
 
 ###############################################################################
 #                                Soda Table Env                               #
@@ -1206,6 +1391,15 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda on the smooth table"
+
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        raise NotImplementedError("Dry task generation not implemented.")
+
+    def _get_next_dry_observation(
+            self, action: Action,
+            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+        raise NotImplementedError("Dry step function not implemented.")
 
 
 ###############################################################################
@@ -1303,6 +1497,15 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket"
+
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        raise NotImplementedError("Dry task generation not implemented.")
+
+    def _get_next_dry_observation(
+            self, action: Action,
+            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+        raise NotImplementedError("Dry step function not implemented.")
 
 
 ###############################################################################
@@ -1418,6 +1621,15 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
                                              np.pi / 4))
         move_hand_to_relative_pose(self._robot, hand_pose)
         return super()._run_init_search_for_objects(detection_ids)
+
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        raise NotImplementedError("Dry task generation not implemented.")
+
+    def _get_next_dry_observation(
+            self, action: Action,
+            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+        raise NotImplementedError("Dry step function not implemented.")
 
 
 ###############################################################################
@@ -1535,6 +1747,15 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket and hold the brush"
 
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        raise NotImplementedError("Dry task generation not implemented.")
+
+    def _get_next_dry_observation(
+            self, action: Action,
+            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+        raise NotImplementedError("Dry step function not implemented.")
+
 
 ###############################################################################
 #                Real-World Ball and Cup Sticky Table Env                     #
@@ -1631,3 +1852,12 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the ball on the table"
+
+    def _get_dry_task(self, train_or_test: str,
+                      task_idx: int) -> EnvironmentTask:
+        raise NotImplementedError("Dry task generation not implemented.")
+
+    def _get_next_dry_observation(
+            self, action: Action,
+            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+        raise NotImplementedError("Dry step function not implemented.")

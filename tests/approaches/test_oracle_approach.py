@@ -766,6 +766,7 @@ def test_external_oracle_approach():
             return self._transition_stack(state, x, y, z)
 
     env = _ExternalBlocksEnv()
+    assert env.get_name() == "external_blocks"
 
     # Create external options by modifying blocks options.
     options = set()

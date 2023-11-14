@@ -201,8 +201,11 @@ def real_robot_cube_env_test() -> None:
 
     # Navigate home.
     localizer = env._localizer  # pylint: disable=protected-access
+    assert localizer is not None
     localizer.localize()
-    go_home(env._robot, localizer)  # pylint: disable=protected-access
+    robot = env._robot  # pylint: disable=protected-access
+    assert robot is not None
+    go_home(robot, localizer)
 
     # Drop the object onto the floor.
     PlaceToolOnFloor = nsrt_name_to_nsrt["PlaceToolOnFloor"]

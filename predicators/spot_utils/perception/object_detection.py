@@ -19,7 +19,11 @@ import logging
 from pathlib import Path
 from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 
-import apriltag
+try:
+    import apriltag
+    _APRILTAG_IMPORTED = True
+except ModuleNotFoundError:
+    _APRILTAG_IMPORTED = False
 import cv2
 import dill as pkl
 import numpy as np
@@ -115,6 +119,12 @@ def detect_objects_from_april_tags(
     the raw april tag detection results. These are primarily useful for
     debugging / analysis.
     """
+    if not object_ids:
+        return {}, {}
+
+    if not _APRILTAG_IMPORTED:
+        raise ModuleNotFoundError("Need to install 'apriltag' package")
+
     tag_num_to_object_id = {t.april_tag_number: t for t in object_ids}
 
     # Convert the RGB image to grayscale.

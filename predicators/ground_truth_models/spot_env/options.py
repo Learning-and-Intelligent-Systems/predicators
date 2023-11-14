@@ -189,14 +189,20 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
     robot, _, _ = get_robot()
 
     target_obj = objects[target_obj_idx]
-    target_detection_id = get_detection_id_for_object(target_obj)
-    rgbds = get_last_captured_images()
-    _, artifacts = get_last_detected_objects()
-    hand_camera = "hand_color_image"
-    img = rgbds[hand_camera]
-    pixel = get_object_center_pixel_from_artifacts(artifacts,
-                                                   target_detection_id,
-                                                   hand_camera)
+
+    # Special case: if we're running dry, the image won't be used.
+    if CFG.spot_run_dry:
+        pixel = (0, 0)
+        img: Optional[RGBDImageWithContext] = None
+    else:
+        target_detection_id = get_detection_id_for_object(target_obj)
+        rgbds = get_last_captured_images()
+        _, artifacts = get_last_detected_objects()
+        hand_camera = "hand_color_image"
+        img = rgbds[hand_camera]
+        pixel = get_object_center_pixel_from_artifacts(artifacts,
+                                                       target_detection_id,
+                                                       hand_camera)
 
     # Grasp from the top-down.
     top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
