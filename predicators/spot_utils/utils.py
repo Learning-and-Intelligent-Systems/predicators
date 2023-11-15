@@ -6,6 +6,7 @@ from typing import Collection, Dict, Optional, Tuple
 
 import cv2
 import numpy as np
+import scipy
 import yaml
 from bosdyn.api import estop_pb2, robot_state_pb2
 from bosdyn.client import math_helpers
@@ -138,19 +139,19 @@ def get_relative_se2_from_se3(
 
 
 def sample_move_offset_from_target(
-        target_origin: Tuple[float, float],
-        robot_geom: Rectangle,
-        collision_geoms: Collection[_Geom2D],
-        rng: np.random.Generator,
-        max_distance: float,
-        room_bounds: Tuple[float, float, float, float],
-        max_samples: int = 100) -> Tuple[float, float, Rectangle]:
+    target_origin: Tuple[float, float],
+    robot_geom: Rectangle,
+    collision_geoms: Collection[_Geom2D],
+    rng: np.random.Generator,
+    max_distance: float,
+    allowed_regions: Collection[scipy.spatial.Delaunay],  # pylint: disable=no-member
+    max_samples: int = 100
+) -> Tuple[float, float, Rectangle]:
     """Sampler for navigating to a target object.
 
     Returns a distance and an angle in radians. Also returns the next
     robot geom for visualization and debugging convenience.
     """
-    min_x, min_y, max_x, max_y = room_bounds
     for _ in range(max_samples):
         distance = rng.uniform(0.0, max_distance)
         angle = rng.uniform(-np.pi, np.pi)
@@ -162,11 +163,16 @@ def sample_move_offset_from_target(
         rot = angle + np.pi if angle < 0 else angle - np.pi
         cand_geom = Rectangle.from_center(x, y, robot_geom.width,
                                           robot_geom.height, rot)
-        # Check for out-of-bounds.
-        oob = False
-        for cx, cy in cand_geom.vertices:
-            if cx < min_x or cy < min_y or cx > max_x or cy > max_y:
-                oob = True
+        # Check for out-of-bounds. To do this, we're looking for
+        # one allowed region where all four points defining the
+        # robot will be within the region in the new pose.
+        oob = True
+        for region in allowed_regions:
+            for cx, cy in cand_geom.vertices:
+                if region.find_simplex(np.array([cx, cy])) < 0:
+                    break
+            else:
+                oob = False
                 break
         if oob:
             continue

@@ -4,16 +4,8 @@ The main point of this code is to provide a consistent world frame within and
 between runs. That way, absolute positions of objects that are saved in task
 files remain accurate, even when starting the robot from a different location.
 
-Before using this interface:
-
-1. Print out and tape april tags around the environment. The tags are here:
-   https://support.bostondynamics.com/s/article/About-Fiducials
-2. Run the interactive script from the spot SDK to create a map, while walking
-   the spot around the environment. The script is here:
-   https://github.com/boston-dynamics/spot-sdk/blob/master/python/examples/
-   graph_nav_command_line/recording_command_line.py
-3. Save the map files to spot_utils / graph_nav_maps / <your new env name>
-4. Set --spot_graph_nav_map to your new env name.
+Before using this interface, follow instructions from the 'Mapping' section
+of the README file under the spot_utils folder.
 """
 
 import logging

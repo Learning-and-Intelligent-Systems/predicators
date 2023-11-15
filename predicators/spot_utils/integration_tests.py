@@ -6,12 +6,14 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 from bosdyn.client import create_standard_sdk, math_helpers
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
 from bosdyn.client.util import authenticate
 
 from predicators import utils
+from predicators.envs.spot_env import load_spot_metadata
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, LanguageObjectDetectionID, detect_objects, \
@@ -181,8 +183,6 @@ def test_move_with_sampling() -> None:
     """Test for moving to a surface with a sampled rotation and distance,
     taking into account potential collisions with walls and other surfaces."""
 
-    # Approximate values for the set up on the fourth floor.
-    room_bounds = (0.4, -1.0, 4.0, 2.0)  # min x, min y, max x, max y
     surface_radius = 0.2
 
     num_samples = 10
@@ -208,6 +208,12 @@ def test_move_with_sampling() -> None:
                                      return_at_exit=True)
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+    metadata = load_spot_metadata()
+    allowed_regions = metadata.get("allowed-regions", {})
+    convex_hulls = []
+    for region_pts in allowed_regions.values():
+        dealunay_hull = scipy.spatial.Delaunay(np.array(region_pts))  # pylint: disable=no-member
+        convex_hulls.append(dealunay_hull)
 
     # Run test with april tag cube.
     surface1 = AprilTagObjectDetectionID(408)
@@ -240,12 +246,10 @@ def test_move_with_sampling() -> None:
             collision_geoms,
             rng,
             max_distance=max_distance,
-            room_bounds=room_bounds,
+            allowed_regions=convex_hulls,
         )
         # Visualize everything.
-        figsize = (1.1 * (room_bounds[2] - room_bounds[0]),
-                   1.1 * (room_bounds[3] - room_bounds[1]))
-        _, ax = plt.subplots(1, 1, figsize=figsize)
+        _, ax = plt.subplots(1, 1)
         robot_geom.plot(ax, facecolor="lightgreen", edgecolor="black")
         # Draw the origin of the robot, which should be the back right leg.
         ax.scatter([robot_geom.x], [robot_geom.y],
@@ -270,12 +274,6 @@ def test_move_with_sampling() -> None:
                            marker="*",
                            color="gold",
                            zorder=3)
-        # Draw the walls.
-        min_x, min_y, max_x, max_y = room_bounds
-        ax.plot((min_x, min_x), (min_y, max_y), linestyle="--", color="gray")
-        ax.plot((max_x, max_x), (min_y, max_y), linestyle="--", color="gray")
-        ax.plot((min_x, max_x), (min_y, min_y), linestyle="--", color="gray")
-        ax.plot((min_x, max_x), (max_y, max_y), linestyle="--", color="gray")
         plt.savefig(f"sampling_integration_test_{i}.png")
 
         # Execute the move.
