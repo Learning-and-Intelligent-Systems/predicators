@@ -204,11 +204,35 @@ class SpotRearrangementEnv(BaseEnv):
                       task_idx: int) -> EnvironmentTask:
         """Environment-specific task generation for spot dry runs."""
 
-    @abc.abstractmethod
     def _get_next_dry_observation(
             self, action: Action,
             nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
-        """Environment-specific step-like function for spot dry runs."""
+        """Step-like function for spot dry runs."""
+        assert isinstance(action.extra_info, (list, tuple))
+        action_name, action_objs, _, _ = action.extra_info
+        obs = self._current_observation
+        assert isinstance(obs, _SpotObservation)
+
+        if action_name == "MoveToHandViewObject":
+            _, target_obj = action_objs
+            return _dry_simulate_move_to_view_hand(obs, target_obj,
+                                                   nonpercept_atoms)
+
+        if action_name == "PickObjectFromTop":
+            return _dry_simulate_pick_from_top(obs, nonpercept_atoms)
+
+        if action_name == "MoveToReachObject":
+            _, target_obj = action_objs
+            return _dry_simulate_move_to_reach_obj(obs, target_obj,
+                                                   nonpercept_atoms)
+
+        if action_name == "PlaceObjectOnTop":
+            _, held_obj, target_surface = action_objs
+            return _dry_simulate_place_on_top(obs, held_obj, target_surface,
+                                              nonpercept_atoms)
+
+        raise NotImplementedError("Dry simulation not implemented for action "
+                                  f"{action_name}")
 
     def reset(self, train_or_test: str, task_idx: int) -> Observation:
         # NOTE: task_idx and train_or_test ignored unless loading from JSON!
@@ -1059,6 +1083,150 @@ def _create_operators() -> Iterator[STRIPSOperator]:
 
 
 ###############################################################################
+#                  Shared Utilities for Dry Run Simulation                    #
+###############################################################################
+
+
+def _dry_simulate_move_to_view_hand(
+        last_obs: _SpotObservation, target_obj: Object,
+        nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+    # Initialize values based on the last observation.
+    objects_in_view = last_obs.objects_in_view.copy()
+    objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    gripper_open_percentage = last_obs.gripper_open_percentage
+    robot_pose = last_obs.robot_pos
+
+    # Add the target object to the set of objects in hand view.
+    objects_in_hand_view.add(target_obj)
+
+    # Update the robot position to be looking at the object, roughly.
+    target_obj_pose = objects_in_view[target_obj]
+    robot_pose = math_helpers.SE3Pose(
+        x=target_obj_pose.x + _REACHABLE_THRESHOLD / 2,
+        y=target_obj_pose.y,
+        z=robot_pose.z,
+        rot=robot_pose.rot,
+    )
+
+    # Finalize the next observation.
+    next_obs = _SpotObservation(
+        images={},
+        objects_in_view=objects_in_view,
+        objects_in_hand_view=objects_in_hand_view,
+        robot=last_obs.robot,
+        gripper_open_percentage=gripper_open_percentage,
+        robot_pos=robot_pose,
+        nonpercept_atoms=nonpercept_atoms,
+        nonpercept_predicates=last_obs.nonpercept_predicates,
+    )
+
+    return next_obs
+
+
+def _dry_simulate_move_to_reach_obj(
+        last_obs: _SpotObservation, target_obj: Object,
+        nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+    # Initialize values based on the last observation.
+    objects_in_view = last_obs.objects_in_view.copy()
+    objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    gripper_open_percentage = last_obs.gripper_open_percentage
+    robot_pose = last_obs.robot_pos
+
+    # Update the robot position to be looking at the object, roughly.
+    target_obj_pose = objects_in_view[target_obj]
+    robot_pose = math_helpers.SE3Pose(
+        x=target_obj_pose.x - _REACHABLE_THRESHOLD / 2,
+        y=target_obj_pose.y,
+        z=robot_pose.z,
+        rot=robot_pose.rot,
+    )
+
+    # Finalize the next observation.
+    next_obs = _SpotObservation(
+        images={},
+        objects_in_view=objects_in_view,
+        objects_in_hand_view=objects_in_hand_view,
+        robot=last_obs.robot,
+        gripper_open_percentage=gripper_open_percentage,
+        robot_pos=robot_pose,
+        nonpercept_atoms=nonpercept_atoms,
+        nonpercept_predicates=last_obs.nonpercept_predicates,
+    )
+
+    return next_obs
+
+
+def _dry_simulate_pick_from_top(
+        last_obs: _SpotObservation,
+        nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+    # Initialize values based on the last observation.
+    objects_in_view = last_obs.objects_in_view.copy()
+    robot_pose = last_obs.robot_pos
+
+    # Can't see anything in the hand because it's occluded now.
+    objects_in_hand_view: Set[Object] = set()
+
+    # Gripper is now open.
+    gripper_open_percentage = 100.0
+
+    # Finalize the next observation.
+    next_obs = _SpotObservation(
+        images={},
+        objects_in_view=objects_in_view,
+        objects_in_hand_view=objects_in_hand_view,
+        robot=last_obs.robot,
+        gripper_open_percentage=gripper_open_percentage,
+        robot_pos=robot_pose,
+        nonpercept_atoms=nonpercept_atoms,
+        nonpercept_predicates=last_obs.nonpercept_predicates,
+    )
+
+    return next_obs
+
+
+def _dry_simulate_place_on_top(
+        last_obs: _SpotObservation, held_obj: Object, target_surface: Object,
+        nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+
+    # Initialize values based on the last observation.
+    objects_in_view = last_obs.objects_in_view.copy()
+    objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    robot_pose = last_obs.robot_pos
+
+    # NOTE: there is no randomness right now, since there's no
+    # randomness in the sampler. We can add some later. This is just
+    # a proof-of-concept for dry running spot environments.
+
+    static_feats = load_spot_metadata()["static-object-features"]
+    surface_radius = static_feats[target_surface.name]["length"] / 2
+    surface_height = static_feats[target_surface.name]["height"]
+    held_obj_height = static_feats[held_obj.name]["height"]
+    surface_pose = objects_in_view[target_surface]
+    x = surface_pose.x + surface_radius / 2
+    y = surface_pose.y + surface_radius / 2
+    z = surface_pose.z + surface_height / 2 + held_obj_height
+    held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+    objects_in_view[held_obj] = held_obj_pose
+
+    # Gripper is now closed.
+    gripper_open_percentage = 0.0
+
+    # Finalize the next observation.
+    next_obs = _SpotObservation(
+        images={},
+        objects_in_view=objects_in_view,
+        objects_in_hand_view=objects_in_hand_view,
+        robot=last_obs.robot,
+        gripper_open_percentage=gripper_open_percentage,
+        robot_pos=robot_pose,
+        nonpercept_atoms=nonpercept_atoms,
+        nonpercept_predicates=last_obs.nonpercept_predicates,
+    )
+
+    return next_obs
+
+
+###############################################################################
 #                                Cube Table Env                               #
 ###############################################################################
 
@@ -1216,87 +1384,6 @@ class SpotCubeEnv(SpotRearrangementEnv):
         goal_description = self._generate_goal_description()
         return EnvironmentTask(init_obs, goal_description)
 
-    def _get_next_dry_observation(
-            self, action: Action,
-            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
-        assert isinstance(action.extra_info, (list, tuple))
-        action_name, action_objs, _, _ = action.extra_info
-
-        # Initialize values based on the current observation.
-        obs = self._current_observation
-        assert isinstance(obs, _SpotObservation)
-        objects_in_view = obs.objects_in_view.copy()
-        objects_in_hand_view = set(obs.objects_in_hand_view)
-        gripper_open_percentage = obs.gripper_open_percentage
-        robot_pose = obs.robot_pos
-
-        if action_name == "MoveToHandViewObject":
-            _, target_obj = action_objs
-
-            # Add the target object to the set of objects in hand view.
-            objects_in_hand_view.add(target_obj)
-
-            # Update the robot position to be looking at the object, roughly.
-            target_obj_pose = objects_in_view[target_obj]
-            robot_pose = math_helpers.SE3Pose(
-                x=target_obj_pose.x + _REACHABLE_THRESHOLD / 2,
-                y=target_obj_pose.y,
-                z=robot_pose.z,
-                rot=robot_pose.rot,
-            )
-
-        elif action_name == "PickObjectFromTop":
-            # Can't see anything in the hand because it's occluded now.
-            objects_in_hand_view = set()
-            # Gripper is now open.
-            gripper_open_percentage = 100.0
-
-        elif action_name == "MoveToReachObject":
-            _, target_obj = action_objs
-
-            # Update the robot position to be looking at the object, roughly.
-            target_obj_pose = objects_in_view[target_obj]
-            robot_pose = math_helpers.SE3Pose(
-                x=target_obj_pose.x - _REACHABLE_THRESHOLD / 2,
-                y=target_obj_pose.y,
-                z=robot_pose.z,
-                rot=robot_pose.rot,
-            )
-
-        elif action_name == "PlaceObjectOnTop":
-
-            # NOTE: there is no randomness right now, since there's no
-            # randomness in the sampler. We can add some later. This is just
-            # a proof-of-concept for dry running spot environments.
-
-            _, held_obj, target_surface = action_objs
-            static_feats = load_spot_metadata()["static-object-features"]
-            surface_radius = static_feats[target_surface.name]["length"] / 2
-            surface_height = static_feats[target_surface.name]["height"]
-            held_obj_height = static_feats[held_obj.name]["height"]
-            surface_pose = objects_in_view[target_surface]
-            x = surface_pose.x + surface_radius / 2
-            y = surface_pose.y + surface_radius / 2
-            z = surface_pose.z + surface_height / 2 + held_obj_height
-            held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
-            objects_in_view[held_obj] = held_obj_pose
-
-            # Gripper is now closed.
-            gripper_open_percentage = 0.0
-
-        next_obs = _SpotObservation(
-            images={},
-            objects_in_view=objects_in_view,
-            objects_in_hand_view=objects_in_hand_view,
-            robot=self._spot_object,
-            gripper_open_percentage=gripper_open_percentage,
-            robot_pos=robot_pose,
-            nonpercept_atoms=nonpercept_atoms,
-            nonpercept_predicates=(self.predicates - self.percept_predicates),
-        )
-
-        return next_obs
-
 
 ###############################################################################
 #                                Soda Table Env                               #
@@ -1395,11 +1482,6 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("Dry task generation not implemented.")
-
-    def _get_next_dry_observation(
-            self, action: Action,
-            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
-        raise NotImplementedError("Dry step function not implemented.")
 
 
 ###############################################################################
@@ -1501,11 +1583,6 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("Dry task generation not implemented.")
-
-    def _get_next_dry_observation(
-            self, action: Action,
-            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
-        raise NotImplementedError("Dry step function not implemented.")
 
 
 ###############################################################################
@@ -1626,11 +1703,6 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("Dry task generation not implemented.")
 
-    def _get_next_dry_observation(
-            self, action: Action,
-            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
-        raise NotImplementedError("Dry step function not implemented.")
-
 
 ###############################################################################
 #                               Soda Sweep Env                                #
@@ -1747,15 +1819,6 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket and hold the brush"
 
-    def _get_dry_task(self, train_or_test: str,
-                      task_idx: int) -> EnvironmentTask:
-        raise NotImplementedError("Dry task generation not implemented.")
-
-    def _get_next_dry_observation(
-            self, action: Action,
-            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
-        raise NotImplementedError("Dry step function not implemented.")
-
 
 ###############################################################################
 #                Real-World Ball and Cup Sticky Table Env                     #
@@ -1856,8 +1919,3 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("Dry task generation not implemented.")
-
-    def _get_next_dry_observation(
-            self, action: Action,
-            nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
-        raise NotImplementedError("Dry step function not implemented.")
