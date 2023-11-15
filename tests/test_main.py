@@ -117,9 +117,9 @@ def test_main():
     eval_traj_dir = os.path.join(parent_dir, "_fake_trajs")
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--make_test_videos", "--num_test_tasks", "1", "--video_dir",
-        video_dir, "--results_dir", results_dir, "--eval_trajectories_dir",
-        eval_traj_dir
+        "--make_test_videos", "--make_cogman_videos", "--num_test_tasks", "1",
+        "--video_dir", video_dir, "--results_dir", results_dir,
+        "--eval_trajectories_dir", eval_traj_dir
     ]
     main()
     # Test making videos of failures and local logging.
