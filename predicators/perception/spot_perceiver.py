@@ -16,7 +16,8 @@ from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.utils import load_spot_metadata
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
-    GoalDescription, GroundAtom, Object, Observation, Predicate, State, Task
+    GoalDescription, GroundAtom, Object, Observation, Predicate, State, Task, \
+    Video
 
 
 class SpotPerceiver(BasePerceiver):
@@ -351,3 +352,7 @@ class SpotPerceiver(BasePerceiver):
                 GroundAtom(Inside, [ball, cup])
             }
         raise NotImplementedError("Unrecognized goal description")
+
+    def render_mental_images(self, observation: Observation,
+                             env_task: EnvironmentTask) -> Video:
+        raise NotImplementedError("Coming soon!")

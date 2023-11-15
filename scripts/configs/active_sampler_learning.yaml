@@ -42,7 +42,7 @@ ENVS:
   grid_row:
     NAME: "grid_row"
     FLAGS:
-      max_num_steps_interaction_request: 500
+      max_num_steps_interaction_request: 150
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: all
   ball_and_cup_sticky_table:

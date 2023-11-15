@@ -3,7 +3,7 @@
 import abc
 
 from predicators.structs import Action, EnvironmentTask, Observation, State, \
-    Task
+    Task, Video
 
 
 class BasePerceiver(abc.ABC):
@@ -26,3 +26,8 @@ class BasePerceiver(abc.ABC):
         """In some cases, the perceiver might need to know the action that was
         taken (e.g. if the agent is trying to grasp an object, the perceiver
         needs to know which object this is)."""
+
+    @abc.abstractmethod
+    def render_mental_images(self, observation: Observation,
+                             env_task: EnvironmentTask) -> Video:
+        """Create mental images for the given observation."""
