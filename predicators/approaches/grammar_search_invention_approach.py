@@ -1488,6 +1488,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     print(a)
 
             for i, segmented_traj in enumerate(segmented_trajs):
+                # Fails if traj is: ['Op0-PickPlace', 'Op1-PickPlace'] => don't learn delete effects for Op1
+                # or if it is ['Op1-PickPlace']
+                # so still need to figure out some way to combine what we learn across multiple demonstrations
+                
+                traj = []
+                for seg in segmented_traj:
+                    traj.append(seg_to_op(seg, final_clusters))
+                print("TRAJ: ", traj)
+
                 seg_traj = list(reversed(segmented_traj))
                 potential_ops = {o: {"preconditions": set(), "add_effects": set(), "delete_effects": set()} for o in ddd2.keys()}
 
@@ -1543,7 +1552,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         next_name = seg_to_op(next_seg, final_clusters)
                         potential_ops[next_name]["preconditions"] |= ungrounded_to_add_at_step
 
-                break 
+                break
                 # import pdb; pdb.set_trace()
 
             for k, v in potential_ops.items():
