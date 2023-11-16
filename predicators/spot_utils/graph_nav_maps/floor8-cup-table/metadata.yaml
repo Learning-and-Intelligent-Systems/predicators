@@ -44,20 +44,20 @@ known-immovable-objects:
     z: -0.1
   drafting_table:
     x: 2.315
-    y: 1.855
+    y: 2.155
     z: -0.05
 # Static object features, including the shapes and sizes of known objects.
 static-object-features:
   smooth_table:
     shape: 2  # cylinder
-    height: 0.52
+    height: 0.43
     length: 0.51
     width: 0.51
   drafting_table:
     shape: 1  # cuboid
-    height: 0.65
-    length: 1.3 # 0.6
-    width: 1.3 # 0.4
+    height: 0.50
+    length: 0.6
+    width: 0.4
   cube:
     shape: 1  # cuboid
     height: 0.083
@@ -81,7 +81,7 @@ static-object-features:
   white-table:
     shape: 1 # cuboid
     height: 0.74
-    length: 1.07
+    length: 1.27
     width: 0.51
   bucket:
     shape: 2 # cylinder

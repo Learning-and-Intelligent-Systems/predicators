@@ -1,5 +1,7 @@
 """Interface for moving the spot hand."""
 
+import time
+
 from bosdyn.client import math_helpers
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, ODOM_FRAME_NAME, \
     get_a_tform_b
@@ -55,6 +57,7 @@ def gaze_at_relative_pose(
     cmd_id = robot_command_client.robot_command(cmd)
     # Wait until the arm arrives at the goal.
     block_until_arm_arrives(robot_command_client, cmd_id, duration)
+    time.sleep(1.0)
 
 
 def change_gripper(

@@ -39,9 +39,11 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
 ###############################################################################
 
 
-def _navigate_to_relative_pose_and_gaze(
-        robot: Robot, rel_pose: math_helpers.SE2Pose, localizer: SpotLocalizer,
-        gaze_target: math_helpers.Vec3) -> None:
+def navigate_to_relative_pose_and_gaze(robot: Robot,
+                                       rel_pose: math_helpers.SE2Pose,
+                                       localizer: SpotLocalizer,
+                                       gaze_target: math_helpers.Vec3) -> None:
+    """Navigate to a pose and then gaze at a specific target afterwards."""
     # Stow first.
     stow_arm(robot)
     # First navigate to the pose.
@@ -49,13 +51,10 @@ def _navigate_to_relative_pose_and_gaze(
     # Get the relative gaze target based on the new robot pose.
     localizer.localize()
     robot_pose = localizer.get_last_robot_pose()
-    rel_gaze_target = math_helpers.Vec3(
-        gaze_target[0] - robot_pose.x,
-        gaze_target[1] - robot_pose.y,
-        gaze_target[2] - robot_pose.z,
-    )
+    # Transform this to the body frame.
+    rel_gaze_target_body = robot_pose.inverse().transform_vec3(gaze_target)
     # Then gaze.
-    gaze_at_relative_pose(robot, rel_gaze_target)
+    gaze_at_relative_pose(robot, rel_gaze_target_body)
 
 
 def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
@@ -71,6 +70,16 @@ def _place_at_relative_position_and_stow(
         robot: Robot, rel_pose: math_helpers.SE3Pose) -> None:
     # Place.
     place_at_relative_position(robot, rel_pose)
+    # Now, move the arm back slightly. We do this because if we're
+    # placing an objec directly onto a table instead of dropping it,
+    # then stowing/moving the hand immediately after might cause
+    # us to knock the object off the table.
+    slightly_back_and_up_pose = math_helpers.SE3Pose(
+        x=rel_pose.x - 0.15,
+        y=rel_pose.y,
+        z=rel_pose.z + 0.1,
+        rot=math_helpers.Quat.from_pitch(np.pi / 3))
+    move_hand_to_relative_pose(robot, slightly_back_and_up_pose)
     # Stow.
     stow_arm(robot)
 
@@ -176,7 +185,7 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
         fn: Callable = navigate_to_relative_pose
         fn_args: Tuple = (robot, rel_pose)
     else:
-        fn = _navigate_to_relative_pose_and_gaze
+        fn = navigate_to_relative_pose_and_gaze
         fn_args = (robot, rel_pose, localizer, gaze_target)
 
     return utils.create_spot_env_action(name, objects, fn, fn_args)
@@ -299,10 +308,13 @@ def _place_object_on_top_policy(state: State, memory: Dict,
         return utils.create_spot_env_action(name, objects, _drop_and_stow,
                                             (robot, ))
 
+    # The dz parameter is with respect to the top of the container.
+    surface_half_height = state.get(surface_obj, "height") / 2
     surface_rel_pose = robot_pose.inverse() * surface_pose
     place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x + dx,
                                       y=surface_rel_pose.y + dy,
-                                      z=surface_rel_pose.z + dz)
+                                      z=surface_rel_pose.z + dz +
+                                      surface_half_height)
 
     return utils.create_spot_env_action(name, objects,
                                         _place_at_relative_position_and_stow,

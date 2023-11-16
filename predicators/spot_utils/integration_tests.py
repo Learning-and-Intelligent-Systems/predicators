@@ -8,14 +8,15 @@ from typing import Optional
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
 from bosdyn.client import create_standard_sdk, math_helpers
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
 from bosdyn.client.util import authenticate
 
 from predicators import utils
-from predicators.envs.spot_env import load_spot_metadata
+from predicators.envs.spot_env import get_allowed_map_regions
+from predicators.ground_truth_models.spot_env.options import \
+    navigate_to_relative_pose_and_gaze
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, LanguageObjectDetectionID, detect_objects, \
@@ -209,22 +210,16 @@ def test_move_with_sampling() -> None:
                                      return_at_exit=True)
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
-    metadata = load_spot_metadata()
-    allowed_regions = metadata.get("allowed-regions", {})
-    convex_hulls = []
-    for region_pts in allowed_regions.values():
-        dealunay_hull = scipy.spatial.Delaunay(np.array(region_pts))  # pylint: disable=no-member
-        convex_hulls.append(dealunay_hull)
+    convex_hulls = get_allowed_map_regions()
 
-    # Run test with april tag cube.
+    # Run test with april tag round table.
     surface1 = AprilTagObjectDetectionID(408)
-    surface2 = AprilTagObjectDetectionID(409)
 
     go_home(robot, localizer)
     localizer.localize()
 
     # Find objects.
-    object_ids = [surface1, surface2]
+    object_ids = [surface1]
     detections, _ = init_search_for_objects(robot, localizer, object_ids)
 
     # Create collision geoms using known object sizes.
@@ -246,6 +241,7 @@ def test_move_with_sampling() -> None:
             robot_geom,
             collision_geoms,
             rng,
+            min_distance=0.0,
             max_distance=max_distance,
             allowed_regions=convex_hulls,
         )
@@ -277,10 +273,13 @@ def test_move_with_sampling() -> None:
                            zorder=3)
         plt.savefig(f"sampling_integration_test_{i}.png")
 
-        # Execute the move.
+        # Execute the move and gaze at the target.
         rel_pose = get_relative_se2_from_se3(robot_pose, target_pose, distance,
                                              angle)
-        navigate_to_relative_pose(robot, rel_pose)
+        gaze_target = math_helpers.Vec3(target_pose.x, target_pose.y,
+                                        target_pose.z)
+        navigate_to_relative_pose_and_gaze(robot, rel_pose, localizer,
+                                           gaze_target)
 
 
 def test_repeated_brush_bucket_dump_pick_place(

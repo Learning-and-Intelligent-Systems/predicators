@@ -7,8 +7,8 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import Callable, ClassVar, Collection, Dict, Iterator, List, \
+    Optional, Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
@@ -17,6 +17,7 @@ from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
 from bosdyn.client.util import authenticate, setup_logging
 from gym.spaces import Box
+from scipy.spatial import Delaunay  # pylint: disable=no-name-in-module
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -157,6 +158,18 @@ def get_detection_id_for_object(obj: Object) -> ObjectDetectionID:
     detection_id_to_obj = env._detection_id_to_obj  # pylint: disable=protected-access
     obj_to_detection_id = {o: d for d, o in detection_id_to_obj.items()}
     return obj_to_detection_id[obj]
+
+
+@functools.lru_cache(maxsize=None)
+def get_allowed_map_regions() -> Collection[Delaunay]:
+    """Gets Delaunay regions from metadata that correspond to free space."""
+    metadata = load_spot_metadata()
+    allowed_regions = metadata.get("allowed-regions", {})
+    convex_hulls = []
+    for region_pts in allowed_regions.values():
+        dealunay_hull = Delaunay(np.array(region_pts))
+        convex_hulls.append(dealunay_hull)
+    return convex_hulls
 
 
 class SpotRearrangementEnv(BaseEnv):
@@ -625,7 +638,7 @@ class SpotRearrangementEnv(BaseEnv):
 ###############################################################################
 
 ## Constants
-HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
+HANDEMPTY_GRIPPER_THRESHOLD = 2.7  # made public for use in perceiver
 _ONTOP_Z_THRESHOLD = 0.25
 _INSIDE_Z_THRESHOLD = 0.25
 _ONTOP_SURFACE_BUFFER = 0.1
@@ -2139,7 +2152,7 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
         detection_id_to_obj[ball_detection] = ball
 
         cup = Object("cup", _container_type)
-        cup_detection = LanguageObjectDetectionID("white bowl")
+        cup_detection = LanguageObjectDetectionID("large cup")
         detection_id_to_obj[cup_detection] = cup
 
         known_immovables = load_spot_metadata()["known-immovable-objects"]

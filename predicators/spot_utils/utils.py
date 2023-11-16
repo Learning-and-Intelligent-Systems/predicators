@@ -143,6 +143,7 @@ def sample_move_offset_from_target(
     robot_geom: Rectangle,
     collision_geoms: Collection[_Geom2D],
     rng: np.random.Generator,
+    min_distance: float,
     max_distance: float,
     allowed_regions: Collection[scipy.spatial.Delaunay],  # pylint: disable=no-member
     max_samples: int = 100
@@ -153,7 +154,7 @@ def sample_move_offset_from_target(
     robot geom for visualization and debugging convenience.
     """
     for _ in range(max_samples):
-        distance = rng.uniform(0.0, max_distance)
+        distance = rng.uniform(min_distance, max_distance)
         angle = rng.uniform(-np.pi, np.pi)
         dx = np.cos(angle) * distance
         dy = np.sin(angle) * distance
