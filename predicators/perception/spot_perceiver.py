@@ -13,7 +13,7 @@ from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     SpotCubeEnv, SpotRearrangementEnv, _container_type, \
     _immovable_object_type, _movable_object_type, _object_to_top_down_geom, \
     _PartialPerceptionState, _robot_type, _SpotObservation, \
-    in_hand_view_classifier
+    in_general_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.utils import load_spot_metadata
@@ -106,14 +106,14 @@ class SpotPerceiver(BasePerceiver):
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(object_attempted_to_grasp)
-            elif "place" in controller_name.lower() or \
-                "drop" in controller_name.lower():
+            elif any(n in controller_name.lower() for n in
+                     ["place", "drop", "preparecontainerforsweeping", "drag"]):
                 self._held_object = None
                 # Check if the item we just placed is in view. It needs to
                 # be in view to assess whether it was placed correctly.
                 robot, obj = objects[:2]
                 state = self._create_state()
-                is_in_view = in_hand_view_classifier(state, [robot, obj])
+                is_in_view = in_general_view_classifier(state, [robot, obj])
                 if not is_in_view:
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
