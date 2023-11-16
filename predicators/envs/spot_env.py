@@ -7,8 +7,8 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+from typing import Callable, ClassVar, Dict, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
@@ -165,6 +165,11 @@ class SpotRearrangementEnv(BaseEnv):
     This is a base class that specific sub-classes that define actual
     tasks should inherit from.
     """
+
+    render_x_lb: ClassVar[float] = -1.0
+    render_x_ub: ClassVar[float] = 5.0
+    render_y_lb: ClassVar[float] = -3.0
+    render_y_ub: ClassVar[float] = 3.0
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -641,7 +646,11 @@ def _object_to_top_down_geom(obj: Object,
                              size_buffer: float = 0.0) -> utils._Geom2D:
     assert obj.is_instance(_base_object_type)
     shape_type = int(np.round(state.get(obj, "shape")))
-    se3_pose = utils.get_se3_pose_from_state(state, obj)
+    if obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
+        robot, = state.get_objects(_robot_type)
+        se3_pose = utils.get_se3_pose_from_state(state, robot)
+    else:
+        se3_pose = utils.get_se3_pose_from_state(state, obj)
     angle = se3_pose.rot.to_yaw()
     center_x = se3_pose.x
     center_y = se3_pose.y
@@ -661,7 +670,12 @@ def _object_to_side_view_geom(obj: Object,
                               size_buffer: float = 0.0) -> utils._Geom2D:
     assert obj.is_instance(_base_object_type)
     # The shape doesn't matter because all shapes are rectangles from the side.
-    se3_pose = utils.get_se3_pose_from_state(state, obj)
+    # If the object is held, use the robot's pose.
+    if obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
+        robot, = state.get_objects(_robot_type)
+        se3_pose = utils.get_se3_pose_from_state(state, robot)
+    else:
+        se3_pose = utils.get_se3_pose_from_state(state, obj)
     center_y = se3_pose.y
     center_z = se3_pose.z
     length = state.get(obj, "length") + size_buffer
@@ -1102,7 +1116,7 @@ def _dry_simulate_move_to_view_hand(
     # Update the robot position to be looking at the object, roughly.
     target_obj_pose = objects_in_view[target_obj]
     robot_pose = math_helpers.SE3Pose(
-        x=target_obj_pose.x + _REACHABLE_THRESHOLD / 2,
+        x=target_obj_pose.x - _REACHABLE_THRESHOLD / 2,
         y=target_obj_pose.y,
         z=robot_pose.z,
         rot=robot_pose.rot,
@@ -1336,8 +1350,8 @@ class SpotCubeEnv(SpotRearrangementEnv):
         cube = Object("cube", _movable_object_type)
         table_height = static_object_feats["smooth_table"]["height"]
         cube_height = static_object_feats["cube"]["height"]
-        x = 0.0
-        y = 0.0
+        x = self.render_x_ub - (self.render_x_ub - self.render_x_lb) / 5.0
+        y = self.render_y_ub - (self.render_y_ub - self.render_y_lb) / 5.0
         z = table_height + cube_height / 2
         cube_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
         objects_in_view[cube] = cube_pose
@@ -1351,7 +1365,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
         objects_in_view[smooth_table] = smooth_table_pose
 
         sticky_table = Object("sticky_table", _immovable_object_type)
-        x = x + _REACHABLE_THRESHOLD / 2
+        y = y - _REACHABLE_THRESHOLD / 2
         sticky_table_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
         objects_in_view[sticky_table] = sticky_table_pose
 

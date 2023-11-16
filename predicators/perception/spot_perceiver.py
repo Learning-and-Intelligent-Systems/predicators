@@ -5,13 +5,15 @@ from typing import Dict, Optional, Set
 
 import numpy as np
 from bosdyn.client import math_helpers
+from matplotlib import pyplot as plt
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
     SpotCubeEnv, SpotRearrangementEnv, _container_type, \
-    _immovable_object_type, _movable_object_type, _PartialPerceptionState, \
-    _robot_type, _SpotObservation, in_hand_view_classifier
+    _immovable_object_type, _movable_object_type, _object_to_top_down_geom, \
+    _PartialPerceptionState, _robot_type, _SpotObservation, \
+    in_hand_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.utils import load_spot_metadata
@@ -236,69 +238,6 @@ class SpotPerceiver(BasePerceiver):
         state = _PartialPerceptionState(percept_state.data,
                                         simulator_state=simulator_state)
 
-        # Uncomment to create visualizations of the state.
-        # from matplotlib import pyplot as plt
-
-        # from predicators.envs.spot_env import _object_to_top_down_geom
-        # fig = plt.figure()
-        # ax = fig.gca()
-        # # Draw the robot as a point.
-        # robot_x = state.get(self._robot, "x")
-        # robot_y = state.get(self._robot, "y")
-        # plt.plot([robot_x], [robot_y], color="red", marker="o")
-        # # Draw the other objects.
-        # for obj in state:
-        #     if obj == self._robot:
-        #         continue
-        #     # Don't plot the floor because it's enormous.
-        #     if obj.name == "floor":
-        #         continue
-        #     geom = _object_to_top_down_geom(obj, state)
-        #     geom.plot(ax,
-        #               label=obj.name,
-        #               facecolor=(0.0, 0.0, 0.0, 0.0),
-        #               edgecolor="black")
-        #     text_pos = (state.get(obj, "x"), state.get(obj, "y"))
-        #     ax.text(text_pos[0],
-        #             text_pos[1],
-        #             obj.name,
-        #             color='white',
-        #             fontsize=12,
-        #             fontweight='bold',
-        #             bbox=dict(facecolor="gray", edgecolor="gray", alpha=0.5))
-        # plt.tight_layout()
-        # plt.savefig("top-down-state-view.png")
-
-        # from predicators.envs.spot_env import _object_to_side_view_geom
-        # fig = plt.figure()
-        # ax = fig.gca()
-        # Draw the robot as a point.
-        # robot_y = state.get(self._robot, "y")
-        # robot_z = state.get(self._robot, "z")
-        # plt.plot([robot_y], [robot_z], color="red", marker="o")
-        # # Draw the other objects.
-        # for obj in state:
-        #     if obj == self._robot:
-        #         continue
-        #     # Don't plot the floor because it's enormous.
-        #     if obj.name == "floor":
-        #         continue
-        #     geom = _object_to_side_view_geom(obj, state)
-        #     geom.plot(ax,
-        #               label=obj.name,
-        #               facecolor=(0.0, 0.0, 0.0, 0.0),
-        #               edgecolor="black")
-        #     text_pos = (state.get(obj, "y"), state.get(obj, "z"))
-        #     ax.text(text_pos[0],
-        #             text_pos[1],
-        #             obj.name,
-        #             color='white',
-        #             fontsize=12,
-        #             fontweight='bold',
-        #             bbox=dict(facecolor="gray", edgecolor="gray", alpha=0.5))
-        # plt.tight_layout()
-        # plt.savefig("side-state-view.png")
-
         return state
 
     def _create_goal(self, state: State,
@@ -355,4 +294,58 @@ class SpotPerceiver(BasePerceiver):
 
     def render_mental_images(self, observation: Observation,
                              env_task: EnvironmentTask) -> Video:
-        raise NotImplementedError("Coming soon!")
+        if self._waiting_for_observation:
+            return []
+        state = self._create_state()
+
+        assert isinstance(self._curr_env, SpotRearrangementEnv)
+        x_lb = self._curr_env.render_x_lb
+        x_ub = self._curr_env.render_x_ub
+        y_lb = self._curr_env.render_y_lb
+        y_ub = self._curr_env.render_y_ub
+        figsize = (x_ub - x_lb, y_ub - y_lb)
+        fig = plt.figure(figsize=figsize)
+        ax = fig.gca()
+        # Draw the robot as an arrow.
+        assert self._robot is not None
+        robot_pose = utils.get_se3_pose_from_state(state, self._robot)
+        robot_x = robot_pose.x
+        robot_y = robot_pose.y
+        robot_yaw = robot_pose.rot.to_yaw()
+        arrow_length = (x_ub - x_lb) / 20.0
+        head_width = arrow_length / 3
+        robot_dx = arrow_length * np.cos(robot_yaw)
+        robot_dy = arrow_length * np.sin(robot_yaw)
+        plt.arrow(robot_x,
+                  robot_y,
+                  robot_dx,
+                  robot_dy,
+                  color="red",
+                  head_width=head_width)
+        # Draw the other objects.
+        for obj in state:
+            if obj == self._robot:
+                continue
+            # Don't plot the floor because it's enormous.
+            if obj.name == "floor":
+                continue
+            geom = _object_to_top_down_geom(obj, state)
+            geom.plot(ax,
+                      label=obj.name,
+                      facecolor=(0.0, 0.0, 0.0, 0.0),
+                      edgecolor="black")
+            assert isinstance(geom, (utils.Rectangle, utils.Circle))
+            text_pos = (geom.x, geom.y)
+            ax.text(text_pos[0],
+                    text_pos[1],
+                    obj.name,
+                    color='white',
+                    fontsize=12,
+                    fontweight='bold',
+                    bbox=dict(facecolor="gray", edgecolor="gray", alpha=0.5))
+        ax.set_xlim(x_lb, x_ub)
+        ax.set_ylim(y_lb, y_ub)
+        ax.axis("off")
+        plt.tight_layout()
+        img = utils.fig2data(fig, CFG.render_state_dpi)
+        return [img]
