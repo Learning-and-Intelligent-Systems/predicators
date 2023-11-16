@@ -55,7 +55,7 @@ if __name__ == "__main__":
     from predicators import utils
     from predicators.settings import CFG
     from predicators.spot_utils.perception.object_detection import \
-        detect_objects, get_object_center_pixel_from_artifacts
+        detect_objects, get_grasp_pixel
     from predicators.spot_utils.perception.perception_structs import \
         LanguageObjectDetectionID
     from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -102,8 +102,7 @@ if __name__ == "__main__":
         bucket_id = LanguageObjectDetectionID("large red bucket")
         _, artifacts = detect_objects([bucket_id], rgbds)
 
-        r, c = get_object_center_pixel_from_artifacts(artifacts, bucket_id,
-                                                      camera)
+        r, c = get_grasp_pixel(rgbds, artifacts, bucket_id, camera)
         pixel = (r + 50, c)
 
         # Grasp at the pixel with a top-down grasp.

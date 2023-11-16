@@ -14,7 +14,7 @@ from predicators.envs.spot_env import SpotRearrangementEnv, \
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
-    get_last_detected_objects, get_object_center_pixel_from_artifacts
+    get_grasp_pixel, get_last_detected_objects
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import \
@@ -200,9 +200,8 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
         _, artifacts = get_last_detected_objects()
         hand_camera = "hand_color_image"
         img = rgbds[hand_camera]
-        pixel = get_object_center_pixel_from_artifacts(artifacts,
-                                                       target_detection_id,
-                                                       hand_camera)
+        pixel = get_grasp_pixel(rgbds, artifacts, target_detection_id,
+                                hand_camera)
 
     # Grasp from the top-down.
     top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)

@@ -2,8 +2,10 @@
 
 Run with --spot_robot_ip and any other flags.
 """
+import time
 from typing import Optional
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
@@ -17,7 +19,7 @@ from predicators.envs.spot_env import load_spot_metadata
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, LanguageObjectDetectionID, detect_objects, \
-    get_object_center_pixel_from_artifacts
+    get_grasp_pixel
 from predicators.spot_utils.perception.perception_structs import \
     ObjectDetectionID
 from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -102,8 +104,7 @@ def test_find_move_pick_place(
 
     # Run detection to get a pixel for grasping.
     _, artifacts = detect_objects([manipuland_id], rgbds)
-    pixel = get_object_center_pixel_from_artifacts(artifacts, manipuland_id,
-                                                   hand_camera)
+    pixel = get_grasp_pixel(rgbds, artifacts, manipuland_id, hand_camera)
 
     # Pick at the pixel with a top-down grasp.
     grasp_at_pixel(robot, rgbds[hand_camera], pixel)
@@ -355,8 +356,7 @@ def test_repeated_brush_bucket_dump_pick_place(
 
         # Run detection to get a pixel for grasping.
         _, artifacts = detect_objects([brush], rgbds)
-        pixel = get_object_center_pixel_from_artifacts(artifacts, brush,
-                                                       hand_camera)
+        pixel = get_grasp_pixel(rgbds, artifacts, brush, hand_camera)
 
         # Pick at the pixel with a top-down grasp.
         grasp_at_pixel(robot, rgbds[hand_camera], pixel)
@@ -409,8 +409,7 @@ def test_repeated_brush_bucket_dump_pick_place(
         # Choose a grasp.
         _, artifacts = detect_objects([bucket], rgbds)
 
-        r, c = get_object_center_pixel_from_artifacts(artifacts, bucket,
-                                                      hand_camera)
+        r, c = get_grasp_pixel(rgbds, artifacts, bucket, hand_camera)
         pixel = (r + bucket_grasp_dr, c)
 
         # Grasp at the pixel with a top-down grasp.
@@ -426,7 +425,88 @@ def test_repeated_brush_bucket_dump_pick_place(
         localizer.localize()
 
 
+def test_platform_grasp(pre_pick_nav_distance: float = 1.25) -> None:
+    """Test finding and grasping the platform with april tag 411."""
+    # Parse flags.
+    args = utils.parse_args(env_required=False,
+                            seed_required=False,
+                            approach_required=False)
+    utils.update_config(args)
+
+    # Set up the robot and localizer.
+    hostname = CFG.spot_robot_ip
+    path = get_graph_nav_dir()
+    sdk = create_standard_sdk("TestClient")
+    robot = sdk.create_robot(hostname)
+    authenticate(robot)
+    verify_estop(robot)
+    lease_client = robot.ensure_client(LeaseClient.default_service_name)
+    lease_client.take()
+    lease_keepalive = LeaseKeepAlive(lease_client,
+                                     must_acquire=True,
+                                     return_at_exit=True)
+    assert path.exists()
+    localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+
+    platform = AprilTagObjectDetectionID(411)
+
+    # Test assumes that the platform is in front of the robot's home position.
+    localizer.localize()
+    go_home(robot, localizer)
+    localizer.localize()
+
+    home_pose = get_spot_home_pose()
+    pre_pick_nav_angle = home_pose.angle - np.pi
+
+    # Find the platform.
+    detections, _ = init_search_for_objects(robot, localizer, [platform])
+
+    # Navigate to in front of the platform.
+    localizer.localize()
+    robot_pose = localizer.get_last_robot_pose()
+    rel_pose = get_relative_se2_from_se3(robot_pose, detections[platform],
+                                         pre_pick_nav_distance,
+                                         pre_pick_nav_angle)
+    navigate_to_relative_pose(robot, rel_pose)
+    localizer.localize()
+
+    # Look down at the surface.
+    move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_DOWN_POSE)
+    open_gripper(robot)
+
+    # Capture an image from the hand camera.
+    hand_camera = "hand_color_image"
+    rgbds = capture_images(robot, localizer, [hand_camera])
+    rgbd = rgbds[hand_camera]
+
+    # Run detection to get a pixel for grasping.
+    _, artifacts = detect_objects([platform], rgbds)
+    pixel = get_grasp_pixel(rgbds, artifacts, platform, hand_camera)
+
+    # Show the selected pixel for debugging.
+    bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
+    cv2.circle(bgr, pixel, 5, (0, 255, 0), -1)
+    cv2.imshow("Selected grasp", bgr)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    # Pick at the pixel with a top-down and rotated grasp.
+    top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
+    side_rot = math_helpers.Quat.from_yaw(np.pi / 2)
+    grasp_rot = side_rot * top_down_rot
+    grasp_at_pixel(robot, rgbd, pixel, grasp_rot=grasp_rot)
+    localizer.localize()
+
+    # Pause to ponder how wonderful the grasp is.
+    time.sleep(5.0)
+
+    # Open and stow.
+    open_gripper(robot)
+    stow_arm(robot)
+
+
 if __name__ == "__main__":
     test_all_find_move_pick_place()
     test_move_with_sampling()
     test_repeated_brush_bucket_dump_pick_place()
+    test_platform_grasp()

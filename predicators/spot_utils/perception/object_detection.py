@@ -34,6 +34,8 @@ from matplotlib import pyplot as plt
 from scipy import ndimage
 
 from predicators.settings import CFG
+from predicators.spot_utils.perception.object_specific_grasp_selection import \
+    OBJECT_SPECIFIC_GRASP_SELECTORS
 from predicators.spot_utils.perception.perception_structs import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
     LanguageObjectDetectionID, ObjectDetectionID, RGBDImageWithContext, \
@@ -385,6 +387,19 @@ def _get_pose_from_segmented_bounding_box(
     world_frame_pose = rgbd.world_tform_camera * camera_frame_pose
 
     return world_frame_pose
+
+
+def get_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
+                    artifacts: Dict[str, Any], object_id: ObjectDetectionID,
+                    camera_name: str) -> Tuple[int, int]:
+    """Select a pixel for grasping in the given camera image."""
+
+    if object_id in OBJECT_SPECIFIC_GRASP_SELECTORS:
+        selector = OBJECT_SPECIFIC_GRASP_SELECTORS[object_id]
+        return selector(rgbds, artifacts, camera_name)
+
+    return get_object_center_pixel_from_artifacts(artifacts, object_id,
+                                                  camera_name)
 
 
 def get_object_center_pixel_from_artifacts(
