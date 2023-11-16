@@ -1,7 +1,7 @@
 """Structs for perception."""
 
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 from bosdyn.api.geometry_pb2 import FrameTreeSnapshot
@@ -75,6 +75,27 @@ class LanguageObjectDetectionID(ObjectDetectionID):
     def __eq__(self, other: Any) -> bool:
         assert isinstance(other, LanguageObjectDetectionID)
         return self.language_id == other.language_id
+
+
+@dataclass(frozen=True)
+class PythonicObjectDetectionID(ObjectDetectionID):
+    """An ID for an object to be detected with an arbitrary python function."""
+    name: str
+    fn: Callable[[Dict[str, RGBDImageWithContext]],
+                 Optional[math_helpers.SE3Pose]]
+
+    def __str__(self) -> str:
+        return f"PythonicID({self.name})"
+
+    def __repr__(self) -> str:
+        return f"PythonicID({self.name})"
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __eq__(self, other: Any) -> bool:
+        assert isinstance(other, PythonicObjectDetectionID)
+        return self.name == other.name
 
 
 @dataclass(frozen=True)
