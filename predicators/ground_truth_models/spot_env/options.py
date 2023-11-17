@@ -71,7 +71,7 @@ def _place_at_relative_position_and_stow(
     # Place.
     place_at_relative_position(robot, rel_pose)
     # Now, move the arm back slightly. We do this because if we're
-    # placing an objec directly onto a table instead of dropping it,
+    # placing an object directly onto a table instead of dropping it,
     # then stowing/moving the hand immediately after might cause
     # us to knock the object off the table.
     slightly_back_and_up_pose = math_helpers.SE3Pose(
@@ -213,8 +213,7 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
                                 hand_camera)
 
     # Grasp from the top-down.
-    top_down_rot = math_helpers.Quat.from_pitch(np.pi / 2)
-
+    grasp_rot = math_helpers.Quat.from_pitch(np.pi / 2)
     # If the target object is reasonably large, don't try to stow!
     target_obj_volume = state.get(target_obj, "height") * \
         state.get(target_obj, "length") * state.get(target_obj, "width")
@@ -224,7 +223,7 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
         fn = _grasp_at_pixel_and_stow
 
     return utils.create_spot_env_action(name, objects, fn,
-                                        (robot, img, pixel, top_down_rot))
+                                        (robot, img, pixel, grasp_rot))
 
 
 ###############################################################################
@@ -520,9 +519,13 @@ class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
     @classmethod
     def get_env_names(cls) -> Set[str]:
         return {
-            "spot_cube_env", "spot_soda_table_env", "spot_soda_bucket_env",
-            "spot_soda_chair_env", "spot_soda_sweep_env",
-            "spot_ball_and_cup_sticky_table_env"
+            "spot_cube_env",
+            "spot_soda_table_env",
+            "spot_soda_bucket_env",
+            "spot_soda_chair_env",
+            "spot_soda_sweep_env",
+            "spot_ball_and_cup_sticky_table_env",
+            "spot_brush_shelf_env",
         }
 
     @classmethod
