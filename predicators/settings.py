@@ -174,6 +174,7 @@ class GlobalSettings:
     spot_graph_nav_map = "floor8-v2"
     spot_grasp_stow_volume_threshold = 0.1
     spot_run_dry = False
+    spot_use_perfect_samplers = False  # for debugging
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3

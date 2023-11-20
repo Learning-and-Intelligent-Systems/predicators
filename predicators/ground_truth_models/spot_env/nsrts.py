@@ -9,6 +9,7 @@ from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotRearrangementEnv, \
     _movable_object_type, _object_to_top_down_geom, get_allowed_map_regions
 from predicators.ground_truth_models import GroundTruthNSRTFactory
+from predicators.settings import CFG
 from predicators.spot_utils.utils import _Geom2D, get_spot_home_pose, \
     sample_move_offset_from_target, spot_pose_to_geom2d
 from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
@@ -144,8 +145,12 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
                                   objs: Sequence[Object]) -> Array:
     # Parameters are start dx, start dy.
-    del state, goal, objs, rng  # randomization coming soon
-    return np.array([0.0, 0.25])
+    # NOTE: these parameters may change (need to experiment on robot).
+    del state, goal, objs
+    if CFG.spot_use_perfect_samplers:
+        return np.array([0.0, 0.25])
+    dx, dy = rng.uniform(-0.5, 0.5, size=2)
+    return np.array([dx, dy])
 
 
 def _prepare_sweeping_sampler(state: State, goal: Set[GroundAtom],

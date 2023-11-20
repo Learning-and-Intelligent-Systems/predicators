@@ -217,15 +217,30 @@ class SpotRearrangementEnv(BaseEnv):
         # Create constant objects.
         self._spot_object = Object("robot", _robot_type)
 
+        # For noisy simulation in dry runs.
+        self._noise_rng = np.random.default_rng(CFG.seed)
+
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
         """Expose the STRIPSOperators for use by oracles."""
         return self._strips_operators
 
     @property
+    def types(self) -> Set[Type]:
+        return set(_ALL_TYPES)
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return set(_ALL_PREDICATES)
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return set(_ALL_PREDICATES)
+
+    @property
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
-        return set()
+        return self.predicates - _NONPERCEPT_PREDICATES
 
     @property
     def action_space(self) -> Box:
@@ -268,15 +283,21 @@ class SpotRearrangementEnv(BaseEnv):
                                               nonpercept_atoms)
 
         if action_name == "PrepareContainerForSweeping":
-            _, container_obj, _ = action_objs
+            _, container_obj, _, _ = action_objs
             _, _, new_robot_se2_pose = action_args
             return _dry_simulate_prepare_container_for_sweeping(
                 obs, container_obj, new_robot_se2_pose, nonpercept_atoms)
 
         if action_name == "SweepIntoContainer":
             _, _, target, _, container = action_objs
-            return _dry_simulate_sweep_into_container(obs, target, container,
-                                                      nonpercept_atoms)
+            _, _, sweep_start_dx, sweep_start_dy = action_args
+            return _dry_simulate_sweep_into_container(obs,
+                                                      target,
+                                                      container,
+                                                      nonpercept_atoms,
+                                                      start_dx=sweep_start_dx,
+                                                      start_dy=sweep_start_dy,
+                                                      rng=self._noise_rng)
 
         if action_name == "DragToUnblockObject":
             _, _, blocker = action_objs
@@ -640,9 +661,9 @@ class SpotRearrangementEnv(BaseEnv):
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
         """Get an object from a perception detection ID."""
 
-    @abc.abstractmethod
     def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
         """Get the initial atoms for nonpercept predicates."""
+        return set()
 
     @abc.abstractmethod
     def _generate_goal_description(self) -> GoalDescription:
@@ -683,11 +704,19 @@ _movable_object_type = Type(
     ["placeable", "held", "lost", "in_hand_view", "in_view"],
     parent=_base_object_type)
 _immovable_object_type = Type("immovable",
-                              list(_base_object_type.feature_names),
+                              list(_base_object_type.feature_names) +
+                              ["flat_top_surface"],
                               parent=_base_object_type)
 _container_type = Type("container",
                        list(_movable_object_type.feature_names),
                        parent=_movable_object_type)
+_ALL_TYPES = {
+    _robot_type,
+    _base_object_type,
+    _movable_object_type,
+    _immovable_object_type,
+    _container_type,
+}
 
 
 ## Helper functions
@@ -797,6 +826,15 @@ def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     return classification_val
 
 
+def _top_above_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj1, obj2 = objects
+
+    top1 = state.get(obj1, "z") + state.get(obj1, "height") / 2
+    top2 = state.get(obj2, "z") + state.get(obj2, "height") / 2
+
+    return top1 > top2
+
+
 def _inside_classifier(state: State, objects: Sequence[Object]) -> bool:
     obj_in, obj_container = objects
 
@@ -881,6 +919,12 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
     if blocker_obj == blocked_obj:
         return False
 
+    # Only consider draggable (non-placeable) objects to be possible blockers.
+    placeable = blocker_obj.is_instance(_movable_object_type) and \
+        _is_placeable_classifier(state, [blocker_obj])
+    if placeable:
+        return False
+
     if _object_in_xy_classifier(state,
                                 blocked_obj,
                                 blocker_obj,
@@ -956,14 +1000,21 @@ def _is_placeable_classifier(state: State, objects: Sequence[Object]) -> bool:
     return state.get(obj, "placeable") > 0.5
 
 
+def _has_flat_top_surface_classifier(state: State,
+                                     objects: Sequence[Object]) -> bool:
+    obj, = objects
+    return state.get(obj, "flat_top_surface") > 0.5
+
+
 _NEq = Predicate("NEq", [_base_object_type, _base_object_type],
                  _neq_classifier)
 _On = Predicate("On", [_movable_object_type, _base_object_type],
                 _on_classifier)
+_TopAbove = Predicate("TopAbove", [_base_object_type, _base_object_type],
+                      _top_above_classifier)
 _Inside = Predicate("Inside", [_movable_object_type, _base_object_type],
                     _inside_classifier)
-# NOTE: currently disabling inside predicate check because we don't have a good
-# way to do the check, especially after sweeping.
+# NOTE: use this predicate instead if you want to disable inside checking.
 _FakeInside = Predicate(_Inside.name, _Inside.types,
                         _create_dummy_predicate_classifier(_Inside))
 _HandEmpty = Predicate("HandEmpty", [_robot_type], _handempty_classifier)
@@ -984,6 +1035,25 @@ _ContainerReadyForSweeping = Predicate(
     _container_ready_for_sweeping_classifier)
 _IsPlaceable = Predicate("IsPlaceable", [_movable_object_type],
                          _is_placeable_classifier)
+_HasFlatTopSurface = Predicate("HasFlatTopSurface", [_immovable_object_type],
+                               _has_flat_top_surface_classifier)
+_ALL_PREDICATES = {
+    _NEq,
+    _On,
+    _TopAbove,
+    _Inside,
+    _HandEmpty,
+    _Holding,
+    _InHandView,
+    _InView,
+    _Reachable,
+    _Blocking,
+    _NotBlocked,
+    _ContainerReadyForSweeping,
+    _IsPlaceable,
+    _HasFlatTopSurface,
+}
+_NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
 
 ## Operators (needed in the environment for non-percept atom hack)
@@ -1051,7 +1121,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     # PlaceObjectOnTop
     robot = Variable("?robot", _robot_type)
     held = Variable("?held", _movable_object_type)
-    surface = Variable("?surface", _base_object_type)
+    surface = Variable("?surface", _immovable_object_type)
     parameters = [robot, held, surface]
     preconds = {
         LiftedAtom(_Holding, [robot, held]),
@@ -1141,7 +1211,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     sweeper = Variable("?sweeper", _movable_object_type)
     target = Variable("?target", _movable_object_type)
-    surface = Variable("?surface", _base_object_type)
+    surface = Variable("?surface", _immovable_object_type)
     container = Variable("?container", _container_type)
     parameters = [robot, sweeper, target, surface, container]
     preconds = {
@@ -1151,6 +1221,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Reachable, [robot, target]),
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
         LiftedAtom(_IsPlaceable, [target]),
+        LiftedAtom(_HasFlatTopSurface, [surface]),
     }
     add_effs = {
         LiftedAtom(_Inside, [target, container]),
@@ -1168,9 +1239,12 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     target = Variable("?target", _movable_object_type)
     container = Variable("?container", _container_type)
-    parameters = [robot, container, target]
+    surface = Variable("?surface", _base_object_type)
+    parameters = [robot, container, target, surface]
     preconds = {
         LiftedAtom(_Holding, [robot, container]),
+        LiftedAtom(_On, [target, surface]),
+        LiftedAtom(_TopAbove, [surface, container]),
     }
     add_effs = {
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
@@ -1293,12 +1367,11 @@ def _dry_simulate_place_on_top(
     # a proof-of-concept for dry running spot environments.
 
     static_feats = load_spot_metadata()["static-object-features"]
-    surface_radius = static_feats[target_surface.name]["length"] / 2
     surface_height = static_feats[target_surface.name]["height"]
     held_obj_height = static_feats[held_obj.name]["height"]
     surface_pose = objects_in_view[target_surface]
-    x = surface_pose.x + surface_radius / 2
-    y = surface_pose.y + surface_radius / 2
+    x = surface_pose.x
+    y = surface_pose.y
     z = surface_pose.z + surface_height / 2 + held_obj_height
     held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
     objects_in_view[held_obj] = held_obj_pose
@@ -1411,7 +1484,8 @@ def _dry_simulate_prepare_container_for_sweeping(
 
 def _dry_simulate_sweep_into_container(
         last_obs: _SpotObservation, swept_obj: Object, container: Object,
-        nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+        nonpercept_atoms: Set[GroundAtom], start_dx: float, start_dy: float,
+        rng: np.random.Generator) -> _SpotObservation:
 
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
@@ -1422,9 +1496,28 @@ def _dry_simulate_sweep_into_container(
     static_feats = load_spot_metadata()["static-object-features"]
     swept_obj_height = static_feats[swept_obj.name]["height"]
     container_pose = objects_in_view[container]
-    x = container_pose.x
-    y = container_pose.y
-    z = container_pose.z + swept_obj_height / 2
+    container_radius = static_feats[container.name]["width"] / 2
+    swept_obj_radius = static_feats[container.name]["width"] / 2
+
+    # NOTE: this may change soon to be more physically realistic.
+    # If the sweep parameters are close enough to optimal, the object should
+    # end up in the container.
+    optimal_dx, optimal_dy = 0.0, -0.5
+    thresh = 0.5
+    if abs(start_dx - optimal_dx) + abs(start_dy - optimal_dy) < thresh:
+        x = container_pose.x
+        y = container_pose.y
+        z = container_pose.z + swept_obj_height / 2
+    # Otherwise, the object fails randomly somewhere around the container.
+    else:
+        angle = rng.uniform(0, 2 * np.pi)
+        distance = (container_radius + swept_obj_radius) * rng.uniform(
+            1.25, 1.5)
+        dx = distance * np.cos(angle)
+        dy = distance * np.sin(angle)
+        x = container_pose.x + dx
+        y = container_pose.y + dy
+        z = container_pose.z
     swept_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
     objects_in_view[swept_obj] = swept_obj_pose
 
@@ -1469,48 +1562,6 @@ class SpotCubeEnv(SpotRearrangementEnv):
         return "spot_cube_env"
 
     @property
-    def types(self) -> Set[Type]:
-        return {
-            _robot_type,
-            _base_object_type,
-            _movable_object_type,
-            _immovable_object_type,
-        }
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            _IsPlaceable,
-            _NEq,
-            _On,
-            _HandEmpty,
-            _Holding,
-            _Reachable,
-            _InHandView,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def percept_predicates(self) -> Set[Predicate]:
-        """The predicates that are NOT stored in the simulator state."""
-        return {
-            _IsPlaceable,
-            _NEq,
-            _HandEmpty,
-            _Holding,
-            _On,
-            _InHandView,
-            _Reachable,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return self.predicates
-
-    @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
@@ -1534,9 +1585,6 @@ class SpotCubeEnv(SpotRearrangementEnv):
                 detection_id_to_obj[detection] = obj
 
         return detection_id_to_obj
-
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        return set()
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the cube on the sticky table"
@@ -1629,48 +1677,6 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
         return "spot_soda_table_env"
 
     @property
-    def types(self) -> Set[Type]:
-        return {
-            _robot_type,
-            _base_object_type,
-            _movable_object_type,
-            _immovable_object_type,
-        }
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            _IsPlaceable,
-            _NEq,
-            _On,
-            _HandEmpty,
-            _Holding,
-            _Reachable,
-            _InHandView,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def percept_predicates(self) -> Set[Predicate]:
-        """The predicates that are NOT stored in the simulator state."""
-        return {
-            _IsPlaceable,
-            _NEq,
-            _HandEmpty,
-            _Holding,
-            _On,
-            _InHandView,
-            _Reachable,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return self.predicates
-
-    @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
@@ -1688,9 +1694,6 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
             detection_id_to_obj[detection_id] = obj
 
         return detection_id_to_obj
-
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        return set()
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda on the smooth table"
@@ -1726,50 +1729,6 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
         return "spot_soda_bucket_env"
 
     @property
-    def types(self) -> Set[Type]:
-        return {
-            _robot_type,
-            _base_object_type,
-            _movable_object_type,
-            _immovable_object_type,
-            _container_type,
-        }
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            _IsPlaceable,
-            _NEq,
-            _On,
-            _HandEmpty,
-            _Holding,
-            _Reachable,
-            _InHandView,
-            _Inside,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def percept_predicates(self) -> Set[Predicate]:
-        """The predicates that are NOT stored in the simulator state."""
-        return {
-            _IsPlaceable,
-            _NEq,
-            _HandEmpty,
-            _Holding,
-            _On,
-            _Reachable,
-            _InHandView,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return self.predicates
-
-    @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
@@ -1787,9 +1746,6 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
             detection_id_to_obj[detection_id] = obj
 
         return detection_id_to_obj
-
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        return set()
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket"
@@ -1827,50 +1783,6 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
         return "spot_soda_chair_env"
 
     @property
-    def types(self) -> Set[Type]:
-        return {
-            _robot_type,
-            _base_object_type,
-            _movable_object_type,
-            _immovable_object_type,
-            _container_type,
-        }
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            _IsPlaceable,
-            _NEq,
-            _On,
-            _HandEmpty,
-            _Holding,
-            _Reachable,
-            _InHandView,
-            _Inside,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def percept_predicates(self) -> Set[Predicate]:
-        """The predicates that are NOT stored in the simulator state."""
-        return {
-            _IsPlaceable,
-            _NEq,
-            _HandEmpty,
-            _Holding,
-            _On,
-            _Reachable,
-            _InHandView,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return self.predicates
-
-    @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
@@ -1892,9 +1804,6 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             detection_id_to_obj[detection_id] = obj
 
         return detection_id_to_obj
-
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        return set()
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket"
@@ -1947,56 +1856,6 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         return "spot_soda_sweep_env"
 
     @property
-    def types(self) -> Set[Type]:
-        return {
-            _robot_type,
-            _base_object_type,
-            _movable_object_type,
-            _immovable_object_type,
-            _container_type,
-        }
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            _IsPlaceable,
-            _NEq,
-            _On,
-            _HandEmpty,
-            _Holding,
-            _Reachable,
-            _InHandView,
-            _Inside,
-            _Blocking,
-            _NotBlocked,
-            _ContainerReadyForSweeping,
-        }
-
-    @property
-    def percept_predicates(self) -> Set[Predicate]:
-        """The predicates that are NOT stored in the simulator state."""
-        return {
-            _IsPlaceable,
-            _NEq,
-            _HandEmpty,
-            _Holding,
-            _On,
-            _Reachable,
-            _InHandView,
-            # NOTE: we can't easily check that an object is inside a container
-            # after sweeping, because the robot is holding a sweeper, blocking
-            # the hand camera that we'd usually use to check containment.
-            # _Inside,
-            _Blocking,
-            _NotBlocked,
-            _ContainerReadyForSweeping,
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return self.predicates
-
-    @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
@@ -2022,9 +1881,6 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
             detection_id_to_obj[detection_id] = obj
 
         return detection_id_to_obj
-
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        return set()
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket and hold the brush"
@@ -2139,50 +1995,6 @@ class SpotBrushShelfEnv(SpotRearrangementEnv):
         return "spot_brush_shelf_env"
 
     @property
-    def types(self) -> Set[Type]:
-        return {
-            _robot_type,
-            _base_object_type,
-            _movable_object_type,
-            _immovable_object_type,
-            _container_type,
-        }
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            _IsPlaceable,
-            _NEq,
-            _On,
-            _HandEmpty,
-            _Holding,
-            _Reachable,
-            _InHandView,
-            _Inside,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def percept_predicates(self) -> Set[Predicate]:
-        """The predicates that are NOT stored in the simulator state."""
-        return {
-            _IsPlaceable,
-            _NEq,
-            _HandEmpty,
-            _Holding,
-            _On,
-            _Reachable,
-            _InHandView,
-            _Blocking,
-            _NotBlocked,
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return self.predicates
-
-    @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
@@ -2196,9 +2008,6 @@ class SpotBrushShelfEnv(SpotRearrangementEnv):
             detection_id_to_obj[detection_id] = obj
 
         return detection_id_to_obj
-
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        return set()
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the brush in the second shelf"
@@ -2235,49 +2044,6 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
         return "spot_ball_and_cup_sticky_table_env"
 
     @property
-    def types(self) -> Set[Type]:
-        return {
-            _robot_type,
-            _base_object_type,
-            _movable_object_type,
-            _immovable_object_type,
-            _container_type,
-        }
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return {
-            _IsPlaceable,
-            _NEq,
-            _On,
-            _HandEmpty,
-            _Holding,
-            _Reachable,
-            _InView,
-            _InHandView,
-            _Inside,
-        }
-
-    @property
-    def percept_predicates(self) -> Set[Predicate]:
-        """The predicates that are NOT stored in the simulator state."""
-        return {
-            _IsPlaceable,
-            _NEq,
-            _HandEmpty,
-            _Holding,
-            _On,
-            _Reachable,
-            _InView,
-            _InHandView,
-            _Inside,
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return {_On}
-
-    @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
@@ -2295,9 +2061,6 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
             detection_id_to_obj[detection_id] = obj
 
         return detection_id_to_obj
-
-    def _get_initial_nonpercept_atoms(self) -> Set[GroundAtom]:
-        return set()
 
     def _generate_goal_description(self) -> GoalDescription:
         return "put the ball on the table"

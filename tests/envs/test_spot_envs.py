@@ -31,6 +31,7 @@ def test_spot_env_dry_run(env) -> None:
         "seed": 123,
         "spot_run_dry": True,
         "bilevel_plan_without_sim": True,
+        "spot_use_perfect_samplers": True,
     })
     env = create_new_env(env)
     perceiver = SpotPerceiver()

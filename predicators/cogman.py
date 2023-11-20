@@ -65,6 +65,12 @@ class CogMan:
             imgs = self._perceiver.render_mental_images(
                 state, self._current_env_task)
             self._episode_images.extend(imgs)
+
+            # Uncomment for live visualization.
+            # import cv2
+            # cv2.imshow("debug", imgs[0])
+            # cv2.waitKey(0)
+
         # Replace the first step because the state was already added in reset().
         if not self._episode_action_history:
             self._episode_state_history[0] = state
