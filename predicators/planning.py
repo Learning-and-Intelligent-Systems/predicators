@@ -1061,10 +1061,7 @@ def fd_plan_from_sas_file(
     num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
     num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
     if len(num_nodes_expanded) != 1:
-        logging.info("######### Fast Downward Crash Output #########")
-        logging.info(output)
-        raise RuntimeError("ERROR: Fast downward crashed unexpectedly. The "
-                           "full output is above.")
+        raise PlanningFailure(f"Plan not found with FD! Error: {output}")
     assert len(num_nodes_created) == 1
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
     metrics["num_nodes_created"] = float(num_nodes_created[0])
