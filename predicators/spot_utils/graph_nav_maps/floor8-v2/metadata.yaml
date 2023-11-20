@@ -64,16 +64,19 @@ static-object-features:
     height: 0.083
     length: 0.083
     width: 0.083
+    placeable: 1  # true, can be placed
   plunger:
     shape: 1  # cuboid
     height: 0.1
     length: 0.1
     width: 0.1
+    placeable: 1
   soda_can:
     shape: 2
     height: 0.114
     length: 0.065
     width: 0.065
+    placeable: 1
   floor:
     shape: 1
     height: 0.0001
@@ -94,13 +97,16 @@ static-object-features:
     height: 0.1
     length: 0.2
     width: 0.1
+    placeable: 1
   bucket:
     shape: 2
     height: 0.4
     width: 0.23
     length: 0.23
+    placeable: 1
   chair:
     shape: 2
     height: 0.8
     length: 0.5
     width: 0.5
+    placeable: 0  # false, can't be placed

@@ -677,10 +677,11 @@ _robot_type = Type(
 _base_object_type = Type("base-object", [
     "x", "y", "z", "qw", "qx", "qy", "qz", "shape", "height", "width", "length"
 ])
-_movable_object_type = Type("movable",
-                            list(_base_object_type.feature_names) +
-                            ["held", "lost", "in_hand_view", "in_view"],
-                            parent=_base_object_type)
+_movable_object_type = Type(
+    "movable",
+    list(_base_object_type.feature_names) +
+    ["placeable", "held", "lost", "in_hand_view", "in_view"],
+    parent=_base_object_type)
 _immovable_object_type = Type("immovable",
                               list(_base_object_type.feature_names),
                               parent=_base_object_type)
@@ -690,12 +691,15 @@ _container_type = Type("container",
 
 
 ## Helper functions
-def _object_to_top_down_geom(obj: Object,
-                             state: State,
-                             size_buffer: float = 0.0) -> utils._Geom2D:
+def _object_to_top_down_geom(
+        obj: Object,
+        state: State,
+        size_buffer: float = 0.0,
+        put_on_robot_if_held: bool = True) -> utils._Geom2D:
     assert obj.is_instance(_base_object_type)
     shape_type = int(np.round(state.get(obj, "shape")))
-    if obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
+    if put_on_robot_if_held and \
+        obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
         robot, = state.get_objects(_robot_type)
         se3_pose = utils.get_se3_pose_from_state(state, robot)
     else:
@@ -714,13 +718,16 @@ def _object_to_top_down_geom(obj: Object,
     return utils.Circle(center_x, center_y, radius)
 
 
-def _object_to_side_view_geom(obj: Object,
-                              state: State,
-                              size_buffer: float = 0.0) -> utils._Geom2D:
+def _object_to_side_view_geom(
+        obj: Object,
+        state: State,
+        size_buffer: float = 0.0,
+        put_on_robot_if_held: bool = True) -> utils._Geom2D:
     assert obj.is_instance(_base_object_type)
     # The shape doesn't matter because all shapes are rectangles from the side.
     # If the object is held, use the robot's pose.
-    if obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
+    if put_on_robot_if_held and \
+        obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
         robot, = state.get_objects(_robot_type)
         se3_pose = utils.get_se3_pose_from_state(state, robot)
     else:
@@ -903,7 +910,13 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
     blocked_robot_line = utils.LineSegment(robot_home_x, robot_home_y,
                                            blocked_x, blocked_y)
 
-    blocker_geom = _object_to_top_down_geom(blocker_obj, state)
+    # Don't put the blocker on the robot, even if it's held, because we don't
+    # want to consider the blocker to be unblocked until it's actually moved
+    # out of the way and released by the robot. Otherwise the robot might just
+    # pick something up and put it back down, thinking it's unblocked.
+    blocker_geom = _object_to_top_down_geom(blocker_obj,
+                                            state,
+                                            put_on_robot_if_held=False)
 
     return blocker_geom.intersects(blocked_robot_line)
 
@@ -938,6 +951,11 @@ def _container_ready_for_sweeping_classifier(
     return target_bottom > container_top
 
 
+def _is_placeable_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj, = objects
+    return state.get(obj, "placeable") > 0.5
+
+
 _NEq = Predicate("NEq", [_base_object_type, _base_object_type],
                  _neq_classifier)
 _On = Predicate("On", [_movable_object_type, _base_object_type],
@@ -964,6 +982,8 @@ _NotBlocked = Predicate("NotBlocked", [_base_object_type],
 _ContainerReadyForSweeping = Predicate(
     "ContainerReadyForSweeping", [_container_type, _movable_object_type],
     _container_ready_for_sweeping_classifier)
+_IsPlaceable = Predicate("IsPlaceable", [_movable_object_type],
+                         _is_placeable_classifier)
 
 
 ## Operators (needed in the environment for non-percept atom hack)
@@ -1037,6 +1057,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Holding, [robot, held]),
         LiftedAtom(_Reachable, [robot, surface]),
         LiftedAtom(_NEq, [held, surface]),
+        LiftedAtom(_IsPlaceable, [held]),
     }
     add_effs = {
         LiftedAtom(_On, [held, surface]),
@@ -1056,7 +1077,8 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     parameters = [robot, held, container]
     preconds = {
         LiftedAtom(_Holding, [robot, held]),
-        LiftedAtom(_Reachable, [robot, container])
+        LiftedAtom(_Reachable, [robot, container]),
+        LiftedAtom(_IsPlaceable, [held]),
     }
     add_effs = {
         LiftedAtom(_Inside, [held, container]),
@@ -1080,6 +1102,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Reachable, [robot, container]),
         LiftedAtom(_InView, [robot, container]),
         LiftedAtom(_On, [container, surface]),
+        LiftedAtom(_IsPlaceable, [held]),
     }
     add_effs = {
         LiftedAtom(_Inside, [held, container]),
@@ -1127,6 +1150,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_On, [target, surface]),
         LiftedAtom(_Reachable, [robot, target]),
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
+        LiftedAtom(_IsPlaceable, [target]),
     }
     add_effs = {
         LiftedAtom(_Inside, [target, container]),
@@ -1456,6 +1480,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
+            _IsPlaceable,
             _NEq,
             _On,
             _HandEmpty,
@@ -1470,6 +1495,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {
+            _IsPlaceable,
             _NEq,
             _HandEmpty,
             _Holding,
@@ -1614,6 +1640,7 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
+            _IsPlaceable,
             _NEq,
             _On,
             _HandEmpty,
@@ -1628,6 +1655,7 @@ class SpotSodaTableEnv(SpotRearrangementEnv):
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {
+            _IsPlaceable,
             _NEq,
             _HandEmpty,
             _Holding,
@@ -1710,6 +1738,7 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
+            _IsPlaceable,
             _NEq,
             _On,
             _HandEmpty,
@@ -1725,6 +1754,7 @@ class SpotSodaBucketEnv(SpotRearrangementEnv):
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {
+            _IsPlaceable,
             _NEq,
             _HandEmpty,
             _Holding,
@@ -1809,6 +1839,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
+            _IsPlaceable,
             _NEq,
             _On,
             _HandEmpty,
@@ -1824,6 +1855,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {
+            _IsPlaceable,
             _NEq,
             _HandEmpty,
             _Holding,
@@ -1927,6 +1959,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
+            _IsPlaceable,
             _NEq,
             _On,
             _HandEmpty,
@@ -1943,6 +1976,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {
+            _IsPlaceable,
             _NEq,
             _HandEmpty,
             _Holding,
@@ -2117,6 +2151,7 @@ class SpotBrushShelfEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
+            _IsPlaceable,
             _NEq,
             _On,
             _HandEmpty,
@@ -2132,6 +2167,7 @@ class SpotBrushShelfEnv(SpotRearrangementEnv):
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {
+            _IsPlaceable,
             _NEq,
             _HandEmpty,
             _Holding,
@@ -2211,6 +2247,7 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
+            _IsPlaceable,
             _NEq,
             _On,
             _HandEmpty,
@@ -2225,6 +2262,7 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
     def percept_predicates(self) -> Set[Predicate]:
         """The predicates that are NOT stored in the simulator state."""
         return {
+            _IsPlaceable,
             _NEq,
             _HandEmpty,
             _Holding,

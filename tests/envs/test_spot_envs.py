@@ -5,13 +5,53 @@ from typing import List
 
 import dill as pkl
 import numpy as np
+import pytest
 
 from predicators import utils
+from predicators.approaches import create_approach
+from predicators.cogman import CogMan
+from predicators.envs import create_new_env
 from predicators.envs.spot_env import SpotCubeEnv
+from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.spot_perceiver import SpotPerceiver
+from predicators.settings import CFG
 from predicators.spot_utils.skills.spot_navigation import go_home
 from predicators.structs import Action, GroundAtom, _GroundNSRT
+
+
+@pytest.mark.parametrize("env", ["spot_cube_env", "spot_soda_sweep_env"])
+def test_spot_env_dry_run(env) -> None:
+    """Dry run tests (do not require access to robot)."""
+    utils.reset_config({
+        "env": env,
+        "approach": "spot_wrapper[oracle]",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "seed": 123,
+        "spot_run_dry": True,
+        "bilevel_plan_without_sim": True,
+    })
+    env = create_new_env(env)
+    perceiver = SpotPerceiver()
+    execution_monitor = create_execution_monitor("expected_atoms")
+    env_train_tasks = env.get_train_tasks()
+    env_test_tasks = env.get_test_tasks()
+    train_tasks = [perceiver.reset(t) for t in env_train_tasks]
+    options = get_gt_options(env.get_name())
+    approach = create_approach(CFG.approach, env.predicates, options,
+                               env.types, env.action_space, train_tasks)
+    cogman = CogMan(approach, perceiver, execution_monitor)
+    env_task = env_test_tasks[0]
+    cogman.reset(env_task)
+    obs = env.reset("test", 0)
+    for _ in range(100):
+        if env.goal_reached():
+            break
+        act = cogman.step(obs)
+        assert act is not None
+        obs = env.step(act)
+    assert env.goal_reached()
 
 
 def real_robot_cube_env_test() -> None:
