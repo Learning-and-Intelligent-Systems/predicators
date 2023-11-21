@@ -123,7 +123,10 @@ def main() -> None:
         # Determine from the config which oracle options to include, if any.
         options = parse_config_included_options(env)
     # Create the agent (approach).
-    approach = create_approach(CFG.approach, preds, options, env.types,
+    approach_name = CFG.approach
+    if CFG.approach_wrapper:
+        approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
+    approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
     if approach.is_learning_based:
         # Create the offline dataset. Note that this needs to be done using
