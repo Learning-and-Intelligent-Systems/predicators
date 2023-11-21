@@ -1060,7 +1060,8 @@ def fd_plan_from_sas_file(
     metrics: Metrics = defaultdict(float)
     num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
     num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
-    assert len(num_nodes_expanded) == 1
+    if len(num_nodes_expanded) != 1:
+        raise PlanningFailure(f"Plan not found with FD! Error: {output}")
     assert len(num_nodes_created) == 1
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
     metrics["num_nodes_created"] = float(num_nodes_created[0])
