@@ -145,7 +145,7 @@ def test_pg3_analogy_approach():
 )"""
 
 
-def _disabled_test_find_env_analogies():
+def _disabled_test_find_env_analogies():  # pragma: no cover
     """Tests for _find_env_analogies().
 
     NOTE: this test is currently disabled because of sudden flakiness in the

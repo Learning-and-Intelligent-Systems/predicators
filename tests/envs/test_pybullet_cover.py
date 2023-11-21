@@ -166,7 +166,8 @@ def test_pybullet_cover_step(env):
     assert abs(state.get(block, "pose") - 0.75) < 0.01
 
 
-def _disabled_test_pybullet_cover_pick_workspace_bounds(env):
+def _disabled_test_pybullet_cover_pick_workspace_bounds(
+        env):  # pragma: no cover
     """Tests for picking at workspace bounds in PyBulletCoverEnv.
 
     This is currently disabled due to nondeterminism issues in IK.
