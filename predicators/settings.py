@@ -45,6 +45,7 @@ class GlobalSettings:
     # in unit tests, make sure to pass in a value for `render_state_dpi` into
     # your call to utils.reset_config().
     render_state_dpi = 150
+    approach_wrapper = None
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
