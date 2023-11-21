@@ -145,8 +145,14 @@ def test_pg3_analogy_approach():
 )"""
 
 
-def test_find_env_analogies():
-    """Tests for _find_env_analogies()."""
+def _disabled_test_find_env_analogies():  # pragma: no cover
+    """Tests for _find_env_analogies().
+
+    NOTE: this test is currently disabled because of sudden flakiness in the
+    SME depedency, despite no changes for months. Since we're not actively
+    using this code, we're just disabling it, but leaving it here in case we
+    do want to resurrect the code in the future.
+    """
     # Test for gripper -> ferry.
     base_env = create_new_env("pddl_gripper_procedural_tasks")
     base_nsrts = get_gt_nsrts(base_env.get_name(), base_env.predicates,

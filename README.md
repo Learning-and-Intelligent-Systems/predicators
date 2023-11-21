@@ -2,7 +2,7 @@
 
 ## Repository Description
 
-This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*, as described in [this paper](https://arxiv.org/abs/2203.09634). Several features are concurrently under active development. **Please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.** In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers. 
+This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*, as described in [this paper](https://arxiv.org/abs/2203.09634). Several features are concurrently under active development. **Please contact <tslvr@mit.edu> or <njk@mit.edu> before attempting to use it for your own research.** In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers. 
 
 ### Code Structure
 
