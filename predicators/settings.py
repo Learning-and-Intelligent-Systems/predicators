@@ -563,6 +563,7 @@ class GlobalSettings:
     active_sampler_learning_exploration_epsilon = 0.5
     active_sampler_learning_replay_buffer_size = 1000000
     active_sampler_learning_batch_size = 64
+    active_sampler_learning_save_every_datum = False
 
     # skill competence model parameters
     skill_competence_model = "optimistic"

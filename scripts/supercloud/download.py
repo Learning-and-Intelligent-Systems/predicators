@@ -22,7 +22,9 @@ def _main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", required=True, type=str)
     parser.add_argument("--user", required=True, type=str)
-    parser.add_argument("--supercloud_dir", default="~/predicators", type=str)
+    parser.add_argument("--supercloud_dir",
+                        default="~/predicators_bdaii",
+                        type=str)
     args = parser.parse_args()
     # Create the download directory if it doesn't exist.
     os.makedirs(args.dir, exist_ok=True)

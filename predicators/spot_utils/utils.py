@@ -146,7 +146,7 @@ def sample_move_offset_from_target(
     min_distance: float,
     max_distance: float,
     allowed_regions: Collection[scipy.spatial.Delaunay],  # pylint: disable=no-member
-    max_samples: int = 100
+    max_samples: int = 1000
 ) -> Tuple[float, float, Rectangle]:
     """Sampler for navigating to a target object.
 

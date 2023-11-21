@@ -346,6 +346,21 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 for obj in objects:
                     sampler_input_lst.extend(state[obj])
                 sampler_input_lst.extend(params)
+        elif "spot" in CFG.env:  # pragma: no cover
+            if "Sweep" in param_option.name:
+                sampler_input_lst.extend(params)
+            else:
+                base_feat_names = [
+                    "x", "y", "z", "qw", "qx", "qy", "qz", "shape", "height",
+                    "width", "length"
+                ]
+                for obj in objects:
+                    if obj.type.name == "robot":
+                        sampler_input_lst.extend(state[obj])
+                    else:
+                        for feat in base_feat_names:
+                            sampler_input_lst.append(state.get(obj, feat))
+                sampler_input_lst.extend(params)
         else:
             raise NotImplementedError("Oracle feature selection not "
                                       f"implemented for {CFG.env}")

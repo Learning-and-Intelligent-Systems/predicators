@@ -61,6 +61,19 @@ ENVS:
       horizon: 8
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: oracle
+  spot_sweeping_sim:
+    NAME: "spot_soda_sweep_env"
+    FLAGS:
+      active_sampler_learning_explore_length_base: 25
+      active_sampler_learning_exploration_epsilon: 0.5
+      skill_competence_model_optimistic_recency_size: 2
+      skill_competence_model_optimistic_window_size: 2
+      horizon: 15
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: oracle
+      spot_run_dry: True
+      perceiver: spot_perceiver
+      approach_wrapper: spot_wrapper
   regional_bumpy_cover:
     NAME: "regional_bumpy_cover"
     FLAGS:
@@ -79,8 +92,7 @@ ENVS:
       num_train_tasks: 100
       max_num_steps_option_rollout: 250
       active_sampler_learning_feature_selection: all
-ARGS:
-  - "debug"
+ARGS: []
 FLAGS:
   num_test_tasks: 10
   strips_learner: "oracle"

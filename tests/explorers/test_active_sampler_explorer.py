@@ -23,6 +23,7 @@ def test_active_sampler_explorer():
         "bumpy_cover_init_bumpy_prob": 0.0,  # to make the task trivial
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
+        "active_sampler_learning_save_every_datum": True,
     })
     env = RegionalBumpyCoverEnv()
     options = get_gt_options(env.get_name())

@@ -202,7 +202,8 @@ class SpotRearrangementEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
-        assert "spot_wrapper" in CFG.approach, \
+        assert "spot_wrapper" in CFG.approach or \
+               "spot_wrapper" in CFG.approach_wrapper, \
             "Must use spot wrapper in spot envs!"
         robot, localizer, lease_client = get_robot()
         self._robot = robot
@@ -300,7 +301,7 @@ class SpotRearrangementEnv(BaseEnv):
                                                       rng=self._noise_rng)
 
         if action_name == "DragToUnblockObject":
-            _, _, blocker = action_objs
+            _, blocker, _ = action_objs
             _, robot_rel_se2_pose = action_args
             return _dry_simulate_drag_to_unblock(obs, blocker,
                                                  robot_rel_se2_pose,
@@ -1114,7 +1115,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_HandEmpty, [robot]),
         LiftedAtom(_InHandView, [robot, obj])
     }
-    ignore_effs = {_Inside}
+    ignore_effs = set()
     yield STRIPSOperator("PickObjectFromTop", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
@@ -1190,7 +1191,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     blocked = Variable("?blocked", _base_object_type)
     blocker = Variable("?blocker", _movable_object_type)
-    parameters = [robot, blocked, blocker]
+    parameters = [robot, blocker, blocked]
     preconds = {
         LiftedAtom(_Blocking, [blocker, blocked]),
         LiftedAtom(_Holding, [robot, blocker]),

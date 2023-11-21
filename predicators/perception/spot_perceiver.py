@@ -89,7 +89,8 @@ class SpotPerceiver(BasePerceiver):
         if self._prev_action is not None:
             assert isinstance(self._prev_action.extra_info, (list, tuple))
             controller_name, objects, _, _ = self._prev_action.extra_info
-            logging.info(f"[Perceiver] Previous action was {controller_name}.")
+            logging.info(
+                f"[Perceiver] Previous action was {controller_name}{objects}.")
             # The robot is always the 0th argument of an
             # operator!
             if "pick" in controller_name.lower():
@@ -223,22 +224,25 @@ class SpotPerceiver(BasePerceiver):
                 state_dict[obj]["held"] = held_val
         # Construct a regular state before adding atoms.
         percept_state = utils.create_state_from_dict(state_dict)
-        logging.info("Percept state:")
-        logging.info(percept_state.pretty_str())
-        logging.info("Percept atoms:")
-        atom_str = "\n".join(
-            map(
-                str,
-                sorted(utils.abstract(percept_state,
-                                      self._percept_predicates))))
-        logging.info(atom_str)
         # Prepare the simulator state.
         simulator_state = {
             "predicates": self._nonpercept_predicates,
             "atoms": self._nonpercept_atoms,
         }
-        logging.info("Simulator state:")
-        logging.info(simulator_state)
+
+        # Uncomment for debugging.
+        # logging.info("Percept state:")
+        # logging.info(percept_state.pretty_str())
+        # logging.info("Percept atoms:")
+        # atom_str = "\n".join(
+        #     map(
+        #         str,
+        #         sorted(utils.abstract(percept_state,
+        #                               self._percept_predicates))))
+        # logging.info(atom_str)
+        # logging.info("Simulator state:")
+        # logging.info(simulator_state)
+
         # Now finish the state.
         state = _PartialPerceptionState(percept_state.data,
                                         simulator_state=simulator_state)
