@@ -201,6 +201,23 @@ def test_main():
     with pytest.raises(RuntimeError) as e:
         main()  # should fail to solve the task
     assert "Policy failed to reach goal" in str(e)
+    # Test approach wrapping with the approach_wrapper flag.
+    sys.argv = [
+        "dummy",
+        "--env",
+        "noisy_button",
+        "--approach",
+        "oracle",
+        "--seed",
+        "123",
+        "--approach_wrapper",
+        "noisy_button_wrapper",
+        "--num_train_tasks",
+        "1",
+        "--num_test_tasks",
+        "1",
+    ]
+    main()
 
 
 def test_bilevel_planning_approach_failure_and_timeout():
