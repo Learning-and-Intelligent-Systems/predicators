@@ -101,7 +101,8 @@ PLOT_GROUPS = {
         ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
         ("Fail Focus Non-UCB", "brown", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-success_rate_explore_no_ucb" in v)),
+            lambda v: "regional_bumpy_cover-success_rate_explore_no_ucb" in v)
+         ),
         ("Fail Focus UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "regional_bumpy_cover-success_rate_explore_ucb" in v)),
         ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
