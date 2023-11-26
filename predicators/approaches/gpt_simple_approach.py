@@ -25,6 +25,8 @@ from predicators.structs import NSRT, LDLRule, LiftedAtom, \
 from predicators.structs import Action, Box, Dataset, GroundAtom, \
     LiftedDecisionList, Object, ParameterizedOption, Predicate, State, Task, \
     Type, _GroundNSRT
+from predicators.envs.pddl_env import _action_to_ground_strips_op
+from predicators.envs import create_new_env
 
 from predicators import utils
 
@@ -40,6 +42,9 @@ class GPTAnalogyApproach(PG3AnalogyApproach):
         # Get a task and trajectory for correctness of generated conditions
         self._correctness_task = self._train_tasks[0]
         self._correctness_traj = dataset.trajectories[0]._states
+        ordered_objs = list(self._correctness_traj[0])
+        self._env = create_new_env(CFG.env)
+        self._correctness_actions = [_action_to_ground_strips_op(a, ordered_objs, sorted(self._env._strips_operators)) for a in dataset.trajectories[0]._actions]
         super().learn_from_offline_dataset(dataset)
 
     def _induce_policies_by_analogy(
@@ -55,15 +60,7 @@ class GPTAnalogyApproach(PG3AnalogyApproach):
         for chem_analogy in chem_analogies:
             # Use the analogy to create an initial policy for the target env.
             # target_policy = _apply_analogy_to_ldl(analogy, base_policy, self._correctness_traj, self._correctness_task, self._initial_predicates)
-            """
-            print(chem_analogy.predicates)
-            print()
-            print(chem_analogy.variables)
-            print()
-            print(chem_analogy.special_analogies)
-            import ipdb; ipdb.set_trace()
-            """
-            target_policy = _apply_chem_analogy_to_ldl(chem_analogy, base_policy, self._correctness_traj, self._correctness_task, self._initial_predicates)
+            target_policy = _apply_chem_analogy_to_ldl(chem_analogy, base_policy, self._correctness_traj, self._correctness_actions, self._correctness_task, self._initial_predicates)
             target_policies.append(target_policy)
         return target_policies
 
@@ -81,7 +78,7 @@ class _ChemAnalogy:
     predicates: Dict[Predicate, Predicate]
     nsrts: Dict[NSRT, NSRT]
     variables: Dict[Tuple[String, String], Dict[Variable, Variable]] #TODO: Fix typing
-    special_analogies: Dict[Tuple[String, String], Dict[frozenset[LiftedAtom]: frozenset[LiftedAtom]]] #TODO: Fix typing (set can't be indexed)
+    special_analogies: Dict[Tuple[String, String], Dict[frozenset[LiftedAtom]: frozenset[LiftedAtom]]]
 
 def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
                         base_nsrts: Set[NSRT],
@@ -243,7 +240,7 @@ def _find_chem_analogies(base_env: BaseEnv, target_env: BaseEnv, analogies: List
 
 def _apply_chem_analogy_to_ldl(chem_analogy: _Analogy,
                           ldl: LiftedDecisionList, 
-                          correctness_traj, correctness_task, initial_predicates) -> LiftedDecisionList:
+                          correctness_traj, correctness_actions, correctness_task, initial_predicates) -> LiftedDecisionList:
     new_rules = []
 
     for rule in ldl.rules:
@@ -254,197 +251,115 @@ def _apply_chem_analogy_to_ldl(chem_analogy: _Analogy,
         for new_rule_nsrt in new_rule_nsrts:
             new_rule_name = rule.name
             nsrt_name_pair = (rule.nsrt.name, new_rule_nsrt.name)
-            import ipdb; ipdb.set_trace();
-            # TODO
-            # We apply the analogy in thse following way:
-            # 1. Figure out all combinations of preconditions that fall into any special analogy
-            # 2. Create their corresponding analagous set of predicates for positive and negative
-            # 3. Test each new created predicate for validity -> Add to rule if valid
-            # 4. For goal conditions, apply the fine-grained conditions
-            # 5. Add new_rule_nsrt conditions
 
-            created_pos_state_preconditions, created_neg_state_preconditions, created_goal_conditions = _apply_special_analogies(chem_analogy, rule, new_rule_nsrt)
-            # ocreated_pos_state_preconditions, ocreated_neg_state_preconditions, ocreated_goal_conditions = _apply_regular_analogies(chem_analogy, rule, new_rule_nsrt)
-
-            # Ensure pos conditions are disjoint from negative conditions (assume new_rule_nsrt has not negative preconditions)
-            pre_pos_state_preconditions = created_pos_state_preconditions | new_rule_nsrt.preconditions
-            pre_neg_state_preconditions = created_neg_state_preconditions - new_rule_nsrt.preconditions
-            pre_goal_conditions = created_goal_conditions.copy()
-
-            valid_positive_preconditions = set()
-            for potential_precondition in pre_pos_state_preconditions:
-                temporary_params = sorted({var for atom in pre_pos_state_preconditions for var in atom.variables} | {var for atom in pre_neg_state_preconditions for var in atom.variables} | set(new_rule_nsrt.parameters))
-                temporary_pos_preconditions = new_rule_nsrt.preconditions.copy() | {potential_precondition}
-                temporary_neg_preconditions =  set()
-                temporary_goalconditions = set()
-                temporary_ldl_rules = []
-
-
-                new_rule = LDLRule("temporary-rule", temporary_params, temporary_pos_preconditions, temporary_neg_preconditions, temporary_goalconditions, new_rule_nsrt)
-                temporary_ldl_rules.append(new_rule)
-                temporary_ldl = LiftedDecisionList(temporary_ldl_rules)
-                temp_init_atoms = utils.abstract(correctness_task.init, initial_predicates)
-                found_valid_action = False
-                for i in range(len(correctness_traj)-1):
-                    ans = utils.query_ldl(temporary_ldl, correctness_traj[i].simulator_state, correctness_traj[i].data, correctness_task.goal, static_predicates=initial_predicates, init_atoms= correctness_traj[i].simulator_state) #TODO: CHECK INIT ATOMS (DOESN'T WORK OTHERWISE?)
-                    if isinstance(ans, _GroundNSRT):
-                        found_valid_action = True
-                        break
-                if found_valid_action:
-                    valid_positive_preconditions.add(potential_precondition)
-            
-            valid_negative_preconditions = set()
-            for potential_precondition in pre_neg_state_preconditions:
-                temporary_params = sorted({var for atom in pre_pos_state_preconditions for var in atom.variables} | {var for atom in pre_neg_state_preconditions for var in atom.variables} | set(new_rule_nsrt.parameters))
-                temporary_pos_preconditions = new_rule_nsrt.preconditions.copy() | valid_positive_preconditions
-                temporary_neg_preconditions =  {potential_precondition}
-                temporary_goalconditions = set()
-                temporary_ldl_rules = []
-
-                new_rule = LDLRule("temporary-rule", temporary_params, temporary_pos_preconditions, temporary_neg_preconditions, temporary_goalconditions, new_rule_nsrt)
-                temporary_ldl_rules.append(new_rule)
-                temporary_ldl = LiftedDecisionList(temporary_ldl_rules)
-                temp_init_atoms = utils.abstract(correctness_task.init, initial_predicates)
-                found_valid_action = False
-                for i in range(len(correctness_traj)-1):
-                    ans = utils.query_ldl(temporary_ldl, correctness_traj[i].simulator_state, correctness_traj[i].data, correctness_task.goal, static_predicates=initial_predicates, init_atoms= correctness_traj[i].simulator_state) #TODO: CHECK INIT ATOMS (DOESN'T WORK OTHERWISE?)
-                    if isinstance(ans, _GroundNSRT):
-                        found_valid_action = True
-                        break
-                if found_valid_action:
-                    valid_negative_preconditions.add(potential_precondition)
-            
-            # If special analogies created no goals, then use classical analogies
-            valid_goalconditions = pre_goal_conditions.copy()
-            if len(valid_goalconditions) == 0:
-                valid_goalconditions = _configure_goal(chem_analogy, rule, new_rule_nsrt)
-
-                
-            print(valid_positive_preconditions)
-            print(valid_negative_preconditions)
-            print(valid_goalconditions)
-
-            import ipdb; ipdb.set_trace()
-            # for potential_goalcondition in created_goal_conditions:
-
-            
-
-
+            new_rule = _apply_special_analogies(chem_analogy, rule, new_rule_nsrt, correctness_traj, correctness_actions, correctness_task, initial_predicates)
 
     return LiftedDecisionList(new_rules)
 
 
-"""
-TODO: MAYBE NEEDS MORE FINE-GRAINED CONVERSION OF "REGULAR" ANALOGIES
-def _apply_regular_analogies(chem_analogy, rule, new_rule_nsrt):
-    created_pos_state_preconditions = _apply_regular_analogies_against_rule_conditions(chem_analogy, rule.pos_state_preconditions, new_rule_nsrt)
-    created_neg_state_preconditions = _apply_regular_analogies_against_rule_conditions(chem_analogy, rule.neg_state_preconditions, new_rule_nsrt)
-    created_goal_conditions = _apply_regular_analogies_against_rule_conditions(chem_analogy, rule.goal_preconditions, new_rule_nsrt)
-    return created_pos_state_preconditions, created_neg_state_preconditions, created_goal_conditions
-
-def _apply_regular_analogies_against_rule_conditions(chem_analogy, rule_conditions, new_rule_nsrt):
-    import ipdb; ipdb.set_trace()
-    predicates_in_special_analogies = {atom.predicate for special_analogy in chem_analogy.special_analogies for atom in special_analogy}
-    for rule_condition in rule_conditions:
-        if rule_condition.predicate not in chem_analogy.predicates or rule_condition.predicate in predicates_in_special_analogies:
-            continue
-        new_predicates = chem_analogy.predicates[rule_condition.predicate]
-
-        for new_predicate in new_predicates:
-            print(rule_condition, new_predicate)
-            import ipdb; ipdb.set_trace()
-"""
-def _configure_goal(chem_analogy, rule, new_rule_nsrt):
-    """Returns set of goal conditions from rule after applying chem_analogy"""
-    created_goal_conditions = set()
-    for goal_condition in rule.goal_preconditions:
-        if goal_condition.predicate not in chem_analogy.predicates:
-            continue
-        new_predicates = chem_analogy.predicates[goal_condition.predicate]
-
-        # Check that all variables in goal_condition have an analogy as a base variable in new_rule_nsrt
-        for new_predicate in new_predicates:
-            print(goal_condition, new_predicate, new_predicate.arity, chem_analogy.variables[(rule.nsrt.name, new_rule_nsrt.name)])
-            analogous_variables = []
-            for goal_condition_variable in goal_condition.variables:
-                if goal_condition_variable not in chem_analogy.variables[(rule.nsrt.name, new_rule_nsrt.name)]:
-                    import ipdb; ipdb.set_trace(); 
-                    raise Exception("Variable in goal condition does not have analogy")
-                analogous_variables.append(chem_analogy.variables[(rule.nsrt.name, new_rule_nsrt.name)])
-        
-            created_goal_conditions.add(new_predicate(analogous_variables))
-        
-    return created_goal_conditions
-
-def _apply_special_analogies(chem_analogy, rule, new_rule_nsrt):
+def _apply_special_analogies(chem_analogy, rule, new_rule_nsrt, correctness_traj, correctness_actions, correctness_task, initial_predicates):
+    """Returns rule that applies chem_analogy from rule to new_rule_nsrt"""
     nsrt_name_pair = (rule.nsrt.name, new_rule_nsrt.name)
 
-    variable_analogies = chem_analogy.variables
-    special_analogies = chem_analogy.special_analogies
+    superfluous_pos_conditions, superfluous_neg_conditions, superfluous_goal_conditions = _create_superfluous_conditions(chem_analogy, rule, new_rule_nsrt)
 
-    created_pos_state_preconditions = set()
-    created_neg_state_preconditions = set()
-    created_goal_conditions = set()
+def _create_superfluous_conditions(chem_analogy, rule, new_rule_nsrt):
+    """Returns tuple of superfluous pos state preconditions, neg state preconditions, goal conditions"""
+    rule_ground_objects = tuple([_convert_variable_to_object(param) for param in rule.parameters])
+    ground_rule = rule.ground(rule_ground_objects)
 
-    for base_special, target_special in special_analogies.items():
-        new_pos_preconditions, new_neg_preconditions, new_goal_conditions = _find_possible_matches_for_special_analogy_against_rule(base_special, target_special, rule, new_rule_nsrt, variable_analogies)
-        created_pos_state_preconditions.update(new_pos_preconditions)
-        created_neg_state_preconditions.update(new_neg_preconditions)
-        created_goal_conditions.update(new_goal_conditions)
+    variable_count = 0
 
-    all_atoms = created_pos_state_preconditions | created_neg_state_preconditions | created_goal_conditions 
-    new_rule_params_set = {v for a in all_atoms for v in a.variables}
-    new_rule_params_set.update(new_rule_nsrt.parameters)
-    new_rule_params = sorted(new_rule_params_set)
-    assert set(new_rule_params).issuperset(set(new_rule_nsrt.parameters))
+    all_superfluous_pos_state_preconditions = set()
+    all_superfluous_neg_state_preconditions = set()
+    all_superfluous_goal_preconditions = set()
+     
+    for base_template, target_template in chem_analogy.special_analogies.items():
+        base_template = set(base_template)
+        target_template = set(target_template)
+        superfluous_pos_state_preconditions, variable_count = _apply_single_special_analogy(rule.pos_state_preconditions, base_template, target_template, variable_count)
+        superfluous_neg_state_preconditions, variable_count = _apply_single_special_analogy(rule.neg_state_preconditions, base_template, target_template, variable_count)
+        superfluous_goal_preconditions, variable_count = _apply_single_special_analogy(rule.goal_preconditions, base_template, target_template, variable_count)
 
-    return created_pos_state_preconditions, created_neg_state_preconditions, created_goal_conditions
-
-def _find_possible_matches_for_special_analogy_against_rule(special_base, special_target, rule, new_rule_nsrt, variable_analogies):
-    created_pos_state_preconditions = _find_possible_matches_for_special_analogy(special_base, special_target, rule.pos_state_preconditions, new_rule_nsrt, variable_analogies)
-    created_neg_state_preconditions = _find_possible_matches_for_special_analogy(special_base, special_target, rule.neg_state_preconditions, new_rule_nsrt, variable_analogies)
-    created_goal_conditions = _find_possible_matches_for_special_analogy(special_base, special_target, rule.goal_preconditions, new_rule_nsrt, variable_analogies)
-    return created_pos_state_preconditions, created_neg_state_preconditions, created_goal_conditions
+        all_superfluous_pos_state_preconditions.update(superfluous_pos_state_preconditions)
+        all_superfluous_neg_state_preconditions.update(superfluous_neg_state_preconditions)
+        all_superfluous_goal_preconditions.update(superfluous_goal_preconditions)
     
-def _find_possible_matches_for_special_analogy(special_base, special_target, rule_conditions, new_rule_nsrt, variable_analogies):
-    predicates_used_in_special_base = {atom.predicate: [] for atom in special_base}
-    grounded_conditions = _get_grounded_atoms(rule_conditions)
+    return all_superfluous_pos_state_preconditions, all_superfluous_neg_state_preconditions, all_superfluous_goal_preconditions
+ 
+def _apply_single_special_analogy(conditions: Set[LiftedAtom], base_template: Set[LiftedAtom], target_template: Set[LiftedAtom], starting_variable_count: int) -> Tuple(Set[LiftedAtom], int):
+    """Applies a special analogy (consisting of a base_template, target_template) pair to a set/list of conditions
+    Returns set of superfluous conditions after applying special analogy and updated variable counter"""
 
-    special_base_variables = sorted({var for atom in special_base for var in atom.variables})
-    condition_objects = sorted({obj for atom in grounded_conditions for obj in atom.objects})
+    satisfying_base_atoms = _get_all_matches(base_template, conditions)
+    num_satisfying_base_combs = len(satisfying_base_atoms)
+    new_target_atoms = set()
 
-    matches = {}
+    variable_count = starting_variable_count
+    target_variables = sorted(set([var for atom in target_template for var in atom.variables]))
+    for i in range(num_satisfying_base_combs):
+        target_var_to_superfluous_var = {}
+        for j in range(len(target_variables)):
+            target_var_to_superfluous_var[target_variables[j]] = target_variables[j].type(f"?var-{variable_count}")
+            variable_count += 1
+        new_target_atoms.update(set([atom.substitute(target_var_to_superfluous_var) for atom in target_template]))
 
-    special_base_combinations = []
+    return new_target_atoms, variable_count
 
-    for perm in list(itertools.permutations(condition_objects, len(special_base_variables))):
-        var_to_obj = {}
-        for i in range(len(special_base_variables)):
-            var_to_obj[special_base_variables[i]] = perm[i]
-        
-        works = True
-        special_base_passing_ground_atoms = set()
-        for special_base_lifted_atom in special_base:
-            obj_assignment = [var_to_obj[var] for var in special_base_lifted_atom.variables]
-            special_base_ground_atom = GroundAtom(special_base_lifted_atom.predicate, obj_assignment)
-            if special_base_ground_atom in grounded_conditions:
-                special_base_passing_ground_atoms.add(special_base_ground_atom)
-            else:
-                works = False
-                break
-        
-        if works:
-            special_base_combinations.append(special_base_passing_ground_atoms)
+def _get_all_matches(template: Set[LiftedAtom], state: Set[LiftedAtom]) -> List[List[LiftedAtom]]:
+    """Returns list of all sets matching template in state
+    TODO: THIS IS FINNICKY"""
+    ground_state = _get_grounded_atoms(state)
+    template_parameters = sorted(set([var for atom in template for var in atom.variables]))
+    static_predicates = set([atom.predicate for atom in template])
+    objects = sorted(set([obj for atom in ground_state for obj in atom.objects]))
+
+    param_to_preds: Dict[Variable, Set[Predicate]] = {
+        p: set()
+        for p in template_parameters
+    }
+
+    zero_arity_predicates = set()
+    for atom in template:
+        pred = atom.predicate
+        if pred.arity == 0:
+            zero_arity_predicates.add(pred)
+        if pred in static_predicates and pred.arity == 1:
+            param = atom.variables[0]
+            param_to_preds[param].add(pred)
     
-    # Now we need to convert the lifted atoms
-    # TODO: FIND A BETTER WAY TO CONVERT VARIABLES
-    target_extra_conditions = {}
-    if len(special_base_combinations) > 0:
-        target_extra_conditions = set(special_target)
-    
-    return target_extra_conditions
+    # Checking zero arity conditions are in
+    for zero_arity_pred in zero_arity_predicates:
+        ground_zero_arity_condition = GroundAtom(zero_arity_pred, [])
+        if ground_zero_arity_condition not in state:
+            return []
 
-def _get_grounded_atoms(lifted_atoms: Set[LiftedAtom]):
+    param_choices = []  # list of lists of possible objects for each param
+    init_atom_tups = {(a.predicate, tuple(a.objects)) for a in ground_state}
+    for param in template_parameters:
+        choices = []
+        for obj in objects:
+            # Types must match, as usual.
+            if obj.type != param.type:
+                continue
+            # Check the static conditions.
+            binding_valid = True
+            for pred in param_to_preds[param]:
+                if (pred, (obj, )) not in init_atom_tups:
+                    binding_valid = False
+                    break
+            if binding_valid:
+                choices.append(obj)
+        # Must be sorted for consistency with other grounding code.
+        param_choices.append(sorted(choices))
+    satisfying_ground_atoms = []
+    for choice in itertools.product(*param_choices):
+        param_to_variable = {template_parameters[i]: _convert_object_to_variable(choice[i]) for i in range(len(choice))}
+        satisfying_ground_atoms_for_choice = [atom.substitute(param_to_variable) for atom in template]
+        satisfying_ground_atoms.append(satisfying_ground_atoms_for_choice)
+    return satisfying_ground_atoms
+
+def _get_grounded_atoms(lifted_atoms: Set[LiftedAtom]) -> Set[GroundAtom]:
     grounded_atoms = set()
     for lifted_atom in lifted_atoms:
         objects = [_convert_variable_to_object(var) for var in lifted_atom.variables]
@@ -454,7 +369,7 @@ def _get_grounded_atoms(lifted_atoms: Set[LiftedAtom]):
             grounded_atoms.add(GroundAtom(lifted_atom.predicate, []))
     return grounded_atoms
 
-def _get_lifted_atoms(ground_atoms: Set[GroundAtom]):
+def _get_lifted_atoms(ground_atoms: Set[GroundAtom]) -> Set[LiftedAtom]:
     lifted_atoms = set()
     for ground_atom in ground_atoms:
         variables = [_convert_variable_to_object(obj) for obj in lifted_atom.objects]
@@ -464,8 +379,8 @@ def _get_lifted_atoms(ground_atoms: Set[GroundAtom]):
             lifted_atoms.add(LiftedAtom(lifted_atom.predicate, []))
     return lifted_atoms
 
-def _convert_variable_to_object(var: Variable):
+def _convert_variable_to_object(var: Variable) -> Object:
     return var.type(var.name[1:]) 
 
-def _convert_object_to_variable(obj: Object):
-    return obj.type(obj.name[1:]) 
+def _convert_object_to_variable(obj: Object) -> Variable:
+    return obj.type("?" + obj.name) 
