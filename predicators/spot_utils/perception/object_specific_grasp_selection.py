@@ -5,7 +5,16 @@ from typing import Any, Callable, Dict, Tuple
 from predicators.spot_utils.perception.cv2_utils import \
     find_color_based_centroid
 from predicators.spot_utils.perception.perception_structs import \
-    AprilTagObjectDetectionID, ObjectDetectionID, RGBDImageWithContext
+    AprilTagObjectDetectionID, LanguageObjectDetectionID, ObjectDetectionID, \
+    RGBDImageWithContext
+
+ball_prompt = "/".join([
+    "small white ball",
+    "ping-pong ball",
+    "snowball",
+    "cotton ball",
+])
+ball_obj = LanguageObjectDetectionID(ball_prompt)
 
 
 def _get_platform_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
@@ -36,6 +45,19 @@ def _get_platform_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
     return (x, y)
 
 
+def _get_ball_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
+                          artifacts: Dict[str, Any],
+                          camera_name: str) -> Tuple[int, int]:
+    del rgbds
+    detections = artifacts["language"]["object_id_to_img_detections"]
+    try:
+        seg_bb = detections[ball_obj][camera_name]
+    except KeyError:
+        raise ValueError(f"{ball_obj} not detected in {camera_name}")
+    x1, y1, x2, y2 = seg_bb.bounding_box
+    return int((x1 + x2) / 2), int((y1 + y2) / 2)
+
+
 # Maps an object ID to a function from rgbds, artifacts and camera to pixel.
 OBJECT_SPECIFIC_GRASP_SELECTORS: Dict[ObjectDetectionID, Callable[
     [Dict[str,
@@ -43,4 +65,7 @@ OBJECT_SPECIFIC_GRASP_SELECTORS: Dict[ObjectDetectionID, Callable[
               # Platform-specific grasp selection.
               AprilTagObjectDetectionID(411):
               _get_platform_grasp_pixel,
+              # Ball-specific grasp selection.
+              LanguageObjectDetectionID(ball_prompt):
+              _get_ball_grasp_pixel
           }
