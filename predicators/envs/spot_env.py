@@ -922,10 +922,10 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
     if blocker_obj == blocked_obj:
         return False
 
-    # Only consider draggable (non-placeable) objects to be possible blockers.
-    placeable = blocker_obj.is_instance(_movable_object_type) and \
-        _is_placeable_classifier(state, [blocker_obj])
-    if placeable:
+    # Only consider draggable (non-placeable, movable) objects to be blockers.
+    if not blocker_obj.is_instance(_movable_object_type):
+        return False
+    if _is_placeable_classifier(state, [blocker_obj]):
         return False
 
     if _object_in_xy_classifier(state,

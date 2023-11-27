@@ -112,11 +112,13 @@ def _move_closer_and_drop_at_relative_position_and_look(
     rel_pose = robot_pose.inverse() * abs_pose
     dist_to_object = np.sqrt(rel_pose.x * rel_pose.x + rel_pose.y * rel_pose.y)
     # If we're too far from the target to place directly, then move closer
-    # to it first. Move 75% of the distance between the robot and the target.
-    if dist_to_object > 0.55:
-        pose_to_nav_to = math_helpers.SE2Pose(
-            rel_pose.x - (0.75 * rel_pose.x / dist_to_object),
-            rel_pose.y - (0.75 * rel_pose.y / dist_to_object), 0.0)
+    # to it first. Move an absolute distance away from the given rel_pose.
+    target_distance = 0.6
+    if dist_to_object > target_distance:
+        rel_xy = np.array([rel_pose.x, rel_pose.y])
+        unit_rel_xy = rel_xy / dist_to_object
+        target_xy = rel_xy - target_distance * unit_rel_xy
+        pose_to_nav_to = math_helpers.SE2Pose(target_xy[0], target_xy[1], 0.0)
         navigate_to_relative_pose(robot, pose_to_nav_to)
     # Relocalize to compute final relative pose.
     localizer.localize()
