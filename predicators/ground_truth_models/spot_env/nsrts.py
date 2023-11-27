@@ -138,7 +138,7 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
     # If we're placing the cup, we want to place it further away from
     # the robot so it's solidly on the table in front of it.
     if len(objs) == 3 and objs[1].name == "cup":
-        dx = 0.2
+        dx = 0.23
         dz = 0.0
 
     return np.array([dx, 0.0, dz])
