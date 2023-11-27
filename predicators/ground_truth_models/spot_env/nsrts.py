@@ -156,8 +156,12 @@ def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
     dy = 0.0
     if len(objs) == 4 and objs[2].name == "cup":
         drop_height = 0.10
-        dx = 0.13  # we benefit from dropping more forward in the x!
-        dy = 0.0
+        # We're assuming here that the most recent detection of the container
+        # was systematically wrong in the x direction, so we're compensating.
+        # The reason for this systematic error is that when the cup is lying
+        # flat on the table, the robot selects a point on its bottom as the
+        # pose of the cup. We instead want to place at the center of the cup.
+        dx = 0.10
 
     return np.array([dx, dy, drop_height])
 

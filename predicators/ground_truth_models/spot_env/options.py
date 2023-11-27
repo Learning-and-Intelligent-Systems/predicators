@@ -27,8 +27,7 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.skills.spot_sweep import sweep
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE_HIGH, get_relative_se2_from_se3
+    DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, get_relative_se2_from_se3
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, Type
 
@@ -104,24 +103,26 @@ def _drop_at_relative_position_and_look(
 
 
 def _move_closer_and_drop_at_relative_position_and_look(
-        robot: Robot, rel_pose: math_helpers.SE3Pose) -> None:
+        robot: Robot, localizer: SpotLocalizer,
+        abs_pose: math_helpers.SE3Pose) -> None:
     # First, check if we're too far away in distance or angle
     # to place.
+    localizer.localize()
+    robot_pose = localizer.get_last_robot_pose()
+    rel_pose = robot_pose.inverse() * abs_pose
     dist_to_object = np.sqrt(rel_pose.x * rel_pose.x + rel_pose.y * rel_pose.y)
+    # If we're too far from the target to place directly, then move closer
+    # to it first. Move 75% of the distance between the robot and the target.
     if dist_to_object > 0.55:
         pose_to_nav_to = math_helpers.SE2Pose(
             rel_pose.x - (0.75 * rel_pose.x / dist_to_object),
             rel_pose.y - (0.75 * rel_pose.y / dist_to_object), 0.0)
         navigate_to_relative_pose(robot, pose_to_nav_to)
-    # Place with a new rel_pose!
-    rel_pose.x = rel_pose.x - pose_to_nav_to.x
-    rel_pose.y = rel_pose.y - pose_to_nav_to.y
-    place_at_relative_position(robot, rel_pose)
-    # Close the gripper.
-    close_gripper(robot)
-    # Look straight down.
-    move_hand_to_relative_pose(robot,
-                               DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE_HIGH)
+    # Relocalize to compute final relative pose.
+    localizer.localize()
+    robot_pose = localizer.get_last_robot_pose()
+    rel_pose = robot_pose.inverse() * abs_pose
+    _drop_at_relative_position_and_look(robot, rel_pose)
 
 
 def _drag_and_release(robot: Robot, rel_pose: math_helpers.SE2Pose) -> None:
@@ -358,7 +359,7 @@ def _move_and_drop_object_inside_policy(state: State, memory: Dict,
     container_obj_idx = 2
     ontop_surface_obj_idx = 3
 
-    robot, _, _ = get_robot()
+    robot, localizer, _ = get_robot()
 
     dx, dy, dz = params
 
@@ -380,15 +381,14 @@ def _move_and_drop_object_inside_policy(state: State, memory: Dict,
     # The dz parameter is with respect to the top of the container.
     container_half_height = state.get(container_obj, "height") / 2
 
-    container_rel_pose = robot_pose.inverse() * container_pose
-    place_z = container_rel_pose.z + container_half_height + dz
-    place_rel_pos = math_helpers.Vec3(x=container_rel_pose.x + dx,
-                                      y=container_rel_pose.y + dy,
+    place_z = container_pose.z + container_half_height + dz
+    place_abs_pos = math_helpers.Vec3(x=container_pose.x + dx,
+                                      y=container_pose.y + dy,
                                       z=place_z)
 
     return utils.create_spot_env_action(
         name, objects, _move_closer_and_drop_at_relative_position_and_look,
-        (robot, place_rel_pos))
+        (robot, localizer, place_abs_pos))
 
 
 def _drag_to_unblock_object_policy(state: State, memory: Dict,
