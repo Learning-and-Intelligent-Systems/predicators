@@ -399,22 +399,24 @@ def _get_pose_from_segmented_bounding_box(
     return world_frame_pose
 
 
-def get_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
-                    artifacts: Dict[str, Any], object_id: ObjectDetectionID,
-                    camera_name: str) -> Tuple[int, int]:
+def get_grasp_pixel(rgbds: Dict[str,
+                                RGBDImageWithContext], artifacts: Dict[str,
+                                                                       Any],
+                    object_id: ObjectDetectionID, camera_name: str,
+                    rng: np.random.Generator) -> Tuple[int, int]:
     """Select a pixel for grasping in the given camera image."""
 
     if object_id in OBJECT_SPECIFIC_GRASP_SELECTORS:
         selector = OBJECT_SPECIFIC_GRASP_SELECTORS[object_id]
         return selector(rgbds, artifacts, camera_name)
 
-    return get_object_center_pixel_from_artifacts(artifacts, object_id,
-                                                  camera_name)
+    return get_random_mask_pixel_from_artifacts(artifacts, object_id,
+                                                camera_name, rng)
 
 
-def get_object_center_pixel_from_artifacts(
+def get_random_mask_pixel_from_artifacts(
         artifacts: Dict[str, Any], object_id: ObjectDetectionID,
-        camera_name: str) -> Tuple[int, int]:
+        camera_name: str, rng: np.random.Generator) -> Tuple[int, int]:
     """Extract the pixel in the image corresponding to the center of the object
     with object ID.
 
@@ -443,17 +445,17 @@ def get_object_center_pixel_from_artifacts(
     # x1, y1, x2, y2 = seg_bb.bounding_box
     # pixel_tuple = int((x1 + x2) / 2), int((y1 + y2) / 2)
 
-    # Select the first ever pixel in the mask. We might want to
-    # select a random pixel instead.
+    # Select a random valid pixel from the mask.
     mask = seg_bb.mask
     pixels_in_mask = np.where(mask)
-    pixel_tuple = (pixels_in_mask[1][0], pixels_in_mask[0][0])
+    pixel_tuple = (rng.choice(pixels_in_mask[1]),
+                   rng.choice(pixels_in_mask[0]))
     # Uncomment to plot the grasp pixel being selected!
     # rgb_img = artifacts["language"]["rgbds"][camera_name].rgb
     # _, axes = plt.subplots()
     # axes.imshow(rgb_img)
-    # axes.add_patch(plt.Rectangle((pixel_tuple[0], pixel_tuple[1]),
-    #                              5, 5, color='red'))
+    # axes.add_patch(
+    #     plt.Rectangle((pixel_tuple[0], pixel_tuple[1]), 5, 5, color='red'))
     # plt.tight_layout()
     # outdir = Path(CFG.spot_perception_outdir)
     # plt.savefig(outdir / "grasp_pixel.png", dpi=300)

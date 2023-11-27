@@ -10,11 +10,9 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotRearrangementEnv, \
-    _object_to_top_down_geom, get_detection_id_for_object, get_robot
+    _object_to_top_down_geom, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
-from predicators.spot_utils.perception.object_detection import \
-    get_grasp_pixel, get_last_detected_objects
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import \
@@ -195,24 +193,20 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
 
 def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
                   objects: Sequence[Object], params: Array) -> Action:
-    del memory, params  # not used
+    del memory  # not used
 
     robot, _, _ = get_robot()
-
+    assert len(params) == 2
+    pixel = (int(params[0]), int(params[1]))
     target_obj = objects[target_obj_idx]
 
     # Special case: if we're running dry, the image won't be used.
     if CFG.spot_run_dry:
-        pixel = (0, 0)
         img: Optional[RGBDImageWithContext] = None
     else:
-        target_detection_id = get_detection_id_for_object(target_obj)
         rgbds = get_last_captured_images()
-        _, artifacts = get_last_detected_objects()
         hand_camera = "hand_color_image"
         img = rgbds[hand_camera]
-        pixel = get_grasp_pixel(rgbds, artifacts, target_detection_id,
-                                hand_camera)
 
     # Grasp from the top-down.
     grasp_rot = None
@@ -478,7 +472,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "MoveToReachObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "MoveToHandViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "MoveToBodyViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
-    "PickObjectFromTop": Box(0, 1, (0, )),
+    "PickObjectFromTop": Box(-np.inf, np.inf, (2, )),  # x, y pixel in image
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInsideContainerOnTop": Box(-np.inf, np.inf,

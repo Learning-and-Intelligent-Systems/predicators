@@ -7,14 +7,18 @@ import numpy as np
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotRearrangementEnv, \
-    _movable_object_type, _object_to_top_down_geom, get_allowed_map_regions
+    _movable_object_type, _object_to_top_down_geom, get_allowed_map_regions, \
+    get_detection_id_for_object
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.settings import CFG
+from predicators.spot_utils.perception.object_detection import \
+    get_grasp_pixel, get_last_detected_objects
+from predicators.spot_utils.perception.spot_cameras import \
+    get_last_captured_images
 from predicators.spot_utils.utils import _Geom2D, get_spot_home_pose, \
     sample_move_offset_from_target, spot_pose_to_geom2d
 from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
     ParameterizedOption, Predicate, State, Type
-from predicators.utils import null_sampler
 
 
 def _get_collision_geoms_for_nav(state: State) -> List[_Geom2D]:
@@ -105,8 +109,22 @@ def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
 def _pick_object_from_top_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
                                   objs: Sequence[Object]) -> Array:
-    # Not parameterized; may change in the future.
-    return null_sampler(state, goal, rng, objs)
+    del state, goal  # not used
+    _, target_obj, _ = objs
+    # Special case: if we're running dry, the image won't be used.
+    if CFG.spot_run_dry:
+        pixel = (0, 0)
+    else:
+        # Select the coordinates of a pixel within the image so that
+        # we grasp at that pixel!
+        target_detection_id = get_detection_id_for_object(target_obj)
+        rgbds = get_last_captured_images()
+        _, artifacts = get_last_detected_objects()
+        hand_camera = "hand_color_image"
+        pixel = get_grasp_pixel(rgbds, artifacts, target_detection_id,
+                                hand_camera, rng)
+
+    return np.array(pixel)
 
 
 def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],

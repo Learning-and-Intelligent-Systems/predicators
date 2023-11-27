@@ -47,6 +47,7 @@ def test_find_move_pick_place(
     manipuland_id: ObjectDetectionID,
     init_surface_id: Optional[ObjectDetectionID],
     target_surface_id: ObjectDetectionID,
+    rng: np.random.Generator,
     pre_pick_surface_nav_distance: float = 1.25,
     pre_pick_floor_nav_distance: float = 1.75,
     pre_place_nav_distance: float = 1.0,
@@ -105,7 +106,7 @@ def test_find_move_pick_place(
 
     # Run detection to get a pixel for grasping.
     _, artifacts = detect_objects([manipuland_id], rgbds)
-    pixel = get_grasp_pixel(rgbds, artifacts, manipuland_id, hand_camera)
+    pixel = get_grasp_pixel(rgbds, artifacts, manipuland_id, hand_camera, rng)
 
     # Pick at the pixel with a top-down grasp.
     grasp_at_pixel(robot, rgbds[hand_camera], pixel)
@@ -158,6 +159,7 @@ def test_all_find_move_pick_place() -> None:
                                      return_at_exit=True)
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
+    rng = np.random.default_rng(CFG.seed)
 
     # Run test with april tag cube.
     init_surface = AprilTagObjectDetectionID(408)
@@ -168,17 +170,18 @@ def test_all_find_move_pick_place() -> None:
     # the robot home pose).
     input("Set up the tables and CUBE in front of the robot")
     test_find_move_pick_place(robot, localizer, cube, init_surface,
-                              target_surface)
+                              target_surface, rng)
 
     # Run test with brush.
     brush = LanguageObjectDetectionID("brush")
     input("Set up the tables and BRUSH in front of the robot")
     test_find_move_pick_place(robot, localizer, brush, init_surface,
-                              target_surface)
+                              target_surface, rng)
 
     # Run test with cube on floor.
     input("Place the cube anywhere on the floor")
-    test_find_move_pick_place(robot, localizer, cube, None, target_surface)
+    test_find_move_pick_place(robot, localizer, cube, None, target_surface,
+                              rng)
 
 
 def test_move_with_sampling() -> None:
@@ -314,6 +317,7 @@ def test_repeated_brush_bucket_dump_pick_place(
     lease_keepalive = LeaseKeepAlive(lease_client,
                                      must_acquire=True,
                                      return_at_exit=True)
+    rng = np.random.default_rng(CFG.seed)
     assert path.exists()
     localizer = SpotLocalizer(robot, path, lease_client, lease_keepalive)
 
@@ -355,7 +359,7 @@ def test_repeated_brush_bucket_dump_pick_place(
 
         # Run detection to get a pixel for grasping.
         _, artifacts = detect_objects([brush], rgbds)
-        pixel = get_grasp_pixel(rgbds, artifacts, brush, hand_camera)
+        pixel = get_grasp_pixel(rgbds, artifacts, brush, hand_camera, rng)
 
         # Pick at the pixel with a top-down grasp.
         grasp_at_pixel(robot, rgbds[hand_camera], pixel)
@@ -407,8 +411,7 @@ def test_repeated_brush_bucket_dump_pick_place(
 
         # Choose a grasp.
         _, artifacts = detect_objects([bucket], rgbds)
-
-        r, c = get_grasp_pixel(rgbds, artifacts, bucket, hand_camera)
+        r, c = get_grasp_pixel(rgbds, artifacts, bucket, hand_camera, rng)
         pixel = (r + bucket_grasp_dr, c)
 
         # Grasp at the pixel with a top-down grasp.
@@ -480,7 +483,8 @@ def test_platform_grasp(pre_pick_nav_distance: float = 1.25) -> None:
 
     # Run detection to get a pixel for grasping.
     _, artifacts = detect_objects([platform], rgbds)
-    pixel = get_grasp_pixel(rgbds, artifacts, platform, hand_camera)
+    rng = np.random.default_rng(CFG.seed)
+    pixel = get_grasp_pixel(rgbds, artifacts, platform, hand_camera, rng)
 
     # Show the selected pixel for debugging.
     bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
