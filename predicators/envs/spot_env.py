@@ -2049,7 +2049,13 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
 
         ball = Object("ball", _movable_object_type)
-        ball_detection = LanguageObjectDetectionID("small white ball")
+        ball_prompt = "/".join([
+            "small white ball",
+            "ping-pong ball",
+            "snowball",
+            "cotton ball",
+        ])
+        ball_detection = LanguageObjectDetectionID(ball_prompt)
         detection_id_to_obj[ball_detection] = ball
 
         cup = Object("cup", _container_type)
