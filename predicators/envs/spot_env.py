@@ -676,10 +676,10 @@ class SpotRearrangementEnv(BaseEnv):
 ###############################################################################
 
 ## Constants
-HANDEMPTY_GRIPPER_THRESHOLD = 2.7  # made public for use in perceiver
+HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
 _ONTOP_Z_THRESHOLD = 0.25
 _INSIDE_Z_THRESHOLD = 0.25
-_ONTOP_SURFACE_BUFFER = 0.1
+_ONTOP_SURFACE_BUFFER = 0.48
 _INSIDE_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 1.85
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
@@ -808,22 +808,24 @@ def _object_in_xy_classifier(state: State,
     surface_geom = _object_to_top_down_geom(obj2, state, size_buffer=buffer)
     center_x = state.get(obj1, "x")
     center_y = state.get(obj1, "y")
+    ret_val = surface_geom.contains_point(center_x, center_y)
 
-    return surface_geom.contains_point(center_x, center_y)
+    return ret_val
 
 
 def _on_classifier(state: State, objects: Sequence[Object]) -> bool:
     obj_on, obj_surface = objects
 
+    # Check that the bottom of the object is close to the top of the surface.
+    expect = state.get(obj_surface, "z") + state.get(obj_surface, "height") / 2
+    actual = state.get(obj_on, "z") - state.get(obj_on, "height") / 2
+    classification_val = abs(actual - expect) < _ONTOP_Z_THRESHOLD
+
+    # If so, check that the object is within the bounds of the surface.
     if not _object_in_xy_classifier(
             state, obj_on, obj_surface, buffer=_ONTOP_SURFACE_BUFFER):
         return False
 
-    # Check that the bottom of the object is close to the top of the surface.
-    expect = state.get(obj_surface, "z") + state.get(obj_surface, "height") / 2
-    actual = state.get(obj_on, "z") - state.get(obj_on, "height") / 2
-
-    classification_val = abs(actual - expect) < _ONTOP_Z_THRESHOLD
     return classification_val
 
 
@@ -1088,10 +1090,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     obj = Variable("?object", _movable_object_type)
     parameters = [robot, obj]
     preconds = {LiftedAtom(_NotBlocked, [obj])}
-    add_effs = {
-        LiftedAtom(_InView, [robot, obj]),
-        LiftedAtom(_Reachable, [robot, obj])
-    }
+    add_effs = {LiftedAtom(_InView, [robot, obj])}
     del_effs = set()
     ignore_effs = {_Reachable, _InHandView, _InView}
     yield STRIPSOperator("MoveToBodyViewObject", parameters, preconds,
@@ -1112,6 +1111,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     }
     del_effs = {
         LiftedAtom(_On, [obj, surface]),
+        LiftedAtom(_Inside, [obj, surface]),
         LiftedAtom(_HandEmpty, [robot]),
         LiftedAtom(_InHandView, [robot, obj])
     }
@@ -1170,7 +1170,6 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     parameters = [robot, held, container, surface]
     preconds = {
         LiftedAtom(_Holding, [robot, held]),
-        LiftedAtom(_Reachable, [robot, container]),
         LiftedAtom(_InView, [robot, container]),
         LiftedAtom(_On, [container, surface]),
         LiftedAtom(_IsPlaceable, [held]),
@@ -2054,7 +2053,7 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
         detection_id_to_obj[ball_detection] = ball
 
         cup = Object("cup", _container_type)
-        cup_detection = LanguageObjectDetectionID("large cup")
+        cup_detection = LanguageObjectDetectionID("ashtray/large black wheel")
         detection_id_to_obj[cup_detection] = cup
 
         for obj, pose in get_known_immovable_objects().items():

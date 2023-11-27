@@ -363,4 +363,7 @@ class SpotPerceiver(BasePerceiver):
         ax.set_ylim(y_lb, y_ub)
         plt.tight_layout()
         img = utils.fig2data(fig, CFG.render_state_dpi)
+        # Uncomment to output a top-down image of the state
+        # after every time step.
+        # plt.savefig("top-down-state-view.png")
         return [img]

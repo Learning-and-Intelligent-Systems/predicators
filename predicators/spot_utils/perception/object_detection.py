@@ -438,8 +438,26 @@ def get_object_center_pixel_from_artifacts(
         seg_bb = detections[object_id][camera_name]
     except KeyError:
         raise ValueError(f"{object_id} not detected in {camera_name}")
-    x1, y1, x2, y2 = seg_bb.bounding_box
-    return int((x1 + x2) / 2), int((y1 + y2) / 2)
+
+    # Select center pixel of bounding box.
+    # x1, y1, x2, y2 = seg_bb.bounding_box
+    # pixel_tuple = int((x1 + x2) / 2), int((y1 + y2) / 2)
+
+    # Select the first ever pixel in the mask. We might want to
+    # select a random pixel instead.
+    mask = seg_bb.mask
+    pixels_in_mask = np.where(mask)
+    pixel_tuple = (pixels_in_mask[1][0], pixels_in_mask[0][0])
+    # Uncomment to plot the grasp pixel being selected!
+    # rgb_img = artifacts["language"]["rgbds"][camera_name].rgb
+    # _, axes = plt.subplots()
+    # axes.imshow(rgb_img)
+    # axes.add_patch(plt.Rectangle((pixel_tuple[0], pixel_tuple[1]),
+    #                              5, 5, color='red'))
+    # plt.tight_layout()
+    # outdir = Path(CFG.spot_perception_outdir)
+    # plt.savefig(outdir / "grasp_pixel.png", dpi=300)
+    return pixel_tuple
 
 
 def visualize_all_artifacts(artifacts: Dict[str,

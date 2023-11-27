@@ -61,8 +61,8 @@ def _move_to_body_view_object_sampler(state: State, goal: Set[GroundAtom],
     # Parameters are relative distance, dyaw (to the object you're moving to).
     del goal
 
-    min_dist = 1.5
-    max_dist = 1.85
+    min_dist = 1.7
+    max_dist = 1.95
 
     robot_obj = objs[0]
     obj_to_nav_to = objs[1]
@@ -94,7 +94,7 @@ def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
 
     # NOTE: closer than move_to_view. Important for placing.
     min_dist = 0.0
-    max_dist = 0.95
+    max_dist = 0.8
 
     robot_obj = objs[0]
     obj_to_nav_to = objs[1]
@@ -113,8 +113,17 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dz (to surface objects center).
-    del state, goal, objs, rng  # randomization coming soon
-    return np.array([0.0, 0.0, 0.05])
+    del goal, rng, state  # randomization coming soon
+    dx = 0.025
+    dz = 0.05
+
+    # If we're placing the cup, we want to place it further away from
+    # the robot so it's solidly on the table in front of it.
+    if len(objs) == 3 and objs[1].name == "cup":
+        dx = 0.2
+        dz = 0.0
+
+    return np.array([dx, 0.0, dz])
 
 
 def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
@@ -126,11 +135,13 @@ def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
 
     drop_height = 0.5
     dx = 0.0
+    dy = 0.0
     if len(objs) == 4 and objs[2].name == "cup":
-        drop_height = 0.15
-        dx = 0.08  # we benefit from dropping more forward in the x!
+        drop_height = 0.10
+        dx = 0.13  # we benefit from dropping more forward in the x!
+        dy = 0.0
 
-    return np.array([dx, 0.0, drop_height])
+    return np.array([dx, dy, drop_height])
 
 
 def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],

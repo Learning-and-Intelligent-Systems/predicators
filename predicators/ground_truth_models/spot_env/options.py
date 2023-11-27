@@ -68,6 +68,8 @@ def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
 
 def _place_at_relative_position_and_stow(
         robot: Robot, rel_pose: math_helpers.SE3Pose) -> None:
+    # NOTE: Might need to execute a move here if we are currently
+    # too far away...
     # Place.
     place_at_relative_position(robot, rel_pose)
     # Now, move the arm back slightly. We do this because if we're
@@ -108,7 +110,7 @@ def _move_closer_and_drop_at_relative_position_and_look(
     # First, check if we're too far away in distance or angle
     # to place.
     dist_to_object = np.sqrt(rel_pose.x * rel_pose.x + rel_pose.y * rel_pose.y)
-    if dist_to_object > 0.75:
+    if dist_to_object > 0.55:
         pose_to_nav_to = math_helpers.SE2Pose(
             rel_pose.x - (0.75 * rel_pose.x / dist_to_object),
             rel_pose.y - (0.75 * rel_pose.y / dist_to_object), 0.0)
@@ -213,7 +215,7 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
                                 hand_camera)
 
     # Grasp from the top-down.
-    grasp_rot = math_helpers.Quat.from_pitch(np.pi / 2)
+    grasp_rot = None
     # If the target object is reasonably large, don't try to stow!
     target_obj_volume = state.get(target_obj, "height") * \
         state.get(target_obj, "length") * state.get(target_obj, "width")
@@ -360,6 +362,7 @@ def _move_and_drop_object_inside_policy(state: State, memory: Dict,
     name = "MoveAndDropObjectInside"
     robot_obj_idx = 0
     container_obj_idx = 2
+    ontop_surface_obj_idx = 3
 
     robot, _, _ = get_robot()
 
@@ -370,6 +373,16 @@ def _move_and_drop_object_inside_policy(state: State, memory: Dict,
 
     container_obj = objects[container_obj_idx]
     container_pose = utils.get_se3_pose_from_state(state, container_obj)
+
+    surface_obj = objects[ontop_surface_obj_idx]
+
+    # Special case: the robot is already on top of the surface (because it is
+    # probably the floor). When this happens, just drop the object.
+    surface_geom = _object_to_top_down_geom(surface_obj, state)
+    if surface_geom.contains_point(robot_pose.x, robot_pose.y):
+        return utils.create_spot_env_action(name, objects, _drop_and_stow,
+                                            (robot, ))
+
     # The dz parameter is with respect to the top of the container.
     container_half_height = state.get(container_obj, "height") / 2
 
