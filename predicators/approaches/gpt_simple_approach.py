@@ -285,7 +285,42 @@ def _create_superfluous_conditions(chem_analogy, rule, new_rule_nsrt):
         all_superfluous_neg_state_preconditions.update(superfluous_neg_state_preconditions)
         all_superfluous_goal_preconditions.update(superfluous_goal_preconditions)
     
+    superfluous_pos_state_preconditions, variable_count = _apply_base_analogies(chem_analogy, rule.pos_state_preconditions, variable_count)
+    superfluous_neg_state_preconditions, variable_count = _apply_base_analogies(chem_analogy, rule.neg_state_preconditions, variable_count)
+    superfluous_goal_preconditions, variable_count = _apply_base_analogies(chem_analogy, rule.goal_preconditions, variable_count)
+
+    all_superfluous_pos_state_preconditions.update(superfluous_pos_state_preconditions)
+    all_superfluous_neg_state_preconditions.update(superfluous_neg_state_preconditions)
+    all_superfluous_goal_preconditions.update(superfluous_goal_preconditions)
+    import ipdb; ipdb.set_trace(); 
     return all_superfluous_pos_state_preconditions, all_superfluous_neg_state_preconditions, all_superfluous_goal_preconditions
+
+def _apply_base_analogies(chem_analogy: _ChemAnalogy, conditions: Set[LiftedAtom], starting_variable_count: int) -> Tuple(Set[LiftedAtom], int):
+    """Applies ALL base analogies in chem_analogy (excluding those covered by special analogies). 
+    Returns set of superfluous conditions and updated variable counter"""
+    condition_predicates = [condition.predicate for condition in conditions]
+    condition_predicates_freq = {}
+    for condition_predicate in condition_predicates:
+        if condition_predicate not in condition_predicates_freq:
+            condition_predicates_freq[condition_predicate] = 1
+        else:
+            condition_predicates_freq[condition_predicate] += 1
+
+    superfluous_conditions = set()
+    variable_count = starting_variable_count
+
+    special_analogy_predicates = set([atom.predicate for template in chem_analogy.special_analogies.keys() for atom in template])
+
+    for base_predicate, target_predicates in chem_analogy.predicates.items():
+        if (not base_predicate in condition_predicates_freq) or (base_predicate in special_analogy_predicates):
+            continue
+        base_predicate_freq = condition_predicates_freq[base_predicate]
+        for target_predicate in target_predicates:
+            for i in range(base_predicate_freq):
+                superfluous_variables = [target_predicate.types[j](f"?var-{variable_count + j}") for j in range(len(target_predicate.types))]
+                variable_count += target_predicate.arity
+                superfluous_conditions.add(LiftedAtom(target_predicate, superfluous_variables))
+    return superfluous_conditions, variable_count
  
 def _apply_single_special_analogy(conditions: Set[LiftedAtom], base_template: Set[LiftedAtom], target_template: Set[LiftedAtom], starting_variable_count: int) -> Tuple(Set[LiftedAtom], int):
     """Applies a special analogy (consisting of a base_template, target_template) pair to a set/list of conditions
