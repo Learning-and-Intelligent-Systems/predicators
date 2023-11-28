@@ -110,7 +110,7 @@ def _pick_object_from_top_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
                                   objs: Sequence[Object]) -> Array:
     del state, goal  # not used
-    _, target_obj, _ = objs
+    target_obj = objs[1]
     # Special case: if we're running dry, the image won't be used.
     if CFG.spot_run_dry:
         pixel = (0, 0)
@@ -230,6 +230,7 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "MoveToBodyViewObject": _move_to_body_view_object_sampler,
             "MoveToReachObject": _move_to_reach_object_sampler,
             "PickObjectFromTop": _pick_object_from_top_sampler,
+            "PickCupToDumpBall": _pick_object_from_top_sampler,
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
             "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
@@ -247,5 +248,4 @@ class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
                 sampler=sampler,
             )
             nsrts.add(nsrt)
-
         return nsrts

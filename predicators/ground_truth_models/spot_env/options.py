@@ -292,6 +292,15 @@ def _pick_object_from_top_policy(state: State, memory: Dict,
     return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
 
 
+def _dump_cup_policy(state: State, memory: Dict, objects: Sequence[Object],
+                     params: Array) -> Action:
+    # Same as PickObjectFromTop; just necessary to make options 1:1 with
+    # operators.
+    name = "DumpCup"
+    target_obj_idx = 1
+    return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
+
+
 def _place_object_on_top_policy(state: State, memory: Dict,
                                 objects: Sequence[Object],
                                 params: Array) -> Action:
@@ -487,6 +496,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "MoveToHandViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "MoveToBodyViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "PickObjectFromTop": Box(-np.inf, np.inf, (2, )),  # x, y pixel in image
+    "PickCupToDumpBall": Box(-np.inf, np.inf, (2, )),  # x, y pixel in image
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInsideContainerOnTop": Box(-np.inf, np.inf,
@@ -501,6 +511,7 @@ _OPERATOR_NAME_TO_POLICY = {
     "MoveToHandViewObject": _move_to_hand_view_object_policy,
     "MoveToBodyViewObject": _move_to_body_view_object_policy,
     "PickObjectFromTop": _pick_object_from_top_policy,
+    "PickCupToDumpBall": _dump_cup_policy,
     "PlaceObjectOnTop": _place_object_on_top_policy,
     "DropObjectInside": _drop_object_inside_policy,
     "DropObjectInsideContainerOnTop": _move_and_drop_object_inside_policy,
