@@ -261,7 +261,7 @@ def _apply_special_analogies(chem_analogy, rule, new_rule_nsrt, correctness_traj
     """Returns rule that applies chem_analogy from rule to new_rule_nsrt"""
     nsrt_name_pair = (rule.nsrt.name, new_rule_nsrt.name)
 
-    superfluous_pos_conditions, superfluous_neg_conditions, superfluous_goal_conditions = _create_superfluous_conditions(chem_analogy, rule, new_rule_nsrt)
+    superfluous_pos_conditions, superfluous_neg_conditions, superfluous_goal_preconditions = _create_superfluous_conditions(chem_analogy, rule, new_rule_nsrt)
 
 def _create_superfluous_conditions(chem_analogy, rule, new_rule_nsrt):
     """Returns tuple of superfluous pos state preconditions, neg state preconditions, goal conditions"""
@@ -293,18 +293,19 @@ def _apply_single_special_analogy(conditions: Set[LiftedAtom], base_template: Se
 
     satisfying_base_atoms = _get_all_matches(base_template, conditions)
     num_satisfying_base_combs = len(satisfying_base_atoms)
-    new_target_atoms = set()
+    superfluous_conditions = set()
 
     variable_count = starting_variable_count
-    target_variables = sorted(set([var for atom in target_template for var in atom.variables]))
     for i in range(num_satisfying_base_combs):
-        target_var_to_superfluous_var = {}
-        for j in range(len(target_variables)):
-            target_var_to_superfluous_var[target_variables[j]] = target_variables[j].type(f"?var-{variable_count}")
-            variable_count += 1
-        new_target_atoms.update(set([atom.substitute(target_var_to_superfluous_var) for atom in target_template]))
+        for target_atom in target_template:
+            target_var_to_superfluous_var = {}
+            for target_atom_var in target_atom.variables:
+                target_var_to_superfluous_var[target_atom_var] = target_atom_var.type(f"?var-{variable_count}")
+                variable_count += 1
+            superfluous_atom = target_atom.substitute(target_var_to_superfluous_var)
+            superfluous_conditions.add(superfluous_atom)
 
-    return new_target_atoms, variable_count
+    return superfluous_conditions, variable_count
 
 def _get_all_matches(template: Set[LiftedAtom], state: Set[LiftedAtom]) -> List[List[LiftedAtom]]:
     """Returns list of all sets matching template in state
