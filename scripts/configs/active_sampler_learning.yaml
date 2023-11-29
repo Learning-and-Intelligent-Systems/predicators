@@ -11,11 +11,18 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "task_repeat"
-  success_rate_explore:
+  success_rate_explore_ucb:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "success_rate"
+      active_sampler_explore_use_ucb_bonus: False
+  success_rate_explore_no_ucb:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "success_rate"
+      active_sampler_explore_use_ucb_bonus: False
   random_score_explore:
     NAME: "active_sampler_learning"
     FLAGS:

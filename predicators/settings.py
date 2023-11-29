@@ -594,6 +594,7 @@ class GlobalSettings:
     greedy_lookahead_max_num_resamples = 10
 
     # active sampler explorer parameters
+    active_sampler_explore_use_ucb_bonus = True
     active_sampler_explore_bonus = 1e-1
     active_sampler_explore_task_strategy = "planning_progress"
     active_sampler_explorer_replan_frequency = 100
