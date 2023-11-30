@@ -12,7 +12,7 @@ from typing import Callable, ClassVar, Collection, Dict, Iterator, List, \
 
 import matplotlib
 import numpy as np
-from bosdyn.client import create_standard_sdk, math_helpers
+from bosdyn.client import RetryableRpcError, create_standard_sdk, math_helpers
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
 from bosdyn.client.util import authenticate, setup_logging
@@ -381,11 +381,24 @@ class SpotRearrangementEnv(BaseEnv):
             next_obs = self._get_next_dry_observation(action, next_nonpercept)
 
         else:
-            # Execute the action in the real environment.
-            action_fn(*action_fn_args)  # type: ignore
+            # Execute the action in the real environment. Automatically retry
+            # if a retryable error is encountered.
+            while True:
+                try:
+                    action_fn(*action_fn_args)  # type: ignore
+                    break
+                except RetryableRpcError as e:
+                    logging.warning("WARNING: the following retryable error "
+                                    f"was encountered. Trying again.\n{e}")
 
-            # Get the new observation.
-            next_obs = self._build_observation(next_nonpercept)
+            # Get the new observation. Again, automatically retry if needed.
+            while True:
+                try:
+                    next_obs = self._build_observation(next_nonpercept)
+                    break
+                except RetryableRpcError as e:
+                    logging.warning("WARNING: the following retryable error "
+                                    f"was encountered. Trying again.\n{e}")
 
         self._current_observation = next_obs
         return self._current_observation
