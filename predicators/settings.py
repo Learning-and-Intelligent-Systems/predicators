@@ -172,6 +172,7 @@ class GlobalSettings:
     spot_fiducial_size = 44.45
     spot_vision_detection_threshold = 0.3
     spot_perception_outdir = "spot_perception_outputs"
+    spot_render_perception_outputs = True
     spot_graph_nav_map = "floor8-v2"
     spot_grasp_stow_volume_threshold = 0.1
     spot_run_dry = False

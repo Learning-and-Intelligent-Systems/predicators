@@ -415,13 +415,13 @@ class SpotRearrangementEnv(BaseEnv):
         all_detections, all_artifacts = detect_objects(
             all_object_detection_ids, rgbds)
 
-        outdir = Path(CFG.spot_perception_outdir)
-        time_str = time.strftime("%Y%m%d-%H%M%S")
-        detections_outfile = outdir / f"detections_{time_str}.png"
-        no_detections_outfile = outdir / f"no_detections_{time_str}.png"
-
-        visualize_all_artifacts(all_artifacts, detections_outfile,
-                                no_detections_outfile)
+        if CFG.spot_render_perception_outputs:
+            outdir = Path(CFG.spot_perception_outdir)
+            time_str = time.strftime("%Y%m%d-%H%M%S")
+            detections_outfile = outdir / f"detections_{time_str}.png"
+            no_detections_outfile = outdir / f"no_detections_{time_str}.png"
+            visualize_all_artifacts(all_artifacts, detections_outfile,
+                                    no_detections_outfile)
 
         # Separately, get detections for the hand in particular.
         hand_rgbd = {
@@ -431,11 +431,11 @@ class SpotRearrangementEnv(BaseEnv):
         hand_detections, hand_artifacts = detect_objects(
             all_object_detection_ids, hand_rgbd)
 
-        hand_detections_outfile = outdir / f"hand_detections_{time_str}.png"
-        hand_no_detect_outfile = outdir / f"hand_no_detections_{time_str}.png"
-
-        visualize_all_artifacts(hand_artifacts, hand_detections_outfile,
-                                hand_no_detect_outfile)
+        if CFG.spot_render_perception_outputs:
+            detections_outfile = outdir / f"hand_detections_{time_str}.png"
+            no_detect_outfile = outdir / f"hand_no_detections_{time_str}.png"
+            visualize_all_artifacts(hand_artifacts, detections_outfile,
+                                    no_detect_outfile)
 
         # Now construct a dict of all objects in view, as well as a set
         # of objects that the hand can see.
@@ -650,12 +650,13 @@ class SpotRearrangementEnv(BaseEnv):
         assert self._localizer is not None
         detections, artifacts = init_search_for_objects(
             self._robot, self._localizer, detection_ids)
-        outdir = Path(CFG.spot_perception_outdir)
-        time_str = time.strftime("%Y%m%d-%H%M%S")
-        detections_outfile = outdir / f"detections_{time_str}.png"
-        no_detections_outfile = outdir / f"no_detections_{time_str}.png"
-        visualize_all_artifacts(artifacts, detections_outfile,
-                                no_detections_outfile)
+        if CFG.spot_render_perception_outputs:
+            outdir = Path(CFG.spot_perception_outdir)
+            time_str = time.strftime("%Y%m%d-%H%M%S")
+            detections_outfile = outdir / f"detections_{time_str}.png"
+            no_detections_outfile = outdir / f"no_detections_{time_str}.png"
+            visualize_all_artifacts(artifacts, detections_outfile,
+                                    no_detections_outfile)
         return detections
 
     @property
