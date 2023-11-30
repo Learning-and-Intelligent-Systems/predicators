@@ -2,6 +2,8 @@
 
 from typing import Any, Callable, Dict, Tuple
 
+import numpy as np
+
 from predicators.spot_utils.perception.cv2_utils import \
     find_color_based_centroid
 from predicators.spot_utils.perception.perception_structs import \
@@ -15,6 +17,7 @@ ball_prompt = "/".join([
     "cotton ball",
 ])
 ball_obj = LanguageObjectDetectionID(ball_prompt)
+cup_obj = LanguageObjectDetectionID("yellow hoop toy/yellow donut")
 
 
 def _get_platform_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
@@ -54,8 +57,28 @@ def _get_ball_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
         seg_bb = detections[ball_obj][camera_name]
     except KeyError:
         raise ValueError(f"{ball_obj} not detected in {camera_name}")
-    x1, y1, x2, y2 = seg_bb.bounding_box
-    return int((x1 + x2) / 2), int((y1 + y2) / 2)
+    # Select the last (bottom-most) pixel from the mask. We do this because the
+    # back finger of the robot gripper might displace the ball during grasping
+    # if we try to grasp at the center.
+    mask = seg_bb.mask
+    pixels_in_mask = np.where(mask)
+    return (pixels_in_mask[1][-1], pixels_in_mask[0][-1])
+
+
+def _get_cup_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
+                         artifacts: Dict[str, Any],
+                         camera_name: str) -> Tuple[int, int]:
+    del rgbds
+    detections = artifacts["language"]["object_id_to_img_detections"]
+    try:
+        seg_bb = detections[cup_obj][camera_name]
+    except KeyError:
+        raise ValueError(f"{cup_obj} not detected in {camera_name}")
+    # Select the first (left-most and top-most) pixel from the mask.
+    # This ensures we always make a grasp by the topmost surface.
+    mask = seg_bb.mask
+    pixels_in_mask = np.where(mask)
+    return (pixels_in_mask[1][0], pixels_in_mask[0][0])
 
 
 # Maps an object ID to a function from rgbds, artifacts and camera to pixel.
@@ -63,9 +86,9 @@ OBJECT_SPECIFIC_GRASP_SELECTORS: Dict[ObjectDetectionID, Callable[
     [Dict[str,
           RGBDImageWithContext], Dict[str, Any], str], Tuple[int, int]]] = {
               # Platform-specific grasp selection.
-              AprilTagObjectDetectionID(411):
-              _get_platform_grasp_pixel,
+              AprilTagObjectDetectionID(411): _get_platform_grasp_pixel,
               # Ball-specific grasp selection.
-              LanguageObjectDetectionID(ball_prompt):
-              _get_ball_grasp_pixel
+              ball_obj: _get_ball_grasp_pixel,
+              # Cup-specific grasp selection.
+              cup_obj: _get_cup_grasp_pixel
           }

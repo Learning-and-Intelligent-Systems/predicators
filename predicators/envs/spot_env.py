@@ -1093,7 +1093,10 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     obj = Variable("?object", _movable_object_type)
     parameters = [robot, obj]
-    preconds = {LiftedAtom(_NotBlocked, [obj])}
+    preconds = {
+        LiftedAtom(_NotBlocked, [obj]),
+        LiftedAtom(_HandEmpty, [robot])
+    }
     add_effs = {LiftedAtom(_InHandView, [robot, obj])}
     del_effs = set()
     ignore_effs = {_Reachable, _InHandView, _InView}
@@ -2114,7 +2117,8 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
         detection_id_to_obj[ball_detection] = ball
 
         cup = Object("cup", _container_type)
-        cup_detection = LanguageObjectDetectionID("ashtray/large black wheel")
+        cup_detection = LanguageObjectDetectionID(
+            "yellow hoop toy/yellow donut")
         detection_id_to_obj[cup_detection] = cup
 
         for obj, pose in get_known_immovable_objects().items():

@@ -410,8 +410,9 @@ def get_grasp_pixel(rgbds: Dict[str,
         selector = OBJECT_SPECIFIC_GRASP_SELECTORS[object_id]
         return selector(rgbds, artifacts, camera_name)
 
-    return get_random_mask_pixel_from_artifacts(artifacts, object_id,
-                                                camera_name, rng)
+    pixel = get_random_mask_pixel_from_artifacts(artifacts, object_id,
+                                                 camera_name, rng)
+    return (pixel[0], pixel[1])
 
 
 def get_random_mask_pixel_from_artifacts(
@@ -440,10 +441,6 @@ def get_random_mask_pixel_from_artifacts(
         seg_bb = detections[object_id][camera_name]
     except KeyError:
         raise ValueError(f"{object_id} not detected in {camera_name}")
-
-    # Select center pixel of bounding box.
-    # x1, y1, x2, y2 = seg_bb.bounding_box
-    # pixel_tuple = int((x1 + x2) / 2), int((y1 + y2) / 2)
 
     # Select a random valid pixel from the mask.
     mask = seg_bb.mask

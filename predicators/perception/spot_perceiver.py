@@ -293,14 +293,10 @@ class SpotPerceiver(BasePerceiver):
             }
         if goal_description == "put the ball on the table":
             ball = Object("ball", _movable_object_type)
-            cup = Object("cup", _container_type)
             drafting_table = Object("drafting_table", _immovable_object_type)
             On = pred_name_to_pred["On"]
-            Inside = pred_name_to_pred["Inside"]
             return {
                 GroundAtom(On, [ball, drafting_table]),
-                GroundAtom(On, [cup, drafting_table]),
-                GroundAtom(Inside, [ball, cup])
             }
         if goal_description == "put the brush in the second shelf":
             brush = Object("brush", _movable_object_type)

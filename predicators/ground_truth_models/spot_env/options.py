@@ -211,7 +211,7 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
     del memory  # not used
 
     robot, _, _ = get_robot()
-    assert len(params) == 2
+    assert len(params) == 6
     pixel = (int(params[0]), int(params[1]))
     target_obj = objects[target_obj_idx]
 
@@ -225,6 +225,9 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
 
     # Grasp from the top-down.
     grasp_rot = None
+    if not np.all(params[2:] == 0.0):
+        grasp_rot = math_helpers.Quat(params[2], params[3], params[4],
+                                      params[5])
     # If the target object is reasonably large, don't try to stow!
     target_obj_volume = state.get(target_obj, "height") * \
         state.get(target_obj, "length") * state.get(target_obj, "width")
@@ -495,8 +498,12 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "MoveToReachObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "MoveToHandViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
     "MoveToBodyViewObject": Box(-np.inf, np.inf, (2, )),  # rel dist, dyaw
-    "PickObjectFromTop": Box(-np.inf, np.inf, (2, )),  # x, y pixel in image
-    "PickCupToDumpBall": Box(-np.inf, np.inf, (2, )),  # x, y pixel in image
+    # x, y pixel in image + quat (qw, qx, qy, qz). If quat is all 0's
+    # then grasp is unconstrained
+    "PickObjectFromTop": Box(-np.inf, np.inf, (6, )),
+    # x, y pixel in image + quat (qw, qx, qy, qz). If quat is all 0's
+    # then grasp is unconstrained
+    "PickCupToDumpBall": Box(-np.inf, np.inf, (6, )),
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInsideContainerOnTop": Box(-np.inf, np.inf,
