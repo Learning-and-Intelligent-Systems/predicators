@@ -543,16 +543,11 @@ class _SpotParameterizedOption(utils.SingletonParameterizedOption):
         policy = _OPERATOR_NAME_TO_POLICY[operator_name]
         super().__init__(operator_name, policy, types, params_space)
 
-    def __getnewargs__(self) -> Tuple:
-        """Avoid pickling issues with bosdyn functions."""
-        return (self.name, self.types)
-
-    def __getstate__(self) -> Dict:
-        """Avoid pickling issues with bosdyn functions."""
-        return {"name": self.name}
+    def __reduce__(self) -> Tuple:
+        return (_SpotParameterizedOption, (self.name, self.types))
 
 
-class SpotCubeEnvGroundTruthOptionFactory(GroundTruthOptionFactory):
+class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
     """Ground-truth options for Spot environments."""
 
     @classmethod

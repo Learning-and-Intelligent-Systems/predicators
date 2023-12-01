@@ -207,7 +207,7 @@ def _prepare_sweeping_sampler(state: State, goal: Set[GroundAtom],
     return np.array([-0.8, -0.4, home_pose.angle])
 
 
-class SpotCubeEnvGroundTruthNSRTFactory(GroundTruthNSRTFactory):
+class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
     """Ground-truth NSRTs for the Spot Env."""
 
     @classmethod
