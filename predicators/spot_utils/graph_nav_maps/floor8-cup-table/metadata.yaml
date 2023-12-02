@@ -1,8 +1,8 @@
 # Additional info associated with the map.
 ---
 spot-home-pose:
-  x: 1.4
-  y: 0.5
+  x: 1.8
+  y: 0.85
   angle: 0.0
 # The info below is used to transform april tag x, y, z detections into object
 # x, y, z. For example, if a tag is hanging off the side of a table, we would
@@ -22,29 +22,29 @@ april-tag-offsets:
 # robot will be within the convex hull of these boundary
 # points.
 allowed-regions:
-  main-room:
-    - [3.6, -1.3]
-    - [0.16, -1.3]
-    - [0.069, 1.8]
-    - [3.7, 2.3]
-  hallway:
-    - [-2.1, 1.9]
-    - [-1.8, -3.7]
-    - [-0.3, 2.1]
-    - [-0.49, -3.6]
+  main-room-rightmost-strip:
+    - [0.65, -0.37]
+    - [3.5, -0.26]
+    - [3.4, -0.98]
+    - [0.72, -0.9] 
+  main-room-main-part:
+    - [0.059, -0.29]
+    - [3.5, -0.16]
+    - [3.6, 2.7]
+    - [0.1, 2.1]
 # Known immovable objects. Assuming default rotations.
 known-immovable-objects:
   floor:
-    x: 1.4
-    y: 0.5
+    x: 1.84
+    y: 0.85
     z: -0.5
   smooth_table:
     x: 3.2
-    y: 0.5
+    y: 0.74
     z: -0.1
   drafting_table:
-    x: 2.315
-    y: 2.155
+    x: 2.5
+    y: 2.5
     z: -0.05
 # Static object features, including the shapes and sizes of known objects.
 static-object-features:
