@@ -349,10 +349,15 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
         elif "spot" in CFG.env:  # pragma: no cover
             if "Sweep" in param_option.name:
                 sampler_input_lst.extend(params)
+            elif "Pick" in param_option.name:
+                _, target_obj, _ = objects
+                object_id = state.get(target_obj, "object_id")
+                sampler_input_lst.append(object_id)
+                sampler_input_lst.extend(params)
             else:
                 base_feat_names = [
                     "x", "y", "z", "qw", "qx", "qy", "qz", "shape", "height",
-                    "width", "length"
+                    "width", "length", "object_id"
                 ]
                 for obj in objects:
                     if obj.type.name == "robot":

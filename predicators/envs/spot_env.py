@@ -271,7 +271,10 @@ class SpotRearrangementEnv(BaseEnv):
                                                    nonpercept_atoms)
 
         if action_name == "PickObjectFromTop":
-            return _dry_simulate_pick_from_top(obs, nonpercept_atoms)
+            _, target_obj, _ = action_objs
+            pixel = action_args[2]
+            return _dry_simulate_pick_from_top(obs, target_obj, pixel,
+                                               nonpercept_atoms)
 
         if action_name == "MoveToReachObject":
             robot_rel_se2_pose = action_args[1]
@@ -306,6 +309,9 @@ class SpotRearrangementEnv(BaseEnv):
             return _dry_simulate_drag_to_unblock(obs, blocker,
                                                  robot_rel_se2_pose,
                                                  nonpercept_atoms)
+
+        if action_name in ["find-objects", "stow-arm"]:
+            return _dry_simulate_noop(obs, nonpercept_atoms)
 
         raise NotImplementedError("Dry simulation not implemented for action "
                                   f"{action_name}")
@@ -711,8 +717,21 @@ class _Spot3DShape(Enum):
 _robot_type = Type(
     "robot",
     ["gripper_open_percentage", "x", "y", "z", "qw", "qx", "qy", "qz"])
+# NOTE: include a unique object identifier in the object state to allow for
+# object-specific sampler learning (e.g., pick hammer vs pick plunger).
 _base_object_type = Type("base-object", [
-    "x", "y", "z", "qw", "qx", "qy", "qz", "shape", "height", "width", "length"
+    "x",
+    "y",
+    "z",
+    "qw",
+    "qx",
+    "qy",
+    "qz",
+    "shape",
+    "height",
+    "width",
+    "length",
+    "object_id",
 ])
 _movable_object_type = Type(
     "movable",
@@ -1387,17 +1406,23 @@ def _dry_simulate_move_to_reach_obj(
 
 
 def _dry_simulate_pick_from_top(
-        last_obs: _SpotObservation,
+        last_obs: _SpotObservation, target_obj: Object, pixel: Tuple[int, int],
         nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
     robot_pose = last_obs.robot_pos
 
-    # Can't see anything in the hand because it's occluded now.
-    objects_in_hand_view: Set[Object] = set()
-
-    # Gripper is now closed.
-    gripper_open_percentage = 100.0
+    # Check if the grasp is valid.
+    target_pose = objects_in_view[target_obj]
+    if _dry_grasp_is_valid(target_obj, target_pose, pixel):
+        # Can't see anything in the hand because it's occluded now.
+        objects_in_hand_view: Set[Object] = set()
+        # Gripper is now closed.
+        gripper_open_percentage = 100.0
+    # If the grasp failed, don't update the state.
+    else:
+        objects_in_hand_view = set(last_obs.objects_in_hand_view)
+        gripper_open_percentage = last_obs.gripper_open_percentage
 
     # Finalize the next observation.
     next_obs = _SpotObservation(
@@ -1412,6 +1437,33 @@ def _dry_simulate_pick_from_top(
     )
 
     return next_obs
+
+
+def _dry_grasp_is_valid(target_obj: Object, target_pose: math_helpers.SE3Pose,
+                        pixel: Tuple[int, int]) -> bool:
+    """Helper for _dry_simulate_pick_from_top()."""
+    # For now, we're assuming that the image is already oriented consistently
+    # with respect to the object. But in the future, we might want to use the
+    # pose of the target object (and the pose of the camera) to re-orient the
+    # pixel before checking it in the grasp map.
+    del target_pose
+    # Load the top-down grasp map for this object.
+    grasp_map_filename = f"grasp_maps/{target_obj.name}-grasps.npy"
+    grasp_map_path = utils.get_env_asset_path(grasp_map_filename)
+    grasp_map = np.load(grasp_map_path)
+    is_valid = grasp_map[pixel[0], pixel[1]]
+
+    # Uncomment for debugging.
+    # from matplotlib import pyplot as plt
+    # plt.figure()
+    # plt.imshow(grasp_map)
+    # plt.plot([pixel[1]], [pixel[0]], marker="*", markersize=3, color="red")
+    # valid_str = "VALID" if is_valid else "NOT valid"
+    # plt.title(f"Grasp for {target_obj.name} is {valid_str}")
+    # plt.savefig("grasp_debug.png")
+    # import ipdb; ipdb.set_trace()
+
+    return is_valid
 
 
 def _dry_simulate_place_on_top(
@@ -1594,6 +1646,25 @@ def _dry_simulate_sweep_into_container(
         nonpercept_predicates=last_obs.nonpercept_predicates,
     )
 
+    return next_obs
+
+
+def _dry_simulate_noop(last_obs: _SpotObservation,
+                       nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+    objects_in_view = last_obs.objects_in_view.copy()
+    objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    robot_pose = last_obs.robot_pos
+    gripper_open_percentage = last_obs.gripper_open_percentage
+    next_obs = _SpotObservation(
+        images={},
+        objects_in_view=objects_in_view,
+        objects_in_hand_view=objects_in_hand_view,
+        robot=last_obs.robot,
+        gripper_open_percentage=gripper_open_percentage,
+        robot_pos=robot_pose,
+        nonpercept_atoms=nonpercept_atoms,
+        nonpercept_predicates=last_obs.nonpercept_predicates,
+    )
     return next_obs
 
 

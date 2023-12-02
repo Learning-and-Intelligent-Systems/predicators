@@ -3,7 +3,7 @@
 import logging
 import time
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional, Set
 
 import imageio.v2 as iio
 import numpy as np
@@ -45,6 +45,7 @@ class SpotPerceiver(BasePerceiver):
         self._lost_objects: Set[Object] = set()
         self._curr_env: Optional[BaseEnv] = None
         self._waiting_for_observation = True
+        self._ordered_objects: List[Object] = []  # list of all known objects
         # Keep track of objects that are contained (out of view) in another
         # object, like a bag or bucket. This is important not only for gremlins
         # but also for small changes in the container's perceived pose.
@@ -188,7 +189,12 @@ class SpotPerceiver(BasePerceiver):
                 "qz": self._robot_pos.rot.z,
             },
         }
+        # Add new objects to the list of known objects.
+        known_objs = set(self._ordered_objects)
+        for obj in sorted(set(self._known_object_poses) - known_objs):
+            self._ordered_objects.append(obj)
         for obj, pose in self._known_object_poses.items():
+            object_id = self._ordered_objects.index(obj)
             state_dict[obj] = {
                 "x": pose.x,
                 "y": pose.y,
@@ -197,6 +203,7 @@ class SpotPerceiver(BasePerceiver):
                 "qx": pose.rot.x,
                 "qy": pose.rot.y,
                 "qz": pose.rot.z,
+                "object_id": object_id,
             }
             # Add static object features.
             static_feats = self._static_object_features.get(obj.name, {})
