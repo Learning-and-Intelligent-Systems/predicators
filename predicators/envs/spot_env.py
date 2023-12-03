@@ -313,8 +313,16 @@ class SpotRearrangementEnv(BaseEnv):
             prompt = f"Please set up {train_or_test} task {task_idx}!"
             utils.prompt_user(prompt)
             assert self._lease_client is not None
-            self._lease_client.take()
-            self._current_task = self._actively_construct_env_task()
+            # Execute the action in the real environment. Automatically retry
+            # if a retryable error is encountered.
+            while True:
+                try:
+                    self._lease_client.take()
+                    self._current_task = self._actively_construct_env_task()
+                    break
+                except RetryableRpcError as e:
+                    logging.warning("WARNING: the following retryable error "
+                                    f"was encountered. Trying again.\n{e}")
         self._current_observation = self._current_task.init_obs
         self._current_task_goal_reached = False
         return self._current_task.init_obs
