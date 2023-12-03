@@ -85,7 +85,8 @@ class BaseExplorer(abc.ABC):
                 }
                 return utils.create_spot_env_action(
                     "find-objects", [], find_objects,
-                    (robot, localizer, lease_client, lost_object_ids))
+                    (state, self._rng, robot, localizer, lease_client,
+                     lost_object_ids))
             # Found the objects. Stow the arm before replanning.
             if need_stow:
                 logging.info(
