@@ -1,4 +1,4 @@
-"""Ground-truth options for PDDL environments."""
+"""Ground-truth options for Spot environments."""
 
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -9,8 +9,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.envs.spot_env import SpotRearrangementEnv, \
-    _object_to_top_down_geom, get_robot
+from predicators.envs.spot_env import SpotRearrangementEnv, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
 from predicators.spot_utils.perception.perception_structs import \
@@ -27,7 +26,8 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.skills.spot_sweep import sweep
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_LOOK_DOWN_POSE, \
-    DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, get_relative_se2_from_se3
+    DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, get_relative_se2_from_se3, \
+    object_to_top_down_geom
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, Type
 
@@ -325,7 +325,7 @@ def _place_object_on_top_policy(state: State, memory: Dict,
 
     # Special case: the robot is already on top of the surface (because it is
     # probably the floor). When this happens, just drop the object.
-    surface_geom = _object_to_top_down_geom(surface_obj, state)
+    surface_geom = object_to_top_down_geom(surface_obj, state)
     if surface_geom.contains_point(robot_pose.x, robot_pose.y):
         return utils.create_spot_env_action(name, objects, _drop_and_stow,
                                             (robot, ))
@@ -399,7 +399,7 @@ def _move_and_drop_object_inside_policy(state: State, memory: Dict,
 
     # Special case: the robot is already on top of the surface (because it is
     # probably the floor). When this happens, just drop the object.
-    surface_geom = _object_to_top_down_geom(surface_obj, state)
+    surface_geom = object_to_top_down_geom(surface_obj, state)
     if surface_geom.contains_point(robot_pose.x, robot_pose.y):
         return utils.create_spot_env_action(name, objects, _drop_and_stow,
                                             (robot, ))

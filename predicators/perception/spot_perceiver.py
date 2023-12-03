@@ -13,13 +13,13 @@ from matplotlib import pyplot as plt
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotCubeEnv, SpotRearrangementEnv, _container_type, \
-    _immovable_object_type, _movable_object_type, _object_to_top_down_geom, \
-    _PartialPerceptionState, _robot_type, _SpotObservation, \
-    in_general_view_classifier
+    SpotCubeEnv, SpotRearrangementEnv, _PartialPerceptionState, \
+    _SpotObservation, in_general_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
-from predicators.spot_utils.utils import load_spot_metadata
+from predicators.spot_utils.utils import _container_type, \
+    _immovable_object_type, _movable_object_type, _robot_type, \
+    load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, State, Task, \
     Video
@@ -351,7 +351,7 @@ class SpotPerceiver(BasePerceiver):
             # Don't plot the floor because it's enormous.
             if obj.name == "floor":
                 continue
-            geom = _object_to_top_down_geom(obj, state)
+            geom = object_to_top_down_geom(obj, state)
             geom.plot(ax,
                       label=obj.name,
                       facecolor=(0.0, 0.0, 0.0, 0.0),

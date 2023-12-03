@@ -1,8 +1,10 @@
 """Small utility functions for spot."""
 
+import functools
 import sys
+from enum import Enum
 from pathlib import Path
-from typing import Collection, Dict, Optional, Tuple
+from typing import Collection, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -15,8 +17,11 @@ from bosdyn.client.exceptions import ProxyConnectionError, TimedOutError
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.sdk import Robot
 from numpy.typing import NDArray
+from scipy.spatial import Delaunay  # pylint: disable=no-name-in-module
 
+from predicators import utils
 from predicators.settings import CFG
+from predicators.structs import Object, State, Type
 from predicators.utils import Rectangle, _Geom2D
 
 # Pose for the hand (relative to the body) that looks down in front.
@@ -28,6 +33,124 @@ DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 2))
 DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE_HIGH = math_helpers.SE3Pose(
     x=0.65, y=0.0, z=0.32, rot=math_helpers.Quat.from_pitch(np.pi / 2.5))
+
+
+# Spot-specific types.
+class _Spot3DShape(Enum):
+    """Stored as an object 'shape' feature."""
+    CUBOID = 1
+    CYLINDER = 2
+
+
+_robot_type = Type(
+    "robot",
+    ["gripper_open_percentage", "x", "y", "z", "qw", "qx", "qy", "qz"])
+# NOTE: include a unique object identifier in the object state to allow for
+# object-specific sampler learning (e.g., pick hammer vs pick plunger).
+_base_object_type = Type("base-object", [
+    "x",
+    "y",
+    "z",
+    "qw",
+    "qx",
+    "qy",
+    "qz",
+    "shape",
+    "height",
+    "width",
+    "length",
+    "object_id",
+])
+_movable_object_type = Type(
+    "movable",
+    list(_base_object_type.feature_names) +
+    ["placeable", "held", "lost", "in_hand_view", "in_view"],
+    parent=_base_object_type)
+_immovable_object_type = Type("immovable",
+                              list(_base_object_type.feature_names) +
+                              ["flat_top_surface"],
+                              parent=_base_object_type)
+_container_type = Type("container",
+                       list(_movable_object_type.feature_names),
+                       parent=_movable_object_type)
+
+
+def get_collision_geoms_for_nav(state: State) -> List[_Geom2D]:
+    """Get all relevant collision geometries for navigating."""
+    # We want to consider collisions with all objects that:
+    # (1) aren't the robot
+    # (2) aren't the floor
+    # (3) aren't being currently held.
+    collision_geoms = []
+    for obj in set(state):
+        if obj.type.name != "robot" and obj.name != "floor":
+            if obj.type == _movable_object_type:
+                if state.get(obj, "held") > 0.5:
+                    continue
+            collision_geoms.append(object_to_top_down_geom(obj, state))
+    return collision_geoms
+
+
+def object_to_top_down_geom(
+        obj: Object,
+        state: State,
+        size_buffer: float = 0.0,
+        put_on_robot_if_held: bool = True) -> utils._Geom2D:
+    """Convert object to top-down view geometry."""
+    assert obj.is_instance(_base_object_type)
+    shape_type = int(np.round(state.get(obj, "shape")))
+    if put_on_robot_if_held and \
+        obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
+        robot, = state.get_objects(_robot_type)
+        se3_pose = utils.get_se3_pose_from_state(state, robot)
+    else:
+        se3_pose = utils.get_se3_pose_from_state(state, obj)
+    angle = se3_pose.rot.to_yaw()
+    center_x = se3_pose.x
+    center_y = se3_pose.y
+    width = state.get(obj, "width") + size_buffer
+    length = state.get(obj, "length") + size_buffer
+    if shape_type == _Spot3DShape.CUBOID.value:
+        return utils.Rectangle.from_center(center_x, center_y, width, length,
+                                           angle)
+    assert shape_type == _Spot3DShape.CYLINDER.value
+    assert np.isclose(width, length)
+    radius = width / 2
+    return utils.Circle(center_x, center_y, radius)
+
+
+def object_to_side_view_geom(
+        obj: Object,
+        state: State,
+        size_buffer: float = 0.0,
+        put_on_robot_if_held: bool = True) -> utils._Geom2D:
+    """Convert object to side view geometry."""
+    assert obj.is_instance(_base_object_type)
+    # The shape doesn't matter because all shapes are rectangles from the side.
+    # If the object is held, use the robot's pose.
+    if put_on_robot_if_held and \
+        obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
+        robot, = state.get_objects(_robot_type)
+        se3_pose = utils.get_se3_pose_from_state(state, robot)
+    else:
+        se3_pose = utils.get_se3_pose_from_state(state, obj)
+    center_y = se3_pose.y
+    center_z = se3_pose.z
+    length = state.get(obj, "length") + size_buffer
+    height = state.get(obj, "height") + size_buffer
+    return utils.Rectangle.from_center(center_y, center_z, length, height, 0.0)
+
+
+@functools.lru_cache(maxsize=None)
+def get_allowed_map_regions() -> Collection[Delaunay]:
+    """Gets Delaunay regions from metadata that correspond to free space."""
+    metadata = load_spot_metadata()
+    allowed_regions = metadata.get("allowed-regions", {})
+    convex_hulls = []
+    for region_pts in allowed_regions.values():
+        dealunay_hull = Delaunay(np.array(region_pts))
+        convex_hulls.append(dealunay_hull)
+    return convex_hulls
 
 
 def get_graph_nav_dir() -> Path:
@@ -138,6 +261,68 @@ def get_relative_se2_from_se3(
     return robot_se2.inverse() * target_se2
 
 
+def valid_navigation_position(
+        robot_geom: Rectangle,
+        collision_geoms: Collection[_Geom2D],
+        allowed_regions: Collection[scipy.spatial.Delaunay],  # pylint: disable=no-member
+) -> bool:
+    """Checks whether a given robot geom is not in collision and also within
+    some allowed region."""
+    # Check for out-of-bounds. To do this, we're looking for
+    # one allowed region where all four points defining the
+    # robot will be within the region in the new pose.
+    oob = True
+    for region in allowed_regions:
+        for cx, cy in robot_geom.vertices:
+            if region.find_simplex(np.array([cx, cy])) < 0:
+                break
+        else:
+            oob = False
+            break
+    if oob:
+        return False
+    # Check for collisions.
+    collision = False
+    for collision_geom in collision_geoms:
+        if collision_geom.intersects(robot_geom):
+            collision = True
+            break
+    # Success!
+    return not collision
+
+
+def sample_random_nearby_point_to_move(
+    robot_geom: Rectangle,
+    collision_geoms: Collection[_Geom2D],
+    rng: np.random.Generator,
+    max_distance_away: float,
+    allowed_regions: Collection[scipy.spatial.Delaunay],  # pylint: disable=no-member
+    max_samples: int = 1000
+) -> Tuple[float, float, Rectangle]:
+    """Sampler for navigating to a randomly selected point within some distance
+    from the current robot's position. Useful when trying to find lost objects.
+
+    Returns a distance and an angle in radians. Also returns the next
+    robot geom for visualization and debugging convenience.
+    """
+    for _ in range(max_samples):
+        distance = rng.uniform(0.1, max_distance_away)
+        angle = rng.uniform(-np.pi, np.pi)
+        dx = np.cos(angle) * distance
+        dy = np.sin(angle) * distance
+        x = robot_geom.x + dx
+        y = robot_geom.y + dy
+        # Face towards the target.
+        rot = angle + np.pi if angle < 0 else angle - np.pi
+        cand_geom = Rectangle.from_center(x, y, robot_geom.width,
+                                          robot_geom.height, rot)
+        if valid_navigation_position(cand_geom, collision_geoms,
+                                     allowed_regions):
+            return (distance, angle, cand_geom)
+
+    raise RuntimeError(f"Sampling failed after {max_samples} attempts")
+
+
 def sample_move_offset_from_target(
     target_origin: Tuple[float, float],
     robot_geom: Rectangle,
@@ -164,28 +349,9 @@ def sample_move_offset_from_target(
         rot = angle + np.pi if angle < 0 else angle - np.pi
         cand_geom = Rectangle.from_center(x, y, robot_geom.width,
                                           robot_geom.height, rot)
-        # Check for out-of-bounds. To do this, we're looking for
-        # one allowed region where all four points defining the
-        # robot will be within the region in the new pose.
-        oob = True
-        for region in allowed_regions:
-            for cx, cy in cand_geom.vertices:
-                if region.find_simplex(np.array([cx, cy])) < 0:
-                    break
-            else:
-                oob = False
-                break
-        if oob:
-            continue
-        # Check for collisions.
-        collision = False
-        for collision_geom in collision_geoms:
-            if collision_geom.intersects(cand_geom):
-                collision = True
-                break
-        # Success!
-        if not collision:
-            return distance, angle, cand_geom
+        if valid_navigation_position(cand_geom, collision_geoms,
+                                     allowed_regions):
+            return (distance, angle, cand_geom)
 
     raise RuntimeError(f"Sampling failed after {max_samples} attempts")
 

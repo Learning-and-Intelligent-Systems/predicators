@@ -5,10 +5,9 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import Callable, ClassVar, Collection, Dict, Iterator, List, \
-    Optional, Sequence, Set, Tuple
+from typing import Callable, ClassVar, Dict, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
@@ -17,7 +16,6 @@ from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
 from bosdyn.client.util import authenticate, setup_logging
 from gym.spaces import Box
-from scipy.spatial import Delaunay  # pylint: disable=no-name-in-module
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -37,9 +35,10 @@ from predicators.spot_utils.skills.spot_navigation import go_home, \
     navigate_to_absolute_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
-from predicators.spot_utils.utils import get_graph_nav_dir, \
-    get_robot_gripper_open_percentage, get_spot_home_pose, \
-    load_spot_metadata, verify_estop
+from predicators.spot_utils.utils import _base_object_type, _container_type, \
+    _immovable_object_type, _movable_object_type, _robot_type, \
+    get_graph_nav_dir, get_robot_gripper_open_percentage, get_spot_home_pose, \
+    load_spot_metadata, object_to_top_down_geom, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, State, \
     STRIPSOperator, Type, Variable
@@ -158,18 +157,6 @@ def get_detection_id_for_object(obj: Object) -> ObjectDetectionID:
     detection_id_to_obj = env._detection_id_to_obj  # pylint: disable=protected-access
     obj_to_detection_id = {o: d for d, o in detection_id_to_obj.items()}
     return obj_to_detection_id[obj]
-
-
-@functools.lru_cache(maxsize=None)
-def get_allowed_map_regions() -> Collection[Delaunay]:
-    """Gets Delaunay regions from metadata that correspond to free space."""
-    metadata = load_spot_metadata()
-    allowed_regions = metadata.get("allowed-regions", {})
-    convex_hulls = []
-    for region_pts in allowed_regions.values():
-        dealunay_hull = Delaunay(np.array(region_pts))
-        convex_hulls.append(dealunay_hull)
-    return convex_hulls
 
 
 def get_known_immovable_objects() -> Dict[Object, math_helpers.SE3Pose]:
@@ -706,45 +693,7 @@ _REACHABLE_THRESHOLD = 1.85
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
 _CONTAINER_SWEEP_XY_BUFFER = 1.5
 
-
 ## Types
-class _Spot3DShape(Enum):
-    """Stored as an object 'shape' feature."""
-    CUBOID = 1
-    CYLINDER = 2
-
-
-_robot_type = Type(
-    "robot",
-    ["gripper_open_percentage", "x", "y", "z", "qw", "qx", "qy", "qz"])
-# NOTE: include a unique object identifier in the object state to allow for
-# object-specific sampler learning (e.g., pick hammer vs pick plunger).
-_base_object_type = Type("base-object", [
-    "x",
-    "y",
-    "z",
-    "qw",
-    "qx",
-    "qy",
-    "qz",
-    "shape",
-    "height",
-    "width",
-    "length",
-    "object_id",
-])
-_movable_object_type = Type(
-    "movable",
-    list(_base_object_type.feature_names) +
-    ["placeable", "held", "lost", "in_hand_view", "in_view"],
-    parent=_base_object_type)
-_immovable_object_type = Type("immovable",
-                              list(_base_object_type.feature_names) +
-                              ["flat_top_surface"],
-                              parent=_base_object_type)
-_container_type = Type("container",
-                       list(_movable_object_type.feature_names),
-                       parent=_movable_object_type)
 _ALL_TYPES = {
     _robot_type,
     _base_object_type,
@@ -752,55 +701,6 @@ _ALL_TYPES = {
     _immovable_object_type,
     _container_type,
 }
-
-
-## Helper functions
-def _object_to_top_down_geom(
-        obj: Object,
-        state: State,
-        size_buffer: float = 0.0,
-        put_on_robot_if_held: bool = True) -> utils._Geom2D:
-    assert obj.is_instance(_base_object_type)
-    shape_type = int(np.round(state.get(obj, "shape")))
-    if put_on_robot_if_held and \
-        obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
-        robot, = state.get_objects(_robot_type)
-        se3_pose = utils.get_se3_pose_from_state(state, robot)
-    else:
-        se3_pose = utils.get_se3_pose_from_state(state, obj)
-    angle = se3_pose.rot.to_yaw()
-    center_x = se3_pose.x
-    center_y = se3_pose.y
-    width = state.get(obj, "width") + size_buffer
-    length = state.get(obj, "length") + size_buffer
-    if shape_type == _Spot3DShape.CUBOID.value:
-        return utils.Rectangle.from_center(center_x, center_y, width, length,
-                                           angle)
-    assert shape_type == _Spot3DShape.CYLINDER.value
-    assert np.isclose(width, length)
-    radius = width / 2
-    return utils.Circle(center_x, center_y, radius)
-
-
-def _object_to_side_view_geom(
-        obj: Object,
-        state: State,
-        size_buffer: float = 0.0,
-        put_on_robot_if_held: bool = True) -> utils._Geom2D:
-    assert obj.is_instance(_base_object_type)
-    # The shape doesn't matter because all shapes are rectangles from the side.
-    # If the object is held, use the robot's pose.
-    if put_on_robot_if_held and \
-        obj.is_instance(_movable_object_type) and state.get(obj, "held") > 0.5:
-        robot, = state.get_objects(_robot_type)
-        se3_pose = utils.get_se3_pose_from_state(state, robot)
-    else:
-        se3_pose = utils.get_se3_pose_from_state(state, obj)
-    center_y = se3_pose.y
-    center_z = se3_pose.z
-    length = state.get(obj, "length") + size_buffer
-    height = state.get(obj, "height") + size_buffer
-    return utils.Rectangle.from_center(center_y, center_z, length, height, 0.0)
 
 
 ## Predicates
@@ -839,7 +739,7 @@ def _object_in_xy_classifier(state: State,
     # Check that the center of the object is contained within the surface in
     # the xy plane. Add a size buffer to the surface to compensate for small
     # errors in perception.
-    surface_geom = _object_to_top_down_geom(obj2, state, size_buffer=buffer)
+    surface_geom = object_to_top_down_geom(obj2, state, size_buffer=buffer)
     center_x = state.get(obj1, "x")
     center_y = state.get(obj1, "y")
     ret_val = surface_geom.contains_point(center_x, center_y)
@@ -1004,9 +904,9 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
     # want to consider the blocker to be unblocked until it's actually moved
     # out of the way and released by the robot. Otherwise the robot might just
     # pick something up and put it back down, thinking it's unblocked.
-    blocker_geom = _object_to_top_down_geom(blocker_obj,
-                                            state,
-                                            put_on_robot_if_held=False)
+    blocker_geom = object_to_top_down_geom(blocker_obj,
+                                           state,
+                                           put_on_robot_if_held=False)
 
     return blocker_geom.intersects(blocked_robot_line)
 
