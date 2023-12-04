@@ -277,7 +277,7 @@ def _generate_interaction_results(
             env,
             "train",
             request.train_task_idx,
-            max_num_steps=CFG.max_num_steps_interaction_request,
+            max_num_steps=(CFG.max_num_steps_interaction_request + 1),
             terminate_on_goal_reached=False,
             exceptions_to_break_on={
                 utils.EnvironmentFailure,

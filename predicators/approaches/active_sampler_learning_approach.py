@@ -127,6 +127,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
             save_dict = pkl.load(f)
+        self._dataset = save_dict["dataset"]
         self._sampler_data = save_dict["sampler_data"]
         self._ground_op_hist = save_dict["ground_op_hist"]
         self._competence_models = save_dict["competence_models"]
@@ -154,12 +155,31 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Advance the competence models.
         for competence_model in self._competence_models.values():
             competence_model.advance_cycle()
+        # Sanity check that the ground op histories and sampler data are sync.
+        op_to_num_ground_op_hist: Dict[str, int] = {
+            n.name: 0
+            for n in self._sampler_data
+        }
+        for ground_op, examples in self._ground_op_hist.items():
+            num = len(examples)
+            name = ground_op.parent.name
+            assert name in op_to_num_ground_op_hist
+            op_to_num_ground_op_hist[name] += num
+        for op, op_sampler_data in self._sampler_data.items():
+            # The only case where there should be more sampler data than ground
+            # op hist is if we started out with a nontrivial dataset. That
+            # dataset is not included in the ground op hist.
+            num_ground_op = op_to_num_ground_op_hist[op.name]
+            num_sampler = len(op_sampler_data)
+            assert num_ground_op == num_sampler or \
+                (num_sampler > num_ground_op and CFG.max_initial_demos > 0)
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
             pkl.dump(
                 {
+                    "dataset": self._dataset,
                     "sampler_data": self._sampler_data,
                     "ground_op_hist": self._ground_op_hist,
                     "competence_models": self._competence_models,
