@@ -102,6 +102,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         b = CFG.active_sampler_learning_explore_length_base
         max_steps = b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
+        # Pursue the task goal during exploration periodically.
+        n = CFG.active_sampler_learning_explore_pursue_goal_interval
+        pursue_task_goal_first = (self._online_learning_cycle % n == 0)
         explorer = create_explorer(
             CFG.explorer,
             preds,
@@ -115,7 +118,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             competence_models=self._competence_models,
             max_steps_before_termination=max_steps,
             nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler,
-            seen_train_task_idxs=self._seen_train_task_idxs)
+            seen_train_task_idxs=self._seen_train_task_idxs,
+            pursue_task_goal_first=pursue_task_goal_first)
         return explorer
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
