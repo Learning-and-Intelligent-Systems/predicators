@@ -48,7 +48,8 @@ def test_active_sampler_explorer():
         competence_models=competence_models,
         max_steps_before_termination=2,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     task = train_tasks[0]
@@ -80,7 +81,8 @@ def test_active_sampler_explorer():
         competence_models={},
         max_steps_before_termination=2,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     task_idx = 0
     policy, _ = explorer.get_exploration_strategy(task_idx, 500)
     act = policy(state)
@@ -109,7 +111,8 @@ def test_active_sampler_explorer():
         competence_models={},
         max_steps_before_termination=2,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     task = train_tasks[0]
@@ -146,7 +149,8 @@ def test_active_sampler_explorer():
         competence_models=competence_models,
         max_steps_before_termination=2,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
@@ -189,7 +193,8 @@ def test_active_sampler_explorer():
         ground_op_hist=ground_op_hist,
         competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     task_idx = 0
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     task = train_tasks[0]
@@ -226,7 +231,8 @@ def test_active_sampler_explorer():
         ground_op_hist=ground_op_hist,
         competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     for _ in range(25):
@@ -265,7 +271,8 @@ def test_active_sampler_explorer():
         ground_op_hist=ground_op_hist,
         competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     for _ in range(5):
@@ -296,7 +303,8 @@ def test_active_sampler_explorer():
         ground_op_hist=ground_op_hist,
         competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     for _ in range(25):
@@ -335,7 +343,8 @@ def test_active_sampler_explorer():
         ground_op_hist=ground_op_hist,
         competence_models=competence_models,
         nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     with pytest.raises(NotImplementedError) as e:
@@ -379,7 +388,8 @@ def test_active_sampler_explorer():
         ground_op_hist=ground_op_hist,
         competence_models=competence_models,
         nsrt_to_explorer_sampler=new_nsrt_to_greedy_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     for _ in range(100):
@@ -423,7 +433,8 @@ def test_active_sampler_explorer():
         ground_op_hist=ground_op_hist,
         competence_models=competence_models,
         nsrt_to_explorer_sampler=new_nsrt_to_greedy_explorer_sampler,
-        seen_train_task_idxs=seen_train_task_idxs)
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
     policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
     state = task.init.copy()
     with pytest.raises(NotImplementedError) as e:
