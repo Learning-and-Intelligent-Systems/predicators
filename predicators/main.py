@@ -184,12 +184,25 @@ def _run_pipeline(env: BaseEnv,
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:
                 continue
-            # If i == skip_until_cycle, load and evaluate only. Otherwise, do
-            # online interaction first, learn, and then evaluate.
-            if i == CFG.skip_until_cycle:
-                # Load approach. Evaluation below.
-                cogman.load(online_learning_cycle=i)
+            # There are two cases when we want to load the approach:
+            # 1) skip_until_cycle > -1 and i == skip_until_cycle;
+            # 2) skip_until_cycle == -1.
+            # In other words, if we are skipping until some cycle, the idea is
+            # that we want to load from the last time that we saved and then
+            # restart everything (learning and online interaction) from there.
+            # But if we are instead just loading, the idea is that we want to
+            # forgo learning altogether and just use the saved approaches.
+            load_approach_now = CFG.load_approach and (
+                (CFG.skip_until_cycle > -1 and i == CFG.skip_until_cycle) or
+                (CFG.skip_until_cycle == -1)
+            )
+            if load_approach_now:
+                # Load approach from the last cycle. Evaluation below.
+                last_cycle = i - 1 if i > 0 else None
+                cogman.load(online_learning_cycle=last_cycle)
                 learning_time += 0.0  # ignore loading time
+            # If we just loaded the approach while skipping to a cycle, don't
+            # run online intearction; evaluate only on this cycle.
             if i > CFG.skip_until_cycle:
                 # Online interaction.
                 logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
