@@ -62,7 +62,7 @@ class _MockApproach(BaseApproach):
         return [request1, request2, request3]
 
     def learn_from_interaction_results(self, results):
-        max_steps = CFG.max_num_steps_interaction_request
+        max_steps = CFG.max_num_steps_interaction_request + 1
         assert len(results) == 3
         result1, result2, result3 = results
         assert isinstance(result1, InteractionResult)
