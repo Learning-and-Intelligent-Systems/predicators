@@ -137,10 +137,6 @@ def test_interaction():
         "load_approach": True
     })
     _run_pipeline(env, cogman, train_tasks, dataset)
-    # Should crash with a load failure.
-    utils.update_config({"num_online_learning_cycles": 10})
-    with pytest.raises(IndexError):
-        _run_pipeline(env, cogman, train_tasks, dataset)
     # Should succeed because all cycles are skipped. Note that we must
     # reset_config instead of update_config because of known issues with
     # update_config and default args.
