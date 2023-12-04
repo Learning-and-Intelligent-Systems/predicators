@@ -44,7 +44,7 @@ known-immovable-objects:
     z: -0.1
   drafting_table:
     x: 2.5
-    y: 2.5
+    y: 2.65
     z: -0.05
 # Static object features, including the shapes and sizes of known objects.
 static-object-features:

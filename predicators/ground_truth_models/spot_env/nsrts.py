@@ -16,7 +16,7 @@ from predicators.spot_utils.perception.object_detection import \
 from predicators.spot_utils.perception.spot_cameras import \
     get_last_captured_images
 from predicators.spot_utils.utils import get_allowed_map_regions, \
-    get_collision_geoms_for_nav, get_spot_home_pose, \
+    get_collision_geoms_for_nav, get_spot_home_pose, object_to_top_down_geom, \
     sample_move_offset_from_target, spot_pose_to_geom2d
 from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
     ParameterizedOption, Predicate, State, Type
@@ -82,7 +82,7 @@ def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
     del goal
 
     # NOTE: closer than move_to_view. Important for placing.
-    min_dist = 0.0
+    min_dist = 0.1
     max_dist = 0.8
 
     robot_obj = objs[0]
@@ -132,18 +132,20 @@ def _pick_object_from_top_sampler(state: State, goal: Set[GroundAtom],
 def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
-    # Parameters are relative dx, dy, dz (to surface objects center).
-    del goal, rng, state  # randomization coming soon
-    dx = 0.025
-    dz = 0.05
-
+    # Parameters are relative dx, dy, dz (to surface object's center)
+    # in the WORLD FRAME.
+    del goal
+    surf_to_place_on = objs[2]
+    surf_geom = object_to_top_down_geom(surf_to_place_on, state)
+    rand_x, rand_y = surf_geom.sample_random_point(rng)
+    dx = rand_x - state.get(surf_to_place_on, "x")
+    dy = rand_y - state.get(surf_to_place_on, "y")
+    dz = 0.15
     # If we're placing the cup, we want to place it further away from
     # the robot so it's solidly on the table in front of it.
     if len(objs) == 3 and objs[1].name == "cup":
-        dx = 0.23
         dz = 0.0
-
-    return np.array([dx, 0.0, dz])
+    return np.array([dx, dy, dz])
 
 
 def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],

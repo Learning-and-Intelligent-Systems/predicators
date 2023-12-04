@@ -74,7 +74,7 @@ def _place_at_relative_position_and_stow(
     # then stowing/moving the hand immediately after might cause
     # us to knock the object off the table.
     slightly_back_and_up_pose = math_helpers.SE3Pose(
-        x=rel_pose.x - 0.15,
+        x=rel_pose.x - 0.20,
         y=rel_pose.y,
         z=rel_pose.z + 0.1,
         rot=math_helpers.Quat.from_pitch(np.pi / 3))
@@ -313,7 +313,7 @@ def _place_object_on_top_policy(state: State, memory: Dict,
     robot_obj_idx = 0
     surface_obj_idx = 2
 
-    robot, _, _ = get_robot()
+    robot, localizer, _ = get_robot()
 
     dx, dy, dz = params
 
@@ -329,6 +329,14 @@ def _place_object_on_top_policy(state: State, memory: Dict,
     if surface_geom.contains_point(robot_pose.x, robot_pose.y):
         return utils.create_spot_env_action(name, objects, _drop_and_stow,
                                             (robot, ))
+
+    # If we're running on the actual robot, we want to be very precise
+    # about the robot's current pose when computing the relative
+    # placement position.
+    if not CFG.spot_run_dry:
+        assert localizer is not None
+        localizer.localize()
+        robot_pose = localizer.get_last_robot_pose()
 
     # The dz parameter is with respect to the top of the container.
     surface_half_height = state.get(surface_obj, "height") / 2
