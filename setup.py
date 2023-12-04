@@ -8,7 +8,7 @@ setup(
     version="0.1.0",
     packages=find_packages(include=["predicators", "predicators.*"]),
     install_requires=[
-        "numpy>=1.22.3",
+        "numpy==1.23.5",
         "pytest",
         "mypy",
         "gym==0.26.2",

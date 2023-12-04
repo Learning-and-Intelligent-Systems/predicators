@@ -48,7 +48,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                  competence_models: Dict[_GroundSTRIPSOperator,
                                          SkillCompetenceModel],
                  nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler],
-                 seen_train_task_idxs: Set[int]) -> None:
+                 seen_train_task_idxs: Set[int],
+                 pursue_task_goal_first: bool) -> None:
 
         # The current implementation assumes that NSRTs are not changing.
         assert CFG.strips_learner == "oracle"
@@ -65,6 +66,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._last_init_option_state: Optional[State] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
+        self._pursue_task_goal_first = pursue_task_goal_first
         # If the plan is None, that means none can be found, e.g., due to
         # timeouts or dead-ends.
         self._task_plan_cache: Dict[
@@ -104,7 +106,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                                   timeout: int) -> ExplorationStrategy:
 
         assigned_task = self._train_tasks[train_task_idx]
-        assigned_task_finished = False
+        assigned_task_finished = not self._pursue_task_goal_first
         assigned_task_horizon = CFG.horizon
         current_policy: Optional[Callable[[State], _Option]] = None
         next_practice_nsrt: Optional[_GroundNSRT] = None

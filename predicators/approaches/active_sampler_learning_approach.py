@@ -102,6 +102,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         b = CFG.active_sampler_learning_explore_length_base
         max_steps = b**(1 + self._online_learning_cycle)
         preds = self._get_current_predicates()
+        # Pursue the task goal during exploration periodically.
+        n = CFG.active_sampler_learning_explore_pursue_goal_interval
+        pursue_task_goal_first = (self._online_learning_cycle % n == 0)
         explorer = create_explorer(
             CFG.explorer,
             preds,
@@ -115,7 +118,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             competence_models=self._competence_models,
             max_steps_before_termination=max_steps,
             nsrt_to_explorer_sampler=self._nsrt_to_explorer_sampler,
-            seen_train_task_idxs=self._seen_train_task_idxs)
+            seen_train_task_idxs=self._seen_train_task_idxs,
+            pursue_task_goal_first=pursue_task_goal_first)
         return explorer
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
@@ -123,6 +127,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
             save_dict = pkl.load(f)
+        self._dataset = save_dict["dataset"]
         self._sampler_data = save_dict["sampler_data"]
         self._ground_op_hist = save_dict["ground_op_hist"]
         self._competence_models = save_dict["competence_models"]
@@ -130,6 +135,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             "last_seen_segment_traj_idx"]
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
         self._seen_train_task_idxs = save_dict["seen_train_task_idxs"]
+        self._train_tasks = save_dict["train_tasks"]
         self._online_learning_cycle = CFG.skip_until_cycle + 1
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
@@ -149,6 +155,24 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Advance the competence models.
         for competence_model in self._competence_models.values():
             competence_model.advance_cycle()
+        # Sanity check that the ground op histories and sampler data are sync.
+        op_to_num_ground_op_hist: Dict[str, int] = {
+            n.name: 0
+            for n in self._sampler_data
+        }
+        for ground_op, examples in self._ground_op_hist.items():
+            num = len(examples)
+            name = ground_op.parent.name
+            assert name in op_to_num_ground_op_hist
+            op_to_num_ground_op_hist[name] += num
+        for op, op_sampler_data in self._sampler_data.items():
+            # The only case where there should be more sampler data than ground
+            # op hist is if we started out with a nontrivial dataset. That
+            # dataset is not included in the ground op hist.
+            num_ground_op = op_to_num_ground_op_hist[op.name]
+            num_sampler = len(op_sampler_data)
+            assert num_ground_op == num_sampler or \
+                (num_sampler > num_ground_op and CFG.max_initial_demos > 0)
         # Save the things we need other than the NSRTs, which were already
         # saved in the above call to self._learn_nsrts()
         save_path = utils.get_approach_save_path_str()
@@ -162,7 +186,14 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                     self._last_seen_segment_traj_idx,
                     "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
                     "seen_train_task_idxs": self._seen_train_task_idxs,
-                }, f)
+                    "dataset": self._dataset,
+                    # We need to save train tasks because they get modified
+                    # in the explorer. The original sin is that tasks are
+                    # generated before reset with default init states, which
+                    # are subsequently overwritten after reset is called.
+                    "train_tasks": self._train_tasks,
+                },
+                f)
 
     def _update_sampler_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1

@@ -555,6 +555,7 @@ class GlobalSettings:
     active_sampler_learning_num_samples = 100
     active_sampler_learning_score_gamma = 0.5
     active_sampler_learning_fitted_q_iters = 5
+    active_sampler_learning_explore_pursue_goal_interval = 5
     # shared with maple q function learning
     active_sampler_learning_n_iter_no_change = 5000
     active_sampler_learning_num_lookahead_samples = 5
