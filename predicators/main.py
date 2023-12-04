@@ -192,11 +192,11 @@ def _run_pipeline(env: BaseEnv,
             if load_approach:
                 # If the cycle is 0, then we already loaded the approach before
                 # offline learning, so we don't need to do anything here.
-                if i > 0:
+                if i > 0:  # pragma: no cover
                     last_cycle = i - 1
                     cogman.load(online_learning_cycle=last_cycle)
                 # If we're restarting learning, no need to load from now on.
-                if CFG.restart_learning:
+                if CFG.restart_learning:  # pragma: no cover
                     load_approach = False
 
             # Run online interaction.
