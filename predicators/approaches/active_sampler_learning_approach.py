@@ -130,6 +130,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
             "last_seen_segment_traj_idx"]
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
         self._seen_train_task_idxs = save_dict["seen_train_task_idxs"]
+        self._train_tasks = save_dict["train_tasks"]
         self._online_learning_cycle = CFG.skip_until_cycle + 1
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
@@ -162,7 +163,13 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                     self._last_seen_segment_traj_idx,
                     "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
                     "seen_train_task_idxs": self._seen_train_task_idxs,
-                }, f)
+                    # We need to save train tasks because they get modified
+                    # in the explorer. The original sin is that tasks are
+                    # generated before reset with default init states, which
+                    # are subsequently overwritten after reset is called.
+                    "train_tasks": self._train_tasks,
+                },
+                f)
 
     def _update_sampler_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1
