@@ -168,7 +168,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                     # generated before reset with default init states, which
                     # are subsequently overwritten after reset is called.
                     "train_tasks": self._train_tasks,
-                }, f)
+                },
+                f)
 
     def _update_sampler_data(self) -> None:
         start_idx = self._last_seen_segment_traj_idx + 1

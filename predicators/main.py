@@ -180,38 +180,38 @@ def _run_pipeline(env: BaseEnv,
             teacher = Teacher(train_tasks)
         else:
             teacher = None
-        already_loaded_approach = False
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             if i < CFG.skip_until_cycle:
                 continue
-            logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
-            logging.info("Getting interaction requests...")
-            if num_online_transitions >= CFG.online_learning_max_transitions:
-                logging.info("Reached online_learning_max_transitions, "
-                             "terminating")
-                break
-            interaction_requests = cogman.get_interaction_requests()
-            if not interaction_requests:
-                logging.info("Did not receive any interaction requests, "
-                             "terminating")
-                break  # agent doesn't want to learn anything more; terminate
-            interaction_results, query_cost = _generate_interaction_results(
-                cogman, env, teacher, interaction_requests, i)
-            num_online_transitions += sum(
-                len(result.actions) for result in interaction_results)
-            total_query_cost += query_cost
-            logging.info(f"Query cost incurred this cycle: {query_cost}")
-            # We want to load iff:
-            # - CFG.restart_learning is False
-            # - CFG.restart_learning is True, but we haven't yet loaded the
-            #   approach
-            if CFG.load_approach and not (CFG.restart_learning
-                                          and already_loaded_approach):
+            # If i == skip_until_cycle, load and evaluate only. Otherwise, do
+            # online interaction first, learn, and then evaluate.
+            if i == CFG.skip_until_cycle:
+                # Load approach. Evaluation below.
                 cogman.load(online_learning_cycle=i)
                 learning_time += 0.0  # ignore loading time
-                already_loaded_approach = True
-            else:
+            if i > CFG.skip_until_cycle:
+                # Online interaction.
+                logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
+                logging.info("Getting interaction requests...")
+                max_transitions = CFG.online_learning_max_transitions
+                if num_online_transitions >= max_transitions:
+                    logging.info("Reached online_learning_max_transitions, "
+                                 "terminating")
+                    break
+                interaction_requests = cogman.get_interaction_requests()
+                if not interaction_requests:
+                    logging.info("Did not receive any interaction requests, "
+                                 "terminating")
+                    break  # agent doesn't want to learn more; terminate
+                interaction_results, query_cost = \
+                    _generate_interaction_results(cogman, env, teacher,
+                                                  interaction_requests, i)
+                num_online_transitions += sum(
+                    len(result.actions) for result in interaction_results)
+                total_query_cost += query_cost
+                logging.info(f"Query cost incurred this cycle: {query_cost}")
+                # Learn from interaction results.
                 learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
                 cogman.learn_from_interaction_results(interaction_results)
