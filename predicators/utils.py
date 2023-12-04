@@ -343,6 +343,12 @@ class _Geom2D(abc.ABC):
         """Checks if a point is contained in the shape."""
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        """Samples a random point inside the 2D shape."""
+        raise NotImplementedError("Override me!")
+
     def intersects(self, other: _Geom2D) -> bool:
         """Checks if this shape intersects with another one."""
         return geom2ds_intersect(self, other)
@@ -374,6 +380,15 @@ class LineSegment(_Geom2D):
 
         return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
 
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        line_slope = (self.y2 - self.y1) / (self.x2 - self.x1)
+        y_intercept = self.y2 - (line_slope * self.x2)
+        random_x_point = rng.uniform(self.x1, self.x2)
+        random_y_point_on_line = line_slope * random_x_point + y_intercept
+        assert self.contains_point(random_x_point, random_y_point_on_line)
+        return (random_x_point, random_y_point_on_line)
+
 
 @dataclass(frozen=True)
 class Circle(_Geom2D):
@@ -394,6 +409,15 @@ class Circle(_Geom2D):
         dist_between_centers = np.sqrt((other_circle.x - self.x)**2 +
                                        (other_circle.y - self.y)**2)
         return (dist_between_centers + other_circle.radius) <= self.radius
+
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        rand_mag = rng.uniform(0, self.radius)
+        rand_theta = rng.uniform(0, 2 * np.pi)
+        x_point = self.x + rand_mag * np.cos(rand_theta)
+        y_point = self.y + rand_mag * np.sin(rand_theta)
+        assert self.contains_point(x_point, y_point)
+        return (x_point, y_point)
 
 
 @dataclass(frozen=True)
@@ -433,6 +457,19 @@ class Triangle(_Geom2D):
         has_pos = sign1 or sign2 or sign3
         return not has_neg or not has_pos
 
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        a = np.array([self.x2 - self.x1, self.y2 - self.y1])
+        b = np.array([self.x3 - self.x1, self.y3 - self.y1])
+        u1 = rng.uniform(0, 1)
+        u2 = rng.uniform(0, 1)
+        if u1 + u2 > 1.0:
+            u1 = 1 - u1
+            u2 = 1 - u2
+        point_in_triangle = (u1 * a + u2 * b) + np.array([self.x1, self.y1])
+        assert self.contains_point(point_in_triangle[0], point_in_triangle[1])
+        return (point_in_triangle[0], point_in_triangle[1])
+
 
 @dataclass(frozen=True)
 class Rectangle(_Geom2D):
@@ -451,6 +488,19 @@ class Rectangle(_Geom2D):
 
     def __post_init__(self) -> None:
         assert -np.pi <= self.theta <= np.pi, "Expecting angle in [-pi, pi]."
+
+    @staticmethod
+    def from_center(center_x: float, center_y: float, width: float,
+                    height: float, rotation_about_center: float) -> Rectangle:
+        """Create a rectangle given an (x, y) for the center, with theta
+        rotating about that center point."""
+        x = center_x - width / 2
+        y = center_y - height / 2
+        norm_rect = Rectangle(x, y, width, height, 0.0)
+        assert np.isclose(norm_rect.center[0], center_x)
+        assert np.isclose(norm_rect.center[1], center_y)
+        return norm_rect.rotate_about_point(center_x, center_y,
+                                            rotation_about_center)
 
     @functools.cached_property
     def vertices(self) -> List[Tuple[float, float]]:
@@ -506,6 +556,19 @@ class Rectangle(_Geom2D):
         rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
         return 0 <= rx <= self.width and \
                0 <= ry <= self.height
+
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        rotate_matrix = np.array([[np.cos(self.theta),
+                                   np.sin(self.theta)],
+                                  [-np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        rand_width = rng.uniform(0, self.width)
+        rand_height = rng.uniform(0, self.height)
+        rx, ry = np.array([self.x + rand_width, self.y + rand_height
+                           ]) @ rotate_matrix.T
+        assert self.contains_point(rx, ry)
+        return (rx, ry)
 
     def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
         """Create a new rectangle that is this rectangle, but rotated CCW by
