@@ -1387,6 +1387,51 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for p in ttt:
                 print(p)
 
+            def print_demo(demo):
+                # Note, demo is a list of strings.
+                # First determine the longest predicate, to help decide the
+                # column width.
+                max_length = max(len(p.name) for p in predicates_to_keep) + 5
+
+                with open("temp_demo_print.txt", 'w') as file:
+
+                    # Print the preconditions of each operator.
+                    preconds = []
+                    for n in demo:
+                        ps = sorted([p.name for p in ddd[n][0]])
+                        ps = [n, '----', 'preconditions', '===='] + ps
+                        preconds.append(ps)
+                    max_lst_len = max(len(lst) for lst in preconds)
+                    for i in range(max_lst_len):
+                        s = " ".join(f"{lst[i]:<{max_length}}" if i < len(lst) else " " * max_length for lst in preconds)
+                        file.write(s + '\n')
+                    file.write('\n')
+                    add_effs = []
+
+                    for n in demo:
+                        ads = sorted([p.name for p in ddd[n][1]])
+                        ads = ['add effects', '===='] + ads
+                        add_effs.append(ads)
+                    max_lst_len = max(len(lst) for lst in add_effs)
+                    for i in range(max_lst_len):
+                        s = " ".join(f"{lst[i]:<{max_length}}" if i < len(lst) else " " * max_length for lst in add_effs)
+                        file.write(s + '\n')
+                    file.write('\n')
+                    del_effs = []
+
+                    for n in demo:
+                        dels = sorted([p.name for p in ddd[n][2]])
+                        dels = ['delete effects', '===='] + dels
+                        del_effs.append(dels)
+                    max_lst_len = max(len(lst) for lst in del_effs)
+                    for i in range(max_lst_len):
+                        s = " ".join(f"{lst[i]:<{max_length}}" if i < len(lst) else " " * max_length for lst in del_effs)
+                        file.write(s + '\n')
+
+            print_demo(temp[-2])
+
+            import pdb; pdb.set_trace()
+
             # hard-coded test
             op1_pre = [
                 "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
@@ -1491,7 +1536,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # Fails if traj is: ['Op0-PickPlace', 'Op1-PickPlace'] => don't learn delete effects for Op1
                 # or if it is ['Op1-PickPlace']
                 # so still need to figure out some way to combine what we learn across multiple demonstrations
-                
+
                 traj = []
                 for seg in segmented_traj:
                     traj.append(seg_to_op(seg, final_clusters))
