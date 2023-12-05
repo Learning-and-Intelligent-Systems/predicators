@@ -66,7 +66,8 @@ class LegacySkillCompetenceModel(SkillCompetenceModel):
         # Highly naive: predict a constant improvement in competence.
         del num_additional_data  # unused
         current_competence = self.get_current_competence()
-        return min(1.0, current_competence + 1e-2)
+        # Use a highly optimistic initial competence until the second cycle.
+        return min(1.0, current_competence + 0.5)
 
 
 class OptimisticSkillCompetenceModel(SkillCompetenceModel):
