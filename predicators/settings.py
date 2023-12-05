@@ -576,6 +576,7 @@ class GlobalSettings:
     skill_competence_model_optimistic_window_size = 5
     skill_competence_model_optimistic_recency_size = 5
     skill_competence_default_alpha_beta = (10.0, 1.0)
+    skill_competence_initial_prediction_bonus = 0.5
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -608,6 +609,7 @@ class GlobalSettings:
     greedy_lookahead_max_num_resamples = 10
 
     # active sampler explorer parameters
+    active_sampler_explore_use_ucb_bonus = True
     active_sampler_explore_bonus = 1e-1
     active_sampler_explore_task_strategy = "planning_progress"
     active_sampler_explorer_replan_frequency = 100

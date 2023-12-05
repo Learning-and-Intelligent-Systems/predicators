@@ -408,11 +408,13 @@ class ActiveSamplerExplorer(BaseExplorer):
             num_tries = len(history)
             success_rate = sum(history) / num_tries
             total_trials = sum(len(h) for h in self._ground_op_hist.values())
-            # Try less successful operators more often.
-            # UCB-like bonus.
-            c = CFG.active_sampler_explore_bonus
-            bonus = c * np.sqrt(np.log(total_trials) / num_tries)
-            score = (1.0 - success_rate) + bonus
+            score = (1.0 - success_rate)
+            if CFG.active_sampler_explore_use_ucb_bonus:
+                # Try less successful operators more often.
+                # UCB-like bonus.
+                c = CFG.active_sampler_explore_bonus
+                bonus = c * np.sqrt(np.log(total_trials) / num_tries)
+                score += bonus
         elif CFG.active_sampler_explore_task_strategy == "random":
             # Random scores baseline.
             score = self._rng.uniform()

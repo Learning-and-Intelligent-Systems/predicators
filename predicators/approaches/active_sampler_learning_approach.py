@@ -136,7 +136,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
         self._seen_train_task_idxs = save_dict["seen_train_task_idxs"]
         self._train_tasks = save_dict["train_tasks"]
-        self._online_learning_cycle = save_dict["online_learning_cycle"]
+        self._online_learning_cycle = 0 if online_learning_cycle is None \
+            else online_learning_cycle + 1
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
@@ -179,6 +180,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
             pkl.dump(
                 {
+                    "dataset": self._dataset,
                     "sampler_data": self._sampler_data,
                     "ground_op_hist": self._ground_op_hist,
                     "competence_models": self._competence_models,
@@ -186,13 +188,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                     self._last_seen_segment_traj_idx,
                     "nsrt_to_explorer_sampler": self._nsrt_to_explorer_sampler,
                     "seen_train_task_idxs": self._seen_train_task_idxs,
-                    "dataset": self._dataset,
                     # We need to save train tasks because they get modified
                     # in the explorer. The original sin is that tasks are
                     # generated before reset with default init states, which
                     # are subsequently overwritten after reset is called.
                     "train_tasks": self._train_tasks,
-                    "online_learning_cycle": self._online_learning_cycle,
                 },
                 f)
 
