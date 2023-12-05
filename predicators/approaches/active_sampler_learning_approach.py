@@ -104,7 +104,11 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         preds = self._get_current_predicates()
         # Pursue the task goal during exploration periodically.
         n = CFG.active_sampler_learning_explore_pursue_goal_interval
-        pursue_task_goal_first = (self._online_learning_cycle % n == 0)
+        pursue_task_goal_first = False
+        if self._online_learning_cycle < \
+            CFG.active_sampler_learning_init_cycles_to_pursue_goal or (
+                self._online_learning_cycle % n == 0):
+            pursue_task_goal_first = True
         explorer = create_explorer(
             CFG.explorer,
             preds,
