@@ -355,6 +355,15 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 sampler_input_lst.append(object_id)
                 sampler_input_lst.extend(params)
             elif "Place" in param_option.name and "OnTop" in param_option.name:
+                surface_obj = objects[2]
+                sampler_input_lst.extend([state.get(surface_obj, "object_id")])
+                if surface_obj.type.name == "drafting_table":
+                    sampler_input_lst.extend([
+                        state.get(surface_obj, "sticky-region-x"),
+                        state.get(surface_obj, "sticky-region-y")
+                    ])
+                else:
+                    sampler_input_lst.extend([0.0, 0.0])
                 # Samples are relative dx, dy, dz, and that's all that
                 # should be necessary for the classifier.
                 sampler_input_lst.extend(params)

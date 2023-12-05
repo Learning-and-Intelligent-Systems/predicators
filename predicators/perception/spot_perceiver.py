@@ -13,8 +13,8 @@ from matplotlib import pyplot as plt
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
 from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
-    SpotCubeEnv, SpotRearrangementEnv, _PartialPerceptionState, \
-    _SpotObservation, in_general_view_classifier
+    SpotCubeEnv, SpotRearrangementEnv, _drafting_table_type, \
+    _PartialPerceptionState, _SpotObservation, in_general_view_classifier
 from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.utils import _container_type, \
@@ -300,7 +300,7 @@ class SpotPerceiver(BasePerceiver):
             }
         if goal_description == "put the ball on the table":
             ball = Object("ball", _movable_object_type)
-            drafting_table = Object("drafting_table", _immovable_object_type)
+            drafting_table = Object("drafting_table", _drafting_table_type)
             On = pred_name_to_pred["On"]
             return {
                 GroundAtom(On, [ball, drafting_table]),

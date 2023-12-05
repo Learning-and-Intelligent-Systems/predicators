@@ -2062,6 +2062,12 @@ class SpotBrushShelfEnv(SpotRearrangementEnv):
 #                Real-World Ball and Cup Sticky Table Env                     #
 ###############################################################################
 
+# Specific type for sticky table.
+_drafting_table_type = Type(
+    "drafting_table",
+    list(_immovable_object_type.feature_names) +
+    ["sticky-region-x", "sticky-region-y"], _immovable_object_type)
+
 
 class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
     """A real-world version of the ball and cup sticky table environment."""
@@ -2075,6 +2081,10 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
             "DropObjectInsideContainerOnTop", "PickCupToDumpBall"
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
+
+    @property
+    def types(self) -> Set[Type]:
+        return set(_ALL_TYPES) | set([_drafting_table_type])
 
     @classmethod
     def get_name(cls) -> str:
@@ -2113,7 +2123,12 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
 
         for obj, pose in get_known_immovable_objects().items():
             detection_id = KnownStaticObjectDetectionID(obj.name, pose)
-            detection_id_to_obj[detection_id] = obj
+            if obj.name == "drafting_table":
+                drafting_table_obj = Object("drafting_table",
+                                            _drafting_table_type)
+                detection_id_to_obj[detection_id] = drafting_table_obj
+            else:
+                detection_id_to_obj[detection_id] = obj
 
         return detection_id_to_obj
 

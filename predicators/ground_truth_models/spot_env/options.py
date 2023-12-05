@@ -345,7 +345,6 @@ def _place_object_on_top_policy(state: State, memory: Dict,
                                       y=surface_rel_pose.y + dy,
                                       z=surface_rel_pose.z + dz +
                                       surface_half_height)
-
     return utils.create_spot_env_action(name, objects,
                                         _place_at_relative_position_and_stow,
                                         (robot, place_rel_pos))
