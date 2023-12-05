@@ -563,6 +563,7 @@ class GlobalSettings:
     skill_competence_model_optimistic_window_size = 5
     skill_competence_model_optimistic_recency_size = 5
     skill_competence_default_alpha_beta = (10.0, 1.0)
+    skill_competence_initial_prediction_bonus = 0.5
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
