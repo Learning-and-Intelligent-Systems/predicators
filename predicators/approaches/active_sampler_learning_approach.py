@@ -136,7 +136,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         self._nsrt_to_explorer_sampler = save_dict["nsrt_to_explorer_sampler"]
         self._seen_train_task_idxs = save_dict["seen_train_task_idxs"]
         self._train_tasks = save_dict["train_tasks"]
-        self._online_learning_cycle = online_learning_cycle or 0
+        self._online_learning_cycle = 0 if online_learning_cycle is None \
+            else online_learning_cycle + 1
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
