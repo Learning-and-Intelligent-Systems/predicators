@@ -66,7 +66,10 @@ class LegacySkillCompetenceModel(SkillCompetenceModel):
         # Highly naive: predict a constant improvement in competence.
         del num_additional_data  # unused
         current_competence = self.get_current_competence()
-        return min(1.0, current_competence + 1e-2)
+        # Use a highly optimistic initial competence until the second cycle.
+        return min(
+            1.0,
+            current_competence + CFG.skill_competence_initial_prediction_bonus)
 
 
 class OptimisticSkillCompetenceModel(SkillCompetenceModel):
@@ -100,7 +103,9 @@ class OptimisticSkillCompetenceModel(SkillCompetenceModel):
         nonempty_cycle_obs = self._get_nonempty_cycle_observations()
         current_competence = self.get_current_competence()
         if len(nonempty_cycle_obs) < 2:
-            return min(1.0, current_competence + 1e-2)  # default
+            return min(
+                1.0, current_competence +
+                CFG.skill_competence_initial_prediction_bonus)  # default
         # Look at changes between individual cycles.
         inference_window = 1
         recency_size = CFG.skill_competence_model_optimistic_recency_size
@@ -143,7 +148,9 @@ class LatentVariableSkillCompetenceModel(SkillCompetenceModel):
         # the LegacySkillCompetenceModel.
         if self._competence_regressor is None:
             current_competence = self.get_current_competence()
-            return min(1.0, current_competence + 1e-2)
+            return min(
+                1.0, current_competence +
+                CFG.skill_competence_initial_prediction_bonus)
         # Use the regressor to predict future competence.
         current_num_data = self._get_current_num_data()
         current_rv = self._competence_regressor.predict_beta(current_num_data)
