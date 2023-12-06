@@ -3,6 +3,7 @@
 from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
+from scipy.ndimage import convolve
 
 from predicators.spot_utils.perception.cv2_utils import \
     find_color_based_centroid
@@ -66,17 +67,41 @@ def _get_ball_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
 def _get_cup_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
                          artifacts: Dict[str, Any],
                          camera_name: str) -> Tuple[int, int]:
+    """There are two main ideas in this grasp selector:
+
+    1. We want to select a point on the object that is reasonably
+       well-surrounded by other points. In other words, we shouldn't
+       try to grasp the object near its edge, because that can lead
+       to grasp failures when there is slight noise in the mask.
+    2. We want to select a point that is towards the top of the cup.
+       This part is specific to the cup and is due to us wanting to
+       have a consistent grasp to prepare consistent placing.
+    """
     del rgbds
     detections = artifacts["language"]["object_id_to_img_detections"]
     try:
         seg_bb = detections[cup_obj][camera_name]
     except KeyError:
         raise ValueError(f"{cup_obj} not detected in {camera_name}")
-    # Select the first (left-most and top-most) pixel from the mask.
-    # This ensures we always make a grasp by the topmost surface.
     mask = seg_bb.mask
-    pixels_in_mask = np.where(mask)
-    return (pixels_in_mask[1][0], pixels_in_mask[0][0])
+    # Start by denoising the mask, "filling in" small gaps in it.
+    convolved_mask = convolve(mask.astype(np.uint8),
+                              np.ones((3, 3)),
+                              mode="constant")
+    smoothed_mask = (convolved_mask > 0)
+    # Now select points that are well surrounded by others.
+    convolved_smoothed_mask = convolve(smoothed_mask.astype(np.uint8),
+                                       np.ones((10, 10)),
+                                       mode="constant")
+    surrounded_mask = (
+        convolved_smoothed_mask == convolved_smoothed_mask.max())
+    # Finally, select a point in the upper percentile (towards the
+    # top center of the cup).
+    pixels_in_mask = np.where(surrounded_mask)
+    percentile_idx = int(len(pixels_in_mask[0]) / 20)  # 5th percentile
+    idx = np.argsort(pixels_in_mask[0])[percentile_idx]
+    pixel = (pixels_in_mask[1][idx], pixels_in_mask[0][idx])
+    return pixel
 
 
 # Maps an object ID to a function from rgbds, artifacts and camera to pixel.

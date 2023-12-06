@@ -27,6 +27,8 @@ from predicators.utils import Rectangle, _Geom2D
 # Pose for the hand (relative to the body) that looks down in front.
 DEFAULT_HAND_LOOK_DOWN_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 6))
+DEFAULT_HAND_DROP_OBJECT_POSE = math_helpers.SE3Pose(
+    x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 2))
 DEFAULT_HAND_LOOK_FLOOR_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 3))
 DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE = math_helpers.SE3Pose(
