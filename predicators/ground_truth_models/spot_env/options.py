@@ -299,7 +299,7 @@ def _dump_cup_policy(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> Action:
     # Same as PickObjectFromTop; just necessary to make options 1:1 with
     # operators.
-    name = "DumpCup"
+    name = "PickCupToDumpBall"
     target_obj_idx = 1
     return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
 
