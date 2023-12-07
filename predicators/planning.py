@@ -20,6 +20,7 @@ from typing import Any, Collection, Dict, FrozenSet, Iterator, List, \
     Optional, Sequence, Set, Tuple
 
 import numpy as np
+from experiments.shelves2d import Shelves2DEnv
 
 from predicators import utils
 from predicators.option_model import _OptionModelBase
@@ -30,6 +31,9 @@ from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
     _GroundNSRT, _GroundSTRIPSOperator, _Option
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("tkagg")
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
@@ -490,7 +494,8 @@ def _skeleton_generator(
     assert time.perf_counter() - start_time >= timeout
     raise _SkeletonSearchTimeout
 
-
+calls_to_this_function = 0
+previous_samples = []
 def run_low_level_search(
     task: Task,
     option_model: _OptionModelBase,
@@ -502,6 +507,8 @@ def run_low_level_search(
     max_horizon: int,
     refinement_time: Optional[List[float]] = None
 ) -> Tuple[List[_Option], bool]:
+    global calls_to_this_function, previous_samples
+    calls_to_this_function += 1
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -511,6 +518,9 @@ def run_low_level_search(
     but all previous steps did. Note that there are multiple low-level
     plans in general; we return the first one found (arbitrarily).
     """
+    cover_samples = []
+    print(task)
+    fig_idx = 0
     start_time = time.perf_counter()
     rng_sampler = np.random.default_rng(seed)
     assert CFG.sesame_propagate_failures in \
@@ -549,6 +559,7 @@ def run_low_level_search(
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
+        # print(num_tries) # JORGE: uncomment this to print the status of the backtracking
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
@@ -627,9 +638,20 @@ def run_low_level_search(
         if refinement_time is not None:
             try_end_time = time.perf_counter()
             refinement_time[cur_idx - 1] += try_end_time - try_start_time
-        if plan_found:
-            return plan, True  # success!
+
+        # JORGE: this is to collect the samples with the oracle sampler of the cover placement
+        if calls_to_this_function <= CFG.num_train_tasks and len(previous_samples) >= CFG.sesame_max_samples_per_step - 1:
+            if plan_found:
+                return plan, True  # success!
+        else:
+            can_continue_on = cur_idx < len(num_tries) # JORGE END
+
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
+            if cur_idx == len(num_tries):
+                if calls_to_this_function == 1: # JORGE: this is to collect the samples of cover placement with the oracle
+                    previous_samples.append(option.params[2:4] + state[state.get_objects(Shelves2DEnv._cover_type)[0]][0:2])
+                else: # JORGE: this is to collect the samples of cover placement with the learned sampler
+                    cover_samples.append(option.params[2:4] + state[state.get_objects(Shelves2DEnv._cover_type)[0]][0:2])
             # Update the longest_failed_refinement found so far.
             if cur_idx > len(longest_failed_refinement):
                 longest_failed_refinement = list(plan[:cur_idx])
@@ -648,6 +670,16 @@ def run_low_level_search(
             cur_idx -= 1
             assert cur_idx >= 0
             while num_tries[cur_idx] == max_tries[cur_idx]:
+                print(num_tries)
+                if cur_idx == len(num_tries) - 1: # JORGE: this is to save the rendering of the sample distributions
+                    fig = Shelves2DEnv.render_state_plt(state, None)
+                    fig.axes[0].scatter([x for x, y in cover_samples], [y for x, y in cover_samples], c = 'orange')
+                    fig.axes[0].scatter([x for x, y in previous_samples], [y for x, y in previous_samples], c = 'black')
+                    plt.show()
+                    fig.savefig(f"tmp/fig{fig_idx}.png")
+                    fig_idx += 1
+                    plt.close(fig)
+                    # cover_samples = []
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
                 num_actions_per_option[cur_idx] = 0

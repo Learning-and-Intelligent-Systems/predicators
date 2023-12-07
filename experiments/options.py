@@ -20,7 +20,6 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
     def get_options(cls, env_name: str, types: Dict[str, Type],
                     predicates: Dict[str, Predicate],
                     action_space: gym.spaces.Box) -> Set[ParameterizedOption]:
-
         return set([
             ParameterizedOption(
                 "Move",
@@ -34,17 +33,13 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
 
     @classmethod
     def initiable(cls, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> bool:
-        data["start_state"] = state
         return True
 
     @classmethod
     def terminal(cls, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> bool:
-        start_state = cast(State, data["start_state"])
-        assert state.data.keys() == start_state.data.keys()
-        for obj in state.data:
-            if not np.allclose(state.data[obj], start_state.data[obj]):
-                return True
-        return False
+        terminal_executed = data.get("terminal_executed", False)
+        data["terminal_executed"] = True
+        return terminal_executed
 
     @classmethod
     def move(cls, state: State, data: Dict, objects: Sequence[Object], arr: Array) -> Action:

@@ -81,22 +81,25 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         cover = Variable("?cover", cover_type)
 
         def InsertBox_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Array:
+            global cover_top_ranges, cover_bottom_ranges
             box, shelf, bundle, cover = objects
 
             box_x, box_y, box_w, box_h = Shelves2DEnv.get_shape_data(state, box)
             shelf_x, shelf_y, shelf_w, shelf_h = Shelves2DEnv.get_shape_data(state, shelf)
 
             grasp_x, grasp_y = rng.uniform([box_x + margin, box_y + margin], [box_x + box_w - margin, box_y + box_h - margin])
-            dx = rng.uniform(shelf_x + margin - box_x, shelf_x + shelf_w - margin - box_w - box_x)
+            new_box_x = rng.uniform(shelf_x + margin, shelf_x + shelf_w - margin - box_w)
 
-            dy_range = [shelf_y + margin - box_h - box_y, shelf_y + shelf_h - margin - box_y]
+            new_box_y_range = [shelf_y + margin - box_h, shelf_y + shelf_h - margin]
             if CoversBottom([cover, bundle]) in goal:
-                dy_range[0] = shelf_y + margin - box_y
-            if CoversTop([cover, bundle]) in goal:
-                dy_range[1] = shelf_y + shelf_h - margin - box_h - box_y
+                new_box_y_range[0] += box_h
+            elif CoversTop([cover, bundle]) in goal:
+                new_box_y_range[1] -= box_h
+            else:
+                raise ValueError("Expected either CoversTop or CoversBottom in the goal")
 
-            dy = rng.uniform(*dy_range)
-            action = np.array([grasp_x, grasp_y, dx, dy])
+            new_box_y = rng.uniform(*new_box_y_range)
+            action = np.array([grasp_x, grasp_y, new_box_x - box_x, new_box_y - box_y])
             return action
 
         nsrts.add(NSRT(
@@ -114,16 +117,24 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         return nsrts
 
 def _MoveCover_sampler_helper(move_to_top: bool, margin = 0.0001) -> NSRTSampler:
+    y_margin = (margin if move_to_top else -margin)
+    max_x_distance = Shelves2DEnv.cover_sideways_tolerance
+    max_y_distance = Shelves2DEnv.cover_max_distance if move_to_top else -Shelves2DEnv.cover_max_distance
     def _MoveCover_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Action:
         cover, bundle = objects
 
         cover_x, cover_y, cover_w, cover_h = Shelves2DEnv.get_shape_data(state, cover)
         bundle_x, bundle_y, bundle_w, bundle_h = Shelves2DEnv.get_shape_data(state, bundle)
 
-        grasp_x, grasp_y = rng.uniform([cover_x, cover_y], [cover_x + cover_w, cover_y + cover_h])
+        grasp_x, grasp_y = rng.uniform([cover_x + margin, cover_y + margin], [cover_x + cover_w - margin, cover_y + cover_h - margin])
 
-        dy = bundle_y - cover_y + (bundle_h + margin if move_to_top else -cover_h - margin)
-        dx = bundle_x - cover_x
+        desired_x, desired_y = bundle_x, bundle_y + (bundle_h if move_to_top else -cover_h)
+        y_bound_1 = desired_y + y_margin
+        y_bound_2 = desired_y + max_y_distance - y_margin
+        new_cover_x, new_cover_y = rng.uniform([desired_x - max_x_distance + margin, min(y_bound_1, y_bound_2)], [desired_x + max_x_distance - margin, max(y_bound_1, y_bound_2)])
+
+        dx = new_cover_x - cover_x
+        dy = new_cover_y - cover_y
 
         action = np.array([grasp_x, grasp_y, dx, dy])
         return action

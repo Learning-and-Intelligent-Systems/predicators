@@ -59,33 +59,33 @@ class Shelves2DEnv(BaseEnv):
     '''
 
     # Simulator settings
-    cover_max_distance: ClassVar[float] = 0.2#2#0.2
-    cover_sideways_tolerance: ClassVar[float] = 0.2#2#0.2
+    cover_max_distance: ClassVar[float] = 1#0.2
+    cover_sideways_tolerance: ClassVar[float] = 1#0.2
 
-    range_world_x: ClassVar[Tuple[(float, float)]] = (-500, 500)#(-60, 60)
-    range_world_y: ClassVar[Tuple[(float, float)]] = (-500, 500)#(-60, 60)
+    range_world_x: ClassVar[Tuple[(float, float)]] = (-12, 12)
+    range_world_y: ClassVar[Tuple[(float, float)]] = (-25, 25)
 
     num_tries: ClassVar[int] = 100000
 
     # Task generation settings
-    range_subtasks_train: ClassVar[Tuple[(int, int)]] = (2, 2)#(5, 6)
-    range_subtasks_test: ClassVar[Tuple[(int, int)]] = (10, 12)#(1, 1)#(10, 12)
+    range_subtasks_train: ClassVar[Tuple[(int, int)]] = (1, 1)#(5, 6)
+    range_subtasks_test: ClassVar[Tuple[(int, int)]] = (1, 1)#(10, 12)
 
-    range_shelves_train: ClassVar[Tuple[(int, int)]] = (3, 3)#(5, 6)
-    range_shelves_test: ClassVar[Tuple[(int, int)]] = (12, 15)#(1, 1)#(12, 15)
+    range_shelves_train: ClassVar[Tuple[(int, int)]] = (3, 3)#(2, 3)
+    range_shelves_test: ClassVar[Tuple[(int, int)]] = (3, 3)#(12, 15)
 
-    range_box_width: ClassVar[Tuple[(float, float)]] = (0.1, 5)
-    range_box_height: ClassVar[Tuple[(float, float)]] = (3, 8)
+    range_box_width: ClassVar[Tuple[(float, float)]] = (1, 5)
+    range_box_height: ClassVar[Tuple[(float, float)]] = (7, 15)
 
-    range_shelf_width: ClassVar[Tuple[(float, float)]] = (0.2, 6)
-    range_shelf_height: ClassVar[Tuple[(float, float)]] = (2, 6)
+    range_shelf_width: ClassVar[Tuple[(float, float)]] = (2, 6)
+    range_shelf_height: ClassVar[Tuple[(float, float)]] = (3.5, 12)
     range_shelf_sep: ClassVar[Tuple[(float, float)]] = (0.4, 0.7)
 
-    min_box_width_clearance: ClassVar[float] = 0.2
-    min_box_height_clearance: ClassVar[float] = 0.2
+    min_box_width_clearance: ClassVar[float] = 0.4
+    min_box_height_clearance: ClassVar[float] = 3
 
-    cover_thickness: ClassVar[float] = 0.2#1#0.2
-    bundle_margin: ClassVar[float] = 0.1#4#0.1
+    cover_thickness: ClassVar[float] = 1
+    bundle_margin: ClassVar[float] = 0.1
 
     # Types
     _box_type = Type('box', [
@@ -130,25 +130,31 @@ class Shelves2DEnv(BaseEnv):
             self._cover_type,
             self._bundle_type], self._CoversBottom_holds)
 
+        self._tasks = None
+
     @classmethod
     def get_name(cls):
         return 'shelves2d'
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(
-            num_tasks=CFG.num_train_tasks,
-            range_subtasks=self.range_subtasks_train,
-            range_shelves=self.range_shelves_train,
-            rng=self._train_rng
-        )
+        if self._tasks is None:
+            self._tasks = self._get_tasks(
+                num_tasks=CFG.num_train_tasks,
+                range_subtasks=self.range_subtasks_train,
+                range_shelves=self.range_shelves_train,
+                rng=self._train_rng
+            )
+        return self._tasks
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        return self._get_tasks(
-            num_tasks=CFG.num_test_tasks,
-            range_subtasks=self.range_subtasks_test,
-            range_shelves=self.range_shelves_test,
-            rng=self._test_rng
-        )
+        if self._tasks is None:
+            self._tasks = self._get_tasks(
+                num_tasks=CFG.num_train_tasks,
+                range_subtasks=self.range_subtasks_train,
+                range_shelves=self.range_shelves_train,
+                rng=self._train_rng
+            )
+        return self._tasks
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -178,8 +184,7 @@ class Shelves2DEnv(BaseEnv):
             self.range_world_y[0] - self.range_world_y[1]
         ], dtype=np.float32)
         upper = np.array([
-            self.range_world_x[1],
-            self.range_world_y[1],
+            self.range_world_x[1], self.range_world_y[1],
             self.range_world_x[1] - self.range_world_x[0],
             self.range_world_y[1] - self.range_world_y[0]
         ], dtype=np.float32)
@@ -226,12 +231,12 @@ class Shelves2DEnv(BaseEnv):
         return next_state
 
     @classmethod
-    def render_state_plt(
+    def render_state_plt( # JORGE: use this function to render the state; you don't need to give it the task
             cls,
             state: State,
             task: EnvironmentTask,
-            action: Optional[Action],
-            caption: Optional[str]) -> matplotlib.figure.Figure:
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         '''Renders the enviornment state. For now only for debugging purposes.'''
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -255,16 +260,19 @@ class Shelves2DEnv(BaseEnv):
             (x, y, w, h) = cls.get_shape_data(state, cover)
             ax.add_patch(patches.Rectangle((x, y), w, h, color='#ff2020'))
 
-        # Draw bundles
-        for bundle in state.get_objects(cls._bundle_type):
-            (x, y, w, h) = cls.get_shape_data(state, bundle)
-            ax.add_patch(patches.Rectangle((x, y), w, h, color='#ff20ff70'))
+        # # Draw bundles
+        # for bundle in state.get_objects(cls._bundle_type):
+        #     (x, y, w, h) = cls.get_shape_data(state, bundle)
+        #     ax.add_patch(patches.Rectangle((x, y), w, h, color='#ff20ff70'))
 
+        # ax.set_xlim(*cls.range_world_x)
+        # ax.set_ylim(*cls.range_world_y)
+        # ax.axis('off')
         ax.autoscale_view()
         return fig
 
     def _get_tasks(self, num_tasks: int, range_subtasks: Tuple[int, int], range_shelves, rng: np.random.Generator) -> List[EnvironmentTask]:
-        return [self._get_task(range_subtasks, range_shelves, rng) for _ in range(num_tasks)]
+        return [self._get_task(range_subtasks, range_shelves, rng), self._get_task(range_subtasks, range_shelves, rng)] * (num_tasks // 2)
 
     def _get_task(self, range_subtasks: Tuple[int, int], range_shelves: Tuple[int, int], rng: np.random.Generator) -> EnvironmentTask:
         num_subtasks = rng.integers(range_subtasks[0], range_subtasks[1] + 1)
@@ -291,8 +299,9 @@ class Shelves2DEnv(BaseEnv):
 
         # Create the goal
         cover_predicate = rng.choice([
+            self._CoversBottom,
             self._CoversTop,
-            self._CoversBottom])
+        ])
         goal = {cover_predicate([cover, bundle])} | {self._In([box, shelf]) for box, shelf in zip(boxes, shelves)}
 
         # Update auxiliary info
@@ -388,7 +397,7 @@ class Shelves2DEnv(BaseEnv):
             cover_y,
             cover_w,
             cover_h,
-            cover_x + cover_h / 2,
+            cover_x + cover_w / 2,
             cover_y + cover_h / 2], dtype=np.float32)
         objs_multipoly = objs_multipoly.union(cover_poly)
 

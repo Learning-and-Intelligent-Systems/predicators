@@ -59,6 +59,9 @@ from predicators.settings import CFG, get_allowed_query_type_names
 from predicators.structs import Action, Dataset, InteractionRequest, \
     InteractionResult, Metrics, Observation, Response, Task, Video, _Option
 from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
+from experiments.nsrts import *
+from experiments.options import *
+from experiments.shelves2d import *
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"

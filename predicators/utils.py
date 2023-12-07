@@ -3209,6 +3209,10 @@ def string_to_python_object(value: str) -> Any:
     if value.isdigit() or value.startswith("lambda"):
         return eval(value)
     try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
         return float(value)
     except ValueError:
         pass

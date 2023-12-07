@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 from typing import Any, List, Sequence, Set, Tuple
+from experiments.shelves2d import Shelves2DEnv
 
 import numpy as np
 
@@ -10,7 +11,7 @@ from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.ml_models import BinaryClassifier, \
-    DegenerateMLPDistributionRegressor, DistributionRegressor, \
+    DegenerateMLPDistributionRegressor, DiffusionRegressor, DistributionRegressor, \
     MLPBinaryClassifier, NeuralGaussianRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, Datastore, EntToEntSub, \
@@ -112,6 +113,10 @@ def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator,
     return _reordered_sampler
 
 
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("tkagg")
+
 def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                           variables: Sequence[Variable],
                           preconditions: Set[LiftedAtom],
@@ -133,6 +138,20 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         param_option, datastore_idx)
     logging.info(f"Generated {len(positive_data)} positive and "
                  f"{len(negative_data)} negative examples")
+
+    # if nsrt_name == "InsertBox":
+    #     xs, ys = [], []
+    #     for state, var2objsub, option, _ in positive_data:
+    #         box = var2objsub[Variable("?box", Shelves2DEnv._box_type)]
+    #         shelf = var2objsub[Variable("?shelf", Shelves2DEnv._shelf_type)]
+    #         action = option.params
+    #         dx, dy = action[2:4]
+    #         shelf_x, shelf_y = state[shelf][0:2]
+    #         box_x, box_y = state[box][0:2]
+    #         xs.append(box_x + dx - shelf_x)
+    #         ys.append(box_y + dy - shelf_y)
+    #     plt.scatter(xs, ys)
+    #     plt.show()
 
     # Fit classifier to data
     logging.info("Fitting classifier...")
@@ -170,7 +189,8 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         hid_sizes=CFG.mlp_classifier_hid_sizes,
         n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
         weight_init="default")
-    classifier.fit(X_arr_classifier, y_arr_classifier)
+    if not CFG.sampler_disable_classifier:
+        classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
     logging.info("Fitting regressor...")
@@ -207,6 +227,14 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             weight_decay=CFG.weight_decay,
             use_torch_gpu=CFG.use_torch_gpu,
             train_print_every=CFG.pytorch_train_print_every)
+    elif CFG.sampler_learning_regressor_model == "diffusion":
+        regressor = DiffusionRegressor( # JORGE: this is where the diffusion regressor is instantiated
+            seed=CFG.seed,
+            hid_sizes=[128]*4,
+            max_train_iters=10000,
+            timesteps=1000,
+            learning_rate=CFG.learning_rate
+        )
     else:
         assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
         regressor = DegenerateMLPDistributionRegressor(
