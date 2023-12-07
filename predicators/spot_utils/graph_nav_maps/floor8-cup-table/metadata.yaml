@@ -44,7 +44,7 @@ known-immovable-objects:
     z: -0.1
   drafting_table:
     x: 2.5
-    y: 2.65
+    y: 2.7
     z: -0.25
 # Static object features, including the shapes and sizes of known objects.
 static-object-features:
@@ -57,7 +57,7 @@ static-object-features:
   drafting_table:
     shape: 1  # cuboid
     height: 0.45
-    length: 0.35
+    length: 0.3
     width: 0.6
     flat_top_surface: 1
     placeable: 1  # true, can be placed

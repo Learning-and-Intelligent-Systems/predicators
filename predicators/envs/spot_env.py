@@ -309,6 +309,12 @@ class SpotRearrangementEnv(BaseEnv):
             self._current_task = self._test_tasks[task_idx]
         elif CFG.spot_run_dry:
             self._current_task = self._get_dry_task(train_or_test, task_idx)
+        elif self._current_observation is not None:
+            # For the real spot environment, only actively construct the state
+            # once, at the very beginning (or on loading, if needed).
+            goal_description = self._generate_goal_description()
+            self._current_task = EnvironmentTask(self._current_observation,
+                                                 goal_description)
         else:
             prompt = f"Please set up {train_or_test} task {task_idx}!"
             utils.prompt_user(prompt)
