@@ -118,7 +118,10 @@ class SpotPerceiver(BasePerceiver):
                 self._held_object = None
                 # Check if the item we just placed is in view. It needs to
                 # be in view to assess whether it was placed correctly.
-                robot, obj = objects[:2]
+                if "drag" in controller_name.lower():
+                    robot, _, obj = objects[:3]
+                else:
+                    robot, obj = objects[:2]
                 state = self._create_state()
                 is_in_view = in_general_view_classifier(state, [robot, obj])
                 if not is_in_view:

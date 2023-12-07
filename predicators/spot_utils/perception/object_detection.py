@@ -404,7 +404,12 @@ def get_grasp_pixel(rgbds: Dict[str,
                                                                        Any],
                     object_id: ObjectDetectionID, camera_name: str,
                     rng: np.random.Generator) -> Tuple[int, int]:
-    """Select a pixel for grasping in the given camera image."""
+    """Select a pixel for grasping in the given camera image.
+
+    NOTE: for april tag detections, the pixel returned will correspond to the
+    center of the april tag, which may not always be ideal for grasping.
+    Consider using OBJECT_SPECIFIC_GRASP_SELECTORS in this case.
+    """
 
     if object_id in OBJECT_SPECIFIC_GRASP_SELECTORS:
         selector = OBJECT_SPECIFIC_GRASP_SELECTORS[object_id]

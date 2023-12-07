@@ -21,8 +21,8 @@ def grasp_at_pixel(
     robot: Robot,
     rgbd: RGBDImageWithContext,
     pixel: Tuple[int, int],
-    move_while_grasping: bool = True,
     grasp_rot: Optional[math_helpers.Quat] = None,
+    move_while_grasping: bool = True,
     rot_thresh: float = 0.17,
     timeout: float = 20.0,
 ) -> None:
