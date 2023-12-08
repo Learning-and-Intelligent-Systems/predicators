@@ -309,7 +309,7 @@ class SpotRearrangementEnv(BaseEnv):
             self._current_task = self._test_tasks[task_idx]
         elif CFG.spot_run_dry:
             self._current_task = self._get_dry_task(train_or_test, task_idx)
-        elif self._current_observation is not None:
+        elif self._current_observation is not None and train_or_test == "train":
             # For the real spot environment, only actively construct the state
             # once, at the very beginning (or on loading, if needed).
             goal_description = self._generate_goal_description()
