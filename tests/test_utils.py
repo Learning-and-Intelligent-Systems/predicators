@@ -418,10 +418,10 @@ def test_rectangle():
     assert rect7.center == (1, 2)
 
     rng = np.random.default_rng(0)
-    for _ in range(10):
-        p7 = rect7.sample_random_point(rng)
-        assert rect7.contains_point(p7[0], p7[1])
-        plt.plot(p7[0], p7[1], 'bo')
+    for _ in range(100):
+        p5 = rect5.sample_random_point(rng)
+        assert rect5.contains_point(p5[0], p5[1])
+        plt.plot(p5[0], p5[1], 'bo')
 
     # Uncomment for debugging.
     # plt.savefig("/tmp/rectangle_unit_test.png")
