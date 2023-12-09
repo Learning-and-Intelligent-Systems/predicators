@@ -602,6 +602,7 @@ class GlobalSettings:
     active_sampler_explorer_replan_frequency = 100
     active_sampler_explorer_planning_progress_max_tasks = 10
     active_sampler_explorer_planning_progress_max_replan_tasks = 5
+    active_sampler_learning_init_cycles_to_pursue_goal = 1
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
