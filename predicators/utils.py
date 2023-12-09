@@ -34,6 +34,7 @@ import numpy as np
 import pathos.multiprocessing as mp
 from gym.spaces import Box
 from matplotlib import patches
+from numpy.typing import NDArray
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
@@ -503,15 +504,27 @@ class Rectangle(_Geom2D):
                                             rotation_about_center)
 
     @functools.cached_property
+    def rotation_matrix(self) -> NDArray[np.float64]:
+        """Get the rotation matrix."""
+        return np.array([[np.cos(self.theta), -np.sin(self.theta)],
+                         [np.sin(self.theta),
+                          np.cos(self.theta)]])
+
+    @functools.cached_property
+    def inverse_rotation_matrix(self) -> NDArray[np.float64]:
+        """Get the inverse rotation matrix."""
+        return np.array([[np.cos(self.theta),
+                          np.sin(self.theta)],
+                         [-np.sin(self.theta),
+                          np.cos(self.theta)]])
+
+    @functools.cached_property
     def vertices(self) -> List[Tuple[float, float]]:
         """Get the four vertices for the rectangle."""
         scale_matrix = np.array([
             [self.width, 0],
             [0, self.height],
         ])
-        rotate_matrix = np.array([[np.cos(self.theta), -np.sin(self.theta)],
-                                  [np.sin(self.theta),
-                                   np.cos(self.theta)]])
         translate_vector = np.array([self.x, self.y])
         vertices = np.array([
             (0, 0),
@@ -520,7 +533,7 @@ class Rectangle(_Geom2D):
             (1, 0),
         ])
         vertices = vertices @ scale_matrix.T
-        vertices = vertices @ rotate_matrix.T
+        vertices = vertices @ self.rotation_matrix.T
         vertices = translate_vector + vertices
         # Convert to a list of tuples. Slightly complicated to appease both
         # type checking and linting.
@@ -549,26 +562,22 @@ class Rectangle(_Geom2D):
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
-        rotate_matrix = np.array([[np.cos(self.theta),
-                                   np.sin(self.theta)],
-                                  [-np.sin(self.theta),
-                                   np.cos(self.theta)]])
-        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        # First invert translation, then invert rotation.
+        rx, ry = np.array([x - self.x, y - self.y
+                           ]) @ self.inverse_rotation_matrix.T
         return 0 <= rx <= self.width and \
                0 <= ry <= self.height
 
     def sample_random_point(self,
                             rng: np.random.Generator) -> Tuple[float, float]:
-        rotate_matrix = np.array([[np.cos(self.theta),
-                                   np.sin(self.theta)],
-                                  [-np.sin(self.theta),
-                                   np.cos(self.theta)]])
         rand_width = rng.uniform(0, self.width)
         rand_height = rng.uniform(0, self.height)
-        rx, ry = np.array([self.x + rand_width, self.y + rand_height
-                           ]) @ rotate_matrix.T
-        assert self.contains_point(rx, ry)
-        return (rx, ry)
+        # First rotate, then translate.
+        rx, ry = np.array([rand_width, rand_height]) @ self.rotation_matrix.T
+        x = rx + self.x
+        y = ry + self.y
+        assert self.contains_point(x, y)
+        return (x, y)
 
     def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
         """Create a new rectangle that is this rectangle, but rotated CCW by
