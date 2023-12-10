@@ -56,6 +56,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._ground_op_hist = ground_op_hist
         self._competence_models = competence_models
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
+        self._curr_expected_atoms: Optional[List[GroundAtom]] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
         self._pursue_task_goal_first = pursue_task_goal_first
@@ -278,6 +279,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             logging.info(f"[Explorer] Starting NSRT: {ground_nsrt.name}"
                          f"{ground_nsrt.objects}")
             self._last_executed_nsrt = ground_nsrt
+            if self._curr_expected_atoms is not None:
+                self._curr_expected_atoms.pop(0)
             return option
 
         # Finalize policy.
@@ -305,11 +308,10 @@ class ActiveSamplerExplorer(BaseExplorer):
         nsrt = self._last_executed_nsrt
         if nsrt is None:
             return
-        # NOTE: checking just the add effects doesn't work in general, but
-        # is probably fine for now. The right thing to do here is check
-        # the necessary atoms, which we will compute with a utility function
-        # and then use in a forthcoming PR.
         success = all(a.holds(state) for a in nsrt.add_effects)
+        # If there are expected atoms, check those!
+        if self._curr_expected_atoms is not None:
+            success = all(a.holds(state) for a in self._curr_expected_atoms[0])
         logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
         logging.info(f"[Explorer]   outcome: {success}")
         last_executed_op = nsrt.op
@@ -346,8 +348,11 @@ class ActiveSamplerExplorer(BaseExplorer):
             ground_op_costs=ground_op_costs,
             default_cost=self._default_cost,
             max_horizon=np.inf)
+        nec_atoms_seq = utils.compute_necessary_atoms_seq(
+            plan, atoms_seq, task.goal)
+        self._curr_expected_atoms = nec_atoms_seq
         return utils.nsrt_plan_to_greedy_option_policy(
-            plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
+            plan, task.goal, self._rng, necessary_atoms_seq=nec_atoms_seq)
 
     def _score_ground_op(
             self, ground_op: _GroundSTRIPSOperator) -> Tuple[float, ...]:
