@@ -96,10 +96,10 @@ def _get_cup_grasp_pixel(rgbds: Dict[str, RGBDImageWithContext],
     surrounded_mask = (
         convolved_smoothed_mask == convolved_smoothed_mask.max())
     # Finally, select a point in the upper percentile (towards the
-    # top center of the cup).
+    # right center of the cup).
     pixels_in_mask = np.where(surrounded_mask)
-    percentile_idx = int(len(pixels_in_mask[0]) / 20)  # 5th percentile
-    idx = np.argsort(pixels_in_mask[0])[percentile_idx]
+    percentile_idx = int(len(pixels_in_mask[0]) / 1.0526)  # 95th percentile
+    idx = np.argsort(pixels_in_mask[1])[percentile_idx]
     pixel = (pixels_in_mask[1][idx], pixels_in_mask[0][idx])
     return pixel
 
