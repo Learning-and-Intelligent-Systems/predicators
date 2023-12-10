@@ -29,8 +29,9 @@ from predicators.ml_models import BinaryClassifier, BinaryClassifierEnsemble, \
     KNeighborsClassifier, MLPBinaryClassifier, MLPRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LowLevelTrajectory, \
-    Metrics, NSRTSampler, Object, ParameterizedOption, Predicate, Segment, \
-    State, Task, Type, _GroundNSRT, _GroundSTRIPSOperator, _Option
+    Metrics, NSRTSampler, NSRTSamplerWithEpsilonIndicator, Object, \
+    ParameterizedOption, Predicate, Segment, State, Task, Type, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 # Dataset for sampler learning: includes (s, option, s', label) per param opt.
 _OptionSamplerDataset = List[Tuple[State, _Option, State, Any]]
@@ -65,7 +66,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # differ from those used for execution (they will differ precisely
         # in their sampler). Thus, we will keep around a separate mapping from
         # NSRTs to samplers to be used at exploration time.
-        self._nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler] = {}
+        self._nsrt_to_explorer_sampler: Dict[
+            NSRT, NSRTSamplerWithEpsilonIndicator] = {}
 
         # Record what train tasks have been seen during exploration so far.
         self._seen_train_task_idxs: Set[int] = set()
@@ -312,7 +314,10 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         for old_nsrt in self._nsrts:
             if old_nsrt.option not in new_nsrt_options:
                 new_test_nsrts.add(old_nsrt)
-                self._nsrt_to_explorer_sampler[old_nsrt] = old_nsrt._sampler  # pylint: disable=protected-access
+                self._nsrt_to_explorer_sampler[
+                    old_nsrt] = _wrap_sampler_exploration(
+                        old_nsrt._sampler,
+                        lambda o, _, params: [1.0] * len(params), "greedy")  # pylint: disable=protected-access
         self._nsrts = new_test_nsrts
         # Re-save the NSRTs now that we've updated them.
         save_path = utils.get_approach_save_path_str()
@@ -331,26 +336,30 @@ class _WrappedSamplerLearner(abc.ABC):
         self._rng = np.random.default_rng(CFG.seed)
         # We keep track of two samplers per NSRT: one to use at test time
         # and another to use during exploration/play time.
-        self._learned_samplers: Optional[Dict[NSRT, Tuple[NSRTSampler,
-                                                          NSRTSampler]]] = None
+        self._learned_samplers: Optional[Dict[NSRT, Tuple[
+            NSRTSampler, NSRTSamplerWithEpsilonIndicator]]] = None
 
     def learn(self, data: _SamplerDataset) -> None:
         """Fit all of the samplers."""
-        new_samplers: Dict[NSRT, Tuple[NSRTSampler, NSRTSampler]] = {}
+        new_samplers: Dict[NSRT, Tuple[NSRTSampler,
+                                       NSRTSamplerWithEpsilonIndicator]] = {}
         for param_opt, nsrt_data in data.items():
             nsrt = utils.param_option_to_nsrt(param_opt, self._nsrts)
             logging.info(f"Fitting wrapped sampler for {nsrt.name}...")
             new_samplers[nsrt] = self._learn_nsrt_sampler(nsrt_data, nsrt)
         self._learned_samplers = new_samplers
 
-    def get_samplers(self) -> Dict[NSRT, Tuple[NSRTSampler, NSRTSampler]]:
+    def get_samplers(
+        self
+    ) -> Dict[NSRT, Tuple[NSRTSampler, NSRTSamplerWithEpsilonIndicator]]:
         """Expose the fitted samplers, organized by NSRTs."""
         assert self._learned_samplers is not None
         return self._learned_samplers
 
     @abc.abstractmethod
-    def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
+    def _learn_nsrt_sampler(
+            self, nsrt_data: _OptionSamplerDataset,
+            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSamplerWithEpsilonIndicator]:
         """Learn the new test-time and exploration samplers for a single NSRT
         and return them."""
 
@@ -359,8 +368,9 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
     """Using boolean class labels on transitions, learn a classifier, and then
     use the probability of predicting True to select parameters."""
 
-    def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
+    def _learn_nsrt_sampler(
+            self, nsrt_data: _OptionSamplerDataset,
+            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSamplerWithEpsilonIndicator]:
         X_classifier: List[Array] = []
         y_classifier: List[int] = []
         for state, option, _, label in nsrt_data:
@@ -411,10 +421,8 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         # Easiest way to access the base sampler.
         base_sampler = nsrt._sampler  # pylint: disable=protected-access
         score_fn = _classifier_to_score_fn(classifier, nsrt)
-        wrapped_sampler_test = _wrap_sampler(base_sampler,
-                                             score_fn,
-                                             strategy="greedy")
-        wrapped_sampler_exploration = _wrap_sampler(
+        wrapped_sampler_test = _wrap_sampler_test(base_sampler, score_fn)
+        wrapped_sampler_exploration = _wrap_sampler_exploration(
             base_sampler,
             score_fn,
             strategy=CFG.active_sampler_learning_exploration_sample_strategy)
@@ -426,8 +434,9 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
     classifiers, and then use the entropy among the predictions, as well as the
     probability of predicting True to select parameters."""
 
-    def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
+    def _learn_nsrt_sampler(
+            self, nsrt_data: _OptionSamplerDataset,
+            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSamplerWithEpsilonIndicator]:
         X_classifier: List[Array] = []
         y_classifier: List[int] = []
         for state, option, _, label in nsrt_data:
@@ -470,13 +479,11 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
         test_score_fn = _classifier_ensemble_to_score_fn(classifier,
                                                          nsrt,
                                                          test_time=True)
-        wrapped_sampler_test = _wrap_sampler(base_sampler,
-                                             test_score_fn,
-                                             strategy="greedy")
+        wrapped_sampler_test = _wrap_sampler_test(base_sampler, test_score_fn)
         explore_score_fn = _classifier_ensemble_to_score_fn(classifier,
                                                             nsrt,
                                                             test_time=False)
-        wrapped_sampler_exploration = _wrap_sampler(
+        wrapped_sampler_exploration = _wrap_sampler_exploration(
             base_sampler,
             explore_score_fn,
             strategy=CFG.active_sampler_learning_exploration_sample_strategy)
@@ -502,8 +509,9 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
             # Update the score functions now that all children are processed.
             self._nsrt_score_fns = self._next_nsrt_score_fns
 
-    def _learn_nsrt_sampler(self, nsrt_data: _OptionSamplerDataset,
-                            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSampler]:
+    def _learn_nsrt_sampler(
+            self, nsrt_data: _OptionSamplerDataset,
+            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSamplerWithEpsilonIndicator]:
         # Build targets.
         gamma = CFG.active_sampler_learning_score_gamma
         num_a_samp = CFG.active_sampler_learning_num_lookahead_samples
@@ -533,10 +541,8 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         score_fn = _regressor_to_score_fn(regressor, nsrt)
         # Save the score function for use in later target computation.
         self._next_nsrt_score_fns[nsrt] = score_fn
-        wrapped_sampler_test = _wrap_sampler(base_sampler,
-                                             score_fn,
-                                             strategy="greedy")
-        wrapped_sampler_exploration = _wrap_sampler(
+        wrapped_sampler_test = _wrap_sampler_test(base_sampler, score_fn)
+        wrapped_sampler_exploration = _wrap_sampler_exploration(
             base_sampler,
             score_fn,
             strategy=CFG.active_sampler_learning_exploration_sample_strategy)
@@ -609,8 +615,8 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
 
 
 # Helper functions.
-def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
-                  strategy: str) -> NSRTSampler:
+def _wrap_sampler_test(base_sampler: NSRTSampler,
+                       score_fn: _ScoreFn) -> NSRTSampler:
     """Create a wrapped sampler that uses a score function to select among
     candidates from a base sampler."""
 
@@ -621,17 +627,36 @@ def _wrap_sampler(base_sampler: NSRTSampler, score_fn: _ScoreFn,
             for _ in range(CFG.active_sampler_learning_num_samples)
         ]
         scores = score_fn(state, objects, samples)
+        idx = int(np.argmax(scores))
+        return samples[idx]
+
+    return _sample
+
+
+def _wrap_sampler_exploration(
+        base_sampler: NSRTSampler, score_fn: _ScoreFn,
+        strategy: str) -> NSRTSamplerWithEpsilonIndicator:
+
+    def _sample(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
+                objects: Sequence[Object]) -> Tuple[Array, bool]:
+        samples = [
+            base_sampler(state, goal, rng, objects)
+            for _ in range(CFG.active_sampler_learning_num_samples)
+        ]
+        scores = score_fn(state, objects, samples)
         if strategy in ["greedy", "epsilon_greedy"]:
             idx = int(np.argmax(scores))
+            epsilon_bool = False
             if strategy == "epsilon_greedy" and rng.uniform(
             ) <= CFG.active_sampler_learning_exploration_epsilon:
                 # Randomly select a sample to pick, following the epsilon
                 # greedy strategy!
                 idx = rng.integers(0, len(scores))
+                epsilon_bool = True
         else:
             raise NotImplementedError('Exploration strategy ' +
                                       f'{strategy} ' + 'is not implemented.')
-        return samples[idx]
+        return (samples[idx], epsilon_bool)
 
     return _sample
 
