@@ -3676,7 +3676,8 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
                                     obs_to_state: Callable[
                                         [Observation],
                                         State] = _obs_to_state_pass_through,
-                                    assert_effects: bool = True,
+                                    assert_add_effects: bool = True,
+                                    assert_delete_effects: bool = True,
                                     max_steps: int = 400) -> State:
     """Utility for tests.
 
@@ -3697,10 +3698,11 @@ def run_ground_nsrt_with_assertions(ground_nsrt: _GroundNSRT,
         state = obs_to_state(obs)
         if option.terminal(state):
             break
-    if assert_effects:
+    if assert_add_effects:
         for atom in ground_nsrt.add_effects:
             assert atom.holds(state), \
                 f"Add effect for {ground_nsrt_str} failed: {atom}"
+    if assert_delete_effects:
         for atom in ground_nsrt.delete_effects:
             assert not atom.holds(state), \
                 f"Delete effect for {ground_nsrt_str} failed: {atom}"

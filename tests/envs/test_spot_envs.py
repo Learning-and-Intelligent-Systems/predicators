@@ -21,7 +21,7 @@ from predicators.structs import Action, GroundAtom, _GroundNSRT
 
 
 @pytest.mark.parametrize("env", ["spot_cube_env", "spot_soda_sweep_env"])
-def test_spot_env_dry_run(env) -> None:
+def test_spot_env_dry_run(env):
     """Dry run tests (do not require access to robot)."""
     utils.reset_config({
         "env": env,
@@ -53,6 +53,138 @@ def test_spot_env_dry_run(env) -> None:
         assert act is not None
         obs = env.step(act)
     assert env.goal_reached()
+
+
+def test_spot_soda_sweep_env_dry_run():
+    """Tests specific to the soda sweeping environment."""
+    utils.reset_config({
+        "env": "spot_soda_sweep_env",
+        "approach": "spot_wrapper[oracle]",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "seed": 123,
+        "spot_run_dry": True,
+        "bilevel_plan_without_sim": True,
+        "spot_use_perfect_samplers": True,
+    })
+    env = create_new_env(CFG.env)
+    perceiver = SpotPerceiver()
+    execution_monitor = create_execution_monitor("expected_atoms")
+    env_train_tasks = env.get_train_tasks()
+    env_test_tasks = env.get_test_tasks()
+    train_tasks = [perceiver.reset(t) for t in env_train_tasks]
+    options = get_gt_options(env.get_name())
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, options)
+    approach = create_approach(CFG.approach, env.predicates, options,
+                               env.types, env.action_space, train_tasks)
+    cogman = CogMan(approach, perceiver, execution_monitor)
+    env_task = env_test_tasks[0]
+    cogman.reset(env_task)
+    init_obs = env.reset("test", 0)
+    state = perceiver.step(init_obs)
+
+    # Test that we can sweep the soda into the bucket, dump it out, then
+    # do the whole thing again.
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
+    MoveToHandViewObject = nsrt_name_to_nsrt["MoveToHandViewObject"]
+    PickObjectFromTop = nsrt_name_to_nsrt["PickObjectFromTop"]
+    PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
+    DragToUnblockObject = nsrt_name_to_nsrt["DragToUnblockObject"]
+    SweepIntoContainer = nsrt_name_to_nsrt["SweepIntoContainer"]
+    PrepareContainerForSweeping = nsrt_name_to_nsrt[
+        "PrepareContainerForSweeping"]
+    PickAndDumpContainer = nsrt_name_to_nsrt["PickAndDumpContainer"]
+
+    rng = np.random.default_rng(123)
+
+    obj_name_to_obj = {o.name: o for o in state}
+    robot = obj_name_to_obj["robot"]
+    bucket = obj_name_to_obj["bucket"]
+    plunger = obj_name_to_obj["plunger"]
+    soda_can = obj_name_to_obj["soda_can"]
+    chair = obj_name_to_obj["chair"]
+    table = obj_name_to_obj["white-table"]
+    floor = obj_name_to_obj["floor"]
+
+    def _run_ground_nsrt(ground_nsrt,
+                         state,
+                         override_params=None,
+                         assert_add_effects=True,
+                         assert_delete_effects=True):
+
+        def obs_to_state(obs):
+            option = ground_nsrt.sample_option(state, set(), rng)
+            assert option.initiable(state)
+            action = option.policy(state)
+            perceiver.update_perceiver_with_action(action)
+            perceiver.step(obs)
+            return perceiver._create_state()  # pylint: disable=protected-access
+
+        return utils.run_ground_nsrt_with_assertions(
+            ground_nsrt,
+            state,
+            env,
+            rng,
+            override_params,
+            obs_to_state,
+            assert_add_effects=assert_add_effects,
+            assert_delete_effects=assert_delete_effects)
+
+    # Set up all the NSRTs for the following tests.
+    move_to_hand_view_bucket = MoveToHandViewObject.ground([robot, bucket])
+    pick_bucket = PickObjectFromTop.ground([robot, bucket, floor])
+    prepare_bucket = PrepareContainerForSweeping.ground(
+        [robot, bucket, soda_can, table])
+    move_to_hand_view_chair = MoveToHandViewObject.ground([robot, chair])
+    pick_chair = PickObjectFromTop.ground([robot, chair, floor])
+    drag_chair = DragToUnblockObject.ground([robot, chair, soda_can])
+    move_to_hand_view_plunger = MoveToHandViewObject.ground([robot, plunger])
+    pick_plunger = PickObjectFromTop.ground([robot, plunger, floor])
+    move_to_reach_soda = MoveToReachObject.ground([robot, soda_can])
+    sweep = SweepIntoContainer.ground(
+        [robot, plunger, soda_can, table, bucket])
+    move_to_reach_floor = MoveToReachObject.ground([robot, floor])
+    place_plunger = PlaceObjectOnTop.ground([robot, plunger, floor])
+    dump_bucket = PickAndDumpContainer.ground([robot, bucket, floor, soda_can])
+    place_bucket = PlaceObjectOnTop.ground([robot, bucket, floor])
+    move_to_hand_view_soda = MoveToHandViewObject.ground([robot, soda_can])
+    pick_soda = PickObjectFromTop.ground([robot, soda_can, floor])
+    move_to_reach_table = MoveToReachObject.ground([robot, table])
+    place_soda = PlaceObjectOnTop.ground([robot, soda_can, table])
+
+    # Assertions will be raised in _run_ground_nsrt if there are any issues.
+    state = _run_ground_nsrt(move_to_hand_view_bucket, state)
+    state = _run_ground_nsrt(pick_bucket, state)
+    state = _run_ground_nsrt(prepare_bucket, state)
+    state = _run_ground_nsrt(move_to_hand_view_chair, state)
+    state = _run_ground_nsrt(pick_chair, state, assert_delete_effects=False)
+    state = _run_ground_nsrt(drag_chair, state)
+    state = _run_ground_nsrt(move_to_hand_view_plunger, state)
+    state = _run_ground_nsrt(pick_plunger, state)
+    state = _run_ground_nsrt(move_to_reach_soda, state)
+    state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
+    state = _run_ground_nsrt(move_to_reach_floor, state)
+    state = _run_ground_nsrt(place_plunger, state)
+    state = _run_ground_nsrt(move_to_hand_view_bucket, state)
+    state = _run_ground_nsrt(dump_bucket, state)
+    state = _run_ground_nsrt(move_to_reach_floor, state)
+    state = _run_ground_nsrt(place_bucket, state)
+    state = _run_ground_nsrt(move_to_hand_view_soda, state)
+    state = _run_ground_nsrt(pick_soda, state)
+    state = _run_ground_nsrt(move_to_reach_table, state)
+    state = _run_ground_nsrt(place_soda, state)
+    state = _run_ground_nsrt(move_to_hand_view_bucket, state)
+    state = _run_ground_nsrt(pick_bucket, state)
+    state = _run_ground_nsrt(prepare_bucket, state)
+    state = _run_ground_nsrt(move_to_hand_view_plunger, state)
+    state = _run_ground_nsrt(pick_plunger, state)
+    state = _run_ground_nsrt(move_to_reach_soda, state)
+    state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
+    state = _run_ground_nsrt(move_to_reach_floor, state)
+    state = _run_ground_nsrt(place_plunger, state)
+    state = _run_ground_nsrt(move_to_hand_view_bucket, state)
+    _run_ground_nsrt(dump_bucket, state)
 
 
 def real_robot_cube_env_test() -> None:

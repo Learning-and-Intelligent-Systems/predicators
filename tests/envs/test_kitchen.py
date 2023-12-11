@@ -120,12 +120,18 @@ def test_kitchen():
     def _run_ground_nsrt(ground_nsrt,
                          state,
                          override_params=None,
-                         assert_effects=True):
+                         assert_add_effects=True,
+                         assert_delete_effects=True):
         obs_to_state = lambda obs: env.state_info_to_state(obs["state_info"])
-        return utils.run_ground_nsrt_with_assertions(ground_nsrt, state, env,
-                                                     rng, obs_to_state,
-                                                     override_params,
-                                                     assert_effects)
+        return utils.run_ground_nsrt_with_assertions(
+            ground_nsrt,
+            state,
+            env,
+            rng,
+            obs_to_state,
+            override_params,
+            assert_add_effects=assert_add_effects,
+            assert_delete_effects=assert_delete_effects)
 
     # Set up all the NSRTs for the following tests.
     move_to_light_pre_on_nsrt = MoveToPreTurnOn.ground([gripper, light])
@@ -316,6 +322,7 @@ def test_kitchen():
     state = _run_ground_nsrt(turn_on_knob4_nsrt,
                              state,
                              override_params=np.array([-np.pi / 6]),
-                             assert_effects=False)
+                             assert_add_effects=False,
+                             assert_delete_effects=False)
     assert not TurnedOn([knob4]).holds(state)
     assert not all(p.holds(state) for p in turn_on_knob4_nsrt.preconditions)

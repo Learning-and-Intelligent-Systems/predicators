@@ -32,15 +32,20 @@ def _move_offset_sampler(state: State, robot_obj: Object,
     robot_geom = spot_pose_to_geom2d(spot_pose)
     convex_hulls = get_allowed_map_regions()
     collision_geoms = get_collision_geoms_for_nav(state)
-    distance, angle, _ = sample_move_offset_from_target(
-        obj_to_nav_to_pos,
-        robot_geom,
-        collision_geoms,
-        rng,
-        min_distance=min_dist,
-        max_distance=max_dist,
-        allowed_regions=convex_hulls,
-    )
+    try:
+        distance, angle, _ = sample_move_offset_from_target(
+            obj_to_nav_to_pos,
+            robot_geom,
+            collision_geoms,
+            rng,
+            min_distance=min_dist,
+            max_distance=max_dist,
+            allowed_regions=convex_hulls,
+        )
+    # Rare sampling failures.
+    except RuntimeError:  # pragma: no cover
+        raise utils.OptionExecutionFailure("Move offset sampling failed.")
+
     return np.array([distance, angle])
 
 
@@ -100,7 +105,10 @@ def _pick_object_from_top_sampler(state: State, goal: Set[GroundAtom],
     # Randomly sample a pixel.
     if CFG.spot_run_dry:
         # Load the object mask.
-        obj_mask_filename = f"grasp_maps/{target_obj.name}-object.npy"
+        if CFG.spot_use_perfect_samplers:
+            obj_mask_filename = f"grasp_maps/{target_obj.name}-grasps.npy"
+        else:
+            obj_mask_filename = f"grasp_maps/{target_obj.name}-object.npy"
         obj_mask_path = utils.get_env_asset_path(obj_mask_filename)
         obj_mask = np.load(obj_mask_path)
         pixel_choices = np.where(obj_mask)
@@ -227,13 +235,14 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "MoveToBodyViewObject": _move_to_body_view_object_sampler,
             "MoveToReachObject": _move_to_reach_object_sampler,
             "PickObjectFromTop": _pick_object_from_top_sampler,
-            "PickCupToDumpBall": _pick_object_from_top_sampler,
+            "PickAndDumpContainer": _pick_object_from_top_sampler,
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
             "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
             "DragToUnblockObject": _drag_to_unblock_object_sampler,
             "SweepIntoContainer": _sweep_into_container_sampler,
             "PrepareContainerForSweeping": _prepare_sweeping_sampler,
+            "DropNotPlaceableObject": utils.null_sampler,
         }
 
         for strips_op in env.strips_operators:
