@@ -315,6 +315,9 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         for old_nsrt in self._nsrts:
             if old_nsrt.option not in new_nsrt_options:
                 new_test_nsrts.add(old_nsrt)
+                # Since we don't have a learned score function, just make
+                # a lambda function that returns the same score (1.0)
+                # for every input that gets passed in.
                 self._nsrt_to_explorer_sampler[
                     old_nsrt] = _wrap_sampler_exploration(
                         old_nsrt._sampler,  # pylint: disable=protected-access
