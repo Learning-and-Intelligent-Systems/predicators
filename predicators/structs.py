@@ -1813,6 +1813,12 @@ EntToEntSub = Dict[_TypedEntity, _TypedEntity]
 Datastore = List[Tuple[Segment, VarToObjSub]]
 NSRTSampler = Callable[
     [State, Set[GroundAtom], np.random.Generator, Sequence[Object]], Array]
+# NSRT Sampler that also returns a boolean indicating whether the sample was
+# generated randomly (for exploration) or from the current learned
+# distribution.
+NSRTSamplerWithEpsilonIndicator = Callable[
+    [State, Set[GroundAtom], np.random.Generator, Sequence[Object]],
+    Tuple[Array, bool]]
 Metrics = DefaultDict[str, float]
 LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
                              _Atom)

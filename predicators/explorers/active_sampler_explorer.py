@@ -6,7 +6,7 @@ import os
 import re
 import time
 from collections import deque
-from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Callable, Deque, Dict, Iterator, List, Optional, Set, Tuple
 
 import dill as pkl
 import numpy as np
@@ -20,9 +20,9 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
     run_task_plan_once
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, \
-    ExplorationStrategy, GroundAtom, NSRTSampler, ParameterizedOption, \
-    Predicate, State, Task, Type, _GroundNSRT, _GroundSTRIPSOperator, \
-    _Option
+    ExplorationStrategy, GroundAtom, NSRTSamplerWithEpsilonIndicator, \
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 # Helper type to distinguish training tasks from replanning tasks.
 _TaskID = Tuple[str, int]
@@ -47,7 +47,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                  ground_op_hist: Dict[_GroundSTRIPSOperator, List[bool]],
                  competence_models: Dict[_GroundSTRIPSOperator,
                                          SkillCompetenceModel],
-                 nsrt_to_explorer_sampler: Dict[NSRT, NSRTSampler],
+                 nsrt_to_explorer_sampler: Dict[
+                     NSRT, NSRTSamplerWithEpsilonIndicator],
                  seen_train_task_idxs: Set[int],
                  pursue_task_goal_first: bool) -> None:
 
@@ -64,6 +65,11 @@ class ActiveSamplerExplorer(BaseExplorer):
         self._last_executed_nsrt: Optional[_GroundNSRT] = None
         self._last_executed_option: Optional[_Option] = None
         self._last_init_option_state: Optional[State] = None
+        # Indicator that tells us whether the last executed NSRT used
+        # a random sample for the purposes of exploration, or whether
+        # it used something from the current learned sampler distribution
+        # (exploitation).
+        self._last_executed_nsrt_was_exploration: Optional[bool] = None
         self._nsrt_to_explorer_sampler = nsrt_to_explorer_sampler
         self._seen_train_task_idxs = seen_train_task_idxs
         self._pursue_task_goal_first = pursue_task_goal_first
@@ -81,7 +87,7 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         # Tasks created through re-planning.
         n = CFG.active_sampler_explorer_planning_progress_max_replan_tasks
-        self._replanning_tasks: deque[Task] = deque([], maxlen=n)
+        self._replanning_tasks: Deque[Task] = deque([], maxlen=n)
 
     @classmethod
     def get_name(cls) -> str:
@@ -113,7 +119,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         current_task_repeat_goal: Optional[Set[GroundAtom]] = None
         using_random = False
 
-        def _option_policy(state: State) -> _Option:
+        def _option_policy(state: State) -> Tuple[_Option, bool]:
             logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task, assigned_task_finished, current_policy, \
                 next_practice_nsrt, using_random, assigned_task_horizon
@@ -129,7 +135,7 @@ class ActiveSamplerExplorer(BaseExplorer):
 
             if using_random:
                 logging.info("[Explorer] Using random option policy.")
-                return self._get_random_option(state)
+                return (self._get_random_option(state), False)
 
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_finished and \
@@ -157,13 +163,20 @@ class ActiveSamplerExplorer(BaseExplorer):
                     f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
                 exploration_sampler = self._nsrt_to_explorer_sampler[
                     next_practice_nsrt.parent]
-                practice_nsrt_for_exploration = next_practice_nsrt.copy_with(
-                    _sampler=exploration_sampler)
-                option = practice_nsrt_for_exploration.sample_option(
-                    state, g, self._rng)
+                # We want to generate a sample to use to ground the option,
+                # and also save the epsilon indicator.
+                params, indicator = exploration_sampler(
+                    state, g, self._rng, next_practice_nsrt.option_objs)
+                # Clip the params into the params_space of self.option,
+                # for safety.
+                low = next_practice_nsrt.option.params_space.low
+                high = next_practice_nsrt.option.params_space.high
+                params = np.clip(params, low, high)
+                option = next_practice_nsrt.option.ground(
+                    next_practice_nsrt.option_objs, params)
                 next_practice_nsrt = None
                 current_policy = None
-                return option
+                return option, indicator
 
             # Check if it's time to select a new goal and re-plan.
             if current_policy is None:
@@ -269,12 +282,12 @@ class ActiveSamplerExplorer(BaseExplorer):
                     logging.info("[Explorer] No reachable goal found. "
                                  "Switching to random exploration.")
                     using_random = True
-                    return self._get_random_option(state)
+                    return (self._get_random_option(state), False)
             # Query the current policy.
             assert current_policy is not None
             try:
                 act = current_policy(state)
-                return act
+                return (act, False)
             except utils.OptionExecutionFailure:
                 logging.info("[Explorer] Option execution failure!")
                 current_policy = None
@@ -293,13 +306,14 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Update ground_op_hist.
             self._update_ground_op_hist(state)
             # Record last executed NSRT.
-            option = _option_policy(state)
+            option, exploration_indicator = _option_policy(state)
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
             logging.info(f"[Explorer] Starting NSRT: {ground_nsrt.name}"
                          f"{ground_nsrt.objects}")
             self._last_executed_nsrt = ground_nsrt
             self._last_executed_option = option
             self._last_init_option_state = state
+            self._last_executed_nsrt_was_exploration = exploration_indicator
             return option
 
         # Finalize policy.
@@ -325,8 +339,10 @@ class ActiveSamplerExplorer(BaseExplorer):
     def _update_ground_op_hist(self, state: State) -> None:
         """Should be called when an NSRT has just terminated."""
         nsrt = self._last_executed_nsrt
+        exploration_indicator = self._last_executed_nsrt_was_exploration
         if nsrt is None:
             return
+        assert exploration_indicator is not None
         # NOTE: checking just the add effects doesn't work in general, but
         # is probably fine for now. The right thing to do here is check
         # the necessary atoms, which we will compute with a utility function
@@ -379,6 +395,10 @@ class ActiveSamplerExplorer(BaseExplorer):
             }
             with open(f"{pfx}{datapoint_id}.data", "wb") as f:
                 pkl.dump(data, f)
+        # Only update the competence model if this action was not an
+        # exploratory action.
+        if not exploration_indicator:
+            self._competence_models[last_executed_op].observe(success)
 
     def _get_option_policy_for_task(self,
                                     task: Task) -> Callable[[State], _Option]:
