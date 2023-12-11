@@ -182,7 +182,9 @@ def test_active_sampler_explorer():
     nsrt_to_explorer_sampler: Dict[NSRT, NSRTSamplerWithEpsilonIndicator] = {}
     for nsrt in nsrts:
         nsrt_to_explorer_sampler[nsrt] = _wrap_sampler_exploration(
-            nsrt.sampler, lambda s, o, x: [0.0] * len(x), strategy="epsilon_greedy")
+            nsrt.sampler,
+            lambda s, o, x: [0.0] * len(x),
+            strategy="epsilon_greedy")
     explorer = create_explorer(
         "active_sampler",
         env.predicates,
@@ -377,7 +379,9 @@ def test_active_sampler_explorer():
     new_nsrt_to_greedy_explorer_sampler = {}
     for nsrt, sampler in nsrt_to_explorer_sampler.items():
         new_nsrt_to_greedy_explorer_sampler[nsrt] = _wrap_sampler_exploration(
-            nsrt.sampler, lambda s, o, x: [0.0] * len(x), strategy="epsilon_greedy")
+            nsrt.sampler,
+            lambda s, o, x: [0.0] * len(x),
+            strategy="epsilon_greedy")
     explorer = create_explorer(
         "active_sampler",
         env.predicates,
