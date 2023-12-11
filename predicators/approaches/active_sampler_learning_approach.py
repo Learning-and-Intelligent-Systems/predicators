@@ -317,8 +317,8 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
                 new_test_nsrts.add(old_nsrt)
                 self._nsrt_to_explorer_sampler[
                     old_nsrt] = _wrap_sampler_exploration(
-                        old_nsrt._sampler,
-                        lambda o, _, params: [1.0] * len(params), "greedy")  # pylint: disable=protected-access
+                        old_nsrt._sampler, # pylint: disable=protected-access
+                        lambda o, _, params: [1.0] * len(params), "greedy")
         self._nsrts = new_test_nsrts
         # Re-save the NSRTs now that we've updated them.
         save_path = utils.get_approach_save_path_str()
