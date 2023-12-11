@@ -38,9 +38,9 @@ known-immovable-objects:
     x: 1.84
     y: 0.85
     z: -0.5
-  smooth_table:
+  play_table:
     x: 3.2
-    y: 0.74
+    y: 0.75
     z: -0.1
   drafting_table:
     x: 2.5
@@ -48,11 +48,11 @@ known-immovable-objects:
     z: -0.25
 # Static object features, including the shapes and sizes of known objects.
 static-object-features:
-  smooth_table:
-    shape: 2  # cylinder
-    height: 0.43
-    length: 0.51
-    width: 0.51
+  play_table:
+    shape: 1  # cylinder
+    height: 0.54
+    length: 0.69
+    width: 0.42
     flat_top_surface: 1
   drafting_table:
     shape: 1  # cuboid
