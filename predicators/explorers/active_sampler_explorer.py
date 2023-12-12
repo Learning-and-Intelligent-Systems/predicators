@@ -373,6 +373,11 @@ class ActiveSamplerExplorer(BaseExplorer):
             self, ground_op: _GroundSTRIPSOperator) -> Tuple[float, ...]:
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
+            if CFG.active_sampler_explore_use_ucb_bonus:
+                # UCB-like bonus.
+                c = CFG.active_sampler_explore_bonus
+                bonus = c * np.sqrt(np.log(total_trials) / num_tries)
+                score += bonus
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
             history = self._ground_op_hist[ground_op]
             num_tries = len(history)
@@ -380,7 +385,6 @@ class ActiveSamplerExplorer(BaseExplorer):
             total_trials = sum(len(h) for h in self._ground_op_hist.values())
             score = (1.0 - success_rate)
             if CFG.active_sampler_explore_use_ucb_bonus:
-                # Try less successful operators more often.
                 # UCB-like bonus.
                 c = CFG.active_sampler_explore_bonus
                 bonus = c * np.sqrt(np.log(total_trials) / num_tries)
