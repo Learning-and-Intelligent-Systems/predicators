@@ -12,7 +12,7 @@ from predicators.spot_utils.skills.spot_hand_move import \
 
 def place_at_relative_position(robot: Robot,
                                body_to_position: math_helpers.Vec3,
-                               downward_angle: float = np.pi / 3) -> None:
+                               downward_angle: float = np.pi / 2.5) -> None:
     """Assuming something is held, place is at the given pose.
 
     The position is relative to the robot's body. It is the responsibility

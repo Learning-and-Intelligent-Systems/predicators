@@ -403,8 +403,10 @@ class _Geom2D(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
         """Samples a random point inside the 2D shape."""
         raise NotImplementedError("Override me!")
 
@@ -424,6 +426,10 @@ class LineSegment(_Geom2D):
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         ax.plot([self.x1, self.x2], [self.y1, self.y2], **kwargs)
 
+    @staticmethod
+    def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
+        return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
+
     def contains_point(self, x: float, y: float) -> bool:
         # https://stackoverflow.com/questions/328107
         a = (self.x1, self.y1)
@@ -433,14 +439,15 @@ class LineSegment(_Geom2D):
         # if the distance from a to b is (approximately) equal to the distance
         # from a to c and the distance from c to b.
         eps = 1e-6
+        return -eps < self._dist(a, c) + self._dist(c, b) - self._dist(a,
+                                                                       b) < eps
 
-        def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
-            return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
-
-        return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
-
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge == 0.0, "not yet implemented" + \
+            " non-infinite min_dist_from_edge"
         line_slope = (self.y2 - self.y1) / (self.x2 - self.x1)
         y_intercept = self.y2 - (line_slope * self.x2)
         random_x_point = rng.uniform(self.x1, self.x2)
@@ -469,9 +476,13 @@ class Circle(_Geom2D):
                                        (other_circle.y - self.y)**2)
         return (dist_between_centers + other_circle.radius) <= self.radius
 
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
-        rand_mag = rng.uniform(0, self.radius)
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge < self.radius, "min_dist_from_edge is " + \
+            "greater than radius"
+        rand_mag = rng.uniform(0, self.radius - min_dist_from_edge)
         rand_theta = rng.uniform(0, 2 * np.pi)
         x_point = self.x + rand_mag * np.cos(rand_theta)
         y_point = self.y + rand_mag * np.sin(rand_theta)
@@ -516,8 +527,12 @@ class Triangle(_Geom2D):
         has_pos = sign1 or sign2 or sign3
         return not has_neg or not has_pos
 
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge == 0.0, "not yet implemented" + \
+            " non-zero min_dist_from_edge"
         a = np.array([self.x2 - self.x1, self.y2 - self.y1])
         b = np.array([self.x3 - self.x1, self.y3 - self.y1])
         u1 = rng.uniform(0, 1)
@@ -626,10 +641,17 @@ class Rectangle(_Geom2D):
         return 0 <= rx <= self.width and \
                0 <= ry <= self.height
 
-    def sample_random_point(self,
-                            rng: np.random.Generator) -> Tuple[float, float]:
-        rand_width = rng.uniform(0, self.width)
-        rand_height = rng.uniform(0, self.height)
+    def sample_random_point(
+            self,
+            rng: np.random.Generator,
+            min_dist_from_edge: float = 0.0) -> Tuple[float, float]:
+        assert min_dist_from_edge <= self.width / 2 and \
+            min_dist_from_edge <= self.height / 2, \
+                "cannot achieve sample with min_dist_from_edge"
+        rand_width = rng.uniform(min_dist_from_edge,
+                                 self.width - min_dist_from_edge)
+        rand_height = rng.uniform(min_dist_from_edge,
+                                  self.height - min_dist_from_edge)
         # First rotate, then translate.
         rx, ry = np.array([rand_width, rand_height]) @ self.rotation_matrix.T
         x = rx + self.x

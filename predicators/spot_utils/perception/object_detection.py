@@ -531,6 +531,7 @@ def visualize_all_artifacts(artifacts: Dict[str,
         plt.tight_layout()
         plt.savefig(detections_outfile, dpi=300)
         print(f"Wrote out to {detections_outfile}.")
+        plt.close()
 
     # Visualize all of the images that have no detections.
     all_cameras = set(rgbds)
@@ -565,6 +566,7 @@ def visualize_all_artifacts(artifacts: Dict[str,
         plt.tight_layout()
         plt.savefig(no_detections_outfile, dpi=300)
         print(f"Wrote out to {no_detections_outfile}.")
+        plt.close()
 
 
 def display_camera_detections(artifacts: Dict[str, Any],

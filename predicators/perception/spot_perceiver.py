@@ -381,4 +381,5 @@ class SpotPerceiver(BasePerceiver):
         outfile = outdir / f"mental_top_down_{time_str}.png"
         iio.imsave(outfile, img)
         logging.info(f"Wrote out to {outfile}")
+        plt.close()
         return [img]

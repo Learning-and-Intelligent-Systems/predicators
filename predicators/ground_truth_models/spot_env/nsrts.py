@@ -145,7 +145,7 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
     del goal
     surf_to_place_on = objs[2]
     surf_geom = object_to_top_down_geom(surf_to_place_on, state)
-    rand_x, rand_y = surf_geom.sample_random_point(rng)
+    rand_x, rand_y = surf_geom.sample_random_point(rng, 0.08)
     dx = rand_x - state.get(surf_to_place_on, "x")
     dy = rand_y - state.get(surf_to_place_on, "y")
     dz = 0.15
