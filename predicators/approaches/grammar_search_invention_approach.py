@@ -1428,63 +1428,103 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         s = " ".join(f"{lst[i]:<{max_length}}" if i < len(lst) else " " * max_length for lst in del_effs)
                         file.write(s + '\n')
 
-            print_demo(temp[-2])
+            # print_demo(temp[-6][0:3])
+
+            # self._clusters = ddd
+            # return predicates_to_keep
 
             import pdb; pdb.set_trace()
 
-            # hard-coded test
-            op1_pre = [
-                "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
-                # "((0:block).grasp<=[idx 0]-0.486)"
+            fff = {n: [set(), set(), set()] for n in ddd.keys()}
+
+            mmm = {}
+            for n in ddd.keys():
+                mmm[n] = {
+                    "pre": [],
+                    "add": [],
+                    "del": []
+                }
+            import pdb; pdb.set_trace()
+            mmm["Op0-Pick"]["pre"] = [
+                ""
             ]
-            op1_add = [
-                "NOT-((0:block).grasp<=[idx 0]-0.486)",
-                "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]"
+            mmm["Op0-Pick"]["add"] = [
             ]
-            op1_del = [
-                "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
-                # "((0:block).grasp<=[idx 0]-0.486)"
+            mmm["Op0-Pick"]["del"] = [
+            ]
+            mmm["Op1-PutOnTable"]["pre"] = [
+            ]
+            mmm["Op1-PutOnTable"]["add"] = [
+            ]
+            mmm["Op1-PutOnTable"]["del"] = [
+            ]
+            mmm["Op2-Stack"]["pre"] = [
+            ]
+            mmm["Op2-Stack"]["add"] = [
+            ]
+            mmm["Op2-Stack"]["del"] = [
+            ]
+            mmm["Op3-Pick"]["pre"] = [
+            ]
+            mmm["Op3-Pick"]["add"] = [
+            ]
+            mmm["Op3-Pick"]["del"] = [
             ]
 
-            op0_pre = [
-                "NOT-((0:block).grasp<=[idx 0]-0.486)",
-                "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
-            ]
-            op0_add = [
-                "Covers",
-                "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
-                # "((0:block).grasp<=[idx 0]-0.486)"
-            ]
-            op0_del = [
-                "NOT-((0:block).grasp<=[idx 0]-0.486)",
-                "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]"
-            ]
 
-            # filter
-            fff = {}
-            fff['Op1-PickPlace'] = []
-            fff['Op0-PickPlace'] = []
-            fff['Op1-PickPlace'].append(
-                set(p for p in ddd['Op1-PickPlace'][0] if p.name in op0_pre)
-                )
-            fff['Op1-PickPlace'].append(
-                set(p for p in ddd['Op1-PickPlace'][1] if p.name in op0_add)
-                )
-            fff['Op1-PickPlace'].append(
-                set(p for p in ddd['Op1-PickPlace'][2] if p.name in op0_del)
-                )
-            fff['Op1-PickPlace'].append(ddd['Op1-PickPlace'][3])
-
-            fff['Op0-PickPlace'].append(
-                set(p for p in ddd['Op0-PickPlace'][0] if p.name in op1_pre)
-                )
-            fff['Op0-PickPlace'].append(
-                set(p for p in ddd['Op0-PickPlace'][1] if p.name in op1_add)
-                )
-            fff['Op0-PickPlace'].append(
-                set(p for p in ddd['Op0-PickPlace'][2] if p.name in op1_del)
-                )
-            fff['Op0-PickPlace'].append(ddd['Op0-PickPlace'][3])
+            # # hard-coded test
+            # op1_pre = [
+            #     "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
+            #     # "((0:block).grasp<=[idx 0]-0.486)"
+            # ]
+            # op1_add = [
+            #     "NOT-((0:block).grasp<=[idx 0]-0.486)",
+            #     "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]"
+            # ]
+            # op1_del = [
+            #     "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
+            #     # "((0:block).grasp<=[idx 0]-0.486)"
+            # ]
+            #
+            # op0_pre = [
+            #     "NOT-((0:block).grasp<=[idx 0]-0.486)",
+            #     "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
+            # ]
+            # op0_add = [
+            #     "Covers",
+            #     "Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]",
+            #     # "((0:block).grasp<=[idx 0]-0.486)"
+            # ]
+            # op0_del = [
+            #     "NOT-((0:block).grasp<=[idx 0]-0.486)",
+            #     "NOT-Forall[0:block].[((0:block).grasp<=[idx 0]-0.486)(0)]"
+            # ]
+            #
+            # # filter
+            # fff = {}
+            # fff['Op1-PickPlace'] = []
+            # fff['Op0-PickPlace'] = []
+            # fff['Op1-PickPlace'].append(
+            #     set(p for p in ddd['Op1-PickPlace'][0] if p.name in op0_pre)
+            #     )
+            # fff['Op1-PickPlace'].append(
+            #     set(p for p in ddd['Op1-PickPlace'][1] if p.name in op0_add)
+            #     )
+            # fff['Op1-PickPlace'].append(
+            #     set(p for p in ddd['Op1-PickPlace'][2] if p.name in op0_del)
+            #     )
+            # fff['Op1-PickPlace'].append(ddd['Op1-PickPlace'][3])
+            #
+            # fff['Op0-PickPlace'].append(
+            #     set(p for p in ddd['Op0-PickPlace'][0] if p.name in op1_pre)
+            #     )
+            # fff['Op0-PickPlace'].append(
+            #     set(p for p in ddd['Op0-PickPlace'][1] if p.name in op1_add)
+            #     )
+            # fff['Op0-PickPlace'].append(
+            #     set(p for p in ddd['Op0-PickPlace'][2] if p.name in op1_del)
+            #     )
+            # fff['Op0-PickPlace'].append(ddd['Op0-PickPlace'][3])
             # self._clusters = fff
             # # import pdb; pdb.set_trace()
             # return predicates_to_keep
