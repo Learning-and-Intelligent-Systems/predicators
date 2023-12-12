@@ -11,7 +11,7 @@ from predicators import utils
 from predicators.approaches import create_approach
 from predicators.cogman import CogMan
 from predicators.envs import create_new_env
-from predicators.envs.spot_env import SpotCubeEnv
+from predicators.envs.spot_env import SpotBallAndCupStickyTableEnv, SpotCubeEnv
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.spot_perceiver import SpotPerceiver
@@ -428,5 +428,92 @@ def real_robot_cube_env_test() -> None:
     assert GroundAtom(Holding, [spot, cube]).holds(state)
 
 
+def real_robot_drafting_table_placement_test() -> None:
+    """Another real robot test, not to be run by unit tests! Mostly for
+    debugging the place sampler on the drafting table, which seems to be
+    surprisingly biased to the left side of the table. Note that this test
+    doesn't assert anything: a user must manually check that the agent is
+    sampling a different point on the surface every time.
+
+    Run this test by running the file directly, i.e.,
+
+    python tests/envs/test_spot_envs.py --spot_robot_ip <ip address>
+
+    Optionally load the last initial state:
+
+    python tests/envs/test_spot_envs.py --spot_robot_ip <ip address> \
+        --test_task_json_dir predicators/envs/assets/task_jsons/spot/
+    """
+    args = utils.parse_args(env_required=False,
+                            seed_required=False,
+                            approach_required=False)
+    utils.reset_config({
+        "env":
+        "spot_ball_and_cup_sticky_table_env",
+        "approach":
+        "spot_wrapper[oracle]",
+        "num_train_tasks":
+        0,
+        "num_test_tasks":
+        1,
+        "seed":
+        123,
+        "spot_robot_ip":
+        args["spot_robot_ip"],
+        "spot_graph_nav_map":
+        args["spot_graph_nav_map"],
+        "test_task_json_dir":
+        args.get("test_task_json_dir", None),
+    })
+    rng = np.random.default_rng(123)
+    env = SpotBallAndCupStickyTableEnv()
+    perceiver = SpotPerceiver()
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+
+    # This should have the robot spin around and locate all objects.
+    task = env.get_test_tasks()[0]
+    obs = env.reset("test", 0)
+    perceiver.reset(task)
+    assert len(obs.objects_in_view) == 5
+    _, cup, drafting_table, _, _ = sorted(obs.objects_in_view)
+    state = perceiver.step(obs)
+    spot = next(o for o in state if o.type.name == "robot")
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
+    PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
+    ground_nsrts: List[_GroundNSRT] = []
+    for nsrt in sorted(nsrts):
+        ground_nsrts.extend(utils.all_ground_nsrts(nsrt, set(state)))
+
+    # First, move to the drafting table.
+    move_to_drafting_table_nsrt = MoveToReachObject.ground(
+        (spot, drafting_table))
+    # Sample and run an option to move to the surface.
+    option = move_to_drafting_table_nsrt.sample_option(state, set(), rng)
+    assert option.initiable(state)
+    for _ in range(10):  # should terminate much earlier
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        if option.terminal(state):
+            break
+
+    # Now, sample a placement option multiple times and run it.
+    place_on_table_nsrt = PlaceObjectOnTop.ground([spot, cup, drafting_table])
+    for _ in range(10):
+        option = place_on_table_nsrt.sample_option(state, set(), rng)
+        assert option.initiable(state)
+        for _ in range(100):  # should terminate much earlier
+            action = option.policy(state)
+            obs = env.step(action)
+            perceiver.update_perceiver_with_action(action)
+            state = perceiver.step(obs)
+            if option.terminal(state):
+                break
+
+
 if __name__ == "__main__":
     real_robot_cube_env_test()
+    real_robot_drafting_table_placement_test()

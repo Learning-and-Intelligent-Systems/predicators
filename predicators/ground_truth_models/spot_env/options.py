@@ -323,6 +323,16 @@ def _place_object_on_top_policy(state: State, memory: Dict,
     surface_obj = objects[surface_obj_idx]
     surface_pose = utils.get_se3_pose_from_state(state, surface_obj)
 
+    # The dz parameter is with respect to the top of the container.
+    surface_half_height = state.get(surface_obj, "height") / 2
+
+    place_pose = math_helpers.SE3Pose(
+        x=surface_pose.x + dx,
+        y=surface_pose.y + dy,
+        z=surface_pose.z + surface_half_height + dz,
+        rot=surface_pose.rot,
+    )
+
     # Special case: the robot is already on top of the surface (because it is
     # probably the floor). When this happens, just drop the object.
     surface_geom = object_to_top_down_geom(surface_obj, state)
@@ -338,13 +348,7 @@ def _place_object_on_top_policy(state: State, memory: Dict,
         localizer.localize()
         robot_pose = localizer.get_last_robot_pose()
 
-    # The dz parameter is with respect to the top of the container.
-    surface_half_height = state.get(surface_obj, "height") / 2
-    surface_rel_pose = robot_pose.inverse() * surface_pose
-    place_rel_pos = math_helpers.Vec3(x=surface_rel_pose.x + dx,
-                                      y=surface_rel_pose.y + dy,
-                                      z=surface_rel_pose.z + dz +
-                                      surface_half_height)
+    place_rel_pos = robot_pose.inverse() * place_pose
     return utils.create_spot_env_action(name, objects,
                                         _place_at_relative_position_and_stow,
                                         (robot, place_rel_pos))
