@@ -29,15 +29,19 @@ for operator, task_list in jsonable_dict.items():
         load_state_fname_pattern = os.path.join('init_states', task, '*_state.json')
         load_state_path = random.choice(glob.glob(load_state_fname_pattern))
         load_goal_path = load_state_path.rstrip('_state.json') + '_goal.json'
+        load_objects_path = os.path.join('init_states', task, 'objects.json')
 
         load_state_basename = os.path.basename(load_state_path)
         load_goal_basename = os.path.basename(load_goal_path)
+        load_objects_basename = os.path.basename(load_state_path.rstrip('_state.json') + '_objects.json')
         
         save_state_fname = os.path.join(save_dirname, f'operator_count_{operator_count}_{task}_{load_state_basename}')
         save_goal_fname = os.path.join(save_dirname, f'operator_count_{operator_count}_{task}_{load_goal_basename}')
+        save_objects_fname = os.path.join(save_dirname, f'operator_count_{operator_count}_{task}_{load_objects_basename}')
 
         os.system(f'cp {load_state_path} {save_state_fname}')
         os.system(f'cp {load_goal_path} {save_goal_fname}')
+        os.system(f'cp {load_objects_path} {save_objects_fname}')
 
 with open('tasks_for_operator.json', 'w') as f:
     json.dump(jsonable_dict, f, indent=4)

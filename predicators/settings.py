@@ -594,8 +594,10 @@ class GlobalSettings:
     behavior_task_name = "defrosting_freezer"
     # behavior_init_states_path = "init_states/"
     behavior_init_states_path = "init_states_operator_tasks/"
+    behavior_only_relevant_objects = True
     save_skeleton_and_exit = False
     intertwine_interaction_and_learning = True
+    
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

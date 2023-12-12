@@ -765,7 +765,6 @@ def unify(atoms1: FrozenSet[LiftedOrGroundAtom],
             subs21[v2] = v1
     if success:
         return True, subs12
-
     # If all else fails, use search
     solved, sub = find_substitution(atoms_lst1, atoms_lst2)
     rev_sub = {v: k for k, v in sub.items()}
@@ -792,7 +791,7 @@ def unify_preconds_effects_options(
     if param_option1 != param_option2:
         # Can't unify if the parameterized options are different.
         return False, {}
-    opt_arg_pred1 = Predicate("OPT-ARGS", [a.type for a in option_args1],
+    opt_arg_pred1 = Predicate("OPT-ARGS", [a.type.parent or a.type for a in option_args1],
                               _classifier=lambda s, o: False)  # dummy
     f_option_args1 = frozenset({GroundAtom(opt_arg_pred1, option_args1)})
     new_preconds1 = wrap_atom_predicates(preconds1, "PRE-")
@@ -802,7 +801,7 @@ def unify_preconds_effects_options(
     new_delete_effects1 = wrap_atom_predicates(delete_effects1, "DEL-")
     f_new_delete_effects1 = frozenset(new_delete_effects1)
 
-    opt_arg_pred2 = Predicate("OPT-ARGS", [a.type for a in option_args2],
+    opt_arg_pred2 = Predicate("OPT-ARGS", [a.type.parent or a.type for a in option_args2],
                               _classifier=lambda s, o: False)  # dummy
     f_option_args2 = frozenset({LiftedAtom(opt_arg_pred2, option_args2)})
     new_preconds2 = wrap_atom_predicates(preconds2, "PRE-")
@@ -1551,6 +1550,7 @@ def _substitution_consistent(
         if not set(sub_atom.entities).issubset(partial_sub.keys()):
             continue
         substituted_vars = tuple(partial_sub[e] for e in sub_atom.entities)
+
         if substituted_vars not in super_pred_to_tuples[sub_atom.predicate]:
             return False
     return True
@@ -2603,8 +2603,8 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     # appears in the effects, we still know that the effects
     # will be true, so we don't want to remove them.
     new_atoms = {a for a in atoms if a.predicate not in op.ignore_effects}
-    new_new_atoms = set()
     if op.fancy_ignore_effects is not None:
+        new_new_atoms = set()
         for a in new_atoms:
             remove = False
             for pred, partial_objs in op.fancy_ignore_effects:
@@ -2615,7 +2615,7 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
                             remove = False
             if not remove:
                 new_new_atoms.add(a)
-    new_atoms = new_new_atoms
+        new_atoms = new_new_atoms
     for atom in op.delete_effects:
         new_atoms.discard(atom)
     for atom in op.add_effects:

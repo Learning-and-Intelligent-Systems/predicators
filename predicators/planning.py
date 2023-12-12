@@ -500,7 +500,8 @@ def run_low_level_search(
     timeout: float,
     metrics: Metrics,
     max_horizon: int,
-    refinement_time: Optional[List[float]] = None
+    refinement_time: Optional[List[float]] = None,
+    return_traj: Optional[bool] = False,
 ) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
@@ -535,6 +536,7 @@ def run_low_level_search(
     num_actions_per_option = [0 for _ in plan]
     traj: List[State] = [task.init] + [DefaultState for _ in skeleton]
     longest_failed_refinement: List[_Option] = []
+    longest_failed_traj = [task.init]
     # We'll use a maximum of one discovered failure per step, since
     # resampling can render old discovered failures obsolete.
     discovered_failures: List[Optional[_DiscoveredFailure]] = [
@@ -543,6 +545,8 @@ def run_low_level_search(
     plan_found = False
     while cur_idx < len(skeleton):
         if time.perf_counter() - start_time > timeout:
+            if return_traj:
+                return longest_failed_refinement, False, longest_failed_traj
             return longest_failed_refinement, False
         assert num_tries[cur_idx] < max_tries[cur_idx]
         try_start_time = time.perf_counter()
@@ -634,11 +638,14 @@ def run_low_level_search(
             try_end_time = time.perf_counter()
             refinement_time[cur_idx - 1] += try_end_time - try_start_time
         if plan_found:
+            if return_traj:
+                return plan, True, traj
             return plan, True  # success!
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
             # Update the longest_failed_refinement found so far.
             if cur_idx > len(longest_failed_refinement):
                 longest_failed_refinement = list(plan[:cur_idx])
+                longest_failed_traj = traj[:cur_idx + 1]
             # If we're immediately propagating failures, and we got a failure,
             # raise it now. We don't do this right after catching the
             # EnvironmentFailure because we want to make sure to update
@@ -673,9 +680,13 @@ def run_low_level_search(
                                     "longest_failed_refinement":
                                     longest_failed_refinement
                                 })
+                    if return_traj:
+                        return longest_failed_refinement, False, longest_failed_traj
                     return longest_failed_refinement, False
     # Should only get here if the skeleton was empty.
     assert not skeleton
+    if return_traj:
+        return [], True, [task.init]
     return [], True
 
 
@@ -1073,6 +1084,10 @@ def _sesame_plan_with_fast_downward(
     implemented here.
     """
     init_atoms = utils.abstract(task.init, predicates)
+    print(f'Init atoms: {len(init_atoms)}')
+    print(f'\t{init_atoms}')
+    print('Goal:')
+    print(f'\t{task.goal}')
     objects = list(task.init)
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
     if optimal:

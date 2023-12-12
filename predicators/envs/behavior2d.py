@@ -22,11 +22,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 
+from bddl.object_taxonomy import ObjectTaxonomy
+
 from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, EnvironmentTask, GroundAtom, \
     Object, ParameterizedOption, Predicate, State, Type
+
+
 
 class Behavior2DEnv(BaseEnv):
     """Behavior2D domains."""
@@ -519,6 +523,7 @@ class Behavior2DEnv(BaseEnv):
             next_state.set(other_obj, "yaw", place_yaw)
             assert self._inside_classifier(next_state, [other_obj, obj])
 
+        assert self._reachable_classifier(next_state, [obj])
         return next_state
 
     # The actions below are implemented as "magic words". For this
@@ -807,6 +812,8 @@ class Behavior2DEnv(BaseEnv):
 
             obj_name_to_obj = {}
             data: Dict[Object, Array] = {}
+            # objects_file = os.path.join('/'.join(file.split('/')[:-1]), 'objects.json')
+            objects_file = file.replace("state.json", "objects.json")
             for obj_name in init_state_3d:
                 if obj_name not in {"walls", "floors", "ceilings", "BRBody_1"}:
                     type_name = self._get_object_typename(obj_name)
@@ -873,6 +880,43 @@ class Behavior2DEnv(BaseEnv):
 
             goal = self._get_goal_from_file(goal_3d, obj_name_to_obj)
 
+            with open(objects_file, 'r') as f:
+                objects = json.load(f)
+            objects = [o for o in objects if not (o.startswith('floor') or o.startswith('agent'))]
+
+            taxonomy = ObjectTaxonomy()
+
+            goal_objects = {o for atom in goal for o in atom.objects}
+            other_objects = set(init_state.data.keys()) - goal_objects
+            other_objects = {o for o in other_objects if not (o.type.name.startswith('floor') or o.type.name.startswith('robot'))}
+            task_relevant_objects = set()
+            for o1 in objects:
+                print(o1)
+                o1_class = '_'.join(o1.split('_')[:-1])
+                for o2 in goal_objects:
+                    # if o1.split('.')[0] == o2.type.name:
+                    print(o2.type.name, taxonomy.get_subtree_igibson_categories(o1_class))
+                    if o2.type.name in taxonomy.get_subtree_igibson_categories(o1_class):
+                        task_relevant_objects.add(o2)
+                        goal_objects.remove(o2)
+                        break
+                else:
+                    for o2 in other_objects:
+                        # if o1.split('.')[0] == o2.type.name:
+                        if o2.type.name in taxonomy.get_subtree_igibson_categories(o1_class):
+                            task_relevant_objects.add(o2)
+                            other_objects.remove(o2)
+                            break
+                    else:
+                        for o2 in other_objects:
+                            if o2.type.name in taxonomy.get_subtree_igibson_categories(o1_class):
+                                task_relevant_objects.add(o2)
+                                other_objects.remove(o2)
+                                break
+            assert len(task_relevant_objects) == len(objects), f'{len(task_relevant_objects), len(objects)}\n\t{task_relevant_objects}\n\t{objects}'
+
+            if CFG.behavior_only_relevant_objects:
+                init_state = State({k: v for k, v in init_state.data.items() if k in task_relevant_objects or k == self._robot})
             tasks.append(EnvironmentTask(init_state, goal))
         return tasks
 
@@ -914,6 +958,10 @@ class Behavior2DEnv(BaseEnv):
                             self.behavior_task, "*state.json")
         fnames = []
         for name in glob.glob(pattern):
+            if os.path.basename(name).startswith('operator_count_'):
+                count = int(os.path.basename(name).lstrip('operator_count_').split('_')[0])
+                if count > 1:
+                    continue
             fnames.append(name)
         return fnames
 
@@ -1248,7 +1296,7 @@ class Behavior2DEnv(BaseEnv):
         tip_x = robby_x + (self.robot_radius + self.gripper_length) * np.cos(robby_yaw)
         tip_y = robby_y + (self.robot_radius + self.gripper_length) * np.sin(robby_yaw)
         gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
-        return utils.line_segment_intersects_circle(gripper_line, obj_rect)
+        return utils.line_segment_intersects_rectangle(gripper_line, obj_rect)
 
     def _handempty_classifier(self, state: State, objects: Sequence[Object]) -> bool:
         robby = self._robot

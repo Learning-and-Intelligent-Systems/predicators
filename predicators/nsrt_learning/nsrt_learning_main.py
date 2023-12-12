@@ -198,11 +198,12 @@ def learn_new_nsrts_from_data(
                 plausible_ground_nsrts = _find_plausible_ground_nsrts(known_nsrts, segment)
                 if len(plausible_ground_nsrts) == 0:
                     # This is an unknown NSRT
-                    new_nsrt_add_effects = segment.final_atoms - segment.init_atoms
+                    new_nsrt_segment = segment
+                    new_nsrt_add_effects = new_nsrt_segment.final_atoms - new_nsrt_segment.init_atoms
                     new_nsrt_necessary_add_effects = new_nsrt_add_effects.intersection(necessary_atoms)
-                    new_nsrt_delete_effects = segment.init_atoms - segment.final_atoms
-                    new_nsrt_preconditions = segment.init_atoms
-                    new_nsrt_option = segment.get_option()
+                    new_nsrt_delete_effects = new_nsrt_segment.init_atoms - new_nsrt_segment.final_atoms
+                    new_nsrt_preconditions = new_nsrt_segment.init_atoms
+                    new_nsrt_option = new_nsrt_segment.get_option()
                     break       # exit backward loop and start forward loop
                 else:
                     # The two operations below yield the largest set of necessary atoms
@@ -221,6 +222,9 @@ def learn_new_nsrts_from_data(
             for t, segment in enumerate(segment_traj[:t_new_nsrt]):
                 plausible_ground_nsrts = _find_plausible_ground_nsrts(known_nsrts, segment)
                 if len(plausible_ground_nsrts) == 0:
+                    print(segment.add_effects)
+                    print(segment.delete_effects)
+                    plausible_ground_nsrts = _find_plausible_ground_nsrts(known_nsrts, segment, verbose=True)
                     raise ValueError("We assume only one unknown NSRT, but this one isn't known")
                 else:
                     # The two operations below yield the largest set of intended added effects
@@ -308,11 +312,33 @@ def learn_new_nsrts_from_data(
         logging.info(nsrt)
     logging.info("")
 
+    # TODO: I actually need these to be in lifted land, for which I somehow 
+    # need to know what the obj2var sub was
+    local_objects = {o for atom in (added_effects | new_nsrt_necessary_add_effects) for o in atom.objects}
+    assert len(pnads) == 1
+    assert len(pnads[0].datastore) == 1
+    var_to_obj = pnads[0].datastore[0][1]
+    obj_to_var = {o: v for v, o in var_to_obj.items()}
+    for v in nsrts[0].parameters:
+        local_objects.discard(var_to_obj[v])    # remove without error upon missing
+    local_objects = sorted(local_objects)
+    new_vars = utils.create_new_variables(
+        [o.type.parent or o.type for o in local_objects],
+        nsrts[0].parameters)
+    for v, o in zip(new_vars, local_objects):
+        var_to_obj[v] = o
+        obj_to_var[o] = v
+    local_vars_effects = nsrts[0].parameters 
+    local_vars_setup = [obj_to_var[v] for v in local_objects]
+
     return set(nsrts), {'intended_added_effects': intended_added_effects,
                         'added_effects': added_effects,
                         'explained_atoms': explained_atoms,
                         'pre_image': new_nsrt_preconditions,
-                        'local_objects': nsrts[0].parameters}
+                        'local_vars_effects': local_vars_effects,
+                        'local_vars_setup': local_vars_setup,
+                        'obj_to_var': obj_to_var,
+                        }
 
 def _learn_pnad_options(pnads: List[PNAD],
                         known_options: Set[ParameterizedOption],
@@ -398,8 +424,11 @@ def _learn_pnad_samplers(pnads: List[PNAD], sampler_learner: str) -> None:
         pnad.sampler = sampler
 
 def _find_plausible_ground_nsrts(known_nsrts: Set[NSRTs],
-    segment: Segment) -> List[NSRTs]:
+    segment: Segment,verbose=False) -> List[NSRTs]:
 
+    if verbose:
+        print('failed, will print stuff')
+        print()
     plausible_ground_nsrts = []
     # Instead of checking atoms that were added, we check atoms that were
     # true, because it is possible that some atom was true already and so 
@@ -410,6 +439,9 @@ def _find_plausible_ground_nsrts(known_nsrts: Set[NSRTs],
                                       _classifier=lambda s, o: False)
     segment_option_args = frozenset({GroundAtom(segment_opt_args_pred, segment.get_option().objects)})
     segment_atoms = sorted(segment_add | segment_preconds | segment_option_args)
+    if verbose:
+        print(segment_atoms)
+        print()
     for nsrt in known_nsrts:
         # First, check that both use the same option
         if nsrt.option != segment.get_option().parent:
@@ -417,12 +449,18 @@ def _find_plausible_ground_nsrts(known_nsrts: Set[NSRTs],
 
         nsrt_add = frozenset(utils.wrap_atom_predicates(nsrt.op.add_effects, "ADD-"))
         nsrt_preconds = frozenset(utils.wrap_atom_predicates(nsrt.op.preconditions, "PRE-"))
-        nsrt_opt_args_pred = Predicate("OPT-ARGS", [a.type for a in nsrt.option_vars],
+        nsrt_opt_args_pred = Predicate("OPT-ARGS", [a.type.parent or a.type for a in nsrt.option_vars],
                                        _classifier=lambda s, o: False)
         nsrt_option_args = frozenset({GroundAtom(nsrt_opt_args_pred, nsrt.option_vars)})
         nsrt_atoms = sorted(nsrt_add | nsrt_preconds | nsrt_option_args)
 
         solved, var_to_obj = utils.find_substitution(segment_atoms, nsrt_atoms)
+        if verbose and nsrt.name == 'PlaceNextTo-dishtowel-sink-notInside':
+            print(nsrt)
+            print(nsrt_atoms)
+            print(solved)
+            print()
+            exit()
         if solved:
             # This is trickier because the logic above would entail that the delete
             # effects are all the atoms that aren't true. To do this, we need to first
@@ -431,9 +469,13 @@ def _find_plausible_ground_nsrts(known_nsrts: Set[NSRTs],
             # This relies on the assumption that all objects in the delete effects of 
             # the NSRT also show up elsewhere (preconditions, add effects, or option params)
             nsrt_delete = {atom.ground(var_to_obj) for atom in nsrt.op.delete_effects}
+            if verbose:
+                print(nsrt_delete)
             solved = all(atom not in segment.final_atoms for atom in nsrt_delete)
             if solved:
                 objects = [var_to_obj[var] for var in nsrt.parameters]
                 plausible_ground_nsrts.append(nsrt.ground(objects))
+            elif verbose:
+                print(set(atom for atom in nsrt_delete if atom in segment.final_atoms))
 
     return plausible_ground_nsrts

@@ -924,7 +924,7 @@ class NSRT:
             fancy_ignore_effects = None
         return _GroundNSRT(self, objects, preconditions, add_effects,
                            delete_effects, self.option, option_objs,
-                           self._sampler, fancy_ignore_effects)
+                           self._sampler, sub, fancy_ignore_effects)
 
     def filter_predicates(self, kept: Collection[Predicate]) -> NSRT:
         """Keep only the given predicates in the preconditions, add effects,
@@ -965,6 +965,7 @@ class _GroundNSRT:
     option: ParameterizedOption
     option_objs: Sequence[Object]
     _sampler: NSRTSampler = field(repr=False)
+    var_to_obj: VarToObjSub
     fancy_ignore_effects: List[Tuple[Pred, Dict(int, Variable)]] = field(default=None)
 
     @cached_property
