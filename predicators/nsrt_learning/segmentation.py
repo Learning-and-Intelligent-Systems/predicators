@@ -144,6 +144,7 @@ def _segment_with_spot_changes(
     ll_traj = LowLevelTrajectory(ll_traj.states[start_t:],
                                  ll_traj.actions[start_t:], is_demo,
                                  train_task_idx)
+    atom_seq = atom_seq[start_t:]
 
     def _switch_fn(t: int) -> bool:
         # Actions without options are "special". We include them in the options
