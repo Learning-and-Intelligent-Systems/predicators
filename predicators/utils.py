@@ -455,6 +455,15 @@ class LineSegment(_Geom2D):
         assert self.contains_point(random_x_point, random_y_point_on_line)
         return (random_x_point, random_y_point_on_line)
 
+    def sample_random_point(self,
+                            rng: np.random.Generator) -> Tuple[float, float]:
+        line_slope = (self.y2 - self.y1) / (self.x2 - self.x1)
+        y_intercept = self.y2 - (line_slope * self.x2)
+        random_x_point = rng.uniform(self.x1, self.x2)
+        random_y_point_on_line = line_slope * random_x_point + y_intercept
+        assert self.contains_point(random_x_point, random_y_point_on_line)
+        return (random_x_point, random_y_point_on_line)
+
 
 @dataclass(frozen=True)
 class Circle(_Geom2D):
