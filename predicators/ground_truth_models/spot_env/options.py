@@ -56,9 +56,14 @@ def navigate_to_relative_pose_and_gaze(robot: Robot,
 
 def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
                              pixel: Tuple[int, int],
-                             grasp_rot: Optional[math_helpers.Quat]) -> None:
+                             grasp_rot: Optional[math_helpers.Quat],
+                             rot_thresh: float) -> None:
     # Grasp.
-    grasp_at_pixel(robot, img, pixel, grasp_rot=grasp_rot)
+    grasp_at_pixel(robot,
+                   img,
+                   pixel,
+                   grasp_rot=grasp_rot,
+                   rot_thresh=rot_thresh)
     # Stow.
     stow_arm(robot)
 
@@ -236,8 +241,15 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
     else:
         fn = _grasp_at_pixel_and_stow
 
+    # Use a relatively forgiving threshold for grasp constraints in general,
+    # but for the ball, use a strict constraint.
+    if target_obj.name == "ball":
+        thresh = 0.17
+    else:
+        thresh = np.pi / 4
+
     return utils.create_spot_env_action(name, objects, fn,
-                                        (robot, img, pixel, grasp_rot))
+                                        (robot, img, pixel, grasp_rot, thresh))
 
 
 ###############################################################################

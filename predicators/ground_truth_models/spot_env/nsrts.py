@@ -1,9 +1,8 @@
-"""Ground-truth NSRTs for the PDDLEnv."""
+"""Ground-truth NSRTs for the spot environments."""
 
 from typing import Dict, Sequence, Set
 
 import numpy as np
-from bosdyn.client import math_helpers
 
 from predicators import utils
 from predicators.envs import get_or_create_env
@@ -125,13 +124,13 @@ def _pick_object_from_top_sampler(state: State, goal: Set[GroundAtom],
         rgbds = get_last_captured_images()
         _, artifacts = get_last_detected_objects()
         hand_camera = "hand_color_image"
-        pixel = get_grasp_pixel(rgbds, artifacts, target_detection_id,
-                                hand_camera, rng)
-        if target_obj.name == "ball":
-            rot_quat = math_helpers.Quat.from_pitch(np.pi / 2)
-            rot_quat_tuple = (rot_quat.w, rot_quat.x, rot_quat.y, rot_quat.z)
-        else:
+        pixel, rot_quat = get_grasp_pixel(rgbds, artifacts,
+                                          target_detection_id, hand_camera,
+                                          rng)
+        if rot_quat is None:
             rot_quat_tuple = (0.0, 0.0, 0.0, 0.0)
+        else:
+            rot_quat_tuple = (rot_quat.w, rot_quat.x, rot_quat.y, rot_quat.z)
         params_tuple = pixel + rot_quat_tuple
 
     return np.array(params_tuple)
@@ -145,7 +144,7 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
     del goal
     surf_to_place_on = objs[2]
     surf_geom = object_to_top_down_geom(surf_to_place_on, state)
-    rand_x, rand_y = surf_geom.sample_random_point(rng, 0.08)
+    rand_x, rand_y = surf_geom.sample_random_point(rng, 0.04)
     dx = rand_x - state.get(surf_to_place_on, "x")
     dy = rand_y - state.get(surf_to_place_on, "y")
     dz = 0.15

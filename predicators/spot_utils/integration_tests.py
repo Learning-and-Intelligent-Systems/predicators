@@ -105,10 +105,11 @@ def test_find_move_pick_place(
 
     # Run detection to get a pixel for grasping.
     _, artifacts = detect_objects([manipuland_id], rgbds)
-    pixel = get_grasp_pixel(rgbds, artifacts, manipuland_id, hand_camera, rng)
+    pixel, grasp_rot = get_grasp_pixel(rgbds, artifacts, manipuland_id,
+                                       hand_camera, rng)
 
     # Pick at the pixel with a top-down grasp.
-    grasp_at_pixel(robot, rgbds[hand_camera], pixel)
+    grasp_at_pixel(robot, rgbds[hand_camera], pixel, grasp_rot=grasp_rot)
     localizer.localize()
 
     # Stow the arm.
@@ -358,10 +359,11 @@ def test_repeated_brush_bucket_dump_pick_place(
 
         # Run detection to get a pixel for grasping.
         _, artifacts = detect_objects([brush], rgbds)
-        pixel = get_grasp_pixel(rgbds, artifacts, brush, hand_camera, rng)
+        pixel, grasp_rot = get_grasp_pixel(rgbds, artifacts, brush,
+                                           hand_camera, rng)
 
         # Pick at the pixel with a top-down grasp.
-        grasp_at_pixel(robot, rgbds[hand_camera], pixel)
+        grasp_at_pixel(robot, rgbds[hand_camera], pixel, grasp_rot=grasp_rot)
         localizer.localize()
 
         # Stow the arm.
@@ -410,7 +412,7 @@ def test_repeated_brush_bucket_dump_pick_place(
 
         # Choose a grasp.
         _, artifacts = detect_objects([bucket], rgbds)
-        r, c = get_grasp_pixel(rgbds, artifacts, bucket, hand_camera, rng)
+        (r, c), _ = get_grasp_pixel(rgbds, artifacts, bucket, hand_camera, rng)
         pixel = (r + bucket_grasp_dr, c)
 
         # Grasp at the pixel with a top-down grasp.
@@ -483,7 +485,7 @@ def test_platform_grasp(pre_pick_nav_distance: float = 1.25) -> None:
     # Run detection to get a pixel for grasping.
     _, artifacts = detect_objects([platform], rgbds)
     rng = np.random.default_rng(CFG.seed)
-    pixel = get_grasp_pixel(rgbds, artifacts, platform, hand_camera, rng)
+    pixel, _ = get_grasp_pixel(rgbds, artifacts, platform, hand_camera, rng)
 
     # Show the selected pixel for debugging.
     bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)

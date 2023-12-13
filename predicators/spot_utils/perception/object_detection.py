@@ -399,11 +399,10 @@ def _get_pose_from_segmented_bounding_box(
     return world_frame_pose
 
 
-def get_grasp_pixel(rgbds: Dict[str,
-                                RGBDImageWithContext], artifacts: Dict[str,
-                                                                       Any],
-                    object_id: ObjectDetectionID, camera_name: str,
-                    rng: np.random.Generator) -> Tuple[int, int]:
+def get_grasp_pixel(
+    rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
+    object_id: ObjectDetectionID, camera_name: str, rng: np.random.Generator
+) -> Tuple[Tuple[int, int], Optional[math_helpers.Quat]]:
     """Select a pixel for grasping in the given camera image.
 
     NOTE: for april tag detections, the pixel returned will correspond to the
@@ -413,11 +412,11 @@ def get_grasp_pixel(rgbds: Dict[str,
 
     if object_id in OBJECT_SPECIFIC_GRASP_SELECTORS:
         selector = OBJECT_SPECIFIC_GRASP_SELECTORS[object_id]
-        return selector(rgbds, artifacts, camera_name)
+        return selector(rgbds, artifacts, camera_name, rng)
 
     pixel = get_random_mask_pixel_from_artifacts(artifacts, object_id,
                                                  camera_name, rng)
-    return (pixel[0], pixel[1])
+    return (pixel[0], pixel[1]), None
 
 
 def get_random_mask_pixel_from_artifacts(

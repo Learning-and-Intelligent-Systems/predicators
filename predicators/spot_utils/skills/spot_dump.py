@@ -102,7 +102,7 @@ if __name__ == "__main__":
         bucket_id = LanguageObjectDetectionID("large red bucket")
         _, artifacts = detect_objects([bucket_id], rgbds)
         rng = np.random.default_rng(CFG.seed)
-        r, c = get_grasp_pixel(rgbds, artifacts, bucket_id, camera, rng)
+        (r, c), _ = get_grasp_pixel(rgbds, artifacts, bucket_id, camera, rng)
         pixel = (r + 50, c)
 
         # Grasp at the pixel with a top-down grasp.

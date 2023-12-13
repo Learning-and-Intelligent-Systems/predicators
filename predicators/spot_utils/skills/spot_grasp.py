@@ -22,8 +22,8 @@ def grasp_at_pixel(
     rgbd: RGBDImageWithContext,
     pixel: Tuple[int, int],
     grasp_rot: Optional[math_helpers.Quat] = None,
-    move_while_grasping: bool = True,
     rot_thresh: float = 0.17,
+    move_while_grasping: bool = True,
     timeout: float = 20.0,
 ) -> None:
     """Grasp an object at a specified pixel in the RGBD image, which should be
