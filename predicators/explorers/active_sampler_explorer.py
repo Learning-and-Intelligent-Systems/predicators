@@ -322,10 +322,6 @@ class ActiveSamplerExplorer(BaseExplorer):
         if nsrt is None:
             return
         assert exploration_indicator is not None
-        # NOTE: checking just the add effects doesn't work in general, but
-        # is probably fine for now. The right thing to do here is check
-        # the necessary atoms, which we will compute with a utility function
-        # and then use in a forthcoming PR.
         success = all(a.holds(state) for a in nsrt.add_effects)
         logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
         logging.info(f"[Explorer]   outcome: {success}")
