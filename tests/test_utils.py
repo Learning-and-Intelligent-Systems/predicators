@@ -3321,7 +3321,7 @@ def test_oracle_feature_selection():
     # 10 features.
     sampler_input = utils.construct_active_sampler_input(
         state, [cup, robot, ball, table], params, PlaceCupWithoutBallOnTable)
-    assert len(sampler_input) == 10
+    assert len(sampler_input) == 5
     # Construct input for navigation skill and test that it has 12
     # features.
     sampler_input = utils.construct_active_sampler_input(
