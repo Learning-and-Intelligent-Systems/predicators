@@ -73,7 +73,7 @@ class BaseExplorer(abc.ABC):
                     state.get(obj, "lost") > 0.5:
                     lost_objects.add(obj)
             # Need to find the objects.
-            if lost_objects:
+            if lost_objects:  # pragma: no cover
                 logging.info(
                     f"[Explorer Spot Wrapper] Lost objects: {lost_objects}")
                 # Reset the base approach policy.
@@ -88,7 +88,7 @@ class BaseExplorer(abc.ABC):
                     (state, self._rng, robot, localizer, lease_client,
                      lost_object_ids))
             # Found the objects. Stow the arm before replanning.
-            if need_stow:
+            if need_stow:  # pragma: no cover
                 logging.info(
                     "[Explorer Spot Wrapper] Lost objects found, stowing.")
                 need_stow = False
@@ -97,8 +97,9 @@ class BaseExplorer(abc.ABC):
                                                     (robot, ))
             # Give control back to base policy.
             logging.info(
-                "[Explorer Spot Wrapper] Giving control to base policy.")
-            return policy(state)
+                "[Explorer Spot Wrapper] Giving control to base policy."
+            )  # pragma: no cover
+            return policy(state)  # pragma: no cover
 
         # Terminate after the given number of steps.
         remaining_steps = self._max_steps_before_termination

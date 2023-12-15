@@ -337,8 +337,10 @@ class BaseEnv(abc.ABC):
                 "\nSubmit Goal? [y/n] >> ") == "y":
             return goal
         # Try Again, overriding json input results in wrong goal.
-        return self._parse_goal_from_input_to_json(init_state, json_dict,
-                                                   object_name_to_object)
+        return self._parse_goal_from_input_to_json(
+            init_state,
+            json_dict,  # pragma: no cover
+            object_name_to_object)
 
     def get_task(self, train_or_test: str, task_idx: int) -> EnvironmentTask:
         """Return the train or test task at the given index."""
