@@ -337,16 +337,28 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
 class _WrappedSamplerLearner(abc.ABC):
     """A base class for learning wrapped samplers."""
 
-    def __init__(self, nsrts: Set[NSRT], predicates: Set[Predicate],
-                 online_learning_cycle: Optional[int]) -> None:
+    def __init__(self,
+                 nsrts: Set[NSRT],
+                 predicates: Set[Predicate],
+                 online_learning_cycle: Optional[int],
+                 save_id_suffix: Optional[str] = None) -> None:
         self._nsrts = nsrts
         self._predicates = predicates
         self._online_learning_cycle = online_learning_cycle
+        self._save_id_suffix = save_id_suffix
         self._rng = np.random.default_rng(CFG.seed)
         # We keep track of two samplers per NSRT: one to use at test time
         # and another to use during exploration/play time.
         self._learned_samplers: Optional[Dict[NSRT, Tuple[
             NSRTSampler, NSRTSamplerWithEpsilonIndicator]]] = None
+
+    def _get_save_id(self, nsrt_name: str) -> str:
+        """A unique ID used for saving data."""
+        approach_path = utils.get_approach_save_path_str()
+        save_id = f"{approach_path}_{nsrt_name}_{self._online_learning_cycle}"
+        if self._save_id_suffix is not None:
+            save_id = f"{save_id}_{self._save_id_suffix}"
+        return save_id
 
     def learn(self, data: _SamplerDataset) -> None:
         """Fit all of the samplers."""
@@ -415,14 +427,12 @@ class _ClassifierWrappedSamplerLearner(_WrappedSamplerLearner):
         classifier.fit(X_arr_classifier, y_arr_classifier)
 
         # Save the sampler classifier for external analysis.
-        approach_save_path = utils.get_approach_save_path_str()
-        save_path = f"{approach_save_path}_{nsrt.name}_" + \
-            f"{self._online_learning_cycle}.sampler_classifier"
+        save_id = self._get_save_id(nsrt.name)
+        save_path = f"{save_id}.sampler_classifier"
         with open(save_path, "wb") as f:
             pkl.dump(classifier, f)
         logging.info(f"Saved sampler classifier to {save_path}.")
-        save_path = f"{approach_save_path}_{nsrt.name}_" + \
-            f"{self._online_learning_cycle}.sampler_classifier_data"
+        save_path = f"{save_id}.sampler_classifier_data"
         with open(save_path, "wb") as f:
             pkl.dump((X_arr_classifier, y_arr_classifier), f)
         logging.info(f"Saved sampler classifier data to {save_path}.")
@@ -476,9 +486,8 @@ class _ClassifierEnsembleWrappedSamplerLearner(_WrappedSamplerLearner):
         classifier.fit(X_arr_classifier, y_arr_classifier)
 
         # Save the sampler classifier for external analysis.
-        approach_save_path = utils.get_approach_save_path_str()
-        save_path = f"{approach_save_path}_{nsrt.name}_" + \
-            f"{self._online_learning_cycle}.sampler_classifier"
+        save_id = self._get_save_id(nsrt.name)
+        save_path = f"{save_id}.sampler_classifier"
         with open(save_path, "wb") as f:
             pkl.dump(classifier, f)
         logging.info(f"Saved sampler classifier to {save_path}.")
@@ -539,9 +548,8 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         # Run regression.
         regressor = self._fit_regressor(regressor_data)
         # Save the sampler regressor for external analysis.
-        approach_save_path = utils.get_approach_save_path_str()
-        save_path = f"{approach_save_path}_{nsrt.name}_" + \
-            f"{self._online_learning_cycle}.sampler_regressor"
+        save_id = self._get_save_id(nsrt.name)
+        save_path = f"{save_id}.sampler_regressor"
         with open(save_path, "wb") as f:
             pkl.dump(regressor, f)
         logging.info(f"Saved sampler regressor to {save_path}.")
@@ -652,7 +660,10 @@ class _ObjectSpecificSamplerLearningWrapper(_WrappedSamplerLearner):
             Object, ...], NSRTSamplerWithEpsilonIndicator] = {}
         for grounding, data in grounding_to_data.items():
             base_sampler_learner = self._base_sampler_learner_cls(
-                self._nsrts, self._predicates, self._online_learning_cycle)
+                self._nsrts,
+                self._predicates,
+                self._online_learning_cycle,
+                save_id_suffix=str(grounding))
             sampler_dataset = {nsrt.option: data}
             logging.info(f"Fitting object specific sampler: {grounding}...")
             base_sampler_learner.learn(sampler_dataset)
