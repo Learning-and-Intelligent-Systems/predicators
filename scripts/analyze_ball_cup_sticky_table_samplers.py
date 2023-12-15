@@ -5,15 +5,14 @@ from typing import Optional
 
 import dill as pkl
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
 from predicators import utils
-from predicators.envs import BaseEnv, create_new_env
+from predicators.envs import create_new_env
 from predicators.ground_truth_models import get_gt_options
 from predicators.settings import CFG
-from predicators.structs import Image, ParameterizedOption, State
+from predicators.structs import Image, ParameterizedOption
 
 
 def _main() -> None:
@@ -22,9 +21,6 @@ def _main() -> None:
     args = utils.parse_args()
     utils.update_config(args)
     env = create_new_env(CFG.env, do_cache=True)
-    # Create an example state that includes the objects of interest. The actual
-    # state should not be used.
-    state = _create_example_state(env)
     # Load the parameterized option of interest.
     skill_name = "PlaceCupWithoutBallOnTable"
     options = get_gt_options(env.get_name())
@@ -89,7 +85,8 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
         for candidate, prediction in zip(candidates, predictions):
 
             _, table_radius, sticky, sticky_region_x, sticky_region_y, \
-                sticky_region_radius, table_x, table_y, param_x, param_y = candidate
+                sticky_region_radius, table_x, table_y, \
+                    param_x, param_y = candidate
 
             assert table_radius > 0
             assert sticky
@@ -118,12 +115,6 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
             ax.add_patch(circle)
 
     return utils.fig2data(fig, dpi=150)
-
-
-def _create_example_state(env: BaseEnv) -> State:
-    init_obs = env.reset("train", 0)
-    assert isinstance(init_obs, State)
-    return init_obs.copy()
 
 
 if __name__ == "__main__":
