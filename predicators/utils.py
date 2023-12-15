@@ -303,23 +303,23 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
         elif CFG.env == "ball_and_cup_sticky_table":
             if "PlaceCup" in param_option.name and "Table" in param_option.name:
                 _, _, _, table = objects
-                table_y = state.get(table, "y")
                 table_x = state.get(table, "x")
+                table_y = state.get(table, "y")
                 sticky = state.get(table, "sticky")
                 sticky_region_x = state.get(table, "sticky_region_x_offset")
                 sticky_region_y = state.get(table, "sticky_region_y_offset")
                 sticky_region_radius = state.get(table, "sticky_region_radius")
-                table_radius = state.get(table, "radius")
                 _, _, _, param_x, param_y = params
-                sampler_input_lst.append(table_radius)
+                # Get (x, y) in table frame.
+                act_x_table = param_x - table_x
+                act_y_table = param_y - table_y
+                # Get (x, y) in sticky region frame.
+                act_x_sticky = act_x_table - sticky_region_x
+                act_y_sticky = act_y_table - sticky_region_y
                 sampler_input_lst.append(sticky)
-                sampler_input_lst.append(sticky_region_x)
-                sampler_input_lst.append(sticky_region_y)
+                sampler_input_lst.append(act_x_sticky)
+                sampler_input_lst.append(act_y_sticky)
                 sampler_input_lst.append(sticky_region_radius)
-                sampler_input_lst.append(table_x)
-                sampler_input_lst.append(table_y)
-                sampler_input_lst.append(param_x)
-                sampler_input_lst.append(param_y)
             else:  # Use all features.
                 for obj in objects:
                     sampler_input_lst.extend(state[obj])
