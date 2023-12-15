@@ -15,6 +15,7 @@ import logging
 from collections import defaultdict
 from typing import Any, Callable, DefaultDict, Dict, List, Optional, \
     Sequence, Set, Tuple
+from typing import Type as TypingType
 
 import dill as pkl
 import numpy as np
@@ -280,19 +281,22 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         if CFG.active_sampler_learning_model in [
                 "myopic_classifier_mlp", "myopic_classifier_knn"
         ]:
-            learner: _WrappedSamplerLearner = _ClassifierWrappedSamplerLearner(
-                self._get_current_nsrts(), self._get_current_predicates(),
-                online_learning_cycle)
+            learner_cls: TypingType[_WrappedSamplerLearner] = \
+                _ClassifierWrappedSamplerLearner
         elif CFG.active_sampler_learning_model == "myopic_classifier_ensemble":
-            learner = \
-                _ClassifierEnsembleWrappedSamplerLearner(
-                self._get_current_nsrts(), self._get_current_predicates(),
-                online_learning_cycle)
+            learner_cls = _ClassifierEnsembleWrappedSamplerLearner
         else:
             assert CFG.active_sampler_learning_model == "fitted_q"
-            learner = _FittedQWrappedSamplerLearner(
-                self._get_current_nsrts(), self._get_current_predicates(),
-                online_learning_cycle)
+            learner_cls = _FittedQWrappedSamplerLearner
+        if CFG.active_sampler_learning_object_specific_samplers:
+            learner: _WrappedSamplerLearner = \
+                _ObjectSpecificSamplerLearningWrapper(
+                learner_cls, self._get_current_nsrts(),
+                self._get_current_predicates(), online_learning_cycle)
+        else:
+            learner = learner_cls(self._get_current_nsrts(),
+                                  self._get_current_predicates(),
+                                  online_learning_cycle)
         # Fit with the current data.
         learner.learn(self._sampler_data)
         wrapped_samplers = learner.get_samplers()
@@ -619,6 +623,51 @@ class _FittedQWrappedSamplerLearner(_WrappedSamplerLearner):
         return regressor
 
 
+class _ObjectSpecificSamplerLearningWrapper(_WrappedSamplerLearner):
+    """Wrapper for learning multiple object-specific samplers for each NSRT."""
+
+    def __init__(self,
+                 base_sampler_learner_cls: TypingType[_WrappedSamplerLearner],
+                 nsrts: Set[NSRT], predicates: Set[Predicate],
+                 online_learning_cycle: Optional[int]) -> None:
+        super().__init__(nsrts, predicates, online_learning_cycle)
+        self._base_sampler_learner_cls = base_sampler_learner_cls
+
+    def _learn_nsrt_sampler(
+            self, nsrt_data: _OptionSamplerDataset,
+            nsrt: NSRT) -> Tuple[NSRTSampler, NSRTSamplerWithEpsilonIndicator]:
+        """Learn the new test-time and exploration samplers for a single NSRT
+        and return them."""
+        # Organize data by groundings.
+        grounding_to_data: Dict[Tuple[Object, ...], _OptionSamplerDataset] = {}
+        for datum in nsrt_data:
+            option = datum[1]
+            objects = tuple(option.objects)
+            if objects not in grounding_to_data:
+                grounding_to_data[objects] = []
+            grounding_to_data[objects].append(datum)
+        # Call the base class once per grounding.
+        grounding_to_sampler: Dict[Tuple[Object, ...], NSRTSampler] = {}
+        grounding_to_sampler_with_eps: Dict[Tuple[
+            Object, ...], NSRTSamplerWithEpsilonIndicator] = {}
+        for grounding, data in grounding_to_data.items():
+            base_sampler = self._base_sampler_learner_cls(
+                self._nsrts, self._predicates, self._online_learning_cycle)
+            sampler_dataset = {nsrt.option: data}
+            logging.info(f"Fitting object specific sampler: {grounding}...")
+            base_sampler.learn(sampler_dataset)
+            samplers = base_sampler.get_samplers()
+            assert len(samplers) == 1
+            sampler, sampler_with_eps = samplers[nsrt]
+            grounding_to_sampler[grounding] = sampler
+            grounding_to_sampler_with_eps[grounding] = sampler_with_eps
+        # Create wrapped samplers and samplers with epsilon indicator.
+        nsrt_sampler = _wrap_object_specific_samplers(grounding_to_sampler)
+        nsrt_sampler_with_eps = _wrap_object_specific_samplers_with_epsilon(
+            grounding_to_sampler_with_eps)
+        return nsrt_sampler, nsrt_sampler_with_eps
+
+
 # Helper functions.
 def _wrap_sampler_test(base_sampler: NSRTSampler,
                        score_fn: _ScoreFn) -> NSRTSampler:
@@ -664,6 +713,35 @@ def _wrap_sampler_exploration(
         return (samples[idx], epsilon_bool)
 
     return _sample
+
+
+def _wrap_object_specific_samplers(
+    object_specific_samplers: Dict[Tuple[Object, ...], NSRTSampler]
+) -> NSRTSampler:
+
+    def _wrapped_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objects: Sequence[Object]) -> Array:
+        objects_tuple = tuple(objects)
+        sampler = object_specific_samplers[objects_tuple]
+        return sampler(state, goal, rng, objects)
+
+    return _wrapped_sampler
+
+
+def _wrap_object_specific_samplers_with_epsilon(
+    object_specific_samplers: Dict[Tuple[Object, ...],
+                                   NSRTSamplerWithEpsilonIndicator]
+) -> NSRTSamplerWithEpsilonIndicator:
+
+    def _wrapped_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objects: Sequence[Object]) -> Tuple[Array, bool]:
+        objects_tuple = tuple(objects)
+        sampler = object_specific_samplers[objects_tuple]
+        return sampler(state, goal, rng, objects)
+
+    return _wrapped_sampler
 
 
 def _vector_score_fn_to_score_fn(vector_fn: Callable[[Array], float],
