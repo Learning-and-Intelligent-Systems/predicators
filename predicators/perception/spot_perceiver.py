@@ -33,6 +33,7 @@ class SpotPerceiver(BasePerceiver):
         self._known_object_poses: Dict[Object, math_helpers.SE3Pose] = {}
         self._objects_in_view: Set[Object] = set()
         self._objects_in_hand_view: Set[Object] = set()
+        self._objects_in_any_view_except_back: Set[Object] = set()
         self._robot: Optional[Object] = None
         self._nonpercept_atoms: Set[GroundAtom] = set()
         self._nonpercept_predicates: Set[Predicate] = set()
@@ -67,6 +68,7 @@ class SpotPerceiver(BasePerceiver):
             self._known_object_poses = {}
             self._objects_in_view = set()
             self._objects_in_hand_view = set()
+            self._objects_in_any_view_except_back = set()
             self._robot = None
             self._nonpercept_atoms = set()
             self._nonpercept_predicates = set()
@@ -171,6 +173,8 @@ class SpotPerceiver(BasePerceiver):
         self._known_object_poses.update(observation.objects_in_view)
         self._objects_in_view = set(observation.objects_in_view)
         self._objects_in_hand_view = observation.objects_in_hand_view
+        self._objects_in_any_view_except_back = \
+            observation.objects_in_any_view_except_back
         self._nonpercept_atoms = observation.nonpercept_atoms
         self._nonpercept_predicates = observation.nonpercept_predicates
         self._gripper_open_percentage = observation.gripper_open_percentage
@@ -222,7 +226,7 @@ class SpotPerceiver(BasePerceiver):
                 else:
                     in_hand_view_val = 0.0
                 state_dict[obj]["in_hand_view"] = in_hand_view_val
-                if obj in self._objects_in_view:
+                if obj in self._objects_in_any_view_except_back:
                     in_view_val = 1.0
                 else:
                     in_view_val = 0.0

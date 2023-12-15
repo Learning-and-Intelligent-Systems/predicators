@@ -57,6 +57,8 @@ class _SpotObservation:
     objects_in_view: Dict[Object, math_helpers.SE3Pose]
     # Objects seen only by the hand camera
     objects_in_hand_view: Set[Object]
+    # Objects seen by any camera except the back camera
+    objects_in_any_view_except_back: Set[Object]
     # Expose the robot object.
     robot: Object
     # Status of the robot gripper.
@@ -473,21 +475,36 @@ class SpotRearrangementEnv(BaseEnv):
             visualize_all_artifacts(hand_artifacts, detections_outfile,
                                     no_detect_outfile)
 
+        # Also, get detections that every camera except the back camera can
+        # see. This is important for our 'InView' predicate.
+        non_back_camera_rgbds = {
+            k: v
+            for (k, v) in rgbds.items() if k != "back_fisheye_image"
+        }
+        non_back_detections, _ = detect_objects(all_object_detection_ids,
+                                                non_back_camera_rgbds)
+
         # Now construct a dict of all objects in view, as well as a set
-        # of objects that the hand can see.
-        objects_in_view = {
+        # of objects that the hand can see, and that all cameras except
+        # the back can see.
+        all_objects_in_view = {
             self._detection_id_to_obj[det_id]: val
             for (det_id, val) in all_detections.items()
         }
         objects_in_hand_view = set(self._detection_id_to_obj[det_id]
                                    for det_id in hand_detections)
+        objects_in_any_view_except_back = set(
+            self._detection_id_to_obj[det_id]
+            for det_id in non_back_detections)
         gripper_open_percentage = get_robot_gripper_open_percentage(
             self._robot)
         robot_pos = self._localizer.get_last_robot_pose()
         # Prepare the non-percepts.
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in ground_atoms)
-        obs = _SpotObservation(rgbds, objects_in_view, objects_in_hand_view,
+        obs = _SpotObservation(rgbds, all_objects_in_view,
+                               objects_in_hand_view,
+                               objects_in_any_view_except_back,
                                self._spot_object, gripper_open_percentage,
                                robot_pos, ground_atoms, nonpercept_preds)
 
@@ -541,7 +558,7 @@ class SpotRearrangementEnv(BaseEnv):
         nonpercept_atoms = self._get_initial_nonpercept_atoms()
         nonpercept_preds = self.predicates - self.percept_predicates
         assert all(a.predicate in nonpercept_preds for a in nonpercept_atoms)
-        obs = _SpotObservation(rgbd_images, objects_in_view, set(),
+        obs = _SpotObservation(rgbd_images, objects_in_view, set(), set(),
                                self._spot_object, gripper_open_percentage,
                                robot_pos, nonpercept_atoms, nonpercept_preds)
         goal_description = self._generate_goal_description()
@@ -651,6 +668,7 @@ class SpotRearrangementEnv(BaseEnv):
         init_obs = _SpotObservation(
             images,
             objects_in_view,
+            set(),
             set(),
             robot,
             gripper_open_percentage,
@@ -1332,6 +1350,8 @@ def _dry_simulate_move_to_view_hand(
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
     objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     gripper_open_percentage = last_obs.gripper_open_percentage
     robot_pose = last_obs.robot_pos
 
@@ -1348,6 +1368,7 @@ def _dry_simulate_move_to_view_hand(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1364,6 +1385,8 @@ def _dry_simulate_move_to_reach_obj(
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
     objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     gripper_open_percentage = last_obs.gripper_open_percentage
     robot_pose = last_obs.robot_pos
 
@@ -1377,6 +1400,7 @@ def _dry_simulate_move_to_reach_obj(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1392,6 +1416,8 @@ def _dry_simulate_pick_from_top(
         nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     robot_pose = last_obs.robot_pos
 
     # Check if the grasp is valid.
@@ -1401,6 +1427,7 @@ def _dry_simulate_pick_from_top(
         objects_in_hand_view: Set[Object] = set()
         # Gripper is now closed.
         gripper_open_percentage = 100.0
+        objects_in_any_view_except_back -= set(last_obs.objects_in_hand_view)
     # If the grasp failed, don't update the state.
     else:
         objects_in_hand_view = set(last_obs.objects_in_hand_view)
@@ -1411,6 +1438,7 @@ def _dry_simulate_pick_from_top(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1456,6 +1484,8 @@ def _dry_simulate_place_on_top(
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
     objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     robot_pose = last_obs.robot_pos
 
     static_feats = load_spot_metadata()["static-object-features"]
@@ -1478,6 +1508,7 @@ def _dry_simulate_place_on_top(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1496,6 +1527,8 @@ def _dry_simulate_drag_to_unblock(
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
     objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     robot_pose = last_obs.robot_pos
 
     # Update the robot pose.
@@ -1521,6 +1554,7 @@ def _dry_simulate_drag_to_unblock(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1539,6 +1573,8 @@ def _dry_simulate_prepare_container_for_sweeping(
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
     objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     robot_pose = last_obs.robot_pos
 
     # Place the held container next to the target object, on the floor.
@@ -1566,6 +1602,7 @@ def _dry_simulate_prepare_container_for_sweeping(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1584,6 +1621,8 @@ def _dry_simulate_sweep_into_container(
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
     objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     robot_pose = last_obs.robot_pos
     gripper_open_percentage = last_obs.gripper_open_percentage
 
@@ -1620,6 +1659,7 @@ def _dry_simulate_sweep_into_container(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1638,11 +1678,14 @@ def _dry_simulate_drop_not_placeable_object(
 
     objects_in_view = last_obs.objects_in_view.copy()
     objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     robot_pose = last_obs.robot_pos
     next_obs = _SpotObservation(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1656,12 +1699,15 @@ def _dry_simulate_noop(last_obs: _SpotObservation,
                        nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
     objects_in_view = last_obs.objects_in_view.copy()
     objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
     robot_pose = last_obs.robot_pos
     gripper_open_percentage = last_obs.gripper_open_percentage
     next_obs = _SpotObservation(
         images={},
         objects_in_view=objects_in_view,
         objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=robot_pose,
@@ -1697,6 +1743,7 @@ def _dry_simulate_pick_and_dump_container(
         images={},
         objects_in_view=obs.objects_in_view,
         objects_in_hand_view=obs.objects_in_hand_view,
+        objects_in_any_view_except_back=obs.objects_in_any_view_except_back,
         robot=last_obs.robot,
         gripper_open_percentage=gripper_open_percentage,
         robot_pos=obs.robot_pos,
@@ -1809,6 +1856,7 @@ class SpotCubeEnv(SpotRearrangementEnv):
             images={},
             objects_in_view=objects_in_view,
             objects_in_hand_view=set(),
+            objects_in_any_view_except_back=set(),
             robot=self._spot_object,
             gripper_open_percentage=0.0,
             robot_pos=robot_pose,
@@ -2130,6 +2178,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
             images={},
             objects_in_view=objects_in_view,
             objects_in_hand_view=set(),
+            objects_in_any_view_except_back=set(),
             robot=self._spot_object,
             gripper_open_percentage=0.0,
             robot_pos=robot_pose,
