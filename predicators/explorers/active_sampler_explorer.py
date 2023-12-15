@@ -147,7 +147,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                     a.holds(state) for a in next_practice_nsrt.preconditions):
                 g: Set[GroundAtom] = set()  # goal assumed unused
                 logging.info(
-                    f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
+                    "[Explorer] Practicing NSRT: "
+                    f"{next_practice_nsrt.name}{next_practice_nsrt.objects}")
                 exploration_sampler = self._nsrt_to_explorer_sampler[
                     next_practice_nsrt.parent]
                 # We want to generate a sample to use to ground the option,
@@ -375,6 +376,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
+            logging.info(f"[Explorer]   Base score: {score}")
+            logging.info(f"[Explorer]   UCB bonus: {bonus}")
             score = self._score_ground_op_planning_progress(ground_op)
             if CFG.active_sampler_explore_use_ucb_bonus:
                 score += bonus

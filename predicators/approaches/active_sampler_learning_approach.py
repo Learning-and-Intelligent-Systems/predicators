@@ -161,8 +161,12 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         # Re-learn samplers. Updates the NSRTs.
         self._learn_wrapped_samplers(online_learning_cycle)
         # Advance the competence models.
-        for competence_model in self._competence_models.values():
+        for ground_op, competence_model in self._competence_models.items():
             competence_model.advance_cycle()
+            # Log the current competences.
+            competence = competence_model.get_current_competence()
+            logging.info("Current competence for "
+                         f"{ground_op.name}{ground_op.objects}: {competence}")
         # Sanity check that the ground op histories and sampler data are sync.
         op_to_num_ground_op_hist: Dict[str, int] = {
             n.name: 0
