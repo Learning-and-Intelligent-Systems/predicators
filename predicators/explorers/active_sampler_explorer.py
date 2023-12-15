@@ -376,9 +376,9 @@ class ActiveSamplerExplorer(BaseExplorer):
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
+            score = self._score_ground_op_planning_progress(ground_op)
             logging.info(f"[Explorer]   Base score: {score}")
             logging.info(f"[Explorer]   UCB bonus: {bonus}")
-            score = self._score_ground_op_planning_progress(ground_op)
             if CFG.active_sampler_explore_use_ucb_bonus:
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
