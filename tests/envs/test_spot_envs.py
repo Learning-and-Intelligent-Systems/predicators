@@ -475,8 +475,9 @@ def real_robot_drafting_table_placement_test() -> None:
     task = env.get_test_tasks()[0]
     obs = env.reset("test", 0)
     perceiver.reset(task)
-    assert len(obs.objects_in_view) == 5
-    _, cup, drafting_table, _, _ = sorted(obs.objects_in_view)
+    objects_in_view = {o.name: o for o in obs.objects_in_view}
+    cup = objects_in_view["cup"]
+    drafting_table = objects_in_view["drafting_table"]
     state = perceiver.step(obs)
     spot = next(o for o in state if o.type.name == "robot")
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
@@ -515,5 +516,5 @@ def real_robot_drafting_table_placement_test() -> None:
 
 
 if __name__ == "__main__":
-    real_robot_cube_env_test()
+    # real_robot_cube_env_test()
     real_robot_drafting_table_placement_test()

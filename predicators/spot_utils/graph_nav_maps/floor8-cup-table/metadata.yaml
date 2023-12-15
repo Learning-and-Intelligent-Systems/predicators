@@ -38,27 +38,27 @@ known-immovable-objects:
     x: 1.84
     y: 0.85
     z: -0.5
-  play_table:
-    x: 3.2
-    y: 0.15
-    z: -0.25
+  # play_table:
+  #   x: 3.2
+  #   y: 0.15
+  #   z: -0.25
   drafting_table:
-    x: 2.5
+    x: 2.4
     y: 2.7
     z: -0.25
-    yaw: 0.2
+    yaw: 0.1
 # Static object features, including the shapes and sizes of known objects.
 static-object-features:
-  play_table:
-    shape: 1  # cuboid
-    height: 0.45
-    length: 0.8
-    width: 0.45
-    flat_top_surface: 1
+  # play_table:
+  #   shape: 1  # cuboid
+  #   height: 0.45
+  #   length: 0.8
+  #   width: 0.45
+  #   flat_top_surface: 1
   drafting_table:
     shape: 1  # cuboid
     height: 0.55
-    length: 0.3
+    length: 0.28 #0.3
     width: 0.6
     flat_top_surface: 1
     sticky-region-x: 0.0 # from the center
