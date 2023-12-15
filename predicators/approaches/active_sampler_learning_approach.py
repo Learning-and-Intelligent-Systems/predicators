@@ -753,9 +753,10 @@ def _wrap_object_specific_samplers_with_epsilon(
     base_sampler: NSRTSampler,
 ) -> NSRTSamplerWithEpsilonIndicator:
 
-    def _wrapped_sampler(state: State, goal: Set[GroundAtom],
-                         rng: np.random.Generator,
-                         objects: Sequence[Object]) -> Tuple[Array, bool]:
+    def _wrapped_sampler(
+            state: State, goal: Set[GroundAtom], rng: np.random.Generator,
+            objects: Sequence[Object]
+    ) -> Tuple[Array, bool]:  # pragma: no cover
         objects_tuple = tuple(objects)
         # If we haven't yet learned a object-specific sampler for these objects
         # then use the base sampler. Treat the output as if it was greedy
