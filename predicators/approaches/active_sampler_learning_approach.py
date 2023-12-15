@@ -651,20 +651,22 @@ class _ObjectSpecificSamplerLearningWrapper(_WrappedSamplerLearner):
         grounding_to_sampler_with_eps: Dict[Tuple[
             Object, ...], NSRTSamplerWithEpsilonIndicator] = {}
         for grounding, data in grounding_to_data.items():
-            base_sampler = self._base_sampler_learner_cls(
+            base_sampler_learner = self._base_sampler_learner_cls(
                 self._nsrts, self._predicates, self._online_learning_cycle)
             sampler_dataset = {nsrt.option: data}
             logging.info(f"Fitting object specific sampler: {grounding}...")
-            base_sampler.learn(sampler_dataset)
-            samplers = base_sampler.get_samplers()
+            base_sampler_learner.learn(sampler_dataset)
+            samplers = base_sampler_learner.get_samplers()
             assert len(samplers) == 1
             sampler, sampler_with_eps = samplers[nsrt]
             grounding_to_sampler[grounding] = sampler
             grounding_to_sampler_with_eps[grounding] = sampler_with_eps
         # Create wrapped samplers and samplers with epsilon indicator.
-        nsrt_sampler = _wrap_object_specific_samplers(grounding_to_sampler)
+        base_sampler = nsrt._sampler  # pylint: disable=protected-access
+        nsrt_sampler = _wrap_object_specific_samplers(grounding_to_sampler,
+                                                      base_sampler)
         nsrt_sampler_with_eps = _wrap_object_specific_samplers_with_epsilon(
-            grounding_to_sampler_with_eps)
+            grounding_to_sampler_with_eps, base_sampler)
         return nsrt_sampler, nsrt_sampler_with_eps
 
 
@@ -716,13 +718,18 @@ def _wrap_sampler_exploration(
 
 
 def _wrap_object_specific_samplers(
-    object_specific_samplers: Dict[Tuple[Object, ...], NSRTSampler]
+    object_specific_samplers: Dict[Tuple[Object, ...], NSRTSampler],
+    base_sampler: NSRTSampler,
 ) -> NSRTSampler:
 
     def _wrapped_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
                          objects: Sequence[Object]) -> Array:
         objects_tuple = tuple(objects)
+        # If we haven't yet learned a object-specific sampler for these objects
+        # then use the base sampler.
+        if objects_tuple not in object_specific_samplers:  # pragma: no cover
+            return base_sampler(state, goal, rng, objects)
         sampler = object_specific_samplers[objects_tuple]
         return sampler(state, goal, rng, objects)
 
@@ -731,13 +738,19 @@ def _wrap_object_specific_samplers(
 
 def _wrap_object_specific_samplers_with_epsilon(
     object_specific_samplers: Dict[Tuple[Object, ...],
-                                   NSRTSamplerWithEpsilonIndicator]
+                                   NSRTSamplerWithEpsilonIndicator],
+    base_sampler: NSRTSampler,
 ) -> NSRTSamplerWithEpsilonIndicator:
 
     def _wrapped_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
                          objects: Sequence[Object]) -> Tuple[Array, bool]:
         objects_tuple = tuple(objects)
+        # If we haven't yet learned a object-specific sampler for these objects
+        # then use the base sampler. Treat the output as if it was greedy
+        # (epsilon = True).
+        if objects_tuple not in object_specific_samplers:  # pragma: no cover
+            return base_sampler(state, goal, rng, objects), True
         sampler = object_specific_samplers[objects_tuple]
         return sampler(state, goal, rng, objects)
 
