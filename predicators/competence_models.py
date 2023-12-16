@@ -103,10 +103,6 @@ class OptimisticSkillCompetenceModel(SkillCompetenceModel):
         nonempty_cycle_obs = self._get_nonempty_cycle_observations()
         current_competence = self.get_current_competence()
         if len(nonempty_cycle_obs) < 2:
-            # TODO explain if kept
-            all_outcomes = [o for co in self._get_nonempty_cycle_observations() for o in co]
-            if all(all_outcomes):
-                return current_competence
             return min(
                 1.0, current_competence +
                 CFG.skill_competence_initial_prediction_bonus)  # default
