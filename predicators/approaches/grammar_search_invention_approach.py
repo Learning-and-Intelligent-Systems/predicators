@@ -1435,7 +1435,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             import pdb; pdb.set_trace()
 
-            fff = {n: [set(), set(), set()] for n in ddd.keys()}
+            # fff = {n: [set(), set(), set()] for n in ddd.keys()}
 
             mmm = {}
             for n in ddd.keys():
@@ -1444,32 +1444,102 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     "add": [],
                     "del": []
                 }
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
+
             mmm["Op0-Pick"]["pre"] = [
-                ""
+                "((0:block).pose_z<=[idx 0]0.461)",
+                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-((0:robot).fingers<=[idx 0]0.5)",
+                "OnTable"
             ]
             mmm["Op0-Pick"]["add"] = [
+                "((0:robot).fingers<=[idx 0]0.5)",
+                "NOT-((0:block).pose_z<=[idx 0]0.461)",
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-OnTable"
             ]
             mmm["Op0-Pick"]["del"] = [
+                "((0:block).pose_z<=[idx 0]0.461)",
+                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-((0:robot).fingers<=[idx 0]0.5)",
+                "OnTable"
             ]
+
             mmm["Op1-PutOnTable"]["pre"] = [
+                "((0:robot).fingers<=[idx 0]0.5)",
+                "Forall[0:block].[NOT-On(0,1)]",
+                "Forall[1:block].[NOT-On(0,1)]",
+                "NOT-((0:block).pose_z<=[idx 0]0.461)",
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
             ]
             mmm["Op1-PutOnTable"]["add"] = [
+                "((0:block).pose_z<=[idx 0]0.461)",
+                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-((0:robot).fingers<=[idx 0]0.5)",
+                "OnTable"
             ]
             mmm["Op1-PutOnTable"]["del"] = [
+                "((0:robot).fingers<=[idx 0]0.5)",
+                "NOT-((0:block).pose_z<=[idx 0]0.461)",
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-OnTable"
             ]
+
             mmm["Op2-Stack"]["pre"] = [
+                "((0:robot).fingers<=[idx 0]0.5)",
+                "NOT-((0:block).pose_z<=[idx 0]0.461)",
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-OnTable"
             ]
             mmm["Op2-Stack"]["add"] = [
+                "((0:block).pose_z<=[idx 0]0.461)",
+                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-((0:robot).fingers<=[idx 0]0.5)",
+                "On"
             ]
             mmm["Op2-Stack"]["del"] = [
+                "((0:robot).fingers<=[idx 0]0.5)",
+                "NOT-((0:block).pose_z<=[idx 0]0.461)",
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
             ]
+
             mmm["Op3-Pick"]["pre"] = [
+                "((0:block).pose_z<=[idx 0]0.461)",
+                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-((0:robot).fingers<=[idx 0]0.5)",
+                "OnTable"
             ]
             mmm["Op3-Pick"]["add"] = [
+                "((0:robot).fingers<=[idx 0]0.5)",
+                "Forall[0:block].[NOT-On(0,1)]",
+                "Forall[1:block].[NOT-On(0,1)]",
+                "NOT-((0:block).pose_z<=[idx 0]0.461)",
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
             ]
             mmm["Op3-Pick"]["del"] = [
+                "((0:block).pose_z<=[idx 0]0.461)",
+                "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "NOT-((0:robot).fingers<=[idx 0]0.5)",
             ]
+
+            fff = {}
+            for op in ddd.keys():
+                fff[op] = []
+                fff[op].append(
+                    set(p for p in ddd[op][0] if p.name in mmm[op]["pre"])
+                )
+                fff[op].append(
+                    set(p for p in ddd[op][1] if p.name in mmm[op]["add"])
+                )
+                fff[op].append(
+                    set(p for p in ddd[op][2] if p.name in mmm[op]["del"])
+                )
+                fff[op].append(ddd[op][3])
+
+            import pdb; pdb.set_trace()
+            self._clusters = fff
+            import pdb; pdb.set_trace()
+            return predicates_to_keep
 
 
             # # hard-coded test

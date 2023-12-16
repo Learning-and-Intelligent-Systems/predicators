@@ -117,6 +117,7 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
+        counter = 0
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if not ll_traj.is_demo:
@@ -132,14 +133,24 @@ class BaseSTRIPSLearner(abc.ABC):
                 seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops,
                 option_specs)
             if not demo_preserved:
-                logging.debug("Harmlessness not preserved for demo!")
-                logging.debug(f"Initial atoms: {atoms_seq[0]}")
+                # logging.debug("Harmlessness not preserved for demo!")
+                # logging.debug(f"Initial atoms: {atoms_seq[0]}")
+                # for t in range(1, len(atoms_seq)):
+                #     logging.debug(f"Timestep {t} add effects: "
+                #                   f"{atoms_seq[t] - atoms_seq[t-1]}")
+                #     logging.debug(f"Timestep {t} del effects: "
+                #                   f"{atoms_seq[t-1] - atoms_seq[t]}")
+                print("Harmlessness not preserved for demo!")
+                print("Number of demo: ", counter)
+                print(f"Initial atoms: {atoms_seq[0]}")
                 for t in range(1, len(atoms_seq)):
-                    logging.debug(f"Timestep {t} add effects: "
+                    print(f"Timestep {t} add effects: "
                                   f"{atoms_seq[t] - atoms_seq[t-1]}")
-                    logging.debug(f"Timestep {t} del effects: "
+                    print(f"Timestep {t} del effects: "
                                   f"{atoms_seq[t-1] - atoms_seq[t]}")
+                import pdb; pdb.set_trace()
                 return False
+            counter += 1
         return True
 
     def _check_single_demo_preservation(
@@ -161,6 +172,32 @@ class BaseSTRIPSLearner(abc.ABC):
         ground_nsrt_plan = task_plan_with_option_plan_constraint(
             objects, self._predicates, strips_ops, option_specs, init_atoms,
             traj_goal, option_plan, atoms_seq)
+
+        # print("doing a test")
+        # Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
+        # Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
+        # objs = list(init_state.data.keys())
+        # robot = [o for o in objs if o.name == "robby"][0]
+        # block1 = [b for b in objs if b.name == "block1"][0]
+        # block2 = [b for b in objs if b.name == "block2"][0]
+        # block3 = [b for b in objs if b.name == "block3"][0]
+        # import pdb; pdb.set_trace()
+        # first = Op0Pick.ground((block2, robot))
+        # # second = Op2Stack.ground((block2, block1, robot))
+        # second = Op2Stack.ground((block1, block2, robot))
+        # third = Op0Pick.ground((block3, robot))
+        # fourth = Op2Stack.ground((block2, block3, robot))
+        #
+        # after_first = (init_atoms | first.add_effects) - first.delete_effects
+        # assert second.preconditions == second.preconditions.intersection(after_first)
+        # after_second = (after_first | second.add_effects) - second.delete_effects
+        # assert third.preconditions == third.preconditions.intersection(after_second)
+        # after_third = (after_second | third.add_effects) - third.delete_effects
+        # assert fourth.preconditions == fourth.preconditions.intersection(after_third)
+        # after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
+        #
+        #
+        # import pdb; pdb.set_trace()
         return ground_nsrt_plan is not None
 
     def _recompute_datastores_from_segments(self, pnads: List[PNAD]) -> None:
