@@ -84,7 +84,6 @@ ENVS:
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: oracle
       active_sampler_learning_explore_pursue_goal_interval: 1
-      active_sampler_explorer_replan_frequency: 10
 ARGS:
   - "debug"
 FLAGS:
