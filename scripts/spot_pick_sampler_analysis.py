@@ -62,8 +62,8 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
                             param_option: ParameterizedOption, obj_mask: Image,
                             grasp_map: Image) -> Image:
     option_name = param_option.name
-    approach_save_path = utils.get_approach_save_path_str()
-    save_path = f"{approach_save_path}_{option_name}_{online_learning_cycle}"
+    save_path = (f"{CFG.approach_dir}/{CFG.experiment_id}_"
+                 f"{option_name}_{online_learning_cycle}")
     if CFG.active_sampler_learning_object_specific_samplers:
         suffix = f"(robot:robot, {target_object}, floor:immovable)"
         save_path = f"{save_path}_{suffix}"

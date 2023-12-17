@@ -71,10 +71,10 @@ def visualize_cup_table_place_samplers(online_learning_cycles: List,
         option_name = "PlaceObjectOnTop"
         option_args = "(robot:robot, cup:container, " + \
             "drafting_table:drafting_table)"
-        approach_save_path = utils.get_approach_save_path_str()
-        cls_save_path = f"{approach_save_path}_{option_name}_" + \
+        save_path = f"{CFG.approach_dir}/{CFG.experiment_id}_{option_name}"
+        cls_save_path = save_path + \
             f"{online_learning_cycle}_{option_args}.sampler_classifier"
-        cls_data_save_path = f"{approach_save_path}_{option_name}_" + \
+        cls_data_save_path = save_path + \
             f"{online_learning_cycle}_{option_args}.sampler_classifier_data"
         if not os.path.exists(cls_save_path) or not os.path.exists(
                 cls_data_save_path):

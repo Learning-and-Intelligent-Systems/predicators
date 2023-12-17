@@ -358,8 +358,8 @@ class _WrappedSamplerLearner(abc.ABC):
 
     def _get_save_id(self, nsrt_name: str) -> str:
         """A unique ID used for saving data."""
-        approach_path = utils.get_approach_save_path_str()
-        save_id = f"{approach_path}_{nsrt_name}_{self._online_learning_cycle}"
+        save_id = (f"{CFG.approach_dir}/{CFG.experiment_id}_"
+                   f"{nsrt_name}_{self._online_learning_cycle}")
         if self._save_id_suffix is not None:
             save_id = f"{save_id}_{self._save_id_suffix}"
         return save_id

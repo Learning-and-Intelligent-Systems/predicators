@@ -33,6 +33,7 @@ setup(
         "types-PyYAML",
         "lisdf",
         "seaborn",
+        "moviepy",
         "apriltag",
         "scikit-image",
         "smepy@git+https://github.com/sebdumancic/structure_mapping.git",

@@ -1,12 +1,14 @@
 """An explorer for active sampler learning."""
 
+import datetime
 import glob
 import logging
 import os
 import re
 import time
 from collections import deque
-from typing import Callable, Deque, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Deque, Dict, Iterator, List, Optional, Set, \
+    Tuple
 
 import dill as pkl
 import numpy as np
@@ -123,6 +125,31 @@ class ActiveSamplerExplorer(BaseExplorer):
             logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task, assigned_task_finished, current_policy, \
                 next_practice_nsrt, using_random, assigned_task_horizon
+
+            # Save a bunch of data with a time-stamp so we can make videos.
+            save_dict: Dict[str, Any] = {
+                "timestamp": datetime.datetime.now(),
+                "state": state,
+                "assigned_task": assigned_task,
+                "assigned_task_finished": assigned_task_finished,
+                "next_practice_nsrt": next_practice_nsrt,
+                "competence_models": self._competence_models,
+            }
+            os.makedirs(CFG.data_dir, exist_ok=True)
+            pfx = f"{CFG.data_dir}/{CFG.env}_explorer_timestamped_info_"
+            filepath_template = f"{pfx}*.data"
+            datapoint_id = 0
+            all_saved_files = glob.glob(filepath_template)
+            if all_saved_files:  # pragma: no cover
+                regex_prefix = re.escape(pfx)
+                regex = f"{regex_prefix}(\\d+).data"
+                for filename in all_saved_files:
+                    regex_match = re.match(regex, filename)
+                    assert regex_match is not None
+                    d_id = int(regex_match.groups()[0])
+                    datapoint_id = max(datapoint_id, d_id + 1)
+            with open(f"{pfx}{datapoint_id}.data", "wb") as f:
+                pkl.dump(save_dict, f)
 
             # Need to wait for policy to get called to "see" the train task.
             self._seen_train_task_idxs.add(train_task_idx)
