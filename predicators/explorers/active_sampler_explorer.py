@@ -147,7 +147,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                     a.holds(state) for a in next_practice_nsrt.preconditions):
                 g: Set[GroundAtom] = set()  # goal assumed unused
                 logging.info(
-                    f"[Explorer] Practicing NSRT: {next_practice_nsrt}")
+                    "[Explorer] Practicing NSRT: "
+                    f"{next_practice_nsrt.name}{next_practice_nsrt.objects}")
                 exploration_sampler = self._nsrt_to_explorer_sampler[
                     next_practice_nsrt.parent]
                 # We want to generate a sample to use to ground the option,
@@ -376,6 +377,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
         if CFG.active_sampler_explore_task_strategy == "planning_progress":
             score = self._score_ground_op_planning_progress(ground_op)
+            logging.info(f"[Explorer]   Base score: {score}")
+            logging.info(f"[Explorer]   UCB bonus: {bonus}")
             if CFG.active_sampler_explore_use_ucb_bonus:
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
@@ -402,7 +405,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         num_tries = len(history)
         success_rate = sum(history) / num_tries
         # Optimization: skip any ground op with perfect success.
-        if success_rate == 1.0:
+        if CFG.active_sampler_explorer_skip_perfect and success_rate == 1.0:
             return -np.inf
         logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
