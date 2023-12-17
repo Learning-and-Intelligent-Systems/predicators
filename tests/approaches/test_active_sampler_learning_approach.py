@@ -16,42 +16,69 @@ from predicators.structs import Dataset
 from predicators.teacher import Teacher
 
 
-@pytest.mark.parametrize("model_name,right_targets,num_demo,feat_type",
-                         [("myopic_classifier_mlp", False, 0, "all"),
-                          ("myopic_classifier_mlp", True, 1, "all"),
-                          ("myopic_classifier_ensemble", False, 0, "all"),
-                          ("myopic_classifier_ensemble", False, 1, "all"),
-                          ("fitted_q", False, 0, "all"),
-                          ("fitted_q", True, 0, "all"),
-                          ("myopic_classifier_knn", False, 0, "oracle")])
+@pytest.mark.parametrize(
+    "model_name,right_targets,num_demo,feat_type,object_specific",
+    [("myopic_classifier_mlp", False, 0, "all", False),
+     ("myopic_classifier_mlp", True, 1, "all", False),
+     ("myopic_classifier_ensemble", False, 0, "all", False),
+     ("myopic_classifier_ensemble", False, 1, "all", False),
+     ("fitted_q", False, 0, "all", False), ("fitted_q", True, 0, "all", False),
+     ("myopic_classifier_knn", False, 0, "oracle", False),
+     ("myopic_classifier_mlp", False, 0, "all", True)])
 def test_active_sampler_learning_approach(model_name, right_targets, num_demo,
-                                          feat_type):
+                                          feat_type, object_specific):
     """Test for ActiveSamplerLearningApproach class, entire pipeline."""
     utils.reset_config({
-        "env": "bumpy_cover",
-        "approach": "active_sampler_learning",
-        "active_sampler_learning_model": model_name,
-        "active_sampler_learning_feature_selection": feat_type,
-        "timeout": 10,
-        "strips_learner": "oracle",
-        "sampler_learner": "oracle",
-        "sampler_disable_classifier": True,
-        "num_online_learning_cycles": 1,
-        "active_sampler_learning_explore_length_base": 4,
-        "max_num_steps_interaction_request": 5,
-        "online_nsrt_learning_requests_per_cycle": 1,
-        "sampler_mlp_classifier_max_itr": 10,
-        "mlp_regressor_max_itr": 10,
-        "num_train_tasks": 3,
-        "max_initial_demos": num_demo,
-        "num_test_tasks": 1,
-        "explorer": "active_sampler",
-        "active_sampler_learning_num_samples": 5,
-        "active_sampler_learning_fitted_q_iters": 2,
-        "active_sampler_learning_num_lookahead_samples": 2,
-        "bumpy_cover_right_targets": right_targets,
-        "active_sampler_learning_num_ensemble_members": 2,
-        "bilevel_plan_without_sim": True,
+        "env":
+        "bumpy_cover",
+        "approach":
+        "active_sampler_learning",
+        "active_sampler_learning_model":
+        model_name,
+        "active_sampler_learning_feature_selection":
+        feat_type,
+        "timeout":
+        10,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "sampler_disable_classifier":
+        True,
+        "num_online_learning_cycles":
+        1,
+        "active_sampler_learning_explore_length_base":
+        4,
+        "max_num_steps_interaction_request":
+        5,
+        "online_nsrt_learning_requests_per_cycle":
+        1,
+        "sampler_mlp_classifier_max_itr":
+        10,
+        "mlp_regressor_max_itr":
+        10,
+        "num_train_tasks":
+        3,
+        "max_initial_demos":
+        num_demo,
+        "num_test_tasks":
+        1,
+        "explorer":
+        "active_sampler",
+        "active_sampler_learning_num_samples":
+        5,
+        "active_sampler_learning_fitted_q_iters":
+        2,
+        "active_sampler_learning_num_lookahead_samples":
+        2,
+        "bumpy_cover_right_targets":
+        right_targets,
+        "active_sampler_learning_num_ensemble_members":
+        2,
+        "bilevel_plan_without_sim":
+        True,
+        "active_sampler_learning_object_specific_samplers":
+        object_specific,
     })
     env = BumpyCoverEnv()
     train_tasks = [t.task for t in env.get_train_tasks()]

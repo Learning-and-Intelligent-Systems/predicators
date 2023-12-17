@@ -460,6 +460,9 @@ class ActiveSamplerExplorer(BaseExplorer):
         history = self._ground_op_hist[ground_op]
         num_tries = len(history)
         success_rate = sum(history) / num_tries
+        # Optimization: skip any ground op with perfect success.
+        if CFG.active_sampler_explorer_skip_perfect and success_rate == 1.0:
+            return -np.inf
         logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
         logging.info(f"[Explorer]   posterior competence: {competence}")
