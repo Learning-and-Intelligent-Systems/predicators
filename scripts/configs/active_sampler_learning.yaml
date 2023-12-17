@@ -39,19 +39,34 @@ APPROACHES:
       mlp_regressor_max_itr: 100000
       active_sampler_learning_batch_size: 1024
 ENVS:
-  tiny_grid_row:
-    NAME: "grid_row"
-    FLAGS:
-      grid_row_num_cells: 3
-      max_num_steps_interaction_request: 500
-      active_sampler_learning_explore_length_base: 100000  # effectively disable
-      active_sampler_learning_feature_selection: all
+  # tiny_grid_row:
+  #   NAME: "grid_row"
+  #   FLAGS:
+  #     grid_row_num_cells: 3
+  #     max_num_steps_interaction_request: 500
+  #     active_sampler_learning_explore_length_base: 100000  # effectively disable
+  #     active_sampler_learning_feature_selection: all
+  #     active_sampler_learning_explore_pursue_goal_interval: 1
+  # regional_bumpy_cover:
+  #   NAME: "regional_bumpy_cover"
+  #   FLAGS:
+  #     regional_bumpy_cover_include_impossible_nsrt: "True"
+  #     bumpy_cover_num_bumps: 3
+  #     bumpy_cover_spaces_per_bump: 5
+  #     bumpy_cover_init_bumpy_prob: 0.25
+  #     cover_num_blocks: 10
+  #     cover_block_widths: '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'
+  #     cover_num_targets: 10
+  #     cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
+  #     active_sampler_learning_feature_selection: all
+  #     active_sampler_learning_explore_pursue_goal_interval: 1
   grid_row:
     NAME: "grid_row"
     FLAGS:
       max_num_steps_interaction_request: 150
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: all
+      active_sampler_learning_explore_pursue_goal_interval: 1
   ball_and_cup_sticky_table:
     NAME: "ball_and_cup_sticky_table"
     FLAGS:
