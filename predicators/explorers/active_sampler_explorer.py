@@ -468,9 +468,6 @@ class ActiveSamplerExplorer(BaseExplorer):
         logging.info(f"[Explorer]   posterior competence: {competence}")
         logging.info(f"[Explorer]   num attempts: {num_tries}")
         logging.info(f"[Explorer]   extrapolated competence: {extrap}")
-        # Optimization: skip any ground op with perfect success.
-        if success_rate == 1.0:
-            return -np.inf
         c_hat = -np.log(extrap)
         assert c_hat >= 0
         # Update the ground op costs hypothetically.
