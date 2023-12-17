@@ -48,16 +48,10 @@ def _main() -> None:
         # Set up videos.
         video_frames = []
         # Evaluate samplers for each learning cycle.
-        online_learning_cycle = 0
-        while True:
-            try:
-                img = _run_one_cycle_analysis(online_learning_cycle, obj,
-                                              obj_id, option, obj_mask,
-                                              grasp_map)
-                video_frames.append(img)
-            except FileNotFoundError:
-                break
-            online_learning_cycle += 1
+        for online_learning_cycle in range(CFG.num_online_learning_cycles):
+            img = _run_one_cycle_analysis(online_learning_cycle, obj, obj_id,
+                                          option, obj_mask, grasp_map)
+            video_frames.append(img)
         # Save the videos.
         video_outfile = f"spot_pick_sampler_learning_{obj.name}.mp4"
         utils.save_video(video_outfile, video_frames)
@@ -69,26 +63,37 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
                             grasp_map: Image) -> Image:
     option_name = param_option.name
     approach_save_path = utils.get_approach_save_path_str()
-    save_path = f"{approach_save_path}_{option_name}_" + \
-        f"{online_learning_cycle}.sampler_classifier"
-    if not os.path.exists(save_path):
-        raise FileNotFoundError
-    with open(save_path, "rb") as f:
-        classifier = pkl.load(f)
-    print(f"Loaded sampler classifier from {save_path}.")
-    save_path = f"{approach_save_path}_{option_name}_" + \
-        f"{online_learning_cycle}.sampler_classifier_data"
-    if not os.path.exists(save_path):
-        raise FileNotFoundError(f"File does not exist: {save_path}")
-    with open(save_path, "rb") as f:
-        data = pkl.load(f)
-    print(f"Loaded sampler classifier training data from {save_path}.")
+    save_path = f"{approach_save_path}_{option_name}_{online_learning_cycle}"
+    if CFG.active_sampler_learning_object_specific_samplers:
+        suffix = f"(robot:robot, {target_object}, floor:immovable)"
+        save_path = f"{save_path}_{suffix}"
+    classifier_save_path = f"{save_path}.sampler_classifier"
+    if os.path.exists(classifier_save_path):
+        with open(classifier_save_path, "rb") as f:
+            classifier = pkl.load(f)
+        print(f"Loaded sampler classifier from {classifier_save_path}.")
+    data_save_path = f"{save_path}.sampler_classifier_data"
+    if os.path.exists(data_save_path):
+        with open(data_save_path, "rb") as f:
+            data = pkl.load(f)
+            print(f"Loaded classifier training data from {data_save_path}.")
+            # Extract the candidates for this object.
+            if not CFG.active_sampler_learning_object_specific_samplers:
+                candidates = [x for x in data[0] if int(x[1]) == object_id]
+            else:
+                candidates = list(data[0])
+    else:
+        candidates = []
 
     cmap = colormaps.get_cmap('RdYlGn')
     norm = Normalize(vmin=0.0, vmax=1.0)
 
-    # Extract the candidates for this object.
-    candidates = [x for x in data[0] if int(x[1]) == object_id]
+    if not CFG.active_sampler_learning_object_specific_samplers:
+        r_idx = 2
+        c_idx = 3
+    else:
+        r_idx = 1
+        c_idx = 2
 
     # Classify the candidates.
     predictions = []
@@ -114,7 +119,8 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
     ax.set_title("Ground Truth")
     ax.imshow(grasp_map, cmap="RdYlGn", vmin=0, vmax=1, alpha=0.25)
     for candidate, prediction in zip(candidates, predictions):
-        r, c = candidate[2:4]
+        r = candidate[r_idx]
+        c = candidate[c_idx]
         color = cmap(norm(prediction))
         circle = plt.Circle((c, r), radius, color=color, alpha=1.0)
         ax.add_patch(circle)
@@ -126,8 +132,8 @@ def _run_one_cycle_analysis(online_learning_cycle: Optional[int],
         for r in range(predicted_grasp_map.shape[0]):
             for c in range(predicted_grasp_map.shape[1]):
                 x = candidates[0].copy()
-                x[2] = r
-                x[3] = c
+                x[r_idx] = r
+                x[c_idx] = c
                 y = classifier.predict_proba(x)
                 predicted_grasp_map[r, c] = y
         ax.imshow(predicted_grasp_map,

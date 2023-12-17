@@ -351,15 +351,18 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
             if "Sweep" in param_option.name:
                 sampler_input_lst.extend(params)
             elif "Pick" in param_option.name:
-                target_obj = objects[1]
-                object_id = state.get(target_obj, "object_id")
-                sampler_input_lst.append(object_id)
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    target_obj = objects[1]
+                    object_id = state.get(target_obj, "object_id")
+                    sampler_input_lst.append(object_id)
                 sampler_input_lst.extend(params)
             elif "Place" in param_option.name and "OnTop" in param_option.name:
-                held_obj = objects[1]
                 surface_obj = objects[2]
-                sampler_input_lst.extend([state.get(held_obj, "object_id")])
-                sampler_input_lst.extend([state.get(surface_obj, "object_id")])
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    held_obj = objects[1]
+                    sampler_input_lst.append(state.get(held_obj, "object_id"))
+                    sampler_input_lst.append(
+                        state.get(surface_obj, "object_id"))
                 if surface_obj.type.name == "drafting_table":
                     sampler_input_lst.extend([
                         state.get(surface_obj, "sticky-region-x"),
@@ -372,9 +375,20 @@ def construct_active_sampler_input(state: State, objects: Sequence[Object],
                 sampler_input_lst.extend(params[:2])
             else:
                 base_feat_names = [
-                    "x", "y", "z", "qw", "qx", "qy", "qz", "shape", "height",
-                    "width", "length", "object_id"
+                    "x",
+                    "y",
+                    "z",
+                    "qw",
+                    "qx",
+                    "qy",
+                    "qz",
+                    "shape",
+                    "height",
+                    "width",
+                    "length",
                 ]
+                if not CFG.active_sampler_learning_object_specific_samplers:
+                    base_feat_names.append("object_id")
                 for obj in objects:
                     if obj.type.name == "robot":
                         sampler_input_lst.extend(state[obj])

@@ -479,7 +479,10 @@ class SpotRearrangementEnv(BaseEnv):
         # see. This is important for our 'InView' predicate.
         non_back_camera_rgbds = {
             k: v
-            for (k, v) in rgbds.items() if k != "back_fisheye_image"
+            for (k, v) in rgbds.items() if k in [
+                "hand_color_image", "frontleft_fisheye_image",
+                "frontright_fisheye_image"
+            ]
         }
         non_back_detections, _ = detect_objects(all_object_detection_ids,
                                                 non_back_camera_rgbds)

@@ -131,6 +131,18 @@ if __name__ == "__main__":
         relative_down_pose = math_helpers.SE3Pose(
             x=0.0, y=0, z=0.0, rot=math_helpers.Quat.from_pitch(np.pi / 4))
         resting_down_pose = resting_pose * relative_down_pose
+        looking_down_and_rotated_right_pose = math_helpers.SE3Pose(
+            x=0.9,
+            y=0,
+            z=0.0,
+            rot=math_helpers.Quat.from_pitch(np.pi / 2) *
+            math_helpers.Quat.from_roll(np.pi / 2))
+
+        print(
+            "Moving to a pose that looks down and rotates the gripper to the "
+            + "right.")
+        move_hand_to_relative_pose(robot, looking_down_and_rotated_right_pose)
+        input("Press enter when ready to move on")
 
         print("Moving to a resting pose in front of the robot.")
         move_hand_to_relative_pose(robot, resting_pose)
