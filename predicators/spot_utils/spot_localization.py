@@ -193,5 +193,6 @@ if __name__ == "__main__":
             localizer.localize()
             robot_pose = localizer.get_last_robot_pose()
             print("Robot pose:", robot_pose)
+            print(f"Robot yaw: {robot_pose.rot.to_yaw()}")
 
     _run_manual_test()
