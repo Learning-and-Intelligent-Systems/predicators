@@ -171,15 +171,23 @@ def find_objects(
     try:
         step_back_to_find_objects(robot, localizer, object_ids)
     except RuntimeError:
-        localizer.localize()
-        spot_pose = localizer.get_last_robot_pose()
-        robot_geom = spot_pose_to_geom2d(spot_pose)
-        collision_geoms = get_collision_geoms_for_nav(state)
-        allowed_regions = get_allowed_map_regions()
-        dist, yaw, _ = sample_random_nearby_point_to_move(
-            robot_geom, collision_geoms, rng, 2.5, allowed_regions)
-        rel_pose = get_relative_se2_from_se3(spot_pose, spot_pose, dist, yaw)
-        navigate_to_relative_pose(robot, rel_pose)
+        prompt = ("Hit 'c' to have the robot try to find the object "
+                  "by moving to a random pose, or "
+                  "take control of the robot and make the object "
+                  "become in its view. Hit the 'Enter' key when you're done!")
+        user_pref = input(prompt)
+        lease_client.take()
+        if user_pref == "c":
+            localizer.localize()
+            spot_pose = localizer.get_last_robot_pose()
+            robot_geom = spot_pose_to_geom2d(spot_pose)
+            collision_geoms = get_collision_geoms_for_nav(state)
+            allowed_regions = get_allowed_map_regions()
+            dist, yaw, _ = sample_random_nearby_point_to_move(
+                robot_geom, collision_geoms, rng, 2.5, allowed_regions)
+            rel_pose = get_relative_se2_from_se3(spot_pose, spot_pose, dist,
+                                                 yaw)
+            navigate_to_relative_pose(robot, rel_pose)
 
 
 if __name__ == "__main__":
