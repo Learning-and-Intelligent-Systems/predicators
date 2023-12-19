@@ -984,6 +984,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             assert CFG.segmenter == "option_changes"
             segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
+
+            for seg_traj in segmented_trajs:
+                l = [seg.get_option().name for seg in seg_traj]
+                b = [seg.get_option() for seg in seg_traj]
+                if "Pick" in l:
+                    import pdb; pdb.set_trace()
+
+
             from functools import reduce
             flattened_segmented_trajs = reduce(lambda a, b: a+b, segmented_trajs)
 
@@ -1376,12 +1384,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         return f"Op{i}-{c[0].get_option().name}"
             # Go through demos
             temp = []
-            for segmented_traj in segmented_trajs:
+            for a, segmented_traj in enumerate(segmented_trajs):
+                if a == 6:
+                    break
                 traj = []
                 for seg in segmented_traj:
                     traj.append(seg_to_op(seg, final_clusters))
                 temp.append(traj)
                 print(traj)
+            import pdb; pdb.set_trace()
 
             ttt = list(predicates_to_keep)
             for p in ttt:
@@ -1514,7 +1525,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 "Forall[0:block].[NOT-On(0,1)]",
                 "Forall[1:block].[NOT-On(0,1)]",
                 "NOT-((0:block).pose_z<=[idx 0]0.461)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                # NOT-On?
             ]
             mmm["Op3-Pick"]["del"] = [
                 "((0:block).pose_z<=[idx 0]0.461)",

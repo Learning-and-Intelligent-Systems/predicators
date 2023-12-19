@@ -127,6 +127,14 @@ def main() -> None:
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
         offline_dataset = create_dataset(env, train_tasks, options)
+        anno = offline_dataset.annotations
+        for i, demo in enumerate(anno):
+            print(f"demo {i}:")
+            names = [n.name for n in demo]
+            if "PickFromTable" in names:
+                for n in demo:
+                    print(f"nsrt {n.name}, params {n.objects}, option params: {n.option_objs}")
+        import pdb; pdb.set_trace()
     else:
         offline_dataset = None
     # Create the cognitive manager.
