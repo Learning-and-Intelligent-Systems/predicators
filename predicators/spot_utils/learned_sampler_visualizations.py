@@ -21,7 +21,7 @@ def _main() -> None:
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
-    cycles_to_plot = [0, 1, 2, 3, 4]
+    cycles_to_plot = [0, 1, 2, 3, 4, 5, 6]
     imgs = visualize_cup_table_place_samplers(cycles_to_plot, 25)
     for t, img in zip(cycles_to_plot, imgs):
         img_outfile = f"videos/cup_table_active_sampler_learning_cycle_{t}.png"
@@ -54,18 +54,18 @@ def visualize_cup_table_place_samplers(online_learning_cycles: List,
         gt_ax, sampled_ax = axes
         gt_ax.set_title("Real-world Data")
         sampled_ax.set_title("Learned Sampler")
-        gt_ax.set_xlim(-drafting_table_wid / 2 - 0.1,
+        gt_ax.set_ylim(-drafting_table_wid / 2 - 0.1,
                        drafting_table_wid / 2 + 0.1)
-        gt_ax.set_ylim(-drafting_table_len / 2 - 0.1,
+        gt_ax.set_xlim(-drafting_table_len / 2 - 0.1,
                        drafting_table_len / 2 + 0.1)
-        sampled_ax.set_xlim(-drafting_table_wid / 2 - 0.1,
+        sampled_ax.set_ylim(-drafting_table_wid / 2 - 0.1,
                             drafting_table_wid / 2 + 0.1)
-        sampled_ax.set_ylim(-drafting_table_len / 2 - 0.1,
+        sampled_ax.set_xlim(-drafting_table_len / 2 - 0.1,
                             drafting_table_len / 2 + 0.1)
         gt_ax.set_aspect('equal', adjustable='box')
         sampled_ax.set_aspect('equal', adjustable='box')
-        table_geom = utils.Rectangle.from_center(0.0, 0.0, drafting_table_wid,
-                                                 drafting_table_len, 0.0)
+        table_geom = utils.Rectangle.from_center(0.0, 0.0, drafting_table_len,
+                                                 drafting_table_wid, 0.0)
         table_geom.plot(gt_ax, **{'fill': None, 'alpha': 1})
         table_geom.plot(sampled_ax, **{'fill': None, 'alpha': 1})
         option_name = "PlaceObjectOnTop"
@@ -73,9 +73,9 @@ def visualize_cup_table_place_samplers(online_learning_cycles: List,
             "drafting_table:drafting_table)"
         save_path = f"{CFG.approach_dir}/{CFG.experiment_id}_{option_name}"
         cls_save_path = save_path + \
-            f"{online_learning_cycle}_{option_args}.sampler_classifier"
+            f"_{online_learning_cycle}_{option_args}.sampler_classifier"
         cls_data_save_path = save_path + \
-            f"{online_learning_cycle}_{option_args}.sampler_classifier_data"
+            f"_{online_learning_cycle}_{option_args}.sampler_classifier_data"
         if not os.path.exists(cls_save_path) or not os.path.exists(
                 cls_data_save_path):
             print(f"Didn't find data for cycle {online_learning_cycle}")
@@ -98,9 +98,9 @@ def visualize_cup_table_place_samplers(online_learning_cycles: List,
                                 alpha=0.9)
             gt_ax.add_patch(circle)
 
-        # Plot sampled data
-        for y in len_vals:
-            for x in wid_vals:
+        # Plot sampled points with correctness.
+        for x in len_vals:
+            for y in wid_vals:
                 sampler_input = [1.0, sticky_region_x, sticky_region_y, x, y]
                 score = classifier.predict_proba(np.array(sampler_input))
                 color = cmap(norm(score))

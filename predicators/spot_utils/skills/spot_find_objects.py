@@ -167,7 +167,6 @@ def find_objects(
     """First try stepping back to find an object, and if that doesn't work,
     then try to either ask the user or keep sampling a random location to move
     to in order to find the lost object."""
-    del lease_client  # unused.
     try:
         step_back_to_find_objects(robot, localizer, object_ids)
     except RuntimeError:
