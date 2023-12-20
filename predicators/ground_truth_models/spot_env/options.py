@@ -103,21 +103,20 @@ def _drop_at_relative_position_and_look(
     place_at_relative_position(robot, rel_pose)
     # Move the hand back towards the robot so we can see whether
     # placing was successful or not.
-    look_dist_to_retract = 0.15
+    look_dist_to_retract = 0.35
     rel_look_down_xy = np.array([rel_pose.x, rel_pose.y, rel_pose.z])
     rel_look_down_xy_unit = rel_look_down_xy / np.linalg.norm(rel_look_down_xy)
     vec_to_move_back_xy = look_dist_to_retract * rel_look_down_xy_unit
     rel_look_pose = math_helpers.SE3Pose(rel_pose.x - vec_to_move_back_xy[0],
                                          rel_pose.y - vec_to_move_back_xy[1],
-                                         rel_pose.z + look_dist_to_retract,
+                                         rel_pose.z + 0.2,
                                          rot=math_helpers.Quat.from_pitch(
                                              np.pi / 3))
+    # Look straight down.
+    move_hand_to_relative_pose(robot, rel_look_pose)
     # Close the gripper after moving (to avoid accidentally regrasping the
     # object).
     close_gripper(robot)
-
-    # Look straight down.
-    move_hand_to_relative_pose(robot, rel_look_pose)
 
 
 def _move_closer_and_drop_at_relative_position_and_look(

@@ -21,7 +21,7 @@ def _main() -> None:
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
-    cycles_to_plot = [0, 1, 2, 3, 4, 5, 6]
+    cycles_to_plot = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     imgs = visualize_cup_table_place_samplers(cycles_to_plot, 25)
     for t, img in zip(cycles_to_plot, imgs):
         img_outfile = f"videos/cup_table_active_sampler_learning_cycle_{t}.png"
