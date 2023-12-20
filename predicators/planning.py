@@ -673,9 +673,9 @@ def run_low_level_search(
                 print(num_tries)
                 if cur_idx == len(num_tries) - 1: # JORGE: this is to save the rendering of the sample distributions
                     fig = Shelves2DEnv.render_state_plt(state, None)
-                    fig.axes[0].scatter([x for x, y in cover_samples], [y for x, y in cover_samples], c = 'orange')
-                    fig.axes[0].scatter([x for x, y in previous_samples], [y for x, y in previous_samples], c = 'black')
-                    plt.show()
+                    fig.axes[0].scatter([x for x, y in previous_samples], [y for x, y in previous_samples], c = 'cyan', alpha=0.1)
+                    fig.axes[0].scatter([x for x, y in cover_samples], [y for x, y in cover_samples], c = 'orange', alpha=0.1)
+                    # plt.show()
                     fig.savefig(f"tmp/fig{fig_idx}.png")
                     fig_idx += 1
                     plt.close(fig)

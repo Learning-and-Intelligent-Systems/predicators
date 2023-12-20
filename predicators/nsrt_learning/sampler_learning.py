@@ -230,9 +230,9 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     elif CFG.sampler_learning_regressor_model == "diffusion":
         regressor = DiffusionRegressor( # JORGE: this is where the diffusion regressor is instantiated
             seed=CFG.seed,
-            hid_sizes=[128]*4,
+            hid_sizes=[256]*2,
             max_train_iters=10000,
-            timesteps=1000,
+            timesteps=100,
             learning_rate=CFG.learning_rate
         )
     else:
