@@ -89,7 +89,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             logger_name = logger_name + f"-{CFG.experiment_id}"
         self._logger = logging.getLogger(logger_name)
         self._logger.setLevel(logging.DEBUG)
-        fh = logging.FileHandler(f"{CFG.log_dir}/{logger_name}.log", mode="w")
+        fh = logging.FileHandler(f"{CFG.log_dir}/{logger_name}.log")
         fh.setLevel(logging.DEBUG)
         self._logger.addHandler(fh)
 
