@@ -16,13 +16,19 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "success_rate"
-      active_sampler_explore_use_ucb_bonus: False
-  success_rate_explore_no_ucb:
+      active_sampler_explore_use_ucb_bonus: True
+  competence_gradient_explore_ucb:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "active_sampler"
-      active_sampler_explore_task_strategy: "success_rate"
-      active_sampler_explore_use_ucb_bonus: False
+      active_sampler_explore_task_strategy: "competence_gradient"
+      active_sampler_explore_use_ucb_bonus: True
+  skill_diversity_explore_ucb:
+    NAME: "active_sampler_learning"
+    FLAGS:
+      explorer: "active_sampler"
+      active_sampler_explore_task_strategy: "skill_diversity"
+      active_sampler_explore_use_ucb_bonus: True
   random_score_explore:
     NAME: "active_sampler_learning"
     FLAGS:
