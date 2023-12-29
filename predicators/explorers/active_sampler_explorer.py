@@ -108,7 +108,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         policy, termination_fn = super().get_exploration_strategy(
             train_task_idx, timeout)
 
-        self._logger.info("***** New Exploration Strategy Created *****")
+        self._log("***** New Exploration Strategy Created *****")
 
         def wrapped_termination_fn(state: State) -> bool:
             terminate = termination_fn(state)
@@ -130,7 +130,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         using_random = False
 
         def _option_policy(state: State) -> Tuple[_Option, bool]:
-            nonlocal assigned_task, assigned_task_finished, current_policy, \
+            nonlocal assigned_task_finished, current_policy, \
                 next_practice_nsrt, using_random, assigned_task_horizon
 
             # Need to wait for policy to get called to "see" the train task.
