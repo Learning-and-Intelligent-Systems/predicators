@@ -84,7 +84,7 @@ class ActiveSamplerExplorer(BaseExplorer):
 
         # To more easily see what's going on, create a log file for just
         # the explorer.
-        logger_name = f"active-sampler-explorer"
+        logger_name = "active-sampler-explorer"
         if CFG.experiment_id:  # pragma: no cover
             logger_name = logger_name + f"-{CFG.experiment_id}"
         self._logger = logging.getLogger(logger_name)
