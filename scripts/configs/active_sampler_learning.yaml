@@ -28,7 +28,6 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "skill_diversity"
-      active_sampler_explore_use_ucb_bonus: True
   random_score_explore:
     NAME: "active_sampler_learning"
     FLAGS:
@@ -38,21 +37,13 @@ APPROACHES:
     NAME: "active_sampler_learning"
     FLAGS:
       explorer: "random_nsrts"
-  # maple_q:
-  #   NAME: "maple_q"
-  #   FLAGS:
-  #     explorer: "maple_q"
-  #     mlp_regressor_max_itr: 100000
-  #     active_sampler_learning_batch_size: 1024
+  maple_q:
+    NAME: "maple_q"
+    FLAGS:
+      explorer: "maple_q"
+      mlp_regressor_max_itr: 100000
+      active_sampler_learning_batch_size: 1024
 ENVS:
-  # tiny_grid_row:
-  #   NAME: "grid_row"
-  #   FLAGS:
-  #     grid_row_num_cells: 3
-  #     max_num_steps_interaction_request: 500
-  #     active_sampler_learning_explore_length_base: 100000  # effectively disable
-  #     active_sampler_learning_feature_selection: all
-  #     active_sampler_learning_explore_pursue_goal_interval: 1
   # regional_bumpy_cover:
   #   NAME: "regional_bumpy_cover"
   #   FLAGS:
@@ -73,23 +64,23 @@ ENVS:
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: all
       active_sampler_learning_explore_pursue_goal_interval: 1
-  ball_and_cup_sticky_table:
-    NAME: "ball_and_cup_sticky_table"
-    FLAGS:
-      sticky_table_place_smooth_fall_prob: 1.00
-      sticky_table_place_sticky_fall_prob: 0.00
-      sticky_table_pick_success_prob: 1.0
-      sticky_table_num_sticky_tables: 1
-      sticky_table_num_tables: 5
-      sticky_table_place_ball_fall_prob: 1.00
-      active_sampler_learning_explore_length_base: 25
-      active_sampler_learning_exploration_epsilon: 0.5
-      skill_competence_model_optimistic_recency_size: 2
-      skill_competence_model_optimistic_window_size: 2
-      horizon: 8
-      active_sampler_learning_explore_length_base: 100000  # effectively disable
-      active_sampler_learning_feature_selection: oracle
-      active_sampler_learning_explore_pursue_goal_interval: 1
+  # ball_and_cup_sticky_table:
+  #   NAME: "ball_and_cup_sticky_table"
+  #   FLAGS:
+  #     sticky_table_place_smooth_fall_prob: 1.00
+  #     sticky_table_place_sticky_fall_prob: 0.00
+  #     sticky_table_pick_success_prob: 1.0
+  #     sticky_table_num_sticky_tables: 1
+  #     sticky_table_num_tables: 5
+  #     sticky_table_place_ball_fall_prob: 1.00
+  #     active_sampler_learning_explore_length_base: 25
+  #     active_sampler_learning_exploration_epsilon: 0.5
+  #     skill_competence_model_optimistic_recency_size: 2
+  #     skill_competence_model_optimistic_window_size: 2
+  #     horizon: 8
+  #     active_sampler_learning_explore_length_base: 100000  # effectively disable
+  #     active_sampler_learning_feature_selection: oracle
+  #     active_sampler_learning_explore_pursue_goal_interval: 1
 ARGS:
   - "debug"
 FLAGS:

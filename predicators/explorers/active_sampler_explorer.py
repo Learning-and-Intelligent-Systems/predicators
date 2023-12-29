@@ -372,6 +372,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         num_tries = len(history)
         success_rate = sum(history) / num_tries
         total_trials = sum(len(h) for h in self._ground_op_hist.values())
+        seen_train_tasks_num = len(self._seen_train_task_idxs)
         # UCB-like bonus.
         c = CFG.active_sampler_explore_bonus
         bonus = c * np.sqrt(np.log(total_trials) / num_tries)
@@ -380,10 +381,14 @@ class ActiveSamplerExplorer(BaseExplorer):
             logging.info(f"[Explorer]   Base score: {score}")
             logging.info(f"[Explorer]   UCB bonus: {bonus}")
             if CFG.active_sampler_explore_use_ucb_bonus:
+                # Normlize the score.
+                score = score / seen_train_tasks_num
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
             score = (1.0 - success_rate)
             if CFG.active_sampler_explore_use_ucb_bonus:
+                # Normlize the score.
+                score = score / seen_train_tasks_num
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "competence_gradient":
             model = self._competence_models[ground_op]
@@ -392,10 +397,14 @@ class ActiveSamplerExplorer(BaseExplorer):
             competence = model.get_current_competence()
             score = competence - extrap
             if CFG.active_sampler_explore_use_ucb_bonus:
+                # Normlize the score.
+                score = score / seen_train_tasks_num
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "skill_diversity":
             score = 1 / num_tries
             if CFG.active_sampler_explore_use_ucb_bonus:
+                # Normlize the score.
+                score = score / seen_train_tasks_num
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "random":
             # Random scores baseline.
