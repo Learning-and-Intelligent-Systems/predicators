@@ -100,7 +100,6 @@ class ActiveSamplerExplorer(BaseExplorer):
         return "active_sampler"
 
     def _log(self, msg: str) -> None:
-        logging.info(msg)
         self._logger.info(msg)
 
     def get_exploration_strategy(self, train_task_idx: int,
