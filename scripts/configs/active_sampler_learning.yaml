@@ -6,6 +6,7 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "planning_progress"
+      active_sampler_explore_use_ucb_bonus: False
   task_repeat_explore:
     NAME: "active_sampler_learning"
     FLAGS:
