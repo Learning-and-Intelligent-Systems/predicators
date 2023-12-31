@@ -490,6 +490,10 @@ class GlobalSettings:
     cnn_regressor_gradient_clip_value = 5
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 1000
+    diffusion_regressor_hid_sizes = [256, 256]
+    diffusion_regressor_max_itr = 50000
+    diffusion_regressor_timesteps = 100
+    spread_mapreduce_output_file = "spread.out"
     mlp_classifier_n_iter_no_change = 5000
     implicit_mlp_regressor_max_itr = 10000
     implicit_mlp_regressor_num_negative_data_per_input = 5

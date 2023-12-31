@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import itertools
 import gym
 from typing import Callable, ClassVar, List, Optional, Sequence, Set, Tuple, Dict, Union, cast
 
@@ -62,8 +63,8 @@ class Shelves2DEnv(BaseEnv):
     cover_max_distance: ClassVar[float] = 1#0.2
     cover_sideways_tolerance: ClassVar[float] = 1#0.2
 
-    range_world_x: ClassVar[Tuple[(float, float)]] = (-12, 12)
-    range_world_y: ClassVar[Tuple[(float, float)]] = (-25, 25)
+    range_world_x: ClassVar[Tuple[(float, float)]] = (-30, 30)
+    range_world_y: ClassVar[Tuple[(float, float)]] = (-30, 30)
 
     num_tries: ClassVar[int] = 100000
 
@@ -137,24 +138,37 @@ class Shelves2DEnv(BaseEnv):
         return 'shelves2d'
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        if self._tasks is None:
-            self._tasks = self._get_tasks(
-                num_tasks=CFG.num_train_tasks,
-                range_subtasks=self.range_subtasks_train,
-                range_shelves=self.range_shelves_train,
-                rng=self._train_rng
-            )
+        # if self._tasks is None:
+        #     self._tasks = self._get_tasks(
+        #         num_tasks=CFG.num_train_tasks,
+        #         range_subtasks=self.range_subtasks_train,
+        #         range_shelves=self.range_shelves_train,
+        #         rng=self._train_rng
+        #     )
+        self._generate_tasks()
         return self._tasks
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
+        # if self._tasks is None:
+            # self._tasks = self._get_tasks(
+            #     num_tasks=CFG.num_test_tasks,
+            #     range_subtasks=self.range_subtasks_train,
+            #     range_shelves=self.range_shelves_train,
+            #     rng=self._train_rng
+            # )
+        self._generate_tasks()
+        return self._tasks
+
+    def _generate_tasks(self):
         if self._tasks is None:
-            self._tasks = self._get_tasks(
-                num_tasks=CFG.num_train_tasks,
+            real_tasks = self._get_tasks(
+                num_tasks=CFG.num_test_tasks,
                 range_subtasks=self.range_subtasks_train,
                 range_shelves=self.range_shelves_train,
                 rng=self._train_rng
             )
-        return self._tasks
+            self._tasks = [real_task for _, real_task in zip(range(CFG.num_train_tasks), itertools.cycle(real_tasks))]
+
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -272,7 +286,7 @@ class Shelves2DEnv(BaseEnv):
         return fig
 
     def _get_tasks(self, num_tasks: int, range_subtasks: Tuple[int, int], range_shelves, rng: np.random.Generator) -> List[EnvironmentTask]:
-        return [self._get_task(range_subtasks, range_shelves, rng), self._get_task(range_subtasks, range_shelves, rng)] * (num_tasks // 2)
+        return [self._get_task(range_subtasks, range_shelves, rng) for _ in range(num_tasks)]
 
     def _get_task(self, range_subtasks: Tuple[int, int], range_shelves: Tuple[int, int], rng: np.random.Generator) -> EnvironmentTask:
         num_subtasks = rng.integers(range_subtasks[0], range_subtasks[1] + 1)

@@ -519,7 +519,6 @@ def run_low_level_search(
     plans in general; we return the first one found (arbitrarily).
     """
     cover_samples = []
-    print(task)
     fig_idx = 0
     start_time = time.perf_counter()
     rng_sampler = np.random.default_rng(seed)
@@ -671,15 +670,27 @@ def run_low_level_search(
             assert cur_idx >= 0
             while num_tries[cur_idx] == max_tries[cur_idx]:
                 print(num_tries)
-                if cur_idx == len(num_tries) - 1: # JORGE: this is to save the rendering of the sample distributions
-                    fig = Shelves2DEnv.render_state_plt(state, None)
-                    fig.axes[0].scatter([x for x, y in previous_samples], [y for x, y in previous_samples], c = 'cyan', alpha=0.1)
-                    fig.axes[0].scatter([x for x, y in cover_samples], [y for x, y in cover_samples], c = 'orange', alpha=0.1)
+                if cur_idx == len(num_tries) - 1:
+                    # fig = Shelves2DEnv.render_state_plt(state, None)
+                    # fig.axes[0].scatter([x for x, y in previous_samples], [y for x, y in previous_samples], c = 'cyan')#, alpha=0.1)
+                    # fig.axes[0].scatter([x for x, y in cover_samples], [y for x, y in cover_samples], c = 'orange')#, alpha=0.1)
                     # plt.show()
-                    fig.savefig(f"tmp/fig{fig_idx}.png")
-                    fig_idx += 1
-                    plt.close(fig)
+                    # fig.savefig(f"tmp/fig{fig_idx}.pdf")
+                    # fig_idx += 1
+                    # plt.close(fig)
+
+                    base_mean = np.mean(previous_samples, axis=0)
+                    base_std_x = np.array(previous_samples)[:, 0].std()
+                    base_std_y = np.array(previous_samples)[:, 1].std()
+
+                    learned_mean = np.mean(cover_samples, axis=0)
+                    learned_std_x = np.array(cover_samples)[:, 0].std()
+                    learned_std_y = np.array(cover_samples)[:, 1].std()
+
+                    print(f"{learned_mean - base_mean}, {learned_std_x / base_std_x}, {learned_std_y / base_std_y}", file=open(CFG.spread_mapreduce_output_file, "w"))
+                    exit(0)
                     # cover_samples = []
+
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
                 num_actions_per_option[cur_idx] = 0
