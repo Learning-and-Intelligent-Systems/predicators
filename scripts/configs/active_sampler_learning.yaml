@@ -17,22 +17,22 @@ APPROACHES:
     FLAGS:
       explorer: "active_sampler"
       active_sampler_explore_task_strategy: "success_rate"
-      active_sampler_explore_use_ucb_bonus: False
-  success_rate_explore_no_ucb:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_task_strategy: "success_rate"
-      active_sampler_explore_use_ucb_bonus: False
-  random_score_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "active_sampler"
-      active_sampler_explore_task_strategy: "random"
-  random_nsrts_explore:
-    NAME: "active_sampler_learning"
-    FLAGS:
-      explorer: "random_nsrts"
+      active_sampler_explore_use_ucb_bonus: True
+  # success_rate_explore_no_ucb:
+  #   NAME: "active_sampler_learning"
+  #   FLAGS:
+  #     explorer: "active_sampler"
+  #     active_sampler_explore_task_strategy: "success_rate"
+  #     active_sampler_explore_use_ucb_bonus: False
+  # random_score_explore:
+  #   NAME: "active_sampler_learning"
+  #   FLAGS:
+  #     explorer: "active_sampler"
+  #     active_sampler_explore_task_strategy: "random"
+  # random_nsrts_explore:
+  #   NAME: "active_sampler_learning"
+  #   FLAGS:
+  #     explorer: "random_nsrts"
   # maple_q:
   #   NAME: "maple_q"
   #   FLAGS:
@@ -61,13 +61,13 @@ ENVS:
   #     cover_target_widths: '[0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008,0.008]'
   #     active_sampler_learning_feature_selection: all
   #     active_sampler_learning_explore_pursue_goal_interval: 1
-  grid_row:
-    NAME: "grid_row"
-    FLAGS:
-      max_num_steps_interaction_request: 150
-      active_sampler_learning_explore_length_base: 100000  # effectively disable
-      active_sampler_learning_feature_selection: all
-      active_sampler_learning_explore_pursue_goal_interval: 1
+  # grid_row:
+  #   NAME: "grid_row"
+  #   FLAGS:
+  #     max_num_steps_interaction_request: 150
+  #     active_sampler_learning_explore_length_base: 100000  # effectively disable
+  #     active_sampler_learning_feature_selection: all
+  #     active_sampler_learning_explore_pursue_goal_interval: 1
   ball_and_cup_sticky_table:
     NAME: "ball_and_cup_sticky_table"
     FLAGS:
@@ -85,6 +85,7 @@ ENVS:
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: oracle
       active_sampler_learning_explore_pursue_goal_interval: 1
+      max_num_steps_interaction_request: 200
 ARGS:
   - "debug"
 FLAGS:
@@ -100,7 +101,7 @@ FLAGS:
   active_sampler_learning_model: "myopic_classifier_mlp"
   active_sampler_learning_use_teacher: False
   online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 100
+  # max_num_steps_interaction_request: 100
   num_online_learning_cycles: 10
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"

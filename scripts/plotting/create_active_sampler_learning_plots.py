@@ -81,23 +81,23 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Regional Bumpy Cover": [
-        ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
-        ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
-        ("Fail Focus Non-UCB", "brown", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-success_rate_explore_no_ucb" in v)
-         ),
-        ("Fail Focus UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-success_rate_explore_ucb" in v)),
-        ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-random_score_explore" in v)),
-        ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
-        ("MAPLE-Q", "silver", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "regional_bumpy_cover-maple_q" in v)),
-    ],
+    # "Regional Bumpy Cover": [
+    #     ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-planning_progress_explore" in v)),
+    #     ("Task Repeat", "orange", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-task_repeat_explore" in v)),
+    #     ("Fail Focus Non-UCB", "brown", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-success_rate_explore_no_ucb" in v)
+    #      ),
+    #     ("Fail Focus UCB", "red", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-success_rate_explore_ucb" in v)),
+    #     ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-random_score_explore" in v)),
+    #     ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-random_nsrts_explore" in v)),
+    #     ("MAPLE-Q", "silver", lambda df: df["EXPERIMENT_ID"].apply(
+    #         lambda v: "regional_bumpy_cover-maple_q" in v)),
+    # ],
     "Grid 1D Environment": [
         ("Planning Progress", "green", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "grid_row-planning_progress_explore" in v)),
