@@ -381,13 +381,13 @@ class ActiveSamplerExplorer(BaseExplorer):
             logging.info(f"[Explorer]   Base score: {score}")
             logging.info(f"[Explorer]   UCB bonus: {bonus}")
             if CFG.active_sampler_explore_use_ucb_bonus:
-                # Normlize the score.
+                # Normalize the score.
                 score = score / seen_train_tasks_num
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "success_rate":
             score = (1.0 - success_rate)
             if CFG.active_sampler_explore_use_ucb_bonus:
-                # Normlize the score.
+                # Normalize the score.
                 score = score / seen_train_tasks_num
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "competence_gradient":
@@ -402,13 +402,13 @@ class ActiveSamplerExplorer(BaseExplorer):
             logging.info(f"[Explorer]   score: {score}")
 
             if CFG.active_sampler_explore_use_ucb_bonus:
-                # Normlize the score.
+                # Normalize the score.
                 score = score / seen_train_tasks_num
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "skill_diversity":
             score = 1 / num_tries
             if CFG.active_sampler_explore_use_ucb_bonus:
-                # Normlize the score.
+                # Normalize the score.
                 score = score / seen_train_tasks_num
                 score += bonus
         elif CFG.active_sampler_explore_task_strategy == "random":
