@@ -643,14 +643,16 @@ def run_low_level_search(
             if plan_found:
                 return plan, True  # success!
         else:
-            can_continue_on = cur_idx < len(num_tries) # JORGE END
+            can_continue_on = cur_idx == 0 # JORGE END
+        # if plan_found:
+        #     return plan, True  # success!
 
         if not can_continue_on:  # we got stuck, time to resample / backtrack!
-            if cur_idx == len(num_tries):
+            if cur_idx == 1:
                 if calls_to_this_function == 1: # JORGE: this is to collect the samples of cover placement with the oracle
-                    previous_samples.append(option.params[2:4] + state[state.get_objects(Shelves2DEnv._cover_type)[0]][0:2])
+                    previous_samples.append(option.params)
                 else: # JORGE: this is to collect the samples of cover placement with the learned sampler
-                    cover_samples.append(option.params[2:4] + state[state.get_objects(Shelves2DEnv._cover_type)[0]][0:2])
+                    cover_samples.append(option.params)
             # Update the longest_failed_refinement found so far.
             if cur_idx > len(longest_failed_refinement):
                 longest_failed_refinement = list(plan[:cur_idx])
@@ -670,24 +672,24 @@ def run_low_level_search(
             assert cur_idx >= 0
             while num_tries[cur_idx] == max_tries[cur_idx]:
                 print(num_tries)
-                if cur_idx == len(num_tries) - 1:
+                if cur_idx == 0:
                     # fig = Shelves2DEnv.render_state_plt(state, None)
-                    # fig.axes[0].scatter([x for x, y in previous_samples], [y for x, y in previous_samples], c = 'cyan')#, alpha=0.1)
-                    # fig.axes[0].scatter([x for x, y in cover_samples], [y for x, y in cover_samples], c = 'orange')#, alpha=0.1)
+                    plt.scatter([x for x, y in previous_samples], [y for x, y in previous_samples], c = 'cyan', alpha=0.1)
+                    plt.scatter([x for x, y in cover_samples], [y for x, y in cover_samples], c = 'orange', alpha=0.1)
                     # plt.show()
-                    # fig.savefig(f"tmp/fig{fig_idx}.pdf")
+                    # plt.savefig(f"tmp/fig{fig_idx}.pdf")
+                    plt.savefig(CFG.spread_mapreduce_output_file)
                     # fig_idx += 1
-                    # plt.close(fig)
 
-                    base_mean = np.mean(previous_samples, axis=0)
-                    base_std_x = np.array(previous_samples)[:, 0].std()
-                    base_std_y = np.array(previous_samples)[:, 1].std()
+                    # base_mean = np.mean(previous_samples, axis=0)
+                    # base_std_x = np.array(previous_samples)[:, 0].std()
+                    # base_std_y = np.array(previous_samples)[:, 1].std()
 
-                    learned_mean = np.mean(cover_samples, axis=0)
-                    learned_std_x = np.array(cover_samples)[:, 0].std()
-                    learned_std_y = np.array(cover_samples)[:, 1].std()
+                    # learned_mean = np.mean(cover_samples, axis=0)
+                    # learned_std_x = np.array(cover_samples)[:, 0].std()
+                    # learned_std_y = np.array(cover_samples)[:, 1].std()
 
-                    print(f"{learned_mean - base_mean}, {learned_std_x / base_std_x}, {learned_std_y / base_std_y}", file=open(CFG.spread_mapreduce_output_file, "w"))
+                    # print(f"{learned_mean - base_mean}, {learned_std_x / base_std_x}, {learned_std_y / base_std_y}", file=open(CFG.spread_mapreduce_output_file, "w"))
                     exit(0)
                     # cover_samples = []
 

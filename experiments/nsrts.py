@@ -40,7 +40,9 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         CoversBottom = predicates["CoversBack"]
 
         # Options
-        Move = options["Move"]
+        MoveCoverToTop = options["MoveCoverToTop"]
+        MoveCoverToBottom = options["MoveCoverToBottom"]
+        MoveBox = options["MoveBox"]
 
         nsrts = set()
 
@@ -54,8 +56,8 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             {CoversTop([cover, bundle])},
             {CoverAtStart([cover])},
             set(),
-            Move,
-            set(),
+            MoveCoverToTop,
+            [cover, bundle],
             _MoveCover_sampler_helper(True, margin=margin)
         ))
 
@@ -69,8 +71,8 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             {CoversBottom([cover, bundle])},
             {CoverAtStart([cover])},
             set(),
-            Move,
-            set(),
+            MoveCoverToBottom,
+            [cover, bundle],
             _MoveCover_sampler_helper(False, margin=margin)
         ))
 
@@ -87,20 +89,18 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             box_x, box_y, box_w, box_h = Shelves2DEnv.get_shape_data(state, box)
             shelf_x, shelf_y, shelf_w, shelf_h = Shelves2DEnv.get_shape_data(state, shelf)
 
-            grasp_x, grasp_y = rng.uniform([box_x + margin, box_y + margin], [box_x + box_w - margin, box_y + box_h - margin])
-            new_box_x = rng.uniform(shelf_x + margin, shelf_x + shelf_w - margin - box_w)
+            offset_x = rng.uniform(margin, shelf_w - box_w - margin)
 
-            new_box_y_range = [shelf_y + margin - box_h, shelf_y + shelf_h - margin]
+            offset_y_range = [margin - box_h, shelf_h - margin]
             if CoversBottom([cover, bundle]) in goal:
-                new_box_y_range[0] += box_h
+                offset_y_range[0] += box_h
             elif CoversTop([cover, bundle]) in goal:
-                new_box_y_range[1] -= box_h
+                offset_y_range[1] -= box_h
             else:
                 raise ValueError("Expected either CoversTop or CoversBottom in the goal")
+            offset_y = rng.uniform(*offset_y_range)
 
-            new_box_y = rng.uniform(*new_box_y_range)
-            action = np.array([grasp_x, grasp_y, new_box_x - box_x, new_box_y - box_y])
-            return action
+            return np.array([offset_x, offset_y])
 
         nsrts.add(NSRT(
             "InsertBox",
@@ -109,33 +109,25 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             {In([box, shelf])},
             set(),
             set(),
-            Move,
-            set(),
+            MoveBox,
+            [box, shelf],
             InsertBox_sampler
         ))
 
         return nsrts
 
 def _MoveCover_sampler_helper(move_to_top: bool, margin = 0.0001) -> NSRTSampler:
-    y_margin = (margin if move_to_top else -margin)
-    max_x_distance = Shelves2DEnv.cover_sideways_tolerance
-    max_y_distance = Shelves2DEnv.cover_max_distance if move_to_top else -Shelves2DEnv.cover_max_distance
     def _MoveCover_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator, objects: Sequence[Object]) -> Action:
         cover, bundle = objects
 
         cover_x, cover_y, cover_w, cover_h = Shelves2DEnv.get_shape_data(state, cover)
         bundle_x, bundle_y, bundle_w, bundle_h = Shelves2DEnv.get_shape_data(state, bundle)
 
-        grasp_x, grasp_y = rng.uniform([cover_x + margin, cover_y + margin], [cover_x + cover_w - margin, cover_y + cover_h - margin])
+        offset_x = rng.uniform(-Shelves2DEnv.cover_sideways_tolerance + margin, Shelves2DEnv.cover_sideways_tolerance - margin)
+        if move_to_top:
+            offset_y = rng.uniform(margin, Shelves2DEnv.cover_max_distance - margin)
+        else:
+            offset_y = rng.uniform(-Shelves2DEnv.cover_max_distance + margin, -margin)
 
-        desired_x, desired_y = bundle_x, bundle_y + (bundle_h if move_to_top else -cover_h)
-        y_bound_1 = desired_y + y_margin
-        y_bound_2 = desired_y + max_y_distance - y_margin
-        new_cover_x, new_cover_y = rng.uniform([desired_x - max_x_distance + margin, min(y_bound_1, y_bound_2)], [desired_x + max_x_distance - margin, max(y_bound_1, y_bound_2)])
-
-        dx = new_cover_x - cover_x
-        dy = new_cover_y - cover_y
-
-        action = np.array([grasp_x, grasp_y, dx, dy])
-        return action
+        return np.array([offset_x, offset_y])
     return _MoveCover_sampler

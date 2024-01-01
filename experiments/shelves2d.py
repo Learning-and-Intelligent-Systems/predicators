@@ -63,8 +63,8 @@ class Shelves2DEnv(BaseEnv):
     cover_max_distance: ClassVar[float] = 1#0.2
     cover_sideways_tolerance: ClassVar[float] = 1#0.2
 
-    range_world_x: ClassVar[Tuple[(float, float)]] = (-30, 30)
-    range_world_y: ClassVar[Tuple[(float, float)]] = (-30, 30)
+    range_world_x: ClassVar[Tuple[(float, float)]] = (-35, 35)
+    range_world_y: ClassVar[Tuple[(float, float)]] = (-35, 35)
 
     num_tries: ClassVar[int] = 100000
 
@@ -131,33 +131,34 @@ class Shelves2DEnv(BaseEnv):
             self._cover_type,
             self._bundle_type], self._CoversBottom_holds)
 
-        self._tasks = None
+        self._train_tasks = None
+        self._test_tasks = None
 
     @classmethod
     def get_name(cls):
         return 'shelves2d'
 
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
-        # if self._tasks is None:
-        #     self._tasks = self._get_tasks(
-        #         num_tasks=CFG.num_train_tasks,
-        #         range_subtasks=self.range_subtasks_train,
-        #         range_shelves=self.range_shelves_train,
-        #         rng=self._train_rng
-        #     )
-        self._generate_tasks()
-        return self._tasks
+        if self._train_tasks is None:
+            self._train_tasks = self._get_tasks(
+                num_tasks=CFG.num_train_tasks,
+                range_subtasks=self.range_subtasks_train,
+                range_shelves=self.range_shelves_train,
+                rng=self._train_rng
+            )
+        # self._generate_tasks()
+        return self._train_tasks
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
-        # if self._tasks is None:
-            # self._tasks = self._get_tasks(
-            #     num_tasks=CFG.num_test_tasks,
-            #     range_subtasks=self.range_subtasks_train,
-            #     range_shelves=self.range_shelves_train,
-            #     rng=self._train_rng
-            # )
-        self._generate_tasks()
-        return self._tasks
+        if self._test_tasks is None:
+            self._test_tasks = self._get_tasks(
+                num_tasks=CFG.num_test_tasks,
+                range_subtasks=self.range_subtasks_train,
+                range_shelves=self.range_shelves_train,
+                rng=self._train_rng
+            )
+        # self._generate_tasks()
+        return self._test_tasks
 
     def _generate_tasks(self):
         if self._tasks is None:
@@ -186,23 +187,27 @@ class Shelves2DEnv(BaseEnv):
         '''Get the set of types that are given with this environment.'''
         return {self._box_type, self._shelf_type, self._bundle_type, self._cover_type}
 
-    @property
-    def action_space(self):
+    @classmethod
+    def action_space_bounds(cls) -> gym.spaces.Box:
         """The action space is as follows:
          0, 1 - gripper coords (will grab blocks that are within those coords and the cover if it's within a margin)
          2, 3 - object movement delta (will move the gripped objects by the given amount)
         """
         lower = np.array([
-            self.range_world_x[0], self.range_world_y[0],
-            self.range_world_x[0] - self.range_world_x[1],
-            self.range_world_y[0] - self.range_world_y[1]
+            cls.range_world_x[0], cls.range_world_y[0],
+            cls.range_world_x[0] - cls.range_world_x[1],
+            cls.range_world_y[0] - cls.range_world_y[1]
         ], dtype=np.float32)
         upper = np.array([
-            self.range_world_x[1], self.range_world_y[1],
-            self.range_world_x[1] - self.range_world_x[0],
-            self.range_world_y[1] - self.range_world_y[0]
+            cls.range_world_x[1], cls.range_world_y[1],
+            cls.range_world_x[1] - cls.range_world_x[0],
+            cls.range_world_y[1] - cls.range_world_y[0]
         ], dtype=np.float32)
         return gym.spaces.Box(lower, upper)
+
+    @property
+    def action_space(self) -> gym.spaces.Box:
+        return self.action_space_bounds()
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
