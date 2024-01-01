@@ -584,6 +584,7 @@ def test_operators_and_nsrts(state):
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
     Ignore Effects: [On]"""
+    assert ground_op.short_str == "Pick(cup, plate)"
     ground_op2 = strips_operator2.ground((cup, plate))
     ground_op3 = strips_operator3.ground((cup, plate))
     assert ground_op == ground_op2
@@ -626,6 +627,7 @@ def test_operators_and_nsrts(state):
     Ignore Effects: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
+    assert ground_nsrt.short_str == "Pick(cup, plate)"
     assert isinstance(hash(ground_nsrt), int)
     ground_nsrt2 = nsrt2.ground([cup, plate])
     assert ground_nsrt == ground_nsrt2

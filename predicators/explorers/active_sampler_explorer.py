@@ -91,9 +91,24 @@ class ActiveSamplerExplorer(BaseExplorer):
         n = CFG.active_sampler_explorer_planning_progress_max_replan_tasks
         self._replanning_tasks: Deque[Task] = deque([], maxlen=n)
 
+        # To more easily see what's going on, create a log file for just
+        # the explorer.
+        logger_name = f"{utils.get_config_path_str()}-explore"
+        self._logger = logging.getLogger(logger_name)
+        # Only create the logger once.
+        if not self._logger.handlers:
+            self._logger.setLevel(logging.DEBUG)
+            os.makedirs(CFG.log_dir, exist_ok=True)
+            fh = logging.FileHandler(f"{CFG.log_dir}/{logger_name}.log")
+            fh.setLevel(logging.DEBUG)
+            self._logger.addHandler(fh)
+
     @classmethod
     def get_name(cls) -> str:
         return "active_sampler"
+
+    def _log(self, msg: str) -> None:
+        self._logger.info(msg)
 
     def get_exploration_strategy(self, train_task_idx: int,
                                  timeout: int) -> ExplorationStrategy:
@@ -101,6 +116,8 @@ class ActiveSamplerExplorer(BaseExplorer):
         outcome in ground_op_hist."""
         policy, termination_fn = super().get_exploration_strategy(
             train_task_idx, timeout)
+
+        self._log("***** New Exploration Strategy Created *****")
 
         def wrapped_termination_fn(state: State) -> bool:
             terminate = termination_fn(state)
@@ -122,7 +139,6 @@ class ActiveSamplerExplorer(BaseExplorer):
         using_random = False
 
         def _option_policy(state: State) -> Tuple[_Option, bool]:
-            logging.info("[Explorer] Option policy called.")
             nonlocal assigned_task, assigned_task_finished, current_policy, \
                 next_practice_nsrt, using_random, assigned_task_horizon
 
@@ -161,20 +177,20 @@ class ActiveSamplerExplorer(BaseExplorer):
                 self._train_tasks[train_task_idx] = assigned_task
 
             if using_random:
-                logging.info("[Explorer] Using random option policy.")
+                self._log("[Explorer] Using random option policy.")
                 return (self._get_random_option(state), False)
 
             # Record if we've reached the assigned goal; can now practice.
             if not assigned_task_finished and \
                 assigned_task.goal_holds(state):
-                logging.info(
+                self._log(
                     f"[Explorer] Reached assigned goal: {assigned_task.goal}")
                 assigned_task_finished = True
                 current_policy = None
 
             # Record if we've exhausted the time limit for the assigned task.
             elif not assigned_task_finished and assigned_task_horizon <= 0:
-                logging.info("[Explorer] Exhausted horizon for assigned task.")
+                self._log("[Explorer] Exhausted horizon for assigned task.")
                 assigned_task_finished = True
                 current_policy = None
 
@@ -186,9 +202,8 @@ class ActiveSamplerExplorer(BaseExplorer):
             if next_practice_nsrt is not None and all(
                     a.holds(state) for a in next_practice_nsrt.preconditions):
                 g: Set[GroundAtom] = set()  # goal assumed unused
-                logging.info(
-                    "[Explorer] Practicing NSRT: "
-                    f"{next_practice_nsrt.name}{next_practice_nsrt.objects}")
+                nsrt_str = next_practice_nsrt.short_str
+                self._log(f"[Explorer] Practicing: {nsrt_str}")
                 exploration_sampler = self._nsrt_to_explorer_sampler[
                     next_practice_nsrt.parent]
                 # We want to generate a sample to use to ground the option,
@@ -210,7 +225,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             if current_policy is None:
                 # If the assigned goal hasn't yet been reached, try for it.
                 if not assigned_task_finished:
-                    logging.info("[Explorer] Pursuing assigned task goal")
+                    self._log("[Explorer] Pursuing assigned task goal")
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
                         # Just a single goal.
@@ -220,7 +235,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 # going back to the initial (abstract) state after reaching
                 # the goal.
                 elif CFG.active_sampler_explore_task_strategy == "task_repeat":
-                    logging.info("[Explorer] Pursuing repeat task")
+                    self._log("[Explorer] Pursuing repeat task")
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
                         nonlocal current_task_repeat_goal
@@ -254,7 +269,7 @@ class ActiveSamplerExplorer(BaseExplorer):
 
                 # Otherwise, practice.
                 else:
-                    logging.info("[Explorer] Pursuing NSRT preconditions")
+                    self._log("[Explorer] Pursuing NSRT preconditions")
 
                     def generate_goals() -> Iterator[Set[GroundAtom]]:
                         nonlocal next_practice_nsrt
@@ -267,12 +282,14 @@ class ActiveSamplerExplorer(BaseExplorer):
                             ][0]
                             # NOTE: setting nonlocal variable.
                             next_practice_nsrt = nsrt.ground(op.objects)
+                            nsrt_name = next_practice_nsrt.short_str
+                            self._log(f"[Explorer] Considering: {nsrt_name}")
                             yield next_practice_nsrt.preconditions
 
                 # Try to plan to each goal until a task plan is found.
                 for goal in generate_goals():
                     task = Task(state, goal)
-                    logging.info(f"[Explorer] Replanning to {task.goal}")
+                    self._log(f"[Explorer] Replanning to {task.goal}")
                     # If the goal is empty, then we can just recursively
                     # call the policy, since we don't need to execute
                     # anything.
@@ -289,7 +306,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                     # crash in case that assumption is not met.
                     except (PlanningFailure,
                             PlanningTimeout):  # pragma: no cover
-                        logging.info(
+                        self._log(
                             "WARNING: Planning graph is not "
                             "fully-connected! This violates a key "
                             "assumption of our active sampler learning "
@@ -297,18 +314,18 @@ class ActiveSamplerExplorer(BaseExplorer):
                             "if you're running experiments comparing"
                             "different active sampler learning approaches.")
                         continue
-                    logging.info("[Explorer] Plan found.")
+                    self._log("[Explorer] Plan found.")
                     break
                 # Terminate early if no goal could be found.
                 else:
                     # For spot environments, don't do random actions.
                     if "spot" in CFG.env:  # pragma: no cover
-                        logging.info("[Explorer] TERMINATING EARLY!!! "
-                                     "No reachable goal found.")
+                        self._log("[Explorer] TERMINATING EARLY!!! "
+                                  "No reachable goal found.")
                         raise utils.RequestActPolicyFailure(
                             "No reachable goal found.")
-                    logging.info("[Explorer] No reachable goal found. "
-                                 "Switching to random exploration.")
+                    self._log("[Explorer] No reachable goal found. "
+                              "Switching to random exploration.")
                     using_random = True
                     return (self._get_random_option(state), False)
             # Query the current policy.
@@ -317,7 +334,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                 act = current_policy(state)
                 return (act, False)
             except utils.OptionExecutionFailure:
-                logging.info("[Explorer] Option execution failure!")
+                self._log("[Explorer] Option execution failure!")
                 current_policy = None
             # Call recursively to trigger re-planning.
             return _option_policy(state)
@@ -336,8 +353,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Record last executed NSRT.
             option, exploration_indicator = _option_policy(state)
             ground_nsrt = utils.option_to_ground_nsrt(option, self._nsrts)
-            logging.info(f"[Explorer] Starting NSRT: {ground_nsrt.name}"
-                         f"{ground_nsrt.objects}")
+            self._log(f"[Explorer] Starting NSRT: {ground_nsrt.short_str}")
             self._last_executed_nsrt = ground_nsrt
             self._last_executed_option = option
             self._last_init_option_state = state
@@ -372,7 +388,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             return
         assert exploration_indicator is not None
         success = all(a.holds(state) for a in nsrt.add_effects)
-        logging.info(f"[Explorer] Last NSRT: {nsrt.name}{nsrt.objects}")
+        logging.info(f"[Explorer] Last NSRT: {nsrt.short_str}")
         logging.info(f"[Explorer]   outcome: {success}")
         last_executed_op = nsrt.op
         if last_executed_op not in self._ground_op_hist:
@@ -381,7 +397,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Update the competence model too.
         if last_executed_op not in self._competence_models:
             model_name = CFG.skill_competence_model
-            skill_name = f"{last_executed_op.name}{last_executed_op.objects}"
+            skill_name = last_executed_op.short_str
             model = create_competence_model(model_name, skill_name)
             self._competence_models[last_executed_op] = model
         self._competence_models[last_executed_op].observe(success)
@@ -491,7 +507,7 @@ class ActiveSamplerExplorer(BaseExplorer):
         # Optimization: skip any ground op with perfect success.
         if CFG.active_sampler_explorer_skip_perfect and success_rate == 1.0:
             return -np.inf
-        logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+        logging.info(f"[Explorer] {ground_op.short_str} has")
         logging.info(f"[Explorer]   success rate: {success_rate}")
         logging.info(f"[Explorer]   posterior competence: {competence}")
         logging.info(f"[Explorer]   num attempts: {num_tries}")
@@ -562,7 +578,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                     max_horizon=np.inf)
                 self._task_plan_cache[task_id] = [n.op for n in plan]
             except (PlanningFailure, PlanningTimeout):  # pragma: no cover
-                logging.info("WARNING: task planning failed in the explorer.")
+                self._log("WARNING: task planning failed in the explorer.")
                 self._task_plan_cache[task_id] = None
 
         self._task_plan_calls_since_replan[task_id] += 1
