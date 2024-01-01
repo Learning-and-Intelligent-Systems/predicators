@@ -1581,6 +1581,7 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
                  max_train_iters: int, timesteps: int,
                  learning_rate: float) -> None:
         super().__init__()
+        print("REGRESSOR INITIALIZED")
         torch.set_num_threads(8)    # reset here to get the cmd line arg
         self._linears = nn.ModuleList()
         self._batch_norms = nn.ModuleList()
@@ -1670,7 +1671,7 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
             data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out, tensor_Y_aux)
         else:
             data = torch.utils.data.TensorDataset(tensor_X_cond, tensor_Y_out)
-        dataloader = torch.utils.data.DataLoader(data, batch_size=10000, shuffle=True)
+        dataloader = torch.utils.data.DataLoader(data, batch_size=1000, shuffle=True)
 
         assert isinstance(self._max_train_iters, int)
         self.train()

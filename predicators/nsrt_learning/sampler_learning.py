@@ -113,9 +113,9 @@ def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator,
     return _reordered_sampler
 
 
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use("tkagg")
+# import matplotlib.pyplot as plt
+# import matplotlib
+# matplotlib.use("tkagg")
 
 def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                           variables: Sequence[Variable],
