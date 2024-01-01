@@ -57,13 +57,16 @@ def navigate_to_relative_pose_and_gaze(robot: Robot,
 def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
                              pixel: Tuple[int, int],
                              grasp_rot: Optional[math_helpers.Quat],
-                             rot_thresh: float) -> None:
+                             rot_thresh: float, timeout: float,
+                             retry_grasp_after_fail: bool) -> None:
     # Grasp.
     grasp_at_pixel(robot,
                    img,
                    pixel,
                    grasp_rot=grasp_rot,
-                   rot_thresh=rot_thresh)
+                   rot_thresh=rot_thresh,
+                   timeout=timeout,
+                   retry_with_no_constraints=retry_grasp_after_fail)
     # Stow.
     stow_arm(robot)
 
@@ -248,8 +251,9 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
     else:
         thresh = np.pi / 4
 
-    return utils.create_spot_env_action(name, objects, fn,
-                                        (robot, img, pixel, grasp_rot, thresh))
+    # Retry a grasp if a failure occurs!
+    return utils.create_spot_env_action(
+        name, objects, fn, (robot, img, pixel, grasp_rot, thresh, 20.0, True))
 
 
 ###############################################################################

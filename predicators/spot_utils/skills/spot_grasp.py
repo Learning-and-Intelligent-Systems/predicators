@@ -17,20 +17,22 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.utils import get_robot_state
 
 
-def grasp_at_pixel(
-    robot: Robot,
-    rgbd: RGBDImageWithContext,
-    pixel: Tuple[int, int],
-    grasp_rot: Optional[math_helpers.Quat] = None,
-    rot_thresh: float = 0.17,
-    move_while_grasping: bool = True,
-    timeout: float = 20.0,
-) -> None:
+def grasp_at_pixel(robot: Robot,
+                   rgbd: RGBDImageWithContext,
+                   pixel: Tuple[int, int],
+                   grasp_rot: Optional[math_helpers.Quat] = None,
+                   rot_thresh: float = 0.17,
+                   move_while_grasping: bool = True,
+                   timeout: float = 20.0,
+                   retry_with_no_constraints: bool = False) -> None:
     """Grasp an object at a specified pixel in the RGBD image, which should be
     from the hand camera and should be up to date with the robot's state.
 
     The `move_while_grasping` param dictates whether we're allowing the
     robot to automatically move its feet while grasping or not.
+
+    The `retry_with_no_constraints` dictates whether after failing to grasp we
+    try again but with all constraints on the grasp removed.
     """
     assert rgbd.camera_name == "hand_color_image"
 
@@ -86,11 +88,42 @@ def grasp_at_pixel(
             manipulation_api_feedback_request=feedback_request)
         if response.current_state in [
                 manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED,
-                manipulation_api_pb2.MANIP_STATE_GRASP_FAILED
+                manipulation_api_pb2.MANIP_STATE_GRASP_FAILED,
+                manipulation_api_pb2.MANIP_STATE_GRASP_PLANNING_NO_SOLUTION
         ]:
             break
     if (time.perf_counter() - start_time) > timeout:
         logging.warning("Timed out waiting for grasp to execute!")
+
+    # Retry grasping with no constraints if the corresponding arg is true.
+    if response.current_state in [
+            manipulation_api_pb2.MANIP_STATE_GRASP_PLANNING_NO_SOLUTION,
+            manipulation_api_pb2.MANIP_STATE_GRASP_FAILED
+    ] and retry_with_no_constraints:
+        grasp = manipulation_api_pb2.PickObjectInImage(
+            pixel_xy=pick_vec,
+            transforms_snapshot_for_camera=rgbd.transforms_snapshot,
+            frame_name_image_sensor=rgbd.frame_name_image_sensor,
+            camera_model=rgbd.camera_model,
+            walk_gaze_mode=1)
+        grasp_request = manipulation_api_pb2.ManipulationApiRequest(
+            pick_object_in_image=grasp)
+        cmd_response = manipulation_client.manipulation_api_command(
+            manipulation_api_request=grasp_request)
+        while (time.perf_counter() - start_time) <= timeout:
+            feedback_request = manipulation_api_pb2.\
+                ManipulationApiFeedbackRequest(
+                manipulation_cmd_id=cmd_response.manipulation_cmd_id)
+            response = manipulation_client.manipulation_api_feedback_command(
+                manipulation_api_feedback_request=feedback_request)
+            if response.current_state in [
+                    manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED,
+                    manipulation_api_pb2.MANIP_STATE_GRASP_FAILED,
+                    manipulation_api_pb2.MANIP_STATE_GRASP_PLANNING_NO_SOLUTION
+            ]:
+                break
+        if (time.perf_counter() - start_time) > timeout:
+            logging.warning("Timed out waiting for grasp to execute!")
 
 
 if __name__ == "__main__":
