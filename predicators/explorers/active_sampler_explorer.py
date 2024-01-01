@@ -395,7 +395,12 @@ class ActiveSamplerExplorer(BaseExplorer):
             extrap = model.predict_competence(
                 CFG.skill_competence_model_lookahead)
             competence = model.get_current_competence()
-            score = competence - extrap
+            score = extrap - competence
+            logging.info(f"[Explorer] {ground_op.name}{ground_op.objects} has")
+            logging.info(f"[Explorer]   posterior competence: {competence}")
+            logging.info(f"[Explorer]   extrapolated competence: {extrap}")
+            logging.info(f"[Explorer]   score: {score}")
+
             if CFG.active_sampler_explore_use_ucb_bonus:
                 # Normlize the score.
                 score = score / seen_train_tasks_num
