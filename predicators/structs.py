@@ -753,6 +753,12 @@ class _GroundSTRIPSOperator:
         return self.parent.name
 
     @property
+    def short_str(self) -> str:
+        """Abbreviated name, not necessarily unique."""
+        obj_str = ", ".join([o.name for o in self.objects])
+        return f"{self.name}({obj_str})"
+
+    @property
     def ignore_effects(self) -> Set[Predicate]:
         """Ignore effects from the parent."""
         return self.parent.ignore_effects
@@ -939,6 +945,12 @@ class _GroundNSRT:
     def name(self) -> str:
         """Name of this ground NSRT."""
         return self.parent.name
+
+    @property
+    def short_str(self) -> str:
+        """Abbreviated name, not necessarily unique."""
+        obj_str = ", ".join([o.name for o in self.objects])
+        return f"{self.name}({obj_str})"
 
     @property
     def ignore_effects(self) -> Set[Predicate]:
