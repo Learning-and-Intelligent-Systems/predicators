@@ -35,8 +35,8 @@ class Shelves2DGroundTruthOptionFactory(GroundTruthOptionFactory):
         Bundles = predicates["Bundles"]
         In = predicates["In"]
         CoverFor = predicates["CoverFor"]
-        CoversTop = predicates["CoversFront"]
-        CoversBottom = predicates["CoversBack"]
+        CoversTop = predicates["CoversTop"]
+        CoversBottom = predicates["CoversBottom"]
 
         # Miscellaneous helper variables
         world_dist_x = Shelves2DEnv.range_world_x[1] - Shelves2DEnv.range_world_x[0]

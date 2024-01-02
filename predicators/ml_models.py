@@ -1581,7 +1581,6 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
                  max_train_iters: int, timesteps: int,
                  learning_rate: float) -> None:
         super().__init__()
-        print("REGRESSOR INITIALIZED")
         torch.set_num_threads(8)    # reset here to get the cmd line arg
         self._linears = nn.ModuleList()
         self._batch_norms = nn.ModuleList()

@@ -124,10 +124,10 @@ class Shelves2DEnv(BaseEnv):
         self._CoverFor = Predicate('CoverFor', [
             self._cover_type,
             self._bundle_type], self._CoverFor_holds)
-        self._CoversTop = Predicate('CoversFront', [
+        self._CoversTop = Predicate('CoversTop', [
             self._cover_type,
             self._bundle_type], self._CoversTop_holds)
-        self._CoversBottom = Predicate('CoversBack', [
+        self._CoversBottom = Predicate('CoversBottom', [
             self._cover_type,
             self._bundle_type], self._CoversBottom_holds)
 

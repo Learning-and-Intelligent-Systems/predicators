@@ -36,8 +36,8 @@ class Shelves2DGroundTruthNSRTFactory(GroundTruthNSRTFactory):
         Bundles = predicates["Bundles"]
         In = predicates["In"]
         CoverFor = predicates["CoverFor"]
-        CoversTop = predicates["CoversFront"]
-        CoversBottom = predicates["CoversBack"]
+        CoversTop = predicates["CoversTop"]
+        CoversBottom = predicates["CoversBottom"]
 
         # Options
         MoveCoverToTop = options["MoveCoverToTop"]
