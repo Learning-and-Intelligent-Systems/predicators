@@ -155,7 +155,7 @@ class Shelves2DEnv(BaseEnv):
                 num_tasks=CFG.num_test_tasks,
                 range_subtasks=self.range_subtasks_train,
                 range_shelves=self.range_shelves_train,
-                rng=self._train_rng
+                rng=self._test_rng
             )
         # self._generate_tasks()
         return self._test_tasks
