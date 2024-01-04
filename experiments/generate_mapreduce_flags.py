@@ -1,10 +1,10 @@
 
 import itertools
 for num_train_tasks, learning_rate, diffusion_arch, max_itr in itertools.product(
-        [5000, 50000],
+        [500, 2000, 5000],
         [0.001, 0.0005, 0.0001, 0.00005],
-        [[512, 512], [512, 512, 512], [1024, 1024], [1024, 1024, 1024], [2048, 2048], [4096, 4096]],
-        [2000, 10000, 30000]
+        [[256, 256], [256, 256, 256], [512, 512], [512, 512, 512], [1024, 1024]],
+        [5000, 10000]
     ):
     signature = f"num_train_tasks-{num_train_tasks}_learning_rate-{learning_rate}_diffusion_arch-{diffusion_arch}_max_itr-{max_itr}".replace(" ","")
     flags = [
