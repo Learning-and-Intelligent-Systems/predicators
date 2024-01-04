@@ -15,7 +15,7 @@ from predicators.spot_utils.perception.object_detection import \
 from predicators.spot_utils.perception.spot_cameras import \
     get_last_captured_images
 from predicators.spot_utils.utils import get_allowed_map_regions, \
-    get_collision_geoms_for_nav, get_spot_home_pose, object_to_top_down_geom, \
+    get_collision_geoms_for_nav, load_spot_metadata, object_to_top_down_geom, \
     sample_move_offset_from_target, spot_pose_to_geom2d
 from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
     ParameterizedOption, Predicate, State, Type
@@ -184,7 +184,7 @@ def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],
                                     objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dyaw to move while holding.
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([-1.25, 0.0, np.pi / 3])
+    return np.array([0.0, 0.0, np.pi])
 
 
 def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
@@ -194,7 +194,7 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
     # NOTE: these parameters may change (need to experiment on robot).
     del state, goal, objs
     if CFG.spot_use_perfect_samplers:
-        return np.array([0.0, 0.25])
+        return np.array([0.0, 0.5])
     dx, dy = rng.uniform(-0.5, 0.5, size=2)
     return np.array([dx, dy])
 
@@ -202,15 +202,10 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
 def _prepare_sweeping_sampler(state: State, goal: Set[GroundAtom],
                               rng: np.random.Generator,
                               objs: Sequence[Object]) -> Array:
-    # Parameters are dx, dy, yaw w.r.t. the target object.
-    del state, goal, objs, rng  # randomization coming soon
-
-    # Currently assume that the robot is facing the surface in its home pose.
-    # Soon, we will change this to actually sample angles of approach and do
-    # collision detection.
-    home_pose = get_spot_home_pose()
-
-    return np.array([-0.8, -0.4, home_pose.angle])
+    # Parameters are dx, dy, yaw w.r.t. the surface.
+    del state, goal, rng, objs  # randomization coming soon
+    param_dict = load_spot_metadata()["prepare_container_relative_xy"]
+    return np.array([param_dict["dx"], param_dict["dy"], param_dict["angle"]])
 
 
 class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
@@ -243,6 +238,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "MoveToBodyViewObject": _move_to_body_view_object_sampler,
             "MoveToReachObject": _move_to_reach_object_sampler,
             "PickObjectFromTop": _pick_object_from_top_sampler,
+            "PickObjectToDrag": _pick_object_from_top_sampler,
             "PickAndDumpContainer": _pick_object_from_top_sampler,
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
@@ -251,6 +247,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "SweepIntoContainer": _sweep_into_container_sampler,
             "PrepareContainerForSweeping": _prepare_sweeping_sampler,
             "DropNotPlaceableObject": utils.null_sampler,
+            "MoveToReadySweep": utils.null_sampler,
         }
 
         for strips_op in env.strips_operators:

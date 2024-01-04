@@ -12,7 +12,16 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
           move_dy: float) -> None:
     """Sweep in the xy plane, starting at the start pose and then moving."""
-    # First, move the hand to the start pose.
+    # Move first in the y direction (perpendicular to robot body) to avoid
+    # knocking the target object over.
+    sweep_start_y_move = math_helpers.SE3Pose(
+        x=0.5,  # sensible default
+        y=sweep_start_pose.y,
+        z=0.25,  # sensible default
+        rot=math_helpers.Quat(),
+    )
+    move_hand_to_relative_pose(robot, sweep_start_y_move)
+    # Now move the remaining way to the start pose.
     move_hand_to_relative_pose(robot, sweep_start_pose)
     # Calculate the end pose.
     relative_hand_move = math_helpers.SE3Pose(x=move_dx,
@@ -37,6 +46,8 @@ if __name__ == "__main__":
     # forward. The robot should then brush the soda can to the right.
 
     # pylint: disable=ungrouped-imports
+    import curses
+
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
     from bosdyn.client.util import authenticate
@@ -99,12 +110,18 @@ if __name__ == "__main__":
 
         # Ask for the brush.
         open_gripper(robot)
-        input("Put the brush in the robot's gripper, then press enter")
+        # Press any key, instead of just enter. Useful for remote control.
+        msg = "Put the brush in the robot's gripper, then press any key"
+        stdscr = curses.initscr()
+        curses.noecho()
+        stdscr.addstr(msg)
+        stdscr.getkey()
+        curses.endwin()
         close_gripper(robot)
 
         # Move to in front of the soda can.
         stow_arm(robot)
-        pre_sweep_nav_distance = 1.0
+        pre_sweep_nav_distance = 0.65
         home_pose = get_spot_home_pose()
         pre_sweep_nav_angle = home_pose.angle - np.pi
         localizer.localize()
@@ -117,17 +134,20 @@ if __name__ == "__main__":
 
         # Calculate sweep parameters.
         robot_pose = localizer.get_last_robot_pose()
+        soda_rel_pose = robot_pose.inverse() * soda_pose
         start_dx = 0.0
-        start_dy = 0.25
+        start_dy = 0.5
         start_dz = 0.0
-        start_x = soda_pose.x - robot_pose.x + start_dx
-        start_y = soda_pose.y - robot_pose.y + start_dy
-        start_z = soda_pose.z - robot_pose.z + start_dz
+        start_x = soda_rel_pose.x + start_dx
+        start_y = soda_rel_pose.y + start_dy
+        start_z = soda_rel_pose.z + start_dz
+        pitch = math_helpers.Quat.from_pitch(np.pi / 2 + np.pi / 6)
+        yaw = math_helpers.Quat.from_yaw(np.pi / 4)
+        rot = pitch * yaw
         sweep_start_pose = math_helpers.SE3Pose(x=start_x,
                                                 y=start_y,
                                                 z=start_z,
-                                                rot=math_helpers.Quat.from_yaw(
-                                                    -np.pi / 2))
+                                                rot=rot)
         # Calculate the yaw and distance for the sweep.
         sweep_move_dx = 0.0
         sweep_move_dy = -0.5

@@ -1,0 +1,84 @@
+# Additional info associated with the map.
+---
+spot-home-pose:
+  x: 1.332
+  y: 0.373
+  angle: -1.45769
+april-tag-offsets: []
+# Allowed regions. Each region is defined by a set of points
+# that form the boundary of the region. We will check
+# whether a pose is within the region by checking whether the
+# robot will be within the convex hull of these boundary
+# points.
+allowed-regions:
+  main-room:
+    - [0.72, -1.9]
+    - [0.46, 0.77]
+    - [3.1, 0.99]
+    - [3.5, -1.7]
+# Known immovable objects. Assuming default rotations.
+known-immovable-objects:
+  floor:
+    x: 1.332
+    y: 0.373
+    z: -0.5
+  black_table:
+    x: 1.6
+    y: -1.1
+    z: -0.1
+  shelf1:
+    x: 4.0
+    y: -2.0
+    z: 0.05
+    yaw: -0.7
+# Static object features, including the shapes and sizes of known objects.
+static-object-features:
+  floor:
+    shape: 1
+    height: 0.0001
+    length: 10000000  # effectively infinite
+    width: 10000000
+    flat_top_surface: 0
+  soda_can:
+    shape: 2
+    height: 0.114
+    length: 0.065
+    width: 0.065
+    placeable: 1
+  brush:
+    shape: 1
+    height: 0.05
+    length: 0.5
+    width: 0.05
+    placeable: 1
+  bucket:
+    shape: 2
+    height: 0.4
+    width: 0.23
+    length: 0.23
+    placeable: 1
+  chair:
+    shape: 2
+    height: 0.8
+    length: 0.5
+    width: 0.5
+    placeable: 0  # false, can't be placed
+    z: -0.1  # the chair can move in the x/y plane only
+  black_table:
+    shape: 1
+    height: 0.7
+    length: 0.45
+    width: 0.55
+    flat_top_surface: 1
+  shelf1:
+    shape: 1
+    height: 0.1
+    length: 0.4
+    width: 0.2
+    flat_top_surface: 0
+# This should be calculable, but I'm lazy. These values represent the SE2 pose
+# (in the table frame) for the robot before placing the container.
+prepare_container_relative_xy:
+  dx: -0.5
+  dy: 0.8
+  angle: -1.5707  # - pi / 2

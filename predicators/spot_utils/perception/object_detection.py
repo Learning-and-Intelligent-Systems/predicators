@@ -460,6 +460,7 @@ def get_random_mask_pixel_from_artifacts(
     # plt.tight_layout()
     # outdir = Path(CFG.spot_perception_outdir)
     # plt.savefig(outdir / "grasp_pixel.png", dpi=300)
+    # plt.close()
     return pixel_tuple
 
 

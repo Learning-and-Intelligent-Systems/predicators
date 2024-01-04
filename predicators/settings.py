@@ -173,7 +173,7 @@ class GlobalSettings:
     spot_vision_detection_threshold = 0.5
     spot_perception_outdir = "spot_perception_outputs"
     spot_render_perception_outputs = True
-    spot_graph_nav_map = "floor8-v2"
+    spot_graph_nav_map = "floor8-sweeping"
     spot_grasp_stow_volume_threshold = 0.1
     spot_run_dry = False
     spot_use_perfect_samplers = False  # for debugging

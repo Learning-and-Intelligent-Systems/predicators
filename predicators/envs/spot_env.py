@@ -24,6 +24,8 @@ from predicators.spot_utils.perception.object_detection import \
     AprilTagObjectDetectionID, KnownStaticObjectDetectionID, \
     LanguageObjectDetectionID, ObjectDetectionID, detect_objects, \
     visualize_all_artifacts
+from predicators.spot_utils.perception.object_specific_grasp_selection import \
+    brush_prompt
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -265,6 +267,12 @@ class SpotRearrangementEnv(BaseEnv):
             return _dry_simulate_pick_from_top(obs, target_obj, pixel,
                                                nonpercept_atoms)
 
+        if action_name == "PickObjectToDrag":
+            _, target_obj = action_objs
+            pixel = action_args[2]
+            return _dry_simulate_pick_from_top(obs, target_obj, pixel,
+                                               nonpercept_atoms)
+
         if action_name == "MoveToReachObject":
             robot_rel_se2_pose = action_args[1]
             return _dry_simulate_move_to_reach_obj(obs, robot_rel_se2_pose,
@@ -314,6 +322,11 @@ class SpotRearrangementEnv(BaseEnv):
         if action_name == "DropNotPlaceableObject":
             return _dry_simulate_drop_not_placeable_object(
                 obs, nonpercept_atoms)
+
+        if action_name == "MoveToReadySweep":
+            robot_rel_se2_pose = action_args[1]
+            return _dry_simulate_move_to_reach_obj(obs, robot_rel_se2_pose,
+                                                   nonpercept_atoms)
 
         if action_name in ["find-objects", "stow-arm"]:
             return _dry_simulate_noop(obs, nonpercept_atoms)
@@ -702,9 +715,15 @@ class SpotRearrangementEnv(BaseEnv):
     def _run_init_search_for_objects(
         self, detection_ids: Set[ObjectDetectionID]
     ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
-        """Override to have the hand look down at the table at first."""
+        """Have the hand look down from high up at first."""
         assert self._robot is not None
         assert self._localizer is not None
+        hand_pose = math_helpers.SE3Pose(x=0.80,
+                                         y=0.0,
+                                         z=0.75,
+                                         rot=math_helpers.Quat.from_pitch(
+                                             np.pi / 4))
+        move_hand_to_relative_pose(self._robot, hand_pose)
         detections, artifacts = init_search_for_objects(
             self._robot, self._localizer, detection_ids)
         if CFG.spot_render_perception_outputs:
@@ -904,7 +923,7 @@ def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
     spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
     spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
     angle_between_robot_and_obj = np.arccos(
-        np.dot(forward_unit, spot_to_obj_unit))
+        np.clip(np.dot(forward_unit, spot_to_obj_unit), -1, 1))
     is_yaw_near = abs(angle_between_robot_and_obj) < _REACHABLE_YAW_THRESHOLD
 
     return is_xy_near and is_yaw_near
@@ -947,24 +966,27 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
         _holding_classifier(state, [spot, blocked_obj]):
         return False
 
-    # Draw a line between blocked and the robot’s home pose.
+    # Draw a line between blocked and the robot’s current pose.
     # Check if blocker intersects that line.
-    robot_home_pose = get_spot_home_pose()
-    robot_home_x = robot_home_pose.x
-    robot_home_y = robot_home_pose.y
+    robot_x = state.get(spot, "x")
+    robot_y = state.get(spot, "y")
 
     blocked_x = state.get(blocked_obj, "x")
     blocked_y = state.get(blocked_obj, "y")
 
-    blocked_robot_line = utils.LineSegment(robot_home_x, robot_home_y,
-                                           blocked_x, blocked_y)
+    blocked_robot_line = utils.LineSegment(robot_x, robot_y, blocked_x,
+                                           blocked_y)
 
     # Don't put the blocker on the robot, even if it's held, because we don't
     # want to consider the blocker to be unblocked until it's actually moved
     # out of the way and released by the robot. Otherwise the robot might just
-    # pick something up and put it back down, thinking it's unblocked.
+    # pick something up and put it back down, thinking it's unblocked. Also,
+    # use a relatively large size buffer so that we're conservative in terms
+    # of what's blocking versus not blocking.
+    size_buffer = 0.25
     blocker_geom = object_to_top_down_geom(blocker_obj,
                                            state,
+                                           size_buffer=size_buffer,
                                            put_on_robot_if_held=False)
 
     return blocker_geom.intersects(blocked_robot_line)
@@ -1016,6 +1038,29 @@ def _has_flat_top_surface_classifier(state: State,
     return state.get(obj, "flat_top_surface") > 0.5
 
 
+def _robot_ready_for_sweeping_classifier(state: State,
+                                         objects: Sequence[Object]) -> bool:
+    if len(set(objects)) != len(objects):
+        return False
+
+    # The robot, target, and container should create a right triangle.
+    # This is very approximate.
+    robot, container, target = objects
+
+    robot_xy = np.array([state.get(robot, "x"), state.get(robot, "y")])
+    target_xy = np.array([state.get(target, "x"), state.get(target, "y")])
+    cont_xy = np.array([state.get(container, "x"), state.get(container, "y")])
+
+    robot_to_target = target_xy - robot_xy
+    target_to_cont = cont_xy - target_xy
+
+    robot_to_target_unit = robot_to_target / np.linalg.norm(robot_to_target)
+    target_to_cont_unit = target_to_cont / np.linalg.norm(target_to_cont)
+    angle_cos = np.dot(robot_to_target_unit, target_to_cont_unit)
+
+    return angle_cos < 0
+
+
 _NEq = Predicate("NEq", [_base_object_type, _base_object_type],
                  _neq_classifier)
 _On = Predicate("On", [_movable_object_type, _base_object_type],
@@ -1054,6 +1099,10 @@ _IsNotPlaceable = Predicate("IsNotPlaceable", [_movable_object_type],
                             _is_not_placeable_classifier)
 _HasFlatTopSurface = Predicate("HasFlatTopSurface", [_immovable_object_type],
                                _has_flat_top_surface_classifier)
+_RobotReadyForSweeping = Predicate(
+    "RobotReadyForSweeping",
+    [_robot_type, _container_type, _movable_object_type],
+    _robot_ready_for_sweeping_classifier)
 _ALL_PREDICATES = {
     _NEq,
     _On,
@@ -1071,6 +1120,7 @@ _ALL_PREDICATES = {
     _ContainerReadyForSweeping,
     _IsPlaceable,
     _HasFlatTopSurface,
+    _RobotReadyForSweeping,
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -1089,7 +1139,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     }
     add_effs = {LiftedAtom(_Reachable, [robot, obj])}
     del_effs: Set[LiftedAtom] = set()
-    ignore_effs = {_Reachable, _InHandView, _InView}
+    ignore_effs = {_Reachable, _InHandView, _InView, _RobotReadyForSweeping}
     yield STRIPSOperator("MoveToReachObject", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
@@ -1103,7 +1153,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     }
     add_effs = {LiftedAtom(_InHandView, [robot, obj])}
     del_effs = set()
-    ignore_effs = {_Reachable, _InHandView, _InView}
+    ignore_effs = {_Reachable, _InHandView, _InView, _RobotReadyForSweeping}
     yield STRIPSOperator("MoveToHandViewObject", parameters, preconds,
                          add_effs, del_effs, ignore_effs)
 
@@ -1119,7 +1169,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_InView, [robot, obj]),
     }
     del_effs = set()
-    ignore_effs = {_Reachable, _InHandView, _InView}
+    ignore_effs = {_Reachable, _InHandView, _InView, _RobotReadyForSweeping}
     yield STRIPSOperator("MoveToBodyViewObject", parameters, preconds,
                          add_effs, del_effs, ignore_effs)
 
@@ -1132,7 +1182,8 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_On, [obj, surface]),
         LiftedAtom(_HandEmpty, [robot]),
         LiftedAtom(_InHandView, [robot, obj]),
-        LiftedAtom(_NotInsideAnyContainer, [obj])
+        LiftedAtom(_NotInsideAnyContainer, [obj]),
+        LiftedAtom(_IsPlaceable, [obj]),
     }
     add_effs = {
         LiftedAtom(_Holding, [robot, obj]),
@@ -1145,6 +1196,28 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     }
     ignore_effs = set()
     yield STRIPSOperator("PickObjectFromTop", parameters, preconds, add_effs,
+                         del_effs, ignore_effs)
+
+    # PickObjectToDrag
+    robot = Variable("?robot", _robot_type)
+    obj = Variable("?object", _movable_object_type)
+    parameters = [robot, obj]
+    preconds = {
+        LiftedAtom(_HandEmpty, [robot]),
+        LiftedAtom(_InHandView, [robot, obj]),
+        LiftedAtom(_IsNotPlaceable, [obj]),
+    }
+    add_effs = {
+        LiftedAtom(_Holding, [robot, obj]),
+    }
+    # Importantly, does not include On as a delete effect.
+    del_effs = {
+        LiftedAtom(_HandEmpty, [robot]),
+        LiftedAtom(_InHandView, [robot, obj]),
+        LiftedAtom(_NotHolding, [robot, obj]),
+    }
+    ignore_effs = set()
+    yield STRIPSOperator("PickObjectToDrag", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
     # PlaceObjectOnTop
@@ -1256,8 +1329,24 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Blocking, [blocker, blocked]),
         LiftedAtom(_Holding, [robot, blocker]),
     }
-    ignore_effs = {_InHandView, _Reachable}
+    ignore_effs = {_InHandView, _Reachable, _RobotReadyForSweeping}
     yield STRIPSOperator("DragToUnblockObject", parameters, preconds, add_effs,
+                         del_effs, ignore_effs)
+
+    # MoveToReadySweep
+    robot = Variable("?robot", _robot_type)
+    container = Variable("?container", _container_type)
+    target = Variable("?target", _movable_object_type)
+    parameters = [robot, container, target]
+    preconds = {
+        LiftedAtom(_ContainerReadyForSweeping, [container, target]),
+    }
+    add_effs = {
+        LiftedAtom(_RobotReadyForSweeping, [robot, container, target]),
+    }
+    del_effs = set()
+    ignore_effs = {_Reachable, _InView, _InHandView}
+    yield STRIPSOperator("MoveToReadySweep", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
     # SweepIntoContainer
@@ -1271,7 +1360,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_NotBlocked, [target]),
         LiftedAtom(_Holding, [robot, sweeper]),
         LiftedAtom(_On, [target, surface]),
-        LiftedAtom(_Reachable, [robot, target]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, container, target]),
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
         LiftedAtom(_IsPlaceable, [target]),
         LiftedAtom(_HasFlatTopSurface, [surface]),
@@ -1282,6 +1371,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     del_effs = {
         LiftedAtom(_On, [target, surface]),
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, container, target]),
         LiftedAtom(_Reachable, [robot, target]),
         LiftedAtom(_NotInsideAnyContainer, [target])
     }
@@ -1308,7 +1398,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     del_effs = {
         LiftedAtom(_Holding, [robot, container]),
     }
-    ignore_effs = {_Reachable, _InHandView}
+    ignore_effs = {_Reachable, _InHandView, _RobotReadyForSweeping}
     yield STRIPSOperator("PrepareContainerForSweeping", parameters, preconds,
                          add_effs, del_effs, ignore_effs)
 
@@ -1996,6 +2086,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             "PlaceObjectOnTop",
             "DropObjectInside",
             "DragToUnblockObject",
+            "PickObjectToDrag",
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
 
@@ -2029,19 +2120,6 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
     def _generate_goal_description(self) -> GoalDescription:
         return "put the soda in the bucket"
 
-    def _run_init_search_for_objects(
-        self, detection_ids: Set[ObjectDetectionID]
-    ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
-        """Override to move the hand up so it can easily see when the ball is
-        on top of a table."""
-        hand_pose = math_helpers.SE3Pose(x=0.80,
-                                         y=0.0,
-                                         z=0.75,
-                                         rot=math_helpers.Quat.from_pitch(
-                                             np.pi / 4))
-        move_hand_to_relative_pose(self._robot, hand_pose)
-        return super()._run_init_search_for_objects(detection_ids)
-
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
         raise NotImplementedError("Dry task generation not implemented.")
@@ -2072,6 +2150,8 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
             "PrepareContainerForSweeping",
             "PickAndDumpContainer",
             "DropNotPlaceableObject",
+            "MoveToReadySweep",
+            "PickObjectToDrag",
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
 
@@ -2085,12 +2165,13 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
 
         soda_can = Object("soda_can", _movable_object_type)
-        soda_can_detection = LanguageObjectDetectionID("soda can")
+        soda_prompt = "soda can/aluminum can/orange can"
+        soda_can_detection = LanguageObjectDetectionID(soda_prompt)
         detection_id_to_obj[soda_can_detection] = soda_can
 
-        plunger = Object("plunger", _movable_object_type)
-        plunger_detection = LanguageObjectDetectionID("wood black plunger")
-        detection_id_to_obj[plunger_detection] = plunger
+        brush = Object("brush", _movable_object_type)
+        brush_detection = LanguageObjectDetectionID(brush_prompt)
+        detection_id_to_obj[brush_detection] = brush
 
         chair = Object("chair", _movable_object_type)
         chair_detection = LanguageObjectDetectionID("chair")
@@ -2117,21 +2198,21 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         objects_in_view: Dict[Object, math_helpers.SE3Pose] = {}
 
         # Make up some poses for the objects, with the soda can starting on the
-        # table, and the bucket, chair, and plunger starting on the floor.
+        # table, and the bucket, chair, and brush starting on the floor.
         metadata = load_spot_metadata()
         static_object_feats = metadata["static-object-features"]
         known_immovables = metadata["known-immovable-objects"]
-        table_height = static_object_feats["white-table"]["height"]
-        table_length = static_object_feats["white-table"]["length"]
+        table_height = static_object_feats["black_table"]["height"]
+        table_length = static_object_feats["black_table"]["length"]
         soda_can_height = static_object_feats["soda_can"]["height"]
         soda_can_length = static_object_feats["soda_can"]["length"]
-        plunger_height = static_object_feats["plunger"]["height"]
+        brush_height = static_object_feats["brush"]["height"]
         chair_height = static_object_feats["chair"]["height"]
         chair_width = static_object_feats["chair"]["width"]
         bucket_height = static_object_feats["bucket"]["height"]
         floor_z = known_immovables["floor"]["z"]
-        table_x = known_immovables["white-table"]["x"]
-        table_y = known_immovables["white-table"]["y"]
+        table_x = known_immovables["black_table"]["x"]
+        table_y = known_immovables["black_table"]["y"]
 
         soda_can = Object("soda_can", _movable_object_type)
         x = table_x
@@ -2140,16 +2221,16 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         soda_can_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
         objects_in_view[soda_can] = soda_can_pose
 
-        plunger = Object("plunger", _movable_object_type)
+        brush = Object("brush", _movable_object_type)
         x = table_x
         y = self.render_y_ub - (self.render_y_ub - self.render_y_lb) / 5
-        z = floor_z + plunger_height / 2
-        plunger_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
-        objects_in_view[plunger] = plunger_pose
+        z = floor_z + brush_height / 2
+        brush_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+        objects_in_view[brush] = brush_pose
 
         chair = Object("chair", _movable_object_type)
-        x = soda_can_pose.x - 1.5 * chair_width
-        y = soda_can_pose.y
+        x = table_x - 1.5 * chair_width
+        y = table_y
         z = floor_z + chair_height / 2
         chair_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
         objects_in_view[chair] = chair_pose
@@ -2273,19 +2354,6 @@ class SpotBallAndCupStickyTableEnv(SpotRearrangementEnv):
     @classmethod
     def get_name(cls) -> str:
         return "spot_ball_and_cup_sticky_table_env"
-
-    def _run_init_search_for_objects(
-        self, detection_ids: Set[ObjectDetectionID]
-    ) -> Dict[ObjectDetectionID, math_helpers.SE3Pose]:
-        """Override to move the hand up so it can easily see when the ball is
-        on top of a table."""
-        hand_pose = math_helpers.SE3Pose(x=0.80,
-                                         y=0.0,
-                                         z=0.75,
-                                         rot=math_helpers.Quat.from_pitch(
-                                             np.pi / 4))
-        move_hand_to_relative_pose(self._robot, hand_pose)
-        return super()._run_init_search_for_objects(detection_ids)
 
     @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:

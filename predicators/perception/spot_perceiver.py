@@ -123,10 +123,7 @@ class SpotPerceiver(BasePerceiver):
                 self._held_object = None
                 # Check if the item we just placed is in view. It needs to
                 # be in view to assess whether it was placed correctly.
-                if "drag" in controller_name.lower():
-                    robot, _, obj = objects[:3]
-                else:
-                    robot, obj = objects[:2]
+                robot, obj = objects[:2]
                 state = self._create_state()
                 is_in_view = in_general_view_classifier(state, [robot, obj])
                 if not is_in_view:
@@ -301,12 +298,12 @@ class SpotPerceiver(BasePerceiver):
             robot = Object("robot", _robot_type)
             can = Object("soda_can", _movable_object_type)
             bucket = Object("bucket", _container_type)
-            plunger = Object("plunger", _movable_object_type)
+            brush = Object("brush", _movable_object_type)
             Inside = pred_name_to_pred["Inside"]
             Holding = pred_name_to_pred["Holding"]
             return {
                 GroundAtom(Inside, [can, bucket]),
-                GroundAtom(Holding, [robot, plunger])
+                GroundAtom(Holding, [robot, brush])
             }
         if goal_description == "put the ball on the table":
             ball = Object("ball", _movable_object_type)

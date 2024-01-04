@@ -100,6 +100,7 @@ def grasp_at_pixel(robot: Robot,
             manipulation_api_pb2.MANIP_STATE_GRASP_PLANNING_NO_SOLUTION,
             manipulation_api_pb2.MANIP_STATE_GRASP_FAILED
     ] and retry_with_no_constraints:
+        print("WARNING: grasp planning failed, retrying with no constraint")
         grasp = manipulation_api_pb2.PickObjectInImage(
             pixel_xy=pick_vec,
             transforms_snapshot_for_camera=rgbd.transforms_snapshot,

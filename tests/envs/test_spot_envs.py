@@ -32,6 +32,7 @@ def test_spot_env_dry_run(env):
         "spot_run_dry": True,
         "bilevel_plan_without_sim": True,
         "spot_use_perfect_samplers": True,
+        "spot_graph_nav_map": "floor8-v2",
     })
     env = create_new_env(env)
     perceiver = SpotPerceiver()
@@ -66,6 +67,7 @@ def test_spot_soda_sweep_env_dry_run():
         "spot_run_dry": True,
         "bilevel_plan_without_sim": True,
         "spot_use_perfect_samplers": True,
+        "spot_graph_nav_map": "floor8-v2",
     })
     env = create_new_env(CFG.env)
     perceiver = SpotPerceiver()
@@ -89,6 +91,7 @@ def test_spot_soda_sweep_env_dry_run():
     MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
     MoveToHandViewObject = nsrt_name_to_nsrt["MoveToHandViewObject"]
     PickObjectFromTop = nsrt_name_to_nsrt["PickObjectFromTop"]
+    PickObjectToDrag = nsrt_name_to_nsrt["PickObjectToDrag"]
     PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
     DragToUnblockObject = nsrt_name_to_nsrt["DragToUnblockObject"]
     SweepIntoContainer = nsrt_name_to_nsrt["SweepIntoContainer"]
@@ -101,10 +104,10 @@ def test_spot_soda_sweep_env_dry_run():
     obj_name_to_obj = {o.name: o for o in state}
     robot = obj_name_to_obj["robot"]
     bucket = obj_name_to_obj["bucket"]
-    plunger = obj_name_to_obj["plunger"]
+    brush = obj_name_to_obj["brush"]
     soda_can = obj_name_to_obj["soda_can"]
     chair = obj_name_to_obj["chair"]
-    table = obj_name_to_obj["white-table"]
+    table = obj_name_to_obj["black_table"]
     floor = obj_name_to_obj["floor"]
 
     def _run_ground_nsrt(ground_nsrt,
@@ -119,6 +122,13 @@ def test_spot_soda_sweep_env_dry_run():
             action = option.policy(state)
             perceiver.update_perceiver_with_action(action)
             perceiver.step(obs)
+
+            # Uncomment for debugging. Also add "render_state_dpi": 150.
+            # imgs = perceiver.render_mental_images(obs, env_task)
+            # import cv2
+            # cv2.imshow("Mental image", imgs[0])
+            # cv2.waitKey(0)
+
             return perceiver._create_state()  # pylint: disable=protected-access
 
         return utils.run_ground_nsrt_with_assertions(
@@ -137,15 +147,14 @@ def test_spot_soda_sweep_env_dry_run():
     prepare_bucket = PrepareContainerForSweeping.ground(
         [robot, bucket, soda_can, table])
     move_to_hand_view_chair = MoveToHandViewObject.ground([robot, chair])
-    pick_chair = PickObjectFromTop.ground([robot, chair, floor])
+    pick_chair = PickObjectToDrag.ground([robot, chair])
     drag_chair = DragToUnblockObject.ground([robot, chair, soda_can])
-    move_to_hand_view_plunger = MoveToHandViewObject.ground([robot, plunger])
-    pick_plunger = PickObjectFromTop.ground([robot, plunger, floor])
+    move_to_hand_view_brush = MoveToHandViewObject.ground([robot, brush])
+    pick_brush = PickObjectFromTop.ground([robot, brush, floor])
     move_to_reach_soda = MoveToReachObject.ground([robot, soda_can])
-    sweep = SweepIntoContainer.ground(
-        [robot, plunger, soda_can, table, bucket])
+    sweep = SweepIntoContainer.ground([robot, brush, soda_can, table, bucket])
     move_to_reach_floor = MoveToReachObject.ground([robot, floor])
-    place_plunger = PlaceObjectOnTop.ground([robot, plunger, floor])
+    place_brush = PlaceObjectOnTop.ground([robot, brush, floor])
     dump_bucket = PickAndDumpContainer.ground([robot, bucket, floor, soda_can])
     place_bucket = PlaceObjectOnTop.ground([robot, bucket, floor])
     move_to_hand_view_soda = MoveToHandViewObject.ground([robot, soda_can])
@@ -160,12 +169,12 @@ def test_spot_soda_sweep_env_dry_run():
     state = _run_ground_nsrt(move_to_hand_view_chair, state)
     state = _run_ground_nsrt(pick_chair, state, assert_delete_effects=False)
     state = _run_ground_nsrt(drag_chair, state)
-    state = _run_ground_nsrt(move_to_hand_view_plunger, state)
-    state = _run_ground_nsrt(pick_plunger, state)
+    state = _run_ground_nsrt(move_to_hand_view_brush, state)
+    state = _run_ground_nsrt(pick_brush, state)
     state = _run_ground_nsrt(move_to_reach_soda, state)
     state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
     state = _run_ground_nsrt(move_to_reach_floor, state)
-    state = _run_ground_nsrt(place_plunger, state)
+    state = _run_ground_nsrt(place_brush, state)
     state = _run_ground_nsrt(move_to_hand_view_bucket, state)
     state = _run_ground_nsrt(dump_bucket, state)
     state = _run_ground_nsrt(move_to_reach_floor, state)
@@ -177,12 +186,12 @@ def test_spot_soda_sweep_env_dry_run():
     state = _run_ground_nsrt(move_to_hand_view_bucket, state)
     state = _run_ground_nsrt(pick_bucket, state)
     state = _run_ground_nsrt(prepare_bucket, state)
-    state = _run_ground_nsrt(move_to_hand_view_plunger, state)
-    state = _run_ground_nsrt(pick_plunger, state)
+    state = _run_ground_nsrt(move_to_hand_view_brush, state)
+    state = _run_ground_nsrt(pick_brush, state)
     state = _run_ground_nsrt(move_to_reach_soda, state)
     state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
     state = _run_ground_nsrt(move_to_reach_floor, state)
-    state = _run_ground_nsrt(place_plunger, state)
+    state = _run_ground_nsrt(place_brush, state)
     state = _run_ground_nsrt(move_to_hand_view_bucket, state)
     _run_ground_nsrt(dump_bucket, state)
 

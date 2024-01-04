@@ -48,7 +48,7 @@ _robot_type = Type(
     "robot",
     ["gripper_open_percentage", "x", "y", "z", "qw", "qx", "qy", "qz"])
 # NOTE: include a unique object identifier in the object state to allow for
-# object-specific sampler learning (e.g., pick hammer vs pick plunger).
+# object-specific sampler learning (e.g., pick hammer vs pick brush).
 _base_object_type = Type("base-object", [
     "x",
     "y",

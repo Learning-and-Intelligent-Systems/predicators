@@ -252,8 +252,11 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
         thresh = np.pi / 4
 
     # Retry a grasp if a failure occurs!
-    return utils.create_spot_env_action(
-        name, objects, fn, (robot, img, pixel, grasp_rot, thresh, 20.0, True))
+    retry_with_no_constraints = target_obj.name != "brush"
+
+    return utils.create_spot_env_action(name, objects, fn,
+                                        (robot, img, pixel, grasp_rot, thresh,
+                                         20.0, retry_with_no_constraints))
 
 
 ###############################################################################
@@ -307,6 +310,14 @@ def _pick_object_from_top_policy(state: State, memory: Dict,
                                  objects: Sequence[Object],
                                  params: Array) -> Action:
     name = "PickObjectFromTop"
+    target_obj_idx = 1
+    return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
+
+
+def _pick_object_to_drag_policy(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+    name = "PickObjectToDrag"
     target_obj_idx = 1
     return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
 
@@ -487,15 +498,17 @@ def _sweep_into_container_policy(state: State, memory: Dict,
 
     target_obj = objects[target_obj_idx]
     target_pose = utils.get_se3_pose_from_state(state, target_obj)
-    start_dz = 0.0
-    start_x = target_pose.x - robot_pose.x + start_dx
-    start_y = target_pose.y - robot_pose.y + start_dy
-    start_z = target_pose.z - robot_pose.z + start_dz
+    target_rel_pose = robot_pose.inverse() * target_pose
+    start_x = target_rel_pose.x + start_dx
+    start_y = target_rel_pose.y + start_dy
+    start_z = target_rel_pose.z
+    pitch = math_helpers.Quat.from_pitch(np.pi / 2 + np.pi / 6)
+    yaw = math_helpers.Quat.from_yaw(np.pi / 4)
+    rot = pitch * yaw
     sweep_start_pose = math_helpers.SE3Pose(x=start_x,
                                             y=start_y,
                                             z=start_z,
-                                            rot=math_helpers.Quat.from_yaw(
-                                                -np.pi / 2))
+                                            rot=rot)
     # Calculate the yaw and distance for the sweep.
     sweep_move_dx = start_dx
     sweep_move_dy = -(2 * start_dy)
@@ -512,7 +525,7 @@ def _prepare_container_for_sweeping_policy(state: State, memory: Dict,
     del memory  # not used
 
     name = "PrepareContainerForSweeping"
-    target_obj_idx = 2
+    target_obj_idx = 3  # the surface
 
     robot, localizer, _ = get_robot()
 
@@ -528,6 +541,32 @@ def _prepare_container_for_sweeping_policy(state: State, memory: Dict,
                                         (robot, localizer, absolute_move_pose))
 
 
+def _move_to_ready_sweep_policy(state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+    name = "MoveToReadySweep"
+
+    # Get angle between target and container, then rotate it.
+    _, container, target = objects
+    target_xy = np.array([state.get(target, "x"), state.get(target, "y")])
+    cont_xy = np.array([state.get(container, "x"), state.get(container, "y")])
+    dx, dy = target_xy - cont_xy
+    cont_target_yaw = np.arctan2(dy, dx)
+    yaw = cont_target_yaw + np.pi / 2
+
+    # Make up new params.
+    distance = 0.8
+    params = np.array([distance, yaw])
+    distance_param_idx = 0
+    yaw_param_idx = 1
+    robot_obj_idx = 0
+    target_obj_idx = 2
+    do_gaze = False
+    return _move_to_target_policy(name, distance_param_idx, yaw_param_idx,
+                                  robot_obj_idx, target_obj_idx, do_gaze,
+                                  state, memory, objects, params)
+
+
 ###############################################################################
 #                       Parameterized option factory                          #
 ###############################################################################
@@ -539,9 +578,10 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     # x, y pixel in image + quat (qw, qx, qy, qz). If quat is all 0's
     # then grasp is unconstrained
     "PickObjectFromTop": Box(-np.inf, np.inf, (6, )),
-    # x, y pixel in image + quat (qw, qx, qy, qz). If quat is all 0's
-    # then grasp is unconstrained
+    # same as PickObjectFromTop
     "PickAndDumpContainer": Box(-np.inf, np.inf, (6, )),
+    # same as PickObjectFromTop
+    "PickObjectToDrag": Box(-np.inf, np.inf, (6, )),
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInsideContainerOnTop": Box(-np.inf, np.inf,
@@ -550,13 +590,17 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "SweepIntoContainer": Box(-np.inf, np.inf, (2, )),  # rel dx, dy
     "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
     "DropNotPlaceableObject": Box(0, 1, (0, )),  # empty
+    "MoveToReadySweep": Box(0, 1, (0, )),  # empty
 }
 
+# NOTE: the policies MUST be unique because they output actions with extra info
+# that includes the name of the operators.
 _OPERATOR_NAME_TO_POLICY = {
     "MoveToReachObject": _move_to_reach_object_policy,
     "MoveToHandViewObject": _move_to_hand_view_object_policy,
     "MoveToBodyViewObject": _move_to_body_view_object_policy,
     "PickObjectFromTop": _pick_object_from_top_policy,
+    "PickObjectToDrag": _pick_object_to_drag_policy,
     "PickAndDumpContainer": _dump_cup_policy,
     "PlaceObjectOnTop": _place_object_on_top_policy,
     "DropObjectInside": _drop_object_inside_policy,
@@ -565,6 +609,7 @@ _OPERATOR_NAME_TO_POLICY = {
     "SweepIntoContainer": _sweep_into_container_policy,
     "PrepareContainerForSweeping": _prepare_container_for_sweeping_policy,
     "DropNotPlaceableObject": _drop_not_placeable_object_policy,
+    "MoveToReadySweep": _move_to_ready_sweep_policy,
 }
 
 
