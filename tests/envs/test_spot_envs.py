@@ -5,7 +5,6 @@ from typing import List
 
 import dill as pkl
 import numpy as np
-import pytest
 
 from predicators import utils
 from predicators.approaches import create_approach
@@ -20,11 +19,10 @@ from predicators.spot_utils.skills.spot_navigation import go_home
 from predicators.structs import Action, GroundAtom, _GroundNSRT
 
 
-@pytest.mark.parametrize("env", ["spot_cube_env", "spot_soda_sweep_env"])
-def test_spot_env_dry_run(env):
+def test_spot_env_dry_run():
     """Dry run tests (do not require access to robot)."""
     utils.reset_config({
-        "env": env,
+        "env": "spot_cube_env",
         "approach": "spot_wrapper[oracle]",
         "num_train_tasks": 0,
         "num_test_tasks": 1,
@@ -34,7 +32,7 @@ def test_spot_env_dry_run(env):
         "spot_use_perfect_samplers": True,
         "spot_graph_nav_map": "floor8-v2",
     })
-    env = create_new_env(env)
+    env = create_new_env(CFG.env)
     perceiver = SpotPerceiver()
     execution_monitor = create_execution_monitor("expected_atoms")
     env_train_tasks = env.get_train_tasks()

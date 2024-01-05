@@ -2,6 +2,7 @@
 
 from typing import Any, Callable, Dict, Optional, Tuple
 
+import cv2
 import numpy as np
 from bosdyn.client import math_helpers
 from numpy.typing import NDArray
@@ -138,7 +139,6 @@ def _get_cup_grasp_pixel(
 
     del rgbds  # not used, except for debugging
     # Uncomment for debugging. Make sure also to not del rgbds (above).
-    # import cv2
     # rgbd = rgbds[camera_name]
     # bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
     # cv2.circle(bgr, pixel, 5, (0, 255, 0), -1)
@@ -172,14 +172,15 @@ def _get_brush_grasp_pixel(
     except KeyError:
         raise ValueError(f"{brush_obj} not detected in {camera_name}")
     mask = seg_bb.mask
+    rgb = rgbds[camera_name].rgb
     # Start by denoising the mask, "filling in" small gaps in it.
     convolved_mask = convolve(mask.astype(np.uint8),
                               np.ones((3, 3)),
                               mode="constant")
-    smoothed_mask = (convolved_mask > 0)
+    mask = (convolved_mask > 0)
     # Get copy of image with just the mask pixels in it.
-    isolated_rgb = rgbds[camera_name].rgb.copy()
-    isolated_rgb[~smoothed_mask] = 0
+    isolated_rgb = rgb.copy()
+    isolated_rgb[~mask] = 0
     # Look for blue pixels in the isolated rgb.
     lo, hi = ((0, 130, 180), (130, 255, 255))
     centroid = find_color_based_centroid(isolated_rgb,
@@ -204,6 +205,25 @@ def _get_brush_grasp_pixel(
     #             "mask": mask,
     #             "selected_pixel": selected_pixel,
     #         }, f)
+
+    # Crop using the original mask, but then recompute the mask using color
+    # because sometimes the top head of the brush gets cut off.
+    crop_min_r, crop_min_c = np.min(np.argwhere(mask), axis=0)
+    crop_max_r, crop_max_c = np.max(np.argwhere(mask), axis=0)
+    # Widen the view to include the head.
+    crop_min_r = max(0, crop_min_r - crop_min_r // 4)
+    crop_min_c = max(0, crop_min_c - crop_min_c // 4)
+    crop_max_r = min(mask.shape[0] - 1, crop_max_r + crop_max_r // 4)
+    crop_max_c = min(mask.shape[1] - 1, crop_max_c + crop_max_c // 4)
+    cropped_rgb = rgb[crop_min_r:crop_max_r + 1, crop_min_c:crop_max_c + 1]
+    # Look for white because the brush is white.
+    lower = np.array((220, 220, 220))
+    upper = np.array((255, 255, 255))
+    cropped_mask_uint8 = cv2.inRange(cropped_rgb, lower, upper)
+    # Undo crop.
+    cropped_mask = cropped_mask_uint8 > 0
+    # Use the original mask as a starting point (NOTE: logical or).
+    mask[crop_min_r:crop_max_r + 1, crop_min_c:crop_max_c + 1] |= cropped_mask
 
     # First find an angle that aligns with the handle of the brush.
     def _count_pixels_on_line(arr: NDArray, center: Tuple[int, int],
@@ -239,7 +259,6 @@ def _get_brush_grasp_pixel(
     final_angle = np.arctan2(dx, -dy)
 
     # Uncomment for debugging.
-    # import cv2
     # bgr = cv2.cvtColor(rgbds[camera_name].rgb, cv2.COLOR_RGB2BGR)
     # cv2.circle(bgr, selected_pixel, 5, (0, 255, 0), -1)
     # cv2.arrowedLine(bgr, (selected_pixel[0], selected_pixel[1]),
@@ -309,7 +328,6 @@ def _get_bucket_grasp_pixel(
         selected_pixel = (centroid[0], centroid[1])
 
     # Uncomment for debugging.
-    # import cv2
     # bgr = cv2.cvtColor(rgbds[camera_name].rgb, cv2.COLOR_RGB2BGR)
     # cv2.circle(bgr, selected_pixel, 5, (0, 255, 0), -1)
     # cv2.imshow("Selected grasp", bgr)
