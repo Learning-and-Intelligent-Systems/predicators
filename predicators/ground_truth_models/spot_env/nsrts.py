@@ -194,7 +194,7 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
     # NOTE: these parameters may change (need to experiment on robot).
     del state, goal, objs
     if CFG.spot_use_perfect_samplers:
-        return np.array([0.0, 0.5])
+        return np.array([0.0, 0.7])
     dx, dy = rng.uniform(-0.5, 0.5, size=2)
     return np.array([dx, dy])
 
@@ -245,6 +245,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
             "DragToUnblockObject": _drag_to_unblock_object_sampler,
             "SweepIntoContainer": _sweep_into_container_sampler,
+            "SweepTwoObjectsIntoContainer": _sweep_into_container_sampler,
             "PrepareContainerForSweeping": _prepare_sweeping_sampler,
             "DropNotPlaceableObject": utils.null_sampler,
             "MoveToReadySweep": utils.null_sampler,

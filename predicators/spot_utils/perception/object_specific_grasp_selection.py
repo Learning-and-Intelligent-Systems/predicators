@@ -22,7 +22,8 @@ cup_obj = LanguageObjectDetectionID("yellow hoop toy/yellow donut")
 brush_prompt = "/".join(
     ["scrubbing brush", "hammer", "mop", "giant white toothbrush"])
 brush_obj = LanguageObjectDetectionID(brush_prompt)
-bucket_obj = LanguageObjectDetectionID("bucket")
+bucket_prompt = "large red bucket"
+bucket_obj = LanguageObjectDetectionID(bucket_prompt)
 
 
 def _get_platform_grasp_pixel(

@@ -25,7 +25,7 @@ from predicators.spot_utils.perception.object_detection import \
     LanguageObjectDetectionID, ObjectDetectionID, detect_objects, \
     visualize_all_artifacts
 from predicators.spot_utils.perception.object_specific_grasp_selection import \
-    brush_prompt
+    brush_prompt, bucket_prompt
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -297,8 +297,17 @@ class SpotRearrangementEnv(BaseEnv):
         if action_name == "SweepIntoContainer":
             _, _, target, _, container = action_objs
             _, _, sweep_start_dx, sweep_start_dy = action_args
-            return _dry_simulate_sweep_into_container(obs,
-                                                      target,
+            return _dry_simulate_sweep_into_container(obs, {target},
+                                                      container,
+                                                      nonpercept_atoms,
+                                                      start_dx=sweep_start_dx,
+                                                      start_dy=sweep_start_dy,
+                                                      rng=self._noise_rng)
+
+        if action_name == "SweepTwoObjectsIntoContainer":
+            _, _, target1, target2, _, container = action_objs
+            _, _, sweep_start_dx, sweep_start_dy = action_args
+            return _dry_simulate_sweep_into_container(obs, {target1, target2},
                                                       container,
                                                       nonpercept_atoms,
                                                       start_dx=sweep_start_dx,
@@ -1349,6 +1358,49 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("MoveToReadySweep", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
+    # SweepTwoObjectsIntoContainer
+    robot = Variable("?robot", _robot_type)
+    sweeper = Variable("?sweeper", _movable_object_type)
+    target1 = Variable("?target1", _movable_object_type)
+    target2 = Variable("?target2", _movable_object_type)
+    surface = Variable("?surface", _immovable_object_type)
+    container = Variable("?container", _container_type)
+    parameters = [robot, sweeper, target1, target2, surface, container]
+    preconds = {
+        LiftedAtom(_NotBlocked, [target1]),
+        LiftedAtom(_NotBlocked, [target2]),
+        LiftedAtom(_Holding, [robot, sweeper]),
+        LiftedAtom(_On, [target1, surface]),
+        LiftedAtom(_On, [target2, surface]),
+        # Arbitrarily pick one of the targets to be the one ready for sweeping,
+        # to prevent the robot 'moving to get ready for sweeping' twice.
+        LiftedAtom(_RobotReadyForSweeping, [robot, container, target1]),
+        # Same idea.
+        LiftedAtom(_ContainerReadyForSweeping, [container, target1]),
+        LiftedAtom(_IsPlaceable, [target1]),
+        LiftedAtom(_IsPlaceable, [target2]),
+        LiftedAtom(_HasFlatTopSurface, [surface]),
+    }
+    add_effs = {
+        LiftedAtom(_Inside, [target1, container]),
+        LiftedAtom(_Inside, [target2, container]),
+    }
+    del_effs = {
+        LiftedAtom(_On, [target1, surface]),
+        LiftedAtom(_On, [target2, surface]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, target1]),
+        LiftedAtom(_ContainerReadyForSweeping, [container, target2]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, container, target1]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, container, target2]),
+        LiftedAtom(_Reachable, [robot, target1]),
+        LiftedAtom(_Reachable, [robot, target2]),
+        LiftedAtom(_NotInsideAnyContainer, [target1]),
+        LiftedAtom(_NotInsideAnyContainer, [target2]),
+    }
+    ignore_effs = set()
+    yield STRIPSOperator("SweepTwoObjectsIntoContainer", parameters, preconds,
+                         add_effs, del_effs, ignore_effs)
+
     # SweepIntoContainer
     robot = Variable("?robot", _robot_type)
     sweeper = Variable("?sweeper", _movable_object_type)
@@ -1707,7 +1759,7 @@ def _dry_simulate_prepare_container_for_sweeping(
 
 
 def _dry_simulate_sweep_into_container(
-        last_obs: _SpotObservation, swept_obj: Object, container: Object,
+        last_obs: _SpotObservation, swept_objs: Set[Object], container: Object,
         nonpercept_atoms: Set[GroundAtom], start_dx: float, start_dy: float,
         rng: np.random.Generator) -> _SpotObservation:
 
@@ -1720,32 +1772,33 @@ def _dry_simulate_sweep_into_container(
     gripper_open_percentage = last_obs.gripper_open_percentage
 
     static_feats = load_spot_metadata()["static-object-features"]
-    swept_obj_height = static_feats[swept_obj.name]["height"]
     container_pose = objects_in_view[container]
     container_radius = static_feats[container.name]["width"] / 2
-    swept_obj_radius = static_feats[container.name]["width"] / 2
 
     # NOTE: this may change soon to be more physically realistic.
     # If the sweep parameters are close enough to optimal, the object should
     # end up in the container.
     optimal_dx, optimal_dy = 0.0, -0.5
     thresh = 1.0
-    if abs(start_dx - optimal_dx) + abs(start_dy - optimal_dy) < thresh:
-        x = container_pose.x
-        y = container_pose.y
-        z = container_pose.z + swept_obj_height / 2
-    # Otherwise, the object fails randomly somewhere around the container.
-    else:
-        angle = rng.uniform(0, 2 * np.pi)
-        distance = (container_radius + swept_obj_radius) * rng.uniform(
-            1.25, 1.5)
-        dx = distance * np.cos(angle)
-        dy = distance * np.sin(angle)
-        x = container_pose.x + dx
-        y = container_pose.y + dy
-        z = container_pose.z
-    swept_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
-    objects_in_view[swept_obj] = swept_obj_pose
+    for swept_obj in swept_objs:
+        swept_obj_height = static_feats[swept_obj.name]["height"]
+        swept_obj_radius = static_feats[swept_obj.name]["width"] / 2
+        if abs(start_dx - optimal_dx) + abs(start_dy - optimal_dy) < thresh:
+            x = container_pose.x
+            y = container_pose.y
+            z = container_pose.z + swept_obj_height / 2
+        # Otherwise, the object fails randomly somewhere around the container.
+        else:
+            angle = rng.uniform(0, 2 * np.pi)
+            distance = (container_radius + swept_obj_radius) * rng.uniform(
+                1.25, 1.5)
+            dx = distance * np.cos(angle)
+            dy = distance * np.sin(angle)
+            x = container_pose.x + dx
+            y = container_pose.y + dy
+            z = container_pose.z
+        swept_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+        objects_in_view[swept_obj] = swept_obj_pose
 
     # Finalize the next observation.
     next_obs = _SpotObservation(
@@ -2147,6 +2200,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
             "PlaceObjectOnTop",
             "DragToUnblockObject",
             "SweepIntoContainer",
+            "SweepTwoObjectsIntoContainer",
             "PrepareContainerForSweeping",
             "PickAndDumpContainer",
             "DropNotPlaceableObject",
@@ -2169,6 +2223,11 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         soda_can_detection = LanguageObjectDetectionID(soda_prompt)
         detection_id_to_obj[soda_can_detection] = soda_can
 
+        yogurt = Object("yogurt", _movable_object_type)
+        yogurt_prompt = "yogurt container/yogurt cup/small white plastic cup"
+        yogurt_detection = LanguageObjectDetectionID(yogurt_prompt)
+        detection_id_to_obj[yogurt_detection] = yogurt
+
         brush = Object("brush", _movable_object_type)
         brush_detection = LanguageObjectDetectionID(brush_prompt)
         detection_id_to_obj[brush_detection] = brush
@@ -2178,7 +2237,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         detection_id_to_obj[chair_detection] = chair
 
         bucket = Object("bucket", _container_type)
-        bucket_detection = LanguageObjectDetectionID("bucket")
+        bucket_detection = LanguageObjectDetectionID(bucket_prompt)
         detection_id_to_obj[bucket_detection] = bucket
 
         for obj, pose in get_known_immovable_objects().items():
@@ -2188,7 +2247,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         return detection_id_to_obj
 
     def _generate_goal_description(self) -> GoalDescription:
-        return "put the soda in the bucket and hold the brush"
+        return "get the soda and yogurt in the bucket"
 
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
@@ -2206,6 +2265,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         table_length = static_object_feats["black_table"]["length"]
         soda_can_height = static_object_feats["soda_can"]["height"]
         soda_can_length = static_object_feats["soda_can"]["length"]
+        yogurt_height = static_object_feats["yogurt"]["height"]
         brush_height = static_object_feats["brush"]["height"]
         chair_height = static_object_feats["chair"]["height"]
         chair_width = static_object_feats["chair"]["width"]
@@ -2220,6 +2280,13 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         z = floor_z + table_height + soda_can_height / 2
         soda_can_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
         objects_in_view[soda_can] = soda_can_pose
+
+        yogurt = Object("yogurt", _movable_object_type)
+        z = floor_z + table_height + yogurt_height / 2
+        yogurt_pose = math_helpers.SE3Pose(soda_can_pose.x,
+                                           soda_can_pose.y + 0.1, z,
+                                           math_helpers.Quat())
+        objects_in_view[yogurt] = yogurt_pose
 
         brush = Object("brush", _movable_object_type)
         x = table_x

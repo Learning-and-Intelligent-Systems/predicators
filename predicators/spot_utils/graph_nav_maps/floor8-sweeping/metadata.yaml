@@ -45,6 +45,12 @@ static-object-features:
     length: 0.065
     width: 0.065
     placeable: 1
+  yogurt:
+    shape: 2
+    height: 0.08
+    length: 0.1
+    width: 0.1
+    placeable: 1
   brush:
     shape: 1
     height: 0.05
@@ -57,6 +63,8 @@ static-object-features:
     width: 0.23
     length: 0.23
     placeable: 1
+    # Important for TopAbove that the bucket appears to always be on the ground
+    z: -0.1
   chair:
     shape: 2
     height: 0.8

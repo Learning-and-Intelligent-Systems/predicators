@@ -259,6 +259,50 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
                                          20.0, retry_with_no_constraints))
 
 
+def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
+                                         target_obj_idxs: Set[int],
+                                         state: State, memory: Dict,
+                                         objects: Sequence[Object],
+                                         params: Array) -> Action:
+
+    del memory  # not used
+
+    robot, _, _ = get_robot()
+
+    start_dx, start_dy = params
+
+    robot_obj = objects[robot_obj_idx]
+    robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
+
+    target_obj_rel_xyzs: List[Tuple[float, float, float]] = []
+    for target_obj_idx in target_obj_idxs:
+        target_obj = objects[target_obj_idx]
+        target_pose = utils.get_se3_pose_from_state(state, target_obj)
+        target_rel_pose = robot_pose.inverse() * target_pose
+        rel_xyz = (target_rel_pose.x, target_rel_pose.y, target_rel_pose.z)
+        target_obj_rel_xyzs.append(rel_xyz)
+    mean_x, mean_y, mean_z = np.mean(target_obj_rel_xyzs, axis=0)
+
+    start_x = mean_x + start_dx
+    start_y = mean_y + start_dy
+    start_z = mean_z
+    pitch = math_helpers.Quat.from_pitch(np.pi / 2 + np.pi / 6)
+    yaw = math_helpers.Quat.from_yaw(np.pi / 4)
+    rot = pitch * yaw
+    sweep_start_pose = math_helpers.SE3Pose(x=start_x,
+                                            y=start_y,
+                                            z=start_z,
+                                            rot=rot)
+    # Calculate the yaw and distance for the sweep.
+    sweep_move_dx = start_dx
+    sweep_move_dy = -(2 * start_dy)
+
+    # Execute the sweep.
+    return utils.create_spot_env_action(
+        name, objects, sweep,
+        (robot, sweep_start_pose, sweep_move_dx, sweep_move_dy))
+
+
 ###############################################################################
 #                   Concrete parameterized option policies                    #
 ###############################################################################
@@ -483,40 +527,24 @@ def _drag_to_unblock_object_policy(state: State, memory: Dict,
 def _sweep_into_container_policy(state: State, memory: Dict,
                                  objects: Sequence[Object],
                                  params: Array) -> Action:
-    del memory  # not used
-
     name = "SweepIntoContainer"
     robot_obj_idx = 0
-    target_obj_idx = 2
+    target_obj_idxs = {2}
+    return _sweep_objects_into_container_policy(name, robot_obj_idx,
+                                                target_obj_idxs, state, memory,
+                                                objects, params)
 
-    robot, _, _ = get_robot()
 
-    start_dx, start_dy = params
+def _sweep_two_objects_into_container_policy(state: State, memory: Dict,
+                                             objects: Sequence[Object],
+                                             params: Array) -> Action:
 
-    robot_obj = objects[robot_obj_idx]
-    robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
-
-    target_obj = objects[target_obj_idx]
-    target_pose = utils.get_se3_pose_from_state(state, target_obj)
-    target_rel_pose = robot_pose.inverse() * target_pose
-    start_x = target_rel_pose.x + start_dx
-    start_y = target_rel_pose.y + start_dy
-    start_z = target_rel_pose.z
-    pitch = math_helpers.Quat.from_pitch(np.pi / 2 + np.pi / 6)
-    yaw = math_helpers.Quat.from_yaw(np.pi / 4)
-    rot = pitch * yaw
-    sweep_start_pose = math_helpers.SE3Pose(x=start_x,
-                                            y=start_y,
-                                            z=start_z,
-                                            rot=rot)
-    # Calculate the yaw and distance for the sweep.
-    sweep_move_dx = start_dx
-    sweep_move_dy = -(2 * start_dy)
-
-    # Execute the sweep.
-    return utils.create_spot_env_action(
-        name, objects, sweep,
-        (robot, sweep_start_pose, sweep_move_dx, sweep_move_dy))
+    name = "SweepTwoObjectsIntoContainer"
+    robot_obj_idx = 0
+    target_obj_idxs = {2, 3}
+    return _sweep_objects_into_container_policy(name, robot_obj_idx,
+                                                target_obj_idxs, state, memory,
+                                                objects, params)
 
 
 def _prepare_container_for_sweeping_policy(state: State, memory: Dict,
@@ -588,6 +616,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
                                           (3, )),  # rel dx, dy, dz
     "DragToUnblockObject": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dyaw
     "SweepIntoContainer": Box(-np.inf, np.inf, (2, )),  # rel dx, dy
+    "SweepTwoObjectsIntoContainer": Box(-np.inf, np.inf, (2, )),  # rel dx, dy,
     "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
     "DropNotPlaceableObject": Box(0, 1, (0, )),  # empty
     "MoveToReadySweep": Box(0, 1, (0, )),  # empty
@@ -607,6 +636,7 @@ _OPERATOR_NAME_TO_POLICY = {
     "DropObjectInsideContainerOnTop": _move_and_drop_object_inside_policy,
     "DragToUnblockObject": _drag_to_unblock_object_policy,
     "SweepIntoContainer": _sweep_into_container_policy,
+    "SweepTwoObjectsIntoContainer": _sweep_two_objects_into_container_policy,
     "PrepareContainerForSweeping": _prepare_container_for_sweeping_policy,
     "DropNotPlaceableObject": _drop_not_placeable_object_policy,
     "MoveToReadySweep": _move_to_ready_sweep_policy,

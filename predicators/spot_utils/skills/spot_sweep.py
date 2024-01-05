@@ -135,8 +135,8 @@ if __name__ == "__main__":
         # Calculate sweep parameters.
         robot_pose = localizer.get_last_robot_pose()
         soda_rel_pose = robot_pose.inverse() * soda_pose
-        start_dx = 0.0
-        start_dy = 0.5
+        start_dx = 0.3
+        start_dy = 0.7
         start_dz = 0.0
         start_x = soda_rel_pose.x + start_dx
         start_y = soda_rel_pose.y + start_dy
@@ -150,7 +150,7 @@ if __name__ == "__main__":
                                                 rot=rot)
         # Calculate the yaw and distance for the sweep.
         sweep_move_dx = 0.0
-        sweep_move_dy = -0.5
+        sweep_move_dy = -0.7
 
         # Execute the sweep.
         sweep(robot, sweep_start_pose, sweep_move_dx, sweep_move_dy)
