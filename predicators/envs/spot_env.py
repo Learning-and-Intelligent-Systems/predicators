@@ -290,7 +290,7 @@ class SpotRearrangementEnv(BaseEnv):
 
         if action_name == "PrepareContainerForSweeping":
             _, container_obj, _, _ = action_objs
-            _, _, new_robot_se2_pose = action_args
+            _, _, new_robot_se2_pose, _ = action_args
             return _dry_simulate_prepare_container_for_sweeping(
                 obs, container_obj, new_robot_se2_pose, nonpercept_atoms)
 
@@ -763,7 +763,7 @@ class SpotRearrangementEnv(BaseEnv):
 ###############################################################################
 
 ## Constants
-HANDEMPTY_GRIPPER_THRESHOLD = 5.0  # made public for use in perceiver
+HANDEMPTY_GRIPPER_THRESHOLD = 2.5  # made public for use in perceiver
 _ONTOP_Z_THRESHOLD = 0.25
 _INSIDE_Z_THRESHOLD = 0.25
 _ONTOP_SURFACE_BUFFER = 0.48
@@ -2219,14 +2219,17 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
 
         soda_can = Object("soda_can", _movable_object_type)
-        soda_prompt = "soda can/aluminum can/orange can"
+        soda_prompt = "soda can/aluminum can/orange can/beer can"
         soda_can_detection = LanguageObjectDetectionID(soda_prompt)
         detection_id_to_obj[soda_can_detection] = soda_can
 
-        yogurt = Object("yogurt", _movable_object_type)
-        yogurt_prompt = "yogurt container/yogurt cup/small white plastic cup"
-        yogurt_detection = LanguageObjectDetectionID(yogurt_prompt)
-        detection_id_to_obj[yogurt_detection] = yogurt
+        chips = Object("chips", _movable_object_type)
+        chips_prompt = "/".join([
+            "bag of chips",
+            "green food bag",
+        ])
+        chips_detection = LanguageObjectDetectionID(chips_prompt)
+        detection_id_to_obj[chips_detection] = chips
 
         brush = Object("brush", _movable_object_type)
         brush_detection = LanguageObjectDetectionID(brush_prompt)
@@ -2247,7 +2250,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         return detection_id_to_obj
 
     def _generate_goal_description(self) -> GoalDescription:
-        return "get the soda and yogurt in the bucket"
+        return "get the soda and chips in the bucket"
 
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
@@ -2265,7 +2268,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         table_length = static_object_feats["black_table"]["length"]
         soda_can_height = static_object_feats["soda_can"]["height"]
         soda_can_length = static_object_feats["soda_can"]["length"]
-        yogurt_height = static_object_feats["yogurt"]["height"]
+        chips_height = static_object_feats["chips"]["height"]
         brush_height = static_object_feats["brush"]["height"]
         chair_height = static_object_feats["chair"]["height"]
         chair_width = static_object_feats["chair"]["width"]
@@ -2281,12 +2284,12 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         soda_can_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
         objects_in_view[soda_can] = soda_can_pose
 
-        yogurt = Object("yogurt", _movable_object_type)
-        z = floor_z + table_height + yogurt_height / 2
-        yogurt_pose = math_helpers.SE3Pose(soda_can_pose.x,
-                                           soda_can_pose.y + 0.1, z,
-                                           math_helpers.Quat())
-        objects_in_view[yogurt] = yogurt_pose
+        chips = Object("chips", _movable_object_type)
+        z = floor_z + table_height + chips_height / 2
+        chips_pose = math_helpers.SE3Pose(soda_can_pose.x,
+                                          soda_can_pose.y + 0.1, z,
+                                          math_helpers.Quat())
+        objects_in_view[chips] = chips_pose
 
         brush = Object("brush", _movable_object_type)
         x = table_x

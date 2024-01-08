@@ -516,8 +516,12 @@ def visualize_all_artifacts(artifacts: Dict[str,
             ax_row[4].imshow(seg_bb.mask, cmap="binary_r", vmin=0, vmax=1)
 
             # Labels.
+            abbreviated_name = obj_id.language_id
+            max_abbrev_len = 24
+            if len(abbreviated_name) > max_abbrev_len:
+                abbreviated_name = abbreviated_name[:max_abbrev_len] + "..."
             row_label = "\n".join([
-                obj_id.language_id, f"[{rgbd.camera_name}]",
+                abbreviated_name, f"[{rgbd.camera_name}]",
                 f"[score: {seg_bb.score:.2f}]"
             ])
             ax_row[0].set_ylabel(row_label, fontsize=6)

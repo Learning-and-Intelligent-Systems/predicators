@@ -162,15 +162,10 @@ def _drag_and_release(robot: Robot, rel_pose: math_helpers.SE2Pose) -> None:
 
 def _move_to_absolute_pose_and_place_stow(
         robot: Robot, localizer: SpotLocalizer,
-        absolute_pose: math_helpers.SE2Pose) -> None:
+        absolute_pose: math_helpers.SE2Pose,
+        place_rel_pose: math_helpers.SE3Pose) -> None:
     # Move to the absolute pose.
     navigate_to_absolute_pose(robot, localizer, absolute_pose)
-    # Place in front.
-    place_rel_pose = math_helpers.SE3Pose(x=0.80,
-                                          y=0.0,
-                                          z=0.0,
-                                          rot=math_helpers.Quat.from_pitch(
-                                              np.pi / 2))
     _place_at_relative_position_and_stow(robot, place_rel_pose)
 
 
@@ -553,20 +548,30 @@ def _prepare_container_for_sweeping_policy(state: State, memory: Dict,
     del memory  # not used
 
     name = "PrepareContainerForSweeping"
+    container_obj_idx = 1
     target_obj_idx = 3  # the surface
 
     robot, localizer, _ = get_robot()
 
     dx, dy, dyaw = params
 
+    container_obj = objects[container_obj_idx]
+    container_z = state.get(container_obj, "z")  # assumed fixed
+
     target_obj = objects[target_obj_idx]
     target_pose = utils.get_se3_pose_from_state(state, target_obj)
     absolute_move_pose = math_helpers.SE2Pose(target_pose.x + dx,
                                               target_pose.y + dy, dyaw)
 
-    return utils.create_spot_env_action(name, objects,
-                                        _move_to_absolute_pose_and_place_stow,
-                                        (robot, localizer, absolute_move_pose))
+    # Place in front.
+    place_rel_pose = math_helpers.SE3Pose(x=1.25,
+                                          y=0.0,
+                                          z=container_z,
+                                          rot=math_helpers.Quat())
+
+    return utils.create_spot_env_action(
+        name, objects, _move_to_absolute_pose_and_place_stow,
+        (robot, localizer, absolute_move_pose, place_rel_pose))
 
 
 def _move_to_ready_sweep_policy(state: State, memory: Dict,

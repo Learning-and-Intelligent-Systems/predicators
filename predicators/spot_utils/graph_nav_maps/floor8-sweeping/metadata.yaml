@@ -45,7 +45,7 @@ static-object-features:
     length: 0.065
     width: 0.065
     placeable: 1
-  yogurt:
+  chips:
     shape: 2
     height: 0.08
     length: 0.1
@@ -58,13 +58,13 @@ static-object-features:
     width: 0.05
     placeable: 1
   bucket:
-    shape: 2
-    height: 0.4
+    shape: 1
+    height: 0.05
     width: 0.23
-    length: 0.23
+    length: 0.15
     placeable: 1
     # Important for TopAbove that the bucket appears to always be on the ground
-    z: -0.1
+    z: -0.45
   chair:
     shape: 2
     height: 0.8
@@ -87,6 +87,6 @@ static-object-features:
 # This should be calculable, but I'm lazy. These values represent the SE2 pose
 # (in the table frame) for the robot before placing the container.
 prepare_container_relative_xy:
-  dx: -0.5
-  dy: 0.8
+  dx: -0.35
+  dy: 0.65
   angle: -1.5707  # - pi / 2
