@@ -16,6 +16,7 @@ are currently detected. Rotations should be ignored.
 
 import io
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Any, Collection, Dict, List, Optional, Set, Tuple
 
@@ -207,31 +208,27 @@ def detect_objects_from_language(
 
     object_id_to_img_detections = _query_detic_sam(object_ids, rgbds)
 
-    # Aggregate detections over images.
-    # Get the best-scoring image detections for each object ID.
-    object_id_to_best_img: Dict[ObjectDetectionID, RGBDImageWithContext] = {}
-    for obj_id, img_detections in object_id_to_img_detections.items():
-        if not img_detections:
-            continue
-        best_score = -np.inf
-        best_camera: Optional[str] = None
-        for camera, detection in img_detections.items():
-            if detection.score > best_score:
-                best_score = detection.score
-                best_camera = camera
-        assert best_camera is not None
-        object_id_to_best_img[obj_id] = rgbds[best_camera]
+    # Convert the image detections into pose detections. Use the best scoring
+    # image for which a pose can be successfully extracted.
 
-    # Convert the image detections into pose detections.
+    def _get_detection_score(img_detections: Dict[str, SegmentedBoundingBox],
+                             camera: str) -> float:
+        return img_detections[camera].score
+
     detections: Dict[ObjectDetectionID, math_helpers.SE3Pose] = {}
-    for obj_id, rgbd in object_id_to_best_img.items():
-        seg_bb = object_id_to_img_detections[obj_id][rgbd.camera_name]
-        pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd)
-        # Pose extraction can fail due to depth reading issues. See docstring
-        # of _get_pose_from_segmented_bounding_box for more.
-        if pose is None:
-            continue
-        detections[obj_id] = pose
+    for obj_id, img_detections in object_id_to_img_detections.items():
+        # Consider detections from best (highest) to worst score.
+        for camera in sorted(img_detections,
+                             key=partial(_get_detection_score, img_detections),
+                             reverse=True):
+            seg_bb = img_detections[camera]
+            rgbd = rgbds[camera]
+            pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd)
+            # Pose extraction can fail due to depth reading issues. See
+            # docstring of _get_pose_from_segmented_bounding_box for more.
+            if pose is not None:
+                detections[obj_id] = pose
+                break
 
     # Save artifacts for analysis and debugging.
     artifacts = {
@@ -659,11 +656,17 @@ if __name__ == "__main__":
     from predicators.spot_utils.utils import verify_estop
 
     TEST_CAMERAS = [
-        "hand_color_image", "frontleft_fisheye_image", "left_fisheye_image",
-        "right_fisheye_image"
+        "hand_color_image",
+        "frontleft_fisheye_image",
+        "left_fisheye_image",
+        "right_fisheye_image",
+        "frontright_fisheye_image",
     ]
     TEST_APRIL_TAG_ID = 408
-    TEST_LANGUAGE_DESCRIPTIONS = ["brush", "drill"]
+    TEST_LANGUAGE_DESCRIPTIONS = [
+        "small purple cup/empty yogurt container",
+        "bag of chips/popcorn bag/yellow bag of food"
+    ]
 
     def _run_manual_test() -> None:
         # Put inside a function to avoid variable scoping issues.
