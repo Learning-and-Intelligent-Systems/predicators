@@ -67,24 +67,28 @@ static-object-features:
     length: 0.083
     width: 0.083
     placeable: 1  # true, can be placed
+    is_sweeper: 0
   brush:
     shape: 1  # cuboid
     height: 0.1
     length: 0.1
     width: 0.1
     placeable: 1
+    is_sweeper: 0
   soda_can:
     shape: 2
     height: 0.114
     length: 0.065
     width: 0.065
     placeable: 1
+    is_sweeper: 0
   chips:
     shape: 2
     height: 0.08
     length: 0.1
     width: 0.1
     placeable: 1
+    is_sweeper: 0
   floor:
     shape: 1
     height: 0.0001
@@ -109,20 +113,28 @@ static-object-features:
     length: 0.2
     width: 0.1
     placeable: 1
+    is_sweeper: 1
   bucket:
     shape: 1
     height: 0.05
-    width: 0.23
-    length: 0.15
+    width: 0.3
+    length: 0.4
     placeable: 1
+    is_sweeper: 0
     # Important for TopAbove that the bucket appears to always be on the ground
     z: -0.45
+    # Rotation can't be detected.
+    qw: 1
+    qx: 0
+    qy: 0
+    qz: 0
   chair:
     shape: 2
     height: 0.8
     length: 0.5
     width: 0.5
     placeable: 0  # false, can't be placed
+    is_sweeper: 0
     z: -0.1  # the chair can move in the x/y plane only
 # This should be calculable, but I'm lazy. These values represent the SE2 pose
 # (in the table frame) for the robot before placing the container.

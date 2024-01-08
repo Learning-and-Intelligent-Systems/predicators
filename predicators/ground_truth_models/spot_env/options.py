@@ -156,17 +156,42 @@ def _drag_and_release(robot: Robot, rel_pose: math_helpers.SE2Pose) -> None:
     move_hand_to_relative_pose(robot, DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE)
     # Stow the arm.
     stow_arm(robot)
-    # Move backward to avoid hitting the chair subsequently.
-    navigate_to_relative_pose(robot, math_helpers.SE2Pose(0.0, -0.5, 0.0))
 
 
-def _move_to_absolute_pose_and_place_stow(
+def _move_to_absolute_pose_and_place_push_stow(
         robot: Robot, localizer: SpotLocalizer,
         absolute_pose: math_helpers.SE2Pose,
-        place_rel_pose: math_helpers.SE3Pose) -> None:
+        place_rel_pose: math_helpers.SE3Pose,
+        push_rel_pose: math_helpers.SE3Pose) -> None:
     # Move to the absolute pose.
     navigate_to_absolute_pose(robot, localizer, absolute_pose)
-    _place_at_relative_position_and_stow(robot, place_rel_pose)
+    # Execute first place.
+    move_hand_to_relative_pose(robot, place_rel_pose)
+    # Push.
+    move_hand_to_relative_pose(robot, push_rel_pose)
+    # Open the gripper.
+    open_gripper(robot)
+    # Move the gripper slightly up to avoid collisions with the container.
+    dz = 0.2
+    slightly_back_and_up_pose = math_helpers.SE3Pose(x=push_rel_pose.x,
+                                                     y=push_rel_pose.y,
+                                                     z=push_rel_pose.z + dz,
+                                                     rot=push_rel_pose.rot)
+    move_hand_to_relative_pose(robot, slightly_back_and_up_pose)
+    # Move the gripper back toward above the place rel pose to avoid collisions
+    # with the surface.
+    slightly_back_and_up_pose = math_helpers.SE3Pose(x=place_rel_pose.x,
+                                                     y=place_rel_pose.y,
+                                                     z=place_rel_pose.z + dz,
+                                                     rot=place_rel_pose.rot)
+    move_hand_to_relative_pose(robot, slightly_back_and_up_pose)
+    # Stow.
+    stow_arm(robot)
+
+
+def _open_and_close_gripper(robot: Robot) -> None:
+    open_gripper(robot)
+    close_gripper(robot)
 
 
 ###############################################################################
@@ -264,7 +289,7 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
 
     robot, _, _ = get_robot()
 
-    start_dx, start_dy = params
+    start_dx, start_dy, start_dz = params
 
     robot_obj = objects[robot_obj_idx]
     robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
@@ -280,8 +305,8 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
 
     start_x = mean_x + start_dx
     start_y = mean_y + start_dy
-    start_z = mean_z
-    pitch = math_helpers.Quat.from_pitch(np.pi / 2 + np.pi / 6)
+    start_z = mean_z + start_dz
+    pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     yaw = math_helpers.Quat.from_yaw(np.pi / 4)
     rot = pitch * yaw
     sweep_start_pose = math_helpers.SE3Pose(x=start_x,
@@ -289,13 +314,14 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
                                             z=start_z,
                                             rot=rot)
     # Calculate the yaw and distance for the sweep.
-    sweep_move_dx = start_dx
-    sweep_move_dy = -(2 * start_dy)
+    sweep_move_dx = -start_dx
+    sweep_move_dy = -2 * start_dy
+    sweep_move_dz = -2 * start_dz
 
     # Execute the sweep.
     return utils.create_spot_env_action(
         name, objects, sweep,
-        (robot, sweep_start_pose, sweep_move_dx, sweep_move_dy))
+        (robot, sweep_start_pose, sweep_move_dx, sweep_move_dy, sweep_move_dz))
 
 
 ###############################################################################
@@ -460,7 +486,8 @@ def _drop_not_placeable_object_policy(state: State, memory: Dict,
     name = "DropNotPlaceableObject"
     robot, _, _ = get_robot()
 
-    return utils.create_spot_env_action(name, objects, open_gripper, (robot, ))
+    return utils.create_spot_env_action(name, objects, _open_and_close_gripper,
+                                        (robot, ))
 
 
 def _move_and_drop_object_inside_policy(state: State, memory: Dict,
@@ -564,14 +591,21 @@ def _prepare_container_for_sweeping_policy(state: State, memory: Dict,
                                               target_pose.y + dy, dyaw)
 
     # Place in front.
+    rot = math_helpers.Quat.from_pitch(np.pi / 2)
     place_rel_pose = math_helpers.SE3Pose(x=1.25,
                                           y=0.0,
-                                          z=container_z,
-                                          rot=math_helpers.Quat())
+                                          z=container_z - 0.15,
+                                          rot=rot)
+
+    # Push towards the target a little bit after placing.
+    push_rel_pose = math_helpers.SE3Pose(x=place_rel_pose.x,
+                                         y=place_rel_pose.y + 0.2,
+                                         z=place_rel_pose.z,
+                                         rot=place_rel_pose.rot)
 
     return utils.create_spot_env_action(
-        name, objects, _move_to_absolute_pose_and_place_stow,
-        (robot, localizer, absolute_move_pose, place_rel_pose))
+        name, objects, _move_to_absolute_pose_and_place_push_stow,
+        (robot, localizer, absolute_move_pose, place_rel_pose, push_rel_pose))
 
 
 def _move_to_ready_sweep_policy(state: State, memory: Dict,
@@ -620,8 +654,8 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "DropObjectInsideContainerOnTop": Box(-np.inf, np.inf,
                                           (3, )),  # rel dx, dy, dz
     "DragToUnblockObject": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dyaw
-    "SweepIntoContainer": Box(-np.inf, np.inf, (2, )),  # rel dx, dy
-    "SweepTwoObjectsIntoContainer": Box(-np.inf, np.inf, (2, )),  # rel dx, dy,
+    "SweepIntoContainer": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
+    "SweepTwoObjectsIntoContainer": Box(-np.inf, np.inf, (3, )),  # same
     "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
     "DropNotPlaceableObject": Box(0, 1, (0, )),  # empty
     "MoveToReadySweep": Box(0, 1, (0, )),  # empty

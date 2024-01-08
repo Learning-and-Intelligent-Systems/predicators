@@ -290,13 +290,13 @@ class SpotRearrangementEnv(BaseEnv):
 
         if action_name == "PrepareContainerForSweeping":
             _, container_obj, _, _ = action_objs
-            _, _, new_robot_se2_pose, _ = action_args
+            _, _, new_robot_se2_pose, _, _ = action_args
             return _dry_simulate_prepare_container_for_sweeping(
                 obs, container_obj, new_robot_se2_pose, nonpercept_atoms)
 
         if action_name == "SweepIntoContainer":
             _, _, target, _, container = action_objs
-            _, _, sweep_start_dx, sweep_start_dy = action_args
+            _, _, sweep_start_dx, sweep_start_dy, _ = action_args
             return _dry_simulate_sweep_into_container(obs, {target},
                                                       container,
                                                       nonpercept_atoms,
@@ -1041,6 +1041,11 @@ def _is_not_placeable_classifier(state: State,
     return not _is_not_placeable_classifier(state, objects)
 
 
+def _is_sweeper_classifier(state: State, objects: Sequence[Object]) -> bool:
+    obj, = objects
+    return state.get(obj, "is_sweeper") > 0.5
+
+
 def _has_flat_top_surface_classifier(state: State,
                                      objects: Sequence[Object]) -> bool:
     obj, = objects
@@ -1067,7 +1072,9 @@ def _robot_ready_for_sweeping_classifier(state: State,
     target_to_cont_unit = target_to_cont / np.linalg.norm(target_to_cont)
     angle_cos = np.dot(robot_to_target_unit, target_to_cont_unit)
 
-    return angle_cos < 0
+    threshold = 0.1  # exact would be 0
+
+    return angle_cos < threshold
 
 
 _NEq = Predicate("NEq", [_base_object_type, _base_object_type],
@@ -1104,6 +1111,8 @@ _ContainerReadyForSweeping = Predicate(
     _container_ready_for_sweeping_classifier)
 _IsPlaceable = Predicate("IsPlaceable", [_movable_object_type],
                          _is_placeable_classifier)
+_IsSweeper = Predicate("IsSweeper", [_movable_object_type],
+                       _is_sweeper_classifier)
 _IsNotPlaceable = Predicate("IsNotPlaceable", [_movable_object_type],
                             _is_not_placeable_classifier)
 _HasFlatTopSurface = Predicate("HasFlatTopSurface", [_immovable_object_type],
@@ -1128,6 +1137,7 @@ _ALL_PREDICATES = {
     _NotBlocked,
     _ContainerReadyForSweeping,
     _IsPlaceable,
+    _IsSweeper,
     _HasFlatTopSurface,
     _RobotReadyForSweeping,
 }
@@ -1380,6 +1390,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_IsPlaceable, [target1]),
         LiftedAtom(_IsPlaceable, [target2]),
         LiftedAtom(_HasFlatTopSurface, [surface]),
+        LiftedAtom(_IsSweeper, [sweeper]),
     }
     add_effs = {
         LiftedAtom(_Inside, [target1, container]),
@@ -1416,6 +1427,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
         LiftedAtom(_IsPlaceable, [target]),
         LiftedAtom(_HasFlatTopSurface, [surface]),
+        LiftedAtom(_IsSweeper, [sweeper]),
     }
     add_effs = {
         LiftedAtom(_Inside, [target, container]),

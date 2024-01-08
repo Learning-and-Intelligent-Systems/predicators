@@ -66,7 +66,7 @@ _base_object_type = Type("base-object", [
 _movable_object_type = Type(
     "movable",
     list(_base_object_type.feature_names) +
-    ["placeable", "held", "lost", "in_hand_view", "in_view"],
+    ["placeable", "held", "lost", "in_hand_view", "in_view", "is_sweeper"],
     parent=_base_object_type)
 _immovable_object_type = Type("immovable",
                               list(_base_object_type.feature_names) +
