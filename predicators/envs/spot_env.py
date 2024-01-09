@@ -764,13 +764,14 @@ class SpotRearrangementEnv(BaseEnv):
 
 ## Constants
 HANDEMPTY_GRIPPER_THRESHOLD = 2.5  # made public for use in perceiver
-_ONTOP_Z_THRESHOLD = 0.25
-_INSIDE_Z_THRESHOLD = 0.25
+_ONTOP_Z_THRESHOLD = 0.4
+_INSIDE_Z_THRESHOLD = 0.4
 _ONTOP_SURFACE_BUFFER = 0.48
 _INSIDE_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 0.925  # slightly less than length of arm
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
-_CONTAINER_SWEEP_XY_BUFFER = 1.5
+_CONTAINER_SWEEP_XY_BUFFER = 1.0
+_CONTAINER_SWEEP_Z_BUFFER = 2.5
 
 ## Types
 _ALL_TYPES = {
@@ -1028,7 +1029,7 @@ def _container_ready_for_sweeping_classifier(
     container_half_height = state.get(container, "height") / 2
     container_top = container_z + container_half_height
 
-    return target_bottom > container_top
+    return target_bottom + _CONTAINER_SWEEP_Z_BUFFER > container_top
 
 
 def _is_placeable_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -2195,7 +2196,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
 ###############################################################################
 
 
-class SpotSodaSweepEnv(SpotRearrangementEnv):
+class SpotMainSweepEnv(SpotRearrangementEnv):
     """An environment where a soda can needs to be swept into a bucket.
 
     To force sweeping, the goal includes holding the sweeper.
@@ -2223,22 +2224,26 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
 
     @classmethod
     def get_name(cls) -> str:
-        return "spot_soda_sweep_env"
+        return "spot_main_sweep_env"
 
     @property
     def _detection_id_to_obj(self) -> Dict[ObjectDetectionID, Object]:
 
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
 
-        soda_can = Object("soda_can", _movable_object_type)
-        soda_prompt = "soda can/aluminum can/orange can/beer can"
-        soda_can_detection = LanguageObjectDetectionID(soda_prompt)
-        detection_id_to_obj[soda_can_detection] = soda_can
+        yogurt = Object("yogurt", _movable_object_type)
+        yogurt_prompt = "/".join([
+            "small purple cup",
+            "empty yogurt container",
+        ])
+        yogurt_detection = LanguageObjectDetectionID(yogurt_prompt)
+        detection_id_to_obj[yogurt_detection] = yogurt
 
         chips = Object("chips", _movable_object_type)
         chips_prompt = "/".join([
             "bag of chips",
-            "green food bag",
+            "popcorn bag",
+            "yellow bag of food",
         ])
         chips_detection = LanguageObjectDetectionID(chips_prompt)
         detection_id_to_obj[chips_detection] = chips
@@ -2262,7 +2267,7 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         return detection_id_to_obj
 
     def _generate_goal_description(self) -> GoalDescription:
-        return "get the soda and chips in the bucket"
+        return "sweep the objects into the bucket"
 
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:
@@ -2278,8 +2283,8 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         known_immovables = metadata["known-immovable-objects"]
         table_height = static_object_feats["black_table"]["height"]
         table_length = static_object_feats["black_table"]["length"]
-        soda_can_height = static_object_feats["soda_can"]["height"]
-        soda_can_length = static_object_feats["soda_can"]["length"]
+        yogurt_height = static_object_feats["yogurt"]["height"]
+        yogurt_length = static_object_feats["yogurt"]["length"]
         chips_height = static_object_feats["chips"]["height"]
         brush_height = static_object_feats["brush"]["height"]
         chair_height = static_object_feats["chair"]["height"]
@@ -2289,18 +2294,17 @@ class SpotSodaSweepEnv(SpotRearrangementEnv):
         table_x = known_immovables["black_table"]["x"]
         table_y = known_immovables["black_table"]["y"]
 
-        soda_can = Object("soda_can", _movable_object_type)
+        yogurt = Object("yogurt", _movable_object_type)
         x = table_x
-        y = table_y - table_length / 2.25 + soda_can_length
-        z = floor_z + table_height + soda_can_height / 2
-        soda_can_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
-        objects_in_view[soda_can] = soda_can_pose
+        y = table_y - table_length / 2.25 + yogurt_length
+        z = floor_z + table_height + yogurt_height / 2
+        yogurt_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+        objects_in_view[yogurt] = yogurt_pose
 
         chips = Object("chips", _movable_object_type)
         z = floor_z + table_height + chips_height / 2
-        chips_pose = math_helpers.SE3Pose(soda_can_pose.x,
-                                          soda_can_pose.y + 0.1, z,
-                                          math_helpers.Quat())
+        chips_pose = math_helpers.SE3Pose(yogurt_pose.x, yogurt_pose.y + 0.1,
+                                          z, math_helpers.Quat())
         objects_in_view[chips] = chips_pose
 
         brush = Object("brush", _movable_object_type)

@@ -130,6 +130,21 @@ class SpotPerceiver(BasePerceiver):
                     # We lost the object!
                     logging.info("[Perceiver] Object was lost!")
                     self._lost_objects.add(obj)
+            elif any(n in controller_name.lower()
+                     for n in ["sweepintocontainer", "sweeptwoobjects"]):
+                robot = objects[0]
+                state = self._create_state()
+                if controller_name.lower() == "sweepintocontainer":
+                    objs = {objects[2]}
+                else:
+                    assert controller_name.lower().startswith("sweeptwoobject")
+                    objs = {objects[2], objects[3]}
+                for o in objs:
+                    is_in_view = in_general_view_classifier(state, [robot, o])
+                    if not is_in_view:
+                        # We lost the object!
+                        logging.info("[Perceiver] Object was lost!")
+                        self._lost_objects.add(o)
             else:
                 # Ensure the held object is reset if the hand is empty.
                 prev_held_object = self._held_object
@@ -305,14 +320,14 @@ class SpotPerceiver(BasePerceiver):
                 GroundAtom(Inside, [can, bucket]),
                 GroundAtom(Holding, [robot, brush])
             }
-        if goal_description == "get the soda and chips in the bucket":
+        if goal_description == "sweep the objects into the bucket":
             robot = Object("robot", _robot_type)
-            can = Object("soda_can", _movable_object_type)
+            yogurt = Object("yogurt", _movable_object_type)
             chips = Object("chips", _movable_object_type)
             bucket = Object("bucket", _container_type)
             Inside = pred_name_to_pred["Inside"]
             return {
-                GroundAtom(Inside, [can, bucket]),
+                GroundAtom(Inside, [yogurt, bucket]),
                 GroundAtom(Inside, [chips, bucket]),
             }
         if goal_description == "put the ball on the table":

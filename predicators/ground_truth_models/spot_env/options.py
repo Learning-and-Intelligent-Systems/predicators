@@ -711,7 +711,7 @@ class SpotEnvsGroundTruthOptionFactory(GroundTruthOptionFactory):
             "spot_soda_table_env",
             "spot_soda_bucket_env",
             "spot_soda_chair_env",
-            "spot_soda_sweep_env",
+            "spot_main_sweep_env",
             "spot_ball_and_cup_sticky_table_env",
             "spot_brush_shelf_env",
         }

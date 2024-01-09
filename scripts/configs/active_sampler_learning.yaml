@@ -84,7 +84,7 @@ ENVS:
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: oracle
   spot_sweeping_sim:
-    NAME: "spot_soda_sweep_env"
+    NAME: "spot_main_sweep_env"
     FLAGS:
       active_sampler_learning_explore_length_base: 25
       active_sampler_learning_exploration_epsilon: 0.5

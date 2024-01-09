@@ -75,7 +75,7 @@ static-object-features:
     width: 0.1
     placeable: 1
     is_sweeper: 0
-  soda_can:
+  yogurt:
     shape: 2
     height: 0.114
     length: 0.065

@@ -54,10 +54,10 @@ def test_spot_env_dry_run():
     assert env.goal_reached()
 
 
-def test_spot_soda_sweep_env_dry_run():
-    """Tests specific to the soda sweeping environment."""
+def test_spot_main_sweep_env_dry_run():
+    """Tests specific to the main sweeping environment."""
     utils.reset_config({
-        "env": "spot_soda_sweep_env",
+        "env": "spot_main_sweep_env",
         "approach": "spot_wrapper[oracle]",
         "num_train_tasks": 0,
         "num_test_tasks": 1,
@@ -83,7 +83,7 @@ def test_spot_soda_sweep_env_dry_run():
     init_obs = env.reset("test", 0)
     state = perceiver.step(init_obs)
 
-    # Test that we can sweep the soda into the bucket, dump it out, then
+    # Test that we can sweep the yogurt into the bucket, dump it out, then
     # do the whole thing again.
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
@@ -103,7 +103,7 @@ def test_spot_soda_sweep_env_dry_run():
     robot = obj_name_to_obj["robot"]
     bucket = obj_name_to_obj["bucket"]
     brush = obj_name_to_obj["brush"]
-    soda_can = obj_name_to_obj["soda_can"]
+    yogurt = obj_name_to_obj["yogurt"]
     chair = obj_name_to_obj["chair"]
     table = obj_name_to_obj["black_table"]
     floor = obj_name_to_obj["floor"]
@@ -143,22 +143,22 @@ def test_spot_soda_sweep_env_dry_run():
     move_to_hand_view_bucket = MoveToHandViewObject.ground([robot, bucket])
     pick_bucket = PickObjectFromTop.ground([robot, bucket, floor])
     prepare_bucket = PrepareContainerForSweeping.ground(
-        [robot, bucket, soda_can, table])
+        [robot, bucket, yogurt, table])
     move_to_hand_view_chair = MoveToHandViewObject.ground([robot, chair])
     pick_chair = PickObjectToDrag.ground([robot, chair])
-    drag_chair = DragToUnblockObject.ground([robot, chair, soda_can])
+    drag_chair = DragToUnblockObject.ground([robot, chair, yogurt])
     move_to_hand_view_brush = MoveToHandViewObject.ground([robot, brush])
     pick_brush = PickObjectFromTop.ground([robot, brush, floor])
-    move_to_reach_soda = MoveToReachObject.ground([robot, soda_can])
-    sweep = SweepIntoContainer.ground([robot, brush, soda_can, table, bucket])
+    move_to_reach_yogurt = MoveToReachObject.ground([robot, yogurt])
+    sweep = SweepIntoContainer.ground([robot, brush, yogurt, table, bucket])
     move_to_reach_floor = MoveToReachObject.ground([robot, floor])
     place_brush = PlaceObjectOnTop.ground([robot, brush, floor])
-    dump_bucket = PickAndDumpContainer.ground([robot, bucket, floor, soda_can])
+    dump_bucket = PickAndDumpContainer.ground([robot, bucket, floor, yogurt])
     place_bucket = PlaceObjectOnTop.ground([robot, bucket, floor])
-    move_to_hand_view_soda = MoveToHandViewObject.ground([robot, soda_can])
-    pick_soda = PickObjectFromTop.ground([robot, soda_can, floor])
+    move_to_hand_view_yogurt = MoveToHandViewObject.ground([robot, yogurt])
+    pick_yogurt = PickObjectFromTop.ground([robot, yogurt, floor])
     move_to_reach_table = MoveToReachObject.ground([robot, table])
-    place_soda = PlaceObjectOnTop.ground([robot, soda_can, table])
+    place_yogurt = PlaceObjectOnTop.ground([robot, yogurt, table])
 
     # Assertions will be raised in _run_ground_nsrt if there are any issues.
     state = _run_ground_nsrt(move_to_hand_view_bucket, state)
@@ -169,7 +169,7 @@ def test_spot_soda_sweep_env_dry_run():
     state = _run_ground_nsrt(drag_chair, state)
     state = _run_ground_nsrt(move_to_hand_view_brush, state)
     state = _run_ground_nsrt(pick_brush, state)
-    state = _run_ground_nsrt(move_to_reach_soda, state)
+    state = _run_ground_nsrt(move_to_reach_yogurt, state)
     state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
     state = _run_ground_nsrt(move_to_reach_floor, state)
     state = _run_ground_nsrt(place_brush, state)
@@ -177,16 +177,16 @@ def test_spot_soda_sweep_env_dry_run():
     state = _run_ground_nsrt(dump_bucket, state)
     state = _run_ground_nsrt(move_to_reach_floor, state)
     state = _run_ground_nsrt(place_bucket, state)
-    state = _run_ground_nsrt(move_to_hand_view_soda, state)
-    state = _run_ground_nsrt(pick_soda, state)
+    state = _run_ground_nsrt(move_to_hand_view_yogurt, state)
+    state = _run_ground_nsrt(pick_yogurt, state)
     state = _run_ground_nsrt(move_to_reach_table, state)
-    state = _run_ground_nsrt(place_soda, state)
+    state = _run_ground_nsrt(place_yogurt, state)
     state = _run_ground_nsrt(move_to_hand_view_bucket, state)
     state = _run_ground_nsrt(pick_bucket, state)
     state = _run_ground_nsrt(prepare_bucket, state)
     state = _run_ground_nsrt(move_to_hand_view_brush, state)
     state = _run_ground_nsrt(pick_brush, state)
-    state = _run_ground_nsrt(move_to_reach_soda, state)
+    state = _run_ground_nsrt(move_to_reach_yogurt, state)
     state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
     state = _run_ground_nsrt(move_to_reach_floor, state)
     state = _run_ground_nsrt(place_brush, state)

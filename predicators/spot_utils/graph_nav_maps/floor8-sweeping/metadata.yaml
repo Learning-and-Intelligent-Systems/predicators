@@ -23,8 +23,8 @@ known-immovable-objects:
     y: 0.373
     z: -0.5
   black_table:
-    x: 1.6
-    y: -1.1
+    x: 1.42
+    y: -1.15
     z: -0.1
   shelf1:
     x: 4.0
@@ -39,16 +39,16 @@ static-object-features:
     length: 10000000  # effectively infinite
     width: 10000000
     flat_top_surface: 0
-  soda_can:
+  yogurt:
     shape: 2
-    height: 0.114
+    height: 0.05
     length: 0.065
     width: 0.065
     placeable: 1
     is_sweeper: 0
   chips:
     shape: 2
-    height: 0.08
+    height: 0.06
     length: 0.1
     width: 0.1
     placeable: 1
@@ -84,9 +84,9 @@ static-object-features:
     z: -0.1  # the chair can move in the x/y plane only
   black_table:
     shape: 1
-    height: 0.7
-    length: 0.45
-    width: 0.55
+    height: 0.42
+    length: 0.4
+    width: 0.65
     flat_top_surface: 1
   shelf1:
     shape: 1
@@ -97,6 +97,6 @@ static-object-features:
 # This should be calculable, but I'm lazy. These values represent the SE2 pose
 # (in the table frame) for the robot before placing the container.
 prepare_container_relative_xy:
-  dx: -0.35
+  dx: -0.5
   dy: 0.65
   angle: -1.5707  # - pi / 2
