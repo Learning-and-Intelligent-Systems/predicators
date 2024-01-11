@@ -393,7 +393,13 @@ def _get_pose_from_segmented_bounding_box(
     # Convert camera to world.
     world_frame_pose = rgbd.world_tform_camera * camera_frame_pose
 
-    return world_frame_pose
+    # The angles are not meaningful, so override them.
+    final_pose = math_helpers.SE3Pose(x=world_frame_pose.x,
+                                      y=world_frame_pose.y,
+                                      z=world_frame_pose.z,
+                                      rot=math_helpers.Quat())
+
+    return final_pose
 
 
 def get_grasp_pixel(

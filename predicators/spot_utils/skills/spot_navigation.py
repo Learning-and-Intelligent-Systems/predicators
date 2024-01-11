@@ -92,6 +92,7 @@ def navigate_to_absolute_pose(robot: Robot,
                                                                -1.0),
                               timeout: float = 20.0) -> None:
     """Move to the absolute SE2 pose."""
+    localizer.localize()
     robot_pose = localizer.get_last_robot_pose()
     robot_se2 = robot_pose.get_closest_se2_transform()
     rel_pose = robot_se2.inverse() * target_pose

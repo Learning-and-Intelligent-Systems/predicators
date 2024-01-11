@@ -14,7 +14,7 @@ allowed-regions:
   main-room:
     - [0.72, -1.9]
     - [0.46, 0.77]
-    - [3.1, 0.99]
+    - [3.1, 1.2]
     - [3.5, -1.7]
 # Known immovable objects. Assuming default rotations.
 known-immovable-objects:
@@ -100,3 +100,6 @@ prepare_container_relative_xy:
   dx: -0.5
   dy: 0.65
   angle: -1.5707  # - pi / 2
+# Helpful for static objects that are up against a wall, for example.
+approach_angle_bounds:
+  black_table: [1.56, 1.58]  # about pi / 2

@@ -1,5 +1,6 @@
 """Ground-truth options for Spot environments."""
 
+import time
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
@@ -9,7 +10,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.envs.spot_env import SpotRearrangementEnv, get_robot
+from predicators.envs.spot_env import SpotRearrangementEnv, \
+    _get_sweeping_surface_for_container, get_robot
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
 from predicators.spot_utils.perception.perception_structs import \
@@ -26,8 +28,9 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.skills.spot_sweep import sweep
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import DEFAULT_HAND_DROP_OBJECT_POSE, \
-    DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, get_relative_se2_from_se3, \
-    object_to_top_down_geom
+    DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE, DEFAULT_HAND_POST_DUMP_POSE, \
+    DEFAULT_HAND_PRE_DUMP_LIFT_POSE, DEFAULT_HAND_PRE_DUMP_POSE, \
+    get_relative_se2_from_se3, load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     Predicate, State, Type
 
@@ -54,11 +57,11 @@ def navigate_to_relative_pose_and_gaze(robot: Robot,
     gaze_at_relative_pose(robot, rel_gaze_target_body)
 
 
-def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
-                             pixel: Tuple[int, int],
-                             grasp_rot: Optional[math_helpers.Quat],
-                             rot_thresh: float, timeout: float,
-                             retry_grasp_after_fail: bool) -> None:
+def _grasp_at_pixel_and_maybe_stow_or_dump(
+        robot: Robot, img: RGBDImageWithContext, pixel: Tuple[int, int],
+        grasp_rot: Optional[math_helpers.Quat], rot_thresh: float,
+        timeout: float, retry_grasp_after_fail: bool, do_stow: bool,
+        do_dump: bool) -> None:
     # Grasp.
     grasp_at_pixel(robot,
                    img,
@@ -67,8 +70,22 @@ def _grasp_at_pixel_and_stow(robot: Robot, img: RGBDImageWithContext,
                    rot_thresh=rot_thresh,
                    timeout=timeout,
                    retry_with_no_constraints=retry_grasp_after_fail)
+    # Dump.
+    if do_dump:
+        # Lift the grasped object up high enough that it doesn't collide.
+        move_hand_to_relative_pose(robot, DEFAULT_HAND_PRE_DUMP_LIFT_POSE)
+        # Rotate to the left.
+        angle = np.pi / 2
+        navigate_to_relative_pose(robot, math_helpers.SE2Pose(0, 0, angle))
+        # Move the hand to execute the dump.
+        move_hand_to_relative_pose(robot, DEFAULT_HAND_PRE_DUMP_POSE)
+        time.sleep(1.0)
+        move_hand_to_relative_pose(robot, DEFAULT_HAND_POST_DUMP_POSE)
+        # Rotate back to where we started.
+        navigate_to_relative_pose(robot, math_helpers.SE2Pose(0, 0, -angle))
     # Stow.
-    stow_arm(robot)
+    if do_stow:
+        stow_arm(robot)
 
 
 def _place_at_relative_position_and_stow(
@@ -234,8 +251,13 @@ def _move_to_target_policy(name: str, distance_param_idx: int,
     return utils.create_spot_env_action(name, objects, fn, fn_args)
 
 
-def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
-                  objects: Sequence[Object], params: Array) -> Action:
+def _grasp_policy(name: str,
+                  target_obj_idx: int,
+                  state: State,
+                  memory: Dict,
+                  objects: Sequence[Object],
+                  params: Array,
+                  do_dump: bool = False) -> Action:
     del memory  # not used
 
     robot, _, _ = get_robot()
@@ -259,10 +281,10 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
     # If the target object is reasonably large, don't try to stow!
     target_obj_volume = state.get(target_obj, "height") * \
         state.get(target_obj, "length") * state.get(target_obj, "width")
-    if target_obj_volume > CFG.spot_grasp_stow_volume_threshold:
-        fn: Callable = grasp_at_pixel
-    else:
-        fn = _grasp_at_pixel_and_stow
+
+    do_stow = not do_dump and \
+        target_obj_volume < CFG.spot_grasp_stow_volume_threshold
+    fn = _grasp_at_pixel_and_maybe_stow_or_dump
 
     # Use a relatively forgiving threshold for grasp constraints in general,
     # but for the ball, use a strict constraint.
@@ -274,9 +296,9 @@ def _grasp_policy(name: str, target_obj_idx: int, state: State, memory: Dict,
     # Retry a grasp if a failure occurs!
     retry_with_no_constraints = target_obj.name != "brush"
 
-    return utils.create_spot_env_action(name, objects, fn,
-                                        (robot, img, pixel, grasp_rot, thresh,
-                                         20.0, retry_with_no_constraints))
+    return utils.create_spot_env_action(
+        name, objects, fn, (robot, img, pixel, grasp_rot, thresh, 20.0,
+                            retry_with_no_constraints, do_stow, do_dump))
 
 
 def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
@@ -387,13 +409,55 @@ def _pick_object_to_drag_policy(state: State, memory: Dict,
     return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
 
 
-def _dump_cup_policy(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> Action:
+def _pick_and_dump_cup_policy(state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> Action:
     # Same as PickObjectFromTop; just necessary to make options 1:1 with
     # operators.
-    name = "PickAndDumpContainer"
+    name = "PickAndDumpCup"
     target_obj_idx = 1
     return _grasp_policy(name, target_obj_idx, state, memory, objects, params)
+
+
+def _pick_and_dump_container_policy(state: State, memory: Dict,
+                                    objects: Sequence[Object],
+                                    params: Array) -> Action:
+    # Pick up the container and then move the and forward and backward.
+    name = "PickAndDumpContainer"
+    robot_obj_idx = 0
+    target_obj_idx = 1
+    grasp_action = _grasp_policy(name,
+                                 target_obj_idx,
+                                 state,
+                                 memory,
+                                 objects,
+                                 params,
+                                 do_dump=True)
+
+    # If the container starts out next to a surface while ready for sweeping,
+    # put it back.
+    robot = objects[robot_obj_idx]
+    container = objects[target_obj_idx]
+    surface = _get_sweeping_surface_for_container(container, state)
+    if surface is None:
+        return grasp_action
+    param_dict = load_spot_metadata()["prepare_container_relative_xy"]
+    prep_params = np.array(
+        [param_dict["dx"], param_dict["dy"], param_dict["angle"]])
+    prep_objects = [robot, container, surface, surface]
+    prep_sweep_action = _prepare_container_for_sweeping_policy(
+        state, memory, prep_objects, prep_params)
+
+    # Chain the actions.
+    actions = [grasp_action, prep_sweep_action]
+
+    def _fn() -> None:
+        for action in actions:
+            assert isinstance(action.extra_info, (list, tuple))
+            _, _, action_fn, action_fn_args = action.extra_info
+            action_fn(*action_fn_args)
+
+    return utils.create_spot_env_action(name, objects, _fn, tuple())
 
 
 def _place_object_on_top_policy(state: State, memory: Dict,
@@ -646,6 +710,8 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     # then grasp is unconstrained
     "PickObjectFromTop": Box(-np.inf, np.inf, (6, )),
     # same as PickObjectFromTop
+    "PickAndDumpCup": Box(-np.inf, np.inf, (6, )),
+    # same as PickObjectFromTop
     "PickAndDumpContainer": Box(-np.inf, np.inf, (6, )),
     # same as PickObjectFromTop
     "PickObjectToDrag": Box(-np.inf, np.inf, (6, )),
@@ -669,7 +735,8 @@ _OPERATOR_NAME_TO_POLICY = {
     "MoveToBodyViewObject": _move_to_body_view_object_policy,
     "PickObjectFromTop": _pick_object_from_top_policy,
     "PickObjectToDrag": _pick_object_to_drag_policy,
-    "PickAndDumpContainer": _dump_cup_policy,
+    "PickAndDumpCup": _pick_and_dump_cup_policy,
+    "PickAndDumpContainer": _pick_and_dump_container_policy,
     "PlaceObjectOnTop": _place_object_on_top_policy,
     "DropObjectInside": _drop_object_inside_policy,
     "DropObjectInsideContainerOnTop": _move_and_drop_object_inside_policy,

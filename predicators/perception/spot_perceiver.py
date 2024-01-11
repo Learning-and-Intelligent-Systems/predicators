@@ -329,6 +329,15 @@ class SpotPerceiver(BasePerceiver):
                 GroundAtom(Inside, [yogurt, bucket]),
                 GroundAtom(Inside, [chips, bucket]),
             }
+        if goal_description == "get the yogurt and chips onto the table":
+            yogurt = Object("yogurt", _movable_object_type)
+            chips = Object("chips", _movable_object_type)
+            table = Object("black_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [yogurt, table]),
+                GroundAtom(On, [chips, table]),
+            }
         if goal_description == "get the yogurt into the bucket":
             yogurt = Object("yogurt", _movable_object_type)
             bucket = Object("bucket", _container_type)

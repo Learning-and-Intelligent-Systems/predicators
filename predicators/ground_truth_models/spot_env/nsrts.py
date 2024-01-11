@@ -1,13 +1,13 @@
 """Ground-truth NSRTs for the spot environments."""
 
-from typing import Dict, Sequence, Set
+from typing import Dict, Sequence, Set, Tuple
 
 import numpy as np
 
 from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.spot_env import SpotRearrangementEnv, \
-    get_detection_id_for_object
+    _get_sweeping_surface_for_container, get_detection_id_for_object
 from predicators.ground_truth_models import GroundTruthNSRTFactory
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_detection import \
@@ -23,7 +23,8 @@ from predicators.structs import NSRT, Array, GroundAtom, NSRTSampler, Object, \
 
 def _move_offset_sampler(state: State, robot_obj: Object,
                          obj_to_nav_to: Object, rng: np.random.Generator,
-                         min_dist: float, max_dist: float) -> Array:
+                         min_dist: float, max_dist: float, min_angle: float,
+                         max_angle: float) -> Array:
     """Called by all the different movement samplers."""
     obj_to_nav_to_pos = (state.get(obj_to_nav_to,
                                    "x"), state.get(obj_to_nav_to, "y"))
@@ -40,6 +41,8 @@ def _move_offset_sampler(state: State, robot_obj: Object,
             min_distance=min_dist,
             max_distance=max_dist,
             allowed_regions=convex_hulls,
+            min_angle=min_angle,
+            max_angle=max_angle,
         )
     # Rare sampling failures.
     except RuntimeError:  # pragma: no cover
@@ -59,8 +62,11 @@ def _move_to_body_view_object_sampler(state: State, goal: Set[GroundAtom],
 
     robot_obj = objs[0]
     obj_to_nav_to = objs[1]
+
+    min_angle, max_angle = _get_approach_angle_bounds(obj_to_nav_to, state)
+
     return _move_offset_sampler(state, robot_obj, obj_to_nav_to, rng, min_dist,
-                                max_dist)
+                                max_dist, min_angle, max_angle)
 
 
 def _move_to_hand_view_object_sampler(state: State, goal: Set[GroundAtom],
@@ -75,8 +81,10 @@ def _move_to_hand_view_object_sampler(state: State, goal: Set[GroundAtom],
     robot_obj = objs[0]
     obj_to_nav_to = objs[1]
 
+    min_angle, max_angle = _get_approach_angle_bounds(obj_to_nav_to, state)
+
     return _move_offset_sampler(state, robot_obj, obj_to_nav_to, rng, min_dist,
-                                max_dist)
+                                max_dist, min_angle, max_angle)
 
 
 def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
@@ -91,8 +99,26 @@ def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
 
     robot_obj = objs[0]
     obj_to_nav_to = objs[1]
+
+    min_angle, max_angle = _get_approach_angle_bounds(obj_to_nav_to, state)
+
     return _move_offset_sampler(state, robot_obj, obj_to_nav_to, rng, min_dist,
-                                max_dist)
+                                max_dist, min_angle, max_angle)
+
+
+def _get_approach_angle_bounds(obj: Object,
+                               state: State) -> Tuple[float, float]:
+    """Helper for move samplers."""
+    angle_bounds = load_spot_metadata().get("approach_angle_bounds", {})
+    if obj.name in angle_bounds:
+        return angle_bounds[obj.name]
+    # Mega-hack for when the container is next to something with angle bounds,
+    # i.e., it is ready to sweep.
+    surface = _get_sweeping_surface_for_container(obj, state)
+    if surface is not None and surface.name in angle_bounds:
+        return angle_bounds[surface.name]
+    # Default to all possible approach angles.
+    return (-np.pi, np.pi)
 
 
 def _pick_object_from_top_sampler(state: State, goal: Set[GroundAtom],
@@ -238,6 +264,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "MoveToReachObject": _move_to_reach_object_sampler,
             "PickObjectFromTop": _pick_object_from_top_sampler,
             "PickObjectToDrag": _pick_object_from_top_sampler,
+            "PickAndDumpCup": _pick_object_from_top_sampler,
             "PickAndDumpContainer": _pick_object_from_top_sampler,
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
