@@ -190,13 +190,12 @@ def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],
 def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
                                   objs: Sequence[Object]) -> Array:
-    # Parameters are start dx, start dy, start dz.
-    # NOTE: these parameters may change (need to experiment on robot).
+    # Parameters are just one number, a velocity.
     del state, goal, objs
     if CFG.spot_use_perfect_samplers:
-        return np.array([0.1, 0.4, 0.2])
-    dx, dy, dz = rng.uniform(-0.5, 0.5, size=3)
-    return np.array([dx, dy, dz])
+        return np.array([0.25])
+    param = rng.uniform(0.1, 5.0)
+    return np.array([param])
 
 
 def _prepare_sweeping_sampler(state: State, goal: Set[GroundAtom],

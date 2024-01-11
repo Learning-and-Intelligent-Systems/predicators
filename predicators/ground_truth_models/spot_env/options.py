@@ -289,7 +289,8 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
 
     robot, _, _ = get_robot()
 
-    start_dx, start_dy, start_dz = params
+    velocity, = params
+    duration = max(1 / velocity, 1e-3)
 
     robot_obj = objects[robot_obj_idx]
     robot_pose = utils.get_se3_pose_from_state(state, robot_obj)
@@ -303,9 +304,9 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
         target_obj_rel_xyzs.append(rel_xyz)
     mean_x, mean_y, mean_z = np.mean(target_obj_rel_xyzs, axis=0)
 
-    start_x = mean_x + start_dx
-    start_y = mean_y + start_dy
-    start_z = mean_z + start_dz
+    start_x = mean_x + 0.1
+    start_y = mean_y + 0.4
+    start_z = mean_z + 0.2
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     yaw = math_helpers.Quat.from_yaw(np.pi / 4)
     rot = pitch * yaw
@@ -313,15 +314,14 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
                                             y=start_y,
                                             z=start_z,
                                             rot=rot)
-    # Calculate the yaw and distance for the sweep.
-    sweep_move_dx = -start_dx
-    sweep_move_dy = -2 * start_dy
-    sweep_move_dz = -2 * start_dz
+    sweep_move_dx = 0.0
+    sweep_move_dy = -0.8
+    sweep_move_dz = -0.1
 
     # Execute the sweep.
     return utils.create_spot_env_action(
-        name, objects, sweep,
-        (robot, sweep_start_pose, sweep_move_dx, sweep_move_dy, sweep_move_dz))
+        name, objects, sweep, (robot, sweep_start_pose, sweep_move_dx,
+                               sweep_move_dy, sweep_move_dz, duration))
 
 
 ###############################################################################
@@ -654,8 +654,8 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "DropObjectInsideContainerOnTop": Box(-np.inf, np.inf,
                                           (3, )),  # rel dx, dy, dz
     "DragToUnblockObject": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dyaw
-    "SweepIntoContainer": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
-    "SweepTwoObjectsIntoContainer": Box(-np.inf, np.inf, (3, )),  # same
+    "SweepIntoContainer": Box(-np.inf, np.inf, (1, )),  # velocity
+    "SweepTwoObjectsIntoContainer": Box(-np.inf, np.inf, (1, )),  # same
     "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
     "DropNotPlaceableObject": Box(0, 1, (0, )),  # empty
     "MoveToReadySweep": Box(0, 1, (0, )),  # empty

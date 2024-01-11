@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import contextlib
+import curses
 import functools
 import gc
 import heapq as hq
@@ -286,6 +287,16 @@ def prompt_user(prompt: str) -> str:  # pragma: no cover
             gTTS(text=prompt, lang="en").write_to_fp(voice)
             playsound(voice.name)
     return input(prompt)
+
+
+def wait_for_any_button_press(msg: str) -> None:  # pragma: no cover
+    """Print some text and wait for the user to press any button."""
+    stdscr = curses.initscr()
+    curses.noecho()
+    stdscr.addstr(msg)
+    stdscr.getkey()
+    curses.flushinp()
+    curses.endwin()
 
 
 def construct_active_sampler_input(state: State, objects: Sequence[Object],

@@ -296,22 +296,20 @@ class SpotRearrangementEnv(BaseEnv):
 
         if action_name == "SweepIntoContainer":
             _, _, target, _, container = action_objs
-            _, _, sweep_start_dx, sweep_start_dy, _ = action_args
+            _, _, _, _, _, duration = action_args
             return _dry_simulate_sweep_into_container(obs, {target},
                                                       container,
                                                       nonpercept_atoms,
-                                                      start_dx=sweep_start_dx,
-                                                      start_dy=sweep_start_dy,
+                                                      duration=duration,
                                                       rng=self._noise_rng)
 
         if action_name == "SweepTwoObjectsIntoContainer":
             _, _, target1, target2, _, container = action_objs
-            _, _, sweep_start_dx, sweep_start_dy = action_args
+            _, _, _, _, _, duration = action_args
             return _dry_simulate_sweep_into_container(obs, {target1, target2},
                                                       container,
                                                       nonpercept_atoms,
-                                                      start_dx=sweep_start_dx,
-                                                      start_dy=sweep_start_dy,
+                                                      duration=duration,
                                                       rng=self._noise_rng)
 
         if action_name == "DragToUnblockObject":
@@ -1782,7 +1780,7 @@ def _dry_simulate_prepare_container_for_sweeping(
 
 def _dry_simulate_sweep_into_container(
         last_obs: _SpotObservation, swept_objs: Set[Object], container: Object,
-        nonpercept_atoms: Set[GroundAtom], start_dx: float, start_dy: float,
+        nonpercept_atoms: Set[GroundAtom], duration: float,
         rng: np.random.Generator) -> _SpotObservation:
 
     # Initialize values based on the last observation.
@@ -1797,15 +1795,14 @@ def _dry_simulate_sweep_into_container(
     container_pose = objects_in_view[container]
     container_radius = static_feats[container.name]["width"] / 2
 
-    # NOTE: this may change soon to be more physically realistic.
     # If the sweep parameters are close enough to optimal, the object should
     # end up in the container.
-    optimal_dx, optimal_dy = 0.0, -0.5
-    thresh = 1.0
+    optimal_duration = 3.0
+    thresh = 0.5
     for swept_obj in swept_objs:
         swept_obj_height = static_feats[swept_obj.name]["height"]
         swept_obj_radius = static_feats[swept_obj.name]["width"] / 2
-        if abs(start_dx - optimal_dx) + abs(start_dy - optimal_dy) < thresh:
+        if abs(optimal_duration - duration) < thresh:
             x = container_pose.x
             y = container_pose.y
             z = container_pose.z + swept_obj_height / 2

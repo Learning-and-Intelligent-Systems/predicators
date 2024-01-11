@@ -5,17 +5,22 @@ from typing import List
 
 import dill as pkl
 import numpy as np
+from bosdyn.client import math_helpers
 
 from predicators import utils
 from predicators.approaches import create_approach
 from predicators.cogman import CogMan
 from predicators.envs import create_new_env
-from predicators.envs.spot_env import SpotBallAndCupStickyTableEnv, SpotCubeEnv
+from predicators.envs.spot_env import SpotBallAndCupStickyTableEnv, \
+    SpotCubeEnv, SpotMainSweepEnv
 from predicators.execution_monitoring import create_execution_monitor
 from predicators.ground_truth_models import get_gt_nsrts, get_gt_options
 from predicators.perception.spot_perceiver import SpotPerceiver
 from predicators.settings import CFG
+from predicators.spot_utils.skills.spot_hand_move import close_gripper, \
+    move_hand_to_relative_pose, open_gripper
 from predicators.spot_utils.skills.spot_navigation import go_home
+from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.structs import Action, GroundAtom, _GroundNSRT
 
 
@@ -522,6 +527,82 @@ def real_robot_drafting_table_placement_test() -> None:
                 break
 
 
+def real_robot_sweeping_nsrt_test() -> None:
+    """Test for running the sweeping skill and base sampler on the real robot.
+
+    This is similar to the test in spot_sweep.py, but it uses the whole NSRT.
+
+    Run this test by running the file directly, i.e.,
+
+    python tests/envs/test_spot_envs.py --spot_robot_ip <ip address>
+    """
+    args = utils.parse_args(env_required=False,
+                            seed_required=False,
+                            approach_required=False)
+    utils.reset_config({
+        "env": "spot_main_sweep_env",
+        "approach": "spot_wrapper[oracle]",
+        "num_train_tasks": 0,
+        "num_test_tasks": 1,
+        "seed": 123,
+        "spot_robot_ip": args["spot_robot_ip"],
+    })
+    rng = np.random.default_rng(123)
+    env = SpotMainSweepEnv()
+    robot = env._robot  # pylint: disable=protected-access
+    perceiver = SpotPerceiver()
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates,
+                         get_gt_options(env.get_name()))
+
+    # This should have the robot spin around and locate all objects.
+    task = env.get_test_tasks()[0]
+    obs = env.reset("test", 0)
+    perceiver.reset(task)
+    objects_in_view = {o.name: o for o in obs.objects_in_view}
+    yogurt = objects_in_view["yogurt"]
+    chips = objects_in_view["chips"]
+    table = objects_in_view["black_table"]
+    container = objects_in_view["bucket"]
+    brush = objects_in_view["brush"]
+    state = perceiver.step(obs)
+    spot = next(o for o in state if o.type.name == "robot")
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    MoveToReadySweep = nsrt_name_to_nsrt["MoveToReadySweep"]
+    SweepTwoObjectsIntoContainer = \
+        nsrt_name_to_nsrt["SweepTwoObjectsIntoContainer"]
+
+    # Ask for the brush.
+    hand_side_pose = math_helpers.SE3Pose(x=0.80,
+                                          y=0.0,
+                                          z=0.25,
+                                          rot=math_helpers.Quat.from_yaw(
+                                              -np.pi / 2))
+    move_hand_to_relative_pose(robot, hand_side_pose)
+    open_gripper(robot)
+    # Press any key, instead of just enter. Useful for remote control.
+    msg = "Put the brush in the robot's gripper, then press any key"
+    utils.wait_for_any_button_press(msg)
+    close_gripper(robot)
+    stow_arm(robot)
+
+    # Sweep several times.
+    move_nsrt = MoveToReadySweep.ground((spot, container, yogurt))
+    sweep_nsrt = SweepTwoObjectsIntoContainer.ground(
+        (spot, brush, yogurt, chips, table, container))
+    for _ in range(10):
+        utils.wait_for_any_button_press("Press any button to execute a sweep.")
+        move_option = move_nsrt.sample_option(state, set(), rng)
+        sweep_option = sweep_nsrt.sample_option(state, set(), rng)
+        for option in [move_option, sweep_option]:
+            assert option.initiable(state)
+            action = option.policy(state)
+            obs = env.step(action)
+            perceiver.update_perceiver_with_action(action)
+            state = perceiver.step(obs)
+            assert option.terminal(state)
+
+
 if __name__ == "__main__":
     # real_robot_cube_env_test()
-    real_robot_drafting_table_placement_test()
+    # real_robot_drafting_table_placement_test()
+    real_robot_sweeping_nsrt_test()

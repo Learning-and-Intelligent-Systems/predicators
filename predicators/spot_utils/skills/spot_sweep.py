@@ -12,12 +12,12 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 
 
 def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
-          move_dy: float, move_dz: float) -> None:
+          move_dy: float, move_dz: float, duration: float) -> None:
     """Sweep in the xy plane, starting at the start pose and then moving."""
     # Move first in the yz direction (perpendicular to robot body) to avoid
     # knocking the target object over.
     sweep_start_y_move = math_helpers.SE3Pose(
-        x=0.4,  # sensible default
+        x=0.5,  # sensible default
         y=sweep_start_pose.y,
         z=sweep_start_pose.z,
         rot=math_helpers.Quat(),
@@ -39,8 +39,8 @@ def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
                                               z=move_dz,
                                               rot=math_helpers.Quat())
     sweep_end_pose = relative_hand_move * sweep_start_pose
-    # Move the hand to the end pose. This is the main sweep, go slowly!
-    move_hand_to_relative_pose(robot, sweep_end_pose, duration=4.0)
+    # Move the hand to the end pose. This is the main sweep!
+    move_hand_to_relative_pose(robot, sweep_end_pose, duration)
     # Stow arm.
     stow_arm(robot)
     # Back up a little bit so that we can see the result of sweeping.
@@ -65,8 +65,6 @@ if __name__ == "__main__":
     # forward. The robot should then brush the soda can to the right.
 
     # pylint: disable=ungrouped-imports
-    import curses
-
     from bosdyn.client import create_standard_sdk
     from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
     from bosdyn.client.util import authenticate
@@ -130,11 +128,7 @@ if __name__ == "__main__":
         open_gripper(robot)
         # Press any key, instead of just enter. Useful for remote control.
         msg = "Put the brush in the robot's gripper, then press any key"
-        stdscr = curses.initscr()
-        curses.noecho()
-        stdscr.addstr(msg)
-        stdscr.getkey()
-        curses.endwin()
+        utils.wait_for_any_button_press(msg)
         close_gripper(robot)
 
         # Move to in front of the soda can.
@@ -170,10 +164,11 @@ if __name__ == "__main__":
         sweep_move_dx = -start_dx
         sweep_move_dy = -start_dy
         sweep_move_dz = -3 * start_dz
+        duration = 4.0
 
         # Execute the sweep.
         sweep(robot, sweep_start_pose, sweep_move_dx, sweep_move_dy,
-              sweep_move_dz)
+              sweep_move_dz, duration)
 
         # Stow to finish.
         stow_arm(robot)
