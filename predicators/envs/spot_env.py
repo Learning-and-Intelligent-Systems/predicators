@@ -770,8 +770,8 @@ _ONTOP_SURFACE_BUFFER = 0.48
 _INSIDE_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 0.925  # slightly less than length of arm
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
-_CONTAINER_SWEEP_XY_BUFFER = 1.0
-_CONTAINER_SWEEP_Z_BUFFER = 2.5
+_CONTAINER_SWEEP_READY_BUFFER = 0.25
+_ROBOT_SWEEP_READY_TOL = 0.25
 
 ## Types
 _ALL_TYPES = {
@@ -1011,25 +1011,46 @@ def _not_blocked_classifier(state: State, objects: Sequence[Object]) -> bool:
     return True
 
 
+def _get_highest_surface_object_is_on(obj: Object,
+                                      state: State) -> Optional[Object]:
+    highest_surface: Optional[Object] = None
+    highest_surface_z = -np.inf
+    for other_obj in state.get_objects(_immovable_object_type):
+        if _on_classifier(state, [obj, other_obj]):
+            other_obj_z = state.get(other_obj, "z")
+            if other_obj_z > highest_surface_z:
+                highest_surface_z = other_obj_z
+                highest_surface = other_obj
+    return highest_surface
+
+
 def _container_ready_for_sweeping_classifier(
         state: State, objects: Sequence[Object]) -> bool:
     container, target = objects
 
-    # Container is adjacent in xy to target.
-    if not _object_in_xy_classifier(
-            state, target, container, buffer=_CONTAINER_SWEEP_XY_BUFFER):
+    # Compute the expected x, y position based on the parameters for placing
+    # next to the object that the target is on.
+    surface = _get_highest_surface_object_is_on(target, state)
+    if surface is None:
         return False
 
-    # Container is below target.
-    target_z = state.get(target, "z")
-    target_half_height = state.get(target, "height") / 2
-    target_bottom = target_z - target_half_height
+    surface_x = state.get(surface, "x")
+    surface_y = state.get(surface, "y")
 
-    container_z = state.get(container, "z")
-    container_half_height = state.get(container, "height") / 2
-    container_top = container_z + container_half_height
+    # This is the location for spot to go to before placing. We need to convert
+    # it into an expected location for the container.
+    param_dict = load_spot_metadata()["prepare_container_relative_xy"]
+    dx, dy, angle = param_dict["dx"], param_dict["dy"], param_dict["angle"]
+    place_distance = 0.65
+    expected_x = surface_x + dx + place_distance * np.cos(angle)
+    expected_y = surface_y + dy + place_distance * np.sin(angle)
 
-    return target_bottom + _CONTAINER_SWEEP_Z_BUFFER > container_top
+    container_x = state.get(container, "x")
+    container_y = state.get(container, "y")
+
+    return np.sqrt(
+        (expected_x - container_x)**2 +
+        (expected_y - container_y)**2) <= _CONTAINER_SWEEP_READY_BUFFER
 
 
 def _is_placeable_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -1055,27 +1076,16 @@ def _has_flat_top_surface_classifier(state: State,
 
 def _robot_ready_for_sweeping_classifier(state: State,
                                          objects: Sequence[Object]) -> bool:
-    if len(set(objects)) != len(objects):
-        return False
+    robot, target = objects
 
-    # The robot, target, and container should create a right triangle.
-    # This is very approximate.
-    robot, container, target = objects
-
-    robot_xy = np.array([state.get(robot, "x"), state.get(robot, "y")])
+    # Check if the target is where we expect it to be relative to the robot.
+    robot_pose = utils.get_se3_pose_from_state(state, robot)
+    robot_se2 = robot_pose.get_closest_se2_transform()
+    sweep_distance = 0.8
+    expected_xy_vec = robot_se2 * math_helpers.Vec2(sweep_distance, 0.0)
+    expected_xy = np.array([expected_xy_vec.x, expected_xy_vec.y])
     target_xy = np.array([state.get(target, "x"), state.get(target, "y")])
-    cont_xy = np.array([state.get(container, "x"), state.get(container, "y")])
-
-    robot_to_target = target_xy - robot_xy
-    target_to_cont = cont_xy - target_xy
-
-    robot_to_target_unit = robot_to_target / np.linalg.norm(robot_to_target)
-    target_to_cont_unit = target_to_cont / np.linalg.norm(target_to_cont)
-    angle_cos = np.dot(robot_to_target_unit, target_to_cont_unit)
-
-    threshold = 0.1  # exact would be 0
-
-    return angle_cos < threshold
+    return np.allclose(expected_xy, target_xy, atol=_ROBOT_SWEEP_READY_TOL)
 
 
 _NEq = Predicate("NEq", [_base_object_type, _base_object_type],
@@ -1118,10 +1128,9 @@ _IsNotPlaceable = Predicate("IsNotPlaceable", [_movable_object_type],
                             _is_not_placeable_classifier)
 _HasFlatTopSurface = Predicate("HasFlatTopSurface", [_immovable_object_type],
                                _has_flat_top_surface_classifier)
-_RobotReadyForSweeping = Predicate(
-    "RobotReadyForSweeping",
-    [_robot_type, _container_type, _movable_object_type],
-    _robot_ready_for_sweeping_classifier)
+_RobotReadyForSweeping = Predicate("RobotReadyForSweeping",
+                                   [_robot_type, _movable_object_type],
+                                   _robot_ready_for_sweeping_classifier)
 _ALL_PREDICATES = {
     _NEq,
     _On,
@@ -1362,7 +1371,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
     }
     add_effs = {
-        LiftedAtom(_RobotReadyForSweeping, [robot, container, target]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, target]),
     }
     del_effs = set()
     ignore_effs = {_Reachable, _InView, _InHandView}
@@ -1385,7 +1394,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_On, [target2, surface]),
         # Arbitrarily pick one of the targets to be the one ready for sweeping,
         # to prevent the robot 'moving to get ready for sweeping' twice.
-        LiftedAtom(_RobotReadyForSweeping, [robot, container, target1]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, target1]),
         # Same idea.
         LiftedAtom(_ContainerReadyForSweeping, [container, target1]),
         LiftedAtom(_IsPlaceable, [target1]),
@@ -1402,8 +1411,8 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_On, [target2, surface]),
         LiftedAtom(_ContainerReadyForSweeping, [container, target1]),
         LiftedAtom(_ContainerReadyForSweeping, [container, target2]),
-        LiftedAtom(_RobotReadyForSweeping, [robot, container, target1]),
-        LiftedAtom(_RobotReadyForSweeping, [robot, container, target2]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, target1]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, target2]),
         LiftedAtom(_Reachable, [robot, target1]),
         LiftedAtom(_Reachable, [robot, target2]),
         LiftedAtom(_NotInsideAnyContainer, [target1]),
@@ -1424,7 +1433,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_NotBlocked, [target]),
         LiftedAtom(_Holding, [robot, sweeper]),
         LiftedAtom(_On, [target, surface]),
-        LiftedAtom(_RobotReadyForSweeping, [robot, container, target]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, target]),
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
         LiftedAtom(_IsPlaceable, [target]),
         LiftedAtom(_HasFlatTopSurface, [surface]),
@@ -1436,7 +1445,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     del_effs = {
         LiftedAtom(_On, [target, surface]),
         LiftedAtom(_ContainerReadyForSweeping, [container, target]),
-        LiftedAtom(_RobotReadyForSweeping, [robot, container, target]),
+        LiftedAtom(_RobotReadyForSweeping, [robot, target]),
         LiftedAtom(_Reachable, [robot, target]),
         LiftedAtom(_NotInsideAnyContainer, [target])
     }
