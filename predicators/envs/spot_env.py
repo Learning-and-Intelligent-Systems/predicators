@@ -25,7 +25,7 @@ from predicators.spot_utils.perception.object_detection import \
     LanguageObjectDetectionID, ObjectDetectionID, detect_objects, \
     visualize_all_artifacts
 from predicators.spot_utils.perception.object_specific_grasp_selection import \
-    brush_prompt, bucket_prompt
+    brush_prompt, bucket_prompt, chips_prompt, yogurt_prompt
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -2215,6 +2215,7 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
         op_names_to_keep = {
             "MoveToReachObject",
             "MoveToHandViewObject",
+            "MoveToBodyViewObject",
             "PickObjectFromTop",
             "PlaceObjectOnTop",
             "DragToUnblockObject",
@@ -2225,6 +2226,7 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             "DropNotPlaceableObject",
             "MoveToReadySweep",
             "PickObjectToDrag",
+            "DropObjectInside",
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
 
@@ -2238,19 +2240,10 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
         detection_id_to_obj: Dict[ObjectDetectionID, Object] = {}
 
         yogurt = Object("yogurt", _movable_object_type)
-        yogurt_prompt = "/".join([
-            "small purple cup",
-            "empty yogurt container",
-        ])
         yogurt_detection = LanguageObjectDetectionID(yogurt_prompt)
         detection_id_to_obj[yogurt_detection] = yogurt
 
         chips = Object("chips", _movable_object_type)
-        chips_prompt = "/".join([
-            "bag of chips",
-            "popcorn bag",
-            "yellow bag of food",
-        ])
         chips_detection = LanguageObjectDetectionID(chips_prompt)
         detection_id_to_obj[chips_detection] = chips
 
@@ -2273,7 +2266,7 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
         return detection_id_to_obj
 
     def _generate_goal_description(self) -> GoalDescription:
-        return "sweep the objects into the bucket"
+        return CFG.spot_sweep_env_goal_description
 
     def _get_dry_task(self, train_or_test: str,
                       task_idx: int) -> EnvironmentTask:

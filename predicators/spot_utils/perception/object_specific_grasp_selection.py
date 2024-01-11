@@ -1,5 +1,6 @@
 """Object-specific grasp selectors."""
 
+from functools import partial
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import cv2
@@ -31,6 +32,17 @@ bucket_prompt = "/".join([
     "white plastic tub",
 ])
 bucket_obj = LanguageObjectDetectionID(bucket_prompt)
+chips_prompt = "/".join([
+    "bag of chips",
+    "popcorn bag",
+    "yellow bag of food",
+])
+chips_obj = LanguageObjectDetectionID(chips_prompt)
+yogurt_prompt = "/".join([
+    "small purple cup",
+    "empty yogurt container",
+])
+yogurt_obj = LanguageObjectDetectionID(yogurt_prompt)
 
 
 def _get_platform_grasp_pixel(
@@ -343,6 +355,40 @@ def _get_bucket_grasp_pixel(
     return selected_pixel, None
 
 
+def _get_mask_center_grasp_pixel(
+    detect_id: LanguageObjectDetectionID, rgbds: Dict[str,
+                                                      RGBDImageWithContext],
+    artifacts: Dict[str, Any], camera_name: str, rng: np.random.Generator
+) -> Tuple[Tuple[int, int], Optional[math_helpers.Quat]]:
+    """Select a pixel that's as close to the center of the mask as possible,
+    while still being in the mask."""
+    del rng
+    detections = artifacts["language"]["object_id_to_img_detections"]
+    try:
+        seg_bb = detections[detect_id][camera_name]
+    except KeyError:
+        raise ValueError(f"{detect_id} not detected in {camera_name}")
+    mask = seg_bb.mask
+    pixels_in_mask = np.where(mask)
+    candidates = list(zip(*pixels_in_mask))
+    center = np.mean(candidates, axis=0)
+    dist_to_center = np.sum((candidates - center)**2, axis=1)
+    idxs = list(range(len(candidates)))
+    best_idx = min(idxs, key=lambda i: dist_to_center[i])
+    best_r, best_c = candidates[best_idx]
+    selected_pixel = (best_c, best_r)
+
+    del rgbds
+    # Uncomment for debugging.
+    # bgr = cv2.cvtColor(rgbds[camera_name].rgb, cv2.COLOR_RGB2BGR)
+    # cv2.circle(bgr, selected_pixel, 5, (0, 255, 0), -1)
+    # cv2.imshow("Selected grasp", bgr)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+
+    return selected_pixel, None
+
+
 # Maps an object ID to a function from rgbds, artifacts and camera to pixel.
 OBJECT_SPECIFIC_GRASP_SELECTORS: Dict[ObjectDetectionID, Callable[[
     Dict[str, RGBDImageWithContext], Dict[str, Any], str, np.random.Generator
@@ -357,4 +403,8 @@ OBJECT_SPECIFIC_GRASP_SELECTORS: Dict[ObjectDetectionID, Callable[[
     brush_obj: _get_brush_grasp_pixel,
     # Bucket-specific grasp selection.
     bucket_obj: _get_bucket_grasp_pixel,
+    # Chips-specific grasp selection.
+    chips_obj: partial(_get_mask_center_grasp_pixel, chips_obj),
+    # Yogurt-specific grasp selection.
+    yogurt_obj: partial(_get_mask_center_grasp_pixel, yogurt_obj),
 }
