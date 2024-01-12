@@ -33,6 +33,7 @@ import requests
 from bosdyn.client import math_helpers
 from matplotlib import pyplot as plt
 from scipy import ndimage
+from scipy.spatial import Delaunay
 
 from predicators.settings import CFG
 from predicators.spot_utils.perception.object_specific_grasp_selection import \
@@ -60,6 +61,7 @@ def get_last_detected_objects(
 def detect_objects(
     object_ids: Collection[ObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],  # camera name to RGBD
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Detect object poses (in the world frame!) from RGBD.
 
@@ -103,7 +105,7 @@ def detect_objects(
 
     # There IS batching over images here for efficiency.
     language_detections, language_artifacts = detect_objects_from_language(
-        language_object_ids, rgbds)
+        language_object_ids, rgbds, allowed_regions)
     detections.update(language_detections)
     artifacts["language"] = language_artifacts
 
@@ -197,6 +199,7 @@ def detect_objects_from_april_tags(
 def detect_objects_from_language(
     object_ids: Collection[LanguageObjectDetectionID],
     rgbds: Dict[str, RGBDImageWithContext],
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict]:
     """Detect an object pose using a vision-language model.
 
@@ -226,9 +229,21 @@ def detect_objects_from_language(
             pose = _get_pose_from_segmented_bounding_box(seg_bb, rgbd)
             # Pose extraction can fail due to depth reading issues. See
             # docstring of _get_pose_from_segmented_bounding_box for more.
-            if pose is not None:
-                detections[obj_id] = pose
-                break
+            if pose is None:
+                continue
+            # If the detected pose is outside the allowed bounds, skip.
+            pose_xy = np.array([pose.x, pose.y])
+            if allowed_regions is not None:
+                in_allowed_region = False
+                for region in allowed_regions:
+                    if region.find_simplex(pose_xy) >= 0:
+                        in_allowed_region = True
+                        break
+                if not in_allowed_region:
+                    continue
+            # Pose extraction succeeded.
+            detections[obj_id] = pose
+            break
 
     # Save artifacts for analysis and debugging.
     artifacts = {

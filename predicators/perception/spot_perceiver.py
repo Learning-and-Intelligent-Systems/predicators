@@ -19,7 +19,7 @@ from predicators.perception.base_perceiver import BasePerceiver
 from predicators.settings import CFG
 from predicators.spot_utils.utils import _container_type, \
     _immovable_object_type, _movable_object_type, _robot_type, \
-    load_spot_metadata, object_to_top_down_geom
+    get_allowed_map_regions, load_spot_metadata, object_to_top_down_geom
 from predicators.structs import Action, DefaultState, EnvironmentTask, \
     GoalDescription, GroundAtom, Object, Observation, Predicate, State, Task, \
     Video
@@ -382,6 +382,18 @@ class SpotPerceiver(BasePerceiver):
         figsize = (x_ub - x_lb, y_ub - y_lb)
         fig = plt.figure(figsize=figsize)
         ax = fig.gca()
+        # Draw the allowed regions.
+        allowed_regions = get_allowed_map_regions()
+        for region in allowed_regions:
+            ax.triplot(region.points[:, 0],
+                       region.points[:, 1],
+                       region.simplices,
+                       linestyle="--",
+                       color="gray")
+            ax.plot(region.points[:, 0],
+                    region.points[:, 1],
+                    'o',
+                    color="gray")
         # Draw the robot as an arrow.
         assert self._robot is not None
         robot_pose = utils.get_se3_pose_from_state(state, self._robot)

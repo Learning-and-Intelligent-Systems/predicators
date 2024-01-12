@@ -20,6 +20,7 @@ from predicators.approaches import BaseApproach, BaseApproachWrapper
 from predicators.envs.spot_env import get_detection_id_for_object, get_robot
 from predicators.spot_utils.skills.spot_find_objects import find_objects
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
+from predicators.spot_utils.utils import get_allowed_map_regions
 from predicators.structs import Action, Object, ParameterizedOption, \
     Predicate, State, Task, Type
 
@@ -34,6 +35,7 @@ class SpotWrapperApproach(BaseApproachWrapper):
         super().__init__(base_approach, initial_predicates, initial_options,
                          types, action_space, train_tasks)
         self._base_approach_has_control = False  # for execution monitoring
+        self._allowed_regions = get_allowed_map_regions()
 
     @classmethod
     def get_name(cls) -> str:
@@ -73,10 +75,11 @@ class SpotWrapperApproach(BaseApproachWrapper):
                     get_detection_id_for_object(o)
                     for o in lost_objects
                 }
+                allowed_regions = self._allowed_regions
                 return utils.create_spot_env_action(
                     "find-objects", [], find_objects,
                     (state, self._rng, robot, localizer, lease_client,
-                     lost_object_ids))
+                     lost_object_ids, allowed_regions))
             # Found the objects. Stow the arm before replanning.
             if need_stow:
                 logging.info("[Spot Wrapper] Lost objects found, stowing.")

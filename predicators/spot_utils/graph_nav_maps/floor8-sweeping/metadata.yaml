@@ -12,10 +12,10 @@ april-tag-offsets: []
 # points.
 allowed-regions:
   main-room:
-    - [0.72, -1.9]
-    - [0.46, 0.77]
-    - [3.1, 1.2]
-    - [3.5, -1.7]
+    - [0.5, -2.5]
+    - [0.5, 1.0]
+    - [4.0, 1.0]
+    - [4.0, -2.5]
 # Known immovable objects. Assuming default rotations.
 known-immovable-objects:
   floor:

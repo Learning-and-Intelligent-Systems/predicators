@@ -6,8 +6,8 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import Callable, ClassVar, Collection, Dict, Iterator, List, \
+    Optional, Sequence, Set, Tuple
 
 import matplotlib
 import numpy as np
@@ -16,6 +16,7 @@ from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.sdk import Robot
 from bosdyn.client.util import authenticate, setup_logging
 from gym.spaces import Box
+from scipy.spatial import Delaunay
 
 from predicators import utils
 from predicators.envs import BaseEnv
@@ -39,7 +40,8 @@ from predicators.spot_utils.skills.spot_stow_arm import stow_arm
 from predicators.spot_utils.spot_localization import SpotLocalizer
 from predicators.spot_utils.utils import _base_object_type, _container_type, \
     _immovable_object_type, _movable_object_type, _robot_type, \
-    get_graph_nav_dir, get_robot_gripper_open_percentage, get_spot_home_pose, \
+    get_allowed_map_regions, get_graph_nav_dir, \
+    get_robot_gripper_open_percentage, get_spot_home_pose, \
     load_spot_metadata, object_to_top_down_geom, verify_estop
 from predicators.structs import Action, EnvironmentTask, GoalDescription, \
     GroundAtom, LiftedAtom, Object, Observation, Predicate, State, \
@@ -211,6 +213,9 @@ class SpotRearrangementEnv(BaseEnv):
 
         # For noisy simulation in dry runs.
         self._noise_rng = np.random.default_rng(CFG.seed)
+
+        # For object detection.
+        self._allowed_regions: Collection[Delaunay] = get_allowed_map_regions()
 
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
@@ -469,7 +474,7 @@ class SpotRearrangementEnv(BaseEnv):
         time.sleep(0.5)
         rgbds = capture_images(self._robot, self._localizer)
         all_detections, all_artifacts = detect_objects(
-            all_object_detection_ids, rgbds)
+            all_object_detection_ids, rgbds, self._allowed_regions)
 
         if CFG.spot_render_perception_outputs:
             outdir = Path(CFG.spot_perception_outdir)
@@ -485,7 +490,7 @@ class SpotRearrangementEnv(BaseEnv):
             for (k, v) in rgbds.items() if k == "hand_color_image"
         }
         hand_detections, hand_artifacts = detect_objects(
-            all_object_detection_ids, hand_rgbd)
+            all_object_detection_ids, hand_rgbd, self._allowed_regions)
 
         if CFG.spot_render_perception_outputs:
             detections_outfile = outdir / f"hand_detections_{time_str}.png"
@@ -503,7 +508,8 @@ class SpotRearrangementEnv(BaseEnv):
             ]
         }
         non_back_detections, _ = detect_objects(all_object_detection_ids,
-                                                non_back_camera_rgbds)
+                                                non_back_camera_rgbds,
+                                                self._allowed_regions)
 
         # Now construct a dict of all objects in view, as well as a set
         # of objects that the hand can see, and that all cameras except
@@ -730,7 +736,10 @@ class SpotRearrangementEnv(BaseEnv):
                                              np.pi / 4))
         move_hand_to_relative_pose(self._robot, hand_pose)
         detections, artifacts = init_search_for_objects(
-            self._robot, self._localizer, detection_ids)
+            self._robot,
+            self._localizer,
+            detection_ids,
+            allowed_regions=self._allowed_regions)
         if CFG.spot_render_perception_outputs:
             outdir = Path(CFG.spot_perception_outdir)
             time_str = time.strftime("%Y%m%d-%H%M%S")

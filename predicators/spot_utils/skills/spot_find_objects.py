@@ -6,6 +6,7 @@ import numpy as np
 from bosdyn.client import math_helpers
 from bosdyn.client.lease import LeaseClient
 from bosdyn.client.sdk import Robot
+from scipy.spatial import Delaunay
 
 from predicators import utils
 from predicators.spot_utils.perception.object_detection import detect_objects
@@ -31,6 +32,7 @@ def _find_objects_with_choreographed_moves(
     relative_base_moves: Sequence[math_helpers.SE2Pose],
     relative_hand_moves: Optional[Sequence[math_helpers.SE3Pose]] = None,
     open_and_close_gripper: bool = True,
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Helper for object search with hard-coded relative moves."""
 
@@ -50,7 +52,9 @@ def _find_objects_with_choreographed_moves(
     # Run detection once to start before moving.
     rgbds = capture_images(robot, localizer)
     all_rgbds.append(rgbds)
-    detections, artifacts = detect_objects(object_ids, rgbds)
+    detections, artifacts = detect_objects(object_ids,
+                                           rgbds,
+                                           allowed_regions=allowed_regions)
     all_detections.update(detections)
     all_artifacts.update(artifacts)
 
@@ -73,7 +77,9 @@ def _find_objects_with_choreographed_moves(
         localizer.localize()
         rgbds = capture_images(robot, localizer)
         all_rgbds.append(rgbds)
-        detections, artifacts = detect_objects(object_ids, rgbds)
+        detections, artifacts = detect_objects(object_ids,
+                                               rgbds,
+                                               allowed_regions=allowed_regions)
         all_detections.update(detections)
         all_artifacts.update(artifacts)
 
@@ -104,6 +110,7 @@ def init_search_for_objects(
     object_ids: Collection[ObjectDetectionID],
     num_spins: int = 8,
     relative_hand_moves: Optional[List[math_helpers.SE3Pose]] = None,
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> Tuple[Dict[ObjectDetectionID, math_helpers.SE3Pose], Dict[str, Any]]:
     """Spin around in place looking for objects.
 
@@ -117,13 +124,15 @@ def init_search_for_objects(
         localizer,
         object_ids,
         base_moves,
-        relative_hand_moves=relative_hand_moves)
+        relative_hand_moves=relative_hand_moves,
+        allowed_regions=allowed_regions)
 
 
 def step_back_to_find_objects(
     robot: Robot,
     localizer: SpotLocalizer,
     object_ids: Collection[ObjectDetectionID],
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> None:
     """Execute a hard-coded sequence of movements and hope that one of them
     puts the lost object in view.
@@ -153,7 +162,8 @@ def step_back_to_find_objects(
                                            object_ids,
                                            base_moves,
                                            hand_moves,
-                                           open_and_close_gripper=False)
+                                           open_and_close_gripper=False,
+                                           allowed_regions=allowed_regions)
 
 
 def find_objects(
@@ -163,12 +173,16 @@ def find_objects(
     localizer: SpotLocalizer,
     lease_client: LeaseClient,
     object_ids: Collection[ObjectDetectionID],
+    allowed_regions: Optional[Collection[Delaunay]] = None,
 ) -> None:
     """First try stepping back to find an object, and if that doesn't work,
     then try to either ask the user or keep sampling a random location to move
     to in order to find the lost object."""
     try:
-        step_back_to_find_objects(robot, localizer, object_ids)
+        step_back_to_find_objects(robot,
+                                  localizer,
+                                  object_ids,
+                                  allowed_regions=allowed_regions)
     except RuntimeError:
         prompt = ("Hit 'c' to have the robot try to find the object "
                   "by moving to a random pose, or "
