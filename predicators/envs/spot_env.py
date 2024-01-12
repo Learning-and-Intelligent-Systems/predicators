@@ -360,8 +360,7 @@ class SpotRearrangementEnv(BaseEnv):
             prompt = f"Please set up {train_or_test} task {task_idx}!"
             utils.prompt_user(prompt)
             assert self._lease_client is not None
-            # Execute the action in the real environment. Automatically retry
-            # if a retryable error is encountered.
+            # Automatically retry if a retryable error is encountered.
             while True:
                 try:
                     self._lease_client.take()
@@ -377,7 +376,7 @@ class SpotRearrangementEnv(BaseEnv):
     def step(self, action: Action) -> Observation:
         """Override step() because simulate() is not implemented."""
         assert isinstance(action.extra_info, (list, tuple))
-        action_name, _, action_fn, action_fn_args = action.extra_info
+        action_name, action_objs, action_fn, action_fn_args = action.extra_info
         # The extra info is (action name, objects, function, function args).
         # The action name is either an operator name (for use with nonpercept
         # predicates) or a special name. See below for the special names.
@@ -447,6 +446,25 @@ class SpotRearrangementEnv(BaseEnv):
                 except RetryableRpcError as e:
                     logging.warning("WARNING: the following retryable error "
                                     f"was encountered. Trying again.\n{e}")
+
+            # Very hacky optimization to force hand viewing to work.
+            if action_name == "MoveToHandViewObject":
+                _, target_obj = action_objs
+                if target_obj not in next_obs.objects_in_hand_view:
+                    logging.warning(f"WARNING: retrying {action_name} "
+                                    f"because {target_obj} was not seen.")
+                    # Do a small random movement to get a new view.
+                    robot, _, localizer, gaze_target = action_fn_args
+                    angle = self._noise_rng.uniform(-np.pi / 6, np.pi / 6)
+                    rel_pose = math_helpers.SE2Pose(0, 0, angle)
+                    new_action_args = (robot, rel_pose, localizer, gaze_target)
+                    new_action = utils.create_spot_env_action(
+                        action_name,
+                        action_objs,
+                        action_fn,
+                        new_action_args,
+                    )
+                    return self.step(new_action)
 
         self._current_observation = next_obs
         return self._current_observation
