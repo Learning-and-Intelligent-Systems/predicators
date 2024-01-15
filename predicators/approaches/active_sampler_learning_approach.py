@@ -262,7 +262,7 @@ class ActiveSamplerLearningApproach(OnlineNSRTLearningApproach):
         for ground_op, model in self._competence_models.items():
             approach_save_path = utils.get_approach_save_path_str()
             save_path = "_".join([
-                approach_save_path, f"{ground_op.name}{ground_op.objects}",
+                approach_save_path, ground_op.short_str,
                 f"{self._online_learning_cycle}.competence"
             ])
             with open(save_path, "wb") as f:

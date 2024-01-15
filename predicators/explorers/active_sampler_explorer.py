@@ -415,9 +415,7 @@ class ActiveSamplerExplorer(BaseExplorer):
             # Now, we need to get the file location and the max
             # datapoint id saved at this location.
             os.makedirs(CFG.data_dir, exist_ok=True)
-            objects_tuple_str = str(tuple(nsrt.objects))
-            objects_tuple_str = objects_tuple_str.strip('()')
-            pfx = f"{CFG.data_dir}/{CFG.env}_{nsrt.name}({objects_tuple_str})_"
+            pfx = f"{CFG.data_dir}/{CFG.env}_{nsrt.short_str}_"
             filepath_template = f"{pfx}*.data"
             datapoint_id = 0
             all_saved_files = glob.glob(filepath_template)

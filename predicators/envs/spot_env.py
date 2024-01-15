@@ -1505,6 +1505,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     container = Variable("?container", _container_type)
     parameters = [robot, sweeper, target1, target2, surface, container]
     preconds = {
+        LiftedAtom(_NEq, [target1, target2]),
         LiftedAtom(_NotBlocked, [target1]),
         LiftedAtom(_NotBlocked, [target2]),
         LiftedAtom(_Holding, [robot, sweeper]),
