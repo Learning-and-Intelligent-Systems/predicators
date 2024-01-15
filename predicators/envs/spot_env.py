@@ -2072,8 +2072,8 @@ def _dry_simulate_pick_and_dump_container(
     # Picking succeeded; dump the object on the floor.
     floor = next(o for o in last_obs.objects_in_view if o.name == "floor")
 
-    # Randomize dropping in the area.
-    dx, dy = rng.uniform(-1.0, 1.0, size=2)
+    # Randomize dropping on the floor.
+    dx, dy = rng.uniform(-0.5, 0.5, size=2)
     place_offset = math_helpers.Vec3(dx, dy, 0)
     obs = _dry_simulate_place_on_top(last_obs, obj_inside, floor, place_offset,
                                      nonpercept_atoms)
@@ -2466,54 +2466,98 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
         table_x = known_immovables["black_table"]["x"]
         table_y = known_immovables["black_table"]["y"]
 
-        yogurt = Object("yogurt", _movable_object_type)
-        x = table_x
-        y = table_y - table_length / 2.25 + yogurt_length
-        z = floor_z + table_height + yogurt_height / 2
-        yogurt_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
-        objects_in_view[yogurt] = yogurt_pose
-
-        chips = Object("chips", _movable_object_type)
-        z = floor_z + table_height + chips_height / 2
-        chips_pose = math_helpers.SE3Pose(yogurt_pose.x, yogurt_pose.y + 0.1,
-                                          z, math_helpers.Quat())
-        objects_in_view[chips] = chips_pose
-
-        brush = Object("brush", _movable_object_type)
-        x = table_x
-        y = self.render_y_ub - (self.render_y_ub - self.render_y_lb) / 5
-        z = floor_z + brush_height / 2
-        brush_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
-        objects_in_view[brush] = brush_pose
-
-        chair = Object("chair", _movable_object_type)
-        x = table_x - 1.5 * chair_width
-        y = table_y
-        z = floor_z + chair_height / 2
-        chair_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
-        objects_in_view[chair] = chair_pose
-
-        bucket = Object("bucket", _container_type)
-        x = table_x
-        y = self.render_y_lb + (self.render_y_ub - self.render_y_lb) / 5
-        z = floor_z + bucket_height / 2
-        bucket_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
-        objects_in_view[bucket] = bucket_pose
-
-        for obj_name, obj_pos in known_immovables.items():
-            obj = Object(obj_name, _immovable_object_type)
-            pose = math_helpers.SE3Pose(obj_pos["x"],
-                                        obj_pos["y"],
-                                        obj_pos["z"],
-                                        rot=math_helpers.Quat())
-            objects_in_view[obj] = pose
-
+        # Create immovable objects.
         for obj, pose in get_known_immovable_objects().items():
             objects_in_view[obj] = pose
 
         # Create robot pose.
         robot_se2 = get_spot_home_pose()
         robot_pose = robot_se2.get_closest_se3_transform()
+
+        # Create movable objects.
+        obj_to_xyz: Dict[Object, Tuple[float, float, float]] = {}
+
+        if CFG.spot_graph_nav_map == "floor8-v2":
+            # Yogurt.
+            yogurt = Object("yogurt", _movable_object_type)
+            yogurt_x = table_x
+            yogurt_y = table_y - table_length / 2.25 + yogurt_length
+            yogurt_z = floor_z + table_height + yogurt_height / 2
+            obj_to_xyz[yogurt] = (yogurt_x, yogurt_y, yogurt_z)
+
+            # Chips.
+            chips = Object("chips", _movable_object_type)
+            chips_x = yogurt_x
+            chips_y = yogurt_y + 0.1
+            chips_z = floor_z + table_height + chips_height / 2
+            obj_to_xyz[chips] = (chips_x, chips_y, chips_z)
+
+            # Brush.
+            brush = Object("brush", _movable_object_type)
+            brush_x = table_x
+            brush_y = self.render_y_ub - (self.render_y_ub -
+                                          self.render_y_lb) / 5
+            brush_z = floor_z + brush_height / 2
+            obj_to_xyz[brush] = (brush_x, brush_y, brush_z)
+
+            # Chair.
+            chair = Object("chair", _movable_object_type)
+            chair_x = table_x - 1.5 * chair_width
+            chair_y = table_y
+            chair_z = floor_z + chair_height / 2
+            obj_to_xyz[chair] = (chair_x, chair_y, chair_z)
+
+            # Bucket.
+            bucket = Object("bucket", _container_type)
+            bucket_x = table_x
+            bucket_y = self.render_y_lb + (self.render_y_ub -
+                                           self.render_y_lb) / 5
+            bucket_z = floor_z + bucket_height / 2
+            obj_to_xyz[bucket] = (bucket_x, bucket_y, bucket_z)
+
+        elif CFG.spot_graph_nav_map == "floor8-sweeping":
+            # Yogurt.
+            yogurt = Object("yogurt", _movable_object_type)
+            yogurt_x = table_x - table_length / 2.25 + yogurt_length
+            yogurt_y = table_y
+            yogurt_z = floor_z + table_height + yogurt_height / 2
+            obj_to_xyz[yogurt] = (yogurt_x, yogurt_y, yogurt_z)
+
+            # Chips.
+            chips = Object("chips", _movable_object_type)
+            chips_x = yogurt_x + 0.3
+            chips_y = yogurt_y
+            chips_z = floor_z + table_height + chips_height / 2
+            obj_to_xyz[chips] = (chips_x, chips_y, chips_z)
+
+            # Brush.
+            brush = Object("brush", _movable_object_type)
+            brush_x = robot_pose.x + 1.0
+            brush_y = robot_pose.y - 0.5
+            brush_z = floor_z + brush_height / 2
+            obj_to_xyz[brush] = (brush_x, brush_y, brush_z)
+
+            # Chair.
+            chair = Object("chair", _movable_object_type)
+            chair_x = table_x
+            chair_y = table_y + 1.5 * chair_width
+            chair_z = floor_z + chair_height / 2
+            obj_to_xyz[chair] = (chair_x, chair_y, chair_z)
+
+            # Bucket.
+            bucket = Object("bucket", _container_type)
+            bucket_x = robot_pose.x - 0.25
+            bucket_y = robot_pose.y - 0.5
+            bucket_z = floor_z + bucket_height / 2
+            obj_to_xyz[bucket] = (bucket_x, bucket_y, bucket_z)
+
+        else:
+            raise NotImplementedError("Dry task generation not implemented "
+                                      f"for map {CFG.spot_graph_nav_map}")
+
+        for obj, (x, y, z) in obj_to_xyz.items():
+            pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+            objects_in_view[obj] = pose
 
         # Create the initial observation.
         init_obs = _SpotObservation(

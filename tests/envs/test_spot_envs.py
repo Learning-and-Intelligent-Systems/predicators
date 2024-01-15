@@ -5,6 +5,7 @@ from typing import List
 
 import dill as pkl
 import numpy as np
+import pytest
 from bosdyn.client import math_helpers
 
 from predicators import utils
@@ -59,7 +60,8 @@ def test_spot_env_dry_run():
     assert env.goal_reached()
 
 
-def test_spot_main_sweep_env_dry_run():
+@pytest.mark.parametrize("graph_nav_map", ["floor8-v2", "floor8-sweeping"])
+def test_spot_main_sweep_env_dry_run(graph_nav_map):
     """Tests specific to the main sweeping environment."""
     utils.reset_config({
         "env": "spot_main_sweep_env",
@@ -70,8 +72,10 @@ def test_spot_main_sweep_env_dry_run():
         "spot_run_dry": True,
         "bilevel_plan_without_sim": True,
         "spot_use_perfect_samplers": True,
-        "spot_graph_nav_map": "floor8-v2",
+        "spot_graph_nav_map": graph_nav_map,
     })
+    # Need to flush cache due to cached graph nav map.
+    utils.flush_cache()
     env = create_new_env(CFG.env)
     perceiver = SpotPerceiver()
     execution_monitor = create_execution_monitor("expected_atoms")

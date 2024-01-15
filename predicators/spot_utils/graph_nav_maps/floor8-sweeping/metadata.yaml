@@ -103,3 +103,5 @@ prepare_container_relative_xy:
 # Helpful for static objects that are up against a wall, for example.
 approach_angle_bounds:
   black_table: [1.56, 1.58]  # about pi / 2
+  # Only drag the chair from behind it, approximately.
+  chair: [1.25, 1.75]  # about pi / 2
