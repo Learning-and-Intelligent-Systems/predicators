@@ -195,13 +195,18 @@ def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
                                 objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dz to the center of the top of the
     # container.
-    del state, goal, rng  # randomization coming soon
+    del state, goal
 
     drop_height = 0.5
-    dx = 0.0
-    dy = 0.0
     if len(objs) == 4 and objs[2].name == "cup":
         drop_height = 0.05
+
+    if CFG.spot_use_perfect_samplers:
+        dx = 0.0
+        dy = 0.0
+    else:
+        dx, dy = rng.uniform(-0.4, 0.4, size=2)
+
     return np.array([dx, dy, drop_height])
 
 

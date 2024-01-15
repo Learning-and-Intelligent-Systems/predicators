@@ -69,9 +69,26 @@ ENVS:
       active_sampler_learning_exploration_epsilon: 0.5
       skill_competence_model_optimistic_recency_size: 2
       skill_competence_model_optimistic_window_size: 2
+      active_sampler_learning_init_cycles_to_pursue_goal: 5
       horizon: 15
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: oracle
+      spot_run_dry: True
+      perceiver: spot_perceiver
+      approach_wrapper: spot_wrapper
+      segmenter: spot
+  spot_sweeping_sim_yogurt_only:
+    NAME: "spot_main_sweep_env"
+    FLAGS:
+      spot_sweep_env_goal_description: "'get the yogurt into the bucket'"
+      active_sampler_learning_explore_length_base: 25
+      active_sampler_learning_exploration_epsilon: 0.5
+      skill_competence_model_optimistic_recency_size: 2
+      skill_competence_model_optimistic_window_size: 2
+      horizon: 15
+      active_sampler_learning_explore_length_base: 100000  # effectively disable
+      active_sampler_learning_feature_selection: oracle
+      active_sampler_learning_init_cycles_to_pursue_goal: 5
       spot_run_dry: True
       perceiver: spot_perceiver
       approach_wrapper: spot_wrapper
