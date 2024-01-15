@@ -966,6 +966,21 @@ def _not_inside_any_container_classifier(state: State,
     return True
 
 
+def _fits_inside_classifier(state: State, objects: Sequence[Object]) -> bool:
+    # Just look in the xy plane and use a conservative approximation.
+    contained, container = objects
+    obj_to_circle: Dict[Object, utils.Circle] = {}
+    for obj in objects:
+        obj_geom = object_to_top_down_geom(obj, state)
+        if isinstance(obj_geom, utils.Rectangle):
+            obj_geom = obj_geom.circumscribed_circle
+        assert isinstance(obj_geom, utils.Circle)
+        obj_to_circle[obj] = obj_geom
+    contained_circle = obj_to_circle[contained]
+    container_circle = obj_to_circle[container]
+    return contained_circle.radius < container_circle.radius
+
+
 def in_hand_view_classifier(state: State, objects: Sequence[Object]) -> bool:
     """Made public for perceiver."""
     _, tool = objects
@@ -1185,6 +1200,8 @@ _TopAbove = Predicate("TopAbove", [_base_object_type, _base_object_type],
                       _top_above_classifier)
 _Inside = Predicate("Inside", [_movable_object_type, _container_type],
                     _inside_classifier)
+_FitsInside = Predicate("FitsInside", [_movable_object_type, _container_type],
+                        _fits_inside_classifier)
 # NOTE: use this predicate instead if you want to disable inside checking.
 _FakeInside = Predicate(_Inside.name, _Inside.types,
                         _create_dummy_predicate_classifier(_Inside))
@@ -1226,6 +1243,7 @@ _ALL_PREDICATES = {
     _TopAbove,
     _Inside,
     _NotInsideAnyContainer,
+    _FitsInside,
     _HandEmpty,
     _Holding,
     _NotHolding,
@@ -1390,6 +1408,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Holding, [robot, held]),
         LiftedAtom(_Reachable, [robot, container]),
         LiftedAtom(_IsPlaceable, [held]),
+        LiftedAtom(_FitsInside, [held, container]),
     }
     add_effs = {
         LiftedAtom(_Inside, [held, container]),
@@ -1421,6 +1440,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_HandEmpty, [robot]),
         LiftedAtom(_On, [held, surface]),
         LiftedAtom(_NotHolding, [robot, held]),
+        LiftedAtom(_FitsInside, [held, container]),
     }
     del_effs = {
         LiftedAtom(_Holding, [robot, held]),
