@@ -562,12 +562,20 @@ def real_robot_sweeping_nsrt_test() -> None:
     table = objects_in_view["black_table"]
     container = objects_in_view["bucket"]
     brush = objects_in_view["brush"]
+    floor = objects_in_view["floor"]
     state = perceiver.step(obs)
     spot = next(o for o in state if o.type.name == "robot")
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     MoveToReadySweep = nsrt_name_to_nsrt["MoveToReadySweep"]
     SweepTwoObjectsIntoContainer = \
         nsrt_name_to_nsrt["SweepTwoObjectsIntoContainer"]
+    MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
+    PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
+    move_to_container_nsrt = MoveToReadySweep.ground((spot, container, yogurt))
+    sweep_nsrt = SweepTwoObjectsIntoContainer.ground(
+        (spot, brush, yogurt, chips, table, container))
+    move_to_floor_nsrt = MoveToReachObject.ground((spot, floor))
+    place_nsrt = PlaceObjectOnTop.ground((spot, brush, floor))
 
     # Ask for the brush.
     hand_side_pose = math_helpers.SE3Pose(x=0.80,
@@ -583,21 +591,20 @@ def real_robot_sweeping_nsrt_test() -> None:
     close_gripper(robot)
     stow_arm(robot)
 
-    # Sweep several times.
-    move_nsrt = MoveToReadySweep.ground((spot, container, yogurt))
-    sweep_nsrt = SweepTwoObjectsIntoContainer.ground(
-        (spot, brush, yogurt, chips, table, container))
-    for _ in range(10):
-        utils.wait_for_any_button_press("Press any button to execute a sweep.")
-        move_option = move_nsrt.sample_option(state, set(), rng)
-        sweep_option = sweep_nsrt.sample_option(state, set(), rng)
-        for option in [move_option, sweep_option]:
-            assert option.initiable(state)
-            action = option.policy(state)
-            obs = env.step(action)
-            perceiver.update_perceiver_with_action(action)
-            state = perceiver.step(obs)
-            assert option.terminal(state)
+    nsrt_sequence: List[_GroundNSRT] = []
+    # Sweep 10 times.
+    nsrt_sequence += [move_to_container_nsrt, sweep_nsrt] * 10
+    # Drop the sweeper on the floor.
+    nsrt_sequence += [move_to_floor_nsrt, place_nsrt]
+
+    for nsrt in nsrt_sequence:
+        option = nsrt.sample_option(state, set(), rng)
+        assert option.initiable(state)
+        action = option.policy(state)
+        obs = env.step(action)
+        perceiver.update_perceiver_with_action(action)
+        state = perceiver.step(obs)
+        assert option.terminal(state)
 
 
 if __name__ == "__main__":
