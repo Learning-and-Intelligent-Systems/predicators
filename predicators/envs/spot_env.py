@@ -1319,7 +1319,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     # PickObjectFromTop
     robot = Variable("?robot", _robot_type)
     obj = Variable("?object", _movable_object_type)
-    surface = Variable("?surface", _base_object_type)
+    surface = Variable("?surface", _immovable_object_type)
     parameters = [robot, obj, surface]
     preconds = {
         LiftedAtom(_On, [obj, surface]),
@@ -1327,6 +1327,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_InHandView, [robot, obj]),
         LiftedAtom(_NotInsideAnyContainer, [obj]),
         LiftedAtom(_IsPlaceable, [obj]),
+        LiftedAtom(_HasFlatTopSurface, [surface]),
     }
     add_effs = {
         LiftedAtom(_Holding, [robot, obj]),
@@ -1373,6 +1374,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_Reachable, [robot, surface]),
         LiftedAtom(_NEq, [held, surface]),
         LiftedAtom(_IsPlaceable, [held]),
+        LiftedAtom(_HasFlatTopSurface, [surface]),
     }
     add_effs = {
         LiftedAtom(_On, [held, surface]),

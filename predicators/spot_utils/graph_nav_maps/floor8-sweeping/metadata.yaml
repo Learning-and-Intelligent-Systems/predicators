@@ -38,7 +38,7 @@ static-object-features:
     height: 0.0001
     length: 10000000  # effectively infinite
     width: 10000000
-    flat_top_surface: 0
+    flat_top_surface: 1
   yogurt:
     shape: 2
     height: 0.05
