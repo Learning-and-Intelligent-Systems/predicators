@@ -36,6 +36,7 @@ chips_prompt = "/".join([
     "bag of chips",
     "popcorn bag",
     "yellow bag of food",
+    "packet",
 ])
 chips_obj = LanguageObjectDetectionID(chips_prompt)
 yogurt_prompt = "/".join([

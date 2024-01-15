@@ -751,7 +751,7 @@ class SpotRearrangementEnv(BaseEnv):
                                          y=0.0,
                                          z=0.75,
                                          rot=math_helpers.Quat.from_pitch(
-                                             np.pi / 4))
+                                             np.pi / 3))
         move_hand_to_relative_pose(self._robot, hand_pose)
         detections, artifacts = init_search_for_objects(
             self._robot,
@@ -793,7 +793,7 @@ _ONTOP_SURFACE_BUFFER = 0.48
 _INSIDE_SURFACE_BUFFER = 0.1
 _REACHABLE_THRESHOLD = 0.925  # slightly less than length of arm
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
-_CONTAINER_SWEEP_READY_BUFFER = 0.25
+_CONTAINER_SWEEP_READY_BUFFER = 0.5
 _ROBOT_SWEEP_READY_TOL = 0.25
 
 ## Types
@@ -1047,15 +1047,9 @@ def _get_highest_surface_object_is_on(obj: Object,
     return highest_surface
 
 
-def _container_ready_for_sweeping_classifier(
-        state: State, objects: Sequence[Object]) -> bool:
-    container, target = objects
-
-    # Compute the expected x, y position based on the parameters for placing
-    # next to the object that the target is on.
-    surface = _get_highest_surface_object_is_on(target, state)
-    if surface is None:
-        return False
+def _container_adjacent_to_surface_for_sweeping(container: Object,
+                                                surface: Object,
+                                                state: State) -> bool:
 
     surface_x = state.get(surface, "x")
     surface_y = state.get(surface, "y")
@@ -1074,6 +1068,19 @@ def _container_ready_for_sweeping_classifier(
     return np.sqrt(
         (expected_x - container_x)**2 +
         (expected_y - container_y)**2) <= _CONTAINER_SWEEP_READY_BUFFER
+
+
+def _container_ready_for_sweeping_classifier(
+        state: State, objects: Sequence[Object]) -> bool:
+    container, target = objects
+
+    # Compute the expected x, y position based on the parameters for placing
+    # next to the object that the target is on.
+    surface = _get_highest_surface_object_is_on(target, state)
+    if surface is None:
+        return False
+    return _container_adjacent_to_surface_for_sweeping(container, surface,
+                                                       state)
 
 
 def _is_placeable_classifier(state: State, objects: Sequence[Object]) -> bool:
@@ -1114,13 +1121,10 @@ def _robot_ready_for_sweeping_classifier(state: State,
 def _get_sweeping_surface_for_container(container: Object,
                                         state: State) -> Optional[Object]:
     if container.is_instance(_container_type):
-        for candidate_surface in state.get_objects(_immovable_object_type):
-            for target_obj in state.get_objects(_movable_object_type):
-                if not _on_classifier(state, [target_obj, candidate_surface]):
-                    continue
-                if _container_ready_for_sweeping_classifier(
-                        state, [container, target_obj]):
-                    return candidate_surface
+        for surface in state.get_objects(_immovable_object_type):
+            if _container_adjacent_to_surface_for_sweeping(
+                    container, surface, state):
+                return surface
     return None
 
 

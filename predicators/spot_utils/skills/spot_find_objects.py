@@ -1,5 +1,6 @@
 """Interface for finding objects by moving around and running detection."""
 
+import time
 from typing import Any, Collection, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -48,6 +49,9 @@ def _find_objects_with_choreographed_moves(
     # Open the hand to mitigate possible occlusions.
     if open_and_close_gripper:
         open_gripper(robot)
+
+    # Wait briefly for the hand to finish opening.
+    time.sleep(0.5)
 
     # Run detection once to start before moving.
     rgbds = capture_images(robot, localizer)
