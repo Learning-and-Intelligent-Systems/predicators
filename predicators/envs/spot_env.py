@@ -294,6 +294,12 @@ class SpotRearrangementEnv(BaseEnv):
             return _dry_simulate_place_on_top(obs, held_obj, target_surface,
                                               place_offset, nonpercept_atoms)
 
+        if action_name == "DropObjectInside":
+            _, held_obj, container_obj = action_objs
+            drop_offset = action_args[1]
+            return _dry_simulate_drop_inside(obs, held_obj, container_obj,
+                                             drop_offset, nonpercept_atoms)
+
         if action_name == "PrepareContainerForSweeping":
             _, container_obj, _, _ = action_objs
             _, _, new_robot_se2_pose, _, _ = action_args
@@ -1567,7 +1573,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     robot = Variable("?robot", _robot_type)
     target = Variable("?target", _movable_object_type)
     container = Variable("?container", _container_type)
-    surface = Variable("?surface", _base_object_type)
+    surface = Variable("?surface", _immovable_object_type)
     parameters = [robot, container, target, surface]
     preconds = {
         LiftedAtom(_Holding, [robot, container]),
@@ -1796,6 +1802,48 @@ def _dry_simulate_place_on_top(
     y = place_pose.y
     # Place offset z ignored; gravity.
     z = surface_pose.z + surface_height / 2 + held_height
+    held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+    objects_in_view[held_obj] = held_obj_pose
+
+    # Gripper is now empty.
+    gripper_open_percentage = 0.0
+
+    # Finalize the next observation.
+    next_obs = _SpotObservation(
+        images={},
+        objects_in_view=objects_in_view,
+        objects_in_hand_view=objects_in_hand_view,
+        objects_in_any_view_except_back=objects_in_any_view_except_back,
+        robot=last_obs.robot,
+        gripper_open_percentage=gripper_open_percentage,
+        robot_pos=robot_pose,
+        nonpercept_atoms=nonpercept_atoms,
+        nonpercept_predicates=last_obs.nonpercept_predicates,
+    )
+
+    return next_obs
+
+
+def _dry_simulate_drop_inside(
+        last_obs: _SpotObservation, held_obj: Object, container_obj: Object,
+        drop_offset: math_helpers.Vec3,
+        nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+
+    # Initialize values based on the last observation.
+    objects_in_view = last_obs.objects_in_view.copy()
+    objects_in_hand_view = set(last_obs.objects_in_hand_view)
+    objects_in_any_view_except_back = set(
+        last_obs.objects_in_any_view_except_back)
+    robot_pose = last_obs.robot_pos
+
+    static_feats = load_spot_metadata()["static-object-features"]
+    container_height = static_feats[container_obj.name]["height"]
+    container_pose = objects_in_view[container_obj]
+    drop_pose = robot_pose.transform_vec3(drop_offset)
+    x = drop_pose.x
+    y = drop_pose.y
+    # Drop offset z ignored; gravity.
+    z = container_pose.z - container_height / 2
     held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
     objects_in_view[held_obj] = held_obj_pose
 
