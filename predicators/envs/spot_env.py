@@ -1803,7 +1803,9 @@ def _dry_simulate_place_on_top(
     # Place offset z ignored; gravity.
     z = surface_pose.z + surface_height / 2 + held_height
     held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+    # We want to ensure the held_obj doesn't get lost after dragging!
     objects_in_view[held_obj] = held_obj_pose
+    objects_in_any_view_except_back.add(held_obj)
 
     # Gripper is now empty.
     gripper_open_percentage = 0.0
@@ -1845,7 +1847,9 @@ def _dry_simulate_drop_inside(
     # Drop offset z ignored; gravity.
     z = container_pose.z - container_height / 2
     held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+    # We want to ensure the held_obj doesn't get lost after dropping!
     objects_in_view[held_obj] = held_obj_pose
+    objects_in_any_view_except_back.add(held_obj)
 
     # Gripper is now empty.
     gripper_open_percentage = 0.0
@@ -1891,7 +1895,9 @@ def _dry_simulate_drag_to_unblock(
     y = robot_pose.y + robot_length * np.sin(robot_yaw)
     z = old_held_pose.z
     held_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+    # We want to ensure the held_obj doesn't get lost after dragging!
     objects_in_view[held_obj] = held_obj_pose
+    objects_in_any_view_except_back.add(held_obj)
 
     # Gripper is now empty.
     gripper_open_percentage = 0.0
@@ -1939,7 +1945,9 @@ def _dry_simulate_prepare_container_for_sweeping(
     y = robot_pose.y + robot_length * np.sin(robot_yaw)
     z = floor_pose.z + container_height / 2
     container_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+    # We want to ensure the container doesn't get lost after placing!
     objects_in_view[container_obj] = container_pose
+    objects_in_any_view_except_back.add(container_obj)
 
     # Gripper is now empty.
     gripper_open_percentage = 0.0
@@ -1999,7 +2007,9 @@ def _dry_simulate_sweep_into_container(
             y = container_pose.y + dy
             z = container_pose.z
         swept_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
+        # We want to make sure the object(s) don't get lost after sweeping!
         objects_in_view[swept_obj] = swept_obj_pose
+        objects_in_any_view_except_back.add(swept_obj)
 
     # Finalize the next observation.
     next_obs = _SpotObservation(
