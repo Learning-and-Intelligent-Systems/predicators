@@ -317,6 +317,86 @@ def test_active_sampler_explorer():
         state = env.simulate(state, policy(state))
     assert len(ground_op_hist) > 0
 
+    # Test competence gradient.
+    utils.reset_config({
+        "explorer":
+        "active_sampler",
+        "env":
+        "regional_bumpy_cover",
+        "bumpy_cover_num_bumps":
+        3,
+        "bumpy_cover_spaces_per_bump":
+        3,
+        "bumpy_cover_init_bumpy_prob":
+        1.0,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "active_sampler_explore_task_strategy":
+        "competence_gradient",
+    })
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        competence_models=competence_models,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
+    for _ in range(25):
+        assert not term_fn(state)
+        state = env.simulate(state, policy(state))
+    assert len(ground_op_hist) > 0
+
+    # Test skill diversity.
+    utils.reset_config({
+        "explorer":
+        "active_sampler",
+        "env":
+        "regional_bumpy_cover",
+        "bumpy_cover_num_bumps":
+        3,
+        "bumpy_cover_spaces_per_bump":
+        3,
+        "bumpy_cover_init_bumpy_prob":
+        1.0,
+        "strips_learner":
+        "oracle",
+        "sampler_learner":
+        "oracle",
+        "active_sampler_explore_task_strategy":
+        "skill_diversity",
+    })
+    explorer = create_explorer(
+        "active_sampler",
+        env.predicates,
+        get_gt_options(env.get_name()),
+        env.types,
+        env.action_space,
+        train_tasks,
+        nsrts,
+        option_model,
+        ground_op_hist=ground_op_hist,
+        competence_models=competence_models,
+        nsrt_to_explorer_sampler=nsrt_to_explorer_sampler,
+        seen_train_task_idxs=seen_train_task_idxs,
+        pursue_task_goal_first=True)
+    policy, term_fn = explorer.get_exploration_strategy(task_idx, 500)
+    state = task.init.copy()
+    for _ in range(25):
+        assert not term_fn(state)
+        state = env.simulate(state, policy(state))
+    assert len(ground_op_hist) > 0
+
     # Test unrecognized task strategy.
     utils.reset_config({
         "explorer":
@@ -374,6 +454,8 @@ def test_active_sampler_explorer():
         "oracle",
         "sampler_learner":
         "oracle",
+        "active_sampler_explore_task_strategy":
+        "random",
         "active_sampler_learning_exploration_sample_strategy":
         "epsilon_greedy"
     })
@@ -419,6 +501,10 @@ def test_active_sampler_explorer():
         "oracle",
         "sampler_learner":
         "oracle",
+        "horizon":
+        0,
+        "active_sampler_explore_task_strategy":
+        "planning_progress",
         "active_sampler_learning_exploration_sample_strategy":
         "not a real explorer"
     })
