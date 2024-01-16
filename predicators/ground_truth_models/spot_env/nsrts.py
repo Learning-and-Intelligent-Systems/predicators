@@ -46,7 +46,10 @@ def _move_offset_sampler(state: State, robot_obj: Object,
         )
     # Rare sampling failures.
     except RuntimeError:  # pragma: no cover
-        raise utils.OptionExecutionFailure("Move offset sampling failed.")
+        print("WARNING: Failed to find good movement sample.")
+        # Pick distance and angle at random.
+        distance = rng.uniform(min_dist, max_dist)
+        angle = rng.uniform(min_angle, max_angle)
 
     return np.array([distance, angle])
 

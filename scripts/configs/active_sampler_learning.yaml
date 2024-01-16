@@ -67,6 +67,7 @@ ENVS:
       horizon: 8
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: oracle
+      max_num_steps_interaction_request: 100
   spot_sweeping_sim:
     NAME: "spot_main_sweep_env"
     FLAGS:
@@ -74,14 +75,15 @@ ENVS:
       active_sampler_learning_exploration_epsilon: 0.5
       skill_competence_model_optimistic_recency_size: 2
       skill_competence_model_optimistic_window_size: 2
-      active_sampler_learning_init_cycles_to_pursue_goal: 5
-      horizon: 15
+      horizon: 10
       active_sampler_learning_explore_length_base: 100000  # effectively disable
       active_sampler_learning_feature_selection: oracle
       spot_run_dry: True
-      perceiver: spot_perceiver
       approach_wrapper: spot_wrapper
+      perceiver: spot_perceiver
       segmenter: spot
+      active_sampler_learning_explore_pursue_goal_interval: 1
+      max_num_steps_interaction_request: 200
   spot_sweeping_sim_yogurt_only:
     NAME: "spot_main_sweep_env"
     FLAGS:
@@ -98,6 +100,7 @@ ENVS:
       perceiver: spot_perceiver
       approach_wrapper: spot_wrapper
       segmenter: spot
+      max_num_steps_interaction_request: 100
 ARGS: []
 FLAGS:
   num_test_tasks: 10

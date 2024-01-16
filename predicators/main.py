@@ -124,7 +124,8 @@ def main() -> None:
         options = parse_config_included_options(env)
     # Create the agent (approach).
     approach_name = CFG.approach
-    if CFG.approach_wrapper:
+    # MAPLE-Q is not compatible with a wrapper.
+    if CFG.approach_wrapper and approach_name != "maple_q":
         approach_name = f"{CFG.approach_wrapper}[{approach_name}]"
     approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, stripped_train_tasks)

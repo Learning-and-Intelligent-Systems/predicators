@@ -282,7 +282,9 @@ class SpotRearrangementEnv(BaseEnv):
             return _dry_simulate_pick_from_top(obs, target_obj, pixel,
                                                nonpercept_atoms)
 
-        if action_name == "MoveToReachObject":
+        if action_name in [
+                "MoveToReachObject", "MoveToReadySweep", "MoveToBodyViewObject"
+        ]:
             robot_rel_se2_pose = action_args[1]
             return _dry_simulate_move_to_reach_obj(obs, robot_rel_se2_pose,
                                                    nonpercept_atoms)
@@ -342,11 +344,6 @@ class SpotRearrangementEnv(BaseEnv):
         if action_name == "DropNotPlaceableObject":
             return _dry_simulate_drop_not_placeable_object(
                 obs, nonpercept_atoms)
-
-        if action_name == "MoveToReadySweep":
-            robot_rel_se2_pose = action_args[1]
-            return _dry_simulate_move_to_reach_obj(obs, robot_rel_se2_pose,
-                                                   nonpercept_atoms)
 
         if action_name in ["find-objects", "stow-arm"]:
             return _dry_simulate_noop(obs, nonpercept_atoms)
@@ -1219,6 +1216,15 @@ def _robot_ready_for_sweeping_classifier(state: State,
     return np.allclose(expected_xy, target_xy, atol=_ROBOT_SWEEP_READY_TOL)
 
 
+def _is_semantically_greater_than_classifier(
+        state: State, objects: Sequence[Object]) -> bool:
+    del state  # unused
+    obj1, obj2 = objects
+    # Check if the name of object 1 is greater (in a Pythonic sense) than
+    # that of object 2.
+    return obj1.name > obj2.name
+
+
 def _get_sweeping_surface_for_container(container: Object,
                                         state: State) -> Optional[Object]:
     if container.is_instance(_container_type):
@@ -1274,27 +1280,15 @@ _HasFlatTopSurface = Predicate("HasFlatTopSurface", [_immovable_object_type],
 _RobotReadyForSweeping = Predicate("RobotReadyForSweeping",
                                    [_robot_type, _movable_object_type],
                                    _robot_ready_for_sweeping_classifier)
+_IsSemanticallyGreaterThan = Predicate(
+    "_IsSemanticallyGreaterThan", [_base_object_type, _base_object_type],
+    _is_semantically_greater_than_classifier)
 _ALL_PREDICATES = {
-    _NEq,
-    _On,
-    _TopAbove,
-    _Inside,
-    _NotInsideAnyContainer,
-    _FitsInXY,
-    _HandEmpty,
-    _Holding,
-    _NotHolding,
-    _InHandView,
-    _InView,
-    _Reachable,
-    _Blocking,
-    _NotBlocked,
-    _ContainerReadyForSweeping,
-    _IsPlaceable,
-    _IsNotPlaceable,
-    _IsSweeper,
-    _HasFlatTopSurface,
-    _RobotReadyForSweeping,
+    _NEq, _On, _TopAbove, _Inside, _NotInsideAnyContainer, _FitsInXY,
+    _HandEmpty, _Holding, _NotHolding, _InHandView, _InView, _Reachable,
+    _Blocking, _NotBlocked, _ContainerReadyForSweeping, _IsPlaceable,
+    _IsNotPlaceable, _IsSweeper, _HasFlatTopSurface, _RobotReadyForSweeping,
+    _IsSemanticallyGreaterThan
 }
 _NONPERCEPT_PREDICATES: Set[Predicate] = set()
 
@@ -1505,10 +1499,9 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_NotHolding, [robot, blocker]),
     }
     del_effs = {
-        LiftedAtom(_Blocking, [blocker, blocked]),
         LiftedAtom(_Holding, [robot, blocker]),
     }
-    ignore_effs = {_InHandView, _Reachable, _RobotReadyForSweeping}
+    ignore_effs = {_InHandView, _Reachable, _RobotReadyForSweeping, _Blocking}
     yield STRIPSOperator("DragToUnblockObject", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
@@ -1537,12 +1530,16 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     container = Variable("?container", _container_type)
     parameters = [robot, sweeper, target1, target2, surface, container]
     preconds = {
-        LiftedAtom(_NEq, [target1, target2]),
+        # Arbitrarily pick one of the targets to be the one not blocked,
+        # to prevent the robot 'dragging to unblock' twice.
         LiftedAtom(_NotBlocked, [target1]),
-        LiftedAtom(_NotBlocked, [target2]),
         LiftedAtom(_Holding, [robot, sweeper]),
         LiftedAtom(_On, [target1, surface]),
         LiftedAtom(_On, [target2, surface]),
+        # This `IsSemanticallyGreaterThan` predicate just serves to
+        # provide a canonical grounding for this operator (we don't want
+        # Sweep(yogurt, chips) to be separate from Sweep(chips, yogurt)).
+        LiftedAtom(_IsSemanticallyGreaterThan, [target1, target2]),
         # Arbitrarily pick one of the targets to be the one ready for sweeping,
         # to prevent the robot 'moving to get ready for sweeping' twice.
         LiftedAtom(_RobotReadyForSweeping, [robot, target1]),
@@ -2591,10 +2588,11 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             chair_z = floor_z + chair_height / 2
             obj_to_xyz[chair] = (chair_x, chair_y, chair_z)
 
-            # Bucket.
+            # Bucket. Note that this starts already next to the table
+            # to be conducive to sweeping.
             bucket = Object("bucket", _container_type)
-            bucket_x = robot_pose.x - 0.25
-            bucket_y = robot_pose.y - 0.5
+            bucket_x = table_x - 0.6
+            bucket_y = table_y - 0.15
             bucket_z = floor_z + bucket_height / 2
             obj_to_xyz[bucket] = (bucket_x, bucket_y, bucket_z)
 
