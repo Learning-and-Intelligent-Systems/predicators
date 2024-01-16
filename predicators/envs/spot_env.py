@@ -218,6 +218,9 @@ class SpotRearrangementEnv(BaseEnv):
         # For object detection.
         self._allowed_regions: Collection[Delaunay] = get_allowed_map_regions()
 
+        # Used for the move-related hacks in step().
+        self._last_known_object_poses: Dict[Object, math_helpers.SE3Pose] = {}
+
     @property
     def strips_operators(self) -> Set[STRIPSOperator]:
         """Expose the STRIPSOperators for use by oracles."""
@@ -456,17 +459,36 @@ class SpotRearrangementEnv(BaseEnv):
                     logging.warning("WARNING: the following retryable error "
                                     f"was encountered. Trying again.\n{e}")
 
-            # Very hacky optimization to force hand viewing to work.
-            if action_name == "MoveToHandViewObject":
+            # Very hacky optimization to force viewing/reaching to work.
+            if action_name in [
+                    "MoveToHandViewObject", "MoveToBodyViewObject",
+                    "MoveToReachObject"
+            ]:
                 _, target_obj = action_objs
-                if target_obj not in next_obs.objects_in_hand_view:
-                    logging.warning(f"WARNING: retrying {action_name} "
-                                    f"because {target_obj} was not seen.")
+                # Retry if each of the types of moving failed in their own way.
+                if action_name == "MoveToHandViewObject":
+                    need_retry = target_obj not in \
+                        next_obs.objects_in_hand_view
+                elif action_name == "MoveToBodyViewObject":
+                    need_retry = target_obj not in \
+                        next_obs.objects_in_any_view_except_back
+                else:
+                    assert action_name == "MoveToReachObject"
+                    obj_pose = self._last_known_object_poses[target_obj]
+                    obj_position = math_helpers.Vec3(x=obj_pose.x,
+                                                     y=obj_pose.y,
+                                                     z=obj_pose.z)
+                    need_retry = not _obj_reachable_from_spot_pose(
+                        next_obs.robot_pos, obj_position)
+                if need_retry:
+                    logging.warning(f"WARNING: retrying {action_name} because"
+                                    f"{target_obj} was not seen/reached.")
                     # Do a small random movement to get a new view.
-                    robot, _, localizer, gaze_target = action_fn_args
+                    assert isinstance(action_fn_args[1], math_helpers.SE2Pose)
                     angle = self._noise_rng.uniform(-np.pi / 6, np.pi / 6)
                     rel_pose = math_helpers.SE2Pose(0, 0, angle)
-                    new_action_args = (robot, rel_pose, localizer, gaze_target)
+                    new_action_args = action_fn_args[0:1] + (rel_pose, ) + \
+                        action_fn_args[2:]
                     new_action = utils.create_spot_env_action(
                         action_name,
                         action_objs,
@@ -545,6 +567,7 @@ class SpotRearrangementEnv(BaseEnv):
             self._detection_id_to_obj[det_id]: val
             for (det_id, val) in all_detections.items()
         }
+        self._last_known_object_poses.update(all_objects_in_view)
         objects_in_hand_view = set(self._detection_id_to_obj[det_id]
                                    for det_id in hand_detections)
         objects_in_any_view_except_back = set(
@@ -794,6 +817,7 @@ class SpotRearrangementEnv(BaseEnv):
             self._detection_id_to_obj[det_id]: val
             for (det_id, val) in detections.items()
         }
+        self._last_known_object_poses.update(obj_to_se3_pose)
         return obj_to_se3_pose
 
     def _run_init_search_for_objects(
@@ -1003,36 +1027,36 @@ def in_general_view_classifier(state: State,
     return state.get(tool, "in_view") > 0.5
 
 
-def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
-    spot, obj = objects
-    spot_pose = [
-        state.get(spot, "x"),
-        state.get(spot, "y"),
-        state.get(spot, "z"),
-        state.get(spot, "qw"),
-        state.get(spot, "qx"),
-        state.get(spot, "qy"),
-        state.get(spot, "qz")
-    ]
-    obj_pose = [state.get(obj, "x"), state.get(obj, "y"), state.get(obj, "z")]
+def _obj_reachable_from_spot_pose(spot_pose: math_helpers.SE3Pose,
+                                  obj_position: math_helpers.Vec3) -> bool:
     is_xy_near = np.sqrt(
-        (spot_pose[0] - obj_pose[0])**2 +
-        (spot_pose[1] - obj_pose[1])**2) <= _REACHABLE_THRESHOLD
+        (spot_pose.x - obj_position.x)**2 +
+        (spot_pose.y - obj_position.y)**2) <= _REACHABLE_THRESHOLD
 
     # Compute angle between spot's forward direction and the line from
     # spot to the object.
-    spot_yaw = math_helpers.SE3Pose(
-        spot_pose[0], spot_pose[1], spot_pose[2],
-        math_helpers.Quat(spot_pose[3], spot_pose[4], spot_pose[5],
-                          spot_pose[6])).get_closest_se2_transform().angle
+    spot_yaw = spot_pose.get_closest_se2_transform().angle
     forward_unit = [np.cos(spot_yaw), np.sin(spot_yaw)]
-    spot_to_obj = np.subtract(obj_pose[:2], spot_pose[:2])
+    spot_xy = np.array([spot_pose.x, spot_pose.y])
+    obj_xy = np.array([obj_position.x, obj_position.y])
+    spot_to_obj = np.subtract(obj_xy, spot_xy)
     spot_to_obj_unit = spot_to_obj / np.linalg.norm(spot_to_obj)
     angle_between_robot_and_obj = np.arccos(
         np.clip(np.dot(forward_unit, spot_to_obj_unit), -1, 1))
     is_yaw_near = abs(angle_between_robot_and_obj) < _REACHABLE_YAW_THRESHOLD
 
     return is_xy_near and is_yaw_near
+
+
+def _reachable_classifier(state: State, objects: Sequence[Object]) -> bool:
+    spot, obj = objects
+    spot_pose = utils.get_se3_pose_from_state(state, spot)
+    obj_position = math_helpers.Vec3(
+        x=state.get(obj, "x"),
+        y=state.get(obj, "y"),
+        z=state.get(obj, "z"),
+    )
+    return _obj_reachable_from_spot_pose(spot_pose, obj_position)
 
 
 def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
