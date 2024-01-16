@@ -373,6 +373,13 @@ class SpotPerceiver(BasePerceiver):
             return {
                 GroundAtom(On, [brush, shelf]),
             }
+        if goal_description == "pick up the brush":
+            robot = Object("robot", _robot_type)
+            brush = Object("brush", _movable_object_type)
+            Holding = pred_name_to_pred["Holding"]
+            return {
+                GroundAtom(Holding, [robot, brush]),
+            }
         raise NotImplementedError("Unrecognized goal description")
 
     def render_mental_images(self, observation: Observation,

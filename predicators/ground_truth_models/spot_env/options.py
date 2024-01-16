@@ -10,8 +10,9 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import get_or_create_env
-from predicators.envs.spot_env import SpotRearrangementEnv, \
-    _get_sweeping_surface_for_container, get_robot
+from predicators.envs.spot_env import HANDEMPTY_GRIPPER_THRESHOLD, \
+    SpotRearrangementEnv, _get_sweeping_surface_for_container, get_robot, \
+    get_robot_gripper_open_percentage
 from predicators.ground_truth_models import GroundTruthOptionFactory
 from predicators.settings import CFG
 from predicators.spot_utils.perception.perception_structs import \
@@ -70,8 +71,9 @@ def _grasp_at_pixel_and_maybe_stow_or_dump(
                    rot_thresh=rot_thresh,
                    timeout=timeout,
                    retry_with_no_constraints=retry_grasp_after_fail)
-    # Dump.
-    if do_dump:
+    # Dump, if the grasp was successful.
+    thresh = HANDEMPTY_GRIPPER_THRESHOLD
+    if do_dump and get_robot_gripper_open_percentage(robot) > thresh:
         # Lift the grasped object up high enough that it doesn't collide.
         move_hand_to_relative_pose(robot, DEFAULT_HAND_PRE_DUMP_LIFT_POSE)
         # Rotate to the left.
