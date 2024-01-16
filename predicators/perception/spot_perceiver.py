@@ -359,6 +359,13 @@ class SpotPerceiver(BasePerceiver):
             return {
                 GroundAtom(Inside, [brush, bucket]),
             }
+        if goal_description == "get the bucket on the table":
+            bucket = Object("bucket", _container_type)
+            table = Object("black_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [bucket, table]),
+            }
         if goal_description == "put the ball on the table":
             ball = Object("ball", _movable_object_type)
             drafting_table = Object("drafting_table", _drafting_table_type)
