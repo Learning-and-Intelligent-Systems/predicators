@@ -985,11 +985,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             assert CFG.segmenter == "option_changes"
             segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
 
-            for seg_traj in segmented_trajs:
-                l = [seg.get_option().name for seg in seg_traj]
-                b = [seg.get_option() for seg in seg_traj]
-                if "Pick" in l:
-                    import pdb; pdb.set_trace()
+            # for seg_traj in segmented_trajs:
+            #     l = [seg.get_option().name for seg in seg_traj]
+            #     b = [seg.get_option() for seg in seg_traj]
+            #     if "Pick" in l:
+            #         import pdb; pdb.set_trace()
 
 
             from functools import reduce
@@ -1381,11 +1381,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             def seg_to_op(segment, clusters):
                 for i, c in enumerate(clusters):
                     if segment in c:
+                        # return f"Op{i}-{c[0].get_option().name} with objects ({c[0].get_option().objects})"
                         return f"Op{i}-{c[0].get_option().name}"
             # Go through demos
             temp = []
             for a, segmented_traj in enumerate(segmented_trajs):
-                if a == 6:
+                if a == 10:
                     break
                 traj = []
                 for seg in segmented_traj:
@@ -1398,13 +1399,77 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for p in ttt:
                 print(p)
 
-            def print_demo(demo):
-                # Note, demo is a list of strings.
+            def print_demo2(segmented_traj, filename):
+
+                max_length = 0
+                with open(filename, 'w') as file:
+                    # preconditions
+                    preconds = []
+                    for seg in segmented_traj:
+                        op_name = seg_to_op(seg, final_clusters)
+                        ps = sorted([p.name for p in ddd[op_name][0]])
+                        init_atoms = set(p for p in seg.init_atoms if p.predicate.name in ps)
+                        # we assume we only have to look at objects involved in the operator,
+                        # so we can ignore all other ground atoms.
+                        # can figure out which objects change in terms of predicates.
+                        objects = set(o for a in seg.add_effects for o in a.objects) |set(o for a in seg.delete_effects for o in a.objects)
+                        relevant_init_atoms = set(p for p in init_atoms if set(p.objects).issubset(objects))
+                        relevant_init_atoms_str = sorted([str(p) for p in relevant_init_atoms])
+                        for p in relevant_init_atoms_str:
+                            max_length = max(max_length, len(p))
+                        to_print = [op_name, '----', 'preconditions', '===='] + relevant_init_atoms_str
+                        preconds.append(to_print)
+
+                    # add effects
+                    add_effs = []
+                    for seg in segmented_traj:
+                        op_name = seg_to_op(seg, final_clusters)
+                        adds = sorted([str(p) for p in seg.add_effects if p.predicate in ddd[op_name][1]])
+                        for p in adds:
+                            max_length = max(max_length, len(p))
+                        adds = ['add effects', '===='] + adds
+                        add_effs.append(adds)
+
+                    # delete effects
+                    del_effs = []
+                    for seg in segmented_traj:
+                        op_name = seg_to_op(seg, final_clusters)
+                        dels = sorted([str(p) for p in seg.delete_effects if p.predicate in ddd[op_name][2]])
+                        for p in dels:
+                            max_length = max(max_length, len(p))
+                        dels = ['delete effects', '===='] + dels
+                        del_effs.append(dels)
+
+                    max_length += 3
+
+                    max_lst_len = max(len(lst) for lst in preconds)
+                    for i in range(max_lst_len):
+                        s = " ".join(f"{lst[i]:<{max_length}}" if i < len(lst) else " " * max_length for lst in preconds)
+                        file.write(s + '\n')
+                    file.write('\n')
+                    max_lst_len = max(len(lst) for lst in add_effs)
+                    for i in range(max_lst_len):
+                        s = " ".join(f"{lst[i]:<{max_length}}" if i < len(lst) else " " * max_length for lst in add_effs)
+                        file.write(s + '\n')
+                    file.write('\n')
+                    max_lst_len = max(len(lst) for lst in del_effs)
+                    for i in range(max_lst_len):
+                        s = " ".join(f"{lst[i]:<{max_length}}" if i < len(lst) else " " * max_length for lst in del_effs)
+                        file.write(s + '\n')
+                    file.write('\n')
+
+            # print_demo2(segmented_trajs[8][0:3], "demo8_part1.txt")
+            # print_demo2(segmented_trajs[8][3:], "demo8_part12.txt")
+            import pdb; pdb.set_trace()
+
+
+            def print_demo(demo, filename):
+                # Note, demo is a list of strings (operator names).
                 # First determine the longest predicate, to help decide the
                 # column width.
                 max_length = max(len(p.name) for p in predicates_to_keep) + 5
 
-                with open("temp_demo_print.txt", 'w') as file:
+                with open(filename, 'w') as file:
 
                     # Print the preconditions of each operator.
                     preconds = []
@@ -1439,7 +1504,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         s = " ".join(f"{lst[i]:<{max_length}}" if i < len(lst) else " " * max_length for lst in del_effs)
                         file.write(s + '\n')
 
-            # print_demo(temp[-6][0:3])
+            print_demo(temp[8][0:3], "demo_8_part1.txt")
+            print_demo(temp[8][3:], "demo_8_part2.txt")
 
             # self._clusters = ddd
             # return predicates_to_keep
