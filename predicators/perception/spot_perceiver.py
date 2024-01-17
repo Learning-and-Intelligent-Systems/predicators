@@ -322,21 +322,21 @@ class SpotPerceiver(BasePerceiver):
             }
         if goal_description == "get the objects into the bucket":
             yogurt = Object("yogurt", _movable_object_type)
-            chips = Object("chips", _movable_object_type)
+            football = Object("football", _movable_object_type)
             bucket = Object("bucket", _container_type)
             Inside = pred_name_to_pred["Inside"]
             return {
                 GroundAtom(Inside, [yogurt, bucket]),
-                GroundAtom(Inside, [chips, bucket]),
+                GroundAtom(Inside, [football, bucket]),
             }
-        if goal_description == "get the yogurt and chips onto the table":
+        if goal_description == "get the yogurt and football onto the table":
             yogurt = Object("yogurt", _movable_object_type)
-            chips = Object("chips", _movable_object_type)
+            football = Object("football", _movable_object_type)
             table = Object("black_table", _immovable_object_type)
             On = pred_name_to_pred["On"]
             return {
                 GroundAtom(On, [yogurt, table]),
-                GroundAtom(On, [chips, table]),
+                GroundAtom(On, [football, table]),
             }
         if goal_description == "get the yogurt into the bucket":
             yogurt = Object("yogurt", _movable_object_type)
@@ -345,12 +345,12 @@ class SpotPerceiver(BasePerceiver):
             return {
                 GroundAtom(Inside, [yogurt, bucket]),
             }
-        if goal_description == "get the chips into the bucket":
-            chips = Object("chips", _movable_object_type)
+        if goal_description == "get the football into the bucket":
+            football = Object("football", _movable_object_type)
             bucket = Object("bucket", _container_type)
             Inside = pred_name_to_pred["Inside"]
             return {
-                GroundAtom(Inside, [chips, bucket]),
+                GroundAtom(Inside, [football, bucket]),
             }
         if goal_description == "get the brush into the bucket":
             brush = Object("brush", _movable_object_type)

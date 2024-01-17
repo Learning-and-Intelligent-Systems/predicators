@@ -25,7 +25,7 @@ known-immovable-objects:
   black_table:
     x: 1.6
     y: -2.0
-    z: -0.1
+    z: -0.35
   shelf1:
     x: 4.0
     y: -2.0
@@ -46,7 +46,7 @@ static-object-features:
     width: 0.065
     placeable: 1
     is_sweeper: 0
-  chips:
+  football:
     shape: 2
     height: 0.06
     length: 0.1
@@ -84,7 +84,7 @@ static-object-features:
     z: -0.1  # the chair can move in the x/y plane only
   black_table:
     shape: 1
-    height: 0.42
+    height: 0.35
     length: 0.4
     width: 0.65
     flat_top_surface: 1

@@ -26,7 +26,7 @@ from predicators.spot_utils.perception.object_detection import \
     LanguageObjectDetectionID, ObjectDetectionID, detect_objects, \
     visualize_all_artifacts
 from predicators.spot_utils.perception.object_specific_grasp_selection import \
-    brush_prompt, bucket_prompt, chips_prompt, yogurt_prompt
+    brush_prompt, bucket_prompt, football_prompt, yogurt_prompt
 from predicators.spot_utils.perception.perception_structs import \
     RGBDImageWithContext
 from predicators.spot_utils.perception.spot_cameras import capture_images
@@ -478,7 +478,7 @@ class SpotRearrangementEnv(BaseEnv):
                     need_retry = not _obj_reachable_from_spot_pose(
                         next_obs.robot_pos, obj_position)
                 if need_retry:
-                    logging.warning(f"WARNING: retrying {action_name} because"
+                    logging.warning(f"WARNING: retrying {action_name} because "
                                     f"{target_obj} was not seen/reached.")
                     # Do a small random movement to get a new view.
                     assert isinstance(action_fn_args[1], math_helpers.SE2Pose)
@@ -863,7 +863,7 @@ class SpotRearrangementEnv(BaseEnv):
 
 ## Constants
 HANDEMPTY_GRIPPER_THRESHOLD = 2.5  # made public for use in perceiver
-_ONTOP_Z_THRESHOLD = 0.4
+_ONTOP_Z_THRESHOLD = 0.2
 _INSIDE_Z_THRESHOLD = 0.4
 _ONTOP_SURFACE_BUFFER = 0.48
 _INSIDE_SURFACE_BUFFER = 0.1
@@ -1538,7 +1538,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_On, [target2, surface]),
         # This `IsSemanticallyGreaterThan` predicate just serves to
         # provide a canonical grounding for this operator (we don't want
-        # Sweep(yogurt, chips) to be separate from Sweep(chips, yogurt)).
+        # Sweep(yogurt, football) to be separate from Sweep(football, yogurt)).
         LiftedAtom(_IsSemanticallyGreaterThan, [target1, target2]),
         # Arbitrarily pick one of the targets to be the one ready for sweeping,
         # to prevent the robot 'moving to get ready for sweeping' twice.
@@ -2460,9 +2460,9 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
         yogurt_detection = LanguageObjectDetectionID(yogurt_prompt)
         detection_id_to_obj[yogurt_detection] = yogurt
 
-        chips = Object("chips", _movable_object_type)
-        chips_detection = LanguageObjectDetectionID(chips_prompt)
-        detection_id_to_obj[chips_detection] = chips
+        football = Object("football", _movable_object_type)
+        football_detection = LanguageObjectDetectionID(football_prompt)
+        detection_id_to_obj[football_detection] = football
 
         brush = Object("brush", _movable_object_type)
         brush_detection = LanguageObjectDetectionID(brush_prompt)
@@ -2501,7 +2501,7 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
         table_length = static_object_feats["black_table"]["length"]
         yogurt_height = static_object_feats["yogurt"]["height"]
         yogurt_length = static_object_feats["yogurt"]["length"]
-        chips_height = static_object_feats["chips"]["height"]
+        football_height = static_object_feats["football"]["height"]
         brush_height = static_object_feats["brush"]["height"]
         chair_height = static_object_feats["chair"]["height"]
         chair_width = static_object_feats["chair"]["width"]
@@ -2530,11 +2530,11 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             obj_to_xyz[yogurt] = (yogurt_x, yogurt_y, yogurt_z)
 
             # Chips.
-            chips = Object("chips", _movable_object_type)
-            chips_x = yogurt_x
-            chips_y = yogurt_y + 0.1
-            chips_z = floor_z + table_height + chips_height / 2
-            obj_to_xyz[chips] = (chips_x, chips_y, chips_z)
+            football = Object("football", _movable_object_type)
+            football_x = yogurt_x
+            football_y = yogurt_y + 0.1
+            football_z = floor_z + table_height + football_height / 2
+            obj_to_xyz[football] = (football_x, football_y, football_z)
 
             # Brush.
             brush = Object("brush", _movable_object_type)
@@ -2568,11 +2568,11 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             obj_to_xyz[yogurt] = (yogurt_x, yogurt_y, yogurt_z)
 
             # Chips.
-            chips = Object("chips", _movable_object_type)
-            chips_x = yogurt_x + 0.3
-            chips_y = yogurt_y
-            chips_z = floor_z + table_height + chips_height / 2
-            obj_to_xyz[chips] = (chips_x, chips_y, chips_z)
+            football = Object("football", _movable_object_type)
+            football_x = yogurt_x + 0.3
+            football_y = yogurt_y
+            football_z = floor_z + table_height + football_height / 2
+            obj_to_xyz[football] = (football_x, football_y, football_z)
 
             # Brush.
             brush = Object("brush", _movable_object_type)

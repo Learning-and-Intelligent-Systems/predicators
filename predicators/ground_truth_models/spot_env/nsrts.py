@@ -173,7 +173,14 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
     del goal
     surf_to_place_on = objs[2]
     surf_geom = object_to_top_down_geom(surf_to_place_on, state)
-    rand_x, rand_y = surf_geom.sample_random_point(rng, 0.13)
+    if CFG.spot_use_perfect_samplers:
+        if isinstance(surf_geom, utils.Rectangle):
+            rand_x, rand_y = surf_geom.center
+        else:
+            assert isinstance(surf_geom, utils.Circle)
+            rand_x, rand_y = surf_geom.x, surf_geom.y
+    else:
+        rand_x, rand_y = surf_geom.sample_random_point(rng, 0.13)
     dy = rand_y - state.get(surf_to_place_on, "y")
     if surf_to_place_on.name == "drafting_table":
         # For placing on the table, bias towards the top.

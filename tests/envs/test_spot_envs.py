@@ -562,7 +562,7 @@ def real_robot_sweeping_nsrt_test() -> None:
     perceiver.reset(task)
     objects_in_view = {o.name: o for o in obs.objects_in_view}
     yogurt = objects_in_view["yogurt"]
-    chips = objects_in_view["chips"]
+    football = objects_in_view["football"]
     table = objects_in_view["black_table"]
     container = objects_in_view["bucket"]
     brush = objects_in_view["brush"]
@@ -577,7 +577,7 @@ def real_robot_sweeping_nsrt_test() -> None:
     PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
     move_to_container_nsrt = MoveToReadySweep.ground((spot, container, yogurt))
     sweep_nsrt = SweepTwoObjectsIntoContainer.ground(
-        (spot, brush, yogurt, chips, table, container))
+        (spot, brush, yogurt, football, table, container))
     move_to_floor_nsrt = MoveToReachObject.ground((spot, floor))
     place_nsrt = PlaceObjectOnTop.ground((spot, brush, floor))
 
