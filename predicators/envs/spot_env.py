@@ -337,9 +337,14 @@ class SpotRearrangementEnv(BaseEnv):
                                       nonpercept_atoms)
 
         if action_name in ["PickAndDumpCup", "PickAndDumpContainer"]:
-            _, _, _, obj_inside = action_objs
+            objs_inside = {action_objs[3]}
             return _dry_simulate_pick_and_dump_container(
-                obs, obj_inside, nonpercept_atoms, self._noise_rng)
+                obs, objs_inside, nonpercept_atoms, self._noise_rng)
+
+        if action_name == "PickAndDumpTwoFromContainer":
+            objs_inside = {action_objs[3], action_objs[4]}
+            return _dry_simulate_pick_and_dump_container(
+                obs, objs_inside, nonpercept_atoms, self._noise_rng)
 
         if action_name == "DropNotPlaceableObject":
             return _dry_simulate_drop_not_placeable_object(
@@ -1699,6 +1704,32 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("PickAndDumpContainer", parameters, preconds,
                          add_effs, del_effs, ignore_effs)
 
+    # PickAndDumpTwoFromContainer (puts the container back down)
+    robot = Variable("?robot", _robot_type)
+    container = Variable("?container", _container_type)
+    surface = Variable("?surface", _base_object_type)
+    obj_inside1 = Variable("?object1", _movable_object_type)
+    obj_inside2 = Variable("?object2", _movable_object_type)
+    parameters = [robot, container, surface, obj_inside1, obj_inside2]
+    preconds = {
+        LiftedAtom(_On, [container, surface]),
+        LiftedAtom(_Inside, [obj_inside1, container]),
+        LiftedAtom(_Inside, [obj_inside2, container]),
+        LiftedAtom(_HandEmpty, [robot]),
+        LiftedAtom(_InHandView, [robot, container])
+    }
+    add_effs = {
+        LiftedAtom(_NotInsideAnyContainer, [obj_inside1]),
+        LiftedAtom(_NotInsideAnyContainer, [obj_inside2]),
+    }
+    del_effs = {
+        LiftedAtom(_Inside, [obj_inside1, container]),
+        LiftedAtom(_Inside, [obj_inside2, container]),
+    }
+    ignore_effs = set()
+    yield STRIPSOperator("PickAndDumpTwoFromContainer", parameters, preconds,
+                         add_effs, del_effs, ignore_effs)
+
 
 ###############################################################################
 #                  Shared Utilities for Dry Run Simulation                    #
@@ -2040,19 +2071,34 @@ def _dry_simulate_sweep_into_container(
     static_feats = load_spot_metadata()["static-object-features"]
     container_pose = objects_in_view[container]
     container_radius = static_feats[container.name]["width"] / 2
+    container_xy = np.array([container_pose.x, container_pose.y])
 
-    # If the sweep parameters are close enough to optimal, the object should
-    # end up in the container.
-    optimal_duration = 3.0
-    thresh = 0.5
+    # The optimal sweeping velocity depends on the initial positions of the
+    # objects being swept. Objects farther from the container need a higher
+    # velocity, closer need a lower velocity. Assume that what matters is the
+    # FARTHEST object's position, since that object will collide with the
+    # other objects during sweeping.
+    farthest_swept_obj_distance = 0.0
+    for swept_obj in swept_objs:
+        swept_obj_pose = objects_in_view[swept_obj]
+        swept_xy = np.array([swept_obj_pose.x, swept_obj_pose.y])
+        dist = np.sum(np.square(np.subtract(swept_xy, container_xy)))
+        farthest_swept_obj_distance = max(farthest_swept_obj_distance, dist)
+    # Simply say that the optimal velocity is equal to the distance.
+    optimal_velocity = farthest_swept_obj_distance
+    velocity = 1. / duration
+    # If the given velocity is close enough to the optimal velocity, sweep all
+    # objects successfully; otherwise, have the objects fall randomly.
+    thresh = 0.25
     for swept_obj in swept_objs:
         swept_obj_height = static_feats[swept_obj.name]["height"]
         swept_obj_radius = static_feats[swept_obj.name]["width"] / 2
-        if abs(optimal_duration - duration) < thresh:
+        # Successful sweep.
+        if abs(optimal_velocity - velocity) < thresh:
             x = container_pose.x
             y = container_pose.y
             z = container_pose.z + swept_obj_height / 2
-        # Otherwise, the object fails randomly somewhere around the container.
+        # Failure: the object fails randomly somewhere around the container.
         else:
             angle = rng.uniform(0, 2 * np.pi)
             distance = (container_radius + swept_obj_radius) + rng.uniform(
@@ -2135,7 +2181,7 @@ def _dry_simulate_noop(last_obs: _SpotObservation,
 
 
 def _dry_simulate_pick_and_dump_container(
-        last_obs: _SpotObservation, obj_inside: Object,
+        last_obs: _SpotObservation, objs_inside: Set[Object],
         nonpercept_atoms: Set[GroundAtom],
         rng: np.random.Generator) -> _SpotObservation:
 
@@ -2145,8 +2191,10 @@ def _dry_simulate_pick_and_dump_container(
     # Randomize dropping on the floor.
     dx, dy = rng.uniform(-0.5, 0.5, size=2)
     place_offset = math_helpers.Vec3(dx, dy, 0)
-    obs = _dry_simulate_place_on_top(last_obs, obj_inside, floor, place_offset,
-                                     nonpercept_atoms)
+    obs = last_obs
+    for obj in objs_inside:
+        obs = _dry_simulate_place_on_top(obs, obj, floor, place_offset,
+                                         nonpercept_atoms)
     next_obs = _SpotObservation(
         images={},
         objects_in_view=obs.objects_in_view,
@@ -2468,6 +2516,7 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             "SweepTwoObjectsIntoContainer",
             "PrepareContainerForSweeping",
             "PickAndDumpContainer",
+            "PickAndDumpTwoFromContainer",
             "DropNotPlaceableObject",
             "MoveToReadySweep",
             "PickObjectToDrag",

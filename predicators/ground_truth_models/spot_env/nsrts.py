@@ -196,7 +196,6 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
     # height for placing so the cup rests stably.
     if len(objs) == 3 and objs[1].name == "cup":
         dz = -0.05
-    # print([dx, dy, dz])
     return np.array([dx, dy, dz])
 
 
@@ -240,10 +239,24 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
                                   objs: Sequence[Object]) -> Array:
     # Parameters are just one number, a velocity.
-    del state, goal, objs
+    del goal
     if CFG.spot_use_perfect_samplers:
-        return np.array([1. / 0.58])
-    param = rng.uniform(0.1, 2.0)
+        if len(objs) == 6:  # SweepTwoObjectsIntoContainer
+            _, _, target1, target2, _, container = objs
+            targets = {target1, target2}
+        else:
+            assert len(objs) == 5  # SweepIntoContainer
+            _, _, target, _, container = objs
+            targets = {target}
+        max_dist = 0.0
+        cx, cy = state.get(container, "x"), state.get(container, "y")
+        for target in targets:
+            tx, ty = state.get(target, "x"), state.get(target, "y")
+            dist = np.sum(np.square(np.subtract((cx, cy), (tx, ty))))
+            max_dist = max(max_dist, dist)
+        velocity = max_dist  # directly proportional
+        return np.array([velocity])
+    param = rng.uniform(0.1, 1.0)
     return np.array([param])
 
 
@@ -289,6 +302,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "PickObjectToDrag": _pick_object_from_top_sampler,
             "PickAndDumpCup": _pick_object_from_top_sampler,
             "PickAndDumpContainer": _pick_object_from_top_sampler,
+            "PickAndDumpTwoFromContainer": _pick_object_from_top_sampler,
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
             "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
