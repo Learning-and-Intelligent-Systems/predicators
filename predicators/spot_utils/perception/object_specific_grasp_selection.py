@@ -39,11 +39,8 @@ football_prompt = "/".join([
     "small brown ball",
 ])
 football_obj = LanguageObjectDetectionID(football_prompt)
-yogurt_prompt = "/".join([
-    "small purple cup",
-    "purple bobbin",
-    "small black wheel"
-])
+yogurt_prompt = "/".join(
+    ["small purple cup", "purple bobbin", "small black wheel"])
 yogurt_obj = LanguageObjectDetectionID(yogurt_prompt)
 
 
