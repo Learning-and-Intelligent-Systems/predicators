@@ -1527,7 +1527,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 "((0:block).pose_z<=[idx 0]0.461)",
                 "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
                 "NOT-((0:robot).fingers<=[idx 0]0.5)",
-                "OnTable"
+                "OnTable",
+                "Forall[0:block].[NOT-On(0,1)]"
             ]
             mmm["Op0-Pick"]["add"] = [
                 "((0:robot).fingers<=[idx 0]0.5)",
@@ -1566,7 +1567,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 "((0:robot).fingers<=[idx 0]0.5)",
                 "NOT-((0:block).pose_z<=[idx 0]0.461)",
                 "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
-                "NOT-OnTable"
+                "NOT-OnTable",
+                "Forall[0:block].[NOT-On(0,1)]"
             ]
             mmm["Op2-Stack"]["add"] = [
                 "((0:block).pose_z<=[idx 0]0.461)",
@@ -1577,14 +1579,16 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             mmm["Op2-Stack"]["del"] = [
                 "((0:robot).fingers<=[idx 0]0.5)",
                 "NOT-((0:block).pose_z<=[idx 0]0.461)",
-                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]"
+                "NOT-Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
+                "Forall[0:block].[NOT-On(0,1)]"
             ]
 
             mmm["Op3-Pick"]["pre"] = [
                 "((0:block).pose_z<=[idx 0]0.461)",
                 "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
                 "NOT-((0:robot).fingers<=[idx 0]0.5)",
-                "OnTable"
+                "OnTable",
+                "Forall[0:block].[NOT-On(0,1)]"
             ]
             mmm["Op3-Pick"]["add"] = [
                 "((0:robot).fingers<=[idx 0]0.5)",

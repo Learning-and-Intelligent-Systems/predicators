@@ -173,10 +173,52 @@ class BaseSTRIPSLearner(abc.ABC):
             objects, self._predicates, strips_ops, option_specs, init_atoms,
             traj_goal, option_plan, atoms_seq)
 
-        # print("doing a test")
-        # Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
-        # Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
-        # objs = list(init_state.data.keys())
+
+        print("doing a test")
+        import pdb; pdb.set_trace()
+        if ground_nsrt_plan is None:
+            import pdb; pdb.set_trace()
+
+            Op0Pick = [op for op in strips_ops if op.name=="Op0-Pick"][0]
+            Op1PutOnTable = [op for op in strips_ops if op.name=="Op1-PutOnTable"][0]
+            Op2Stack = [op for op in strips_ops if op.name=="Op2-Stack"][0]
+            Op3Pick = [op for op in strips_ops if op.name=="Op3-Pick"][0]
+
+            objs = list(init_state.data.keys())
+            robot = [o for o in objs if o.name == "robby"][0]
+            block0 = [b for b in objs if b.name == "block0"][0]
+            block1 = [b for b in objs if b.name == "block1"][0]
+            block2 = [b for b in objs if b.name == "block2"][0]
+            block3 = [b for b in objs if b.name == "block3"][0]
+
+
+            # first = Op3Pick.ground((block1, block2, robot))
+            # second = Op1PutOnTable.ground((block2, robot))
+            # third  = Op0Pick.ground((block1, robot))
+            # fourth = Op2Stack.ground((block0, block1, robot))
+            # fifth = Op0Pick.ground((block2, robot))
+            # sixth = Op2Stack.ground((block1, block2, robot))
+
+            first = Op3Pick.ground((block2, block3, robot))
+            second = Op1PutOnTable.ground((block3, robot))
+            third = Op3Pick.ground((block1, block2, robot))
+            fourth = Op2Stack.ground((block3, block2, robot))
+
+            import pdb; pdb.set_trace()
+
+            after_first = (init_atoms | first.add_effects) - first.delete_effects
+            # assert second.preconditions == second.preconditions.intersection(after_first)
+            after_second = (after_first | second.add_effects) - second.delete_effects
+            # assert third.preconditions == third.preconditions.intersection(after_second)
+            after_third = (after_second | third.add_effects) - third.delete_effects
+            # assert fourth.preconditions == fourth.preconditions.intersection(after_third)
+            after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
+
+            after_fifth = (after_fourth | fifth.add_effects) - fifth.delete_effects
+            after_sixth = (after_fifth | sixth.add_effects) - sixth.delete_effects
+
+
+
         # robot = [o for o in objs if o.name == "robby"][0]
         # block1 = [b for b in objs if b.name == "block1"][0]
         # block2 = [b for b in objs if b.name == "block2"][0]
@@ -197,7 +239,6 @@ class BaseSTRIPSLearner(abc.ABC):
         # after_fourth = (after_third | fourth.add_effects) - fourth.delete_effects
         #
         #
-        # import pdb; pdb.set_trace()
         return ground_nsrt_plan is not None
 
     def _recompute_datastores_from_segments(self, pnads: List[PNAD]) -> None:
