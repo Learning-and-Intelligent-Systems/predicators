@@ -337,9 +337,14 @@ class SpotRearrangementEnv(BaseEnv):
                                       nonpercept_atoms)
 
         if action_name in ["PickAndDumpCup", "PickAndDumpContainer"]:
-            _, _, _, obj_inside = action_objs
+            objs_inside = {action_objs[3]}
             return _dry_simulate_pick_and_dump_container(
-                obs, obj_inside, nonpercept_atoms, self._noise_rng)
+                obs, objs_inside, nonpercept_atoms, self._noise_rng)
+
+        if action_name == "PickAndDumpTwoFromContainer":
+            objs_inside = {action_objs[3], action_objs[4]}
+            return _dry_simulate_pick_and_dump_container(
+                obs, objs_inside, nonpercept_atoms, self._noise_rng)
 
         if action_name == "DropNotPlaceableObject":
             return _dry_simulate_drop_not_placeable_object(
@@ -1696,6 +1701,32 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("PickAndDumpContainer", parameters, preconds,
                          add_effs, del_effs, ignore_effs)
 
+    # PickAndDumpTwoFromContainer (puts the container back down)
+    robot = Variable("?robot", _robot_type)
+    container = Variable("?container", _container_type)
+    surface = Variable("?surface", _base_object_type)
+    obj_inside1 = Variable("?object1", _movable_object_type)
+    obj_inside2 = Variable("?object2", _movable_object_type)
+    parameters = [robot, container, surface, obj_inside1, obj_inside2]
+    preconds = {
+        LiftedAtom(_On, [container, surface]),
+        LiftedAtom(_Inside, [obj_inside1, container]),
+        LiftedAtom(_Inside, [obj_inside2, container]),
+        LiftedAtom(_HandEmpty, [robot]),
+        LiftedAtom(_InHandView, [robot, container])
+    }
+    add_effs = {
+        LiftedAtom(_NotInsideAnyContainer, [obj_inside1]),
+        LiftedAtom(_NotInsideAnyContainer, [obj_inside2]),
+    }
+    del_effs = {
+        LiftedAtom(_Inside, [obj_inside1, container]),
+        LiftedAtom(_Inside, [obj_inside2, container]),
+    }
+    ignore_effs = set()
+    yield STRIPSOperator("PickAndDumpTwoFromContainer", parameters, preconds,
+                         add_effs, del_effs, ignore_effs)
+
 
 ###############################################################################
 #                  Shared Utilities for Dry Run Simulation                    #
@@ -2132,7 +2163,7 @@ def _dry_simulate_noop(last_obs: _SpotObservation,
 
 
 def _dry_simulate_pick_and_dump_container(
-        last_obs: _SpotObservation, obj_inside: Object,
+        last_obs: _SpotObservation, objs_inside: Set[Object],
         nonpercept_atoms: Set[GroundAtom],
         rng: np.random.Generator) -> _SpotObservation:
 
@@ -2142,8 +2173,10 @@ def _dry_simulate_pick_and_dump_container(
     # Randomize dropping on the floor.
     dx, dy = rng.uniform(-0.5, 0.5, size=2)
     place_offset = math_helpers.Vec3(dx, dy, 0)
-    obs = _dry_simulate_place_on_top(last_obs, obj_inside, floor, place_offset,
-                                     nonpercept_atoms)
+    obs = last_obs
+    for obj in objs_inside:
+        obs = _dry_simulate_place_on_top(obs, obj, floor, place_offset,
+                                         nonpercept_atoms)
     next_obs = _SpotObservation(
         images={},
         objects_in_view=obs.objects_in_view,
@@ -2465,6 +2498,7 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             "SweepTwoObjectsIntoContainer",
             "PrepareContainerForSweeping",
             "PickAndDumpContainer",
+            "PickAndDumpTwoFromContainer",
             "DropNotPlaceableObject",
             "MoveToReadySweep",
             "PickObjectToDrag",

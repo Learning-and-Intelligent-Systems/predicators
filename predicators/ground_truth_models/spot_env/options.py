@@ -348,6 +348,43 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
                                sweep_move_dy, sweep_move_dz, duration))
 
 
+def _pick_and_dump_policy(name: str, robot_obj_idx: int, target_obj_idx: int,
+                          state: State, memory: Dict,
+                          objects: Sequence[Object], params: Array) -> Action:
+    grasp_action = _grasp_policy(name,
+                                 target_obj_idx,
+                                 state,
+                                 memory,
+                                 objects,
+                                 params,
+                                 do_dump=True)
+
+    # If the container starts out next to a surface while ready for sweeping,
+    # put it back.
+    robot = objects[robot_obj_idx]
+    container = objects[target_obj_idx]
+    surface = _get_sweeping_surface_for_container(container, state)
+    if surface is None:
+        return grasp_action
+    param_dict = load_spot_metadata()["prepare_container_relative_xy"]
+    prep_params = np.array(
+        [param_dict["dx"], param_dict["dy"], param_dict["angle"]])
+    prep_objects = [robot, container, surface, surface]
+    prep_sweep_action = _prepare_container_for_sweeping_policy(
+        state, memory, prep_objects, prep_params)
+
+    # Chain the actions.
+    actions = [grasp_action, prep_sweep_action]
+
+    def _fn() -> None:
+        for action in actions:
+            assert isinstance(action.extra_info, (list, tuple))
+            _, _, action_fn, action_fn_args = action.extra_info
+            action_fn(*action_fn_args)
+
+    return utils.create_spot_env_action(name, objects, _fn, tuple())
+
+
 ###############################################################################
 #                   Concrete parameterized option policies                    #
 ###############################################################################
@@ -424,42 +461,23 @@ def _pick_and_dump_cup_policy(state: State, memory: Dict,
 def _pick_and_dump_container_policy(state: State, memory: Dict,
                                     objects: Sequence[Object],
                                     params: Array) -> Action:
-    # Pick up the container and then move the and forward and backward.
+    # Pick up and dump the container, then put it back.
     name = "PickAndDumpContainer"
     robot_obj_idx = 0
     target_obj_idx = 1
-    grasp_action = _grasp_policy(name,
-                                 target_obj_idx,
-                                 state,
-                                 memory,
-                                 objects,
-                                 params,
-                                 do_dump=True)
+    return _pick_and_dump_policy(name, robot_obj_idx, target_obj_idx, state,
+                                 memory, objects, params)
 
-    # If the container starts out next to a surface while ready for sweeping,
-    # put it back.
-    robot = objects[robot_obj_idx]
-    container = objects[target_obj_idx]
-    surface = _get_sweeping_surface_for_container(container, state)
-    if surface is None:
-        return grasp_action
-    param_dict = load_spot_metadata()["prepare_container_relative_xy"]
-    prep_params = np.array(
-        [param_dict["dx"], param_dict["dy"], param_dict["angle"]])
-    prep_objects = [robot, container, surface, surface]
-    prep_sweep_action = _prepare_container_for_sweeping_policy(
-        state, memory, prep_objects, prep_params)
 
-    # Chain the actions.
-    actions = [grasp_action, prep_sweep_action]
-
-    def _fn() -> None:
-        for action in actions:
-            assert isinstance(action.extra_info, (list, tuple))
-            _, _, action_fn, action_fn_args = action.extra_info
-            action_fn(*action_fn_args)
-
-    return utils.create_spot_env_action(name, objects, _fn, tuple())
+def _pick_and_dump_two_container_policy(state: State, memory: Dict,
+                                        objects: Sequence[Object],
+                                        params: Array) -> Action:
+    # Pick up and dump the container, then put it back.
+    name = "PickAndDumpTwoFromContainer"
+    robot_obj_idx = 0
+    target_obj_idx = 1
+    return _pick_and_dump_policy(name, robot_obj_idx, target_obj_idx, state,
+                                 memory, objects, params)
 
 
 def _place_object_on_top_policy(state: State, memory: Dict,
@@ -731,6 +749,8 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     # same as PickObjectFromTop
     "PickAndDumpContainer": Box(-np.inf, np.inf, (6, )),
     # same as PickObjectFromTop
+    "PickAndDumpTwoFromContainer": Box(-np.inf, np.inf, (6, )),
+    # same as PickObjectFromTop
     "PickObjectToDrag": Box(-np.inf, np.inf, (6, )),
     "PlaceObjectOnTop": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
     "DropObjectInside": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dz
@@ -755,6 +775,7 @@ _OPERATOR_NAME_TO_POLICY = {
     "PickObjectToDrag": _pick_object_to_drag_policy,
     "PickAndDumpCup": _pick_and_dump_cup_policy,
     "PickAndDumpContainer": _pick_and_dump_container_policy,
+    "PickAndDumpTwoFromContainer": _pick_and_dump_two_container_policy,
     "PlaceObjectOnTop": _place_object_on_top_policy,
     "DropObjectInside": _drop_object_inside_policy,
     "DropObjectInsideContainerOnTop": _move_and_drop_object_inside_policy,

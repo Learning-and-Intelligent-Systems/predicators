@@ -289,6 +289,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "PickObjectToDrag": _pick_object_from_top_sampler,
             "PickAndDumpCup": _pick_object_from_top_sampler,
             "PickAndDumpContainer": _pick_object_from_top_sampler,
+            "PickAndDumpTwoFromContainer": _pick_object_from_top_sampler,
             "PlaceObjectOnTop": _place_object_on_top_sampler,
             "DropObjectInside": _drop_object_inside_sampler,
             "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
