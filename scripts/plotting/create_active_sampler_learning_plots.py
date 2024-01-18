@@ -127,7 +127,7 @@ PLOT_GROUPS = {
         ("Fail Focus", "red", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "spot_sweeping_sim-success_rate_explore_ucb" in v)),
         ("Task-Relevant", "purple", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "spot_sweeping_simrandom_score_explore" in v)),
+            lambda v: "spot_sweeping_sim-random_score_explore" in v)),
         ("Random Skills", "blue", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "spot_sweeping_sim-random_nsrts_explore" in v)),
         ("Skill Diversity", "pink", lambda df: df["EXPERIMENT_ID"].apply(

@@ -292,7 +292,8 @@ class SpotRearrangementEnv(BaseEnv):
         if action_name == "PlaceObjectOnTop":
             _, held_obj, target_surface = action_objs
             if len(action_args) == 1:
-                assert target_surface.name == "floor"
+                if not CFG.spot_run_dry:
+                    assert target_surface.name == "floor"
                 place_offset = math_helpers.Vec3(0.0, 0.0, 0.0)
             else:
                 place_offset = action_args[1]
@@ -329,12 +330,11 @@ class SpotRearrangementEnv(BaseEnv):
                                                       duration=duration,
                                                       rng=self._noise_rng)
 
-        if action_name == "DragToUnblockObject":
+        if action_name in ["DragToUnblockObject", "DragToBlockObject"]:
             _, blocker, _ = action_objs
             _, robot_rel_se2_pose = action_args
-            return _dry_simulate_drag_to_unblock(obs, blocker,
-                                                 robot_rel_se2_pose,
-                                                 nonpercept_atoms)
+            return _dry_simulate_drag(obs, blocker, robot_rel_se2_pose,
+                                      nonpercept_atoms)
 
         if action_name in ["PickAndDumpCup", "PickAndDumpContainer"]:
             _, _, _, obj_inside = action_objs
@@ -1505,6 +1505,27 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     yield STRIPSOperator("DragToUnblockObject", parameters, preconds, add_effs,
                          del_effs, ignore_effs)
 
+    # DragToBlockObject
+    robot = Variable("?robot", _robot_type)
+    blocked = Variable("?blocked", _base_object_type)
+    blocker = Variable("?blocker", _movable_object_type)
+    parameters = [robot, blocker, blocked]
+    preconds = {
+        LiftedAtom(_NotBlocked, [blocked]),
+        LiftedAtom(_HandEmpty, [robot]),
+        LiftedAtom(_Holding, [robot, blocker]),
+    }
+    add_effs = {
+        LiftedAtom(_Blocking, [blocker, blocked]),
+        LiftedAtom(_NotHolding, [robot, blocker]),
+    }
+    del_effs = {
+        LiftedAtom(_Holding, [robot, blocker]),
+    }
+    ignore_effs = {_InHandView, _Reachable, _RobotReadyForSweeping, _Blocking}
+    yield STRIPSOperator("DragToBlockObject", parameters, preconds, add_effs,
+                         del_effs, ignore_effs)
+
     # MoveToReadySweep
     robot = Variable("?robot", _robot_type)
     container = Variable("?container", _container_type)
@@ -1903,10 +1924,9 @@ def _dry_simulate_drop_inside(
     return next_obs
 
 
-def _dry_simulate_drag_to_unblock(
-        last_obs: _SpotObservation, held_obj: Object,
-        robot_rel_se2_pose: math_helpers.SE2Pose,
-        nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
+def _dry_simulate_drag(last_obs: _SpotObservation, held_obj: Object,
+                       robot_rel_se2_pose: math_helpers.SE2Pose,
+                       nonpercept_atoms: Set[GroundAtom]) -> _SpotObservation:
 
     # Initialize values based on the last observation.
     objects_in_view = last_obs.objects_in_view.copy()
@@ -2032,13 +2052,17 @@ def _dry_simulate_sweep_into_container(
         # Otherwise, the object fails randomly somewhere around the container.
         else:
             angle = rng.uniform(0, 2 * np.pi)
-            distance = (container_radius + swept_obj_radius) * rng.uniform(
-                1.25, 1.5)
+            distance = (container_radius + swept_obj_radius) + rng.uniform(
+                1.1 * _INSIDE_SURFACE_BUFFER, 2 * _INSIDE_SURFACE_BUFFER)
             dx = distance * np.cos(angle)
             dy = distance * np.sin(angle)
             x = container_pose.x + dx
             y = container_pose.y + dy
             z = container_pose.z
+            dist_to_container = (dx**2 + dy**2)**0.5
+            assert dist_to_container > (container_radius +
+                                        _INSIDE_SURFACE_BUFFER)
+
         swept_obj_pose = math_helpers.SE3Pose(x, y, z, math_helpers.Quat())
         # We want to make sure the object(s) don't get lost after sweeping!
         objects_in_view[swept_obj] = swept_obj_pose
@@ -2374,6 +2398,7 @@ class SpotSodaChairEnv(SpotRearrangementEnv):
             "PlaceObjectOnTop",
             "DropObjectInside",
             "DragToUnblockObject",
+            "DragToBlockObject",
             "PickObjectToDrag",
         }
         self._strips_operators = {op_to_name[o] for o in op_names_to_keep}
@@ -2435,6 +2460,7 @@ class SpotMainSweepEnv(SpotRearrangementEnv):
             "PickObjectFromTop",
             "PlaceObjectOnTop",
             "DragToUnblockObject",
+            "DragToBlockObject",
             "SweepIntoContainer",
             "SweepTwoObjectsIntoContainer",
             "PrepareContainerForSweeping",

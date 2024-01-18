@@ -228,6 +228,14 @@ def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],
     return np.array([0.0, 0.0, np.pi])
 
 
+def _drag_to_block_object_sampler(state: State, goal: Set[GroundAtom],
+                                  rng: np.random.Generator,
+                                  objs: Sequence[Object]) -> Array:
+    # Parameters are relative dx, dy, dyaw to move while holding.
+    del state, goal, objs, rng  # randomization coming soon
+    return np.array([0.0, 0.0, -np.pi])
+
+
 def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
                                   objs: Sequence[Object]) -> Array:
@@ -235,7 +243,7 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
     del state, goal, objs
     if CFG.spot_use_perfect_samplers:
         return np.array([1. / 3])
-    param = rng.uniform(0.1, 5.0)
+    param = rng.uniform(0.1, 1.0)
     return np.array([param])
 
 
@@ -285,6 +293,7 @@ class SpotEnvsGroundTruthNSRTFactory(GroundTruthNSRTFactory):
             "DropObjectInside": _drop_object_inside_sampler,
             "DropObjectInsideContainerOnTop": _drop_object_inside_sampler,
             "DragToUnblockObject": _drag_to_unblock_object_sampler,
+            "DragToBlockObject": _drag_to_block_object_sampler,
             "SweepIntoContainer": _sweep_into_container_sampler,
             "SweepTwoObjectsIntoContainer": _sweep_into_container_sampler,
             "PrepareContainerForSweeping": _prepare_sweeping_sampler,

@@ -319,7 +319,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                 # Terminate early if no goal could be found.
                 else:
                     # For spot environments, don't do random actions.
-                    if "spot" in CFG.env:  # pragma: no cover
+                    if "spot" in CFG.env and \
+                        not CFG.spot_run_dry:  # pragma: no cover
                         self._log("[Explorer] TERMINATING EARLY!!! "
                                   "No reachable goal found.")
                         raise utils.RequestActPolicyFailure(
@@ -498,7 +499,6 @@ class ActiveSamplerExplorer(BaseExplorer):
             logging.info(f"[Explorer]   posterior competence: {competence}")
             logging.info(f"[Explorer]   extrapolated competence: {extrap}")
             logging.info(f"[Explorer]   score: {score}")
-
             if CFG.active_sampler_explore_use_ucb_bonus:
                 # Normalize the score.
                 score = score / seen_train_tasks_num

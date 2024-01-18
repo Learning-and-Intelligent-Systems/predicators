@@ -103,21 +103,25 @@ class SpotPerceiver(BasePerceiver):
             # The robot is always the 0th argument of an
             # operator!
             if "pick" in controller_name.lower():
-                assert self._held_object is None
-                # We know that the object that we attempted to grasp was
-                # the second argument to the controller.
-                object_attempted_to_grasp = objects[1]
-                # Remove from contained objects.
-                for contained in self._container_to_contained_objects.values():
-                    contained.discard(object_attempted_to_grasp)
-                # We only want to update the holding item id feature
-                # if we successfully picked something.
-                if self._gripper_open_percentage > HANDEMPTY_GRIPPER_THRESHOLD:
-                    self._held_object = object_attempted_to_grasp
+                if self._held_object is not None:
+                    assert CFG.spot_run_dry
                 else:
-                    # We lost the object!
-                    logging.info("[Perceiver] Object was lost!")
-                    self._lost_objects.add(object_attempted_to_grasp)
+                    # We know that the object that we attempted to grasp was
+                    # the second argument to the controller.
+                    object_attempted_to_grasp = objects[1]
+                    # Remove from contained objects.
+                    for contained in self.\
+                        _container_to_contained_objects.values():
+                        contained.discard(object_attempted_to_grasp)
+                    # We only want to update the holding item id feature
+                    # if we successfully picked something.
+                    if self._gripper_open_percentage > \
+                        HANDEMPTY_GRIPPER_THRESHOLD:
+                        self._held_object = object_attempted_to_grasp
+                    else:
+                        # We lost the object!
+                        logging.info("[Perceiver] Object was lost!")
+                        self._lost_objects.add(object_attempted_to_grasp)
             elif any(n in controller_name.lower() for n in
                      ["place", "drop", "preparecontainerforsweeping", "drag"]):
                 self._held_object = None

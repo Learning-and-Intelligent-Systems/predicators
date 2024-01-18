@@ -494,7 +494,8 @@ def _place_object_on_top_policy(state: State, memory: Dict,
     # Special case: the robot is already on top of the surface (because it is
     # probably the floor). When this happens, just drop the object.
     surface_geom = object_to_top_down_geom(surface_obj, state)
-    if surface_geom.contains_point(robot_pose.x, robot_pose.y):
+    if surface_geom.contains_point(
+            robot_pose.x, robot_pose.y) and surface_obj.name == "floor":
         return utils.create_spot_env_action(name, objects, _drop_and_stow,
                                             (robot, ))
 
@@ -604,6 +605,20 @@ def _drag_to_unblock_object_policy(state: State, memory: Dict,
     del state, memory  # not used
 
     name = "DragToUnblockObject"
+    robot, _, _ = get_robot()
+    dx, dy, dyaw = params
+    move_rel_pos = math_helpers.SE2Pose(dx, dy, angle=dyaw)
+
+    return utils.create_spot_env_action(name, objects, _drag_and_release,
+                                        (robot, move_rel_pos))
+
+
+def _drag_to_block_object_policy(state: State, memory: Dict,
+                                 objects: Sequence[Object],
+                                 params: Array) -> Action:
+    del state, memory  # not used
+
+    name = "DragToBlockObject"
     robot, _, _ = get_robot()
     dx, dy, dyaw = params
     move_rel_pos = math_helpers.SE2Pose(dx, dy, angle=dyaw)
@@ -722,6 +737,7 @@ _OPERATOR_NAME_TO_PARAM_SPACE = {
     "DropObjectInsideContainerOnTop": Box(-np.inf, np.inf,
                                           (3, )),  # rel dx, dy, dz
     "DragToUnblockObject": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dyaw
+    "DragToBlockObject": Box(-np.inf, np.inf, (3, )),  # rel dx, dy, dyaw
     "SweepIntoContainer": Box(-np.inf, np.inf, (1, )),  # velocity
     "SweepTwoObjectsIntoContainer": Box(-np.inf, np.inf, (1, )),  # same
     "PrepareContainerForSweeping": Box(-np.inf, np.inf, (3, )),  # dx, dy, dyaw
@@ -743,6 +759,7 @@ _OPERATOR_NAME_TO_POLICY = {
     "DropObjectInside": _drop_object_inside_policy,
     "DropObjectInsideContainerOnTop": _move_and_drop_object_inside_policy,
     "DragToUnblockObject": _drag_to_unblock_object_policy,
+    "DragToBlockObject": _drag_to_block_object_policy,
     "SweepIntoContainer": _sweep_into_container_policy,
     "SweepTwoObjectsIntoContainer": _sweep_two_objects_into_container_policy,
     "PrepareContainerForSweeping": _prepare_container_for_sweeping_policy,

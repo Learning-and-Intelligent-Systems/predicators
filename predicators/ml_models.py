@@ -1402,15 +1402,20 @@ class MapleQFunction(MLPRegressor):
 
     def train_q_function(self) -> None:
         """Fit the model."""
+        # If there's no data in the replay buffer, we can't train.
+        if len(self._replay_buffer) == 0:
+            return
+        # Before doing anything; check that the network's grounding has
+        # been correctly set before calling training.
+        assert len(self._ordered_objects) > 0
+        assert len(self._ordered_frozen_goals) > 0
+        assert len(self._ordered_ground_nsrts) > 0
         # First, precompute the size of the input and output from the
         # Q-network.
         X_size = sum(o.type.dim for o in self._ordered_objects) + len(
             self._ordered_frozen_goals
         ) + self._num_ground_nsrts + self._max_num_params
         Y_size = 1
-        # If there's no data in the replay buffer, we can't train.
-        if len(self._replay_buffer) == 0:
-            return
         # Otherwise, start by vectorizing all data in the replay buffer.
         X_arr = np.zeros((len(self._replay_buffer), X_size), dtype=np.float32)
         Y_arr = np.zeros((len(self._replay_buffer), Y_size), dtype=np.float32)
