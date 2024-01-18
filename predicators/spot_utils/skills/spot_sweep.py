@@ -110,39 +110,36 @@ if __name__ == "__main__":
         go_home(robot, localizer)
         localizer.localize()
 
-        # # Find the yogurt can.
-        # yogurt_prompt = "/".join([
-        #     "small purple cup",
-        #     "yogurt container",
-        #     "purple ribbon",
-        #     "purple bobbin",
-        #     "globe",
-        # ])
-        # yogurt_detection_id = LanguageObjectDetectionID(yogurt_prompt)
-        # detections, _ = init_search_for_objects(robot, localizer,
-        #                                         {yogurt_detection_id})
-        # yogurt_pose = detections[yogurt_detection_id]
+        # Find the yogurt can.
+        yogurt_prompt = "/".join([
+            "small purple cup",
+            "yogurt container",
+            "purple ribbon",
+            "purple bobbin",
+            "globe",
+        ])
+        yogurt_detection_id = LanguageObjectDetectionID(yogurt_prompt)
+        detections, _ = init_search_for_objects(robot, localizer,
+                                                {yogurt_detection_id})
+        yogurt_pose = detections[yogurt_detection_id]
 
-        yogurt_pose = math_helpers.SE3Pose(1.414, -2.068, -0.140,
-                                           math_helpers.Quat())
+        # Move the hand to the side so that the brush can face forward.
+        hand_side_pose = math_helpers.SE3Pose(x=0.80,
+                                              y=0.0,
+                                              z=0.25,
+                                              rot=math_helpers.Quat.from_yaw(
+                                                  -np.pi / 2))
+        move_hand_to_relative_pose(robot, hand_side_pose)
 
-        # # Move the hand to the side so that the brush can face forward.
-        # hand_side_pose = math_helpers.SE3Pose(x=0.80,
-        #                                       y=0.0,
-        #                                       z=0.25,
-        #                                       rot=math_helpers.Quat.from_yaw(
-        #                                           -np.pi / 2))
-        # move_hand_to_relative_pose(robot, hand_side_pose)
+        # Ask for the brush.
+        open_gripper(robot)
+        # Press any key, instead of just enter. Useful for remote control.
+        msg = "Put the brush in the robot's gripper, then press any key"
+        utils.wait_for_any_button_press(msg)
+        close_gripper(robot)
 
-        # # Ask for the brush.
-        # open_gripper(robot)
-        # # Press any key, instead of just enter. Useful for remote control.
-        # msg = "Put the brush in the robot's gripper, then press any key"
-        # utils.wait_for_any_button_press(msg)
-        # close_gripper(robot)
-
-        # # Move to in front of the yogurt.
-        # stow_arm(robot)
+        # Move to in front of the yogurt.
+        stow_arm(robot)
         pre_sweep_nav_distance = 0.7
         home_pose = get_spot_home_pose()
         pre_sweep_nav_angle = home_pose.angle - np.pi
