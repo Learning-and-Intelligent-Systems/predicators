@@ -41,10 +41,8 @@ football_prompt = "/".join([
 football_obj = LanguageObjectDetectionID(football_prompt)
 yogurt_prompt = "/".join([
     "small purple cup",
-    "yogurt container",
-    "purple ribbon",
     "purple bobbin",
-    "globe",
+    "small black wheel"
 ])
 yogurt_obj = LanguageObjectDetectionID(yogurt_prompt)
 
