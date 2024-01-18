@@ -5,7 +5,7 @@ from bosdyn.client import math_helpers
 from bosdyn.client.sdk import Robot
 
 from predicators.spot_utils.skills.spot_hand_move import \
-    move_hand_to_relative_pose
+    move_hand_to_relative_pose, move_hand_to_relative_pose_with_velocity
 from predicators.spot_utils.skills.spot_navigation import \
     navigate_to_relative_pose
 from predicators.spot_utils.skills.spot_stow_arm import stow_arm
@@ -39,8 +39,8 @@ def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
                                               z=move_dz,
                                               rot=math_helpers.Quat())
     sweep_end_pose = relative_hand_move * sweep_start_pose
-    # Move the hand to the end pose. This is the main sweep!
-    move_hand_to_relative_pose(robot, sweep_end_pose, duration)
+    move_hand_to_relative_pose_with_velocity(robot, sweep_start_pose,
+                                             sweep_end_pose, duration)
     # Stow arm.
     stow_arm(robot)
     # Back up a little bit so that we can see the result of sweeping.
@@ -59,10 +59,10 @@ if __name__ == "__main__":
     # Make sure to pass in --spot_robot_ip.
 
     # NOTE: this test assumes that the robot is standing in front of a table
-    # that has a soda can on it. The test starts by running object detection to
-    # get the pose of the soda can. Then the robot opens its gripper and pauses
+    # that has a yogurt on it. The test starts by running object detection to
+    # get the pose of the yogurt. Then the robot opens its gripper and pauses
     # until a brush is put in the gripper, with the bristles facing down and
-    # forward. The robot should then brush the soda can to the right.
+    # forward. The robot should then brush the yogurt to the right.
 
     # pylint: disable=ungrouped-imports
     from bosdyn.client import create_standard_sdk
@@ -111,7 +111,14 @@ if __name__ == "__main__":
         localizer.localize()
 
         # Find the soda can.
-        soda_detection_id = LanguageObjectDetectionID("soda can/beer can")
+        yogurt_prompt = "/".join([
+            "small purple cup",
+            "yogurt container",
+            "purple ribbon",
+            "purple bobbin",
+            "globe",
+        ])
+        soda_detection_id = LanguageObjectDetectionID(yogurt_prompt)
         detections, _ = init_search_for_objects(robot, localizer,
                                                 {soda_detection_id})
         soda_pose = detections[soda_detection_id]
@@ -131,7 +138,7 @@ if __name__ == "__main__":
         utils.wait_for_any_button_press(msg)
         close_gripper(robot)
 
-        # Move to in front of the soda can.
+        # Move to in front of the yogurt.
         stow_arm(robot)
         pre_sweep_nav_distance = 0.7
         home_pose = get_spot_home_pose()
@@ -149,7 +156,7 @@ if __name__ == "__main__":
         soda_rel_pose = robot_pose.inverse() * soda_pose
         start_dx = 0.0
         start_dy = 0.4
-        start_dz = 0.1
+        start_dz = 0.18
         start_x = soda_rel_pose.x + start_dx
         start_y = soda_rel_pose.y + start_dy
         start_z = soda_rel_pose.z + start_dz
@@ -161,10 +168,10 @@ if __name__ == "__main__":
                                                 z=start_z,
                                                 rot=rot)
         # Calculate the yaw and distance for the sweep.
-        sweep_move_dx = -start_dx
-        sweep_move_dy = -start_dy
-        sweep_move_dz = -3 * start_dz
-        duration = 4.0
+        sweep_move_dx = 0.0
+        sweep_move_dy = -0.8
+        sweep_move_dz = -0.1
+        duration = 0.55
 
         # Execute the sweep.
         sweep(robot, sweep_start_pose, sweep_move_dx, sweep_move_dy,

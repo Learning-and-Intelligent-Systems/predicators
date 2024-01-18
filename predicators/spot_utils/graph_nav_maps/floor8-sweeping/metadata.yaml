@@ -97,7 +97,7 @@ static-object-features:
 # This should be calculable, but I'm lazy. These values represent the SE2 pose
 # (in the table frame) for the robot before placing the container.
 prepare_container_relative_xy:
-  dx: -0.6
+  dx: -0.75
   dy: 0.65
   angle: -1.5707  # - pi / 2
 # Helpful for static objects that are up against a wall, for example.
