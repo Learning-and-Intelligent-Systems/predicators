@@ -48,7 +48,7 @@ def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
     # which is an assumption we could remove later.
     body_rel_pose = math_helpers.SE2Pose(
         x=-0.1,
-        y=-0.3,
+        y=-0.5,
         angle=0.0,
     )
     navigate_to_relative_pose(robot, body_rel_pose)
@@ -110,7 +110,7 @@ if __name__ == "__main__":
         go_home(robot, localizer)
         localizer.localize()
 
-        # Find the soda can.
+        # Find the yogurt can.
         yogurt_prompt = "/".join([
             "small purple cup",
             "yogurt container",
@@ -118,10 +118,10 @@ if __name__ == "__main__":
             "purple bobbin",
             "globe",
         ])
-        soda_detection_id = LanguageObjectDetectionID(yogurt_prompt)
+        yogurt_detection_id = LanguageObjectDetectionID(yogurt_prompt)
         detections, _ = init_search_for_objects(robot, localizer,
-                                                {soda_detection_id})
-        soda_pose = detections[soda_detection_id]
+                                                {yogurt_detection_id})
+        yogurt_pose = detections[yogurt_detection_id]
 
         # Move the hand to the side so that the brush can face forward.
         hand_side_pose = math_helpers.SE3Pose(x=0.80,
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         pre_sweep_nav_angle = home_pose.angle - np.pi
         localizer.localize()
         robot_pose = localizer.get_last_robot_pose()
-        rel_pose = get_relative_se2_from_se3(robot_pose, soda_pose,
+        rel_pose = get_relative_se2_from_se3(robot_pose, yogurt_pose,
                                              pre_sweep_nav_distance,
                                              pre_sweep_nav_angle)
         navigate_to_relative_pose(robot, rel_pose)
@@ -153,13 +153,13 @@ if __name__ == "__main__":
 
         # Calculate sweep parameters.
         robot_pose = localizer.get_last_robot_pose()
-        soda_rel_pose = robot_pose.inverse() * soda_pose
+        yogurt_rel_pose = robot_pose.inverse() * yogurt_pose
         start_dx = 0.0
         start_dy = 0.4
         start_dz = 0.18
-        start_x = soda_rel_pose.x + start_dx
-        start_y = soda_rel_pose.y + start_dy
-        start_z = soda_rel_pose.z + start_dz
+        start_x = yogurt_rel_pose.x + start_dx
+        start_y = yogurt_rel_pose.y + start_dy
+        start_z = yogurt_rel_pose.z + start_dz
         pitch = math_helpers.Quat.from_pitch(np.pi / 2)
         yaw = math_helpers.Quat.from_yaw(np.pi / 4)
         rot = pitch * yaw
@@ -170,7 +170,7 @@ if __name__ == "__main__":
         # Calculate the yaw and distance for the sweep.
         sweep_move_dx = 0.0
         sweep_move_dy = -0.8
-        sweep_move_dz = -0.1
+        sweep_move_dz = -0.08
         duration = 0.55
 
         # Execute the sweep.

@@ -63,6 +63,8 @@ def move_hand_to_relative_pose_with_velocity(
     # is expressed in. Note that we set the max linear and angular velocity
     # absurdly high to remove the default limits and enable the duration
     # to significantly impact the speed of arm movement.
+    # IMPORTANT: don't max-out the acceleration limit on this command;
+    # leads to weird jerking motions.
     arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
         pose_trajectory_in_task=hand_traj,
         root_frame_name=BODY_FRAME_NAME,
@@ -90,7 +92,6 @@ def move_hand_to_relative_pose_with_velocity(
                 STATUS_TRAJECTORY_COMPLETE, arm_command_pb2. # pylint: disable=no-member
                 ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_STALLED
         ]:
-            robot.logger.info('Move complete.')
             break
         time.sleep(0.1)
 
