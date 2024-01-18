@@ -110,42 +110,44 @@ if __name__ == "__main__":
         go_home(robot, localizer)
         localizer.localize()
 
-        # Find the soda can.
-        yogurt_prompt = "/".join([
-            "small purple cup",
-            "yogurt container",
-            "purple ribbon",
-            "purple bobbin",
-            "globe",
-        ])
-        soda_detection_id = LanguageObjectDetectionID(yogurt_prompt)
-        detections, _ = init_search_for_objects(robot, localizer,
-                                                {soda_detection_id})
-        soda_pose = detections[soda_detection_id]
+        # # Find the yogurt can.
+        # yogurt_prompt = "/".join([
+        #     "small purple cup",
+        #     "yogurt container",
+        #     "purple ribbon",
+        #     "purple bobbin",
+        #     "globe",
+        # ])
+        # yogurt_detection_id = LanguageObjectDetectionID(yogurt_prompt)
+        # detections, _ = init_search_for_objects(robot, localizer,
+        #                                         {yogurt_detection_id})
+        # yogurt_pose = detections[yogurt_detection_id]
 
-        # Move the hand to the side so that the brush can face forward.
-        hand_side_pose = math_helpers.SE3Pose(x=0.80,
-                                              y=0.0,
-                                              z=0.25,
-                                              rot=math_helpers.Quat.from_yaw(
-                                                  -np.pi / 2))
-        move_hand_to_relative_pose(robot, hand_side_pose)
+        yogurt_pose = math_helpers.SE3Pose(1.414, -2.068, -0.140, math_helpers.Quat())
 
-        # Ask for the brush.
-        open_gripper(robot)
-        # Press any key, instead of just enter. Useful for remote control.
-        msg = "Put the brush in the robot's gripper, then press any key"
-        utils.wait_for_any_button_press(msg)
-        close_gripper(robot)
+        # # Move the hand to the side so that the brush can face forward.
+        # hand_side_pose = math_helpers.SE3Pose(x=0.80,
+        #                                       y=0.0,
+        #                                       z=0.25,
+        #                                       rot=math_helpers.Quat.from_yaw(
+        #                                           -np.pi / 2))
+        # move_hand_to_relative_pose(robot, hand_side_pose)
 
-        # Move to in front of the yogurt.
-        stow_arm(robot)
+        # # Ask for the brush.
+        # open_gripper(robot)
+        # # Press any key, instead of just enter. Useful for remote control.
+        # msg = "Put the brush in the robot's gripper, then press any key"
+        # utils.wait_for_any_button_press(msg)
+        # close_gripper(robot)
+
+        # # Move to in front of the yogurt.
+        # stow_arm(robot)
         pre_sweep_nav_distance = 0.7
         home_pose = get_spot_home_pose()
         pre_sweep_nav_angle = home_pose.angle - np.pi
         localizer.localize()
         robot_pose = localizer.get_last_robot_pose()
-        rel_pose = get_relative_se2_from_se3(robot_pose, soda_pose,
+        rel_pose = get_relative_se2_from_se3(robot_pose, yogurt_pose,
                                              pre_sweep_nav_distance,
                                              pre_sweep_nav_angle)
         navigate_to_relative_pose(robot, rel_pose)
@@ -153,13 +155,13 @@ if __name__ == "__main__":
 
         # Calculate sweep parameters.
         robot_pose = localizer.get_last_robot_pose()
-        soda_rel_pose = robot_pose.inverse() * soda_pose
+        yogurt_rel_pose = robot_pose.inverse() * yogurt_pose
         start_dx = 0.0
         start_dy = 0.4
         start_dz = 0.18
-        start_x = soda_rel_pose.x + start_dx
-        start_y = soda_rel_pose.y + start_dy
-        start_z = soda_rel_pose.z + start_dz
+        start_x = yogurt_rel_pose.x + start_dx
+        start_y = yogurt_rel_pose.y + start_dy
+        start_z = yogurt_rel_pose.z + start_dz
         pitch = math_helpers.Quat.from_pitch(np.pi / 2)
         yaw = math_helpers.Quat.from_yaw(np.pi / 4)
         rot = pitch * yaw
@@ -170,7 +172,7 @@ if __name__ == "__main__":
         # Calculate the yaw and distance for the sweep.
         sweep_move_dx = 0.0
         sweep_move_dy = -0.8
-        sweep_move_dz = -0.1
+        sweep_move_dz = -0.08
         duration = 0.55
 
         # Execute the sweep.

@@ -242,8 +242,9 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
     # Parameters are just one number, a velocity.
     del state, goal, objs
     if CFG.spot_use_perfect_samplers:
-        return np.array([1. / 3])
-    param = rng.uniform(0.1, 1.0)
+        return np.array([1. / 0.58])
+    param = rng.uniform(0.1, 2.0)
+    print(f"Sampled Sweep Param: {param}")
     return np.array([param])
 
 
