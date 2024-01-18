@@ -175,7 +175,7 @@ class BaseSTRIPSLearner(abc.ABC):
 
 
         print("doing a test")
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         if ground_nsrt_plan is None:
             import pdb; pdb.set_trace()
 
@@ -189,7 +189,42 @@ class BaseSTRIPSLearner(abc.ABC):
             block0 = [b for b in objs if b.name == "block0"][0]
             block1 = [b for b in objs if b.name == "block1"][0]
             block2 = [b for b in objs if b.name == "block2"][0]
-            block3 = [b for b in objs if b.name == "block3"][0]
+            # block3 = [b for b in objs if b.name == "block3"][0]
+            # block4 = [b for b in objs if b.name == "block4"][0]
+            # block5 = [b for b in objs if b.name == "block5"][0]
+
+
+            zero = utils.abstract(task.init, preds)
+            nsrt_one = nsrt_list[3].ground((block2, block3, robot))
+            nsrt_one.preconditions.issubset(zero)
+            one = (zero | nsrt_one.add_effects) - nsrt_one.delete_effects
+            nsrt_two = nsrt_list[2].ground((block5, block3, robot))
+            nsrt_two.preconditions.issubset(one)
+            two = (one | nsrt_two.add_effects) - nsrt_two.delete_effects
+            nsrt_three = nsrt_list[3].ground((block1, block2, robot))
+            nsrt_three.preconditions.issubset(two)
+            three = (two | nsrt_three.add_effects) - nsrt_three.delete_effects
+            nsrt_four = nsrt_list[2].ground((block3, block2, robot))
+            nsrt_four.preconditions.issubset(three)
+            four = (three | nsrt_four.add_effects) - nsrt_four.delete_effects
+            nsrt_five = nsrt_list[1].ground((block1, robot))
+            nsrt_five.preconditions.issubset(four)
+            five = (four | nsrt_five.add_effects) - nsrt_five.delete_effects
+            nsrt_six = nsrt_list[2].ground((block0, block1, robot))
+            nsrt_six.preconditions.issubset(five)
+            six = (five | nsrt_six.add_effects) - nsrt_six.delete_effects
+            nsrt_seven = nsrt_list[3].ground((block3, block2, robot))
+            nsrt_seven.preconditions.issubset(six)
+            seven = (six | nsrt_seven.add_effects) - nsrt_seven.delete_effects
+            nsrt_eight = nsrt_list[2].ground((block1, block2, robot))
+            nsrt_eight.preconditions.issubset(seven)
+            eight = (seven | nsrt_eight.add_effects) - nsrt_eight.delete_effects
+            nsrt_nine = nsrt_list[3].ground((block5, block3, robot))
+            nsrt_nine.preconditions.issubset(eight)
+            nine = (eight | nsrt_nine.add_effects) - nsrt_nine.delete_effects
+            nsrt_ten = nsrt_list[2].ground((block2, block3, robot))
+            nsrt_ten.preconditions.issubset(nine)
+            ten = (nine | nsrt_ten.add_effects) - nsrt_ten.delete_effects
 
 
             # first = Op3Pick.ground((block1, block2, robot))

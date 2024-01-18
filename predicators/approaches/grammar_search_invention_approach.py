@@ -1588,7 +1588,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
                 "NOT-((0:robot).fingers<=[idx 0]0.5)",
                 "OnTable",
-                "Forall[0:block].[NOT-On(0,1)]"
+                "Forall[0:block].[NOT-On(0,1)]",
+                "On"
             ]
             mmm["Op3-Pick"]["add"] = [
                 "((0:robot).fingers<=[idx 0]0.5)",
@@ -1602,6 +1603,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 "((0:block).pose_z<=[idx 0]0.461)",
                 "Forall[0:block].[((0:block).pose_z<=[idx 0]0.461)(0)]",
                 "NOT-((0:robot).fingers<=[idx 0]0.5)",
+                "On"
             ]
 
             fff = {}
