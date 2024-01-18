@@ -1664,7 +1664,6 @@ def _create_operators() -> Iterator[STRIPSOperator]:
     preconds = {
         LiftedAtom(_On, [container, surface]),
         LiftedAtom(_Inside, [obj_inside, container]),
-        LiftedAtom(_On, [obj_inside, surface]),
         LiftedAtom(_HandEmpty, [robot]),
         LiftedAtom(_InHandView, [robot, container])
     }
