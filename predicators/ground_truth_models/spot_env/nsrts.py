@@ -196,7 +196,6 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
     # height for placing so the cup rests stably.
     if len(objs) == 3 and objs[1].name == "cup":
         dz = -0.05
-    # print([dx, dy, dz])
     return np.array([dx, dy, dz])
 
 
@@ -240,9 +239,23 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
                                   rng: np.random.Generator,
                                   objs: Sequence[Object]) -> Array:
     # Parameters are just one number, a velocity.
-    del state, goal, objs
+    del goal
     if CFG.spot_use_perfect_samplers:
-        return np.array([1. / 3])
+        if len(objs) == 6:  # SweepTwoObjectsIntoContainer
+            _, _, target1, target2, _, container = objs
+            targets = {target1, target2}
+        else:
+            assert len(objs) == 5  # SweepIntoContainer
+            _, _, target, _, container = objs
+            targets = {target}
+        max_dist = 0.0
+        cx, cy = state.get(container, "x"), state.get(container, "y")
+        for target in targets:
+            tx, ty = state.get(target, "x"), state.get(target, "y")
+            dist = np.sum(np.square(np.subtract((cx, cy), (tx, ty))))
+            max_dist = max(max_dist, dist)
+        velocity = max_dist  # directly proportional
+        return np.array([velocity])
     param = rng.uniform(0.1, 1.0)
     return np.array([param])
 

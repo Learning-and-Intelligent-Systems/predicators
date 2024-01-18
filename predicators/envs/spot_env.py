@@ -2068,19 +2068,34 @@ def _dry_simulate_sweep_into_container(
     static_feats = load_spot_metadata()["static-object-features"]
     container_pose = objects_in_view[container]
     container_radius = static_feats[container.name]["width"] / 2
+    container_xy = np.array([container_pose.x, container_pose.y])
 
-    # If the sweep parameters are close enough to optimal, the object should
-    # end up in the container.
-    optimal_duration = 3.0
-    thresh = 0.5
+    # The optimal sweeping velocity depends on the initial positions of the
+    # objects being swept. Objects farther from the container need a higher
+    # velocity, closer need a lower velocity. Assume that what matters is the
+    # FARTHEST object's position, since that object will collide with the
+    # other objects during sweeping.
+    farthest_swept_obj_distance = 0.0
+    for swept_obj in swept_objs:
+        swept_obj_pose = objects_in_view[swept_obj]
+        swept_xy = np.array([swept_obj_pose.x, swept_obj_pose.y])
+        dist = np.sum(np.square(np.subtract(swept_xy, container_xy)))
+        farthest_swept_obj_distance = max(farthest_swept_obj_distance, dist)
+    # Simply say that the optimal velocity is equal to the distance.
+    optimal_velocity = farthest_swept_obj_distance
+    velocity = 1. / duration
+    # If the given velocity is close enough to the optimal velocity, sweep all
+    # objects successfully; otherwise, have the objects fall randomly.
+    thresh = 0.25
     for swept_obj in swept_objs:
         swept_obj_height = static_feats[swept_obj.name]["height"]
         swept_obj_radius = static_feats[swept_obj.name]["width"] / 2
-        if abs(optimal_duration - duration) < thresh:
+        # Successful sweep.
+        if abs(optimal_velocity - velocity) < thresh:
             x = container_pose.x
             y = container_pose.y
             z = container_pose.z + swept_obj_height / 2
-        # Otherwise, the object fails randomly somewhere around the container.
+        # Failure: the object fails randomly somewhere around the container.
         else:
             angle = rng.uniform(0, 2 * np.pi)
             distance = (container_radius + swept_obj_radius) + rng.uniform(
