@@ -48,7 +48,7 @@ def sweep(robot: Robot, sweep_start_pose: math_helpers.SE3Pose, move_dx: float,
     # which is an assumption we could remove later.
     body_rel_pose = math_helpers.SE2Pose(
         x=-0.1,
-        y=-0.3,
+        y=-0.5,
         angle=0.0,
     )
     navigate_to_relative_pose(robot, body_rel_pose)
@@ -123,7 +123,8 @@ if __name__ == "__main__":
         #                                         {yogurt_detection_id})
         # yogurt_pose = detections[yogurt_detection_id]
 
-        yogurt_pose = math_helpers.SE3Pose(1.414, -2.068, -0.140, math_helpers.Quat())
+        yogurt_pose = math_helpers.SE3Pose(1.414, -2.068, -0.140,
+                                           math_helpers.Quat())
 
         # # Move the hand to the side so that the brush can face forward.
         # hand_side_pose = math_helpers.SE3Pose(x=0.80,

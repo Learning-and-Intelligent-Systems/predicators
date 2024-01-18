@@ -1571,6 +1571,8 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_HasFlatTopSurface, [surface]),
         LiftedAtom(_TopAbove, [surface, container]),
         LiftedAtom(_IsSweeper, [sweeper]),
+        LiftedAtom(_FitsInXY, [target1, container]),
+        LiftedAtom(_FitsInXY, [target2, container]),
     }
     add_effs = {
         LiftedAtom(_Inside, [target1, container]),
@@ -1609,6 +1611,7 @@ def _create_operators() -> Iterator[STRIPSOperator]:
         LiftedAtom(_HasFlatTopSurface, [surface]),
         LiftedAtom(_TopAbove, [surface, container]),
         LiftedAtom(_IsSweeper, [sweeper]),
+        LiftedAtom(_FitsInXY, [target, container]),
     }
     add_effs = {
         LiftedAtom(_Inside, [target, container]),

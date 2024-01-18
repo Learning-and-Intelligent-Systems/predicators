@@ -48,9 +48,9 @@ static-object-features:
     is_sweeper: 0
   football:
     shape: 2
-    height: 0.06
-    length: 0.1
-    width: 0.1
+    height: 0.05
+    length: 0.065
+    width: 0.065
     placeable: 1
     is_sweeper: 0
   brush:

@@ -92,7 +92,6 @@ def move_hand_to_relative_pose_with_velocity(
                 STATUS_TRAJECTORY_COMPLETE, arm_command_pb2. # pylint: disable=no-member
                 ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_STALLED
         ]:
-            robot.logger.info('Move complete.')
             break
         time.sleep(0.1)
 
