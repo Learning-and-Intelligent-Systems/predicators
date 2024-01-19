@@ -18,7 +18,7 @@ from predicators.approaches.bilevel_planning_approach import \
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Dataset, GroundAtomTrajectory, \
+from predicators.structs import NSRT, _GroundNSRT, Dataset, GroundAtomTrajectory, \
     LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type
 
 
@@ -32,7 +32,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
         self._segmented_trajs: List[List[Segment]] = []
-        self._seg_to_nsrt: Dict[Segment, NSRT] = {}
+        self._seg_to_ground_nsrt: Dict[Segment, _GroundNSRT] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -57,9 +57,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int],
                      annotations: Optional[List[Any]]) -> None:
-        dataset_fname, _ = utils.create_dataset_filename_str(
-            saving_ground_atoms=True,
-            online_learning_cycle=online_learning_cycle)
+        dataset_fname = utils.create_ground_atom_dataset_filename_str(online_learning_cycle)
         # If CFG.load_atoms is set, then try to create a GroundAtomTrajectory
         # by loading sets of GroundAtoms directly from a saved file.
         # By default, we don't create a full ground atom dataset, since
@@ -104,7 +102,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             with open(dataset_fname, "wb") as f:
                 pkl.dump(ground_atom_dataset_to_pkl, f)
 
-        self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
+        self._nsrts, self._segmented_trajs, self._seg_to_ground_nsrt = \
             learn_nsrts_from_data(trajectories,
                                   self._train_tasks,
                                   self._get_current_predicates(),

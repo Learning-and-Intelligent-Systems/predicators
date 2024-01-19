@@ -30,7 +30,7 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
         param_option, _ = option_specs[i]
         if sampler_learner == "random" or \
            param_option.params_space.shape == (0,):
-            sampler: NSRTSampler = _RandomSampler(param_option).sampler
+            sampler: NSRTSampler = _RandomSampler(param_option)
         elif sampler_learner == "neural":
             sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
                                             op.preconditions, op.add_effects,
@@ -139,20 +139,6 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     logging.info(f"Generated {len(positive_data)} positive and "
                  f"{len(negative_data)} negative examples")
 
-    # if nsrt_name == "InsertBox":
-    #     xs, ys = [], []
-    #     for state, var2objsub, option, _ in positive_data:
-    #         box = var2objsub[Variable("?box", Shelves2DEnv._box_type)]
-    #         shelf = var2objsub[Variable("?shelf", Shelves2DEnv._shelf_type)]
-    #         action = option.params
-    #         dx, dy = action[2:4]
-    #         shelf_x, shelf_y = state[shelf][0:2]
-    #         box_x, box_y = state[box][0:2]
-    #         xs.append(box_x + dx - shelf_x)
-    #         ys.append(box_y + dy - shelf_y)
-    #     plt.scatter(xs, ys)
-    #     plt.show()
-
     # Fit classifier to data
     logging.info("Fitting classifier...")
     X_classifier: List[List[Array]] = []
@@ -252,7 +238,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
 
     # Construct and return sampler
     return _LearnedSampler(classifier, regressor, variables,
-                           param_option).sampler
+                           param_option)
 
 
 def _create_sampler_data(
@@ -347,7 +333,7 @@ class _LearnedSampler:
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
-    def sampler(self, state: State, goal: Set[GroundAtom],
+    def __call__(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:
         """The sampler corresponding to the given models.
 
@@ -388,7 +374,7 @@ class _RandomSampler:
     """A convenience class for implementing a random sampler."""
     _param_option: ParameterizedOption
 
-    def sampler(self, state: State, goal: Set[GroundAtom],
+    def __call__(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:
         """A random sampler for this option.
 

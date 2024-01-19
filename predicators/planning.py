@@ -494,7 +494,7 @@ def _skeleton_generator(
     assert time.perf_counter() - start_time >= timeout
     raise _SkeletonSearchTimeout
 
-calls_to_this_function = 0
+# calls_to_this_function = 0
 def run_low_level_search(
     task: Task,
     option_model: _OptionModelBase,
@@ -506,9 +506,9 @@ def run_low_level_search(
     max_horizon: int,
     refinement_time: Optional[List[float]] = None
 ) -> Tuple[List[_Option], bool]:
-    global calls_to_this_function
-    calls_to_this_function += 1
-    cover_to_top = any(map(lambda atom: atom.predicate.name == 'CoversTop', task.goal))
+    # global calls_to_this_function
+    # calls_to_this_function += 1
+    # cover_to_top = any(map(lambda atom: atom.predicate.name == 'CoversTop', task.goal))
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -518,8 +518,8 @@ def run_low_level_search(
     but all previous steps did. Note that there are multiple low-level
     plans in general; we return the first one found (arbitrarily).
     """
-    cover_samples = []
-    fig_idx = 0
+    # cover_samples = []
+    # fig_idx = 0
     start_time = time.perf_counter()
     rng_sampler = np.random.default_rng(seed)
     assert CFG.sesame_propagate_failures in \
@@ -558,7 +558,7 @@ def run_low_level_search(
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
-        # print(num_tries) # JORGE: uncomment this to print the status of the backtracking
+        # print(num_tries)
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]

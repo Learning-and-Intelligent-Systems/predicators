@@ -1583,7 +1583,6 @@ class DiffusionRegressor(nn.Module, DistributionRegressor): # JORGE: this is you
         super().__init__()
         torch.set_num_threads(8)    # reset here to get the cmd line arg
         self._linears = nn.ModuleList()
-        self._batch_norms = nn.ModuleList()
         self._hid_sizes = hid_sizes
         self._max_train_iters = max_train_iters
         self._timesteps = timesteps

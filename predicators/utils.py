@@ -22,7 +22,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
-    FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
+    FrozenSet, Generator, Generic, Hashable, Iterable, Iterator, List, Optional, \
     Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
@@ -2447,9 +2447,9 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
         yield sample
 
 
-def create_dataset_filename_str(
-        saving_ground_atoms: bool,
-        online_learning_cycle: Optional[int] = None) -> Tuple[str, str]:
+def create_dataset_filename_str(suffix_data: Iterable[Any] = []) -> Tuple[str, str]:
+        # saving_ground_atoms: bool,
+        # online_learning_cycle: Optional[int] = None) -> Tuple[str, str]:
     """Generate strings to be used for the filename for a dataset file that is
     about to be saved.
 
@@ -2460,18 +2460,25 @@ def create_dataset_filename_str(
     """
     # Setup the dataset filename for saving/loading GroundAtoms.
     regex = r"(\d+)"
-    suffix_str = ""
-    suffix_str += f"__{online_learning_cycle}"
-    if saving_ground_atoms:
-        suffix_str += "__ground_atoms"
-    suffix_str += ".data"
+    # suffix_str = ""
+    # suffix_str += f"__{online_learning_cycle}"
+    # if saving_ground_atoms:
+    #     suffix_str += "__ground_atoms"
+    # suffix_str += ".data"
     dataset_fname_template = (
         f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-        f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+        f"{regex}__{CFG.included_options}__{CFG.seed}__{'__'.join(map(str, suffix_data))}.data")
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
     return dataset_fname, dataset_fname_template
+
+def create_ground_atom_dataset_filename_str(online_learning_cycle: Optional[int] = None) -> str:
+    if online_learning_cycle is None:
+        dataset_fname, _ = create_dataset_filename_str(["ground_atoms"])
+    else:
+        dataset_fname, _ = create_dataset_filename_str(["ground_atoms", online_learning_cycle])
+    return dataset_fname
 
 
 def create_ground_atom_dataset(

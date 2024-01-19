@@ -62,6 +62,7 @@ from predicators.teacher import Teacher, TeacherInteractionMonitorWithVideo
 from experiments.nsrts import *
 from experiments.options import *
 from experiments.shelves2d import *
+from experiments.search_pruning_approach import *
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"

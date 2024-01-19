@@ -63,8 +63,8 @@ class Shelves2DEnv(BaseEnv):
     cover_max_distance: ClassVar[float] = 1#0.2
     cover_sideways_tolerance: ClassVar[float] = 1#0.2
 
-    range_world_x: ClassVar[Tuple[(float, float)]] = (-35, 35)
-    range_world_y: ClassVar[Tuple[(float, float)]] = (-35, 35)
+    range_world_x: ClassVar[Tuple[(float, float)]] = (-70, 70)
+    range_world_y: ClassVar[Tuple[(float, float)]] = (-50, 50)
 
     num_tries: ClassVar[int] = 100000
 
@@ -72,8 +72,8 @@ class Shelves2DEnv(BaseEnv):
     range_subtasks_train: ClassVar[Tuple[(int, int)]] = (1, 1)#(5, 6)
     range_subtasks_test: ClassVar[Tuple[(int, int)]] = (1, 1)#(10, 12)
 
-    range_shelves_train: ClassVar[Tuple[(int, int)]] = (3, 3)#(2, 3)
-    range_shelves_test: ClassVar[Tuple[(int, int)]] = (3, 3)#(12, 15)
+    range_shelves_train: ClassVar[Tuple[(int, int)]] = (2, 5)#(2, 3)
+    range_shelves_test: ClassVar[Tuple[(int, int)]] = (10, 10)#(12, 15)
 
     range_box_width: ClassVar[Tuple[(float, float)]] = (1, 5)
     range_box_height: ClassVar[Tuple[(float, float)]] = (7, 15)
@@ -153,8 +153,8 @@ class Shelves2DEnv(BaseEnv):
         if self._test_tasks is None:
             self._test_tasks = self._get_tasks(
                 num_tasks=CFG.num_test_tasks,
-                range_subtasks=self.range_subtasks_train,
-                range_shelves=self.range_shelves_train,
+                range_subtasks=self.range_subtasks_test,
+                range_shelves=self.range_shelves_test,
                 rng=self._test_rng
             )
         # self._generate_tasks()
@@ -497,13 +497,12 @@ class Shelves2DEnv(BaseEnv):
         return rng.uniform(*range, size=size)
 
     @classmethod
-    def get_shape_data(cls, state: State, obj: Object):
+    def get_shape_data(cls, state: State, obj: Object) -> Tuple[np.float32, np.float32, np.float32, np.float32]:
         x = state.get(obj, 'pose_x')
         y = state.get(obj, 'pose_y')
         w = state.get(obj, 'size_x')
         h = state.get(obj, 'size_y')
         assert type(x) == type(y) == type(w) == type(h) == np.float32
-
         return (x, y, w, h)
 
     @classmethod

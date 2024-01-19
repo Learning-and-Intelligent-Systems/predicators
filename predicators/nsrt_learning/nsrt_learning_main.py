@@ -14,8 +14,8 @@ from predicators.nsrt_learning.sampler_learning import learn_samplers
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.settings import CFG
-from predicators.structs import NSRT, PNAD, GroundAtomTrajectory, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task
+from predicators.structs import NSRT, PNAD, _GroundNSRT, GroundAtomTrajectory, \
+    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, VarToObjSub
 
 
 def learn_nsrts_from_data(
@@ -24,17 +24,17 @@ def learn_nsrts_from_data(
     action_space: Box,
     ground_atom_dataset: Optional[List[GroundAtomTrajectory]],
     sampler_learner: str, annotations: Optional[List[Any]]
-) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
+) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, _GroundNSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates.
 
-    There are three return values: (1) The final set of NSRTs. (2) The
+    There are four return values: (1) The final set of NSRTs. (2) The
     segmented trajectories. These are returned because any options that
     were learned will be contained properly in these segments. (3) A
     mapping from segment to NSRT. This is returned because not all
     segments in return value (2) are necessarily covered by an NSRT, in
     the case that we are enforcing a min_data (see
-    base_strips_learner.py).
+    base_strips_learner.py). (4) The grounding for the afformentioned NSRTs for each segment
     """
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
 
@@ -126,19 +126,19 @@ def learn_nsrts_from_data(
 
     # STEP 5: Make, log, and return the NSRTs.
     nsrts = []
-    seg_to_nsrt = {}
+    seg_to_ground_nsrt = {}
     for pnad in pnads:
         nsrt = pnad.make_nsrt()
         nsrts.append(nsrt)
-        for (seg, _) in pnad.datastore:
-            assert seg not in seg_to_nsrt
-            seg_to_nsrt[seg] = nsrt
+        for (seg, grounding) in pnad.datastore:
+            assert seg not in seg_to_ground_nsrt
+            seg_to_ground_nsrt[seg] = nsrt.ground(list(map(grounding.get, nsrt.parameters)))
     logging.info("\nLearned NSRTs:")
     for nsrt in nsrts:
         logging.info(nsrt)
     logging.info("")
 
-    return set(nsrts), segmented_trajs, seg_to_nsrt
+    return set(nsrts), segmented_trajs, seg_to_ground_nsrt
 
 
 def _learn_pnad_options(pnads: List[PNAD],

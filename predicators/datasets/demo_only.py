@@ -26,8 +26,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                      annotate_with_gt_ops: bool) -> Dataset:
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
-    dataset_fname, dataset_fname_template = utils.create_dataset_filename_str(
-        saving_ground_atoms=False)
+    dataset_fname, dataset_fname_template = utils.create_dataset_filename_str()
     os.makedirs(CFG.data_dir, exist_ok=True)
     if CFG.load_data:
         dataset = _create_demo_data_with_loading(env, train_tasks,

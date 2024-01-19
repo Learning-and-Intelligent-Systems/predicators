@@ -183,8 +183,7 @@ def test_saving_and_loading_atoms():
                               save_atoms=True,
                               load_atoms=False)
     # Next, try to manually load these saved atoms.
-    dataset_fname, _ = utils.create_dataset_filename_str(
-        saving_ground_atoms=True, online_learning_cycle=None)
+    dataset_fname, _ = utils.create_ground_atom_dataset_filename_str()
     assert os.path.exists(dataset_fname)
     with open(dataset_fname, "rb") as f:
         ground_atom_dataset_atoms = pkl.load(f)
