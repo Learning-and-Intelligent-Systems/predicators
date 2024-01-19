@@ -47,7 +47,8 @@ yogurt_prompt = "/".join([
     "globe",
 ])
 yogurt_obj = LanguageObjectDetectionID(yogurt_prompt)
-
+chair_prompt = "chair"
+chair_obj = LanguageObjectDetectionID(chair_prompt)
 
 def _get_platform_grasp_pixel(
     rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
@@ -99,6 +100,55 @@ def _get_ball_grasp_pixel(
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     return pixel, pitch * roll  # NOTE: order is super important here!
 
+def _get_chair_grasp_pixel(
+        rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
+    camera_name: str, rng: np.random.Generator
+) -> Tuple[Tuple[int, int], Optional[math_helpers.Quat]]:
+    del rng, #rgbds
+    detections = artifacts["language"]["object_id_to_img_detections"]
+    try:
+        seg_bb = detections[chair_obj][camera_name]
+    except KeyError:
+        raise ValueError(f"{chair_obj} not detected in {camera_name}")
+    mask = seg_bb.mask
+    rgbd = rgbds[camera_name]
+    
+    # Look for blue pixels in the isolated rgb.
+    # Start by denoising the mask, "filling in" small gaps in it.
+    convolved_mask = convolve(mask.astype(np.uint8),
+                              np.ones((3, 3)),
+                              mode="constant")
+    smoothed_mask = (convolved_mask > 0)
+    # Get copy of image with just the mask pixels in it.
+    isolated_rgb = rgbd.rgb.copy()
+    isolated_rgb[~smoothed_mask] = 0
+    lo, hi = ((0, 0, 130), (130, 255, 255))
+    centroid = find_color_based_centroid(isolated_rgb,
+                                         lo,
+                                         hi,
+                                         min_component_size=10)
+    # # This can happen sometimes. If that happens, just pick the center top pixel in
+    # # the mask, which should be the rim.
+    # if centroid is None:
+    #     mask_args = np.argwhere(mask)
+    #     mask_min_c = min(mask_args[:, 1])
+    #     mask_max_c = max(mask_args[:, 1])
+    #     c_len = mask_max_c - mask_min_c
+    #     middle_c = mask_min_c + c_len // 2
+    #     min_r = min(r for r, c in mask_args if c == middle_c)
+    #     selected_pixel = (middle_c, min_r)
+    # else:
+    pixel = (centroid[0], centroid[1])
+
+    # Uncomment for debugging. Make sure also to not del rgbds (above).
+    rgbd = rgbds[camera_name]
+    bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
+    cv2.circle(bgr, pixel, 5, (0, 255, 0), -1)
+    cv2.circle(bgr, pixel, 5, (255, 0, 0), -1)
+    cv2.imshow("Selected grasp", bgr)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    return pixel, None
 
 def _get_cup_grasp_pixel(
     rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
@@ -411,4 +461,6 @@ OBJECT_SPECIFIC_GRASP_SELECTORS: Dict[ObjectDetectionID, Callable[[
     football_obj: partial(_get_mask_center_grasp_pixel, football_obj),
     # Yogurt-specific grasp selection.
     yogurt_obj: partial(_get_mask_center_grasp_pixel, yogurt_obj),
+    # Chair-specific grasp selection.
+    chair_obj: _get_chair_grasp_pixel
 }

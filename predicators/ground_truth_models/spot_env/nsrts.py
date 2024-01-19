@@ -224,7 +224,7 @@ def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],
                                     objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dyaw to move while holding.
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([0.0, 0.0, np.pi])
+    return np.array([0.0, 0.0, np.pi/1.5])
 
 
 def _drag_to_block_object_sampler(state: State, goal: Set[GroundAtom],
@@ -232,7 +232,7 @@ def _drag_to_block_object_sampler(state: State, goal: Set[GroundAtom],
                                   objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dyaw to move while holding.
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([0.0, 0.0, -np.pi])
+    return np.array([0.0, 0.0, -np.pi/1.5])
 
 
 def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
