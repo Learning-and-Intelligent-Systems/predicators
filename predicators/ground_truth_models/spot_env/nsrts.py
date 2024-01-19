@@ -241,22 +241,27 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
     # Parameters are just one number, a velocity.
     del goal
     if CFG.spot_use_perfect_samplers:
-        if len(objs) == 6:  # SweepTwoObjectsIntoContainer
-            _, _, target1, target2, _, container = objs
-            targets = {target1, target2}
-        else:
-            assert len(objs) == 5  # SweepIntoContainer
-            _, _, target, _, container = objs
-            targets = {target}
-        max_dist = 0.0
-        cx, cy = state.get(container, "x"), state.get(container, "y")
-        for target in targets:
-            tx, ty = state.get(target, "x"), state.get(target, "y")
-            dist = np.sum(np.square(np.subtract((cx, cy), (tx, ty))))
-            max_dist = max(max_dist, dist)
-        velocity = max_dist  # directly proportional
-        return np.array([velocity])
-    param = rng.uniform(0.1, 1.0)
+        if CFG.spot_run_dry:
+            if len(objs) == 6:  # SweepTwoObjectsIntoContainer
+                _, _, target1, target2, _, container = objs
+                targets = {target1, target2}
+            else:
+                assert len(objs) == 5  # SweepIntoContainer
+                _, _, target, _, container = objs
+                targets = {target}
+            max_dist = 0.0
+            cx, cy = state.get(container, "x"), state.get(container, "y")
+            for target in targets:
+                tx, ty = state.get(target, "x"), state.get(target, "y")
+                dist = np.sum(np.square(np.subtract((cx, cy), (tx, ty))))
+                max_dist = max(max_dist, dist)
+            velocity = max_dist  # directly proportional
+            return np.array([velocity])
+        return np.array([1.0 / 0.58])
+    if CFG.spot_run_dry:
+        param = rng.uniform(0.1, 1.0)
+    else:
+        param = rng.uniform(0.1, 2.5)
     return np.array([param])
 
 
