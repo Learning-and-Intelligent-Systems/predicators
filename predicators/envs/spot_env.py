@@ -1126,10 +1126,6 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
                                            put_on_robot_if_held=False)
 
     ret_val = blocker_geom.intersects(blocked_robot_line)
-
-    if not ret_val and "chair" in str(blocker_obj) and "yogurt" in str(blocked_obj):
-        import ipdb; ipdb.set_trace()
-
     return ret_val
 
 
