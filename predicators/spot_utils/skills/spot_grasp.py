@@ -86,6 +86,8 @@ def grasp_at_pixel(robot: Robot,
             manipulation_cmd_id=cmd_response.manipulation_cmd_id)
         response = manipulation_client.manipulation_api_feedback_command(
             manipulation_api_feedback_request=feedback_request)
+        # DEBUGGING!
+        print(response.current_state)
         if response.current_state in [
                 manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED,
                 manipulation_api_pb2.MANIP_STATE_GRASP_FAILED,

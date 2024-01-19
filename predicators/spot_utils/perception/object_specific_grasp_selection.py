@@ -34,16 +34,18 @@ bucket_prompt = "/".join([
 ])
 bucket_obj = LanguageObjectDetectionID(bucket_prompt)
 football_prompt = "/".join([
-    "small football toy",
-    "stuffed toy football",
-    "small brown ball",
+    "small football toy", "stuffed toy football", "small brown ball",
+    "reflector"
 ])
 football_obj = LanguageObjectDetectionID(football_prompt)
-yogurt_prompt = "/".join(
-    ["small purple cup", "purple bobbin", "small black wheel"])
+yogurt_prompt = "/".join([
+    "small purple cup", "purple bobbin", "small black wheel",
+    "small black ball"
+])
 yogurt_obj = LanguageObjectDetectionID(yogurt_prompt)
 chair_prompt = "chair"
 chair_obj = LanguageObjectDetectionID(chair_prompt)
+
 
 def _get_platform_grasp_pixel(
     rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
@@ -95,11 +97,12 @@ def _get_ball_grasp_pixel(
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     return pixel, pitch * roll  # NOTE: order is super important here!
 
+
 def _get_chair_grasp_pixel(
-        rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
+    rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
     camera_name: str, rng: np.random.Generator
 ) -> Tuple[Tuple[int, int], Optional[math_helpers.Quat]]:
-    del rng, #rgbds
+    del rng,  #rgbds
     detections = artifacts["language"]["object_id_to_img_detections"]
     try:
         seg_bb = detections[chair_obj][camera_name]
@@ -107,7 +110,7 @@ def _get_chair_grasp_pixel(
         raise ValueError(f"{chair_obj} not detected in {camera_name}")
     mask = seg_bb.mask
     rgbd = rgbds[camera_name]
-    
+
     # Look for blue pixels in the isolated rgb.
     # Start by denoising the mask, "filling in" small gaps in it.
     convolved_mask = convolve(mask.astype(np.uint8),
@@ -144,6 +147,7 @@ def _get_chair_grasp_pixel(
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     return pixel, None
+
 
 def _get_cup_grasp_pixel(
     rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
