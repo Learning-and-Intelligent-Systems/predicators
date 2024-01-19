@@ -490,6 +490,7 @@ class SpotRearrangementEnv(BaseEnv):
                         "or take control and move the robot accordingly. "
                         "Hit the 'Enter' key when you're done!")
                     user_pref = input(prompt)
+                    assert self._lease_client is not None
                     self._lease_client.take()
                     angle = 0.0
                     if user_pref == "c":
