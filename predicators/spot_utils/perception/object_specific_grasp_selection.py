@@ -102,7 +102,7 @@ def _get_chair_grasp_pixel(
     rgbds: Dict[str, RGBDImageWithContext], artifacts: Dict[str, Any],
     camera_name: str, rng: np.random.Generator
 ) -> Tuple[Tuple[int, int], Optional[math_helpers.Quat]]:
-    del rng, rgbds
+    del rng
     detections = artifacts["language"]["object_id_to_img_detections"]
     try:
         seg_bb = detections[chair_obj][camera_name]
@@ -125,9 +125,10 @@ def _get_chair_grasp_pixel(
                                          lo,
                                          hi,
                                          min_component_size=10)
+    assert centroid is not None
     pixel = (centroid[0], centroid[1])
 
-    # Uncomment for debugging. Make sure also to not del rgbds (above).
+    # Uncomment for debugging.
     # rgbd = rgbds[camera_name]
     # bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
     # cv2.circle(bgr, pixel, 5, (0, 255, 0), -1)
