@@ -1135,8 +1135,7 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
                                            size_buffer=size_buffer,
                                            put_on_robot_if_held=False)
 
-    ret_val = blocker_geom.intersects(blocked_robot_line)
-    return ret_val
+    return blocker_geom.intersects(blocked_robot_line)
 
 
 def _not_blocked_classifier(state: State, objects: Sequence[Object]) -> bool:

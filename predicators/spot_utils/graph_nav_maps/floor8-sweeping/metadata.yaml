@@ -1,7 +1,7 @@
 # Additional info associated with the map.
 ---
 spot-home-pose:
-  x: 1.832 #1.332
+  x: 1.832
   y: -0.5
   angle: -1.45769
 april-tag-offsets: []
