@@ -485,9 +485,19 @@ class SpotRearrangementEnv(BaseEnv):
                 if need_retry:
                     logging.warning(f"WARNING: retrying {action_name} because "
                                     f"{target_obj} was not seen/reached.")
-                    # Do a small random movement to get a new view.
-                    assert isinstance(action_fn_args[1], math_helpers.SE2Pose)
-                    angle = self._noise_rng.uniform(-np.pi / 6, np.pi / 6)
+                    prompt = (
+                        "Hit 'c' to have the robot do a random movement "
+                        "or take control and move the robot accordingly. "
+                        "Hit the 'Enter' key when you're done!")
+                    user_pref = input(prompt)
+                    assert self._lease_client is not None
+                    self._lease_client.take()
+                    angle = 0.0
+                    if user_pref == "c":
+                        # Do a small random movement to get a new view.
+                        assert isinstance(action_fn_args[1],
+                                          math_helpers.SE2Pose)
+                        angle = self._noise_rng.uniform(-np.pi / 6, np.pi / 6)
                     rel_pose = math_helpers.SE2Pose(0, 0, angle)
                     new_action_args = action_fn_args[0:1] + (rel_pose, ) + \
                         action_fn_args[2:]
