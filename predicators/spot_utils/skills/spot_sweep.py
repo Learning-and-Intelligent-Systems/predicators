@@ -156,7 +156,7 @@ if __name__ == "__main__":
         yogurt_rel_pose = robot_pose.inverse() * yogurt_pose
         start_dx = 0.0
         start_dy = 0.4
-        start_dz = 0.18
+        start_dz = 0.28
         start_x = yogurt_rel_pose.x + start_dx
         start_y = yogurt_rel_pose.y + start_dy
         start_z = yogurt_rel_pose.z + start_dz
@@ -171,7 +171,7 @@ if __name__ == "__main__":
         sweep_move_dx = 0.0
         sweep_move_dy = -0.8
         sweep_move_dz = -0.08
-        duration = 0.55
+        duration = 0.7
 
         # Execute the sweep.
         sweep(robot, sweep_start_pose, sweep_move_dx, sweep_move_dy,

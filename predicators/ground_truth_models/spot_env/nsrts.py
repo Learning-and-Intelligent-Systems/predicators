@@ -207,12 +207,14 @@ def _drop_object_inside_sampler(state: State, goal: Set[GroundAtom],
     del state, goal
 
     drop_height = 0.5
+
     if len(objs) == 4 and objs[2].name == "cup":
         drop_height = 0.05
 
     if CFG.spot_use_perfect_samplers:
         dx = 0.0
         dy = 0.0
+        drop_height = 0.1
     else:
         dx, dy = rng.uniform(-0.4, 0.4, size=2)
 
@@ -224,7 +226,7 @@ def _drag_to_unblock_object_sampler(state: State, goal: Set[GroundAtom],
                                     objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dyaw to move while holding.
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([0.0, 0.0, np.pi])
+    return np.array([0.0, 0.0, np.pi / 1.5])
 
 
 def _drag_to_block_object_sampler(state: State, goal: Set[GroundAtom],
@@ -232,7 +234,7 @@ def _drag_to_block_object_sampler(state: State, goal: Set[GroundAtom],
                                   objs: Sequence[Object]) -> Array:
     # Parameters are relative dx, dy, dyaw to move while holding.
     del state, goal, objs, rng  # randomization coming soon
-    return np.array([0.0, 0.0, -np.pi])
+    return np.array([0.0, 0.0, -np.pi / 1.5])
 
 
 def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
@@ -257,11 +259,11 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
                 max_dist = max(max_dist, dist)
             velocity = max_dist  # directly proportional
             return np.array([velocity])
-        return np.array([1.0 / 0.58])
+        return np.array([1.0 / 1.2])
     if CFG.spot_run_dry:
         param = rng.uniform(0.1, 1.0)
     else:
-        param = rng.uniform(0.1, 2.5)
+        param = rng.uniform(0.3, 1.2)
     return np.array([param])
 
 

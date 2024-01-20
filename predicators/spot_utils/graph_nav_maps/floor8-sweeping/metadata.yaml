@@ -1,7 +1,7 @@
 # Additional info associated with the map.
 ---
 spot-home-pose:
-  x: 1.332
+  x: 1.832
   y: -0.5
   angle: -1.45769
 april-tag-offsets: []
@@ -23,9 +23,9 @@ known-immovable-objects:
     y: -0.25
     z: -0.5
   black_table:
-    x: 1.6
+    x: 2.3
     y: -2.0
-    z: -0.35
+    z: -0.32
   shelf1:
     x: 4.0
     y: -2.0
@@ -76,7 +76,7 @@ static-object-features:
     qz: 0
   chair:
     shape: 2
-    height: 0.8
+    height: 0.3
     length: 0.5
     width: 0.5
     placeable: 0  # false, can't be placed
@@ -84,9 +84,9 @@ static-object-features:
     z: -0.1  # the chair can move in the x/y plane only
   black_table:
     shape: 1
-    height: 0.35
-    length: 0.4
-    width: 0.65
+    height: 0.37
+    length: 0.37
+    width: 0.37
     flat_top_surface: 1
   shelf1:
     shape: 1
@@ -97,7 +97,7 @@ static-object-features:
 # This should be calculable, but I'm lazy. These values represent the SE2 pose
 # (in the table frame) for the robot before placing the container.
 prepare_container_relative_xy:
-  dx: -0.75
+  dx: -0.5
   dy: 0.65
   angle: -1.5707  # - pi / 2
 # Helpful for static objects that are up against a wall, for example.
