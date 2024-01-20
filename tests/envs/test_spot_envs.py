@@ -92,7 +92,7 @@ def test_spot_main_sweep_env_dry_run(graph_nav_map):
     init_obs = env.reset("test", 0)
     state = perceiver.step(init_obs)
 
-    # Test that we can sweep the yogurt into the bucket, dump it out, then
+    # Test that we can sweep the train_toy into the bucket, dump it out, then
     # do the whole thing again.
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
@@ -112,7 +112,7 @@ def test_spot_main_sweep_env_dry_run(graph_nav_map):
     robot = obj_name_to_obj["robot"]
     bucket = obj_name_to_obj["bucket"]
     brush = obj_name_to_obj["brush"]
-    yogurt = obj_name_to_obj["yogurt"]
+    train_toy = obj_name_to_obj["train_toy"]
     chair = obj_name_to_obj["chair"]
     table = obj_name_to_obj["black_table"]
     floor = obj_name_to_obj["floor"]
@@ -152,21 +152,23 @@ def test_spot_main_sweep_env_dry_run(graph_nav_map):
     move_to_hand_view_bucket = MoveToHandViewObject.ground([robot, bucket])
     pick_bucket = PickObjectFromTop.ground([robot, bucket, floor])
     prepare_bucket = PrepareContainerForSweeping.ground(
-        [robot, bucket, yogurt, table])
+        [robot, bucket, train_toy, table])
     move_to_hand_view_chair = MoveToHandViewObject.ground([robot, chair])
     pick_chair = PickObjectToDrag.ground([robot, chair])
-    drag_chair = DragToUnblockObject.ground([robot, chair, yogurt])
+    drag_chair = DragToUnblockObject.ground([robot, chair, train_toy])
     move_to_hand_view_brush = MoveToHandViewObject.ground([robot, brush])
     pick_brush = PickObjectFromTop.ground([robot, brush, floor])
-    move_to_reach_yogurt = MoveToReachObject.ground([robot, yogurt])
-    sweep = SweepIntoContainer.ground([robot, brush, yogurt, table, bucket])
+    move_to_reach_train_toy = MoveToReachObject.ground([robot, train_toy])
+    sweep = SweepIntoContainer.ground([robot, brush, train_toy, table, bucket])
     move_to_reach_floor = MoveToReachObject.ground([robot, floor])
     place_brush = PlaceObjectOnTop.ground([robot, brush, floor])
-    dump_bucket = PickAndDumpContainer.ground([robot, bucket, floor, yogurt])
-    move_to_hand_view_yogurt = MoveToHandViewObject.ground([robot, yogurt])
-    pick_yogurt = PickObjectFromTop.ground([robot, yogurt, floor])
+    dump_bucket = PickAndDumpContainer.ground(
+        [robot, bucket, floor, train_toy])
+    move_to_hand_view_train_toy = MoveToHandViewObject.ground(
+        [robot, train_toy])
+    pick_train_toy = PickObjectFromTop.ground([robot, train_toy, floor])
     move_to_reach_table = MoveToReachObject.ground([robot, table])
-    place_yogurt = PlaceObjectOnTop.ground([robot, yogurt, table])
+    place_train_toy = PlaceObjectOnTop.ground([robot, train_toy, table])
 
     # Assertions will be raised in _run_ground_nsrt if there are any issues.
     state = _run_ground_nsrt(move_to_hand_view_bucket, state)
@@ -177,23 +179,23 @@ def test_spot_main_sweep_env_dry_run(graph_nav_map):
     state = _run_ground_nsrt(drag_chair, state)
     state = _run_ground_nsrt(move_to_hand_view_brush, state)
     state = _run_ground_nsrt(pick_brush, state)
-    state = _run_ground_nsrt(move_to_reach_yogurt, state)
+    state = _run_ground_nsrt(move_to_reach_train_toy, state)
     state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
     state = _run_ground_nsrt(move_to_reach_floor, state)
     state = _run_ground_nsrt(place_brush, state)
     state = _run_ground_nsrt(move_to_hand_view_bucket, state)
     state = _run_ground_nsrt(dump_bucket, state)
     state = _run_ground_nsrt(move_to_reach_floor, state)
-    state = _run_ground_nsrt(move_to_hand_view_yogurt, state)
-    state = _run_ground_nsrt(pick_yogurt, state)
+    state = _run_ground_nsrt(move_to_hand_view_train_toy, state)
+    state = _run_ground_nsrt(pick_train_toy, state)
     state = _run_ground_nsrt(move_to_reach_table, state)
-    state = _run_ground_nsrt(place_yogurt, state)
+    state = _run_ground_nsrt(place_train_toy, state)
     state = _run_ground_nsrt(move_to_hand_view_bucket, state)
     state = _run_ground_nsrt(pick_bucket, state)
     state = _run_ground_nsrt(prepare_bucket, state)
     state = _run_ground_nsrt(move_to_hand_view_brush, state)
     state = _run_ground_nsrt(pick_brush, state)
-    state = _run_ground_nsrt(move_to_reach_yogurt, state)
+    state = _run_ground_nsrt(move_to_reach_train_toy, state)
     state = _run_ground_nsrt(sweep, state, assert_delete_effects=False)
     state = _run_ground_nsrt(move_to_reach_floor, state)
     state = _run_ground_nsrt(place_brush, state)
@@ -561,7 +563,7 @@ def real_robot_sweeping_nsrt_test() -> None:
     obs = env.reset("test", 0)
     perceiver.reset(task)
     objects_in_view = {o.name: o for o in obs.objects_in_view}
-    yogurt = objects_in_view["yogurt"]
+    train_toy = objects_in_view["train_toy"]
     football = objects_in_view["football"]
     table = objects_in_view["black_table"]
     container = objects_in_view["bucket"]
@@ -575,9 +577,10 @@ def real_robot_sweeping_nsrt_test() -> None:
         nsrt_name_to_nsrt["SweepTwoObjectsIntoContainer"]
     MoveToReachObject = nsrt_name_to_nsrt["MoveToReachObject"]
     PlaceObjectOnTop = nsrt_name_to_nsrt["PlaceObjectOnTop"]
-    move_to_container_nsrt = MoveToReadySweep.ground((spot, container, yogurt))
+    move_to_container_nsrt = MoveToReadySweep.ground(
+        (spot, container, train_toy))
     sweep_nsrt = SweepTwoObjectsIntoContainer.ground(
-        (spot, brush, yogurt, football, table, container))
+        (spot, brush, train_toy, football, table, container))
     move_to_floor_nsrt = MoveToReachObject.ground((spot, floor))
     place_nsrt = PlaceObjectOnTop.ground((spot, brush, floor))
 

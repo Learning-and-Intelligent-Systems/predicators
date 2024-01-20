@@ -19,8 +19,8 @@ allowed-regions:
 # Known immovable objects. Assuming default rotations.
 known-immovable-objects:
   floor:
-    x: 1.332
-    y: -0.25
+    x: 3.5
+    y: 0.5
     z: -0.5
   black_table:
     x: 2.3
@@ -39,7 +39,7 @@ static-object-features:
     length: 10000000  # effectively infinite
     width: 10000000
     flat_top_surface: 1
-  yogurt:
+  train_toy:
     shape: 2
     height: 0.05
     length: 0.065
@@ -91,8 +91,8 @@ static-object-features:
   shelf1:
     shape: 1
     height: 0.1
-    length: 0.4
-    width: 0.2
+    length: 0.8
+    width: 0.7
     flat_top_surface: 0
 # This should be calculable, but I'm lazy. These values represent the SE2 pose
 # (in the table frame) for the robot before placing the container.

@@ -131,7 +131,7 @@ def _drop_at_relative_position_and_look(
     vec_to_move_back_xy = look_dist_to_retract * rel_look_down_xy_unit
     rel_look_pose = math_helpers.SE3Pose(rel_pose.x - vec_to_move_back_xy[0],
                                          rel_pose.y - vec_to_move_back_xy[1],
-                                         rel_pose.z + 0.2,
+                                         rel_pose.z + 0.3,
                                          rot=math_helpers.Quat.from_pitch(
                                              np.pi / 3))
     # Look straight down.

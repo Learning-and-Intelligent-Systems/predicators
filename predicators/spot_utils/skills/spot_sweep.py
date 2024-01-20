@@ -59,10 +59,10 @@ if __name__ == "__main__":
     # Make sure to pass in --spot_robot_ip.
 
     # NOTE: this test assumes that the robot is standing in front of a table
-    # that has a yogurt on it. The test starts by running object detection to
-    # get the pose of the yogurt. Then the robot opens its gripper and pauses
+    # that has a train_toy on it. The test starts by running object detection to
+    # get the pose of the train_toy. Then the robot opens its gripper and pauses
     # until a brush is put in the gripper, with the bristles facing down and
-    # forward. The robot should then brush the yogurt to the right.
+    # forward. The robot should then brush the train_toy to the right.
 
     # pylint: disable=ungrouped-imports
     from bosdyn.client import create_standard_sdk
@@ -110,18 +110,18 @@ if __name__ == "__main__":
         go_home(robot, localizer)
         localizer.localize()
 
-        # Find the yogurt can.
-        yogurt_prompt = "/".join([
+        # Find the train_toy can.
+        train_toy_prompt = "/".join([
             "small purple cup",
-            "yogurt container",
+            "train_toy container",
             "purple ribbon",
             "purple bobbin",
             "globe",
         ])
-        yogurt_detection_id = LanguageObjectDetectionID(yogurt_prompt)
+        train_toy_detection_id = LanguageObjectDetectionID(train_toy_prompt)
         detections, _ = init_search_for_objects(robot, localizer,
-                                                {yogurt_detection_id})
-        yogurt_pose = detections[yogurt_detection_id]
+                                                {train_toy_detection_id})
+        train_toy_pose = detections[train_toy_detection_id]
 
         # Move the hand to the side so that the brush can face forward.
         hand_side_pose = math_helpers.SE3Pose(x=0.80,
@@ -138,14 +138,14 @@ if __name__ == "__main__":
         utils.wait_for_any_button_press(msg)
         close_gripper(robot)
 
-        # Move to in front of the yogurt.
+        # Move to in front of the train_toy.
         stow_arm(robot)
         pre_sweep_nav_distance = 0.7
         home_pose = get_spot_home_pose()
         pre_sweep_nav_angle = home_pose.angle - np.pi
         localizer.localize()
         robot_pose = localizer.get_last_robot_pose()
-        rel_pose = get_relative_se2_from_se3(robot_pose, yogurt_pose,
+        rel_pose = get_relative_se2_from_se3(robot_pose, train_toy_pose,
                                              pre_sweep_nav_distance,
                                              pre_sweep_nav_angle)
         navigate_to_relative_pose(robot, rel_pose)
@@ -153,13 +153,13 @@ if __name__ == "__main__":
 
         # Calculate sweep parameters.
         robot_pose = localizer.get_last_robot_pose()
-        yogurt_rel_pose = robot_pose.inverse() * yogurt_pose
+        train_toy_rel_pose = robot_pose.inverse() * train_toy_pose
         start_dx = 0.0
         start_dy = 0.4
         start_dz = 0.28
-        start_x = yogurt_rel_pose.x + start_dx
-        start_y = yogurt_rel_pose.y + start_dy
-        start_z = yogurt_rel_pose.z + start_dz
+        start_x = train_toy_rel_pose.x + start_dx
+        start_y = train_toy_rel_pose.y + start_dy
+        start_z = train_toy_rel_pose.z + start_dz
         pitch = math_helpers.Quat.from_pitch(np.pi / 2)
         yaw = math_helpers.Quat.from_yaw(np.pi / 4)
         rot = pitch * yaw

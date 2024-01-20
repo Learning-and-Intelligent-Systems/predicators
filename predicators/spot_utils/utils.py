@@ -89,7 +89,7 @@ def get_collision_geoms_for_nav(state: State) -> List[_Geom2D]:
     # (1) aren't the robot
     # (2) aren't in an excluded object list defined below
     # (3) aren't being currently held.
-    excluded_objects = ["robot", "floor", "brush", "yogurt", "football"]
+    excluded_objects = ["robot", "floor", "brush", "train_toy", "football"]
     collision_geoms = []
     for obj in set(state):
         if obj.name not in excluded_objects:

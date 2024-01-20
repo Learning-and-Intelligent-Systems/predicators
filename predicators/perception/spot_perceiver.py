@@ -325,38 +325,51 @@ class SpotPerceiver(BasePerceiver):
                 GroundAtom(Holding, [robot, brush])
             }
         if goal_description == "get the objects into the bucket":
-            yogurt = Object("yogurt", _movable_object_type)
+            train_toy = Object("train_toy", _movable_object_type)
             football = Object("football", _movable_object_type)
             bucket = Object("bucket", _container_type)
             Inside = pred_name_to_pred["Inside"]
             return {
-                GroundAtom(Inside, [yogurt, bucket]),
+                GroundAtom(Inside, [train_toy, bucket]),
                 GroundAtom(Inside, [football, bucket]),
             }
-        if goal_description == "get the yogurt and football onto the table":
-            yogurt = Object("yogurt", _movable_object_type)
+        if goal_description == "get the objects into the bucket and put " + \
+            "the bucket on the shelf":
+            train_toy = Object("train_toy", _movable_object_type)
+            football = Object("football", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            shelf = Object("shelf1", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            Inside = pred_name_to_pred["Inside"]
+            return {
+                GroundAtom(Inside, [train_toy, bucket]),
+                GroundAtom(Inside, [football, bucket]),
+                GroundAtom(On, [bucket, shelf])
+            }
+        if goal_description == "get the train_toy and football onto the table":
+            train_toy = Object("train_toy", _movable_object_type)
             football = Object("football", _movable_object_type)
             table = Object("black_table", _immovable_object_type)
             On = pred_name_to_pred["On"]
             return {
-                GroundAtom(On, [yogurt, table]),
+                GroundAtom(On, [train_toy, table]),
                 GroundAtom(On, [football, table]),
             }
-        if goal_description == "get the yogurt into the bucket":
-            yogurt = Object("yogurt", _movable_object_type)
+        if goal_description == "get the train_toy into the bucket":
+            train_toy = Object("train_toy", _movable_object_type)
             bucket = Object("bucket", _container_type)
             Inside = pred_name_to_pred["Inside"]
             return {
-                GroundAtom(Inside, [yogurt, bucket]),
+                GroundAtom(Inside, [train_toy, bucket]),
             }
-        if goal_description == "place bucket such that yogurt can be swept " + \
-            "into it":
+        if goal_description == "place bucket such that train_toy can be " + \
+            "swept into it":
             bucket = Object("bucket", _container_type)
-            yogurt = Object("yogurt", _movable_object_type)
+            train_toy = Object("train_toy", _movable_object_type)
             ContainerReadyForSweeping = pred_name_to_pred[
                 "ContainerReadyForSweeping"]
             return {
-                GroundAtom(ContainerReadyForSweeping, [bucket, yogurt]),
+                GroundAtom(ContainerReadyForSweeping, [bucket, train_toy]),
             }
         if goal_description == "get the football into the bucket":
             football = Object("football", _movable_object_type)
@@ -399,6 +412,13 @@ class SpotPerceiver(BasePerceiver):
             On = pred_name_to_pred["On"]
             return {
                 GroundAtom(On, [brush, shelf]),
+            }
+        if goal_description == "put the bucket in the second shelf":
+            bucket = Object("bucket", _container_type)
+            shelf = Object("shelf1", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [bucket, shelf]),
             }
         if goal_description == "pick up the brush":
             robot = Object("robot", _robot_type)
