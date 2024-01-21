@@ -879,13 +879,13 @@ class SpotRearrangementEnv(BaseEnv):
 ## Constants
 HANDEMPTY_GRIPPER_THRESHOLD = 2.5  # made public for use in perceiver
 _ONTOP_Z_THRESHOLD = 0.2
-_INSIDE_Z_THRESHOLD = 0.4
+_INSIDE_Z_THRESHOLD = 0.3
 _ONTOP_SURFACE_BUFFER = 0.48
 _INSIDE_SURFACE_BUFFER = 0.1
 _FITS_IN_XY_BUFFER = 0.025
 _REACHABLE_THRESHOLD = 0.925  # slightly less than length of arm
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
-_CONTAINER_SWEEP_READY_BUFFER = 0.5
+_CONTAINER_SWEEP_READY_BUFFER = 0.3
 _ROBOT_SWEEP_READY_TOL = 0.25
 
 ## Types
@@ -1172,16 +1172,17 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
     # it into an expected location for the container.
     param_dict = load_spot_metadata()["prepare_container_relative_xy"]
     dx, dy, angle = param_dict["dx"], param_dict["dy"], param_dict["angle"]
-    place_distance = 0.65
+    place_distance = 0.3
     expected_x = surface_x + dx + place_distance * np.cos(angle)
     expected_y = surface_y + dy + place_distance * np.sin(angle)
 
     container_x = state.get(container, "x")
     container_y = state.get(container, "y")
 
-    return np.sqrt(
-        (expected_x - container_x)**2 +
-        (expected_y - container_y)**2) <= _CONTAINER_SWEEP_READY_BUFFER
+    dist = np.sqrt((expected_x - container_x)**2 +
+                   (expected_y - container_y)**2)
+
+    return dist <= _CONTAINER_SWEEP_READY_BUFFER
 
 
 def _container_ready_for_sweeping_classifier(
@@ -2038,7 +2039,7 @@ def _dry_simulate_prepare_container_for_sweeping(
     # First update the robot.
     robot_pose = new_robot_se2_pose.get_closest_se3_transform()
     # Now update the container relative to the robot.
-    robot_length = 0.8
+    robot_length = 0.3
     robot_yaw = new_robot_se2_pose.angle
     x = robot_pose.x + robot_length * np.cos(robot_yaw)
     y = robot_pose.y + robot_length * np.sin(robot_yaw)

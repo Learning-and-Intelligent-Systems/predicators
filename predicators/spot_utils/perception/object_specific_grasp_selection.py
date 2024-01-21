@@ -33,12 +33,12 @@ bucket_prompt = "/".join([
     "white crate",
 ])
 bucket_obj = LanguageObjectDetectionID(bucket_prompt)
-football_prompt = "/".join(
-    ["small toy football", "small brown golfball", "soap", "brown doughnut"])
+football_prompt = "/".join(["small toy basketball", "orange"])
 football_obj = LanguageObjectDetectionID(football_prompt)
 train_toy_prompt = "/".join([
-    "stuffed blue toy train for children",
-    "blue earplug",
+    "small white ambulance toy",
+    "car_(automobile) toy",
+    "egg",
 ])
 train_toy_obj = LanguageObjectDetectionID(train_toy_prompt)
 chair_prompt = "chair"
@@ -393,7 +393,10 @@ def _get_bucket_grasp_pixel(
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
 
-    return selected_pixel, None
+    # Specify a top-down grasp constraint.
+    pitch = math_helpers.Quat.from_pitch(np.pi / 2)
+
+    return selected_pixel, pitch
 
 
 def _get_mask_center_grasp_pixel(

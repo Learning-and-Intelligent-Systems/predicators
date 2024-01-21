@@ -328,9 +328,9 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
         target_obj_rel_xyzs.append(rel_xyz)
     mean_x, mean_y, mean_z = np.mean(target_obj_rel_xyzs, axis=0)
 
-    start_x = mean_x + 0.1
+    start_x = mean_x + 0.175
     start_y = mean_y + 0.4
-    start_z = mean_z + 0.2
+    start_z = mean_z + 0.25
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     yaw = math_helpers.Quat.from_yaw(np.pi / 4)
     rot = pitch * yaw
@@ -340,7 +340,7 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
                                             rot=rot)
     sweep_move_dx = 0.0
     sweep_move_dy = -0.8
-    sweep_move_dz = -0.1
+    sweep_move_dz = -0.15
 
     # Execute the sweep.
     return utils.create_spot_env_action(

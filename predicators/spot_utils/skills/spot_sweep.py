@@ -112,11 +112,9 @@ if __name__ == "__main__":
 
         # Find the train_toy can.
         train_toy_prompt = "/".join([
-            "small purple cup",
-            "train_toy container",
-            "purple ribbon",
-            "purple bobbin",
-            "globe",
+            "small white ambulance toy",
+            "car_(automobile) toy",
+            "egg",
         ])
         train_toy_detection_id = LanguageObjectDetectionID(train_toy_prompt)
         detections, _ = init_search_for_objects(robot, localizer,
@@ -156,7 +154,7 @@ if __name__ == "__main__":
         train_toy_rel_pose = robot_pose.inverse() * train_toy_pose
         start_dx = 0.0
         start_dy = 0.4
-        start_dz = 0.28
+        start_dz = 0.23
         start_x = train_toy_rel_pose.x + start_dx
         start_y = train_toy_rel_pose.y + start_dy
         start_z = train_toy_rel_pose.z + start_dz
@@ -168,10 +166,10 @@ if __name__ == "__main__":
                                                 z=start_z,
                                                 rot=rot)
         # Calculate the yaw and distance for the sweep.
-        sweep_move_dx = 0.0
+        sweep_move_dx = 0.45
         sweep_move_dy = -0.8
         sweep_move_dz = -0.08
-        duration = 0.7
+        duration = 1.2
 
         # Execute the sweep.
         sweep(robot, sweep_start_pose, sweep_move_dx, sweep_move_dy,

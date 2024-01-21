@@ -19,7 +19,7 @@ allowed-regions:
 # Known immovable objects. Assuming default rotations.
 known-immovable-objects:
   floor:
-    x: 3.5
+    x: 2.5
     y: 0.5
     z: -0.5
   black_table:
@@ -97,11 +97,11 @@ static-object-features:
 # This should be calculable, but I'm lazy. These values represent the SE2 pose
 # (in the table frame) for the robot before placing the container.
 prepare_container_relative_xy:
-  dx: -0.5
-  dy: 0.65
+  dx: -0.3
+  dy: 0.45
   angle: -1.5707  # - pi / 2
 # Helpful for static objects that are up against a wall, for example.
 approach_angle_bounds:
-  black_table: [1.56, 1.58]  # about pi / 2
+  black_table: [1.570, 1.575]  # about pi / 2
   # Only drag the chair from behind it, approximately.
   chair: [1.25, 1.75]  # about pi / 2
