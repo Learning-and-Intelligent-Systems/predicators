@@ -28,9 +28,9 @@ bucket_prompt = "/".join([
     "white plastic container",
     "white plastic tray",
     "white plastic bowl",
-    "white sink",
-    "white plastic tub",
-    "white crate",
+    "white storage bin",
+    # "white plastic tub",
+    # "white crate",
 ])
 bucket_obj = LanguageObjectDetectionID(bucket_prompt)
 football_prompt = "/".join(["small toy basketball", "orange"])
@@ -123,8 +123,18 @@ def _get_chair_grasp_pixel(
                                          lo,
                                          hi,
                                          min_component_size=10)
-    assert centroid is not None
-    pixel = (centroid[0], centroid[1])
+    if centroid is None:
+        # Pick the topmost middle pixel, which should correspond to the top
+        # of the chair.
+        mask_args = np.argwhere(mask)
+        mask_min_c = min(mask_args[:, 1])
+        mask_max_c = max(mask_args[:, 1])
+        c_len = mask_max_c - mask_min_c
+        middle_c = mask_min_c + c_len // 2
+        min_r = min(r for r, c in mask_args if c == middle_c)
+        selected_pixel = (middle_c, min_r)
+    else:
+        pixel = (centroid[0], centroid[1])
 
     # Uncomment for debugging.
     # rgbd = rgbds[camera_name]

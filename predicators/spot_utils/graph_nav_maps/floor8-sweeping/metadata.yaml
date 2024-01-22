@@ -21,7 +21,7 @@ known-immovable-objects:
   floor:
     x: 1.5
     y: 0.5
-    z: -0.5
+    z: -0.6
   black_table:
     x: 2.3
     y: -2.0
@@ -81,7 +81,10 @@ static-object-features:
     width: 0.5
     placeable: 0  # false, can't be placed
     is_sweeper: 0
-    z: -0.1  # the chair can move in the x/y plane only
+    # the chair can move in the x/y plane only. We arbitrarily set its height
+    # to be pretty low so that it doesn't appear that anything is on top of it
+    # aside from it being atop the floor.
+    z: -0.6
   black_table:
     shape: 1
     height: 0.37

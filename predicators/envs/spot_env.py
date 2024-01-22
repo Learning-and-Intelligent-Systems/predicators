@@ -1095,16 +1095,10 @@ def _blocking_classifier(state: State, objects: Sequence[Object]) -> bool:
     if _is_placeable_classifier(state, [blocker_obj]):
         return False
 
-    if _object_in_xy_classifier(state,
-                                blocked_obj,
-                                blocker_obj,
-                                buffer=_ONTOP_SURFACE_BUFFER):
+    if _on_classifier(state, [blocker_obj, blocked_obj]):
         return False
-
-    if _object_in_xy_classifier(state,
-                                blocker_obj,
-                                blocked_obj,
-                                buffer=_ONTOP_SURFACE_BUFFER):
+    
+    if _on_classifier(state, [blocked_obj, blocker_obj]):
         return False
 
     spot, = state.get_objects(_robot_type)
@@ -1181,6 +1175,9 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
 
     dist = np.sqrt((expected_x - container_x)**2 +
                    (expected_y - container_y)**2)
+
+    if "bucket" in str(container) and "table" in str(surface) and dist > _CONTAINER_SWEEP_READY_BUFFER:
+        import ipdb; ipdb.set_trace()
 
     return dist <= _CONTAINER_SWEEP_READY_BUFFER
 

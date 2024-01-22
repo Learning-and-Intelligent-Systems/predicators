@@ -323,6 +323,8 @@ class ActiveSamplerExplorer(BaseExplorer):
                         not CFG.spot_run_dry:  # pragma: no cover
                         self._log("[Explorer] TERMINATING EARLY!!! "
                                   "No reachable goal found.")
+                        self._log(f"Initial State: {utils.abstract(state, self._predicates)}")
+                        import ipdb; ipdb.set_trace()
                         raise utils.RequestActPolicyFailure(
                             "No reachable goal found.")
                     self._log("[Explorer] No reachable goal found. "
