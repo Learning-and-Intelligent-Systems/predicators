@@ -18,6 +18,7 @@ ENVS:
   #     active_sampler_learning_object_specific_samplers: True
   #     max_num_steps_interaction_request: 20
   #     horizon: 15
+  #     active_sampler_learning_init_cycles_to_pursue_goal: 5
   spot_main_sweep_env:
     NAME: "spot_main_sweep_env"
     FLAGS:
@@ -29,6 +30,7 @@ ENVS:
       active_sampler_learning_object_specific_samplers: True
       max_num_steps_interaction_request: 50
       horizon: 10
+      active_sampler_learning_init_cycles_to_pursue_goal: 4
 ARGS:
   - "debug" # add make_cogman_videos for dev
 FLAGS:
@@ -48,7 +50,6 @@ FLAGS:
   active_sampler_learning_explore_length_base: 10000
   active_sampler_learning_exploration_epsilon: 0.5
   active_sampler_learning_explore_pursue_goal_interval: 3
-  active_sampler_learning_init_cycles_to_pursue_goal: 5
   skill_competence_model_optimistic_recency_size: 5
   skill_competence_model_optimistic_window_size: 5
   active_sampler_learning_feature_selection: oracle
