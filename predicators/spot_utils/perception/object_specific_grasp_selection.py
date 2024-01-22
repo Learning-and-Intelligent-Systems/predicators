@@ -373,7 +373,7 @@ def _get_bucket_grasp_pixel(
                                          hi,
                                          min_component_size=10)
     # This can happen sometimes if the rim of the bucket is separated from the
-    # body of the bucket. If that happens, just pick the center top pixel in
+    # body of the bucket. If that happens, just pick the center bottom pixel in
     # the mask, which should be the rim.
     if centroid is None:
         mask_args = np.argwhere(mask)
@@ -381,10 +381,11 @@ def _get_bucket_grasp_pixel(
         mask_max_c = max(mask_args[:, 1])
         c_len = mask_max_c - mask_min_c
         middle_c = mask_min_c + c_len // 2
-        min_r = min(r for r, c in mask_args if c == middle_c)
-        selected_pixel = (middle_c, min_r)
+        max_r = max(r for r, c in mask_args if c == middle_c)
+        selected_pixel = (middle_c, max_r)
     else:
-        selected_pixel = (centroid[0], centroid[1])
+        # NOTE! Testing
+        selected_pixel = (centroid[0] + 10, centroid[1])
 
     # Uncomment for debugging.
     # bgr = cv2.cvtColor(rgbds[camera_name].rgb, cv2.COLOR_RGB2BGR)

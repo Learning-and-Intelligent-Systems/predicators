@@ -885,7 +885,7 @@ _INSIDE_SURFACE_BUFFER = 0.1
 _FITS_IN_XY_BUFFER = 0.025
 _REACHABLE_THRESHOLD = 0.925  # slightly less than length of arm
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
-_CONTAINER_SWEEP_READY_BUFFER = 0.3
+_CONTAINER_SWEEP_READY_BUFFER = 0.35
 _ROBOT_SWEEP_READY_TOL = 0.25
 
 ## Types
@@ -1172,7 +1172,7 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
     # it into an expected location for the container.
     param_dict = load_spot_metadata()["prepare_container_relative_xy"]
     dx, dy, angle = param_dict["dx"], param_dict["dy"], param_dict["angle"]
-    place_distance = 0.3
+    place_distance = 0.6
     expected_x = surface_x + dx + place_distance * np.cos(angle)
     expected_y = surface_y + dy + place_distance * np.sin(angle)
 

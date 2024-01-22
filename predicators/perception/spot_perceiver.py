@@ -324,6 +324,12 @@ class SpotPerceiver(BasePerceiver):
                 GroundAtom(Inside, [can, bucket]),
                 GroundAtom(Holding, [robot, brush])
             }
+        if goal_description == "unblock the train_toy":
+            train_toy = Object("train_toy", _movable_object_type)
+            NotBlocked = pred_name_to_pred["NotBlocked"]
+            return {
+                GroundAtom(NotBlocked, [train_toy]),
+            }
         if goal_description == "get the objects into the bucket":
             train_toy = Object("train_toy", _movable_object_type)
             football = Object("football", _movable_object_type)
@@ -332,6 +338,15 @@ class SpotPerceiver(BasePerceiver):
             return {
                 GroundAtom(Inside, [train_toy, bucket]),
                 GroundAtom(Inside, [football, bucket]),
+            }
+        if goal_description == "get the objects out of the bucket":
+            train_toy = Object("train_toy", _movable_object_type)
+            football = Object("football", _movable_object_type)
+            bucket = Object("bucket", _container_type)
+            NotInsideAnyContainer = pred_name_to_pred["NotInsideAnyContainer"]
+            return {
+                GroundAtom(NotInsideAnyContainer, [train_toy]),
+                GroundAtom(NotInsideAnyContainer, [football]),
             }
         if goal_description == "get the objects into the bucket and put " + \
             "the bucket on the shelf":

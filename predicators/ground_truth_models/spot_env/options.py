@@ -76,8 +76,8 @@ def _grasp_at_pixel_and_maybe_stow_or_dump(
     if do_dump and get_robot_gripper_open_percentage(robot) > thresh:
         # Lift the grasped object up high enough that it doesn't collide.
         move_hand_to_relative_pose(robot, DEFAULT_HAND_PRE_DUMP_LIFT_POSE)
-        # Rotate to the left.
-        angle = np.pi / 2
+        # Rotate to the right.
+        angle = -np.pi / 2
         navigate_to_relative_pose(robot, math_helpers.SE2Pose(0, 0, angle))
         # Move the hand to execute the dump.
         move_hand_to_relative_pose(robot, DEFAULT_HAND_PRE_DUMP_POSE)
@@ -188,21 +188,17 @@ def _move_to_absolute_pose_and_place_push_stow(
     move_hand_to_relative_pose(robot, place_rel_pose)
     # Push.
     move_hand_to_relative_pose(robot, push_rel_pose)
+    # Necessary for correct move
+    time.sleep(0.5)
     # Open the gripper.
     open_gripper(robot)
-    # Move the gripper slightly up to avoid collisions with the container.
-    dz = 0.2
+    # Move the gripper slightly up and to the right to
+    # avoid collisions with the container.
+    dz = 0.6
     slightly_back_and_up_pose = math_helpers.SE3Pose(x=push_rel_pose.x,
-                                                     y=push_rel_pose.y,
+                                                     y=push_rel_pose.y - 0.3,
                                                      z=push_rel_pose.z + dz,
                                                      rot=push_rel_pose.rot)
-    move_hand_to_relative_pose(robot, slightly_back_and_up_pose)
-    # Move the gripper back toward above the place rel pose to avoid collisions
-    # with the surface.
-    slightly_back_and_up_pose = math_helpers.SE3Pose(x=place_rel_pose.x,
-                                                     y=place_rel_pose.y,
-                                                     z=place_rel_pose.z + dz,
-                                                     rot=place_rel_pose.rot)
     move_hand_to_relative_pose(robot, slightly_back_and_up_pose)
     # Stow.
     stow_arm(robot)
@@ -330,7 +326,7 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
 
     start_x = mean_x + 0.175
     start_y = mean_y + 0.4
-    start_z = mean_z + 0.25
+    start_z = mean_z + 0.225
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     yaw = math_helpers.Quat.from_yaw(np.pi / 4)
     rot = pitch * yaw
@@ -340,7 +336,7 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
                                             rot=rot)
     sweep_move_dx = 0.0
     sweep_move_dy = -0.8
-    sweep_move_dz = -0.15
+    sweep_move_dz = -0.25
 
     # Execute the sweep.
     return utils.create_spot_env_action(
@@ -691,16 +687,19 @@ def _prepare_container_for_sweeping_policy(state: State, memory: Dict,
 
     # Place in front.
     rot = math_helpers.Quat.from_pitch(np.pi / 2)
-    place_rel_pose = math_helpers.SE3Pose(x=1.25,
+    place_rel_pose = math_helpers.SE3Pose(x=0.6,
                                           y=0.0,
                                           z=container_z - 0.15,
                                           rot=rot)
 
     # Push towards the target a little bit after placing.
+    # Rotate the gripper a little bit to make sure the tray is aligned.
+    rot = math_helpers.Quat.from_pitch(
+        np.pi / 2) * math_helpers.Quat.from_roll(-np.pi / 6)
     push_rel_pose = math_helpers.SE3Pose(x=place_rel_pose.x,
-                                         y=place_rel_pose.y + 0.2,
+                                         y=place_rel_pose.y + 0.15,
                                          z=place_rel_pose.z,
-                                         rot=place_rel_pose.rot)
+                                         rot=rot)
 
     return utils.create_spot_env_action(
         name, objects, _move_to_absolute_pose_and_place_push_stow,

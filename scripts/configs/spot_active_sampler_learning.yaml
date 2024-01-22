@@ -16,6 +16,8 @@ ENVS:
   #     spot_graph_nav_map: "floor8-cup-table"
   #     spot_render_perception_outputs: False
   #     active_sampler_learning_object_specific_samplers: True
+  #     max_num_steps_interaction_request: 20
+  #     horizon: 15
   spot_main_sweep_env:
     NAME: "spot_main_sweep_env"
     FLAGS:
@@ -25,6 +27,8 @@ ENVS:
       spot_graph_nav_map: "floor8-sweeping"
       spot_render_perception_outputs: False  # change to True for dev
       active_sampler_learning_object_specific_samplers: True
+      max_num_steps_interaction_request: 50
+      horizon: 10
 ARGS:
   - "debug" # add make_cogman_videos for dev
 FLAGS:
@@ -47,10 +51,8 @@ FLAGS:
   active_sampler_learning_init_cycles_to_pursue_goal: 5
   skill_competence_model_optimistic_recency_size: 5
   skill_competence_model_optimistic_window_size: 5
-  horizon: 15
   active_sampler_learning_feature_selection: oracle
   online_nsrt_learning_requests_per_cycle: 1
-  max_num_steps_interaction_request: 20
   num_online_learning_cycles: 100
   sesame_task_planner: "fdopt-costs"
   sesame_grounder: "fd_translator"

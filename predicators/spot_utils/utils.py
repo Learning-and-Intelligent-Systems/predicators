@@ -38,7 +38,11 @@ DEFAULT_HAND_LOOK_STRAIGHT_DOWN_POSE_HIGH = math_helpers.SE3Pose(
 DEFAULT_HAND_PRE_DUMP_LIFT_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.3, rot=math_helpers.Quat.from_pitch(2 * np.pi / 3))
 DEFAULT_HAND_PRE_DUMP_POSE = math_helpers.SE3Pose(
-    x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(-np.pi / 6))
+    x=0.80,
+    y=0.0,
+    z=0.25,
+    rot=math_helpers.Quat.from_pitch(np.pi / 2) *
+    math_helpers.Quat.from_yaw(np.pi / 1.1))
 DEFAULT_HAND_POST_DUMP_POSE = math_helpers.SE3Pose(
     x=0.80, y=0.0, z=0.25, rot=math_helpers.Quat.from_pitch(np.pi / 2))
 
