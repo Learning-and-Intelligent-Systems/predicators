@@ -108,3 +108,6 @@ approach_angle_bounds:
   black_table: [1.565, 1.572]  # about pi / 2
   # Only drag the chair from behind it, approximately.
   chair: [1.25, 1.75]  # about pi / 2
+  # Only approach the brush from perpendicular to it!
+  brush: [-1.75, -1.25]
+  floor: [-1.75, -1.25]

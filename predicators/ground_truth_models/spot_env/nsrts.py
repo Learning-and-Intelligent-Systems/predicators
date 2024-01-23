@@ -104,9 +104,13 @@ def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
     obj_to_nav_to = objs[1]
 
     min_angle, max_angle = _get_approach_angle_bounds(obj_to_nav_to, state)
-
-    return _move_offset_sampler(state, robot_obj, obj_to_nav_to, rng, min_dist,
+    ret_val = _move_offset_sampler(state, robot_obj, obj_to_nav_to, rng, min_dist,
                                 max_dist, min_angle, max_angle)
+
+    if "table" in str(obj_to_nav_to):
+        import ipdb; ipdb.set_trace()
+
+    return ret_val
 
 
 def _get_approach_angle_bounds(obj: Object,
