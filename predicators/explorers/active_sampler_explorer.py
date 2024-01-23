@@ -465,9 +465,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             max_horizon=np.inf)
 
         # Uncomment for debugging
-        for act in plan:
-            print((act.name, act.objects))
-        import ipdb; ipdb.set_trace()
+        # for act in plan:
+        #     print((act.name, act.objects))
+        # import ipdb; ipdb.set_trace()
 
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
