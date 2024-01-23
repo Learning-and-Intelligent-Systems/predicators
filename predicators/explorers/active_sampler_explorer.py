@@ -463,6 +463,12 @@ class ActiveSamplerExplorer(BaseExplorer):
             ground_op_costs=ground_op_costs,
             default_cost=self._default_cost,
             max_horizon=np.inf)
+
+        # DEBUGGING!
+        for act in plan:
+            print((act.name, act.objects))
+        import ipdb; ipdb.set_trace()
+
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
 

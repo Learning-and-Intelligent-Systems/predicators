@@ -29,7 +29,7 @@ ENVS:
       spot_render_perception_outputs: False  # change to True for dev
       active_sampler_learning_object_specific_samplers: True
       max_num_steps_interaction_request: 50
-      horizon: 10
+      horizon: 15
       active_sampler_learning_init_cycles_to_pursue_goal: 4
 ARGS:
   - "debug" # add make_cogman_videos for dev

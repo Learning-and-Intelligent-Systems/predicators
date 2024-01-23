@@ -258,11 +258,11 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
                 max_dist = max(max_dist, dist)
             velocity = max_dist  # directly proportional
             return np.array([velocity])
-        return np.array([1.0 / 1.2])
+        return np.array([1.0 / 1.4])
     if CFG.spot_run_dry:
         param = rng.uniform(0.1, 1.0)
     else:
-        param = 1.0 / rng.uniform(0.35, 1.0)
+        param = 1.0 / rng.uniform(0.2, 1.3)
     print(f"Sweep Sample: {param}")
     return np.array([param])
 
