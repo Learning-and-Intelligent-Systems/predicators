@@ -616,7 +616,7 @@ class SpotRearrangementEnv(BaseEnv):
                         msg = (f"\nATTENTION! The {swept_object.name} was not "
                                "seen after sweeping. Is it now in the "
                                f"{container.name}? [y/n]\n")
-                        response = utils.prompt_user(msg)
+                        response = input(msg)
                         if response == "y":
                             # Update the pose to be inside the container.
                             container_pose = all_objects_in_view[container]

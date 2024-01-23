@@ -69,7 +69,6 @@ def _find_objects_with_choreographed_moves(
 
         # Success, finish.
         if not remaining_object_ids:
-            import ipdb; ipdb.set_trace()
             break
 
         # Move and re-capture.

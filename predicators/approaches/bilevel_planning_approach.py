@@ -71,6 +71,7 @@ class BilevelPlanningApproach(BaseApproach):
             logging.debug("Current Task Plan:")
             for act in nsrt_plan:
                 logging.debug(act)
+            # import ipdb; ipdb.set_trace()
 
         # Run full bilevel planning.
         else:

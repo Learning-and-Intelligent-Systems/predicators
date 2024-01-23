@@ -465,9 +465,9 @@ class ActiveSamplerExplorer(BaseExplorer):
             max_horizon=np.inf)
 
         # Uncomment for debugging
-        # for act in plan:
-        #     print((act.name, act.objects))
-        # import ipdb; ipdb.set_trace()
+        for act in plan:
+            print((act.name, act.objects))
+        import ipdb; ipdb.set_trace()
 
         return utils.nsrt_plan_to_greedy_option_policy(
             plan, task.goal, self._rng, necessary_atoms_seq=atoms_seq)
@@ -612,6 +612,10 @@ class ActiveSamplerExplorer(BaseExplorer):
             except (PlanningFailure, PlanningTimeout):  # pragma: no cover
                 self._log("WARNING: task planning failed in the explorer.")
                 self._task_plan_cache[task_id] = None
+
+        # Uncomment for debugging.
+        # for act in plan:
+        #     print((act.name, act.objects))
 
         self._task_plan_calls_since_replan[task_id] += 1
         return self._task_plan_cache[task_id]

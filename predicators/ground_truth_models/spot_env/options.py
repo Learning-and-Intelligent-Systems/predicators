@@ -326,7 +326,7 @@ def _sweep_objects_into_container_policy(name: str, robot_obj_idx: int,
 
     start_x = mean_x + 0.175
     start_y = mean_y + 0.3
-    start_z = mean_z + 0.235
+    start_z = mean_z + 0.24
     pitch = math_helpers.Quat.from_pitch(np.pi / 2)
     yaw = math_helpers.Quat.from_yaw(np.pi / 4)
     rot = pitch * yaw
