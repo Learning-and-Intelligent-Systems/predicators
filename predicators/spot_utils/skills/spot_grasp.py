@@ -132,7 +132,7 @@ def grasp_at_pixel(robot: Robot,
     # Sometimes the grasp doesn't properly close the gripper, so force this
     # to ensure a pick has happened!
     close_gripper(robot)
-    time.sleep(0.8)
+    time.sleep(0.5)
 
 if __name__ == "__main__":
     # Run this file alone to test manually.

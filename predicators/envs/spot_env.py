@@ -877,7 +877,7 @@ class SpotRearrangementEnv(BaseEnv):
 ###############################################################################
 
 ## Constants
-HANDEMPTY_GRIPPER_THRESHOLD = 2.5  # made public for use in perceiver
+HANDEMPTY_GRIPPER_THRESHOLD = 1.95  # made public for use in perceiver
 _ONTOP_Z_THRESHOLD = 0.2
 _INSIDE_Z_THRESHOLD = 0.3
 _ONTOP_SURFACE_BUFFER = 0.48
@@ -1176,8 +1176,8 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
     dist = np.sqrt((expected_x - container_x)**2 +
                    (expected_y - container_y)**2)
 
-    if "bucket" in str(container) and "table" in str(surface) and dist > _CONTAINER_SWEEP_READY_BUFFER:
-        import ipdb; ipdb.set_trace()
+    # if "bucket" in str(container) and "table" in str(surface) and dist > _CONTAINER_SWEEP_READY_BUFFER:
+    #     import ipdb; ipdb.set_trace()
 
     return dist <= _CONTAINER_SWEEP_READY_BUFFER
 
