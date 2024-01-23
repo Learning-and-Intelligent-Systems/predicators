@@ -36,4 +36,5 @@ class ExpectedAtomsExecutionMonitor(BaseExecutionMonitor):
         logging.info(
             "Expected atoms execution monitor triggered replanning "
             f"because of these atoms: {unsat_atoms}")  # pragma: no cover
+        import ipdb; ipdb.set_trace()
         return True  # pragma: no cover
