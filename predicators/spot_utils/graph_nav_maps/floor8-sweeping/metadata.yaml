@@ -101,7 +101,7 @@ static-object-features:
 # (in the table frame) for the robot before placing the container.
 prepare_container_relative_xy:
   dx: -0.37
-  dy: 0.7
+  dy: 0.75
   angle: -1.5707  # - pi / 2
 # Helpful for static objects that are up against a wall, for example.
 approach_angle_bounds:

@@ -195,7 +195,7 @@ def _move_to_absolute_pose_and_place_push_stow(
     # Move the gripper slightly up and to the right to
     # avoid collisions with the container.
     dz = 0.6
-    slightly_back_and_up_pose = math_helpers.SE3Pose(x=push_rel_pose.x,
+    slightly_back_and_up_pose = math_helpers.SE3Pose(x=push_rel_pose.x - 0.2,
                                                      y=push_rel_pose.y - 0.3,
                                                      z=push_rel_pose.z + dz,
                                                      rot=push_rel_pose.rot)

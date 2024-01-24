@@ -882,7 +882,7 @@ _ONTOP_Z_THRESHOLD = 0.2
 _INSIDE_Z_THRESHOLD = 0.3
 _ONTOP_SURFACE_BUFFER = 0.48
 _INSIDE_SURFACE_BUFFER = 0.1
-_FITS_IN_XY_BUFFER = 0.025
+_FITS_IN_XY_BUFFER = 0.05
 _REACHABLE_THRESHOLD = 0.925  # slightly less than length of arm
 _REACHABLE_YAW_THRESHOLD = 0.95  # higher better
 _CONTAINER_SWEEP_READY_BUFFER = 0.35
@@ -1176,8 +1176,8 @@ def _container_adjacent_to_surface_for_sweeping(container: Object,
     dist = np.sqrt((expected_x - container_x)**2 +
                    (expected_y - container_y)**2)
 
-    # if "bucket" in str(container) and "table" in str(surface) and dist > _CONTAINER_SWEEP_READY_BUFFER:
-    #     import ipdb; ipdb.set_trace()
+    if "bucket" in str(container) and "table" in str(surface) and dist > _CONTAINER_SWEEP_READY_BUFFER:
+        import ipdb; ipdb.set_trace()
 
     return dist <= _CONTAINER_SWEEP_READY_BUFFER
 
