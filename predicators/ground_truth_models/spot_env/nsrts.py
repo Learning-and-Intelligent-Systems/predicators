@@ -265,7 +265,7 @@ def _sweep_into_container_sampler(state: State, goal: Set[GroundAtom],
     if CFG.spot_run_dry:
         param = rng.uniform(0.1, 1.0)
     else:
-        param = 1.0 / rng.uniform(0.1, 1.15)
+        param = 1.0 / rng.uniform(0.35, 1.25)
     print(f"Sweep Sample: {param}")
     return np.array([param])
 

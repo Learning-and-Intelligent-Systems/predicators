@@ -25,12 +25,10 @@ brush_prompt = "/".join(
     ["scrubbing brush", "hammer", "mop", "giant white toothbrush"])
 brush_obj = LanguageObjectDetectionID(brush_prompt)
 bucket_prompt = "/".join([
-    "white plastic container",
-    "white plastic tray",
+    "white plastic container with blue-black handles",
+    "white plastic tray with blue-black handles",
     "white plastic bowl",
-    "white storage bin",
-    # "white plastic tub",
-    # "white crate",
+    "white storage bin with blue-black handles",
 ])
 bucket_obj = LanguageObjectDetectionID(bucket_prompt)
 # football_prompt = "/".join(["small toy basketball", "orange"])
