@@ -56,6 +56,11 @@ class BilevelPlanningApproach(BaseApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
 
+        if self._num_calls == 21:
+            import pdb; pdb.set_trace()
+
+            nsrt_list = list(nsrts)
+
         # Run task planning only and then greedily sample and execute in the
         # policy.
         if self._plan_without_sim:

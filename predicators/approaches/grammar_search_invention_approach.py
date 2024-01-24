@@ -785,7 +785,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 atom_dataset, self._train_tasks)
         elif CFG.grammar_search_pred_selection_approach == "clustering":
             self._learned_predicates = self._select_predicates_by_clustering(
-                candidates, self._initial_predicates, dataset, atom_dataset)
+                candidates, self._initial_predicates, dataset, atom_dataset, self._train_tasks)
         logging.info("Done.")
 
         # Finally, learn NSRTs via superclass, using all the kept predicates.
@@ -931,7 +931,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _select_predicates_by_clustering(
             self, candidates: Dict[Predicate, float],
             initial_predicates: Set[Predicate], dataset: Dataset,
-            atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
+            atom_dataset: List[GroundAtomTrajectory], train_tasks: List[Task]) -> Set[Predicate]:
         """Cluster segments from the atom_dataset into clusters corresponding
         to operators and use this to select predicates."""
 
@@ -1461,6 +1461,133 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # print_demo2(segmented_trajs[8][0:3], "demo8_part1.txt")
             # print_demo2(segmented_trajs[8][3:], "demo8_part12.txt")
             import pdb; pdb.set_trace()
+
+            ###################
+            # ALGORITHM
+            #
+
+            def get_story(segmented_traj):
+                story = []
+                    # each entry is a list of lists
+                for seg in segmented_traj:
+                    entry = []
+                    op_name = seg_to_op(seg, final_clusters)
+                    init_atoms = set(p for p in seg.init_atoms if p.predicate in ddd[op_name][0])
+                    objects = (set(o for a in seg.add_effects for o in a.objects) | set(o for a in seg.delete_effects for o in a.objects))
+                    preconditions = set(p for p in init_atoms if set(p.objects).issubset(objects))
+                    add_effects = set(p for p in seg.add_effects if p.predicate in ddd[op_name][1])
+                    delete_effects = set(p for p in seg.delete_effects if p.predicate in ddd[op_name][2])
+
+                    relevant_objects = (set(o for a in add_effects for o in a.objects) | set(o for a in delete_effects for o in a.objects))
+
+                    entry = [
+                        op_name,
+                        preconditions,
+                        add_effects,
+                        delete_effects,
+                        relevant_objects
+                    ]
+                    story.append(entry)
+                return story
+
+            import pdb; pdb.set_trace()
+
+            def process_adds(potential_ops, remaining_story, goal):
+                curr_entry = remaining_story[0]
+                name = curr_entry[0]
+                to_add = []
+                for ground_atom in curr_entry[2]: # add effects
+                    # can we find this atom in the preconditions of any future segment
+                    for entry in remaining_story[1:]:
+                        if ground_atom in entry[1]: # preconditions
+                            # then we add it!
+                            to_add.append(ground_atom) # for debugging
+                            potential_ops[name]["add"].add(ground_atom.predicate)
+                            potential_ops[entry[0]]["pre"].add(ground_atom.predicate)
+                    if ground_atom in goal:
+                        # then we add it!
+                        to_add.append(ground_atom) # for debugging
+                        potential_ops[name]["add"].add(ground_atom.predicate)
+
+            def process_dels(potential_ops, remaining_story):
+                curr_entry = remaining_story[0]
+                name = curr_entry[0]
+                to_del = []
+                for ground_atom in curr_entry[3]: # delete effects
+                    # is this atom every added in the future?
+                    # *** do we need to do this with an updated potential_ops after process_adds runs on all the trajectories?
+                    for entry in remaining_story[1:]:
+                        if ground_atom in entry[2]: # add effects
+                            to_del.append(ground_atom) # for debugging
+                            potential_ops[name]["del"].add(ground_atom.predicate)
+                            potential_ops[entry[0]]["add"].add(ground_atom.predicate)
+
+            # all_potential_ops = []
+            # TODO: change it so that you fill up a unique potential_ops at each iteration, and then take the union for the final one 
+            potential_ops = {}
+            for op_name in ddd.keys():
+                potential_ops[op_name] = {
+                    "pre": set(),
+                    "add": set(),
+                    "del": set()
+                }
+            for j, traj in enumerate(segmented_trajs):
+                story = get_story(traj)
+                reversed_story = list(reversed(story))
+                for i, entry in enumerate(reversed_story):
+                    remaining_story = story[len(story)-i-1:]
+                    name, preconds, add_effs, del_effs, relevant_objs = entry
+                    # TODO: do some more thinking on what is a relevant object
+                    if i == 0:
+                        # For the last segment (in the non-reversed story), we can only evaluate add_effects.
+                        # The initial predicates are the goal predicates.
+                        for p in add_effs:
+                            if p in train_tasks[j].goal:
+                                potential_ops[name]["add"].add(p.predicate)
+                    else:
+                        process_adds(potential_ops, remaining_story, train_tasks[j].goal)
+                        process_dels(potential_ops, remaining_story)
+
+
+            # print the operators nicely to see what we missed
+            for k, v in potential_ops.items():
+                print(k)
+                print("====")
+                print("preconditions:")
+                for p in sorted(list(v["pre"])):
+                    print(p)
+                print("====")
+                print("add effects:")
+                for p in sorted(list(v["add"])):
+                    print(p)
+                print("====")
+                print("delete effects:")
+                for p in sorted(list(v["del"])):
+                    print(p)
+
+
+            import pdb; pdb.set_trace()
+
+            fff = {}
+            for op in ddd.keys():
+                fff[op] = []
+                fff[op].append(
+                    set(p for p in ddd[op][0] if p in potential_ops[op]["pre"])
+                )
+                fff[op].append(
+                    set(p for p in ddd[op][1] if p in potential_ops[op]["add"])
+                )
+                fff[op].append(
+                    set(p for p in ddd[op][2] if p in potential_ops[op]["del"])
+                )
+                fff[op].append(ddd[op][3])
+
+            import pdb; pdb.set_trace()
+            self._clusters = fff
+            import pdb; pdb.set_trace()
+            return predicates_to_keep
+
+            ###################
 
 
             def print_demo(demo, filename):
