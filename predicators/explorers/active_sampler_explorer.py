@@ -313,6 +313,7 @@ class ActiveSamplerExplorer(BaseExplorer):
                             "framework; ensure you DO NOT see this message "
                             "if you're running experiments comparing"
                             "different active sampler learning approaches.")
+                        import ipdb; ipdb.set_trace()
                         continue
                     self._log("[Explorer] Plan found.")
                     break

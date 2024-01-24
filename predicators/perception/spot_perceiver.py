@@ -339,6 +339,15 @@ class SpotPerceiver(BasePerceiver):
                 GroundAtom(Inside, [train_toy, bucket]),
                 GroundAtom(Inside, [football, bucket]),
             }
+        if goal_description == "get the objects onto the table":
+            train_toy = Object("train_toy", _movable_object_type)
+            football = Object("football", _movable_object_type)
+            black_table = Object("black_table", _immovable_object_type)
+            On = pred_name_to_pred["On"]
+            return {
+                GroundAtom(On, [train_toy, black_table]),
+                GroundAtom(On, [football, black_table]),
+            }
         if goal_description == "get the objects out of the bucket":
             train_toy = Object("train_toy", _movable_object_type)
             football = Object("football", _movable_object_type)

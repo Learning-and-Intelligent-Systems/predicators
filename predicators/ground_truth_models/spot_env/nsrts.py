@@ -106,10 +106,6 @@ def _move_to_reach_object_sampler(state: State, goal: Set[GroundAtom],
     min_angle, max_angle = _get_approach_angle_bounds(obj_to_nav_to, state)
     ret_val = _move_offset_sampler(state, robot_obj, obj_to_nav_to, rng, min_dist,
                                 max_dist, min_angle, max_angle)
-
-    if "table" in str(obj_to_nav_to):
-        import ipdb; ipdb.set_trace()
-
     return ret_val
 
 
@@ -184,7 +180,10 @@ def _place_object_on_top_sampler(state: State, goal: Set[GroundAtom],
             assert isinstance(surf_geom, utils.Circle)
             rand_x, rand_y = surf_geom.x, surf_geom.y
     else:
-        rand_x, rand_y = surf_geom.sample_random_point(rng, 0.13)
+        edge_tolerance = 0.13
+        if surf_to_place_on.name == "black_table":
+            edge_tolerance = 0.17
+        rand_x, rand_y = surf_geom.sample_random_point(rng, edge_tolerance)
     dy = rand_y - state.get(surf_to_place_on, "y")
     if surf_to_place_on.name == "drafting_table":
         # For placing on the table, bias towards the top.
