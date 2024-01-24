@@ -136,13 +136,13 @@ def _get_chair_grasp_pixel(
         pixel = (centroid[0], centroid[1])
 
     # Uncomment for debugging.
-    # rgbd = rgbds[camera_name]
-    # bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
-    # cv2.circle(bgr, pixel, 5, (0, 255, 0), -1)
-    # cv2.circle(bgr, pixel, 5, (255, 0, 0), -1)
-    # cv2.imshow("Selected grasp", bgr)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    rgbd = rgbds[camera_name]
+    bgr = cv2.cvtColor(rgbd.rgb, cv2.COLOR_RGB2BGR)
+    cv2.circle(bgr, pixel, 5, (0, 255, 0), -1)
+    cv2.circle(bgr, pixel, 5, (255, 0, 0), -1)
+    cv2.imshow("Selected grasp", bgr)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
     return pixel, None
 
 
