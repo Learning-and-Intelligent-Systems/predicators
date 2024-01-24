@@ -614,7 +614,8 @@ class SpotRearrangementEnv(BaseEnv):
                     # assert container in all_objects_in_view
                     if container is not None and container in all_objects_in_view:
                         while True:
-                            msg = (f"\nATTENTION! The {swept_object.name} was not "
+                            msg = (
+                                f"\nATTENTION! The {swept_object.name} was not "
                                 "seen after sweeping. Is it now in the "
                                 f"{container.name}? [y/n]\n")
                             response = input(msg)
@@ -622,7 +623,8 @@ class SpotRearrangementEnv(BaseEnv):
                                 # Update the pose to be inside the container.
                                 container_pose = all_objects_in_view[container]
                                 # Calculate the z pose of the swept object.
-                                height = static_feats[swept_object.name]["height"]
+                                height = static_feats[
+                                    swept_object.name]["height"]
                                 swept_object_z = container_pose.z + height / 2
                                 swept_pose = math_helpers.SE3Pose(
                                     x=container_pose.x,
@@ -630,7 +632,8 @@ class SpotRearrangementEnv(BaseEnv):
                                     z=swept_object_z,
                                     rot=container_pose.rot)
                                 all_objects_in_view[swept_object] = swept_pose
-                                objects_in_any_view_except_back.add(swept_object)
+                                objects_in_any_view_except_back.add(
+                                    swept_object)
                                 break
                             if response == "n":
                                 break
@@ -1237,11 +1240,13 @@ def _is_semantically_greater_than_classifier(
     # that of object 2.
     return obj1.name > obj2.name
 
+
 def _not_floor_classifier(state: State, objects: Sequence[Object]) -> bool:
     del state
     obj1, = objects
     # Check that the name of the object is not "floor"
     return obj1.name != "floor"
+
 
 def _get_sweeping_surface_for_container(container: Object,
                                         state: State) -> Optional[Object]:

@@ -317,7 +317,8 @@ class _Atom:
             assert len(self.entities) == self.predicate.arity
         except AssertionError:
             print(self.predicate)
-            import ipdb; ipdb.set_trace()
+            import ipdb
+            ipdb.set_trace()
         for ent, pred_type in zip(self.entities, self.predicate.types):
             assert ent.is_instance(pred_type)
 

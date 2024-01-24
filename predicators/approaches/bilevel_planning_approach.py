@@ -72,7 +72,6 @@ class BilevelPlanningApproach(BaseApproach):
             for act in nsrt_plan:
                 logging.debug(act)
 
-
         # Run full bilevel planning.
         else:
             option_plan, nsrt_plan, metrics = self._run_sesame_plan(

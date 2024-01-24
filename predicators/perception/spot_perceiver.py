@@ -466,14 +466,16 @@ class SpotPerceiver(BasePerceiver):
             train_toy = Object("train_toy", _movable_object_type)
             On = pred_name_to_pred["On"]
             FitsInXY = pred_name_to_pred["FitsInXY"]
-            IsSemanticallyGreaterThan = pred_name_to_pred["IsSemanticallyGreaterThan"]
+            IsSemanticallyGreaterThan = pred_name_to_pred[
+                "IsSemanticallyGreaterThan"]
             IsPlaceable = pred_name_to_pred["IsPlaceable"]
             HasFlatTopSurface = pred_name_to_pred["HasFlatTopSurface"]
             RobotReadyForSweeping = pred_name_to_pred["RobotReadyForSweeping"]
             NotBlocked = pred_name_to_pred["NotBlocked"]
             TopAbove = pred_name_to_pred["TopAbove"]
             Holding = pred_name_to_pred["Holding"]
-            ContainerReadyForSweeping = pred_name_to_pred["ContainerReadyForSweeping"]
+            ContainerReadyForSweeping = pred_name_to_pred[
+                "ContainerReadyForSweeping"]
             IsSweeper = pred_name_to_pred["IsSweeper"]
             return {
                 GroundAtom(On, [football, black_table]),
