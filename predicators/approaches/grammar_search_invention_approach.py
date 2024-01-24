@@ -1393,7 +1393,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     traj.append(seg_to_op(seg, final_clusters))
                 temp.append(traj)
                 print(traj)
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
             ttt = list(predicates_to_keep)
             for p in ttt:
@@ -1460,7 +1460,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # print_demo2(segmented_trajs[8][0:3], "demo8_part1.txt")
             # print_demo2(segmented_trajs[8][3:], "demo8_part12.txt")
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
             ###################
             # ALGORITHM
@@ -1503,6 +1503,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             # then we add it!
                             to_add.append(ground_atom) # for debugging
                             potential_ops[name]["add"].add(ground_atom.predicate)
+                            if "pre" not in potential_ops[entry[0]].keys():
+                                import pdb; pdb.set_trace()
                             potential_ops[entry[0]]["pre"].add(ground_atom.predicate)
                     if ground_atom in goal:
                         # then we add it!
@@ -1522,22 +1524,31 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                             potential_ops[name]["del"].add(ground_atom.predicate)
                             potential_ops[entry[0]]["add"].add(ground_atom.predicate)
 
-            # all_potential_ops = []
-            # TODO: change it so that you fill up a unique potential_ops at each iteration, and then take the union for the final one 
-            potential_ops = {}
-            for op_name in ddd.keys():
-                potential_ops[op_name] = {
-                    "pre": set(),
-                    "add": set(),
-                    "del": set()
-                }
+            all_potential_ops = []
+            # TODO: change it so that you fill up a unique potential_ops at each iteration, and then take the union for the final one
+            # potential_ops = {}
+            # for op_name in ddd.keys():
+            #     potential_ops[op_name] = {
+            #         "pre": set(),
+            #         "add": set(),
+            #         "del": set()
+            #     }
+
             for j, traj in enumerate(segmented_trajs):
+                potential_ops = {}
+                for op_name in ddd.keys():
+                    potential_ops[op_name] = {
+                        "pre": set(),
+                        "add": set(),
+                        "del": set()
+                    }
+
                 story = get_story(traj)
                 reversed_story = list(reversed(story))
                 for i, entry in enumerate(reversed_story):
                     remaining_story = story[len(story)-i-1:]
                     name, preconds, add_effs, del_effs, relevant_objs = entry
-                    # TODO: do some more thinking on what is a relevant object
+                    # TODO: do some more thinking about what is a relevant object
                     if i == 0:
                         # For the last segment (in the non-reversed story), we can only evaluate add_effects.
                         # The initial predicates are the goal predicates.
@@ -1547,10 +1558,27 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     else:
                         process_adds(potential_ops, remaining_story, train_tasks[j].goal)
                         process_dels(potential_ops, remaining_story)
+                all_potential_ops.append(potential_ops)
+
+            import pdb; pdb.set_trace()
+
+            final_potential_ops = {
+                op_name: {
+                    "pre": set(),
+                    "add": set(),
+                    "del": set()
+                } for op_name in all_potential_ops[0].keys()
+            }
+
+            for k, po in enumerate(all_potential_ops):
+                for op_name in po.keys():
+                    final_potential_ops[op_name]["pre"] = final_potential_ops[op_name]["pre"].union(po[op_name]["pre"])
+                    final_potential_ops[op_name]["add"] = final_potential_ops[op_name]["add"].union(po[op_name]["add"])
+                    final_potential_ops[op_name]["del"] = final_potential_ops[op_name]["del"].union(po[op_name]["del"])
 
 
             # print the operators nicely to see what we missed
-            for k, v in potential_ops.items():
+            for k, v in final_potential_ops.items():
                 print(k)
                 print("====")
                 print("preconditions:")
@@ -1572,14 +1600,26 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             for op in ddd.keys():
                 fff[op] = []
                 fff[op].append(
-                    set(p for p in ddd[op][0] if p in potential_ops[op]["pre"])
+                    set(p for p in ddd[op][0] if p in final_potential_ops[op]["pre"])
                 )
+
+                if op == "Op0-Pick":
+                    pred_to_manually_add = [p for p in ddd[op][0] if p.name == "OnTable"][0]
+                    print("MANUALLY ADDING: ", pred_to_manually_add)
+                    fff[op][-1].add(pred_to_manually_add)
+
                 fff[op].append(
-                    set(p for p in ddd[op][1] if p in potential_ops[op]["add"])
+                    set(p for p in ddd[op][1] if p in final_potential_ops[op]["add"])
                 )
+
                 fff[op].append(
-                    set(p for p in ddd[op][2] if p in potential_ops[op]["del"])
+                    set(p for p in ddd[op][2] if p in final_potential_ops[op]["del"])
                 )
+                if op == "Op2-Stack":
+                    pred_to_manually_add = [p for p in ddd[op][2] if p.name == "Forall[0:block].[NOT-On(0,1)]"][0]
+                    print("MANUALLY ADDING: ", pred_to_manually_add)
+                    fff[op][-1].add(pred_to_manually_add)
+
                 fff[op].append(ddd[op][3])
 
             import pdb; pdb.set_trace()
